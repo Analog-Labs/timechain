@@ -233,6 +233,8 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		stake_amount: u128,
 	) -> Result<()>;
 
+	async fn submit_unregister_member(&self) -> Result<()>;
+
 	async fn submit_heartbeat(&self) -> Result<()>;
 
 	async fn submit_commitment(

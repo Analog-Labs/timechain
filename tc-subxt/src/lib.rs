@@ -48,6 +48,7 @@ pub trait TxSubmitter: Clone + Send + Sync + 'static {
 
 pub enum Tx {
 	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
+	UnregisterMember,
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	CreateTask { task: TaskDescriptorParams },
@@ -127,6 +128,10 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 						peer_id,
 						stake_amount,
 					);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::UnregisterMember => {
+					let payload = metadata::tx().members().unregister_member();
 					self.create_signed_payload(&payload).await
 				},
 				Tx::Heartbeat => {
@@ -591,6 +596,13 @@ impl Runtime for SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::RegisterMember { network, peer_id, stake_amount }, tx))?;
+		rx.await?;
+		Ok(())
+	}
+
+	async fn submit_unregister_member(&self) -> Result<()> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::UnregisterMember, tx))?;
 		rx.await?;
 		Ok(())
 	}

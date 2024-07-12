@@ -8,6 +8,7 @@ use rosetta_client::Wallet;
 use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
+use std::time::Duration;
 use std::{
 	future::Future,
 	num::NonZeroU64,
@@ -22,11 +23,13 @@ use time_primitives::{
 };
 use time_primitives::{IGateway, Msg};
 use tokio::sync::Mutex;
+use tokio::time::sleep;
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
 	pub tss: mpsc::Sender<TssSigningRequest>,
 	pub blockchain: String,
+	pub min_balance: u128,
 	pub network: String,
 	pub network_id: NetworkId,
 	pub url: String,
@@ -38,6 +41,7 @@ pub struct TaskSpawnerParams<S> {
 pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	wallet: Arc<Wallet>,
+	wallet_min_balance: u128,
 	wallet_guard: Arc<Mutex<()>>,
 	substrate: S,
 	network_id: NetworkId,
@@ -58,13 +62,29 @@ where
 			)
 			.await?,
 		);
-		Ok(Self {
+
+		let spawner = Self {
 			tss: params.tss,
+			wallet_min_balance: params.min_balance,
 			wallet,
 			wallet_guard: Arc::new(Mutex::new(())),
 			substrate: params.substrate,
 			network_id: params.network_id,
-		})
+		};
+
+		while !spawner.is_balance_available().await? {
+			sleep(Duration::from_secs(10)).await;
+			tracing::warn!("Chronicle balance is too low, retrying...");
+		}
+
+		Ok(spawner)
+	}
+
+	///
+	/// Checks if wallet have enough balance
+	async fn is_balance_available(&self) -> Result<bool> {
+		let balance = self.wallet.balance().await?;
+		Ok(balance > self.wallet_min_balance)
 	}
 
 	///
@@ -242,6 +262,16 @@ where
 	}
 
 	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
+		let is_balance_available = self.is_balance_available().await?;
+		if !is_balance_available {
+			// unregister member
+			if let Err(e) = self.substrate.submit_unregister_member().await {
+				tracing::error!("Failed to unregister member: {:?}", e);
+			};
+			tracing::warn!("Chronicle balance too low, exiting");
+			std::process::exit(1);
+		}
+
 		let submission = async move {
 			match function {
 				Function::EvmDeploy { bytecode } => {

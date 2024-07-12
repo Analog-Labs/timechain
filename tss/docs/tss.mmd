@@ -1,0 +1,49 @@
+graph TD
+    
+        A[Tss::new] --> B[Determine Initial State]
+        B -->|DKG| C[TssState::Dkg]
+        B -->|Roast| D[TssState::Roast]
+   
+
+   
+        E[Tss::on_message] --> F{Current State}
+        F -->|DKG| G[Handle DKG Messages]
+        F -->|Roast| H[Handle Roast Messages]
+    
+    
+   
+    
+        H --> N[Roast Actions]
+        N -->|Send| O[Send Roast Messages]
+        N -->|SendMany| P[Send Roast Messages to Multiple Peers]
+        N -->|Complete| Q[Complete Roast Signing]
+   
+
+
+    
+        G --> I[DKG Actions]
+        I -->|Send| J[Send DKG Messages]
+        I -->|Commit| K[Commit DKG State]
+        I -->|Complete| L[Complete DKG and Transition to Roast]
+        I -->|Failure| M[DKG Failure]
+    
+        C --> G
+        D --> H
+        L --> D
+		    B -.-> E
+		    I -.-> E
+		    N -.-> E
+   
+   
+
+%% style extrinsics
+style A fill:#f9f,stroke:#333,stroke-width:2px;
+style E fill:#f9f,stroke:#333,stroke-width:2px;
+style C fill:#f9f,stroke:#333,stroke-width:2px;
+style D fill:#f9f,stroke:#333,stroke-width:2px;
+
+%% style errors
+style M fill:#f96,stroke:#333,stroke-width:2px;
+
+
+style F fill:#fff0f5,stroke:#333,stroke-width:2px;

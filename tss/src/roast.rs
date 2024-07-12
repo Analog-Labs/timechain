@@ -1,5 +1,10 @@
 //! # Roast Module Documentation
-//! The Roast module implements a state machine for managing the Robust Online Asynchronous Schnorr Threshold (ROAST) protocol. This protocol allows a distributed set of signers to collaboratively generate Schnorr signatures in a secure and robust manner, ensuring that the signature process can continue even if some participants fail to respond or act maliciously.
+//!
+//! The Roast module implements a state machine for managing the Robust Online
+//! Asynchronous Schnorr Threshold (ROAST) protocol. This protocol allows a
+//! distributed set of signers to collaboratively generate Schnorr signatures
+//! in a secure and robust manner, ensuring that the signature process can
+//! continue even if some participants fail to respond or act maliciously.
 //!
 //! ## Overview
 //! The main components of the Roast module include:

@@ -1,5 +1,10 @@
 //! # Distributed Key Generation (DKG) Module
-//! The DKG module is responsible for managing the Distributed Key Generation process, which allows a set of participants to collectively generate a shared secret key. This process involves multiple rounds of communication and ensures that no single participant has access to the entire secret key. The module supports handling messages, committing to secret shares, and transitioning through different stages of the DKG process.
+//! The DKG module is responsible for managing the Distributed Key Generation
+//! process, which allows a set of participants to collectively generate a
+//! shared secret key. This process involves multiple rounds of communication
+//! and ensures that no single participant has access to the entire secret key.
+//! The module supports handling messages, committing to secret shares, and
+//! transitioning through different stages of the DKG process.
 //!
 //!
 use frost_evm::frost_secp256k1::Signature;
@@ -13,16 +18,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 
 /// Defines different actions that can occur during the DKG process:
-///
-/// - Commit: Send a commitment with a proof.
-/// - Send: Send messages to other participants.
-/// - Complete: Completion of the DKG process with a key package and commitment.
-/// - Failure: Represents a failure in the process.
 #[derive(Clone)]
 pub enum DkgAction {
+	/// Send a commitment with a proof.
 	Commit(VerifiableSecretSharingCommitment, Signature),
+	/// Send messages to other participants.
 	Send(Vec<(Identifier, DkgMessage)>),
+	/// Completion of the DKG process with a key package and commitment.
 	Complete(KeyPackage, PublicKeyPackage, VerifiableSecretSharingCommitment),
+	/// Represents a failure in the process.
 	Failure(Error),
 }
 

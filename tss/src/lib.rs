@@ -1,7 +1,10 @@
 #![allow(clippy::large_enum_variant)]
 //!
 //! # Threshold Signature Scheme (TSS)
-//! The TSS (Threshold Signature Scheme) module handles cryptographic operations related to distributed key generation (DKG) and signature generation using the Roast protocol. This flowchart illustrates the key states and actions within the TSS module.
+//! The TSS (Threshold Signature Scheme) module handles cryptographic operations
+//! related to distributed key generation (DKG) and signature generation using
+//! the Roast protocol. This flowchart illustrates the key states and actions
+//! within the TSS module.
 //!
 #![doc = simple_mermaid::mermaid!("../docs/tss.mmd")]
 
@@ -44,25 +47,25 @@ enum TssState<I> {
 
 /// Represents possible actions in the TSS process.
 ///
-/// - 'Send': Action to send messages.
-/// - 'Commit': Action to commit a secret.
-/// - 'Ready': Action indicating readiness.
-/// - 'Signature': Action to provide a signature.
 #[derive(Clone)]
 pub enum TssAction<I, P> {
+	/// Action to send messages.
 	Send(Vec<(P, TssMessage<I>)>),
+	/// Action to commit a secret.
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
+	/// Action indicating readiness.
 	Ready(SigningShare, VerifiableSecretSharingCommitment, VerifyingKey),
+	/// Action to provide a signature.
 	Signature(I, [u8; 32], Signature),
 }
 
 /// Represents messages in the TSS process.
 ///
-/// - Dkg : Message for DKG.
-/// - Roast : Message for ROAST.
 #[derive(Clone, Deserialize, Serialize)]
 pub enum TssMessage<I> {
+	/// Message for DKG.
 	Dkg { msg: DkgMessage },
+	/// Message for ROAST.
 	Roast { id: I, msg: RoastMessage },
 }
 

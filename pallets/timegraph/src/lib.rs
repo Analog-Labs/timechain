@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-//! This pallet provides functionality for users to deposit and withdraw funds. It maintains a sequence for deposits and withdrawals to ensure order and prevent replay attacks.
+//! This pallet provides functionality for users to deposit and withdraw funds.
+//! It maintains a sequence for deposits and withdrawals to ensure order
+//!  and prevent replay attacks.
 //!
 //!
 #![doc = simple_mermaid::mermaid!("../docs/timegraph_flows.mmd")]

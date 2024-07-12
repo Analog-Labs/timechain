@@ -3,13 +3,32 @@
 //!
 //!
 //!
-//! The flowchart represents the logical flow and interactions within the pallet, detailing how various functions and operations are interconnected. It begins with different entry points corresponding to various operations: setting shard configuration, setting electable members, handling member online/offline events, handling shard offline events.
+//! The flowchart represents the logical flow and interactions within the pallet,
+//! detailing how various functions and operations are interconnected. It begins
+//! with different entry points corresponding to various operations: setting
+//! shard configuration, setting electable members, handling member online/offline
+//! events, handling shard offline events.
 //!
-//! **Set Shard Configuration** Flow starts by ensuring the caller is a root user, validating the shard size and threshold, updating the storage, emitting an event, iterating through unassigned members, and trying to elect a new shard.
+//! **Set Shard Configuration** Flow starts by ensuring the caller is a root user,
+//! validating the shard size and threshold, updating the storage, emitting an
+//! event, iterating through unassigned members, and trying to elect a new shard.
 //!
-//! **Member Online** Flow checks if the member is part of a shard. If not, it verifies if the member is electable, adds them to the unassigned list, and attempts to elect a new shard. If the member is already part of a shard, it simply notifies the shards interface.
+//! **Member Online** Flow checks if the member is part of a shard. If not, it
+//! verifies if the member is electable, adds them to the unassigned list, and
+//! attempts to elect a new shard. If the member is already part of a shard, it
+//! simply notifies the shards interface.
 //!
-//! **Shard Offline Flow** adds the shard members to the unassigned list and tries to elect a new shard.  **Try Elect Shard** Flow evaluates if a new shard can be formed, removes the selected members from the unassigned list, and creates a new shard using the shards interface. **New Shard Members** Flow retrieves the required shard size, gathers unassigned and online members, ensures there are enough members to form a shard, sorts members by stake, selects the top members to form the shard, and returns the selected members.
+//! **Shard Offline** Flow adds the shard members to the unassigned list and tries
+//! to elect a new shard.
+//!
+//! **Try Elect Shard** Flow evaluates if a new shard can be formed, removes the
+//! selected members from the unassigned list, and creates a new shard using the
+//! shards interface.
+//!
+//! **New Shard Members** Flow retrieves the required shard size, gathers
+//! unassigned and online members, ensures there are enough members to form a
+//! shard, sorts members by stake, selects the top members to form the shard, and
+//! returns the selected members.
 //!
 #![doc = simple_mermaid::mermaid!("../docs/elections_flow.mmd")]
 //!

@@ -53,7 +53,7 @@ jobs:
       - name: Upload timechain runtime artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: timechain-runtime
+          name: timechain-runtime-${{ matrix.features }}
           if-no-files-found: error
           path: |
             ${{ steps.srtool_build.outputs.wasm_compressed }}

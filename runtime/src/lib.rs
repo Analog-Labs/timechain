@@ -183,10 +183,8 @@ pub mod migration {
 		}
 	}
 
-	pub type Outstanding = (
-		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
-		UpgradeSessionKeys,
-	);
+	pub type Outstanding =
+		(pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>, UpgradeSessionKeys);
 }
 
 // remove this when removing `OldSessionKeys`

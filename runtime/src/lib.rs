@@ -152,11 +152,62 @@ pub mod opaque {
 }
 
 impl_opaque_keys! {
+	pub struct OldSessionKeys {
+		pub babe: Babe,
+		pub grandpa: Grandpa,
+		pub im_online: ImOnline,
+	}
+}
+
+impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub babe: Babe,
 		pub grandpa: Grandpa,
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
+	}
+}
+
+pub type Migrations = migration::Outstanding;
+
+pub mod migration {
+	use super::*;
+
+	/// Upgrade Session keys to include AUDI key.
+	/// When this is removed, should also remove `OldSessionKeys`.
+	pub struct UpgradeSessionKeys;
+	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
+		fn on_runtime_upgrade() -> Weight {
+			Session::upgrade_keys::<OldSessionKeys, _>(transform_session_keys);
+			Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block
+		}
+	}
+
+	pub type Outstanding =
+		(pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>, UpgradeSessionKeys);
+}
+
+// remove this when removing `OldSessionKeys`
+fn transform_session_keys(v: AccountId, old: OldSessionKeys) -> SessionKeys {
+	SessionKeys {
+		grandpa: old.grandpa,
+		babe: old.babe,
+		im_online: old.im_online,
+		authority_discovery: {
+			// From Session::upgrade_keys():
+			//
+			// Care should be taken that the raw versions of the
+			// added keys are unique for every `ValidatorId, KeyTypeId` combination.
+			// This is an invariant that the session pallet typically maintains internally.
+			//
+			// So, produce a dummy value that's unique for the `ValidatorId, KeyTypeId` combination.
+			let mut id: AuthorityDiscoveryId =
+				sp_application_crypto::sr25519::Public::from_raw([0u8; 32]).into();
+			let id_raw: &mut [u8] = id.as_mut();
+			id_raw[0..32].copy_from_slice(v.as_ref());
+			id_raw[0..4].copy_from_slice(b"audi");
+			id
+		},
 	}
 }
 
@@ -1111,6 +1162,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]

@@ -49,6 +49,7 @@ polkadot-sdk = { workspace = true, features = [
 	"sp-api",
 	"sp-arithmetic",
 	"sp-authority-discovery",
+	"sp-application-crypto",
 	"sp-block-builder",
 	"sp-consensus-babe",
 	"sp-core",

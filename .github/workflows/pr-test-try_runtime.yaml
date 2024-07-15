@@ -1,0 +1,36 @@
+name: Check try-runtime
+on:
+  pull_request:
+    paths:
+      - '.github/actions/cargo-command/**'
+      - '.github/workflows/pr-test-try_runtime.yaml'
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  try-runtime:
+    runs-on: [self-hosted, general]
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y librocksdb-dev
+      - name: Install try-runtime-cli
+        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.7.0 --locked
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build testnet runtime
+        uses: ./.github/actions/cargo-command
+        with:
+          package: timechain-runtime
+          feature: try-runtime
+      - name: Download current snapshot
+        run: curl -LO https://github.com/Analog-Labs/nomination-candidates/releases/download/v0.0.0/testnet.v118.snap
+      - name: Run try-runtime test
+        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade --checks all --disable-idempotency-checks snap --path testnet.v118.snap

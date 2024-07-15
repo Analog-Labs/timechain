@@ -67,17 +67,23 @@
         nativeBuildInputs = [
           # - Customized rust toolchain (via path)
           (mkRustToolchain tpkgs)
+          # - Some helpers to improve compatibility
+          tpkgs.pkg-config
+          tpkgs.rustPlatform.bindgenHook
         ];
 
         # - Protobuf compiler (via env var)
         PROTOC = "${pkgs.protobuf}/bin/protoc";
+
+        # - Rocksdb for crates with feature bleed
+        ROCKSDB_LIB_DIR = "${tpkgs.rocksdb}/lib";
 
         # Provide needed dependencies:
         buildInputs = [
           tpkgs.zlib.static
         ];
       };
-      
+
       # Create developer shell for combination of build package set and target abi
       mkAbiShell = pkgs: abi: mkDevShell pkgs (mkCrossPkgs pkgs abi);
     in {

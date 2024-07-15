@@ -30,5 +30,7 @@ jobs:
         with:
           package: timechain-runtime
           feature: try-runtime
+      - name: Download current snapshot
+        run: curl -LO https://github.com/Analog-Labs/nomination-candidates/releases/download/v0.0.0/testnet.v118.snap
       - name: Run try-runtime test
-        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade live --uri wss://rpc.testnet.analog.one --pallet staking --pallet session
+        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade snap --path testnet.v118.snap

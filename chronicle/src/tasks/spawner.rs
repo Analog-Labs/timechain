@@ -262,14 +262,17 @@ where
 	}
 
 	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		let is_balance_available = self.is_balance_available().await?;
-		if !is_balance_available {
-			// unregister member
-			if let Err(e) = self.substrate.submit_unregister_member().await {
-				tracing::error!("Failed to unregister member: {:?}", e);
-			};
-			tracing::warn!("Chronicle balance too low, exiting");
-			std::process::exit(1);
+		match self.is_balance_available().await {
+			Ok(false) => {
+				// unregister member
+				if let Err(e) = self.substrate.submit_unregister_member().await {
+					tracing::error!("Failed to unregister member: {:?}", e);
+				};
+				tracing::warn!("Chronicle balance too low, exiting");
+				std::process::exit(1);
+			},
+			Ok(true) => {},
+			Err(err) => tracing::error!("Could not fetch account balance: {:?}", err),
 		}
 
 		let submission = async move {

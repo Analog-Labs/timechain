@@ -33,4 +33,4 @@ jobs:
       - name: Download current snapshot
         run: curl -LO https://github.com/Analog-Labs/nomination-candidates/releases/download/v0.0.0/testnet.v118.snap
       - name: Run try-runtime test
-        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade snap --path testnet.v118.snap
+        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade --checks all snap --path testnet.v118.snap

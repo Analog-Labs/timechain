@@ -56,7 +56,7 @@ pub enum ShardStatus {
 	Created,
 	Committed,
 	Online,
-	Offline,
+	Offline = 4, // To remove the "= 4", please write a migration!
 }
 
 impl Default for ShardStatus {

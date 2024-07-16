@@ -67,7 +67,7 @@ impl TssEndpoint {
 		let peer_id = endpoint.peer_id();
 		loop {
 			tracing::info!(
-				peer_id = field::display(peer_id.clone()),
+				peer_id = field::display(peer_id),
 				"waiting for peer id to be registered",
 			);
 			let Ok(addr) = endpoint.resolve(peer_id).await else {
@@ -78,7 +78,7 @@ impl TssEndpoint {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
-			tracing::info!(peer_id = field::display(peer_id.clone()), "peer id registered",);
+			tracing::info!(peer_id = field::display(peer_id), "peer id registered",);
 			break;
 		}
 		Ok(Self { endpoint })

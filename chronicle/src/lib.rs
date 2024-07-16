@@ -115,7 +115,12 @@ pub async fn run_chronicle(
 		}
 	};
 
-	tracing::info!("Target wallet address: {:?}", task_spawner.target_address());
+	event!(
+		target: TW_LOG,
+		Level::INFO,
+		"Target wallet address: {:?}",
+		task_spawner.target_address()
+	);
 
 	// Run the main application loop with the initialized task spawner.
 	run_chronicle_with_spawner(

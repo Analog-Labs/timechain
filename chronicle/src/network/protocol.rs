@@ -5,6 +5,7 @@ use futures::{Future, FutureExt, SinkExt};
 use peernet::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
 use std::pin::Pin;
 use std::time::Duration;
+use tracing::field;
 
 pub struct TssEndpoint {
 	endpoint: Endpoint,
@@ -65,7 +66,10 @@ impl TssEndpoint {
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();
 		loop {
-			tracing::info!("waiting for peer id to be registered");
+			tracing::info!(
+				peer_id = field::display(peer_id.clone()),
+				"waiting for peer id to be registered",
+			);
 			let Ok(addr) = endpoint.resolve(peer_id).await else {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
@@ -74,7 +78,7 @@ impl TssEndpoint {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
-			tracing::info!("peer id registered");
+			tracing::info!(peer_id = field::display(peer_id.clone()), "peer id registered",);
 			break;
 		}
 		Ok(Self { endpoint })

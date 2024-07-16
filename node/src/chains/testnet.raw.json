@@ -19,6 +19,9 @@
     "tokenSymbol": "TANLOG"
   },
   "codeSubstitutes": {},
+  "badBlocks": [
+    "0x4a352822c5de2b3519e27f2c56aa030512c1335e65e9ae420ba6754cfd9a39f9"
+  ],
   "genesis": {
     "raw": {
       "top": {

@@ -220,23 +220,28 @@ where
 		function: Function,
 		block_num: BlockNumber,
 	) -> Result<()> {
-		tracing::debug!("debug_latency:{} executing read function", task_id);
+		tracing::debug!(task_id = task_id, shard_id = shard_id, "executing read function",);
 		let result = self.execute_function(&function, target_block).await.map_err(|err| {
-			tracing::error!("{:#?}", err);
+			tracing::error!(task_id = task_id, shard_id = shard_id, "{:#?}", err);
 			format!("{err}")
 		});
 		let payload = match result {
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),
 		};
-		tracing::debug!("debug_latency:{} sending read payloa dor signing", task_id);
+		tracing::debug!(task_id = task_id, shard_id = shard_id, "sending read payload for signing",);
 		let (_, signature) = self
 			.tss_sign(block_num, shard_id, task_id, TaskPhase::Read, &payload.bytes(task_id))
 			.await?;
 		let result = TaskResult { shard_id, payload, signature };
-		tracing::debug!("debug_latency:{} submitting task result", task_id);
+		tracing::debug!(task_id = task_id, shard_id = shard_id, "submitting task result",);
 		if let Err(e) = self.substrate.submit_task_result(task_id, result).await {
-			tracing::error!("Error submitting task result {:?}", e);
+			tracing::error!(
+				task_id = task_id,
+				shard_id = shard_id,
+				"Error submitting task result {:?}",
+				e
+			);
 		}
 		Ok(())
 	}
@@ -264,7 +269,7 @@ where
 		.map(|s| s.tx_hash().0)
 		.map_err(|err| err.to_string());
 		if let Err(e) = self.substrate.submit_task_hash(task_id, submission).await {
-			tracing::error!("Error submitting task hash {:?}", e);
+			tracing::error!(task_id = task_id, "Error submitting task hash {:?}", e);
 		}
 		Ok(())
 	}
@@ -280,7 +285,12 @@ where
 			.tss_sign(block_number, shard_id, task_id, TaskPhase::Sign, &payload)
 			.await?;
 		if let Err(e) = self.substrate.submit_task_signature(task_id, sig).await {
-			tracing::error!("Error submitting task signature{:?}", e);
+			tracing::error!(
+				task_id = task_id,
+				shard_id = shard_id,
+				"Error submitting task signature {:?}",
+				e
+			);
 		}
 		Ok(())
 	}

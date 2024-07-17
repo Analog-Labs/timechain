@@ -93,7 +93,7 @@ impl RoastSigner {
 			let signature_share = match round2::sign(&signing_package, &nonces, &self.key_package) {
 				Ok(ss) => ss,
 				Err(err) => {
-					tracing::error!("invalid signing package {err:?}");
+					tracing::error!(session_id = session_id, "invalid signing package {err:?}");
 					continue;
 				},
 			};
@@ -178,7 +178,12 @@ impl RoastCoordinator {
 	/// Starts a new signing session if enough commitments have been received.
 	fn start_session(&mut self) -> Option<RoastSignerRequest> {
 		if self.commitments.len() < self.threshold as _ {
-			tracing::debug!("commitments {}/{}", self.commitments.len(), self.threshold);
+			tracing::debug!(
+				session_id = self.session_id,
+				"commitments {}/{}",
+				self.commitments.len(),
+				self.threshold
+			);
 			return None;
 		}
 		let session_id = self.session_id;

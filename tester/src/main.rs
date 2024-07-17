@@ -518,7 +518,7 @@ async fn gmp_funds_check(
 	src: &Tester,
 	dest: &Tester,
 	contract: &Path,
-	chronicles: &Vec<Tester>,
+	chronicles: &[Tester],
 	timechain_url: &str,
 ) -> Result<()> {
 	let (src_contract, _, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
@@ -556,10 +556,11 @@ async fn gmp_funds_check(
 				if let Some((block_hash, block_number)) = block {
 					println!("Received block number: {:?}", block_number);
 					let events = subxt_client.events().at(block_hash).await?;
-					let member_offline_event = events.find::<events::UnRegisteredMember>();
+					let member_offline_event = events.find::<events::UnRegisteredMember>().flatten().next();
 
-					for member_offline in member_offline_event.flatten() {
+					if let Some(member_offline) = member_offline_event {
 						let network = member_offline.1;
+
 						println!("member offline for network: {:?}", network);
 						break 'main;
 					}

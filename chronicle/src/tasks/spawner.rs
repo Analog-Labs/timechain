@@ -249,7 +249,7 @@ where
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),
 		};
-		tracing::debug!("debug_latency:{} sending read payloa dor signing", task_id);
+		tracing::debug!("debug_latency:{} sending read payload for signing", task_id);
 		let (_, signature) = self
 			.tss_sign(block_num, shard_id, task_id, TaskPhase::Read, &payload.bytes(task_id))
 			.await?;

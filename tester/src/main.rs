@@ -193,7 +193,7 @@ async fn main() -> Result<()> {
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChroniclePayment) => {
-			println!("This test is only available local with single node shard");
+			// "This test is only available local with single node shard"
 			let starting_balance = chronicles[0].wallet().balance().await?;
 			gmp_test(&tester[0], &tester[1], &contract).await?;
 			let ending_balance = chronicles[0].wallet().balance().await?;
@@ -202,6 +202,7 @@ async fn main() -> Result<()> {
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChronicleFundCheck) => {
+			// "This test is only available in local setup"
 			gmp_funds_check(&tester[0], &tester[1], &contract, &chronicles, &args.timechain_url)
 				.await?;
 		},

@@ -167,6 +167,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = metadata::tx().tasks().create_task(task_params);
 					self.create_signed_payload(&payload).await
 				},
+				/*
 				Tx::RegisterGateway {
 					shard_id,
 					address,
@@ -206,6 +207,8 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = metadata::tx().sudo().sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
+				*/
+				_ => todo!("Currently out-of-order. Please try again later."),
 			}
 		});
 

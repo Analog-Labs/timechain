@@ -7,12 +7,12 @@
 //! WEIGHT-PATH: ``
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
-use polkadot_sdk::*;
-
 // Executed Command:
 //   ../target/release/timechain-node
 //   benchmark
 //   overhead
+
+use polkadot_sdk::*;
 
 use sp_core::parameter_types;
 use sp_weights::{constants, Weight};

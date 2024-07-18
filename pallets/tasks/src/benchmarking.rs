@@ -236,6 +236,7 @@ benchmarks! {
 		let _ = create_simple_task::<T>()?;
 	}: _(RawOrigin::Root, 0) verify {}
 
+	#[extra]
 	sudo_cancel_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..100;
@@ -244,6 +245,7 @@ benchmarks! {
 		}
 	}: _(RawOrigin::Root, b) verify {}
 
+	#[extra]
 	reset_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..100;
@@ -255,6 +257,7 @@ benchmarks! {
 	set_shard_task_limit {
 	}: _(RawOrigin::Root, ETHEREUM, 50) verify {}
 
+	#[extra]
 	unregister_gateways {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..100;

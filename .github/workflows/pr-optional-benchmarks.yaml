@@ -1,5 +1,5 @@
 # Triggered via !ci-benchmark tag
-name: Update runtime benchmarks
+name: Update runtime weights
 on:
   pull_request:
     types: [labeled, unlabeled, opened, reopened, synchronize]
@@ -63,14 +63,14 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          path: runtimes/mainnet/weights
+          path: runtimes/mainnet/src/weights
           pattern: weights-staging-*
           merge-multiple: true
       - name: Download testnet weights
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          path: runtimes/testnet/weights
+          path: runtimes/testnet/src/weights
           pattern: weights-development-*
           merge-multiple: true
       - name: Commit updated weights

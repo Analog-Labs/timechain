@@ -167,48 +167,51 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = metadata::tx().tasks().create_task(task_params);
 					self.create_signed_payload(&payload).await
 				},
-				/*
 				Tx::RegisterGateway {
 					shard_id,
 					address,
 					block_height,
 				} => {
-					use metadata::runtime_types::timechain_runtime::RuntimeCall;
-					let runtime_call = RuntimeCall::Tasks(
-						metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
-							bootstrap: shard_id,
-							address,
-							block_height,
-						},
-					);
+					testnet_scope!(self.metadata, {
+						use metadata::runtime_types::testnet_runtime::RuntimeCall;
+						let runtime_call = RuntimeCall::Tasks(
+							metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
+								bootstrap: shard_id,
+								address,
+								block_height,
+							},
+						);
 
-					let payload = metadata::tx().sudo().sudo(runtime_call);
-					self.create_signed_payload(&payload).await
+						let payload = metadata::tx().sudo().sudo(runtime_call);
+						self.create_signed_payload(&payload).await
+					})
 				},
 				Tx::SetShardConfig { shard_size, shard_threshold } => {
-					use metadata::runtime_types::timechain_runtime::RuntimeCall;
-					let runtime_call = RuntimeCall::Elections(
-						metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
-							shard_size,
-							shard_threshold,
-						},
-					);
-					let payload = metadata::tx().sudo().sudo(runtime_call);
-					self.create_signed_payload(&payload).await
+					testnet_scope!(self.metadata, {
+						use metadata::runtime_types::testnet_runtime::RuntimeCall;
+						let runtime_call = RuntimeCall::Elections(
+							metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+								shard_size,
+								shard_threshold,
+							},
+						);
+						let payload = metadata::tx().sudo().sudo(runtime_call);
+						self.create_signed_payload(&payload).await
+					})
 				},
 				Tx::RegisterNetwork { chain_name, chain_network } => {
-					use metadata::runtime_types::timechain_runtime::RuntimeCall;
-					let runtime_call = RuntimeCall::Networks(
-						metadata::runtime_types::pallet_networks::pallet::Call::add_network {
-							chain_name,
-							chain_network,
-						},
-					);
-					let payload = metadata::tx().sudo().sudo(runtime_call);
-					self.create_signed_payload(&payload).await
+					testnet_scope!(self.metadata, {
+						use metadata::runtime_types::testnet_runtime::RuntimeCall;
+						let runtime_call = RuntimeCall::Networks(
+							metadata::runtime_types::pallet_networks::pallet::Call::add_network {
+								chain_name,
+								chain_network,
+							},
+						);
+						let payload = metadata::tx().sudo().sudo(runtime_call);
+						self.create_signed_payload(&payload).await
+					})
 				},
-				*/
-				_ => todo!("Currently out-of-order. Please try again later."),
 			}
 		});
 

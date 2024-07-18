@@ -171,7 +171,47 @@ macro_rules! metadata_scope {
 	};
 }
 
-/// Shared helper data strucuture
+/// Helper macro to map derived mainnet metadata
+#[macro_export]
+macro_rules! mainnet_scope {
+	( $variant:expr, $block:block ) => {
+		match $variant {
+			$crate::metadata::Variant::Mainnet => {
+				use $crate::metadata::timechain as metadata;
+				$block
+			},
+			$crate::metadata::Variant::Staging => {
+				use $crate::metadata::staging as metadata;
+				$block
+			},
+			_ => {
+				unimplemented!("mainnet only")
+			},
+		}
+	};
+}
+
+/// Helper macro to map derived testnet metadata
+#[macro_export]
+macro_rules! testnet_scope {
+	( $variant:expr, $block:block ) => {
+		match $variant {
+			$crate::metadata::Variant::Testnet => {
+				use $crate::metadata::testnet as metadata;
+				$block
+			},
+			$crate::metadata::Variant::Development => {
+				use $crate::metadata::development as metadata;
+				$block
+			},
+			_ => {
+				unimplemented!("testnet only")
+			},
+		}
+	};
+}
+
+/// Shared helper data structure
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub enum MultiSigner {
 	Ed25519([u8; 32]),

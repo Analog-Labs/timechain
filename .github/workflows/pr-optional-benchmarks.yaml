@@ -52,7 +52,7 @@ jobs:
   update-weights:
     needs: [run-benchmark]
     runs-on: [self-hosted, benchmark]
-    if: ${{ always() }}
+    continue-on-error: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

@@ -39,6 +39,84 @@
 //! number of tasks to be reset is reached.
 #![doc = simple_mermaid::mermaid!("../docs/reset_tasks.mmd")]
 
+//!## Future Features
+//!
+//!These features outline the specifications for the new funding mechanisms, task funding from the Treasury, and associated alert messages and controls. They include funding mechanisms for various operations such as shard registration, message sending, and receiving.
+//!
+//!### Removal of Funding Through Inflation
+//!
+//!- **Description**: Funding through inflation is to be discontinued.
+//!- **Specification:** Remove any references or code segments related to inflation-based funding.
+//!- Currently, we are using inflation to fund tasks from the chronicles and the root account. Inflation is not meant to fund these tasks, so we should remove this. All tasks should be funded from the origin of the caller account. To update the details about funding these tasks, check feature request X.
+//!
+//!### Inclusion of Funding Mechanism from the Treasury
+//!
+//!- **Description**: Implement a new mechanism for funding tasks directly from the Treasury.
+//!- **Specifications:**
+//!    - Develop and integrate a funding mechanism where specific tasks are funded through Treasury allocations.
+//!    - Add a funding mechanism to fund tasks from the Treasury funds.
+//!    - Set a maximum limit (e.g., 10% of Treasury funds) on the amount that can be used from the Treasury for task funding.
+//!    - Implement alert messages for specific scenarios.
+//!        - **Scenario 1**: If more funds than the upper limit are being used.
+//!            - **Alert**: "Warning: Task funding exceeds the upper limit. Sudo/council approval required."
+//!        - **Scenario 2**: If the Treasury is out of funds.
+//!            - **Alert**: "Warning: Treasury is out of funds."
+//!            - **Suggestion**: "Consider using community funds or seek a decision from the Technical Committee."
+//!- **Why:** Currently, a lot of tasks are being funded by inflation, but there are specific rules for inflation, and it cannot be used directly to fund tasks. Specific root-level tasks need to be funded by the Treasury, and for those tasks, a Treasury funding mechanism needs to be added.
+//!
+//!### Update Tasks Funding Mechanisms
+//!
+//!- **Description**: Fund the register/unregister shard operations through shard stake.
+//!- **Specification**:
+//!    - The cost of these operations should be covered by the shard stake.
+//!    - Shard members add stake during registration.
+//!    - The total shard registration fee will be distributed to the shard members.
+//!    - The shard member stake needs to be checked before this process. If the stake falls below the minimum threshold, the shard member must add more stake.
+//!- **Description**: Fund the `send_message` operation from the chronicles account (relay account).
+//!- **Specification**:
+//!    - `send_message` is required for GMP functionality to send messages to the external chain.
+//!    - The cost will be covered by the user, with the user's funds held by the oracle to process the transaction.
+//!    - This cost will be paid by the chronicle send transaction, and the oracle will reimburse this amount to the chronicle.
+//!    - Precautions need to be taken as the chronicle might pay a higher fee. To tackle that, the fee will be set by the oracle.
+//!- **Description**: Fund the `recv_msg` operation from the caller account.
+//!- **Specification**: Ensure that the cost for the `recv_msg` operation is covered by the caller, similar to `register_gateway` and `submit_result`. The caller is the root and shard member in the cases of `register_gateway` and `submit_result`, respectively.
+//!
+//!## Not Feature: Estimations of Required Funds
+//!
+//!- **Description**: Provide estimations for the amount of funds needed for the root level operations.
+//!- **Action**:
+//!	- Calculate and document the estimated costs for the root-level calls:
+//!		- Task funding from the Treasury
+//!	- Calculate and document the estimated costs for all other calls:
+//!		- Shard registration/unregistration
+//!		- Send message
+//!		- Receive message
+
+//!### Update Task Rewards
+//!
+//!- **Description**: Refine the task rewards by fine-tuning the associated variables to ensure a more cohesive and efficient reward structure.
+//!- **Specification**:
+//!    - **Unified Reward Structure**:
+//!        - Integrate the rewards for different tasks into a single, cohesive reward system.
+//!        - Ensure that the reward for signing tasks is combined with the reward for message submission, as both actions are required from the signer.
+//!    - **New Reward Parameters**:
+//!        - Establish and implement new reward amounts that reflect a reduced and more balanced incentive structure.
+//!        - Update the smart contract or relevant configuration files to reflect these changes in the reward amounts.
+//!
+//!### Read Phase Timeout Adjustment
+//!
+//!- **Description**: Adjust the Read Phase Timeout to align with the chain's finality time, ensuring more accurate and reliable read operations.
+//!- **Specification**:
+//!    - **Timeout Alignment**:
+//!        - Set the Read Phase Timeout to match the chain's finality time, providing consistency across operations.
+//!    - **Configuration Update**:
+//!        - Modify the system configuration to use the chain finality time as the new Read Phase Timeout.
+//!        - Ensure all relevant components and documentation are updated to reflect this change.
+//!    - **Testing and Validation**:
+//!        - Conduct thorough testing to verify that the new timeout settings function correctly and do not introduce any unexpected issues.
+//!        - Validate that the changes improve system performance and reliability.
+//!
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub use pallet::*;

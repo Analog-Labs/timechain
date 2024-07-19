@@ -1814,6 +1814,34 @@ fn test_task_execution_order() {
 }
 
 #[test]
+fn test_multi_shard_distribution() {
+	new_test_ext().execute_with(|| {
+		// Shard creation
+		for i in 0..3 {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+
+		// Tasks creation and assingment
+		for _ in 0..9 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 3);
+	});
+}
+
+#[test]
 fn test_assingment_with_diff_shard_size() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(

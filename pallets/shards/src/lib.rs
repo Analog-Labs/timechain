@@ -81,9 +81,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
-		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		AccountId, Balance, Commitment, ElectionsInterface, MemberEvents, MemberStatus,
+		MemberStorage, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
+		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -117,7 +117,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;

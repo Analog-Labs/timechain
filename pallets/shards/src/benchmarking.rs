@@ -1,6 +1,7 @@
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use sp_std::vec;
 use sp_std::vec::Vec;
@@ -9,7 +10,11 @@ pub const ALICE: [u8; 32] = [1u8; 32];
 pub const BOB: [u8; 32] = [2u8; 32];
 pub const CHARLIE: [u8; 32] = [3u8; 32];
 pub const ETHEREUM: NetworkId = 0;
-use time_primitives::{Commitment, ProofOfKnowledge};
+use time_primitives::{Commitment, ProofOfKnowledge, PublicKey};
+
+fn public_key(acc: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
+}
 
 /// Since benchmarks are no-std and we need std computation on constructing proof so
 /// these values are taken by running the code in pallets/shards/src/tests.rs
@@ -69,19 +74,27 @@ pub fn get_proof_of_knowledge(member: [u8; 32]) -> ProofOfKnowledge {
 }
 
 benchmarks! {
+	where_clause {  where T: pallet_members::Config }
 	commit {
-		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
-		let alice: AccountId = ALICE.into();
+		let shard: Vec<[u8; 32]> = vec![ALICE, BOB, CHARLIE];
+		Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1);
+		let alice: AccountId = ALICE;
 		// benchmark commitment that changes shard status
 		for member in shard {
-			// TODO: must set the member_peer_id
-			if member != alice {
+			pallet_members::Pallet::<T>::register_member(
+				RawOrigin::Signed(member.into().clone()).into(),
+				ETHEREUM,
+				public_key(member),
+				member,
+				<T as pallet_members::Config>::MinStake::get(),
+			)?;
+			if member != ALICE {
+				let member_account: AccountId = member.into();
 				Pallet::<T>::commit(
-					RawOrigin::Signed(member.clone()).into(),
+					RawOrigin::Signed(member_account.clone()).into(),
 					0,
-					get_commitment(member.clone().into()),
-					get_proof_of_knowledge(member.into()),
+					get_commitment(member_account.clone().into()),
+					get_proof_of_knowledge(member_account.into()),
 				)?;
 			}
 		}
@@ -92,9 +105,14 @@ benchmarks! {
 	ready {
 		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
-		let alice: AccountId = ALICE.into();
 		for member in shard.clone() {
-			// TODO: must set the member_peer_id
+			// pallet_members::Pallet::<T>::register_member(
+			// 	RawOrigin::Signed(member.clone()).into(),
+			// 	ETHEREUM,
+			// 	public_key(member),
+			// 	member,
+			// 	<T as pallet_members::Config>::MinStake::get(),
+			// )?;
 			Pallet::<T>::commit(
 				RawOrigin::Signed(member.clone()).into(),
 				0,
@@ -102,6 +120,7 @@ benchmarks! {
 				get_proof_of_knowledge(member.into()),
 			)?;
 		}
+		let alice: AccountId = ALICE.into();
 		// benchmark ready that changes shard status
 		for member in shard {
 			if member != alice {

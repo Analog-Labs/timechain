@@ -23,11 +23,13 @@ scale-info.workspace = true
 
 frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
 frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
-
+pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+pallet-members = { path = "../members", default-features = false }
 schnorr-evm = { version = "0.1.2", default-features = false }
 
 time-primitives = { path = "../../primitives", default-features = false }
@@ -37,7 +39,6 @@ simple-mermaid.workspace = true
 [dev-dependencies]
 #polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 
-pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
@@ -50,12 +51,14 @@ std = [
 	#"polkadot-sdk/std",
 	"frame-support/std",
 	"frame-system/std",
+	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"frame-benchmarking?/std",
 	"schnorr-evm/std",
 	"time-primitives/std",
-	"pallet-balances/std"
+	"pallet-balances/std",
+	"pallet-members/std"
 ]
 runtime-benchmarks = [
 	#"polkadot-sdk/runtime-benchmarks",

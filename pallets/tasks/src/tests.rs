@@ -1872,7 +1872,7 @@ fn test_multi_shard_distribution_task_more_than_limit() {
 }
 
 #[test]
-fn test_multi_shard_distribution_task_more_than_limit_before_shard_online() {
+fn test_multi_shard_distribution_task_before_shard_online() {
 	new_test_ext().execute_with(|| {
 		// Shard creation
 		for i in 0..3 {

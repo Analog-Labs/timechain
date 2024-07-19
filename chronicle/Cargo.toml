@@ -36,9 +36,9 @@ sha3 = { version = "0.10" }
 tracing-panic = "0.1.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
-tc-subxt = { path = "../tc-subxt" }
-time-primitives = { path = "../primitives" }
-tss = { path = "../tss" }
+tc-subxt.workspace = true
+time-primitives = { workspace = true, default-features = true }
+tss.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true

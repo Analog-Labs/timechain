@@ -1,5 +1,6 @@
 [package]
 name = "time-primitives"
+description = "Substrate node low-level primitives."
 version = "0.1.0"
 
 authors.workspace = true
@@ -31,9 +32,25 @@ sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-pa
 sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
 
+polkadot-sdk = { workspace = true, features = [ "sp-core", "sp-runtime" ] }
+
 [features]
 default = ["std"]
-std = ["scale-codec/std", "frame-support/std", "frame-system/std", "futures", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std", "sp-std/std"]
+std = [
+	"scale-codec/std",
+	"futures",
+
+	"polkadot-sdk/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+
+	"sp-api/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
 
 [dev-dependencies]
 hex.workspace = true

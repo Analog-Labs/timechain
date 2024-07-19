@@ -1,0 +1,40 @@
+[package]
+name = "runtime-common"
+version = "1.0.0"
+license = "LGPL-3.0"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+time-primitives.workspace = true
+
+polkadot-sdk = { workspace = true, features = [
+	"frame-system",
+	"frame-metadata-hash-extension",
+	"pallet-balances",
+	"pallet-timestamp",
+	"pallet-staking",
+	"pallet-transaction-payment",
+	"pallet-utility",
+	"sp-core",
+	"sp-weights",
+	"sp-runtime",
+	"sp-consensus-babe",
+] }
+
+[features]
+default = [ "std" ]
+std = [
+	"time-primitives/std",
+	"polkadot-sdk/std",
+]
+runtime-benchmarks = [
+	"polkadot-sdk/runtime-benchmarks",
+]
+try-runtime = [
+	"polkadot-sdk/try-runtime",
+]
+development = []

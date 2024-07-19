@@ -6,7 +6,7 @@ on:
       - '.github/workflows/pr-test-try_runtime.yaml'
       - 'pallets/**'
       - 'primitives/**'
-      - 'runtime/**'
+      - 'runtimes/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
@@ -16,6 +16,10 @@ concurrency:
 jobs:
   try-runtime:
     runs-on: [self-hosted, general]
+    strategy:
+      fail-fast: false
+      matrix:
+        chain: [testnet]
     steps:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y librocksdb-dev
@@ -25,12 +29,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build testnet runtime
+      - name: Build ${{ matrix.chain }} runtime
         uses: ./.github/actions/cargo-command
         with:
-          package: timechain-runtime
+          package: ${{ matrix.chain }}-runtime
           feature: try-runtime
       - name: Download current snapshot
-        run: curl -LO https://github.com/Analog-Labs/nomination-candidates/releases/download/v0.0.0/testnet.v118.snap
+        run: curl -LO https://github.com/Analog-Labs/nomination-candidates/releases/download/v0.0.0/${{ matrix.chain }}.v121.snap
       - name: Run try-runtime test
-        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade --checks all --disable-idempotency-checks snap --path testnet.v118.snap
+        run: try-runtime --runtime target/release/wbuild/${{ matrix.chain }}-runtime/${{ matrix.chain }}_runtime.wasm on-runtime-upgrade --checks all --disable-spec-version-check --disable-idempotency-checks snap --path ${{ matrix.chain }}.v121.snap

@@ -1,14 +1,22 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+//! The network pallet manages the registration and configuration of various
+//! blockchain networks within a decentralized system. It provides functionality
+//! to add new networks, retrieve network information, and ensures each network
+//! is uniquely identified by a `NetworkId`.
 //!
-//! The network pallet manages the registration and configuration of various blockchain networks within a decentralized system. It provides functionality to add new networks, retrieve network information, and ensures each network is uniquely identified by a `NetworkId`.
+//! ## Features
 //!
-//! ##  Features
+//! - Allows privileged users to add new blockchain networks with unique
+//!   `ChainName` and `ChainNetwork` combinations. This operation requires root
+//!   authorization.
 //!
-//! - Allows privileged users to add new blockchain networks with unique `ChainName` and `ChainNetwork` combinations. This operation requires root authorization.
+//! - Maintains storage of network configurations using a mapping between
+//!   `NetworkId` and `(ChainName, ChainNetwork)` tuples.
 //!
-//! - Maintains storage of network configurations using a mapping between `NetworkId` and `(ChainName, ChainNetwork)` tuples.
+//! - Initializes the pallet with predefined network configurations during
+//!   blockchain genesis, ensuring seamless operation from the start.
 //!
-//! - Initializes the pallet with predefined network configurations during blockchain genesis, ensuring seamless operation from the start.
+//!
 #![doc = simple_mermaid::mermaid!("../docs/network_flow.mmd")]
 
 #[cfg(feature = "runtime-benchmarks")]

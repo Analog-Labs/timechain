@@ -1,14 +1,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! This pallet manages members' registration, heartbeat functionality, and member management within a decentralized network.
+//! This pallet manages members' registration, heartbeat functionality, and
+//! member management within a decentralized network.
 //!
-//! This flowchart represents the control flow and interactions of callable functions (`register_member`, `send_heartbeat`, `unregister_member`). It shows the decision points, data operations, and event emissions along with error handling where applicable.
+//! This flowchart represents the control flow and interactions of callable
+//! functions (`register_member`, `send_heartbeat`, `unregister_member`). It shows
+//! the decision points, data operations, and event emissions along with error
+//! handling where applicable.
 //!
 //!
 #![doc = simple_mermaid::mermaid!("../docs/member_calls.mmd")]
 //!
-//! This flowchart illustrates the decision-making and steps taken within the on_initialize function, highlighting the main actions and checks performed during the process.
-//!
+//! This flowchart illustrates the decision-making and steps taken within the
+//! `on_initialize` function, highlighting the main actions and checks performed
+//! during the process.
 //!
 #![doc = simple_mermaid::mermaid!("../docs/member_hooks.mmd")]
 //!

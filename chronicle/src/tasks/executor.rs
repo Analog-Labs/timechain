@@ -211,14 +211,6 @@ where
 						continue;
 					}
 
-					event!(
-						target: TW_LOG,
-						parent: &span,
-						Level::INFO,
-						task_id,
-						"Running write phase",
-					);
-
 					let function = match function {
 						Function::RegisterShard { shard_id } => {
 							if let Some(gmp_params) = gmp_params {
@@ -279,6 +271,13 @@ where
 						},
 						_ => function,
 					};
+					event!(
+						target: TW_LOG,
+						parent: &span,
+						Level::INFO,
+						task_id,
+						"Running write phase",
+					);
 					self.task_spawner.execute_write(task_id, function)
 				},
 				TaskPhase::Read => {

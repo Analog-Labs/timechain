@@ -1,22 +1,28 @@
 use crate::mock::*;
 use crate::{Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::assert_ok;
+use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use schnorr_evm::k256::elliptic_curve::PrimeField;
 use schnorr_evm::k256::{ProjectivePoint, Scalar};
 use schnorr_evm::proof_of_knowledge::construct_proof_of_knowledge;
 use schnorr_evm::VerifyingKey;
 use time_primitives::{
-	AccountId, MemberEvents, NetworkId, PeerId, ShardId, ShardStatus, ShardsInterface,
+	AccountId, MemberEvents, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
+const MIN_MEMBER_STAKE: u128 = 5;
 
 struct Member {
 	account_id: AccountId,
 	peer_id: PeerId,
 	scalar: Scalar,
 	public_key: [u8; 33],
+}
+
+fn public_key(acc: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
 }
 
 impl Member {
@@ -59,6 +65,17 @@ fn shard() -> [Member; 3] {
 fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 	Shards::create_shard(ETHEREUM, shard.iter().map(|m| m.account_id.clone()).collect(), threshold);
 	for member in shard {
+		pallet_balances::Pallet::<Test>::resolve_creating(
+			&member.account_id,
+			pallet_balances::Pallet::<Test>::issue(MIN_MEMBER_STAKE * 100),
+		);
+		assert_ok!(Members::register_member(
+			RawOrigin::Signed(member.account_id.clone()).into(),
+			ETHEREUM,
+			public_key(member.peer_id),
+			member.peer_id,
+			MIN_MEMBER_STAKE,
+		));
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(member.account_id.clone()).into(),
 			shard_id,
@@ -91,6 +108,17 @@ fn test_register_shard() {
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let threshold = Shards::get_shard_threshold(shard_id as _);
 			for member in shard {
+				pallet_balances::Pallet::<Test>::resolve_creating(
+					&member.account_id,
+					pallet_balances::Pallet::<Test>::issue(MIN_MEMBER_STAKE * 100),
+				);
+				assert_ok!(Members::register_member(
+					RawOrigin::Signed(member.account_id.clone()).into(),
+					ETHEREUM,
+					public_key(member.peer_id),
+					member.peer_id,
+					MIN_MEMBER_STAKE,
+				));
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(member.account_id.clone()).into(),
 					shard_id as _,

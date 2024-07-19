@@ -75,6 +75,7 @@ benchmarks! {
 		let alice: AccountId = ALICE.into();
 		// benchmark commitment that changes shard status
 		for member in shard {
+			// TODO: must set the member_peer_id
 			if member != alice {
 				Pallet::<T>::commit(
 					RawOrigin::Signed(member.clone()).into(),
@@ -93,6 +94,7 @@ benchmarks! {
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
 		let alice: AccountId = ALICE.into();
 		for member in shard.clone() {
+			// TODO: must set the member_peer_id
 			Pallet::<T>::commit(
 				RawOrigin::Signed(member.clone()).into(),
 				0,

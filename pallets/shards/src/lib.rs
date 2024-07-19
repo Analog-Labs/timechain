@@ -202,6 +202,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Indicates that an unexpected commitment was provided for the shard.
 		UnexpectedCommit,
+		/// Indicates that a peer id cannot be found for the member.
+		MemberPeerIdNotFound,
 		/// Indicates that an invalid commitment was provided.
 		InvalidCommitment,
 		/// Indicates that an invalid proof of knowledge was provided.
@@ -244,7 +246,7 @@ pub mod pallet {
 				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
 			}
 			let peer_id =
-				T::Members::member_peer_id(&member).ok_or(Error::<T>::UnexpectedCommit)?;
+				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
 			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
 				&peer_id,
 				&commitment,

@@ -658,7 +658,7 @@ pub mod pallet {
 
 		/// Sets the reward for write tasks.
 		///
-		// # Flow
+		/// # Flow
 		///    1. Ensure the origin of the transaction is a root user.
 		///    2. Insert the new reward amount for the specified network into the [`NetworkWriteReward`] storage.
 		///    3. Emit an event [`Event::WriteTaskRewardSet`] indicating the write task reward has been set.
@@ -1275,7 +1275,7 @@ pub mod pallet {
 		///     - Retrieve all shards associated with the `network`.
 		///     - Collect these shards into a list.
 		///     - Sort the list based on the number of tasks each shard currently has.
-		///     - Iterate through the sorted list in reverse order.
+		///     - Iterate through the sorted list.
 		///     - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
 		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
 			if let Some(shard_id) = shard_id {
@@ -1287,7 +1287,7 @@ pub mod pallet {
 						.count()
 						.cmp(&ShardTasks::<T>::iter_prefix(*b).count())
 				});
-				shards.into_iter().rev().for_each(|(shard, _)| {
+				shards.into_iter().for_each(|(shard, _)| {
 					Self::schedule_tasks_shard(network, shard);
 				});
 			}

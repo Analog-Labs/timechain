@@ -1853,6 +1853,45 @@ fn test_assingment_with_diff_shard_size() {
 }
 
 #[test]
+fn balanced_distribution_when_more_unassigned_tasks_than_task_limit() {
+	new_test_ext().execute_with(|| {
+		const NUM_SHARDS: u64 = 4;
+		for i in 0..NUM_SHARDS {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+		}
+		for _ in 0..200 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>().len(),
+			200
+		);
+		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 50));
+		for i in 0..NUM_SHARDS {
+			Tasks::shard_online(i, ETHEREUM);
+		}
+		assert!(UnassignedTasks::<Test>::iter()
+			.map(|(_, _, t)| t)
+			.collect::<Vec<_>>()
+			.is_empty());
+		for i in 0..NUM_SHARDS {
+			assert_eq!(
+				ShardTasks::<Test>::iter_prefix(i).map(|(t, _)| t).collect::<Vec<_>>().len(),
+				50
+			);
+		}
+	});
+}
+
+#[test]
 fn first_shard_online_assigned_up_to_task_limit() {
 	new_test_ext().execute_with(|| {
 		const NUM_SHARDS: u64 = 4;

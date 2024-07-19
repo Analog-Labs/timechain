@@ -266,13 +266,15 @@ where
 			Ok(false) => {
 				// unregister member
 				if let Err(e) = self.substrate.submit_unregister_member().await {
-					tracing::error!("Failed to unregister member: {:?}", e);
+					tracing::error!(task_id = task_id, "Failed to unregister member: {:?}", e);
 				};
-				tracing::warn!("Chronicle balance too low, exiting");
+				tracing::warn!(task_id = task_id, "Chronicle balance too low, exiting");
 				std::process::exit(1);
 			},
 			Ok(true) => {},
-			Err(err) => tracing::error!("Could not fetch account balance: {:?}", err),
+			Err(err) => {
+				tracing::error!(task_id = task_id, "Could not fetch account balance: {:?}", err)
+			},
 		}
 
 		let submission = async move {

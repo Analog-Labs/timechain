@@ -1853,7 +1853,7 @@ fn test_assingment_with_diff_shard_size() {
 }
 
 #[test]
-fn balanced_distribution_of_tasks_among_shards() {
+fn first_shard_online_assigned_up_to_task_limit() {
 	new_test_ext().execute_with(|| {
 		const NUM_SHARDS: u64 = 4;
 		for i in 0..NUM_SHARDS {
@@ -1883,10 +1883,14 @@ fn balanced_distribution_of_tasks_among_shards() {
 			.map(|(_, _, t)| t)
 			.collect::<Vec<_>>()
 			.is_empty());
-		for i in 0..NUM_SHARDS {
+		assert_eq!(
+			ShardTasks::<Test>::iter_prefix(0).map(|(t, _)| t).collect::<Vec<_>>().len(),
+			200
+		);
+		for i in 1..NUM_SHARDS {
 			assert_eq!(
 				ShardTasks::<Test>::iter_prefix(i).map(|(t, _)| t).collect::<Vec<_>>().len(),
-				50
+				0
 			);
 		}
 	});

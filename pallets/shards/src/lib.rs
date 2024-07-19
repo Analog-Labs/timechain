@@ -230,7 +230,7 @@ pub mod pallet {
 		///   6. If all members have committed, update the state of the shards to `Committed` and store the group commitment.
 		///   7. Emit the [`Event::ShardCommitted`] event.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::commit())]
+		#[pallet::weight(<T as Config>::WeightInfo::commit())]
 		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
@@ -292,7 +292,7 @@ pub mod pallet {
 		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
 		///   5. Notify the task scheduler that the shard is online.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::ready())]
+		#[pallet::weight(<T as Config>::WeightInfo::ready())]
 		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			ensure!(
@@ -319,7 +319,7 @@ pub mod pallet {
 		///   1. Ensure the origin is the root.
 		///   2. Call the internal `remove_shard_offline` function to handle the shard offline process.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::force_shard_offline())]
+		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
 		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::remove_shard_offline(shard_id);
@@ -458,7 +458,7 @@ pub mod pallet {
 		///   4. Determines the new_status of the shard based on the conditions:
 		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
 		///     - Updates [`ShardState`] with the new new_status.
-		///   5. Returns the weight of the operation as specified by `T::WeightInfo::member_offline()`.
+		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
 		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
 			let Some(shard_id) = MemberShard::<T>::get(id) else {
 				return T::DbWeight::get().reads(1);
@@ -492,7 +492,7 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
-			T::WeightInfo::member_offline()
+			<T as Config>::WeightInfo::member_offline()
 		}
 	}
 

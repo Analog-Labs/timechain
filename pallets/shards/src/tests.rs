@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::{Event, ShardMembers, ShardNetwork, ShardState};
 use frame_support::assert_ok;
-use frame_support::traits::Currency;
+use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use schnorr_evm::k256::elliptic_curve::PrimeField;
 use schnorr_evm::k256::{ProjectivePoint, Scalar};
@@ -12,7 +12,6 @@ use time_primitives::{
 };
 
 const ETHEREUM: NetworkId = 0;
-const MIN_MEMBER_STAKE: u128 = 5;
 
 struct Member {
 	account_id: AccountId,
@@ -67,14 +66,16 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 	for member in shard {
 		pallet_balances::Pallet::<Test>::resolve_creating(
 			&member.account_id,
-			pallet_balances::Pallet::<Test>::issue(MIN_MEMBER_STAKE * 100),
+			pallet_balances::Pallet::<Test>::issue(
+				<<Test as pallet_members::Config>::MinStake as Get<u128>>::get() * 100u128,
+			),
 		);
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(member.account_id.clone()).into(),
 			ETHEREUM,
 			public_key(member.peer_id),
 			member.peer_id,
-			MIN_MEMBER_STAKE,
+			<Test as pallet_members::Config>::MinStake::get(),
 		));
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(member.account_id.clone()).into(),
@@ -110,14 +111,16 @@ fn test_register_shard() {
 			for member in shard {
 				pallet_balances::Pallet::<Test>::resolve_creating(
 					&member.account_id,
-					pallet_balances::Pallet::<Test>::issue(MIN_MEMBER_STAKE * 100),
+					pallet_balances::Pallet::<Test>::issue(
+						<<Test as pallet_members::Config>::MinStake as Get<u128>>::get() * 100u128,
+					),
 				);
 				assert_ok!(Members::register_member(
 					RawOrigin::Signed(member.account_id.clone()).into(),
 					ETHEREUM,
 					public_key(member.peer_id),
 					member.peer_id,
-					MIN_MEMBER_STAKE,
+					<Test as pallet_members::Config>::MinStake::get(),
 				));
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(member.account_id.clone()).into(),

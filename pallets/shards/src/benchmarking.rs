@@ -1,7 +1,7 @@
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
-use frame_support::traits::Get;
+use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use sp_std::vec;
 use sp_std::vec::Vec;
@@ -78,18 +78,22 @@ benchmarks! {
 	commit {
 		let shard: Vec<[u8; 32]> = vec![ALICE, BOB, CHARLIE];
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1);
-		let alice: AccountId = ALICE;
+		let alice: AccountId = ALICE.into();
 		// benchmark commitment that changes shard status
 		for member in shard {
+			let member_account: AccountId = member.clone().into();
+			pallet_balances::Pallet::<T>::resolve_creating(
+				&member_account,
+				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
+			);
 			pallet_members::Pallet::<T>::register_member(
-				RawOrigin::Signed(member.into().clone()).into(),
+				RawOrigin::Signed(member_account.clone()).into(),
 				ETHEREUM,
 				public_key(member),
 				member,
 				<T as pallet_members::Config>::MinStake::get(),
 			)?;
 			if member != ALICE {
-				let member_account: AccountId = member.into();
 				Pallet::<T>::commit(
 					RawOrigin::Signed(member_account.clone()).into(),
 					0,
@@ -103,34 +107,38 @@ benchmarks! {
 	verify { }
 
 	ready {
-		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
+		let shard: Vec<[u8; 32]> = vec![ALICE, BOB, CHARLIE];
+		Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1);
 		for member in shard.clone() {
-			// pallet_members::Pallet::<T>::register_member(
-			// 	RawOrigin::Signed(member.clone()).into(),
-			// 	ETHEREUM,
-			// 	public_key(member),
-			// 	member,
-			// 	<T as pallet_members::Config>::MinStake::get(),
-			// )?;
+			let member_account: AccountId = member.clone().into();
+			pallet_balances::Pallet::<T>::resolve_creating(
+				&member_account,
+				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
+			);
+			pallet_members::Pallet::<T>::register_member(
+				RawOrigin::Signed(member_account.clone()).into(),
+				ETHEREUM,
+				public_key(member),
+				member,
+				<T as pallet_members::Config>::MinStake::get(),
+			)?;
 			Pallet::<T>::commit(
-				RawOrigin::Signed(member.clone()).into(),
+				RawOrigin::Signed(member_account.clone()).into(),
 				0,
-				get_commitment(member.clone().into()),
-				get_proof_of_knowledge(member.into()),
+				get_commitment(member_account.clone().into()),
+				get_proof_of_knowledge(member_account.into()),
 			)?;
 		}
-		let alice: AccountId = ALICE.into();
 		// benchmark ready that changes shard status
 		for member in shard {
-			if member != alice {
+			if member != ALICE {
 				Pallet::<T>::ready(
-					RawOrigin::Signed(member.clone()).into(),
+					RawOrigin::Signed(member.clone().into()).into(),
 					0,
 				)?;
 			}
 		}
-	}: _(RawOrigin::Signed(alice), 0)
+	}: _(RawOrigin::Signed(ALICE.into()), 0)
 	verify { }
 
 	force_shard_offline {

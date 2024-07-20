@@ -81,7 +81,7 @@ benchmarks! {
 		let alice: AccountId = ALICE.into();
 		// benchmark commitment that changes shard status
 		for member in shard {
-			let member_account: AccountId = member.clone().into();
+			let member_account: AccountId = member.into();
 			pallet_balances::Pallet::<T>::resolve_creating(
 				&member_account,
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
@@ -110,7 +110,7 @@ benchmarks! {
 		let shard: Vec<[u8; 32]> = vec![ALICE, BOB, CHARLIE];
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1);
 		for member in shard.clone() {
-			let member_account: AccountId = member.clone().into();
+			let member_account: AccountId = member.into();
 			pallet_balances::Pallet::<T>::resolve_creating(
 				&member_account,
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
@@ -133,7 +133,7 @@ benchmarks! {
 		for member in shard {
 			if member != ALICE {
 				Pallet::<T>::ready(
-					RawOrigin::Signed(member.clone().into()).into(),
+					RawOrigin::Signed(member.into()).into(),
 					0,
 				)?;
 			}

@@ -386,6 +386,10 @@ impl Runtime for Mock {
 		Ok(())
 	}
 
+	async fn submit_unregister_member(&self) -> Result<()> {
+		Ok(())
+	}
+
 	async fn submit_heartbeat(&self) -> Result<()> {
 		Ok(())
 	}

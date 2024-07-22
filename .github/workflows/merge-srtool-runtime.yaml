@@ -29,11 +29,17 @@ jobs:
       matrix:
         include:
           # Name denotes the artifact name in the workflow run
+          - name: mainnet
+            chain: mainnet
+            features: default
+          - name: staging
+            chain: mainnet
+            features: development
           - name: testnet
-            chain: timechain
+            chain: testnet
             features: default
           - name: development
-            chain: timechain
+            chain: testnet
             features: development
     steps:
       - name: Fetch latest code
@@ -47,7 +53,7 @@ jobs:
           image: analoglabs/srtool
           tag: 1.75.0
           chain: ${{ matrix.chain }}
-          runtime_dir: "runtime"
+          runtime_dir: runtimes/${{ matrix.chain }}
       - name: Srtool summary
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq . > timechain-srtool-digest.json

@@ -11,7 +11,7 @@ on:
       - 'node/**'
       - 'pallets/**'
       - 'primitives/**'
-      - 'runtime/**'
+      - 'runtimes/**'
       - 'tc-subxt/**'
       - 'tss/**'
       - 'rust-toolchain.toml'

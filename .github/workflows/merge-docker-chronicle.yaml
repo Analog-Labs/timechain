@@ -72,5 +72,3 @@ jobs:
           build_args: |
             VCS_REF=${{ needs.set-tags.outputs.commit_hash8 }}
             PROFILE=${{ matrix.profile }}
-
-            

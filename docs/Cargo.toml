@@ -1,18 +1,23 @@
 [package]
 name = "analog-docs"
-version = "0.1.0"
-edition = "2021"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
 
 [dependencies]
-timechain-node = { path = "../node" }
+mainnet-runtime.workspace = true
+testnet-runtime.workspace = true
 
-timechain-runtime = { path = "../runtime" }
-
-pallet-elections = { path = "../pallets/elections" }
-pallet-members = { path = "../pallets/members" }
-pallet-networks = { path = "../pallets/networks" }
-pallet-shards = { path = "../pallets/shards" }
-pallet-tasks = { path = "../pallets/tasks" }
-pallet-timegraph = { path = "../pallets/timegraph" }
+pallet-elections.workspace = true
+pallet-members.workspace = true
+pallet-networks.workspace = true
+pallet-shards.workspace = true
+pallet-tasks.workspace = true
+pallet-timegraph.workspace = true
 
 chronicle = { path = "../chronicle" }

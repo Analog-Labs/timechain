@@ -6,7 +6,7 @@ use crate::service::FullClient;
 
 use polkadot_sdk::*;
 
-use frame_system_rpc_runtime_api::AccountNonceApi;
+use frame_support::traits::Get;
 
 use sc_cli::Result;
 use sp_inherents::{InherentData, InherentDataProvider};
@@ -14,31 +14,37 @@ use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
 
 use sc_client_api::BlockBackend;
-use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::codec::Encode;
 use sp_runtime::{generic, SaturatedConversion};
 
-use time_primitives::{AccountId, Balance};
-use timechain_runtime::{BalancesCall, SystemCall};
+use runtime_common::{BalancesCall, SystemCall};
+use time_primitives::{AccountId, Balance, Block, Nonce};
 
+use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
 
 /// Generates `System::Remark` extrinsics for the benchmarks.
 ///
 /// Note: Should only be used for benchmarking.
-pub struct RemarkBuilder {
-	client: Arc<FullClient>,
+pub struct RemarkBuilder<Runtime, RuntimeApi> {
+	client: Arc<FullClient<RuntimeApi>>,
+	_runtime: PhantomData<Runtime>,
 }
 
-impl RemarkBuilder {
+impl<Runtime, RuntimeApi> RemarkBuilder<Runtime, RuntimeApi> {
 	/// Creates a new [`Self`] from the given client.
-	pub fn new(client: Arc<FullClient>) -> Self {
-		Self { client }
+	pub fn new(client: Arc<FullClient<RuntimeApi>>) -> Self {
+		Self { client, _runtime: PhantomData }
 	}
 }
 
-impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
+impl<Runtime, RuntimeApi> frame_benchmarking_cli::ExtrinsicBuilder
+	for RemarkBuilder<Runtime, RuntimeApi>
+where
+	Runtime: frame_system::Config + pallet_transaction_payment::Config + Send + Sync,
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+{
 	fn pallet(&self) -> &str {
 		"system"
 	}
@@ -49,7 +55,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 
 	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: OpaqueExtrinsic = create_extrinsic(
+		let extrinsic: OpaqueExtrinsic = create_extrinsic::<Runtime, RuntimeApi>(
 			self.client.as_ref(),
 			acc,
 			SystemCall::remark { remark: vec![] },
@@ -64,20 +70,33 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 /// Generates `Balances::TransferKeepAlive` extrinsics for the benchmarks.
 ///
 /// Note: Should only be used for benchmarking.
-pub struct TransferKeepAliveBuilder {
-	client: Arc<FullClient>,
+pub struct TransferKeepAliveBuilder<Runtime, RuntimeApi> {
+	client: Arc<FullClient<RuntimeApi>>,
 	dest: AccountId,
 	value: Balance,
+	_runtime: PhantomData<Runtime>,
 }
 
-impl TransferKeepAliveBuilder {
+impl<Runtime, RuntimeApi> TransferKeepAliveBuilder<Runtime, RuntimeApi> {
 	/// Creates a new [`Self`] from the given client.
-	pub fn new(client: Arc<FullClient>, dest: AccountId, value: Balance) -> Self {
-		Self { client, dest, value }
+	pub fn new(client: Arc<FullClient<RuntimeApi>>, dest: AccountId) -> Self {
+		let value = 0;
+		//value = client.constants.balances.existential_deposit()
+		Self {
+			client,
+			dest,
+			value,
+			_runtime: PhantomData,
+		}
 	}
 }
 
-impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
+impl<Runtime, RuntimeApi> frame_benchmarking_cli::ExtrinsicBuilder
+	for TransferKeepAliveBuilder<Runtime, RuntimeApi>
+where
+	Runtime: frame_system::Config + pallet_transaction_payment::Config + Send + Sync,
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+{
 	fn pallet(&self) -> &str {
 		"balances"
 	}
@@ -88,7 +107,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 
 	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		let acc = Sr25519Keyring::Bob.pair();
-		let extrinsic: OpaqueExtrinsic = create_extrinsic(
+		let extrinsic: OpaqueExtrinsic = create_extrinsic::<Runtime, RuntimeApi>(
 			self.client.as_ref(),
 			acc,
 			BalancesCall::transfer_keep_alive {
@@ -106,12 +125,16 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 /// Fetch the nonce of the given `account` from the chain state.
 ///
 /// Note: Should only be used for tests.
-pub fn fetch_nonce(client: &FullClient, account: sp_core::sr25519::Pair) -> u32 {
+pub fn fetch_nonce<RuntimeApi>(
+	client: &FullClient<RuntimeApi>,
+	account: sp_core::sr25519::Pair,
+) -> u32 {
 	let best_hash = client.chain_info().best_hash;
-	client
-		.runtime_api()
-		.account_nonce(best_hash, account.public().into())
-		.expect("Fetching account nonce works; qed")
+	//client
+	//	.runtime_api()
+	//	.account_nonce(best_hash, account.public().into())
+	//	.expect("Fetching account nonce works; qed")
+	0
 }
 
 /// Create a transaction using the given `call`.
@@ -120,47 +143,52 @@ pub fn fetch_nonce(client: &FullClient, account: sp_core::sr25519::Pair) -> u32 
 /// state of the best block.
 ///
 /// Note: Should only be used for tests.
-pub fn create_extrinsic(
-	client: &FullClient,
+pub fn create_extrinsic<Runtime, RuntimeApi>(
+	client: &FullClient<RuntimeApi>,
 	sender: sp_core::sr25519::Pair,
-	function: impl Into<timechain_runtime::RuntimeCall>,
+	function: impl Into<Runtime::RuntimeCall>,
 	nonce: Option<u32>,
-) -> timechain_runtime::UncheckedExtrinsic {
+) -> runtime_common::UncheckedExtrinsic<Runtime, Runtime::RuntimeCall>
+where
+	Runtime: frame_system::Config + Send + Sync + pallet_transaction_payment::Config,
+	//+ frame_support::dispatch::GetDispatchInfo,
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+{
 	let function = function.into();
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let best_hash = client.chain_info().best_hash;
 	let best_block = client.chain_info().best_number;
-	let nonce = nonce.unwrap_or_else(|| fetch_nonce(client, sender.clone()));
+	let nonce = nonce.unwrap_or_else(|| fetch_nonce::<RuntimeApi>(client, sender.clone()));
 
-	let period = timechain_runtime::BlockHashCount::get()
+	let period = Runtime::BlockHashCount::get()
 		.checked_next_power_of_two()
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: timechain_runtime::SignedExtra = (
-		frame_system::CheckNonZeroSender::<timechain_runtime::Runtime>::new(),
-		frame_system::CheckSpecVersion::<timechain_runtime::Runtime>::new(),
-		frame_system::CheckTxVersion::<timechain_runtime::Runtime>::new(),
-		frame_system::CheckGenesis::<timechain_runtime::Runtime>::new(),
-		frame_system::CheckEra::<timechain_runtime::Runtime>::from(generic::Era::mortal(
+	let extra: runtime_common::SignedExtra<Runtime> = (
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(
 			period,
 			best_block.saturated_into(),
 		)),
-		frame_system::CheckNonce::<timechain_runtime::Runtime>::from(nonce),
-		frame_system::CheckWeight::<timechain_runtime::Runtime>::new(),
-		pallet_transaction_payment::ChargeTransactionPayment::<timechain_runtime::Runtime>::from(
-			tip,
-		),
+		frame_system::CheckNonce::<Runtime>::from(nonce.into()),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip.into()),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	);
 
-	let raw_payload = timechain_runtime::SignedPayload::from_raw(
+	let version = Runtime::version();
+
+	let raw_payload = runtime_common::SignedPayload::<Runtime, Runtime::RuntimeCall>::from_raw(
 		function.clone(),
 		extra.clone(),
 		(
 			(),
-			timechain_runtime::VERSION.spec_version,
-			timechain_runtime::VERSION.transaction_version,
+			version.spec_version,
+			version.transaction_version,
 			genesis_hash,
 			best_hash,
 			(),
@@ -171,10 +199,10 @@ pub fn create_extrinsic(
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-	timechain_runtime::UncheckedExtrinsic::new_signed(
+	runtime_common::UncheckedExtrinsic::<Runtime, Runtime::RuntimeCall>::new_signed(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
-		timechain_runtime::Signature::Sr25519(signature),
+		time_primitives::Signature::Sr25519(signature),
 		extra,
 	)
 }

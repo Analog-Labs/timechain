@@ -1,4 +1,4 @@
-// Ensure we're `no_std` when compiling for Wasm.
+//! Low-level types used throughout the Substrate code.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
@@ -6,31 +6,81 @@ use async_trait::async_trait;
 use frame_support::weights::Weight;
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
-use sp_runtime::{AccountId32, DispatchResult, MultiSignature, MultiSigner};
 use sp_std::vec::Vec;
 
-mod gmp;
-mod network;
-mod shard;
-mod task;
+// Export scoped ...
+pub mod currency;
+pub mod gmp;
+pub mod network;
+pub mod shard;
+pub mod task;
 
+// ... and unscoped
+pub use crate::currency::*;
 pub use crate::gmp::*;
 pub use crate::network::*;
 pub use crate::shard::*;
 pub use crate::task::*;
-pub use sp_core;
-pub use sp_runtime;
 
-/// Time key type
+use sp_runtime::{
+	generic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
+};
+
+/// Re-exported substrate traits
+pub mod traits {
+	pub use sp_core::crypto::Ss58Codec;
+	pub use sp_runtime::traits::IdentifyAccount;
+}
+
+/// Re-export key and hash types
+pub use sp_core::{ed25519, sr25519, H160, H256, H512};
+
+/// Time key type identifier
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
 
-pub type AccountId = AccountId32;
-pub type Balance = u128;
-pub type PublicKey = MultiSigner;
-pub type Signature = MultiSignature;
+/// An index to a block.
 pub type BlockNumber = u32;
+
+/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
+pub type Signature = MultiSignature;
+
+/// Some way of identifying an account on the chain. We intentionally make it equivalent
+/// to the public key of our transaction signing scheme.
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
+/// The type for looking up accounts. We don't expect more than 4 billion of them.
+pub type AccountIndex = u32;
+
+pub type Balance = u128;
+
+/// Type used for expressing timestamp.
+pub type Moment = u64;
+
+/// Index of a transaction in the chain.
+pub type Nonce = u32;
+
+/// A hash to use to identify indivdual blocks.
 pub type BlockHash = sp_core::H256;
+
+/// A timestamp: milliseconds since the unix epoch.
+/// `u64` is enough to represent a duration of half a billion years, when the
+/// time scale is milliseconds.
+pub type Timestamp = u64;
+
+/// Digest item type.
+pub type DigestItem = generic::DigestItem;
+/// Header type.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+/// Block type.
+pub type Block = generic::Block<Header, OpaqueExtrinsic>;
+/// Block ID.
+pub type BlockId = generic::BlockId<Block>;
+
+/// General Public Key used across the protocol
+pub type PublicKey = MultiSigner;
 
 pub mod crypto {
 	use sp_runtime::app_crypto::{app_crypto, sr25519};
@@ -182,6 +232,8 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> Result<()>;
+
+	async fn submit_unregister_member(&self) -> Result<()>;
 
 	async fn submit_heartbeat(&self) -> Result<()>;
 

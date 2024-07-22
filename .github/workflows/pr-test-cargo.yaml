@@ -10,7 +10,7 @@ on:
       - 'node/**'
       - 'pallets/**'
       - 'primitives/**'
-      - 'runtime/**'
+      - 'runtimes/**'
       - 'tc-subxt/**'
       - 'tester/**'
       - 'tss/**'

@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use time_primitives::sp_runtime::traits::IdentifyAccount;
+use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sp_core, AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	sr25519, AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
 	Function, MemberStatus, NetworkId, Payload, PeerId, ProofOfKnowledge, PublicKey, Runtime,
 	ShardId, ShardStatus, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash,
 	TssSignature, TssSigningRequest,
@@ -98,7 +98,7 @@ pub struct Mock {
 impl Mock {
 	pub fn instance(&self, id: u8) -> Self {
 		let mut mock = self.clone();
-		let public_key = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw([id; 32]));
+		let public_key = PublicKey::Sr25519(sr25519::Public::from_raw([id; 32]));
 		mock.public_key = Some(public_key.clone());
 		mock.account_id = Some(public_key.into_account());
 		mock
@@ -383,6 +383,10 @@ impl Runtime for Mock {
 	) -> Result<()> {
 		let mut members = self.members.lock().unwrap();
 		members.entry(network).or_default().push((self.public_key().clone(), peer_id));
+		Ok(())
+	}
+
+	async fn submit_unregister_member(&self) -> Result<()> {
 		Ok(())
 	}
 

@@ -22,6 +22,9 @@ pub struct ChronicleArgs {
 	/// key file for connector wallet
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
+	/// key file for connector wallet
+	#[clap(long)]
+	pub target_min_balance: u128,
 	/// Metadata version to use to connect to timechain node.
 	#[clap(long)]
 	pub timechain_metadata: Option<MetadataVariant>,
@@ -48,6 +51,7 @@ impl ChronicleArgs {
 			network_id: self.network_id,
 			network_keyfile: self.network_keyfile,
 			network_port: self.network_port,
+			target_min_balance: self.target_min_balance,
 			timechain_metadata: self.timechain_metadata.unwrap_or_default(),
 			timechain_url: self.timechain_url,
 			timechain_keyfile: self.timechain_keyfile,

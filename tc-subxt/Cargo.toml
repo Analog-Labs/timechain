@@ -25,4 +25,4 @@ scale-info.workspace = true
 subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
 subxt-signer = { version = "0.37.0", features = ["subxt"]}
 
-time-primitives = { path = "../primitives" }
+time-primitives = { workspace = true, default-features = true }

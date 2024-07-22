@@ -10425,6 +10425,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-members",
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",

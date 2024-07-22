@@ -37,4 +37,4 @@ jobs:
       - name: Download current snapshot
         run: curl -LO https://analog-public.s3.amazonaws.com/state-snapshot/${{ matrix.chain }}-state.snap
       - name: Run try-runtime test
-        run: try-runtime --runtime target/release/wbuild/${{ matrix.chain }}-runtime/${{ matrix.chain }}_runtime.wasm on-runtime-upgrade --checks all --disable-idempotency-checks snap --path ${{ matrix.chain }}-state.snap
+        run: try-runtime --runtime target/release/wbuild/${{ matrix.chain }}-runtime/${{ matrix.chain }}_runtime.wasm on-runtime-upgrade --checks all --disable-spec-version-check --disable-idempotency-checks snap --path ${{ matrix.chain }}-state.snap

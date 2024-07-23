@@ -21,3 +21,10 @@ impl StaticEvent for GatewayRegistered {
 	const PALLET: &'static str = "Tasks";
 	const EVENT: &'static str = "GatewayRegistered";
 }
+
+#[derive(DecodeAsType, Debug)]
+pub struct UnRegisteredMember(pub [u8; 32], pub u64);
+impl StaticEvent for UnRegisteredMember {
+	const PALLET: &'static str = "Members";
+	const EVENT: &'static str = "UnRegisteredMember";
+}

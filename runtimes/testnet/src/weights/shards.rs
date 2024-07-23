@@ -26,7 +26,8 @@
 #![allow(missing_docs)]
 
 use frame_support::{traits::Get, weights::Weight};
-use core::marker::PhantomData;
+use polkadot_sdk::*;
+use frame_support::{traits::Get, weights::Weight};
 
 /// Weight functions for `pallet_shards`.
 pub struct WeightInfo<T>(PhantomData<T>);

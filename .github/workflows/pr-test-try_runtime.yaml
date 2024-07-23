@@ -35,6 +35,6 @@ jobs:
           package: ${{ matrix.chain }}-runtime
           feature: try-runtime
       - name: Download current snapshot
-        run: curl -LO https://github.com/Analog-Labs/nomination-candidates/releases/download/v0.0.0/${{ matrix.chain }}.v121.snap
+        run: curl -LO https://analog-public.s3.amazonaws.com/state-snapshot/${{ matrix.chain }}-state.snap
       - name: Run try-runtime test
-        run: try-runtime --runtime target/release/wbuild/${{ matrix.chain }}-runtime/${{ matrix.chain }}_runtime.wasm on-runtime-upgrade --checks all --disable-spec-version-check --disable-idempotency-checks snap --path ${{ matrix.chain }}.v121.snap
+        run: try-runtime --runtime target/release/wbuild/${{ matrix.chain }}-runtime/${{ matrix.chain }}_runtime.wasm on-runtime-upgrade --checks all --disable-spec-version-check --disable-idempotency-checks snap --path ${{ matrix.chain }}-state.snap

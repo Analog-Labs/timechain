@@ -134,6 +134,7 @@ benchmarks! {
 		};
 		// Fund and register all shard members
 		let mut i = 0u8;
+		let mut shard_members = vec![];
 		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
 			let member = [i; 32];
 			let member_account: AccountId = member.into();
@@ -142,17 +143,18 @@ benchmarks! {
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
 			);
 			pallet_members::Pallet::<T>::register_member(
-				RawOrigin::Signed(member_account).into(),
+				RawOrigin::Signed(member_account.clone()).into(),
 				ETHEREUM,
 				public_key(member),
 				member,
 				<T as pallet_members::Config>::MinStake::get(),
 			)?;
+			shard_members.push(member_account);
 			i += 1;
 		}
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			shard_members,
 			1,
 		);
 		ShardState::<T>::insert(0, ShardStatus::Online);

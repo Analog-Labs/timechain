@@ -125,7 +125,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::UATasksInsertIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::UATasksRemoveIndex` (r:1 w:0)
 	/// Proof: `Tasks::UATasksRemoveIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn submit_result() -> Weight {
+	fn submit_result(_: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1723`
 		//  Estimated: `12613`

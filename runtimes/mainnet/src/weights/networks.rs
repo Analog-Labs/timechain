@@ -25,7 +25,6 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use polkadot_sdk::*;
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
@@ -38,15 +37,17 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::NetworkIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
-	fn add_network(a: u32, _b: u32, ) -> Weight {
+	fn add_network(a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `359`
 		//  Estimated: `21149`
-		// Minimum execution time: 48_540_000 picoseconds.
-		Weight::from_parts(54_014_088, 0)
+		// Minimum execution time: 47_188_000 picoseconds.
+		Weight::from_parts(47_792_189, 0)
 			.saturating_add(Weight::from_parts(0, 21149))
-			// Standard Error: 850
-			.saturating_add(Weight::from_parts(1_281, 0).saturating_mul(a.into()))
+			// Standard Error: 508
+			.saturating_add(Weight::from_parts(3_795, 0).saturating_mul(a.into()))
+			// Standard Error: 508
+			.saturating_add(Weight::from_parts(814, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

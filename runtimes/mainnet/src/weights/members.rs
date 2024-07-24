@@ -25,7 +25,6 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use polkadot_sdk::*;
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
@@ -58,8 +57,8 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `487`
 		//  Estimated: `6427`
-		// Minimum execution time: 81_553_000 picoseconds.
-		Weight::from_parts(83_146_000, 0)
+		// Minimum execution time: 82_474_000 picoseconds.
+		Weight::from_parts(85_360_000, 0)
 			.saturating_add(Weight::from_parts(0, 6427))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(8))
@@ -74,8 +73,8 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `293`
 		//  Estimated: `3758`
-		// Minimum execution time: 21_771_000 picoseconds.
-		Weight::from_parts(22_473_000, 0)
+		// Minimum execution time: 21_901_000 picoseconds.
+		Weight::from_parts(22_853_000, 0)
 			.saturating_add(Weight::from_parts(0, 3758))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -102,8 +101,8 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `587`
 		//  Estimated: `4052`
-		// Minimum execution time: 59_852_000 picoseconds.
-		Weight::from_parts(61_355_000, 0)
+		// Minimum execution time: 59_391_000 picoseconds.
+		Weight::from_parts(61_675_000, 0)
 			.saturating_add(Weight::from_parts(0, 4052))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(8))

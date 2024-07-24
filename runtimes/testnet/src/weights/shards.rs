@@ -25,7 +25,6 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use polkadot_sdk::*;
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
@@ -46,8 +45,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `757`
 		//  Estimated: `11647`
-		// Minimum execution time: 519_943_000 picoseconds.
-		Weight::from_parts(542_346_000, 0)
+		// Minimum execution time: 518_102_000 picoseconds.
+		Weight::from_parts(523_401_000, 0)
 			.saturating_add(Weight::from_parts(0, 11647))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -82,8 +81,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `561`
 		//  Estimated: `11451`
-		// Minimum execution time: 94_457_000 picoseconds.
-		Weight::from_parts(97_663_000, 0)
+		// Minimum execution time: 93_445_000 picoseconds.
+		Weight::from_parts(95_770_000, 0)
 			.saturating_add(Weight::from_parts(0, 11451))
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -118,8 +117,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `569`
 		//  Estimated: `11459`
-		// Minimum execution time: 113_613_000 picoseconds.
-		Weight::from_parts(117_501_000, 0)
+		// Minimum execution time: 111_730_000 picoseconds.
+		Weight::from_parts(115_626_000, 0)
 			.saturating_add(Weight::from_parts(0, 11459))
 			.saturating_add(T::DbWeight::get().reads(18))
 			.saturating_add(T::DbWeight::get().writes(13))
@@ -130,8 +129,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `6`
 		//  Estimated: `3471`
-		// Minimum execution time: 3_627_000 picoseconds.
-		Weight::from_parts(3_807_000, 0)
+		// Minimum execution time: 3_447_000 picoseconds.
+		Weight::from_parts(3_766_000, 0)
 			.saturating_add(Weight::from_parts(0, 3471))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}

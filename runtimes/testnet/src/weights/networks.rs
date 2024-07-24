@@ -25,7 +25,6 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use polkadot_sdk::*;
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
@@ -44,13 +43,13 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `359`
 		//  Estimated: `21149`
-		// Minimum execution time: 48_832_000 picoseconds.
-		Weight::from_parts(49_935_321, 0)
+		// Minimum execution time: 47_258_000 picoseconds.
+		Weight::from_parts(47_496_221, 0)
 			.saturating_add(Weight::from_parts(0, 21149))
-			// Standard Error: 214
-			.saturating_add(Weight::from_parts(1_106, 0).saturating_mul(a.into()))
-			// Standard Error: 214
-			.saturating_add(Weight::from_parts(2_260, 0).saturating_mul(b.into()))
+			// Standard Error: 124
+			.saturating_add(Weight::from_parts(1_871, 0).saturating_mul(a.into()))
+			// Standard Error: 124
+			.saturating_add(Weight::from_parts(1_921, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

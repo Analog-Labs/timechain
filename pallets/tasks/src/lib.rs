@@ -96,7 +96,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn submit_result(_: u32) -> Weight {
+		fn submit_result() -> Weight {
 			Weight::default()
 		}
 

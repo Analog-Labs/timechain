@@ -130,7 +130,7 @@ benchmarks! {
 				gas_limit: None,
 			},
 			funds: 100,
-			shard_size: 3,
+			shard_size: <T as Config>::Elections::default_shard_size(),
 		};
 		// Fund and register all shard members
 		let mut i = 0u8;

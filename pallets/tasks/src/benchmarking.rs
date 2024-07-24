@@ -234,7 +234,7 @@ benchmarks! {
 
 	sudo_cancel_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
-		let b in 1..100;
+		let b in 1..10;
 		for i in 0..b {
 			let _ = create_simple_task::<T>()?;
 		}
@@ -242,7 +242,7 @@ benchmarks! {
 
 	reset_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
-		let b in 1..100;
+		let b in 1..10;
 		for i in 0..b {
 			let _ = create_simple_task::<T>()?;
 		}
@@ -253,7 +253,7 @@ benchmarks! {
 
 	unregister_gateways {
 		// TODO: replace upper bound with PALLET_MAXIMUM
-		let b in 1..100;
+		let b in 1..10;
 		for i in 0..b {
 			<T as Config>::Shards::create_shard(
 				ETHEREUM,

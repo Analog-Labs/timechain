@@ -16934,21 +16934,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-arithmetic"
-version = "25.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "910c07fa263b20bf7271fdd4adcb5d3217dfdac14270592e0780223542e7e114"
-dependencies = [
- "integer-sqrt",
- "num-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "static_assertions",
-]
-
-[[package]]
 name = "sp-ark-bls12-381"
 version = "0.4.2"
 source = "git+https://github.com/paritytech/arkworks-substrate#caa2eed74beb885dd07c7db5f916f2281dad818f"
@@ -17473,18 +17458,6 @@ dependencies = [
  "parking_lot 0.12.3",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
-]
-
-[[package]]
-name = "sp-keystore"
-version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdbab8b61bd61d5f8625a0c75753b5d5a23be55d3445419acd42caf59cf6236b"
-dependencies = [
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "sp-core 31.0.0",
- "sp-externalities 0.27.0",
 ]
 
 [[package]]

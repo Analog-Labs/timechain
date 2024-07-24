@@ -1,9 +1,9 @@
-use crate::{Call, Config, Pallet, TaskSigner};
+use crate::{Call, Config, Pallet, TaskShard, TaskSigner};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use sp_runtime::{traits::IdentifyAccount, DispatchError};
+use sp_runtime::DispatchError;
 use sp_std::vec;
 use time_primitives::{
 	AccountId, ElectionsInterface, Function, Msg, NetworkId, PublicKey, ShardStatus,
@@ -130,10 +130,11 @@ benchmarks! {
 				gas_limit: None,
 			},
 			funds: 100,
-			shard_size: 3,
+			shard_size: <T as Config>::Elections::default_shard_size(),
 		};
 		// Fund and register all shard members
 		let mut i = 0u8;
+		let mut shard_members = vec![];
 		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
 			let member = [i; 32];
 			let member_account: AccountId = member.into();
@@ -142,34 +143,29 @@ benchmarks! {
 				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
 			);
 			pallet_members::Pallet::<T>::register_member(
-				RawOrigin::Signed(member_account).into(),
+				RawOrigin::Signed(member_account.clone()).into(),
 				ETHEREUM,
 				public_key(member),
 				member,
 				<T as pallet_members::Config>::MinStake::get(),
 			)?;
+			shard_members.push(member_account);
 			i += 1;
 		}
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			shard_members,
 			1,
 		);
 		ShardState::<T>::insert(0, ShardStatus::Online);
 		Pallet::<T>::shard_online(0, ETHEREUM);
-		let create_task_caller: AccountId = [0u8; 32].into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&create_task_caller,
-			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
-		);
-		Pallet::<T>::create_task(RawOrigin::Signed(create_task_caller).into(), descriptor)?;
-		let assigned_signer = TaskSigner::<T>::get(0).unwrap().into_account();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&assigned_signer,
-			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
-		);
-		let raw_signer: [u8; 32] = assigned_signer.clone().into();
-	}: _(RawOrigin::Signed(assigned_signer), 0, Ok([0u8; 32])) verify {}
+		// manually assign task and signer in case not working
+		let raw_signer = [0u8; 32];
+		let signer: AccountId = raw_signer.into();
+		Pallet::<T>::create_task(RawOrigin::Signed(signer.clone()).into(), descriptor)?;
+		TaskShard::<T>::insert(0, 0);
+		TaskSigner::<T>::insert(0, public_key(raw_signer));
+	}: _(RawOrigin::Signed(signer), 0, Ok([0u8; 32])) verify {}
 
 	submit_signature {
 		let function = Function::SendMessage { msg: Msg::default() };
@@ -236,7 +232,6 @@ benchmarks! {
 		let _ = create_simple_task::<T>()?;
 	}: _(RawOrigin::Root, 0) verify {}
 
-	#[extra]
 	sudo_cancel_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..100;
@@ -245,7 +240,6 @@ benchmarks! {
 		}
 	}: _(RawOrigin::Root, b) verify {}
 
-	#[extra]
 	reset_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..100;
@@ -257,7 +251,6 @@ benchmarks! {
 	set_shard_task_limit {
 	}: _(RawOrigin::Root, ETHEREUM, 50) verify {}
 
-	#[extra]
 	unregister_gateways {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..100;

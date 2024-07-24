@@ -23,14 +23,14 @@ alloy-primitives = { version = "0.6.4", default-features = false }
 alloy-sol-types = { version = "0.6.4", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 
-frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-application-crypto = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-api = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-application-crypto = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 
 polkadot-sdk = { workspace = true, features = [ "sp-core", "sp-runtime" ] }
 

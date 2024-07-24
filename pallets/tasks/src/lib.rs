@@ -76,7 +76,7 @@ pub mod pallet {
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn create_task(input_length: u32) -> Weight;
-		fn submit_result(input_length: u32) -> Weight;
+		fn submit_result() -> Weight;
 		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
@@ -96,7 +96,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn submit_result(_: u32) -> Weight {
+		fn submit_result() -> Weight {
 			Weight::default()
 		}
 
@@ -467,7 +467,7 @@ pub mod pallet {
 		///    4. Mark the task as completed and process any associated actions.
 		///    5. Emit relevant events and schedule new tasks.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_result(result.payload.get_input_length()))]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_result())]
 		pub fn submit_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,

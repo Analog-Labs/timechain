@@ -48,17 +48,22 @@ pub mod queue;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
 	use crate::queue::*;
 	use core::num::NonZeroU64;
+	use scale_info::prelude::string::String;
+
+	use polkadot_sdk::{
+		frame_support, frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
+	};
+
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::string::String;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
@@ -66,6 +71,7 @@ pub mod pallet {
 	use sp_std::boxed::Box;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
+
 	use time_primitives::{
 		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
 		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
@@ -160,11 +166,12 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config<AccountId = AccountId>
+		polkadot_sdk::frame_system::Config<AccountId = AccountId>
 		+ pallet_balances::Config<Balance = Balance>
 		+ pallet_treasury::Config
 	{
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Elections: ElectionsInterface;

@@ -1316,6 +1316,9 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+/// Default admin origin for all chronicle related pallets
+type ChronicleAdmin = pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
+
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
@@ -1326,6 +1329,7 @@ impl pallet_members::Config for Runtime {
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = ChronicleAdmin;
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
@@ -1333,6 +1337,7 @@ impl pallet_elections::Config for Runtime {
 
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = ChronicleAdmin;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type Members = Members;
 	type Elections = Elections;
@@ -1349,6 +1354,7 @@ parameter_types! {
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = ChronicleAdmin;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Shards = Shards;
@@ -1371,6 +1377,7 @@ impl pallet_timegraph::Config for Runtime {
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = ChronicleAdmin;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 }
 

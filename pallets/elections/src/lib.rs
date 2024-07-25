@@ -78,6 +78,8 @@ pub mod pallet {
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		///  The weight information for the pallet's extrinsics.
 		type WeightInfo: WeightInfo;
+		/// Ensured origin for calls changing config or electables
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// The interface for shard-related operations.
 		type Shards: ShardsInterface + MemberEvents;
 		///  The storage interface for member-related data.
@@ -172,7 +174,7 @@ pub mod pallet {
 			shard_size: u16,
 			shard_threshold: u16,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
@@ -191,7 +193,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_shard_config())]
 		pub fn set_electable(origin: OriginFor<T>, electable: Vec<AccountId>) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let _ = Electable::<T>::clear(u32::MAX, None);
 			for account in electable {
 				Electable::<T>::insert(account, ());

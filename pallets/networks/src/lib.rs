@@ -55,6 +55,7 @@ pub mod pallet {
 	pub trait Config: polkadot_sdk::frame_system::Config {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -158,7 +159,7 @@ pub mod pallet {
 			chain_name: ChainName,
 			chain_network: ChainNetwork,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let network_id = Self::insert_network(chain_name, chain_network)?;
 			Self::deposit_event(Event::NetworkAdded(network_id));
 			Ok(())

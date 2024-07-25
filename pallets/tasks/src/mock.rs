@@ -214,6 +214,7 @@ impl pallet_members::Config for Test {
 
 impl pallet_elections::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
@@ -227,6 +228,7 @@ parameter_types! {
 
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type TaskScheduler = Tasks;
 	type Members = MockMembers;
@@ -236,6 +238,7 @@ impl pallet_shards::Config for Test {
 
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Elections = MockElections;
 	type Shards = Shards;

@@ -40,6 +40,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 }
 

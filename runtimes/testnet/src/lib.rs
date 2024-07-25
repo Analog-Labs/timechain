@@ -987,6 +987,7 @@ impl pallet_members::Config for Runtime {
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
@@ -994,6 +995,7 @@ impl pallet_elections::Config for Runtime {
 
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type Members = Members;
 	type Elections = Elections;
@@ -1010,6 +1012,7 @@ parameter_types! {
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Shards = Shards;
@@ -1032,6 +1035,7 @@ impl pallet_timegraph::Config for Runtime {
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 }
 

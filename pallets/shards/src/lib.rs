@@ -76,7 +76,7 @@ pub use pallet::*;
 pub mod pallet {
 	use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_runtime, sp_std};
 
-	use frame_support::pallet_prelude::{ValueQuery, *};
+	use frame_support::pallet_prelude::{ValueQuery, EnsureOrigin, *};
 	use frame_system::pallet_prelude::*;
 
 	use sp_runtime::Saturating;
@@ -128,6 +128,7 @@ pub mod pallet {
 	{
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
@@ -328,7 +329,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
 		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::remove_shard_offline(shard_id);
 			Ok(())
 		}

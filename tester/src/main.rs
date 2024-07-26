@@ -188,7 +188,8 @@ async fn main() {
 				None
 			};
 			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
-				.await?;
+				.await
+				.unwrap();
 		},
 		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await.unwrap(),
 		Command::Test(Test::Batch { tasks }) => {

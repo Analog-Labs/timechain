@@ -69,4 +69,3 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           registry: docker.io
           push: 'true'
-

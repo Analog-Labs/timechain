@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sc_chain_spec::json_merge;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::{config::TelemetryEndpoints, ChainType};
 
@@ -15,9 +16,11 @@ use sp_core::{crypto::UncheckedInto, hex2array};
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 
-use timechain_runtime::{
-	AccountId, Balance, Block, StakerStatus, ANLOG, TOKEN_DECIMALS, WASM_BINARY,
-};
+use mainnet_runtime::WASM_BINARY as MAINNET_RUNTIME;
+use testnet_runtime::WASM_BINARY as TESTNET_RUNTIME;
+
+use runtime_common::StakerStatus;
+use time_primitives::{AccountId, Balance, Block, ANLOG, TOKEN_DECIMALS};
 
 const SS_58_FORMAT: u32 = 12850;
 
@@ -82,6 +85,12 @@ pub struct Extensions {
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
+
+/// Helper enum used in internal calls
+enum RuntimeTarget {
+	Mainnet,
+	Testnet,
+}
 
 /// Helper to parse genesis keys json
 #[derive(serde::Deserialize)]
@@ -161,43 +170,91 @@ impl GenesisKeysConfig {
 		serde_json::from_slice(json).map_err(|e| e.to_string())
 	}
 
-	/// Generate development chain for supplied sub-identifier
-	pub fn to_development_spec(&self, subid: &str) -> Result<ChainSpec, String> {
-		let id = "analog_".to_owned() + subid;
-		self.to_chain_spec(id.as_str(), ChainType::Development, 6, 4)
+	/// Generate chain candidate for live deployment
+	pub fn to_mainnet(&self) -> Result<ChainSpec, String> {
+		self.to_chain_spec(
+			"analog-timechain",
+			RuntimeTarget::Mainnet,
+			"ANLOG",
+			ChainType::Live,
+			12,
+			8,
+		)
 	}
 
-	/// Generate a local chain spec with the supplied shard size and threshold
-	pub fn to_local_spec(&self) -> Result<ChainSpec, String> {
-		self.to_chain_spec("analog_local", ChainType::Local, 3, 2)
+	/// Generate mainnet staging chain for supplied sub-identifier
+	pub fn to_staging(&self, subid: &str) -> Result<ChainSpec, String> {
+		let id = "analog-".to_owned() + subid;
+		self.to_chain_spec(
+			id.as_str(),
+			RuntimeTarget::Mainnet,
+			"SANLOG",
+			ChainType::Development,
+			6,
+			4,
+		)
+	}
+
+	/// Generate testnet development chain for supplied sub-identifier
+	pub fn to_development(&self, subid: &str) -> Result<ChainSpec, String> {
+		let id = "analog-".to_owned() + subid;
+		self.to_chain_spec(
+			id.as_str(),
+			RuntimeTarget::Testnet,
+			"DANLOG",
+			ChainType::Development,
+			6,
+			4,
+		)
+	}
+
+	/// Generate a local mainnet chain spec
+	pub fn to_local_staging(&self) -> Result<ChainSpec, String> {
+		self.to_chain_spec(
+			"analog-local-mainnet",
+			RuntimeTarget::Mainnet,
+			"SANLOG",
+			ChainType::Local,
+			3,
+			2,
+		)
+	}
+
+	/// Generate a local testnet chain spec
+	pub fn to_local_development(&self) -> Result<ChainSpec, String> {
+		self.to_chain_spec(
+			"analog-local-testnet",
+			RuntimeTarget::Testnet,
+			"DANLOG",
+			ChainType::Local,
+			3,
+			2,
+		)
 	}
 
 	/// Generate a chain spec from key config
 	fn to_chain_spec(
 		&self,
 		id: &str,
+		runtime: RuntimeTarget,
+		token_symbol: &str,
 		chain_type: ChainType,
 		shard_size: u16,
 		shard_threshold: u16,
 	) -> Result<ChainSpec, String> {
-		let wasm_binary = match chain_type {
-			ChainType::Live => WASM_BINARY,
-			ChainType::Development => WASM_BINARY,
-			ChainType::Local => WASM_BINARY,
-			_ => None,
-		}
-		.ok_or_else(|| "Analog wasm runtime not available".to_string())?;
-
 		// Determine name from identifier
 		let name = id.to_case(Case::Title);
 
-		// Determine token symbol based on chain type
-		let token_symbol = match chain_type {
-			ChainType::Live => "ANLOG",
-			ChainType::Development => "DANLOG",
-			ChainType::Local => "DANLOG",
-			_ => return Err("Unsupported chain type".to_string()),
-		};
+		// Ensure wasm binary is available
+		let wasm_binary = match runtime {
+			RuntimeTarget::Mainnet => MAINNET_RUNTIME,
+			RuntimeTarget::Testnet => TESTNET_RUNTIME,
+		}
+		.expect(
+			"Development wasm binary is not available. This means the client is built with \
+			 `SKIP_WASM_BUILD` flag and it is only usable for production chains. Please rebuild with \
+			 the flag disabled.",
+		);
 
 		// Setup base currency unit name and decimal places
 		let mut properties = sc_chain_spec::Properties::new();
@@ -308,7 +365,7 @@ impl GenesisKeysConfig {
 				(
 					self.controller.clone().unwrap_or(self.stakes[i].clone()),
 					self.stakes[i].clone(),
-					timechain_runtime::SessionKeys {
+					testnet_runtime::SessionKeys {
 						babe: x.0.clone(),
 						grandpa: x.1.clone(),
 						im_online: x.2.clone(),
@@ -325,12 +382,12 @@ impl GenesisKeysConfig {
 			.map(|x| (x.1.clone(), x.0.clone(), locked, StakerStatus::<AccountId>::Validator))
 			.collect::<Vec<_>>();
 
-		let genesis_patch = serde_json::json!({
+		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
 			},
 			"babe": {
-				"epochConfig": timechain_runtime::BABE_GENESIS_EPOCH_CONFIG,
+				"epochConfig": runtime_common::BABE_GENESIS_EPOCH_CONFIG,
 			},
 			"elections": {
 				"shardSize": shard_size,
@@ -347,9 +404,6 @@ impl GenesisKeysConfig {
 					("astar", "dev"),
 				],
 			},
-			"sudo": {
-				"key": Some(self.sudo.clone()),
-			},
 			"session": {
 				"keys": authorities,
 			},
@@ -360,10 +414,22 @@ impl GenesisKeysConfig {
 				"slashRewardFraction": Perbill::from_percent(10),
 				"stakers": stakers
 			},
-			"council": {
-				"members": self.councils,
-			},
 		});
+
+		let target_patch = match runtime {
+			RuntimeTarget::Mainnet => serde_json::json!({
+				"council": {
+					"members": Some(self.sudo.clone()).iter().chain(self.councils.iter()).collect::<Vec<_>>(),
+				},
+			}),
+			RuntimeTarget::Testnet => serde_json::json!({
+				"sudo": {
+					"key": Some(self.sudo.clone()),
+				},
+			}),
+		};
+
+		json_merge(&mut genesis_patch, target_patch);
 
 		// Put it all together ...
 		let mut builder = ChainSpec::builder(wasm_binary, Default::default())

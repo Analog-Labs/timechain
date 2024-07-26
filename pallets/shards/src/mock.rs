@@ -1,14 +1,12 @@
 use crate::{self as pallet_shards};
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
-use sp_core::{ByteArray, ConstU128, ConstU64};
+use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{
-	ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey, ShardId, TasksInterface,
-};
+use time_primitives::{ElectionsInterface, NetworkId, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -20,26 +18,6 @@ pub struct MockTaskScheduler;
 impl TasksInterface for MockTaskScheduler {
 	fn shard_online(_: ShardId, _: NetworkId) {}
 	fn shard_offline(_: ShardId, _: NetworkId) {}
-}
-
-pub struct MockMembers;
-
-impl MemberStorage for MockMembers {
-	fn member_stake(_: &AccountId) -> u128 {
-		0u128
-	}
-	fn member_peer_id(id: &AccountId) -> Option<PeerId> {
-		Some(id.as_slice().try_into().unwrap())
-	}
-	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
-		None
-	}
-	fn is_member_online(_: &AccountId) -> bool {
-		true
-	}
-	fn total_stake() -> u128 {
-		0u128
-	}
 }
 
 pub struct MockElections;
@@ -56,6 +34,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+		Members: pallet_members,
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 	}
 );
@@ -87,9 +66,17 @@ impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type TaskScheduler = MockTaskScheduler;
-	type Members = MockMembers;
+	type Members = Members;
 	type Elections = MockElections;
 	type DkgTimeout = ConstU64<10>;
+}
+
+impl pallet_members::Config for Test {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Elections = Shards;
+	type MinStake = ConstU128<5>;
+	type HeartbeatTimeout = ConstU64<10>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

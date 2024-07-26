@@ -1,0 +1,46 @@
+name: Fetch state and upload to S3
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  build:
+    name: Get state and upload
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - chain: testnet
+          url: wss://rpc.testnet.analog.one:443
+    steps:
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y librocksdb-dev protobuf-compiler clang
+    - name: Install rust toolchain
+      shell: bash
+      run: rustup show
+    - name: Install try-runtime-cli
+      run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.7.0 --locked
+    - name: Install AWS CLI
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install --update
+    - name: Configure AWS credentials
+      env:
+        UPLOAD_ACCESS_KEY_ID: ${{ secrets.UPLOAD_ACCESS_KEY_ID }}
+        UPLOAD_SECRET_ACCESS_KEY: ${{ secrets.UPLOAD_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
+        aws configure set aws_access_key_id $UPLOAD_ACCESS_KEY_ID
+        aws configure set aws_secret_access_key $UPLOAD_SECRET_ACCESS_KEY
+        aws configure set region $AWS_REGION
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Generate state
+      run: try-runtime create-snapshot --uri ${{ matrix.url }} ${{ matrix.chain}}-state.snap
+    - name: Upload to S3
+      run: |
+        aws s3 cp ${{ matrix.chain}}-state.snap s3://analog-public/state-snapshot/${{ matrix.chain}}-state.snap

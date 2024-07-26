@@ -95,6 +95,7 @@ enum Test {
 	Batch { tasks: u64 },
 	Gmp,
 	ChroniclePayment,
+	ChronicleFundCheck,
 	Migration,
 	Restart,
 }
@@ -192,12 +193,18 @@ async fn main() -> Result<()> {
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChroniclePayment) => {
-			println!("This test is only available local with single node shard");
+			// "This test is only available local with single node shard"
 			let starting_balance = chronicles[0].wallet().balance().await?;
 			gmp_test(&tester[0], &tester[1], &contract).await?;
 			let ending_balance = chronicles[0].wallet().balance().await?;
 			println!("Verifying balance");
 			assert!(starting_balance <= ending_balance);
+		},
+		// chronicles are refunded the gas for gmp call
+		Command::Test(Test::ChronicleFundCheck) => {
+			// "This test is only available in local setup"
+			gmp_funds_check(&tester[0], &tester[1], &contract, &chronicles, &args.timechain_url)
+				.await?;
 		},
 		Command::Test(Test::Gmp) => {
 			gmp_test(&tester[0], &tester[1], &contract).await?;
@@ -504,6 +511,68 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 			break;
 		}
 	}
+	Ok(())
+}
+
+async fn gmp_funds_check(
+	src: &Tester,
+	dest: &Tester,
+	contract: &Path,
+	chronicles: &[Tester],
+	timechain_url: &str,
+) -> Result<()> {
+	let (src_contract, _, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
+
+	let subxt_client = SubxtClient::get_client(timechain_url).await?;
+
+	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
+	let res = src
+		.wallet()
+		.eth_send_call(
+			src_contract,
+			VotingContract::voteCall { _vote: true }.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+	let block = res.receipt().unwrap().block_number.unwrap();
+	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());
+	let chronicle_wallet = chronicles.first().unwrap().wallet();
+	let current_balance = chronicle_wallet.balance().await?;
+	// leave some space for gas_price
+	let transfer_balance = current_balance - 100000000000000u128;
+	println!("Emptying chronicle balance");
+	chronicle_wallet
+		.transfer(src.wallet().account(), transfer_balance, None, None)
+		.await
+		.unwrap();
+	println!("looking for unregister event");
+	let mut block_stream = src.finality_block_stream().await;
+
+	'main: loop {
+		tokio::select! {
+			block = block_stream.next() => {
+				if let Some((block_hash, block_number)) = block {
+					println!("Received block number: {:?}", block_number);
+					let events = subxt_client.events().at(block_hash).await?;
+					let member_offline_event = events.find::<events::UnRegisteredMember>().flatten().next();
+
+					if let Some(member_offline) = member_offline_event {
+						let network = member_offline.1;
+
+						println!("member offline for network: {:?}", network);
+						break 'main;
+					}
+				}
+			}
+			_ = tokio::signal::ctrl_c() => {
+				println!("aborting...");
+				anyhow::bail!("abort");
+			}
+		}
+	}
+	println!("Test Passed");
 	Ok(())
 }
 

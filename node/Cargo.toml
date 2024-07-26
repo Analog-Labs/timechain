@@ -101,14 +101,27 @@ polkadot-sdk = { workspace = true, features = [
 jsonrpsee = { version = "0.22.1", features = [ "server" ] }
 
 # node's local dependencies
-time-primitives = { path = "../primitives" }
-timechain-runtime = { path = "../runtime" }
+time-primitives.workspace = true
+
+runtime-common.workspace = true
+mainnet-runtime.workspace = true
+testnet-runtime.workspace = true
 
 # additional command line interfaces
 #try-runtime-core = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }
 
 [build-dependencies]
-polkadot-sdk = { workspace = true, features = [ "substrate-build-script-utils" ] }
+clap.workspace = true
+
+clap_complete = "4.5"
+
+polkadot-sdk = { workspace = true, features = [
+	"substrate-build-script-utils",
+	"frame-benchmarking-cli",
+	"sc-cli",
+	"sc-storage-monitor",
+	"staging-node-inspect",
+] }
 
 [features]
 default = [ "std" ]
@@ -118,14 +131,17 @@ std = [
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
-	"timechain-runtime/runtime-benchmarks"
+	"mainnet-runtime/runtime-benchmarks",
+	"testnet-runtime/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged.
 try-runtime = [
 	"polkadot-sdk/try-runtime",
-	"timechain-runtime/try-runtime",
+	"mainnet-runtime/try-runtime",
+	"testnet-runtime/try-runtime",
 	#"try-runtime-core",
 ]
 development = [
-	"timechain-runtime/development"
+	"mainnet-runtime/development",
+	"testnet-runtime/development",
 ]

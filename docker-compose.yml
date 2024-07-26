@@ -70,6 +70,7 @@ services:
     - '--timechain-metadata=development'
     - '--timechain-url=ws://validator:9944'
     - '--target-keyfile=/etc/target_keyfile'
+    - '--target-min-balance=1000000000000000'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--tss-keyshare-cache=/etc'
     environment:

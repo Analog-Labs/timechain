@@ -1814,6 +1814,98 @@ fn test_task_execution_order() {
 }
 
 #[test]
+fn test_multi_shard_distribution() {
+	new_test_ext().execute_with(|| {
+		// Shard creation
+		for i in 0..3 {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+
+		// Tasks creation and assingment
+		for _ in 0..9 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 3);
+	});
+}
+
+#[test]
+fn test_multi_shard_distribution_task_more_than_limit() {
+	new_test_ext().execute_with(|| {
+		// Shard creation
+		for i in 0..3 {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+			Tasks::shard_online(i, ETHEREUM);
+		}
+
+		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 5));
+
+		// Tasks creation and assingment
+		for _ in 0..30 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 5);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 5);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 5);
+	});
+}
+
+#[test]
+fn test_multi_shard_distribution_task_before_shard_online() {
+	new_test_ext().execute_with(|| {
+		// Shard creation
+		for i in 0..3 {
+			Shards::create_shard(
+				ETHEREUM,
+				[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+				1,
+			);
+			ShardState::<Test>::insert(i, ShardStatus::Online);
+		}
+
+		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 10));
+
+		// Tasks creation and assingment
+		for _ in 0..25 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+
+		// shards come online when there are already some pending tasks to work with
+		for i in 0..3 {
+			Tasks::shard_online(i, ETHEREUM);
+		}
+
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 10);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 10);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 5);
+	});
+}
+
+#[test]
 fn test_assingment_with_diff_shard_size() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(

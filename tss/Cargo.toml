@@ -14,7 +14,6 @@ serde.workspace = true
 tracing.workspace = true
 simple-mermaid.workspace = true
 
-
 frost-evm = { version = "0.1.1", features = ["serde"] }
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 

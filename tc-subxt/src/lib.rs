@@ -177,45 +177,91 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					address,
 					block_height,
 				} => {
-					testnet_scope!(self.metadata, {
-						use metadata::runtime_types::testnet_runtime::RuntimeCall;
-						let runtime_call = RuntimeCall::Tasks(
+					main_or_test_scope!(
+						self.metadata,
+						{
+							use metadata::runtime_types::mainnet_runtime::RuntimeCall;
+							let runtime_call = RuntimeCall::Tasks(
 							metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
 								bootstrap: shard_id,
 								address,
 								block_height,
 							},
 						);
-
-						let payload = metadata::tx().sudo().sudo(runtime_call);
-						self.create_signed_payload(&payload).await
-					})
+							let payload =
+								metadata::tx().technical_committee().execute(runtime_call, 0);
+							self.create_signed_payload(&payload).await
+						},
+						{
+							use metadata::runtime_types::testnet_runtime::RuntimeCall;
+							let runtime_call = RuntimeCall::Tasks(
+							metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
+								bootstrap: shard_id,
+								address,
+								block_height,
+							},
+						);
+							let payload = metadata::tx().sudo().sudo(runtime_call);
+							self.create_signed_payload(&payload).await
+						}
+					)
 				},
 				Tx::SetShardConfig { shard_size, shard_threshold } => {
-					testnet_scope!(self.metadata, {
-						use metadata::runtime_types::testnet_runtime::RuntimeCall;
-						let runtime_call = RuntimeCall::Elections(
+					main_or_test_scope!(
+						self.metadata,
+						{
+							use metadata::runtime_types::mainnet_runtime::RuntimeCall;
+							let runtime_call = RuntimeCall::Elections(
 							metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
 								shard_size,
 								shard_threshold,
 							},
 						);
-						let payload = metadata::tx().sudo().sudo(runtime_call);
-						self.create_signed_payload(&payload).await
-					})
+
+							let payload =
+								metadata::tx().technical_committee().execute(runtime_call, 0);
+							self.create_signed_payload(&payload).await
+						},
+						{
+							use metadata::runtime_types::testnet_runtime::RuntimeCall;
+							let runtime_call = RuntimeCall::Elections(
+							metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+								shard_size,
+								shard_threshold,
+							},
+						);
+							let payload = metadata::tx().sudo().sudo(runtime_call);
+							self.create_signed_payload(&payload).await
+						}
+					)
 				},
 				Tx::RegisterNetwork { chain_name, chain_network } => {
-					testnet_scope!(self.metadata, {
-						use metadata::runtime_types::testnet_runtime::RuntimeCall;
-						let runtime_call = RuntimeCall::Networks(
+					main_or_test_scope!(
+						self.metadata,
+						{
+							use metadata::runtime_types::mainnet_runtime::RuntimeCall;
+							let runtime_call = RuntimeCall::Networks(
 							metadata::runtime_types::pallet_networks::pallet::Call::add_network {
 								chain_name,
 								chain_network,
 							},
 						);
-						let payload = metadata::tx().sudo().sudo(runtime_call);
-						self.create_signed_payload(&payload).await
-					})
+							let payload =
+								metadata::tx().technical_committee().execute(runtime_call, 0);
+							self.create_signed_payload(&payload).await
+						},
+						{
+							use metadata::runtime_types::testnet_runtime::RuntimeCall;
+							let runtime_call = RuntimeCall::Networks(
+							metadata::runtime_types::pallet_networks::pallet::Call::add_network {
+								chain_name,
+								chain_network,
+							},
+						);
+							let payload = metadata::tx().sudo().sudo(runtime_call);
+							self.create_signed_payload(&payload).await
+						}
+					)
 				},
 			}
 		});

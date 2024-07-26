@@ -187,16 +187,16 @@ async fn main() -> Result<()> {
 			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
 				.await?;
 		},
-		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await?,
+		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await.unwrap(),
 		Command::Test(Test::Batch { tasks }) => {
-			batch_test(&tester[0], &contract, tasks).await?;
+			batch_test(&tester[0], &contract, tasks).await.unwrap();
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChroniclePayment) => {
 			// "This test is only available local with single node shard"
-			let starting_balance = chronicles[0].wallet().balance().await?;
-			gmp_test(&tester[0], &tester[1], &contract).await?;
-			let ending_balance = chronicles[0].wallet().balance().await?;
+			let starting_balance = chronicles[0].wallet().balance().await.unwrap();
+			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();
+			let ending_balance = chronicles[0].wallet().balance().await.unwrap();
 			println!("Verifying balance");
 			assert!(starting_balance <= ending_balance);
 		},
@@ -204,19 +204,21 @@ async fn main() -> Result<()> {
 		Command::Test(Test::ChronicleFundCheck) => {
 			// "This test is only available in local setup"
 			gmp_funds_check(&tester[0], &tester[1], &contract, &chronicles, &args.timechain_url)
-				.await?;
+				.await
+				.unwrap();
 		},
 		Command::Test(Test::Gmp) => {
-			gmp_test(&tester[0], &tester[1], &contract).await?;
+			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();
 		},
 		Command::Test(Test::Migration) => {
-			task_migration_test(&tester[0], &contract).await?;
+			task_migration_test(&tester[0], &contract).await.unwrap();
 		},
 		Command::Test(Test::Restart) => {
-			chronicle_restart_test(&tester[0], &contract).await?;
+			chronicle_restart_test(&tester[0], &contract).await.unwrap();
 		},
 	}
 	println!("Command executed");
+	std::process::exit(0);
 	Ok(())
 }
 

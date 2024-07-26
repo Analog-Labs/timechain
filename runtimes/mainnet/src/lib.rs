@@ -957,11 +957,12 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
 }
 
-#[allow(dead_code)]
+#[cfg(feature = "development")]
 type TechnicalMember = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
 
 type TechnicalMajority =
 	pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>;
+#[allow(dead_code)]
 type TechnicalSuperMajority =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
 
@@ -1231,11 +1232,11 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-#[cfg(not(feature = "developments"))]
+#[cfg(not(feature = "development"))]
 /// Default admin origin for all chronicle related pallets
 type ChronicleAdmin = TechnicalSuperMajority;
 
-#[cfg(feature = "developments")]
+#[cfg(feature = "development")]
 /// Development admin origin for all chronicle related pallets
 type ChronicleAdmin = TechnicalMember;
 

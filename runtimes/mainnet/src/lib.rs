@@ -12,6 +12,8 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
 #![recursion_limit = "1024"]
 
+use scale_codec::{Decode, Encode, MaxEncodedLen};
+
 use polkadot_sdk::*;
 
 use frame_election_provider_support::{
@@ -29,7 +31,7 @@ use frame_support::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency, EitherOfDiverse,
 		EqualPrivilegeOnly, Imbalance, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		LockIdentifier, OnUnbalanced, WithdrawReasons,
+		OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -46,20 +48,14 @@ use frame_system::{
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_ranked_collective::{MemberIndex, Rank};
 use pallet_session::historical as pallet_session_historical;
-use scale_codec::{Decode, Encode, MaxEncodedLen};
-pub use time_primitives::{
-	AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	DepreciationRate, MemberStatus, MemberStorage, Moment, NetworkId, Nonce, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskDescriptor, TaskExecution,
-	TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, ANLOG,
-};
-
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -71,7 +67,8 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
 		BlakeTwo256, Block as BlockT, Bounded, ConvertInto, Extrinsic, Identity as IdentityT,
-		IdentityLookup, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup, Verify,
+		IdentityLookup, MaybeConvert, NumberFor, OpaqueKeys, SaturatedConversion, StaticLookup,
+		Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedPointNumber, Perbill, Percent, Permill, Perquintill, RuntimeDebug,
@@ -81,6 +78,13 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
+
+pub use time_primitives::{
+	AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	DepreciationRate, MemberStatus, MemberStorage, Moment, NetworkId, Nonce, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskDescriptor, TaskExecution,
+	TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, ANLOG,
+};
 
 /// Constant values used within the runtime.
 use runtime_common::{currency::*, time::*};
@@ -339,9 +343,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Governance => matches!(
 				c,
 				RuntimeCall::Democracy(..)
-					| RuntimeCall::Council(..)
 					| RuntimeCall::TechnicalCommittee(..)
-					| RuntimeCall::CouncilElections(..)
 					| RuntimeCall::Treasury(..)
 			),
 			ProxyType::Staking => {
@@ -549,7 +551,7 @@ impl pallet_staking::Config for Runtime {
 	/// A super-majority of the council can cancel the slash.
 	type AdminOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 3, 4>,
 	>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
@@ -715,7 +717,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
-	type ForceOrigin = EnsureRootOrHalfCouncil;
+	type ForceOrigin = EnsureRootOrHalfTechnical;
 	type MaxWinners = MaxActiveValidators;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
@@ -735,20 +737,6 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
 	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-	pub const VoteLockingPeriod: BlockNumber = 30 * DAYS;
-}
-
-impl pallet_conviction_voting::Config for Runtime {
-	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type VoteLockingPeriod = VoteLockingPeriod;
-	type MaxVotes = ConstU32<512>;
-	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
-	type Polls = Referenda;
 }
 
 parameter_types! {
@@ -853,26 +841,6 @@ impl pallet_referenda::Config for Runtime {
 	type CancelOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Slash = ();
-	type Votes = pallet_conviction_voting::VotesOf<Runtime>;
-	type Tally = pallet_conviction_voting::TallyOf<Runtime>;
-	type SubmissionDeposit = SubmissionDeposit;
-	type MaxQueued = ConstU32<100>;
-	type UndecidingTimeout = UndecidingTimeout;
-	type AlarmInterval = AlarmInterval;
-	type Tracks = TracksInfo;
-	type Preimages = Preimage;
-}
-
-impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
-	type WeightInfo = pallet_referenda::weights::SubstrateWeight<Self>;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type Scheduler = Scheduler;
-	type Currency = pallet_balances::Pallet<Self>;
-	type SubmitOrigin = EnsureSigned<AccountId>;
-	type CancelOrigin = EnsureRoot<AccountId>;
-	type KillOrigin = EnsureRoot<AccountId>;
-	type Slash = ();
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime>;
 	type SubmissionDeposit = SubmissionDeposit;
@@ -881,6 +849,13 @@ impl pallet_referenda::Config<pallet_referenda::Instance2> for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
+}
+
+pub struct MaxMemberCount;
+impl MaybeConvert<Rank, MemberIndex> for MaxMemberCount {
+	fn maybe_convert(_: Rank) -> Option<MemberIndex> {
+		Some(100)
+	}
 }
 
 impl pallet_ranked_collective::Config for Runtime {
@@ -893,6 +868,7 @@ impl pallet_ranked_collective::Config for Runtime {
 	type ExchangeOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
 	type Polls = RankedPolls;
 	type MinRankOfClass = IdentityT;
+	type MaxMemberCount = MaxMemberCount;
 	type VoteWeight = pallet_ranked_collective::Geometric;
 	type MemberSwappedHandler = ();
 	#[cfg(feature = "runtime-benchmarks")]
@@ -919,14 +895,14 @@ impl pallet_democracy::Config for Runtime {
 	type MinimumDeposit = MinimumDeposit;
 	/// A straight majority of the council can decide what their next motion is.
 	type ExternalOrigin =
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 2>;
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
 	type ExternalMajorityOrigin =
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 3, 4>;
 	/// A unanimous council can have the next scheduled referendum be a straight default-carries
 	/// (NTB) vote.
 	type ExternalDefaultOrigin =
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>;
 	type SubmitOrigin = EnsureSigned<AccountId>;
 	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
@@ -938,7 +914,7 @@ impl pallet_democracy::Config for Runtime {
 	type FastTrackVotingPeriod = FastTrackVotingPeriod;
 	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
 	type CancellationOrigin =
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 3>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
 	// To cancel a proposal before it has been passed, the technical committee must be unanimous or
 	// Root must agree.
 	type CancelProposalOrigin = EitherOfDiverse<
@@ -962,73 +938,12 @@ impl pallet_democracy::Config for Runtime {
 }
 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
-	pub const CouncilMaxProposals: u32 = 100;
-	pub const CouncilMaxMembers: u32 = 100;
-}
-
-type CouncilCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<CouncilCollective> for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type MotionDuration = CouncilMotionDuration;
-	type MaxProposals = CouncilMaxProposals;
-	type MaxMembers = CouncilMaxMembers;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
-	type MaxProposalWeight = MaxCollectivesProposalWeight;
-}
-
-parameter_types! {
-	pub const CandidacyBond: Balance = 10 * ANLOG;
-	// 1 storage item created, key size is 32 bytes, value size is 16+16.
-	pub const VotingBondBase: Balance = deposit(1, 64);
-	// additional data per vote is 32 bytes (account id).
-	pub const VotingBondFactor: Balance = deposit(0, 32);
-	pub const TermDuration: BlockNumber = 7 * DAYS;
-	pub const DesiredMembers: u32 = 13;
-	pub const DesiredRunnersUp: u32 = 7;
-	pub const MaxVotesPerVoter: u32 = 16;
-	pub const MaxVoters: u32 = 512;
-	pub const MaxCandidates: u32 = 64;
-	pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
-}
-
-// Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
-const_assert!(DesiredMembers::get() <= CouncilMaxMembers::get());
-
-impl pallet_elections_phragmen::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type PalletId = ElectionsPhragmenPalletId;
-	type Currency = Balances;
-	type ChangeMembers = Council;
-	// NOTE: this implies that council's genesis members cannot be set directly and must come from
-	// this module.
-	type InitializeMembers = Council;
-	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type CandidacyBond = CandidacyBond;
-	type VotingBondBase = VotingBondBase;
-	type VotingBondFactor = VotingBondFactor;
-	type LoserCandidate = ();
-	type KickedMember = ();
-	type DesiredMembers = DesiredMembers;
-	type DesiredRunnersUp = DesiredRunnersUp;
-	type TermDuration = TermDuration;
-	type MaxVoters = MaxVoters;
-	type MaxVotesPerVoter = MaxVotesPerVoter;
-	type MaxCandidates = MaxCandidates;
-	type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-	pub const TechnicalMotionDuration: BlockNumber = 5 * DAYS;
+	pub const TechnicalMotionDuration: BlockNumber = DAYS;
 	pub const TechnicalMaxProposals: u32 = 100;
 	pub const TechnicalMaxMembers: u32 = 100;
 }
 
-type TechnicalCollective = pallet_collective::Instance2;
+type TechnicalCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall;
@@ -1042,17 +957,23 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
 }
 
-type EnsureRootOrHalfCouncil = EitherOfDiverse<
-	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
->;
-impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
+#[allow(dead_code)]
+type TechnicalMember = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
+
+type TechnicalMajority =
+	pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>;
+type TechnicalSuperMajority =
+	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
+
+type EnsureRootOrHalfTechnical = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMajority>;
+
+impl pallet_membership::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AddOrigin = EnsureRootOrHalfCouncil;
-	type RemoveOrigin = EnsureRootOrHalfCouncil;
-	type SwapOrigin = EnsureRootOrHalfCouncil;
-	type ResetOrigin = EnsureRootOrHalfCouncil;
-	type PrimeOrigin = EnsureRootOrHalfCouncil;
+	type AddOrigin = EnsureRootOrHalfTechnical;
+	type RemoveOrigin = EnsureRootOrHalfTechnical;
+	type SwapOrigin = EnsureRootOrHalfTechnical;
+	type ResetOrigin = EnsureRootOrHalfTechnical;
+	type PrimeOrigin = EnsureRootOrHalfTechnical;
 	type MembershipInitialized = TechnicalCommittee;
 	type MembershipChanged = TechnicalCommittee;
 	type MaxMembers = TechnicalMaxMembers;
@@ -1079,19 +1000,11 @@ parameter_types! {
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
-	type ApproveOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 5>,
-	>;
 	type RejectOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
+		pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>,
 	>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ProposalBondMinimum;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
@@ -1131,6 +1044,7 @@ impl pallet_bounties::Config for Runtime {
 	type BountyValueMinimum = BountyValueMinimum;
 	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = MaximumReasonLength;
+	type OnSlash = ();
 	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 	type ChildBountyManager = ChildBounties;
 }
@@ -1150,7 +1064,8 @@ impl pallet_tips::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = MaximumReasonLength;
-	type Tippers = CouncilElections;
+	type OnSlash = ();
+	type Tippers = TechnicalMembership;
 	type TipCountdown = TipCountdown;
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = TipReportDepositBase;
@@ -1281,8 +1196,8 @@ impl pallet_identity::Config for Runtime {
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = Treasury;
-	type ForceOrigin = EnsureRootOrHalfCouncil;
-	type RegistrarOrigin = EnsureRootOrHalfCouncil;
+	type ForceOrigin = EnsureRootOrHalfTechnical;
+	type RegistrarOrigin = EnsureRootOrHalfTechnical;
 	type OffchainSignature = Signature;
 	type SigningPublicKey = <Signature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
@@ -1316,8 +1231,13 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+#[cfg(not(feature = "developments"))]
 /// Default admin origin for all chronicle related pallets
-type ChronicleAdmin = pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
+type ChronicleAdmin = TechnicalSuperMajority;
+
+#[cfg(feature = "developments")]
+/// Development admin origin for all chronicle related pallets
+type ChronicleAdmin = TechnicalMember;
 
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1474,68 +1394,56 @@ mod runtime {
 
 	// On-chain governance
 	#[runtime::pallet_index(22)]
-	pub type Democracy = pallet_democracy;
+	pub type TechnicalCommittee = pallet_collective<Instance1>;
 
 	#[runtime::pallet_index(23)]
-	pub type Referenda = pallet_referenda;
+	pub type TechnicalMembership = pallet_membership;
 
 	#[runtime::pallet_index(24)]
-	pub type ConvictionVoting = pallet_conviction_voting;
-
-	#[runtime::pallet_index(25)]
-	pub type CouncilElections = pallet_elections_phragmen;
-
-	#[runtime::pallet_index(26)]
-	pub type Council = pallet_collective<Instance1>;
-
-	#[runtime::pallet_index(27)]
-	pub type TechnicalCommittee = pallet_collective<Instance2>;
-
-	#[runtime::pallet_index(28)]
-	pub type TechnicalMembership = pallet_membership<Instance1>;
-
-	#[runtime::pallet_index(29)]
 	pub type RankedCollective = pallet_ranked_collective;
 
-	#[runtime::pallet_index(30)]
-	pub type RankedPolls = pallet_referenda<Instance2>;
+	#[runtime::pallet_index(25)]
+	pub type RankedPolls = pallet_referenda;
 
-	// 31 is reserved for sudo
+	#[runtime::pallet_index(26)]
+	pub type Democracy = pallet_democracy;
+
+	// 27 is reserved for sudo
 
 	// On-chain funding
-	#[runtime::pallet_index(32)]
+	#[runtime::pallet_index(28)]
 	pub type Treasury = pallet_treasury;
 
-	#[runtime::pallet_index(33)]
+	#[runtime::pallet_index(29)]
 	pub type Bounties = pallet_bounties;
 
-	#[runtime::pallet_index(34)]
+	#[runtime::pallet_index(30)]
 	pub type ChildBounties = pallet_child_bounties;
 
-	#[runtime::pallet_index(35)]
+	#[runtime::pallet_index(31)]
 	pub type Tips = pallet_tips;
 
 	// Custom pallets
-	#[runtime::pallet_index(36)]
+	#[runtime::pallet_index(32)]
 	pub type Members = pallet_members;
 
-	#[runtime::pallet_index(37)]
+	#[runtime::pallet_index(33)]
 	pub type Shards = pallet_shards;
 
-	#[runtime::pallet_index(38)]
+	#[runtime::pallet_index(34)]
 	pub type Elections = pallet_elections;
 
-	#[runtime::pallet_index(39)]
+	#[runtime::pallet_index(35)]
 	pub type Tasks = pallet_tasks;
 
-	#[runtime::pallet_index(40)]
+	#[runtime::pallet_index(36)]
 	pub type Timegraph = pallet_timegraph;
 
-	#[runtime::pallet_index(41)]
+	#[runtime::pallet_index(37)]
 	pub type Networks = pallet_networks;
 
 	// Pallet to control the initial launch
-	#[runtime::pallet_index(42)]
+	#[runtime::pallet_index(38)]
 	pub type SafeMode = pallet_safe_mode;
 }
 
@@ -1583,13 +1491,11 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_bounties, Bounties]
 		[pallet_child_bounties, ChildBounties]
-		[pallet_collective, Council]
-		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_collective, TechnicalCommittee]
 		[pallet_democracy, Democracy]
 		[pallet_elections, Elections]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
-		[pallet_elections_phragmen, CouncilElections]
 		[pallet_grandpa, Grandpa]
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
@@ -1601,7 +1507,7 @@ mod benches {
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, RankedCollective]
-		[pallet_referenda, Referenda]
+		[pallet_referenda, RankedPolls]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_shards, Shards]

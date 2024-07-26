@@ -76,7 +76,7 @@ pub use pallet::*;
 pub mod pallet {
 	use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_runtime, sp_std};
 
-	use frame_support::pallet_prelude::{ValueQuery, EnsureOrigin, *};
+	use frame_support::pallet_prelude::{EnsureOrigin, ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
 	use sp_runtime::Saturating;

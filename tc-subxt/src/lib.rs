@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
 use futures::{FutureExt, StreamExt};
+use scale_codec::Encode;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -182,25 +183,26 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 						{
 							use metadata::runtime_types::mainnet_runtime::RuntimeCall;
 							let runtime_call = RuntimeCall::Tasks(
-							metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
-								bootstrap: shard_id,
-								address,
-								block_height,
-							},
-						);
+								metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
+									bootstrap: shard_id,
+									address,
+									block_height,
+								},
+							);
+							let length = runtime_call.encoded_size() as u32;
 							let payload =
-								metadata::tx().technical_committee().execute(runtime_call, 0);
+								metadata::tx().technical_committee().execute(runtime_call, length);
 							self.create_signed_payload(&payload).await
 						},
 						{
 							use metadata::runtime_types::testnet_runtime::RuntimeCall;
 							let runtime_call = RuntimeCall::Tasks(
-							metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
-								bootstrap: shard_id,
-								address,
-								block_height,
-							},
-						);
+								metadata::runtime_types::pallet_tasks::pallet::Call::register_gateway {
+									bootstrap: shard_id,
+									address,
+									block_height,
+								},
+							);
 							let payload = metadata::tx().sudo().sudo(runtime_call);
 							self.create_signed_payload(&payload).await
 						}
@@ -212,14 +214,14 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 						{
 							use metadata::runtime_types::mainnet_runtime::RuntimeCall;
 							let runtime_call = RuntimeCall::Elections(
-							metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
-								shard_size,
-								shard_threshold,
-							},
-						);
-
+								metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+									shard_size,
+									shard_threshold,
+								},
+							);
+							let length = runtime_call.encoded_size() as u32;
 							let payload =
-								metadata::tx().technical_committee().execute(runtime_call, 0);
+								metadata::tx().technical_committee().execute(runtime_call, length);
 							self.create_signed_payload(&payload).await
 						},
 						{
@@ -241,13 +243,14 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 						{
 							use metadata::runtime_types::mainnet_runtime::RuntimeCall;
 							let runtime_call = RuntimeCall::Networks(
-							metadata::runtime_types::pallet_networks::pallet::Call::add_network {
-								chain_name,
-								chain_network,
-							},
-						);
+								metadata::runtime_types::pallet_networks::pallet::Call::add_network {
+									chain_name,
+									chain_network,
+								},
+							);
+							let length = runtime_call.encoded_size() as u32;
 							let payload =
-								metadata::tx().technical_committee().execute(runtime_call, 0);
+								metadata::tx().technical_committee().execute(runtime_call, length);
 							self.create_signed_payload(&payload).await
 						},
 						{

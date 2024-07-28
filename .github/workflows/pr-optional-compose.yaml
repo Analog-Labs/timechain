@@ -15,14 +15,25 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Refresh local deployment
+      - name: Setup containers
         run: |
-          docker compose --profile ethereum down -v
-          docker compose --profile astar down -v
-          ./scripts/build_docker.sh
           docker compose --profile ethereum up -d
-          docker compose --profile astar up -d
-      - name: Run tester
+      - name: Build dev containers
         run: |
-          docker compose run tester --network-id 3 --target-url ws://ethereum:8545 gmp
-          docker compose run tester --network-id 6 --target-url ws://astar:9944 gmp
+          ./scripts/build_docker.sh
+      - name: Setup chain
+        run: |
+          docker compose run tester --network '3;ws://ethereum:8545' set-shard-config 1 1
+          docker compose run tester --network '3;ws://ethereum:8545' fund-wallet
+      - name: Run EvmViewCall task
+        timeout-minutes: 15
+        run: |
+          docker compose run tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test basic
+      - name: Run GMP tests
+        timeout-minutes: 15
+        run: |
+          docker compose run tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test gmp
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          docker compose --profile "*" down

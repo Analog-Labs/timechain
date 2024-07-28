@@ -115,7 +115,8 @@ async fn main() {
 		args.timechain_metadata.unwrap_or_default(),
 		&args.timechain_url,
 	)
-	.await.unwrap();
+	.await
+	.unwrap();
 	let mut tester = Vec::with_capacity(args.network.len());
 	let mut chronicles = vec![];
 	for network in &args.network {
@@ -127,7 +128,8 @@ async fn main() {
 				&args.gateway_contract,
 				&args.proxy_gateway_contract,
 			)
-			.await.unwrap(),
+			.await
+			.unwrap(),
 		);
 
 		// fund chronicle faucets for testing
@@ -139,7 +141,8 @@ async fn main() {
 				&PathBuf::new(),
 				&PathBuf::new(),
 			)
-			.await.unwrap();
+			.await
+			.unwrap();
 			chronicle_tester.faucet().await;
 			chronicles.push(chronicle_tester);
 		}
@@ -185,7 +188,8 @@ async fn main() {
 				None
 			};
 			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
-				.await.unwrap();
+				.await
+				.unwrap();
 		},
 		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await.unwrap(),
 		Command::Test(Test::Batch { tasks }) => {
@@ -204,7 +208,8 @@ async fn main() {
 		Command::Test(Test::ChronicleFundCheck) => {
 			// "This test is only available in local setup"
 			gmp_funds_check(&tester[0], &tester[1], &contract, &chronicles, &args.timechain_url)
-				.await.unwrap();
+				.await
+				.unwrap();
 		},
 		Command::Test(Test::Gmp) => {
 			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();

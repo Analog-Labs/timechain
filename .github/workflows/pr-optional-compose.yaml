@@ -17,7 +17,9 @@ jobs:
           submodules: recursive
       - name: Build dev containers
         run: |
-          rustup target add x86_64-unknown-linux-musl
+          curl -L https://foundry.paradigm.xyz | bash
+          source /home/runner-0/.bashrc
+          foundryup
           ./scripts/build_docker.sh
       - name: Setup containers
         run: |

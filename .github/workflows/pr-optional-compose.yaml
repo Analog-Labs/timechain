@@ -28,18 +28,18 @@ jobs:
           docker compose --profile ethereum up -d
       - name: Setup chain
         run: |
-          docker compose run --rm tester --network '3;ws://ethereum:8545' set-shard-config 1 1
-          docker compose run --rm tester --network '3;ws://ethereum:8545' fund-wallet
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' set-shard-config 1 1
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' fund-wallet
       - name: Run EvmViewCall task
         timeout-minutes: 15
         run: |
           sleep 10
-          docker compose run --rm tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test basic
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test basic
       - name: Run GMP tests
         timeout-minutes: 15
         run: |
           sleep 10
-          docker compose run --rm tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test gmp
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test gmp
       - name: Cleanup
         if: ${{ always() }}
         run: |

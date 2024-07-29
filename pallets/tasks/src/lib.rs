@@ -92,31 +92,6 @@
 //!		- Send message
 //!		- Receive message
 
-//!### Update Task Rewards
-//!
-//!- **Description**: Refine the task rewards by fine-tuning the associated variables to ensure a more cohesive and efficient reward structure.
-//!- **Specification**:
-//!    - **Unified Reward Structure**:
-//!        - Integrate the rewards for different tasks into a single, cohesive reward system.
-//!        - Ensure that the reward for signing tasks is combined with the reward for message submission, as both actions are required from the signer.
-//!    - **New Reward Parameters**:
-//!        - Establish and implement new reward amounts that reflect a reduced and more balanced incentive structure.
-//!        - Update the smart contract or relevant configuration files to reflect these changes in the reward amounts.
-//!
-//!### Read Phase Timeout Adjustment
-//!
-//!- **Description**: Adjust the Read Phase Timeout to align with the chain's finality time, ensuring more accurate and reliable read operations.
-//!- **Specification**:
-//!    - **Timeout Alignment**:
-//!        - Set the Read Phase Timeout to match the chain's finality time, providing consistency across operations.
-//!    - **Configuration Update**:
-//!        - Modify the system configuration to use the chain finality time as the new Read Phase Timeout.
-//!        - Ensure all relevant components and documentation are updated to reflect this change.
-//!    - **Testing and Validation**:
-//!        - Conduct thorough testing to verify that the new timeout settings function correctly and do not introduce any unexpected issues.
-//!        - Validate that the changes improve system performance and reliability.
-//!
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub use pallet::*;

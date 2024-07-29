@@ -15,11 +15,13 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: Configure sccache env for Rust
+        run: | 
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.5
       - name: Build dev containers
         run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          source /home/runner-0/.bashrc
-          foundryup
           ./scripts/build_docker.sh
       - name: Setup containers
         run: |

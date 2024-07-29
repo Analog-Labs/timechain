@@ -154,7 +154,7 @@ pub mod pallet {
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn create_task(input_length: u32) -> Weight;
-		fn submit_result(input_length: u32) -> Weight;
+		fn submit_result() -> Weight;
 		fn submit_hash() -> Weight;
 		fn submit_signature() -> Weight;
 		fn register_gateway() -> Weight;
@@ -174,7 +174,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn submit_result(_: u32) -> Weight {
+		fn submit_result() -> Weight {
 			Weight::default()
 		}
 
@@ -545,7 +545,7 @@ pub mod pallet {
 		///    4. Mark the task as completed and process any associated actions.
 		///    5. Emit relevant events and schedule new tasks.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_result(result.payload.get_input_length()))]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_result())]
 		pub fn submit_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,
@@ -736,7 +736,7 @@ pub mod pallet {
 
 		/// Sets the reward for write tasks.
 		///
-		// # Flow
+		/// # Flow
 		///    1. Ensure the origin of the transaction is a root user.
 		///    2. Insert the new reward amount for the specified network into the [`NetworkWriteReward`] storage.
 		///    3. Emit an event [`Event::WriteTaskRewardSet`] indicating the write task reward has been set.
@@ -1353,7 +1353,7 @@ pub mod pallet {
 		///     - Retrieve all shards associated with the `network`.
 		///     - Collect these shards into a list.
 		///     - Sort the list based on the number of tasks each shard currently has.
-		///     - Iterate through the sorted list in reverse order.
+		///     - Iterate through the sorted list.
 		///     - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
 		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
 			if let Some(shard_id) = shard_id {
@@ -1365,7 +1365,7 @@ pub mod pallet {
 						.count()
 						.cmp(&ShardTasks::<T>::iter_prefix(*b).count())
 				});
-				shards.into_iter().rev().for_each(|(shard, _)| {
+				shards.into_iter().for_each(|(shard, _)| {
 					Self::schedule_tasks_shard(network, shard);
 				});
 			}

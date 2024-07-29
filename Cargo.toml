@@ -20,8 +20,9 @@ members = [
 	"pallets/tasks",
 	"pallets/timegraph",
 	"primitives",
-	"runtime",
-	"runtime/common",
+	"runtimes/common",
+	"runtimes/mainnet",
+	"runtimes/testnet",
 	"tc-subxt",
 	"tester",
 	"tss",
@@ -33,6 +34,7 @@ default-members = [
 ]
 
 [workspace.dependencies]
+# common shared synced libs
 anyhow = { version =  "1.0.86", default-features = false }
 async-channel = "1.9.0"
 async-stream = "0.3.5"
@@ -44,20 +46,47 @@ hex = "0.4.3"
 log = { version = "0.4.21", default-features = false }
 serde = { version = "1.0.203", default-features = false, features = [ "derive" ] }
 serde_json = { version = "1.0.117", default-features = false }
+simple-mermaid = "0.1"
 tokio = "1.38.0"
 tracing = "0.1.40"
 
+# substrate support libs
 scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [ "derive" ] }
 scale-decode = { version = "0.13.1", default-features = false, features = [ "derive" ] }
 scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
 
-polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+# main substrate sdk
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 
+# specialized wasm builder
+substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", features = [ "metadata-hash" ] }
+
+# chain connectors
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
 rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
 
-simple-mermaid = "0.1"
+# shared code between node and runtime (nostd by default)
+time-primitives = { path = "primitives", default-features = false }
+
+# pallets in workspace (nostd by default)
+pallet-elections = { path = "pallets/elections", default-features = false }
+pallet-members = { path = "pallets/members", default-features = false }
+pallet-networks = { path = "pallets/networks", default-features = false }
+pallet-shards = { path = "pallets/shards", default-features = false }
+pallet-tasks = { path = "pallets/tasks", default-features = false }
+pallet-timegraph = { path = "pallets/timegraph", default-features = false }
+
+# shared code between runtimes (nostd by default)
+runtime-common = { path = "runtimes/common", default-features = false }
+
+# runtimes in workspace
+mainnet-runtime = { path = "runtimes/mainnet" }
+testnet-runtime = { path = "runtimes/testnet" }
+
+# shared libs in workspace
+tc-subxt = { path = "tc-subxt" }
+tss = { path = "tss" }
 
 [profile.release]
 # Runtime requires unwinding.

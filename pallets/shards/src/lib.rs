@@ -81,9 +81,9 @@ pub mod pallet {
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 	use time_primitives::{
-		AccountId, Commitment, ElectionsInterface, MemberEvents, MemberStatus, MemberStorage,
-		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		AccountId, Balance, Commitment, ElectionsInterface, MemberEvents, MemberStatus,
+		MemberStorage, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
+		ShardsInterface, TasksInterface, TssPublicKey,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -117,7 +117,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = sp_runtime::AccountId32> {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
@@ -202,6 +204,8 @@ pub mod pallet {
 		UnknownShard,
 		/// Indicates that an unexpected commitment was provided for the shard.
 		UnexpectedCommit,
+		/// Indicates that a peer id cannot be found for the member.
+		MemberPeerIdNotFound,
 		/// Indicates that an invalid commitment was provided.
 		InvalidCommitment,
 		/// Indicates that an invalid proof of knowledge was provided.
@@ -226,7 +230,7 @@ pub mod pallet {
 		///   6. If all members have committed, update the state of the shards to `Committed` and store the group commitment.
 		///   7. Emit the [`Event::ShardCommitted`] event.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::commit())]
+		#[pallet::weight(<T as Config>::WeightInfo::commit())]
 		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
@@ -244,7 +248,7 @@ pub mod pallet {
 				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
 			}
 			let peer_id =
-				T::Members::member_peer_id(&member).ok_or(Error::<T>::UnexpectedCommit)?;
+				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
 			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
 				&peer_id,
 				&commitment,
@@ -288,7 +292,7 @@ pub mod pallet {
 		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
 		///   5. Notify the task scheduler that the shard is online.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::ready())]
+		#[pallet::weight(<T as Config>::WeightInfo::ready())]
 		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			ensure!(
@@ -315,7 +319,7 @@ pub mod pallet {
 		///   1. Ensure the origin is the root.
 		///   2. Call the internal `remove_shard_offline` function to handle the shard offline process.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::force_shard_offline())]
+		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
 		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::remove_shard_offline(shard_id);
@@ -454,7 +458,7 @@ pub mod pallet {
 		///   4. Determines the new_status of the shard based on the conditions:
 		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
 		///     - Updates [`ShardState`] with the new new_status.
-		///   5. Returns the weight of the operation as specified by `T::WeightInfo::member_offline()`.
+		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
 		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
 			let Some(shard_id) = MemberShard::<T>::get(id) else {
 				return T::DbWeight::get().reads(1);
@@ -488,7 +492,7 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
-			T::WeightInfo::member_offline()
+			<T as Config>::WeightInfo::member_offline()
 		}
 	}
 

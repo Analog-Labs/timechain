@@ -46,6 +46,8 @@ pub struct ChronicleConfig {
 	pub target_keyfile: PathBuf,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
+	/// Minimum balance chronicle should have.
+	pub target_min_balance: u128,
 }
 
 impl ChronicleConfig {
@@ -92,6 +94,7 @@ pub async fn run_chronicle(
 	let task_spawner_params = TaskSpawnerParams {
 		tss: tss_tx,
 		blockchain: chain,
+		min_balance: config.target_min_balance,
 		network: subchain,
 		network_id: config.network_id,
 		url: config.target_url,
@@ -194,7 +197,7 @@ mod tests {
 	use super::*;
 	use crate::mock::Mock;
 	use std::time::Duration;
-	use time_primitives::sp_runtime::traits::IdentifyAccount;
+	use time_primitives::traits::IdentifyAccount;
 	use time_primitives::{AccountId, Function, Msg, ShardStatus, TaskDescriptor};
 
 	/// Asynchronous test helper to run Chronicle.

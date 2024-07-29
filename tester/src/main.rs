@@ -95,6 +95,7 @@ enum Test {
 	Batch { tasks: u64 },
 	Gmp,
 	ChroniclePayment,
+	ChronicleFundCheck,
 	Migration,
 	Restart,
 }
@@ -106,7 +107,7 @@ enum Environment {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
 	tracing_subscriber::fmt::init();
 	let args = Args::parse();
 	let runtime = tester::subxt_client(
@@ -114,7 +115,8 @@ async fn main() -> Result<()> {
 		args.timechain_metadata.unwrap_or_default(),
 		&args.timechain_url,
 	)
-	.await?;
+	.await
+	.unwrap();
 	let mut tester = Vec::with_capacity(args.network.len());
 	let mut chronicles = vec![];
 	for network in &args.network {
@@ -126,7 +128,8 @@ async fn main() -> Result<()> {
 				&args.gateway_contract,
 				&args.proxy_gateway_contract,
 			)
-			.await?,
+			.await
+			.unwrap(),
 		);
 
 		// fund chronicle faucets for testing
@@ -138,7 +141,8 @@ async fn main() -> Result<()> {
 				&PathBuf::new(),
 				&PathBuf::new(),
 			)
-			.await?;
+			.await
+			.unwrap();
 			chronicle_tester.faucet().await;
 			chronicles.push(chronicle_tester);
 		}
@@ -151,7 +155,7 @@ async fn main() -> Result<()> {
 		},
 		Command::SetupGmp { redeploy, keyfile } => {
 			tester[0].faucet().await;
-			tester[0].setup_gmp(redeploy, keyfile).await?;
+			tester[0].setup_gmp(redeploy, keyfile).await.unwrap();
 		},
 		Command::RegisterGmpShard { shard_id, keyfile } => {
 			tester[0].register_shard_on_gateway(shard_id, keyfile).await.unwrap();
@@ -166,12 +170,12 @@ async fn main() -> Result<()> {
 			tester[0].wait_for_task(task_id).await;
 		},
 		Command::GatewayUpgrade { proxy_address } => {
-			let proxy_address = Address::from_str(&proxy_address)?;
+			let proxy_address = Address::from_str(&proxy_address).unwrap();
 			tester[0].gateway_update(proxy_address).await.unwrap();
 		},
 		Command::GatewaySetAdmin { proxy_address, admin } => {
-			let proxy_address = Address::from_str(&proxy_address)?;
-			let admin_address = Address::from_str(&admin)?;
+			let proxy_address = Address::from_str(&proxy_address).unwrap();
+			let admin_address = Address::from_str(&admin).unwrap();
 			tester[0].gateway_set_admin(proxy_address, admin_address).await.unwrap();
 		},
 		Command::GatewayAddShards { shard_ids } => {
@@ -184,33 +188,41 @@ async fn main() -> Result<()> {
 				None
 			};
 			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
-				.await?;
+				.await
+				.unwrap();
 		},
-		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await?,
+		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await.unwrap(),
 		Command::Test(Test::Batch { tasks }) => {
-			batch_test(&tester[0], &contract, tasks).await?;
+			batch_test(&tester[0], &contract, tasks).await.unwrap();
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChroniclePayment) => {
-			println!("This test is only available local with single node shard");
-			let starting_balance = chronicles[0].wallet().balance().await?;
-			gmp_test(&tester[0], &tester[1], &contract).await?;
-			let ending_balance = chronicles[0].wallet().balance().await?;
+			// "This test is only available local with single node shard"
+			let starting_balance = chronicles[0].wallet().balance().await.unwrap();
+			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();
+			let ending_balance = chronicles[0].wallet().balance().await.unwrap();
 			println!("Verifying balance");
 			assert!(starting_balance <= ending_balance);
 		},
+		// chronicles are refunded the gas for gmp call
+		Command::Test(Test::ChronicleFundCheck) => {
+			// "This test is only available in local setup"
+			gmp_funds_check(&tester[0], &tester[1], &contract, &chronicles, &args.timechain_url)
+				.await
+				.unwrap();
+		},
 		Command::Test(Test::Gmp) => {
-			gmp_test(&tester[0], &tester[1], &contract).await?;
+			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();
 		},
 		Command::Test(Test::Migration) => {
-			task_migration_test(&tester[0], &contract).await?;
+			task_migration_test(&tester[0], &contract).await.unwrap();
 		},
 		Command::Test(Test::Restart) => {
-			chronicle_restart_test(&tester[0], &contract).await?;
+			chronicle_restart_test(&tester[0], &contract).await.unwrap();
 		},
 	}
 	println!("Command executed");
-	Ok(())
+	std::process::exit(0);
 }
 
 async fn gmp_benchmark(
@@ -504,6 +516,68 @@ async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 			break;
 		}
 	}
+	Ok(())
+}
+
+async fn gmp_funds_check(
+	src: &Tester,
+	dest: &Tester,
+	contract: &Path,
+	chronicles: &[Tester],
+	timechain_url: &str,
+) -> Result<()> {
+	let (src_contract, _, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
+
+	let subxt_client = SubxtClient::get_client(timechain_url).await?;
+
+	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
+	let res = src
+		.wallet()
+		.eth_send_call(
+			src_contract,
+			VotingContract::voteCall { _vote: true }.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+	let block = res.receipt().unwrap().block_number.unwrap();
+	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());
+	let chronicle_wallet = chronicles.first().unwrap().wallet();
+	let current_balance = chronicle_wallet.balance().await?;
+	// leave some space for gas_price
+	let transfer_balance = current_balance - 100000000000000u128;
+	println!("Emptying chronicle balance");
+	chronicle_wallet
+		.transfer(src.wallet().account(), transfer_balance, None, None)
+		.await
+		.unwrap();
+	println!("looking for unregister event");
+	let mut block_stream = src.finality_block_stream().await;
+
+	'main: loop {
+		tokio::select! {
+			block = block_stream.next() => {
+				if let Some((block_hash, block_number)) = block {
+					println!("Received block number: {:?}", block_number);
+					let events = subxt_client.events().at(block_hash).await?;
+					let member_offline_event = events.find::<events::UnRegisteredMember>().flatten().next();
+
+					if let Some(member_offline) = member_offline_event {
+						let network = member_offline.1;
+
+						println!("member offline for network: {:?}", network);
+						break 'main;
+					}
+				}
+			}
+			_ = tokio::signal::ctrl_c() => {
+				println!("aborting...");
+				anyhow::bail!("abort");
+			}
+		}
+	}
+	println!("Test Passed");
 	Ok(())
 }
 

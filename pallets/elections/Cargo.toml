@@ -22,12 +22,12 @@ serde.workspace = true
 
 #polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime", "sp-std" ] }
 
-frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false, optional = true }
+frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false, optional = true }
 
 time-primitives = { path = "../../primitives", default-features = false }
 simple-mermaid.workspace = true
@@ -38,9 +38,9 @@ lazy_static = "1.4.0"
 
 #polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 
-pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
-sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched", default-features = false }
+pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 
 pallet-shards = { path = "../shards", default-features = false }
 

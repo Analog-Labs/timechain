@@ -11,7 +11,7 @@ use tc_subxt::ext::futures::{FutureExt, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient};
 use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
-	test_setup, wait_for_gmp_calls, ChainNetwork, GmpBenchState, Tester, VotingContract,
+	test_setup, wait_for_gmp_calls, ChainNetwork, GmpBenchState, Network, Tester, VotingContract,
 };
 use time_primitives::{Payload, ShardId};
 use tokio::time::{interval_at, Instant};
@@ -117,10 +117,10 @@ async fn main() {
 	)
 	.await
 	.unwrap();
-	let mut tester = Vec::with_capacity(args.network.len());
+	let mut testers = Vec::with_capacity(args.network.len());
 	let mut chronicles = vec![];
 	for network in &args.network {
-		tester.push(
+		testers.push(
 			Tester::new(
 				runtime.clone(),
 				network,
@@ -151,35 +151,44 @@ async fn main() {
 
 	match args.cmd {
 		Command::FundWallet => {
-			tester[0].faucet().await;
+			testers[0].faucet().await;
 		},
 		Command::SetupGmp { redeploy, keyfile } => {
-			tester[0].faucet().await;
-			tester[0].setup_gmp(redeploy, keyfile).await.unwrap();
+			let mut networks = vec![];
+			for tester in &testers {
+				tester.faucet().await;
+				networks.push(Network {
+					id: tester.network_id(),
+					gateway: tester.get_proxy_addr().await.unwrap(),
+				})
+			}
+			for tester in &testers {
+				tester.setup_gmp(redeploy, keyfile.clone(), networks.clone()).await.unwrap();
+			}
 		},
 		Command::RegisterGmpShard { shard_id, keyfile } => {
-			tester[0].register_shard_on_gateway(shard_id, keyfile).await.unwrap();
+			testers[0].register_shard_on_gateway(shard_id, keyfile).await.unwrap();
 		},
 		Command::RegisterNetwork { chain_name, chain_network } => {
-			tester[0].register_network(chain_name, chain_network).await.unwrap();
+			testers[0].register_network(chain_name, chain_network).await.unwrap();
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
-			tester[0].set_shard_config(shard_size, shard_threshold).await.unwrap();
+			testers[0].set_shard_config(shard_size, shard_threshold).await.unwrap();
 		},
 		Command::WatchTask { task_id } => {
-			tester[0].wait_for_task(task_id).await;
+			testers[0].wait_for_task(task_id).await;
 		},
 		Command::GatewayUpgrade { proxy_address } => {
 			let proxy_address = Address::from_str(&proxy_address).unwrap();
-			tester[0].gateway_update(proxy_address).await.unwrap();
+			testers[0].gateway_update(proxy_address).await.unwrap();
 		},
 		Command::GatewaySetAdmin { proxy_address, admin } => {
 			let proxy_address = Address::from_str(&proxy_address).unwrap();
 			let admin_address = Address::from_str(&admin).unwrap();
-			tester[0].gateway_set_admin(proxy_address, admin_address).await.unwrap();
+			testers[0].gateway_set_admin(proxy_address, admin_address).await.unwrap();
 		},
 		Command::GatewayAddShards { shard_ids } => {
-			tester[0].gateway_add_shards(shard_ids).await.unwrap();
+			testers[0].gateway_add_shards(shard_ids).await.unwrap();
 		},
 		Command::GmpBenchmark { tasks, test_contract_addresses } => {
 			let contracts = if test_contract_addresses.len() >= 2 {
@@ -187,19 +196,26 @@ async fn main() {
 			} else {
 				None
 			};
-			gmp_benchmark(&args.timechain_url, &tester[0], &tester[1], &contract, tasks, contracts)
-				.await
-				.unwrap();
+			gmp_benchmark(
+				&args.timechain_url,
+				&testers[0],
+				&testers[1],
+				&contract,
+				tasks,
+				contracts,
+			)
+			.await
+			.unwrap();
 		},
-		Command::Test(Test::Basic) => basic_test(&tester[0], &contract).await.unwrap(),
+		Command::Test(Test::Basic) => basic_test(&testers[0], &contract).await.unwrap(),
 		Command::Test(Test::Batch { tasks }) => {
-			batch_test(&tester[0], &contract, tasks).await.unwrap();
+			batch_test(&testers[0], &contract, tasks).await.unwrap();
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChroniclePayment) => {
 			// "This test is only available local with single node shard"
 			let starting_balance = chronicles[0].wallet().balance().await.unwrap();
-			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();
+			gmp_test(&testers[0], &testers[1], &contract).await.unwrap();
 			let ending_balance = chronicles[0].wallet().balance().await.unwrap();
 			println!("Verifying balance");
 			assert!(starting_balance <= ending_balance);
@@ -207,18 +223,18 @@ async fn main() {
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChronicleFundCheck) => {
 			// "This test is only available in local setup"
-			gmp_funds_check(&tester[0], &tester[1], &contract, &chronicles, &args.timechain_url)
+			gmp_funds_check(&testers[0], &testers[1], &contract, &chronicles, &args.timechain_url)
 				.await
 				.unwrap();
 		},
 		Command::Test(Test::Gmp) => {
-			gmp_test(&tester[0], &tester[1], &contract).await.unwrap();
+			gmp_test(&testers[0], &testers[1], &contract).await.unwrap();
 		},
 		Command::Test(Test::Migration) => {
-			task_migration_test(&tester[0], &contract).await.unwrap();
+			task_migration_test(&testers[0], &contract).await.unwrap();
 		},
 		Command::Test(Test::Restart) => {
-			chronicle_restart_test(&tester[0], &contract).await.unwrap();
+			chronicle_restart_test(&testers[0], &contract).await.unwrap();
 		},
 	}
 	println!("Command executed");
@@ -267,7 +283,7 @@ async fn gmp_benchmark(
 	let dest_stats = stats(dest_tester, dest_contract, None).await?;
 	println!("stats in start: {:?}", start_stats);
 
-	//get nonce of the caller to manage explicitly
+	// get nonce of the caller to manage explicitly
 	let bytes = hex::decode(src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
 	let mut address_bytes = [0u8; 20];
 	address_bytes.copy_from_slice(&bytes[..20]);

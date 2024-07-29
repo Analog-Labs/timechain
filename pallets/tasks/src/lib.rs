@@ -85,12 +85,12 @@
 //!
 //!- **Description**: Provide estimations for the amount of funds needed for the root level operations.
 //!- **Action**:
-//!	- Calculate and document the estimated costs for the root-level calls:
-//!		- Task funding from the Treasury
-//!	- Calculate and document the estimated costs for all other calls:
-//!		- Shard registration/unregistration
-//!		- Send message
-//!		- Receive message
+//!- Calculate and document the estimated costs for the root-level calls:
+//!   - Task funding from the Treasury
+//! - Calculate and document the estimated costs for all other calls:
+//!   - Shard registration/unregistration
+//!   - Send message
+//!   - Receive message
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

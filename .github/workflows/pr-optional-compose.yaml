@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-basic:
-    runs-on: [self-hosted, general]
+    runs-on: [self-hosted, integration]
     if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
     steps:
       - name: Checkout sources
@@ -17,8 +17,6 @@ jobs:
           submodules: recursive
       - name: Build dev containers
         run: |
-          sudo apt-get install -y musl-tools
-          rustup target add x86_64-unknown-linux-musl
           ./scripts/build_docker.sh
       - name: Setup containers
         run: |

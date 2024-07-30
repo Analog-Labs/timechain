@@ -410,7 +410,13 @@ where
 						event!(target: TW_LOG, parent: span, Level::INFO, "submitted heartbeat");
 					}
 					if let Err(e) = self.on_finality(span, block_hash, block_number).await {
-						tracing::error!("Error running on_finality {:?}", e);
+						event!(
+							target: TW_LOG,
+							parent: span,
+							Level::ERROR,
+							"Error running on_finality {:?}",
+							e
+						);
 					}
 				},
 				tss_request = self.tss_request.next().fuse() => {

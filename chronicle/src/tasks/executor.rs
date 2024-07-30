@@ -368,12 +368,25 @@ where
 		shard_id: ShardId,
 		block_hash: BlockHash,
 	) -> Result<Option<GmpParams>> {
+		let span = span!(
+			target: TW_LOG,
+			Level::ERROR,
+			"gmp_params",
+			block = block_hash.to_string(),
+			shard_id,
+		);
 		let Some(gateway_contract) = self.substrate.get_gateway(self.network).await? else {
 			return Ok(None);
 		};
 		let Some(commitment) = self.substrate.get_shard_commitment(block_hash, shard_id).await?
 		else {
-			tracing::error!(target: "chronicle", "shard commitment is empty for shard: {shard_id}");
+			event!(
+				target: TW_LOG,
+				parent: &span,
+				Level::ERROR,
+				shard_id,
+				"empty shard commitment",
+			);
 			return Ok(None);
 		};
 		Ok(Some(GmpParams {

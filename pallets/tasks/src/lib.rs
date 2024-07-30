@@ -401,6 +401,10 @@ pub mod pallet {
 		ShardTaskLimitSet(NetworkId, u32),
 		/// Set the network batch size
 		BatchSizeSet(NetworkId, u64, u64),
+		/// Insufficient Shard Stake to create RegisterShard task
+		InsufficientShardStakeToRegister(ShardId),
+		/// Insufficient Shard Stake to create UnRegisterShard task
+		InsufficientShardStakeToUnRegister(ShardId),
 	}
 
 	#[pallet::error]
@@ -995,17 +999,20 @@ pub mod pallet {
 		///
 		/// # Flow
 		///  1. Create a task descriptor with `network_id`, [`Function::RegisterShard`] { `shard_id` }, and shard member count.
-		///  2. Start the task with [`TaskFunder::Inflation`].
+		///  2. Start the task with [`TaskFunder::ShardId`].
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
-			Self::start_task(
+			if Self::start_task(
 				TaskDescriptorParams::new(
 					network_id,
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Inflation,
+				TaskFunder::Shard(shard_id),
 			)
-			.expect("task funded through inflation");
+			.is_err()
+			{
+				Self::deposit_event(Event::InsufficientShardStakeToRegister(shard_id));
+			}
 		}
 
 		/// Filters and processes tasks using a provided function.
@@ -1031,7 +1038,7 @@ pub mod pallet {
 		///   1. Check if the shard with shard_id is registered.
 		///   2.  If the shard is registered:
 		///     - Start a task to unregister the shard.
-		///     - Fund the task using inflation.
+		///     - Fund the task using shard stake.
 		///   3. If the shard is not registered:
 		///     - Iterate through existing tasks.
 		///     - For each task, check if it is a registration task for the same shard.
@@ -1039,15 +1046,18 @@ pub mod pallet {
 
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
 			if ShardRegistered::<T>::take(shard_id).is_some() {
-				Self::start_task(
+				if Self::start_task(
 					TaskDescriptorParams::new(
 						network,
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
-					TaskFunder::Inflation,
+					TaskFunder::Shard(shard_id),
 				)
-				.expect("task funded through inflation");
+				.is_err()
+				{
+					Self::deposit_event(Event::InsufficientShardStakeToUnRegister(shard_id));
+				}
 				return;
 			}
 			Self::filter_tasks(|task_id| {

@@ -77,6 +77,18 @@ fn mock_result_ok(shard_id: ShardId, task_id: TaskId) -> TaskResult {
 	TaskResult { shard_id, payload, signature }
 }
 
+fn mock_result_error(shard_id: ShardId, task_id: TaskId) -> TaskResult {
+	let payload = Payload::Error("Mock Error".into());
+	let signature = MockTssSigner::new().sign(&payload.bytes(task_id)).to_bytes();
+	TaskResult { shard_id, payload, signature }
+}
+
+fn mock_result_gmp(shard_id: ShardId, task_id: TaskId) -> TaskResult {
+	let payload = Payload::Gmp(vec![]);
+	let signature = MockTssSigner::new().sign(&payload.bytes(task_id)).to_bytes();
+	TaskResult { shard_id, payload, signature }
+}
+
 fn mock_submit_sig(function: Function) -> [u8; 64] {
 	let tss_public_key = MockTssSigner::new().public_key();
 	let gmp_params = GmpParams {
@@ -1604,6 +1616,39 @@ fn set_shard_task_limit_updates_storage_and_emits_event() {
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 50));
 		assert_eq!(ShardTaskLimit::<Test>::get(ETHEREUM), Some(50));
 		System::assert_last_event(Event::<Test>::ShardTaskLimitSet(ETHEREUM, 50).into());
+	});
+}
+
+#[test]
+fn regenerate_read_message_task_on_error() {
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
+		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		let first_block_height = crate::RecvTasks::<Test>::get(ETHEREUM).unwrap_or_default();
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			0,
+			mock_result_gmp(0, 0)
+		));
+		let second_block_height = crate::RecvTasks::<Test>::get(ETHEREUM).unwrap_or_default();
+		assert!(second_block_height > first_block_height);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1]);
+		assert_ok!(Tasks::submit_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			1,
+			mock_result_error(0, 1)
+		));
+		let third_block_height = crate::RecvTasks::<Test>::get(ETHEREUM).unwrap_or_default();
+		assert_eq!(third_block_height, second_block_height);
+		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![2]);
 	});
 }
 

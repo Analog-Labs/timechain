@@ -488,19 +488,30 @@ pub mod pallet {
 			if let Function::RegisterShard { shard_id } = task.function {
 				ShardRegistered::<T>::insert(shard_id, ());
 			}
-			if let Payload::Gmp(msgs) = &result.payload {
-				for msg in msgs {
-					let send_task_id = Self::send_message(result.shard_id, msg.clone());
-					MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
-				}
-				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-					let batch_size = NetworkBatchSize::<T>::get(task.network)
-						.and_then(NonZeroU64::new)
-						.unwrap_or(BATCH_SIZE);
-					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
-						Self::recv_messages(task.network, next_block_height, batch_size);
+			match &result.payload {
+				Payload::Gmp(msgs) => {
+					for msg in msgs {
+						let send_task_id = Self::send_message(result.shard_id, msg.clone());
+						MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
 					}
-				}
+					if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+						let batch_size = NetworkBatchSize::<T>::get(task.network)
+							.and_then(NonZeroU64::new)
+							.unwrap_or(BATCH_SIZE);
+						if let Some(next_block_height) = block_height.checked_add(batch_size.into())
+						{
+							Self::recv_messages(task.network, next_block_height, batch_size);
+						}
+					}
+				},
+				Payload::Error(_) => {
+					if let Function::ReadMessages { batch_size } = task.function {
+						if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+							Self::recv_messages(task.network, block_height, batch_size);
+						}
+					}
+				},
+				_ => {},
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Self::schedule_tasks(task.network, Some(shard_id));

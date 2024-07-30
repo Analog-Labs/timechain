@@ -168,6 +168,7 @@ impl Tester {
 		proxy_addr: Address,
 		admin: Address,
 		tss_public_key: Vec<TssPublicKey>,
+		networks: Vec<Network>,
 	) -> Result<(EthContractAddress, u64)> {
 		// Build the Gateway initializer
 		let tss_keys: Vec<TssKeyR> = tss_public_key
@@ -184,10 +185,7 @@ impl Tester {
 		let initializer = Gateway::initializeCall {
 			admin: admin.into_array().into(),
 			keys: tss_keys,
-			networks: vec![Network {
-				id: self.network_id,
-				gateway: proxy_addr.into_array().into(),
-			}],
+			networks,
 		}
 		.abi_encode();
 
@@ -367,6 +365,7 @@ impl Tester {
 		&self,
 		redeploy: bool,
 		keyfile: Option<PathBuf>,
+		networks: Vec<Network>,
 	) -> Result<EthContractAddress> {
 		let mut gateway_keys: Vec<TssPublicKey> = vec![];
 		if let Some(file) = keyfile {
@@ -400,7 +399,7 @@ impl Tester {
 		// deploy and initialize gateway proxy
 		println!("deploying proxy contract...");
 		let (proxy_addr, block_height) = self
-			.deploy_proxy(address.into(), proxy_addr, gateway_admin, gateway_keys)
+			.deploy_proxy(address.into(), proxy_addr, gateway_admin, gateway_keys, networks)
 			.await?;
 
 		// register proxy
@@ -1201,7 +1200,7 @@ pub async fn test_setup(
 ) -> Result<(EthContractAddress, EthContractAddress, u64)> {
 	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false, None).await?;
+	let gmp_contract = tester.setup_gmp(false, None, vec![]).await?;
 	let (contract, start_block) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;
@@ -1255,15 +1254,27 @@ pub async fn setup_gmp_with_contracts(
 ) -> Result<(EthContractAddress, EthContractAddress, u128)> {
 	src.faucet().await;
 	dest.faucet().await;
-	let src_gmp_contract = src.setup_gmp(false, None).await?;
-	let dest_gmp_contract = dest.setup_gmp(false, None).await?;
+	let src_proxy = src.get_proxy_addr().await?;
+	let dest_proxy = dest.get_proxy_addr().await?;
+	let networks = vec![
+		Network {
+			id: src.network_id(),
+			gateway: src_proxy.into_array().into(),
+		},
+		Network {
+			id: dest.network_id(),
+			gateway: dest_proxy.into_array().into(),
+		},
+	];
+	let src_proxy_contract = src.setup_gmp(false, None, networks.clone()).await?;
+	let dest_proxy_contract = dest.setup_gmp(false, None, networks).await?;
 
 	// deploy testing contract for source chain
 	let (src_contract, _) = src
 		.deploy(
 			contract,
 			VotingContract::constructorCall {
-				_gateway: src_gmp_contract.into(),
+				_gateway: src_proxy_contract.into(),
 			},
 		)
 		.await?;
@@ -1273,7 +1284,7 @@ pub async fn setup_gmp_with_contracts(
 		.deploy(
 			contract,
 			VotingContract::constructorCall {
-				_gateway: dest_gmp_contract.into(),
+				_gateway: dest_proxy_contract.into(),
 			},
 		)
 		.await?;

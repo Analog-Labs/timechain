@@ -257,7 +257,10 @@ where
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg);
 				} else {
-					tracing::info!("invalid signing session {}", id);
+					tracing::info!(
+						peer_id = field::display(self.peer_id.clone()),
+						"invalid signing session {id}",
+					);
 				}
 			},
 			(_, msg) => {
@@ -280,7 +283,9 @@ where
 				dkg.on_commit(commitment);
 				self.committed = true;
 			},
-			_ => tracing::error!("unexpected commit"),
+			_ => {
+				tracing::error!(peer_id = field::display(self.peer_id.clone()), "unexpected commit")
+			},
 		}
 	}
 
@@ -316,8 +321,12 @@ where
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_start(&mut self, id: I) {
 		tracing::info!(peer_id = field::display(self.peer_id.clone()), "start {}", id);
-		if self.get_or_insert_session(id).is_none() {
-			tracing::error!("not ready to sign");
+		if self.get_or_insert_session(id.clone()).is_none() {
+			tracing::error!(
+				peer_id = field::display(self.peer_id.clone()),
+				"not ready to sign for {}",
+				id
+			);
 		}
 	}
 
@@ -329,10 +338,14 @@ where
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
 		tracing::info!(peer_id = field::display(self.peer_id.clone()), "sign {}", id);
-		if let Some(session) = self.get_or_insert_session(id) {
+		if let Some(session) = self.get_or_insert_session(id.clone()) {
 			session.set_data(data)
 		} else {
-			tracing::error!("not ready to sign");
+			tracing::error!(
+				peer_id = field::display(self.peer_id.clone()),
+				"not ready to sign for {}",
+				id
+			);
 		}
 	}
 
@@ -349,7 +362,11 @@ where
 				signing_sessions.remove(&id);
 			},
 			_ => {
-				tracing::error!("not ready to complete");
+				tracing::error!(
+					peer_id = field::display(self.peer_id.clone()),
+					"not ready to complete for {}",
+					id
+				);
 			},
 		}
 	}
@@ -393,7 +410,11 @@ where
 					},
 					// If the DKG fails, transition to the Failed state
 					DkgAction::Failure(error) => {
-						tracing::error!("dkg failed with {:?}", error);
+						tracing::error!(
+							peer_id = field::display(self.peer_id.clone()),
+							"dkg failed with {:?}",
+							error
+						);
 						self.state = TssState::Failed;
 						return None;
 					},

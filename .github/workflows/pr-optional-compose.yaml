@@ -8,21 +8,39 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-basic:
-    runs-on: [self-hosted, general]
+    runs-on: [self-hosted, integration]
     if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Refresh local deployment
+      - name: Configure sccache env for Rust
+        run: | 
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.5
+      - name: Build dev containers
         run: |
-          docker compose --profile ethereum down -v
-          docker compose --profile astar down -v
           ./scripts/build_docker.sh
-          docker compose --profile ethereum up -d
-          docker compose --profile astar up -d
-      - name: Run tester
+      - name: Setup containers
         run: |
-          docker compose run tester --network-id 3 --target-url ws://ethereum:8545 gmp
-          docker compose run tester --network-id 6 --target-url ws://astar:9944 gmp
+          docker compose --profile ethereum up -d
+      - name: Setup chain
+        run: |
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' set-shard-config 1 1
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' fund-wallet
+      - name: Run EvmViewCall task
+        timeout-minutes: 15
+        run: |
+          sleep 10
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test basic
+      - name: Run GMP tests
+        timeout-minutes: 15
+        run: |
+          sleep 10
+          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test gmp
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          docker compose --profile "*" down

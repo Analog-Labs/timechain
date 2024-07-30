@@ -129,6 +129,7 @@ services:
     - '--target-min-balance=1000000000000000'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--target-min-balance=100000000000'
     - '--tss-keyshare-cache=/etc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
@@ -184,7 +185,6 @@ services:
       RUST_LOG: 'tc_subxt=debug,tester=debug'
       RUST_BACKTRACE: 1
     volumes:
-    - '/var/run/docker.sock:/var/run/docker.sock'
     - './config/wallets/keyfile_tester:/etc/keyfile:ro'
     - './config/wallets/gmp_signer:/etc/gmp_signer:ro'
     - './config/wallets/keyfile1:/etc/keyfile1:ro'

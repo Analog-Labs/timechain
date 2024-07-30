@@ -87,7 +87,7 @@ pub use time_primitives::{
 };
 
 /// Constant values used within the runtime.
-use runtime_common::{currency::*, time::*};
+use runtime_common::{currency::*, time::*, BABE_GENESIS_EPOCH_CONFIG};
 use sp_runtime::generic::Era;
 
 /// Benchmarked pallet weights
@@ -132,13 +132,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	state_version: 1,
 };
-
-/// The BABE epoch configuration at genesis.
-pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
-	sp_consensus_babe::BabeEpochConfiguration {
-		c: PRIMARY_PROBABILITY,
-		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
-	};
 
 /// Native version.
 #[cfg(any(feature = "std", test))]

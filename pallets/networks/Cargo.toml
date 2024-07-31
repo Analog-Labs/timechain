@@ -23,6 +23,7 @@ sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13
 
 frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false, optional = true }
 
+frameless = { path = "../../frameless", default-features = false }
 time-primitives = { path = "../../primitives", default-features = false }
 
 simple-mermaid.workspace = true
@@ -43,6 +44,7 @@ std = [
 	#"polkadot-sdk/std",
 	"frame-support/std",
 	"frame-system/std",
+	"frameless/std",
 	"sp-runtime/std",
 	"frame-benchmarking?/std",
 	"time-primitives/std",

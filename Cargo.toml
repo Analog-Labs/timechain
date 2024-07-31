@@ -12,6 +12,7 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
+	"frameless",
 	"node",
 	"pallets/elections",
 	"pallets/members",

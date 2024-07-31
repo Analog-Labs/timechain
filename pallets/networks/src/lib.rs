@@ -32,6 +32,7 @@ pub use pallet::*;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use frameless::Networks;
 	use scale_info::prelude::string::String;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{ChainName, ChainNetwork, NetworkId};
@@ -71,15 +72,6 @@ pub mod pallet {
 		NetworkExists,
 	}
 
-	// stores a counter for each network type supported
-	#[pallet::storage]
-	pub type NetworkIdCounter<T: Config> = StorageValue<_, NetworkId, ValueQuery>;
-
-	// stores network_id against (blockchain, network)
-	#[pallet::storage]
-	pub type Networks<T: Config> =
-		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
-
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		pub networks: Vec<(String, String)>,
@@ -100,42 +92,8 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (name, network) in &self.networks {
-				Pallet::<T>::insert_network(name.clone(), network.clone())
-					.expect("No networks exist before genesis; NetworkId not overflow from 0 at genesis; QED");
+				Networks::new().insert(name.clone(), network.clone());
 			}
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		///  Inserts a new network into storage if it doesn't already exist. Updates the `NetworkIdCounter` to ensure unique network IDs.
-		///    
-		///  # Flow
-		///    1. Iterate through existing networks to check if the given `ChainName` and `ChainNetwork` already exist.
-		///    2. If the network exists, return [`Error::<T>::NetworkExists`].
-		///    3. Retrieve the current [`NetworkIdCounter`].
-		///    4. Increment the counter and check for overflow, returning [`Error::<T>::NetworkIdOverflow`] if overflow occurs.
-		///    5. Update the [`NetworkIdCounter`] with the new value.
-		///    6. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
-		///    7. Return the new `NetworkId`.
-		fn insert_network(
-			chain_name: ChainName,
-			chain_network: ChainNetwork,
-		) -> Result<NetworkId, Error<T>> {
-			for (_, (name, network)) in Networks::<T>::iter() {
-				if name == chain_name && network == chain_network {
-					return Err(Error::<T>::NetworkExists);
-				}
-			}
-
-			let network_id = NetworkIdCounter::<T>::get();
-			let Some(next_network_id) = network_id.checked_add(1) else {
-				return Err(Error::<T>::NetworkIdOverflow);
-			};
-
-			NetworkIdCounter::<T>::put(next_network_id);
-			Networks::<T>::insert(network_id, (chain_name, chain_network));
-
-			Ok(network_id)
 		}
 	}
 
@@ -157,7 +115,7 @@ pub mod pallet {
 			chain_network: ChainNetwork,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let network_id = Self::insert_network(chain_name, chain_network)?;
+			let network_id = Networks::new().insert(chain_name, chain_network);
 			Self::deposit_event(Event::NetworkAdded(network_id));
 			Ok(())
 		}
@@ -170,7 +128,7 @@ pub mod pallet {
 		///  1. Call [`Networks`] to fetch the network information.
 		///  2. Return the network information if it exists, otherwise return `None`.
 		pub fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
-			Networks::<T>::get(network_id)
+			Networks::new().get(network_id)
 		}
 	}
 }

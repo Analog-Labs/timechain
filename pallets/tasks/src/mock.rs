@@ -205,12 +205,6 @@ impl MockTssSigner {
 	}
 }
 
-/// To from `now` to block `n`.
-pub fn roll_to(n: u64) {
-	let n = n - System::block_number();
-	roll(n);
-}
-
 pub fn roll(n: u64) {
 	for _ in 0..n {
 		next_block();

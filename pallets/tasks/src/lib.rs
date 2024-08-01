@@ -439,6 +439,12 @@ pub mod pallet {
 		BootstrapShardMustBeOnline,
 		/// Shard for task must be online at task creation
 		MatchingShardNotOnline,
+		/// Insufficient balance for Submit Result Caller to Recv Tasks
+		InsufficientCallerBalanceToRecvTasks,
+		/// Insufficient balance in Treasury to fund register_gateway Recv Tasks
+		InsufficientTreasuryBalanceToRecvTasks,
+		/// Unsupported path for funding recv tasks
+		UnsupportedPathToFundRecvTasks,
 	}
 
 	#[pallet::call]
@@ -477,7 +483,7 @@ pub mod pallet {
 			task_id: TaskId,
 			result: TaskResult,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() {
 				return Ok(());
@@ -487,11 +493,6 @@ pub mod pallet {
 			ensure!(result.shard_id == shard_id, Error::<T>::InvalidOwner);
 			let bytes = result.payload.bytes(task_id);
 			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
-			Self::finish_task(task_id, result.clone());
-			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
-			if let Function::RegisterShard { shard_id } = task.function {
-				ShardRegistered::<T>::insert(shard_id, ());
-			}
 			if let Payload::Gmp(msgs) = &result.payload {
 				for msg in msgs {
 					let send_task_id = Self::send_message(result.shard_id, msg.clone());
@@ -502,9 +503,19 @@ pub mod pallet {
 						.and_then(NonZeroU64::new)
 						.unwrap_or(BATCH_SIZE);
 					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
-						Self::recv_messages(task.network, next_block_height, batch_size);
+						Self::recv_messages(
+							task.network,
+							next_block_height,
+							batch_size,
+							TaskFunder::Account(caller),
+						)?;
 					}
 				}
+			}
+			Self::finish_task(task_id, result.clone());
+			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
+			if let Function::RegisterShard { shard_id } = task.function {
+				ShardRegistered::<T>::insert(shard_id, ());
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Self::schedule_tasks(task.network, Some(shard_id));
@@ -634,7 +645,8 @@ pub mod pallet {
 				let batch_size = NonZeroU64::new(network_batch_size.get() - ((block_height + network_offset) % network_batch_size))
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();
-				Self::recv_messages(network, block_height, batch_size);
+				// TODO: change to funded via Treasury
+				Self::recv_messages(network, block_height, batch_size, TaskFunder::Inflation)?;
 			}
 			Self::schedule_tasks(network, None);
 			Ok(())
@@ -984,15 +996,36 @@ pub mod pallet {
 		///   2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
 		///   3. Set the task's start field to block_height.
 		///   4. Start the task with [`TaskFunder::Inflation`].
-		fn recv_messages(network_id: NetworkId, block_height: u64, batch_size: NonZeroU64) {
-			RecvTasks::<T>::insert(network_id, block_height);
+		fn recv_messages(
+			network_id: NetworkId,
+			block_height: u64,
+			batch_size: NonZeroU64,
+			funded_by: TaskFunder,
+		) -> DispatchResult {
 			let mut task = TaskDescriptorParams::new(
 				network_id,
 				Function::ReadMessages { batch_size },
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			Self::start_task(task, TaskFunder::Inflation).expect("task funded through inflation");
+			match funded_by {
+				TaskFunder::Account(_) => {
+					ensure!(
+						Self::start_task(task, funded_by).is_ok(),
+						Error::<T>::InsufficientCallerBalanceToRecvTasks
+					);
+				},
+				// TODO: replace with Treasury
+				TaskFunder::Inflation => {
+					ensure!(
+						Self::start_task(task, funded_by).is_ok(),
+						Error::<T>::InsufficientTreasuryBalanceToRecvTasks
+					);
+				},
+				_ => return Err(Error::<T>::UnsupportedPathToFundRecvTasks.into()),
+			}
+			RecvTasks::<T>::insert(network_id, block_height);
+			Ok(())
 		}
 
 		/// Registers a new shard and initiates a task for shard registration.

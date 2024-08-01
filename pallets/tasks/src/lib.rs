@@ -503,7 +503,6 @@ pub mod pallet {
 				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
-			Self::schedule_tasks(task.network, Some(shard_id));
 			Ok(())
 		}
 
@@ -632,7 +631,6 @@ pub mod pallet {
 				let block_height = block_height + batch_size.get();
 				Self::recv_messages(network, block_height, batch_size);
 			}
-			Self::schedule_tasks(network, None);
 			Ok(())
 		}
 
@@ -780,9 +778,6 @@ pub mod pallet {
 					reset = reset.saturating_plus_one();
 				}
 			}
-			for (network, shard, _) in NetworkShards::<T>::iter() {
-				Self::schedule_tasks(network, Some(shard));
-			}
 			Ok(())
 		}
 
@@ -888,6 +883,13 @@ pub mod pallet {
 			T::DbWeight::get().writes(writes)
 		}
 	}*/
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_finalize(_current: BlockNumberFor<T>) {
+			Self::schedule_tasks();
+		}
+	}
 
 	impl<T: Config> Pallet<T> {
 		/// Retrieves the TSS (Threshold Signature Scheme) signature for a given task.
@@ -1182,7 +1184,6 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			Self::add_unassigned_task(schedule.network, task_id);
 			Self::deposit_event(Event::TaskCreated(task_id));
-			Self::schedule_tasks(schedule.network, None);
 			Ok(task_id)
 		}
 
@@ -1277,20 +1278,20 @@ pub mod pallet {
 		///     - Sort the list based on the number of tasks each shard currently has.
 		///     - Iterate through the sorted list.
 		///     - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
-		fn schedule_tasks(network: NetworkId, shard_id: Option<ShardId>) {
-			if let Some(shard_id) = shard_id {
-				Self::schedule_tasks_shard(network, shard_id);
-			} else {
-				let mut shards = NetworkShards::<T>::iter_prefix(network).collect::<Vec<_>>();
-				shards.sort_by(|(a, _), (b, _)| {
-					ShardTasks::<T>::iter_prefix(*a)
-						.count()
-						.cmp(&ShardTasks::<T>::iter_prefix(*b).count())
-				});
-				shards.into_iter().for_each(|(shard, _)| {
-					Self::schedule_tasks_shard(network, shard);
-				});
-			}
+		fn schedule_tasks() {
+			let mut shards = NetworkShards::<T>::iter()
+				.filter(|(_, shard, _)| ShardRegistered::<T>::get(shard).is_some())
+				.map(|(network, shard, _)| {
+					let task_limit = ShardTaskLimit::<T>::get(network).unwrap_or(10) as usize;
+					let tasks = ShardTasks::<T>::iter_prefix(shard).count();
+					(network, shard, task_limit.saturating_sub(tasks))
+				})
+				.filter(|(_, _, capacity)| *capacity > 0)
+				.collect::<Vec<_>>();
+			shards.sort_by(|(_, _, a), (_, _, b)| a.cmp(b));
+			shards.into_iter().for_each(|(network, shard, capacity)| {
+				Self::schedule_tasks_shard(network, shard, capacity);
+			});
 		}
 
 		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing
@@ -1305,29 +1306,16 @@ pub mod pallet {
 		///   6. If `capacity` is zero, stop further task assignments.
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
-		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId) {
-			let tasks = ShardTasks::<T>::iter_prefix(shard_id)
-				.filter(|(t, _)| TaskOutput::<T>::get(t).is_none())
-				.count();
+		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: usize) {
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
-			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
-			let shard_task_limit = ShardTaskLimit::<T>::get(network).unwrap_or(10) as usize;
-			let capacity = shard_task_limit.saturating_sub(tasks);
-			if capacity.is_zero() {
-				// no new tasks assigned if capacity reached or exceeded
-				return;
-			}
-			let system_tasks = Self::prioritized_unassigned_tasks(network).get_n(
-				capacity,
-				shard_size,
-				is_registered,
-			);
+			let system_tasks =
+				Self::prioritized_unassigned_tasks(network).get_n(capacity, shard_size, true);
 			let tasks = if let Some(non_system_capacity) = capacity.checked_sub(system_tasks.len())
 			{
 				let non_system_tasks = Self::remaining_unassigned_tasks(network).get_n(
 					non_system_capacity,
 					shard_size,
-					is_registered,
+					true,
 				);
 				system_tasks.into_iter().chain(non_system_tasks).collect::<Vec<_>>()
 			} else {
@@ -1548,7 +1536,6 @@ pub mod pallet {
 			if Gateway::<T>::get(network).is_some() {
 				Self::register_shard(shard_id, network);
 			}
-			Self::schedule_tasks(network, Some(shard_id));
 		}
 
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {

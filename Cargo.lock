@@ -13691,7 +13691,7 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13720,7 +13720,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-astar"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "rosetta-core",
@@ -13730,7 +13730,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-ethereum"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "const-hex",
@@ -13750,7 +13750,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-polkadot"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "rosetta-core",
@@ -13761,7 +13761,7 @@ dependencies = [
 [[package]]
 name = "rosetta-core"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13778,7 +13778,7 @@ dependencies = [
 [[package]]
 name = "rosetta-crypto"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "bech32",
@@ -13804,7 +13804,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-backend"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -13820,7 +13820,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-types"
 version = "0.2.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "bytes",
  "const-hex",
@@ -13854,7 +13854,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13877,7 +13877,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-astar"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13901,7 +13901,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-ethereum"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13929,7 +13929,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-polkadot"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13950,7 +13950,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "rosetta-config-ethereum",
@@ -13961,7 +13961,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-polkadot"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "anyhow",
  "blake2-rfc",
@@ -13975,7 +13975,7 @@ dependencies = [
 [[package]]
 name = "rosetta-types"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "serde",
  "serde_json",
@@ -13984,7 +13984,7 @@ dependencies = [
 [[package]]
 name = "rosetta-utils"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#dcab7f8103d6a7ec6fffa7dacfcbfc6c88e2519b"
+source = "git+https://github.com/analog-labs/chain-connectors#ddb58a6c6bd117e21c164145503cbf57e1f9dbb0"
 dependencies = [
  "bytes",
  "futures-timer",

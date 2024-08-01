@@ -537,6 +537,7 @@ fn payable_task_smoke() {
 		ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 		Tasks::shard_online(shard_id, ETHEREUM);
 		assert_ok!(Tasks::create_task(RawOrigin::Signed(a.clone()).into(), mock_payable(ETHEREUM)));
+		roll(1);
 		assert_eq!(<TaskPhaseState<Test>>::get(task_id), TaskPhase::Write,);
 		assert_eq!(<TaskSigner<Test>>::get(task_id), Some(pubkey_from_bytes([0u8; 32])));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
@@ -1403,6 +1404,7 @@ fn read_send_message_rewards_depreciate_correctly() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		roll(1);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		let mut balances = vec![];
@@ -1411,7 +1413,7 @@ fn read_send_message_rewards_depreciate_correctly() {
 		}
 		// get RewardConfig
 		let reward_config = TaskRewardConfig::<Test>::get(task_id).unwrap();
-		assert_eq!(System::block_number(), 1);
+		assert_eq!(System::block_number(), 2);
 		assert_ok!(Tasks::submit_hash(
 			RawOrigin::Signed([0; 32].into()).into(),
 			task_id,
@@ -1420,9 +1422,9 @@ fn read_send_message_rewards_depreciate_correctly() {
 		let signer: AccountId = [0; 32].into();
 		let expected_write_reward: u128 = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), expected_write_reward);
-		assert_eq!(System::block_number(), 1);
-		roll_to(reward_config.depreciation_rate.blocks * 2);
-		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 2);
+		assert_eq!(System::block_number(), 2);
+		roll(reward_config.depreciation_rate.blocks * 2 - 1);
+		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 2 + 1);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,

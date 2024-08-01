@@ -1280,7 +1280,6 @@ pub mod pallet {
 		///     - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
 		fn schedule_tasks() {
 			let mut shards = NetworkShards::<T>::iter()
-				.filter(|(_, shard, _)| ShardRegistered::<T>::get(shard).is_some())
 				.map(|(network, shard, _)| {
 					let task_limit = ShardTaskLimit::<T>::get(network).unwrap_or(10) as usize;
 					let tasks = ShardTasks::<T>::iter_prefix(shard).count();
@@ -1308,14 +1307,18 @@ pub mod pallet {
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: usize) {
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
-			let system_tasks =
-				Self::prioritized_unassigned_tasks(network).get_n(capacity, shard_size, true);
+			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
+			let system_tasks = Self::prioritized_unassigned_tasks(network).get_n(
+				capacity,
+				shard_size,
+				is_registered,
+			);
 			let tasks = if let Some(non_system_capacity) = capacity.checked_sub(system_tasks.len())
 			{
 				let non_system_tasks = Self::remaining_unassigned_tasks(network).get_n(
 					non_system_capacity,
 					shard_size,
-					true,
+					is_registered,
 				);
 				system_tasks.into_iter().chain(non_system_tasks).collect::<Vec<_>>()
 			} else {

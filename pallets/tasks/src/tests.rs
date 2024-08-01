@@ -322,9 +322,11 @@ fn shard_offline_removes_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM, 3)
 		));
+		roll(1);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0));
+		roll(1);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![1, 0]);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
 		// put shard 2 online to be assigned UnregisterShard task for new offline shard
@@ -336,9 +338,10 @@ fn shard_offline_removes_tasks() {
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
 		Tasks::shard_offline(0, ETHEREUM);
+		roll(1);
 		assert_eq!(
 			UnassignedSystemTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>(),
-			vec![2, 3]
+			vec![3, 2]
 		);
 		assert!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().is_empty());
 	});
@@ -363,6 +366,7 @@ fn shard_offline_then_shard_online_reassigns_tasks() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM, 3)
 		));
+		roll(1);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
 			vec![(0, 0)]
@@ -372,6 +376,7 @@ fn shard_offline_then_shard_online_reassigns_tasks() {
 		Tasks::shard_offline(0, ETHEREUM);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
+		roll(1);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
@@ -396,6 +401,7 @@ fn submit_completed_result_purges_task_from_storage() {
 		));
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		roll(1);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -424,6 +430,7 @@ fn shard_offline_drops_failed_tasks() {
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		let pub_key = MockTssSigner::new().public_key();
 		ShardCommitment::<Test>::insert(0, vec![pub_key]);
+		roll(1);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, Ok([0; 32]),));
@@ -454,6 +461,7 @@ fn submit_task_error_is_task_failure() {
 		assert_ok!(Tasks::create_task(RawOrigin::Signed([0; 32].into()).into(), sign_task.clone()));
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		roll(1);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0u8; 32].into()).into(), 0, Ok([0; 32]),));
@@ -485,11 +493,13 @@ fn task_moved_on_shard_offline() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM, 3)
 		));
+		roll(1);
 		assert_eq!(Tasks::get_shard_tasks(0), vec![TaskExecution::new(0, TaskPhase::default()),]);
 		Tasks::shard_offline(0, ETHEREUM);
 		ShardState::<Test>::insert(1, ShardStatus::Online);
 		Tasks::shard_online(1, ETHEREUM);
 		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		roll(1);
 		assert_eq!(Tasks::get_shard_tasks(0), vec![]);
 		assert_eq!(Tasks::get_shard_tasks(1), vec![TaskExecution::new(0, TaskPhase::default()),]);
 	});
@@ -511,6 +521,7 @@ fn submit_task_result_inserts_task_output() {
 		));
 		let task_result = mock_result_ok(0, 0);
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		roll(1);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0; 32].into()).into(),
 			0,
@@ -931,6 +942,7 @@ fn read_task_reward_goes_to_all_shard_members() {
 			mock_task(ETHEREUM, 3)
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		roll(1);
 		let mut balances = vec![];
 		for member in shard() {
 			balances.push(Balances::free_balance(&member));
@@ -966,6 +978,7 @@ fn read_task_completion_clears_payout_storage() {
 			mock_task(ETHEREUM, 3)
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
+		roll(1);
 		assert!(SignerPayout::<Test>::iter_prefix(task_id).collect::<Vec<_>>().is_empty());
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
@@ -1004,6 +1017,7 @@ fn send_message_for_all_plus_write_reward_for_signer() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		roll(1);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		let mut balances = vec![];
@@ -1060,6 +1074,7 @@ fn send_message_payout_clears_storage() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		roll(1);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		assert_ok!(Tasks::submit_hash(RawOrigin::Signed([0; 32].into()).into(), 0, Ok([0; 32])),);
@@ -1475,6 +1490,7 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		));
 		ShardCommitment::<Test>::insert(0, vec![MockTssSigner::new().public_key()]);
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		roll(1);
 		let sig = mock_submit_sig(sign_task.function);
 		assert_ok!(Tasks::submit_signature(RawOrigin::Signed([0; 32].into()).into(), 0, sig,),);
 		let mut balances = vec![];
@@ -1492,9 +1508,9 @@ fn read_send_message_rewards_eventually_depreciate_to_lower_bound_1() {
 		// asymptotic lower bound for all depreciation is the lowest unit
 		let expected_write_reward = <Test as crate::Config>::BaseWriteReward::get();
 		assert_eq!(SignerPayout::<Test>::get(task_id, &signer), expected_write_reward);
-		assert_eq!(System::block_number(), 1);
-		roll_to(reward_config.depreciation_rate.blocks * 200);
-		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 200);
+		assert_eq!(System::block_number(), 2);
+		roll(reward_config.depreciation_rate.blocks * 200 - 1);
+		assert_eq!(System::block_number(), reward_config.depreciation_rate.blocks * 200 + 1);
 		assert_ok!(Tasks::submit_result(
 			RawOrigin::Signed([0u8; 32].into()).into(),
 			task_id,
@@ -1692,6 +1708,7 @@ fn set_shard_task_limit_successfully_limits_task_assignment() {
 				mock_task(ETHEREUM, 3)
 			));
 		}
+		roll(1);
 		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 5);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 5));
@@ -1699,6 +1716,7 @@ fn set_shard_task_limit_successfully_limits_task_assignment() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM, 3)
 		));
+		roll(1);
 		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 5);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 6));
@@ -1706,6 +1724,7 @@ fn set_shard_task_limit_successfully_limits_task_assignment() {
 			RawOrigin::Signed([0; 32].into()).into(),
 			mock_task(ETHEREUM, 3)
 		));
+		roll(1);
 		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 6);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 1);
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 6));
@@ -1752,6 +1771,7 @@ fn unregister_gateways_sets_all_read_task_outputs_to_err() {
 			));
 		}
 		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		roll(1);
 		let mut expected_failed_tasks = Vec::new();
 		for (task_id, task) in crate::Tasks::<Test>::iter() {
 			if let Function::ReadMessages { .. } = task.function {
@@ -1808,6 +1828,7 @@ fn test_task_execution_order() {
 			vec![3, 1, 4, 0, 2]
 		);
 		Tasks::shard_online(0, ETHEREUM);
+		roll(1);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<BTreeSet<_>>(),
 			BTreeSet::from([0, 1, 2, 3, 4])

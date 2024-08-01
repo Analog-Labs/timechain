@@ -127,14 +127,3 @@ Run with docker:<br>
 `docker compose --profile ethereum up`<br>
 Test:<br>
 `docker compose run tester --network-id 3 gmp`
-
-
-## Upcoming features
-* Update the time-chain with Proof of time consensus protocol.
-* Attract enough validators from community.
-* Enable governance, and remove sudo.
-* Enable transfer and other functions.
-* Add XCEDT for cross-chain event data transfer.
-* Smart Contact SDK.
-* Update the time-chain to give proper support to publisher and subscriber so that a user can easily publish time data on chain and use it by subscribing the chain data.
-

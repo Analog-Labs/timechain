@@ -100,6 +100,11 @@ thread_local! {
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
 }
 
+/// set status for a given payment id
+fn set_status(id: u64, s: PaymentStatus) {
+	STATUS.with(|m| m.borrow_mut().insert(id, s));
+}
+
 pub struct TestPay;
 impl Pay for TestPay {
 	type Beneficiary = u128;

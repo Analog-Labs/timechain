@@ -1028,7 +1028,6 @@ pub mod pallet {
 						Error::<T>::InsufficientCallerBalanceToRecvTasks
 					);
 				},
-				// TODO: replace with Treasury
 				TaskFunder::Treasury => {
 					ensure!(
 						Self::start_task(task, funded_by).is_ok(),

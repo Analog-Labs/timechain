@@ -1,10 +1,14 @@
 use crate::{self as task_schedule};
 use core::marker::PhantomData;
 use frame_support::derive_impl;
+<<<<<<< HEAD
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnInitialize,
 };
+=======
+use frame_support::traits::{OnFinalize, OnInitialize};
+>>>>>>> development
 use frame_support::PalletId;
 use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU32, ConstU64};
@@ -317,12 +321,17 @@ impl MockTssSigner {
 	}
 }
 
-/// To from `now` to block `n`.
-pub fn roll_to(n: u64) {
-	let now = System::block_number();
-	for i in now + 1..=n {
-		System::set_block_number(i);
-		Shards::on_initialize(i);
-		Tasks::on_initialize(i);
+pub fn roll(n: u64) {
+	for _ in 0..n {
+		next_block();
 	}
+}
+
+fn next_block() {
+	let mut now = System::block_number();
+	Tasks::on_finalize(now);
+	now += 1;
+	System::set_block_number(now);
+	Shards::on_initialize(now);
+	Tasks::on_initialize(now);
 }

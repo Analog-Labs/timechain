@@ -77,8 +77,6 @@ pub mod pallet {
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
 	}
 
-	/// Manage persistent storage for various member-related data.
-
 	/// Get network for member
 	#[pallet::storage]
 	pub type MemberNetwork<T: Config> =
@@ -129,7 +127,10 @@ pub mod pallet {
 
 	#[pallet::error]
 	///  Define possible errors that can occur during pallet operations.
-	/// [`Error::InvalidPublicKey`], [`Error::AlreadyMember`], [`Error::NotMember`], [`Error::BondBelowMinStake`], [`Error::StakedBelowTransferAmount`]: Errors related to invalid public keys, existing memberships, non-membership, insufficient bond for membership, and insufficient stake for transfer.
+	/// [`Error::InvalidPublicKey`], [`Error::AlreadyMember`], [`Error::NotMember`],
+	/// [`Error::BondBelowMinStake`], [`Error::StakedBelowTransferAmount`]: Errors
+	/// related to invalid public keys, existing memberships, non-membership, insufficient
+	/// bond for membership, and insufficient stake for transfer.
 	pub enum Error<T> {
 		InvalidPublicKey,
 		AlreadyMember,

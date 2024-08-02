@@ -151,7 +151,10 @@ pub mod pallet {
 		ThresholdLargerThanSize,
 	}
 
-	/// The pallet provides mechanisms to configure and manage shards, elect members to shards, and handle member events. It includes storage items to keep track of shard sizes, thresholds, and electable members. It also defines events and errors related to shard management.
+	/// The pallet provides mechanisms to configure and manage shards, elect members to shards,
+	/// and handle member events. It includes storage items to keep track of shard sizes,
+	/// thresholds, and electable members. It also defines events and errors related to shard
+	/// management.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		///  Sets the configuration for shard size and threshold.

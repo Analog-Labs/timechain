@@ -4,7 +4,7 @@ use crate::*;
 //use polkadot_sdk::*;
 
 use frame_support::assert_ok;
-use frame_support::traits::WhitelistedStorageKeys;
+use frame_support::traits::{OnFinalize, OnInitialize, WhitelistedStorageKeys};
 use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
 // use pallet_tasks::TaskSigner;
@@ -57,14 +57,14 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-/*/// To from `now` to block `n`.
-fn roll_to(n: u32) {
-	let now = System::block_number();
-	for i in now + 1..=n {
-		System::set_block_number(i);
-		Tasks::on_initialize(i);
+fn roll(n: u32) {
+	for _ in 0..n {
+		let now = System::block_number();
+		Tasks::on_finalize(now);
+		System::set_block_number(now + 1);
+		Tasks::on_initialize(now + 1);
 	}
-}*/
+}
 
 #[test]
 fn shard_not_stuck_in_committed_state() {
@@ -265,10 +265,12 @@ fn register_unregister_kills_task() {
 				shard_size: 3,
 			}
 		));
+		roll(1);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(),));
+		roll(1);
 		// task not assigned to shard 0
 		assert_eq!(Tasks::task_shard(0), None);
 		// member unregisters
@@ -276,6 +278,7 @@ fn register_unregister_kills_task() {
 		Elections::shard_offline(ETHEREUM, old_shard);
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
+		roll(1);
 		// task no longer assigned
 		assert!(Tasks::task_shard(0).is_none());
 		// task not killed

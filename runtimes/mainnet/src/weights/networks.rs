@@ -39,15 +39,13 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::NetworkIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
-	fn add_network(a: u32, _b: u32, ) -> Weight {
+	fn add_network(_a: u32, _b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `359`
 		//  Estimated: `21149`
-		// Minimum execution time: 47_739_000 picoseconds.
-		Weight::from_parts(51_523_011, 0)
+		// Minimum execution time: 47_610_000 picoseconds.
+		Weight::from_parts(52_553_273, 0)
 			.saturating_add(Weight::from_parts(0, 21149))
-			// Standard Error: 377
-			.saturating_add(Weight::from_parts(2_088, 0).saturating_mul(a.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

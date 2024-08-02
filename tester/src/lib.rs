@@ -624,8 +624,8 @@ sol! {
 		function GMP_GAS_LIMIT() external pure returns(uint256);
 
 		constructor(address _gateway);
-		function registerGmpContracts(GmpVotingContract[] memory _registered) external;
-		function vote(bool _vote) external;
+		function registerGmpContract(GmpVotingContract memory _registered) external;
+		function vote(bool _vote) external payable;
 		function stats() public view returns (uint256[] memory);
 	}
 }
@@ -654,7 +654,8 @@ sol! {
 		function upgrade(address newImplementation) external payable;
 		function setAdmin(address newAdmin) external payable;
 		function sudoAddShards(TssKey[] memory shards) external payable;
-	}
+		function estimateMessageCost(uint16 networkid, uint256 messageSize) external view returns (uint256);
+	 }
 }
 
 pub fn create_evm_call(address: EthContractAddress) -> Function {
@@ -1204,16 +1205,6 @@ pub async fn test_setup(
 	let (contract, start_block) = tester
 		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
 		.await?;
-	tester
-		.wallet()
-		.eth_send_call(
-			contract,
-			VotingContract::registerGmpContractsCall { _registered: vec![] }.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?;
 	Ok((gmp_contract, contract, start_block))
 }
 
@@ -1296,11 +1287,11 @@ pub async fn setup_gmp_with_contracts(
 	src.wallet()
 		.eth_send_call(
 			src_contract,
-			VotingContract::registerGmpContractsCall {
-				_registered: vec![GmpVotingContract {
+			VotingContract::registerGmpContractCall {
+				_registered: GmpVotingContract {
 					dest: dest_contract.into(),
 					network: dest_network,
-				}],
+				},
 			}
 			.abi_encode(),
 			0,
@@ -1313,11 +1304,11 @@ pub async fn setup_gmp_with_contracts(
 	dest.wallet()
 		.eth_send_call(
 			dest_contract,
-			VotingContract::registerGmpContractsCall {
-				_registered: vec![GmpVotingContract {
+			VotingContract::registerGmpContractCall {
+				_registered: GmpVotingContract {
 					dest: src_contract.into(),
 					network: src_network,
-				}],
+				},
 			}
 			.abi_encode(),
 			0,

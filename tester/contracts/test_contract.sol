@@ -14,8 +14,8 @@ contract VotingContract {
 
     address owner;
     IGateway gateway;
-    address[] dests;
-    uint16[] networks;
+    address dest_address;
+    uint16 dest_network;
     bool started;
     uint256 yes_votes;
     uint256 no_votes;
@@ -27,19 +27,17 @@ contract VotingContract {
     constructor(address _gateway) {
         owner = msg.sender;
         gateway = IGateway(_gateway);
+        dest_address = address(this);
+        dest_network = 0;
         started = false;
         yes_votes = 0;
         no_votes = 0;
     }
 
-    function registerGmpContracts(GmpVotingContract[] memory _registered) external {
+    function registerGmpContract(GmpVotingContract memory _registered) external {
         require(msg.sender == owner && started == false);
-        dests = new address[](_registered.length);
-        networks = new uint16[](_registered.length);
-        for (uint256 i = 0; i < _registered.length; i++) {
-            dests[i] = _registered[i].dest;
-            networks[i] = _registered[i].network;
-        }
+        dest_address = _registered.dest;
+        dest_network = _registered.network;
         started = true;
     }
 
@@ -68,12 +66,10 @@ contract VotingContract {
         }
     }
 
-    function vote(bool _vote) external {
+    function vote(bool _vote) external payable {
         _handle_vote(_vote);
         bytes memory payload = abi.encode(_vote);
-        for (uint256 i = 0; i < dests.length; i++) {
-            gateway.submitMessage(dests[i], networks[i], GMP_GAS_LIMIT, payload);
-        }
+        gateway.submitMessage{value: msg.value}(dest_address, dest_network, GMP_GAS_LIMIT, payload);
         emit LocalVote(msg.sender, _vote);
     }
 

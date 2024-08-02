@@ -1,14 +1,10 @@
 use crate::{self as task_schedule};
 use core::marker::PhantomData;
 use frame_support::derive_impl;
-<<<<<<< HEAD
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
-	OnInitialize,
+	OnFinalize, OnInitialize,
 };
-=======
-use frame_support::traits::{OnFinalize, OnInitialize};
->>>>>>> development
 use frame_support::PalletId;
 use schnorr_evm::SigningKey;
 use sp_core::{ConstU128, ConstU32, ConstU64};

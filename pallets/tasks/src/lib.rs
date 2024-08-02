@@ -160,7 +160,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+		frame_system::Config<AccountId = AccountId>
+		+ pallet_balances::Config<Balance = Balance>
+		+ pallet_treasury::Config
 	{
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
@@ -405,6 +407,8 @@ pub mod pallet {
 		InsufficientShardStakeToRegister(ShardId),
 		/// Insufficient Shard Stake to create UnRegisterShard task
 		InsufficientShardStakeToUnRegister(ShardId),
+		/// Insufficient Shard Signer Balance To Create SendMessage task as an effect of calling `submit_result`
+		InsufficientBalanceToCreateSendMessageTaskInSubmitResult(AccountId, Msg),
 	}
 
 	#[pallet::error]
@@ -494,10 +498,6 @@ pub mod pallet {
 			let bytes = result.payload.bytes(task_id);
 			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
 			if let Payload::Gmp(msgs) = &result.payload {
-				for msg in msgs {
-					let send_task_id = Self::send_message(result.shard_id, msg.clone());
-					MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
-				}
 				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
 					let batch_size = NetworkBatchSize::<T>::get(task.network)
 						.and_then(NonZeroU64::new)
@@ -507,8 +507,22 @@ pub mod pallet {
 							task.network,
 							next_block_height,
 							batch_size,
-							TaskFunder::Account(caller),
+							TaskFunder::Account(caller.clone()),
 						)?;
+					}
+				}
+				for msg in msgs {
+					if let Ok(send_task_id) =
+						Self::send_message(result.shard_id, msg.clone(), caller.clone())
+					{
+						MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
+					} else {
+						Self::deposit_event(
+							Event::InsufficientBalanceToCreateSendMessageTaskInSubmitResult(
+								caller.clone(),
+								msg.clone(),
+							),
+						);
 					}
 				}
 			}
@@ -645,8 +659,7 @@ pub mod pallet {
 				let batch_size = NonZeroU64::new(network_batch_size.get() - ((block_height + network_offset) % network_batch_size))
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();
-				// TODO: change to funded via Treasury
-				Self::recv_messages(network, block_height, batch_size, TaskFunder::Inflation)?;
+				Self::recv_messages(network, block_height, batch_size, TaskFunder::Treasury)?;
 			}
 			Self::schedule_tasks(network, None);
 			Ok(())
@@ -966,7 +979,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// The account ID containing the funds for a task.
 		fn task_account(task_id: TaskId) -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(task_id)
+			<T as Config>::PalletId::get().into_sub_account_truncating(task_id)
 		}
 
 		/// Prioritized tasks
@@ -995,7 +1008,7 @@ pub mod pallet {
 		///   1. Insert network_id and block_height into RecvTasks storage.
 		///   2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
 		///   3. Set the task's start field to block_height.
-		///   4. Start the task with [`TaskFunder::Inflation`].
+		///   4. Start the task by funding it via `funded_by`.
 		fn recv_messages(
 			network_id: NetworkId,
 			block_height: u64,
@@ -1016,7 +1029,7 @@ pub mod pallet {
 					);
 				},
 				// TODO: replace with Treasury
-				TaskFunder::Inflation => {
+				TaskFunder::Treasury => {
 					ensure!(
 						Self::start_task(task, funded_by).is_ok(),
 						Error::<T>::InsufficientTreasuryBalanceToRecvTasks
@@ -1112,25 +1125,28 @@ pub mod pallet {
 			});
 		}
 
-		/// To initiate a task that sends a message to a specified destination network, leveraging the inflation funding mechanism.
+		/// To initiate a task that sends a message to a specified destination network.
 		///
 		/// # Flow
 		///   1. Create task parameters using `TaskDescriptorParams::new` with the following:
 		///     - Destination network from `msg.dest_network`.
 		///    	- Function to send the message ([`Function::SendMessage { msg }`][Function::SendMessage]).
-		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Inflation`].
-		///   3. Ensure the task is successfully started and funded using `expect("task funded through inflation")`.
+		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Account(funder)`].
+		///   3. Ensure the task is successfully started and funded using the chronicle.
 		///   4. Return the Task ID of the started task.
-		fn send_message(shard_id: ShardId, msg: Msg) -> TaskId {
+		fn send_message(
+			shard_id: ShardId,
+			msg: Msg,
+			funded_by: AccountId,
+		) -> Result<TaskId, DispatchError> {
 			Self::start_task(
 				TaskDescriptorParams::new(
 					msg.dest_network,
 					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Inflation,
+				TaskFunder::Account(funded_by),
 			)
-			.expect("task funded through inflation")
 		}
 
 		/// To initialize and start a task with the given parameters and fund it through various means.
@@ -1194,11 +1210,13 @@ pub mod pallet {
 					}
 					None
 				},
-				TaskFunder::Inflation => {
-					pallet_balances::Pallet::<T>::resolve_creating(
+				TaskFunder::Treasury => {
+					pallet_balances::Pallet::<T>::transfer(
+						&pallet_treasury::Pallet::<T>::account_id(),
 						&Self::task_account(task_id),
-						pallet_balances::Pallet::<T>::issue(required_funds),
-					);
+						required_funds,
+						ExistenceRequirement::KeepAlive,
+					)?;
 					None
 				},
 			};

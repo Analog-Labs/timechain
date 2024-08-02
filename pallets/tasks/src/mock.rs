@@ -1,13 +1,19 @@
 use crate::{self as task_schedule};
+use core::marker::PhantomData;
 use frame_support::derive_impl;
-use frame_support::traits::OnInitialize;
+use frame_support::traits::{
+	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
+	OnInitialize,
+};
 use frame_support::PalletId;
 use schnorr_evm::SigningKey;
-use sp_core::{ConstU128, ConstU64};
+use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
-	traits::{parameter_types, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature, Percent,
+	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
+	BuildStorage, DispatchResult, MultiSignature, Percent, Permill,
 };
+use sp_std::cell::RefCell;
+use sp_std::collections::btree_map::BTreeMap;
 use time_primitives::{
 	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
 	TransferStake,
@@ -61,6 +67,7 @@ frame_support::construct_runtime!(
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Members: pallet_members,
 		Elections: pallet_elections,
+		Treasury: pallet_treasury,
 	}
 );
 
@@ -85,6 +92,102 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+}
+
+thread_local! {
+	pub static PAID: RefCell<BTreeMap<(u128, u32), u128>> = RefCell::new(BTreeMap::new());
+	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
+	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+}
+
+pub struct TestPay;
+impl Pay for TestPay {
+	type Beneficiary = u128;
+	type Balance = u128;
+	type Id = u64;
+	type AssetKind = u32;
+	type Error = ();
+
+	fn pay(
+		who: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		PAID.with(|paid| *paid.borrow_mut().entry((*who, asset_kind)).or_default() += amount);
+		Ok(LAST_ID.with(|lid| {
+			let x = *lid.borrow();
+			lid.replace(x + 1);
+			x
+		}))
+	}
+	fn check_payment(id: Self::Id) -> PaymentStatus {
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id) {
+		set_status(id, PaymentStatus::Failure)
+	}
+}
+
+parameter_types! {
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub TreasuryAccount: AccountId = Treasury::account_id();
+	pub const SpendPayoutPeriod: u64 = 5;
+}
+pub struct TestSpendOrigin;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
+	type Success = u128;
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(o).and_then(|o| match o {
+			frame_system::RawOrigin::Root => Ok(u128::max_value()),
+			r => Err(RuntimeOrigin::from(r)),
+		})
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+pub struct MulBy<N>(PhantomData<N>);
+impl<N: Get<u128>> ConversionFromAssetBalance<u128, u32, u128> for MulBy<N> {
+	type Error = ();
+	fn from_asset_balance(balance: u128, _asset_id: u32) -> Result<u128, Self::Error> {
+		return balance.checked_mul(N::get()).ok_or(());
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: u32) {}
+}
+
+impl pallet_treasury::Config for Test {
+	type PalletId = TreasuryPalletId;
+	type Currency = pallet_balances::Pallet<Test>;
+	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
+	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
+	type RuntimeEvent = RuntimeEvent;
+	type OnSlash = ();
+	type ProposalBond = ProposalBond;
+	type ProposalBondMinimum = ConstU128<1>;
+	type ProposalBondMaximum = ();
+	type SpendPeriod = ConstU64<2>;
+	type Burn = Burn;
+	type BurnDestination = (); // Just gets burned.
+	type WeightInfo = ();
+	type SpendFunds = ();
+	type MaxApprovals = ConstU32<100>;
+	type SpendOrigin = TestSpendOrigin;
+	type AssetKind = u32;
+	type Beneficiary = u128;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = TestPay;
+	type BalanceConverter = MulBy<ConstU128<2>>;
+	type PayoutPeriod = SpendPayoutPeriod;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_members::Config for Test {

@@ -411,17 +411,20 @@ where
 							Level::INFO,
 							"submitting heartbeat",
 						);
-						if let Err(e) = self.substrate.submit_heartbeat().await {
-							event!(
-								target: TW_LOG,
-								parent: span,
-								Level::INFO,
-								"Error submitting heartbeat: {:?}",
-								e
-							);
-						} else {
-							send_heartbeat = false;
-							event!(target: TW_LOG, parent: span, Level::INFO, "submitted heartbeat");
+						match self.substrate.submit_heartbeat().await {
+							Ok(()) => {
+								send_heartbeat = false;
+								event!(target: TW_LOG, parent: span, Level::INFO, "submitted heartbeat");
+							}
+							Err(e) => {
+								event!(
+									target: TW_LOG,
+									parent: span,
+									Level::INFO,
+									"Error submitting heartbeat: {:?}",
+									e
+								);
+							}
 						}
 					}
 					if let Err(e) = self.on_finality(span, block_hash, block_number).await {

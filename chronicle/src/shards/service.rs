@@ -380,6 +380,7 @@ where
 		let mut block_stream = task_executor.block_stream().fuse();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		event!(target: TW_LOG, parent: span, Level::INFO, "Started chronicle loop");
+		let mut send_heartbeat = false;
 		loop {
 			futures::select! {
 				notification = finality_notifications.next().fuse() => {
@@ -393,6 +394,9 @@ where
 						continue;
 					};
 					if block_number % heartbeat_period == 0 {
+						send_heartbeat = true;
+					}
+					if send_heartbeat {
 						event!(
 							target: TW_LOG,
 							parent: span,
@@ -406,8 +410,10 @@ where
 								Level::ERROR,
 								"Error submitting heartbeat: {:?}",e
 							);
-						};
-						event!(target: TW_LOG, parent: span, Level::INFO, "submitted heartbeat");
+						} else {
+							send_heartbeat = false;
+							event!(target: TW_LOG, parent: span, Level::INFO, "submitted heartbeat");
+						}
 					}
 					if let Err(e) = self.on_finality(span, block_hash, block_number).await {
 						event!(

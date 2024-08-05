@@ -394,6 +394,14 @@ where
 						continue;
 					};
 					if block_number % heartbeat_period == 0 {
+						if send_heartbeat {
+							event!(
+								target: TW_LOG,
+								parent: span,
+								Level::ERROR,
+								"missed heartbeat period",
+							);
+						}
 						send_heartbeat = true;
 					}
 					if send_heartbeat {
@@ -407,8 +415,9 @@ where
 							event!(
 								target: TW_LOG,
 								parent: span,
-								Level::ERROR,
-								"Error submitting heartbeat: {:?}",e
+								Level::INFO,
+								"Error submitting heartbeat: {:?}",
+								e
 							);
 						} else {
 							send_heartbeat = false;

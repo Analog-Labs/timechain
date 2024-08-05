@@ -28,7 +28,6 @@ use frame_support::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		Imbalance,
 	},
-	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use frame_system::EnsureRootWithSuccess;
 use frame_system::{limits::BlockWeights, EnsureRoot};
@@ -65,13 +64,16 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+/// weightToFee implementation
+use runtime_common::fee::WeightToFee;
 pub use runtime_common::{
 	currency::*,
 	prod_or_dev,
 	time::*,
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-	BABE_GENESIS_EPOCH_CONFIG,
+	BABE_GENESIS_EPOCH_CONFIG, MAXIMUM_BLOCK_WEIGHT,
 };
+
 pub use time_primitives::{
 	AccountId, Balance, BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, Gateway,
 	GatewayMessage, MemberStatus, MembersInterface, NetworkId, NetworksInterface, PeerId,
@@ -89,7 +91,7 @@ pub use frame_support::{
 		ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, InstanceFilter,
 		KeyOwnerProofSystem, OnUnbalanced, Randomness, StorageInfo,
 	},
-	weights::{constants::ParityDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
+	weights::{constants::ParityDbWeight, ConstantMultiplier, Weight},
 	PalletId, StorageValue,
 };
 #[cfg(any(feature = "std", test))]
@@ -121,9 +123,6 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
-const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
@@ -759,7 +758,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
 	// multiplier to boost the priority of operational transactions
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }

@@ -38,10 +38,8 @@ use frame_support::{
 		OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
-		constants::{
-			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
-		},
-		ConstantMultiplier, IdentityFee, Weight,
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
+		ConstantMultiplier, Weight,
 	},
 	PalletId,
 };
@@ -91,8 +89,10 @@ pub use time_primitives::{
 	TaskResult, TssPublicKey, TssSignature, ANLOG,
 };
 
+/// weightToFee implementation
+use runtime_common::fee::WeightToFee;
 /// Constant values used within the runtime.
-use runtime_common::{currency::*, time::*, BABE_GENESIS_EPOCH_CONFIG};
+use runtime_common::{currency::*, time::*, BABE_GENESIS_EPOCH_CONFIG, MAXIMUM_BLOCK_WEIGHT};
 use sp_runtime::generic::Era;
 
 /// Benchmarked pallet weights
@@ -187,9 +187,6 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
-const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
@@ -400,7 +397,8 @@ impl pallet_babe::Config for Runtime {
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 parameter_types! {
-	// Minimum allowed account balance under which account will be reaped
+	/// Minimum allowed account balance under which account will be reaped
+	/// 1 MILLIANLOG = 0.001 ANLOG, the base extrinsic weight fee is MICROANLOG which is less than this amount
 	pub const ExistentialDeposit: Balance = 1 * MILLIANLOG;
 }
 
@@ -434,11 +432,26 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
+	/// Transaction byte fee, calculated as 10 MILLIANLOG.
+	/// 10 MILLIANLOG is equivalent to 0.01 ANLOG (1 MILLIANLOG = 10^-3 ANLOG).
 	pub const TransactionByteFee: Balance = 10 * MILLIANLOG;
+
+	/// Multiplier for operational fees, set to 5.
 	pub const OperationalFeeMultiplier: u8 = 5;
+
+	/// The target block fullness level, set to 25%.
+	/// This determines the block saturation level, and fees will adjust based on this value.
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+
+	/// Adjustment variable for fee calculation, set to 1/100,000.
+	/// This value influences how rapidly the fee multiplier changes.
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
+
+	/// Minimum fee multiplier, set to 1/1,000,000,000.
+	/// This represents the smallest possible fee multiplier to prevent fees from dropping too low.
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+
+	/// Maximum fee multiplier, set to the maximum possible value of the `Multiplier` type.
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
@@ -446,11 +459,25 @@ parameter_types! {
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
+	/// The event type that will be emitted for transaction payment events.
 	type RuntimeEvent = RuntimeEvent;
+
+	/// Specifies the currency adapter used for charging transaction fees.
+	/// The `CurrencyAdapter` is used to charge the fees and deal with any adjustments or redistribution of those fees.
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+
+	/// The multiplier applied to operational transaction fees.
+	/// Operational fees are used for transactions that are essential for the network's operation.
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-	type WeightToFee = IdentityFee<Balance>;
+
+	/// Defines how the weight of a transaction is converted to a fee.
+	type WeightToFee = WeightToFee;
+
+	/// Defines a constant multiplier for the length (in bytes) of a transaction, applied as an additional fee.
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+
+	/// Defines how the fee multiplier is updated based on the block fullness.
+	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<
 		Self,
 		TargetBlockFullness,

@@ -1,8 +1,8 @@
-use alloy_primitives::Address;
+use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolCall;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
-use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
+use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -11,7 +11,8 @@ use tc_subxt::ext::futures::{FutureExt, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient};
 use tester::{
 	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
-	test_setup, wait_for_gmp_calls, ChainNetwork, GmpBenchState, Network, Tester, VotingContract,
+	test_setup, wait_for_gmp_calls, ChainNetwork, Gateway, GmpBenchState, Network, Tester,
+	VotingContract,
 };
 use time_primitives::{Payload, ShardId};
 use tokio::time::{interval_at, Instant};
@@ -282,6 +283,30 @@ async fn gmp_benchmark(
 	// get contract stats of destination contract
 	let dest_stats = stats(dest_tester, dest_contract, None).await?;
 	println!("stats in start: {:?}", start_stats);
+	let gateway = src_tester.geteway().await?.context("Gateway not found")?;
+	let voting_call = VotingContract::voteCall { _vote: true }.abi_encode();
+	let msg_size = U256::from_str_radix(&voting_call.len().to_string(), 16).unwrap();
+
+	// estimate message_cost
+	let result = src_tester
+		.wallet()
+		.eth_send_call(
+			gateway,
+			Gateway::estimateMessageCostCall {
+				networkid: dest_tester.network_id(),
+				messageSize: msg_size,
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+
+	let SubmitResult::Executed { result, .. } = result else { anyhow::bail!("{:?}", result) };
+	let CallResult::Success(data) = result else { anyhow::bail!("failed parsing {:?}", result) };
+	let msg_cost: u128 = Gateway::estimateMessageCostCall::abi_decode_returns(&data, true)?._0.try_into().unwrap();
+
 
 	// get nonce of the caller to manage explicitly
 	let bytes = hex::decode(src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
@@ -295,6 +320,7 @@ async fn gmp_benchmark(
 		})
 		.await?;
 
+
 	// make list of contract calls to initiate gmp tasks
 	let mut calls = Vec::new();
 	for i in 0..number_of_calls {
@@ -302,8 +328,9 @@ async fn gmp_benchmark(
 		calls.push({
 			src_tester.wallet().eth_send_call(
 				src_contract,
-				VotingContract::voteCall { _vote: true }.abi_encode(),
-				0,
+				voting_call.clone(),
+				// remove this multiplication when the issue of gas_price is fixed in contract
+				msg_cost * 2,
 				Some(nonce),
 				None,
 			)

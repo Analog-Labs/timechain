@@ -121,6 +121,10 @@ impl Tester {
 		self.network_id
 	}
 
+	pub async fn geteway(&self) -> Result<Option<EthContractAddress>> {
+		self.runtime.get_gateway(self.network_id).await
+	}
+
 	pub async fn faucet(&self) {
 		// TODO: Calculate the gas_limit necessary to execute the test, then replace this
 		// by: gas_limit * gas_price, where gas_price changes depending on the network
@@ -649,13 +653,33 @@ sol! {
 		uint256 xCoord;
 	}
 
+	type UFloat9x56 is uint64;
+
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct UpdateNetworkInfo {
+		uint16 networkId;
+		bytes32 domainSeparator;
+		uint64 gasLimit;
+		UFloat9x56 relativeGasPrice;
+		uint128 baseFee;
+		uint64 mortality;
+	}
+
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct Signature {
+		uint256 xCoord;
+		uint256 e;
+		uint256 s;
+	}
+
 	contract Gateway {
 		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
 		function upgrade(address newImplementation) external payable;
 		function setAdmin(address newAdmin) external payable;
 		function sudoAddShards(TssKey[] memory shards) external payable;
 		function estimateMessageCost(uint16 networkid, uint256 messageSize) external view returns (uint256);
-	 }
+		function setNetworkInfo(Signature calldata signature, UpdateNetworkInfo calldata info) external;
+	}
 }
 
 pub fn create_evm_call(address: EthContractAddress) -> Function {

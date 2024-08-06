@@ -403,10 +403,10 @@ pub mod pallet {
 		ShardTaskLimitSet(NetworkId, u32),
 		/// Set the network batch size
 		BatchSizeSet(NetworkId, u64, u64),
-		/// Insufficient Shard Stake to create RegisterShard task
-		InsufficientShardStakeToRegister(ShardId),
-		/// Insufficient Shard Stake to create UnRegisterShard task
-		InsufficientShardStakeToUnRegister(ShardId),
+		/// Insufficient Treasury Balance to create RegisterShard task
+		InsufficientTreasuryBalanceToRegisterShard(ShardId),
+		/// Insufficient Treasury Balance to create UnRegisterShard task
+		InsufficientTreasuryBalanceToUnRegisterShard(ShardId),
 		/// Insufficient Shard Signer Balance To Create SendMessage task as an effect of calling `submit_result`
 		InsufficientBalanceToCreateSendMessageTaskInSubmitResult(AccountId, Msg),
 	}
@@ -1054,11 +1054,11 @@ pub mod pallet {
 					Function::RegisterShard { shard_id },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Shard(shard_id),
+				TaskFunder::Treasury,
 			)
 			.is_err()
 			{
-				Self::deposit_event(Event::InsufficientShardStakeToRegister(shard_id));
+				Self::deposit_event(Event::InsufficientTreasuryBalanceToRegisterShard(shard_id));
 			}
 		}
 
@@ -1099,11 +1099,13 @@ pub mod pallet {
 						Function::UnregisterShard { shard_id },
 						T::Shards::shard_members(shard_id).len() as _,
 					),
-					TaskFunder::Shard(shard_id),
+					TaskFunder::Treasury,
 				)
 				.is_err()
 				{
-					Self::deposit_event(Event::InsufficientShardStakeToUnRegister(shard_id));
+					Self::deposit_event(Event::InsufficientTreasuryBalanceToUnRegisterShard(
+						shard_id,
+					));
 				}
 				return;
 			}

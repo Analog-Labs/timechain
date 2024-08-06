@@ -443,12 +443,8 @@ pub mod pallet {
 		BootstrapShardMustBeOnline,
 		/// Shard for task must be online at task creation
 		MatchingShardNotOnline,
-		/// Insufficient balance for Submit Result Caller to Recv Tasks
-		InsufficientCallerBalanceToRecvTasks,
 		/// Insufficient balance in Treasury to fund register_gateway Recv Tasks
 		InsufficientTreasuryBalanceToRecvTasks,
-		/// Unsupported path for funding recv tasks
-		UnsupportedPathToFundRecvTasks,
 	}
 
 	#[pallet::call]
@@ -505,18 +501,11 @@ pub mod pallet {
 							.unwrap_or(BATCH_SIZE);
 						if let Some(next_block_height) = block_height.checked_add(batch_size.into())
 						{
-							Self::recv_messages(
-								task.network,
-								next_block_height,
-								batch_size,
-								TaskFunder::Account(caller.clone()),
-							)?;
+							Self::recv_messages(task.network, next_block_height, batch_size)?;
 						}
 					}
 					for msg in msgs {
-						if let Ok(send_task_id) =
-							Self::send_message(result.shard_id, msg.clone(), caller.clone())
-						{
+						if let Ok(send_task_id) = Self::send_message(result.shard_id, msg.clone()) {
 							MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
 						} else {
 							Self::deposit_event(
@@ -531,12 +520,7 @@ pub mod pallet {
 				Payload::Error(_) => {
 					if let Function::ReadMessages { batch_size } = task.function {
 						if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-							Self::recv_messages(
-								task.network,
-								block_height,
-								batch_size,
-								TaskFunder::Account(caller.clone()),
-							)?;
+							Self::recv_messages(task.network, block_height, batch_size)?;
 						}
 					}
 				},
@@ -674,7 +658,7 @@ pub mod pallet {
 				let batch_size = NonZeroU64::new(network_batch_size.get() - ((block_height + network_offset) % network_batch_size))
 					.expect("x = block_height % BATCH_SIZE ==> x <= BATCH_SIZE - 1 ==> BATCH_SIZE - x >= 1; QED");
 				let block_height = block_height + batch_size.get();
-				Self::recv_messages(network, block_height, batch_size, TaskFunder::Treasury)?;
+				Self::recv_messages(network, block_height, batch_size)?;
 			}
 			Ok(())
 		}
@@ -1031,7 +1015,6 @@ pub mod pallet {
 			network_id: NetworkId,
 			block_height: u64,
 			batch_size: NonZeroU64,
-			funded_by: TaskFunder,
 		) -> DispatchResult {
 			let mut task = TaskDescriptorParams::new(
 				network_id,
@@ -1039,21 +1022,10 @@ pub mod pallet {
 				T::Elections::default_shard_size(),
 			);
 			task.start = block_height;
-			match funded_by {
-				TaskFunder::Account(_) => {
-					ensure!(
-						Self::start_task(task, funded_by).is_ok(),
-						Error::<T>::InsufficientCallerBalanceToRecvTasks
-					);
-				},
-				TaskFunder::Treasury => {
-					ensure!(
-						Self::start_task(task, funded_by).is_ok(),
-						Error::<T>::InsufficientTreasuryBalanceToRecvTasks
-					);
-				},
-				_ => return Err(Error::<T>::UnsupportedPathToFundRecvTasks.into()),
-			}
+			ensure!(
+				Self::start_task(task, TaskFunder::Treasury).is_ok(),
+				Error::<T>::InsufficientTreasuryBalanceToRecvTasks
+			);
 			RecvTasks::<T>::insert(network_id, block_height);
 			Ok(())
 		}
@@ -1150,21 +1122,17 @@ pub mod pallet {
 		///   1. Create task parameters using `TaskDescriptorParams::new` with the following:
 		///     - Destination network from `msg.dest_network`.
 		///    	- Function to send the message ([`Function::SendMessage { msg }`][Function::SendMessage]).
-		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Account(funder)`].
+		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Treasury`].
 		///   3. Ensure the task is successfully started and funded using the chronicle.
 		///   4. Return the Task ID of the started task.
-		fn send_message(
-			shard_id: ShardId,
-			msg: Msg,
-			funded_by: AccountId,
-		) -> Result<TaskId, DispatchError> {
+		fn send_message(shard_id: ShardId, msg: Msg) -> Result<TaskId, DispatchError> {
 			Self::start_task(
 				TaskDescriptorParams::new(
 					msg.dest_network,
 					Function::SendMessage { msg },
 					T::Shards::shard_members(shard_id).len() as _,
 				),
-				TaskFunder::Account(funded_by),
+				TaskFunder::Treasury,
 			)
 		}
 
@@ -1220,14 +1188,6 @@ pub mod pallet {
 						ExistenceRequirement::KeepAlive,
 					)?;
 					Some(user)
-				},
-				TaskFunder::Shard(shard_id) => {
-					let task_account = Self::task_account(task_id);
-					let amount = required_funds.saturating_div(schedule.shard_size.into());
-					for member in T::Shards::shard_members(shard_id) {
-						T::Members::transfer_stake(&member, &task_account, amount)?;
-					}
-					None
 				},
 				TaskFunder::Treasury => {
 					pallet_balances::Pallet::<T>::transfer(

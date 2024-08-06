@@ -216,6 +216,5 @@ pub struct RewardConfig<Balance, BlockNumber> {
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskFunder {
 	Account(AccountId),
-	Shard(ShardId),
 	Treasury,
 }

@@ -305,8 +305,10 @@ async fn gmp_benchmark(
 
 	let SubmitResult::Executed { result, .. } = result else { anyhow::bail!("{:?}", result) };
 	let CallResult::Success(data) = result else { anyhow::bail!("failed parsing {:?}", result) };
-	let msg_cost: u128 = Gateway::estimateMessageCostCall::abi_decode_returns(&data, true)?._0.try_into().unwrap();
-
+	let msg_cost: u128 = Gateway::estimateMessageCostCall::abi_decode_returns(&data, true)?
+		._0
+		.try_into()
+		.unwrap();
 
 	// get nonce of the caller to manage explicitly
 	let bytes = hex::decode(src_tester.wallet().account().address.strip_prefix("0x").unwrap())?;
@@ -320,7 +322,6 @@ async fn gmp_benchmark(
 		})
 		.await?;
 
-
 	// make list of contract calls to initiate gmp tasks
 	let mut calls = Vec::new();
 	for i in 0..number_of_calls {
@@ -329,8 +330,7 @@ async fn gmp_benchmark(
 			src_tester.wallet().eth_send_call(
 				src_contract,
 				voting_call.clone(),
-				// remove this multiplication when the issue of gas_price is fixed in contract
-				msg_cost * 2,
+				msg_cost,
 				Some(nonce),
 				None,
 			)

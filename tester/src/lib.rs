@@ -678,7 +678,7 @@ sol! {
 		function setAdmin(address newAdmin) external payable;
 		function sudoAddShards(TssKey[] memory shards) external payable;
 		function estimateMessageCost(uint16 networkid, uint256 messageSize) external view returns (uint256);
-		function setNetworkInfo(Signature calldata signature, UpdateNetworkInfo calldata info) external;
+		function setNetworkInfo(UpdateNetworkInfo calldata info) external;
 	}
 }
 
@@ -1341,6 +1341,8 @@ pub async fn setup_gmp_with_contracts(
 		)
 		.await?;
 
+	set_network_info(src, dest, src_proxy_contract, dest_proxy_contract).await?;
+
 	let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
 
 	Ok((src_contract, dest_contract, deposit_amount))
@@ -1373,6 +1375,68 @@ pub async fn setup_funds_if_needed(
 	let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
 
 	Ok((src_contract, dest_contract, deposit_amount))
+}
+
+///
+/// Sets network info on gateway contracts
+///
+/// # Argument
+/// `src`: tester connected to source chain
+/// `dest`: tester connected to destination chain
+/// `src_proxy`: src chain proxy address
+/// `dest_proxy`: dest chain proxy address
+pub async fn set_network_info(
+	src: &Tester,
+	dest: &Tester,
+	src_proxy: EthContractAddress,
+	dest_proxy: EthContractAddress,
+) -> Result<()> {
+	let src_network = src.network_id();
+	let dest_network = dest.network_id();
+
+	// set network info
+	src.wallet()
+		.eth_send_call(
+			src_proxy,
+			Gateway::setNetworkInfoCall {
+				info: UpdateNetworkInfo {
+					networkId: dest_network,
+					domainSeparator: [0; 32].into(),
+					gasLimit: 1_000_000,
+					relativeGasPrice: 1,
+					baseFee: 100_000,
+					mortality: u64::MAX,
+				},
+			}
+			.abi_encode(),
+			0,
+			None,
+			None,
+		)
+		.await?;
+
+	if src_network != dest_network {
+		dest.wallet()
+			.eth_send_call(
+				dest_proxy,
+				Gateway::setNetworkInfoCall {
+					info: UpdateNetworkInfo {
+						networkId: src_network,
+						domainSeparator: [0; 32].into(),
+						gasLimit: 1_000_000,
+						relativeGasPrice: 1,
+						baseFee: 100_000,
+						mortality: u64::MAX,
+					},
+				}
+				.abi_encode(),
+				0,
+				None,
+				None,
+			)
+			.await?;
+	}
+	Ok(())
 }
 
 ///

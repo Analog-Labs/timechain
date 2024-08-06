@@ -407,8 +407,8 @@ pub mod pallet {
 		InsufficientTreasuryBalanceToRegisterShard(ShardId),
 		/// Insufficient Treasury Balance to create UnRegisterShard task
 		InsufficientTreasuryBalanceToUnRegisterShard(ShardId),
-		/// Insufficient Shard Signer Balance To Create SendMessage task as an effect of calling `submit_result`
-		InsufficientBalanceToCreateSendMessageTaskInSubmitResult(AccountId, Msg),
+		/// Insufficient Treasury Balance To Create SendMessage task as an effect of calling `submit_result`
+		InsufficientTreasuryBalanceToSendMessage(Msg),
 	}
 
 	#[pallet::error]
@@ -483,7 +483,7 @@ pub mod pallet {
 			task_id: TaskId,
 			result: TaskResult,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			if TaskOutput::<T>::get(task_id).is_some() {
 				return Ok(());
@@ -508,12 +508,9 @@ pub mod pallet {
 						if let Ok(send_task_id) = Self::send_message(result.shard_id, msg.clone()) {
 							MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
 						} else {
-							Self::deposit_event(
-								Event::InsufficientBalanceToCreateSendMessageTaskInSubmitResult(
-									caller.clone(),
-									msg.clone(),
-								),
-							);
+							Self::deposit_event(Event::InsufficientTreasuryBalanceToSendMessage(
+								msg.clone(),
+							));
 						}
 					}
 				},

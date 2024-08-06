@@ -497,34 +497,50 @@ pub mod pallet {
 			ensure!(result.shard_id == shard_id, Error::<T>::InvalidOwner);
 			let bytes = result.payload.bytes(task_id);
 			Self::validate_signature(result.shard_id, &bytes, result.signature)?;
-			if let Payload::Gmp(msgs) = &result.payload {
-				if let Some(block_height) = RecvTasks::<T>::get(task.network) {
-					let batch_size = NetworkBatchSize::<T>::get(task.network)
-						.and_then(NonZeroU64::new)
-						.unwrap_or(BATCH_SIZE);
-					if let Some(next_block_height) = block_height.checked_add(batch_size.into()) {
-						Self::recv_messages(
-							task.network,
-							next_block_height,
-							batch_size,
-							TaskFunder::Account(caller.clone()),
-						)?;
+			match &result.payload {
+				Payload::Gmp(msgs) => {
+					if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+						let batch_size = NetworkBatchSize::<T>::get(task.network)
+							.and_then(NonZeroU64::new)
+							.unwrap_or(BATCH_SIZE);
+						if let Some(next_block_height) = block_height.checked_add(batch_size.into())
+						{
+							Self::recv_messages(
+								task.network,
+								next_block_height,
+								batch_size,
+								TaskFunder::Account(caller.clone()),
+							)?;
+						}
 					}
-				}
-				for msg in msgs {
-					if let Ok(send_task_id) =
-						Self::send_message(result.shard_id, msg.clone(), caller.clone())
-					{
-						MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
-					} else {
-						Self::deposit_event(
-							Event::InsufficientBalanceToCreateSendMessageTaskInSubmitResult(
-								caller.clone(),
-								msg.clone(),
-							),
-						);
+					for msg in msgs {
+						if let Ok(send_task_id) =
+							Self::send_message(result.shard_id, msg.clone(), caller.clone())
+						{
+							MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
+						} else {
+							Self::deposit_event(
+								Event::InsufficientBalanceToCreateSendMessageTaskInSubmitResult(
+									caller.clone(),
+									msg.clone(),
+								),
+							);
+						}
 					}
-				}
+				},
+				Payload::Error(_) => {
+					if let Function::ReadMessages { batch_size } = task.function {
+						if let Some(block_height) = RecvTasks::<T>::get(task.network) {
+							Self::recv_messages(
+								task.network,
+								block_height,
+								batch_size,
+								TaskFunder::Account(caller.clone()),
+							)?;
+						}
+					}
+				},
+				_ => {},
 			}
 			Self::finish_task(task_id, result.clone());
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());

@@ -1062,7 +1062,7 @@ pub mod pallet {
 		///
 		/// # Flow
 		///  1. Create a task descriptor with `network_id`, [`Function::RegisterShard`] { `shard_id` }, and shard member count.
-		///  2. Start the task with [`TaskFunder::ShardId`].
+		///  2. Start the task with [`TaskFunder::Treasury`].
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
 			if Self::start_task(
 				TaskDescriptorParams::new(
@@ -1101,7 +1101,7 @@ pub mod pallet {
 		///   1. Check if the shard with shard_id is registered.
 		///   2.  If the shard is registered:
 		///     - Start a task to unregister the shard.
-		///     - Fund the task using shard stake.
+		///     - Fund the task using the treasury.
 		///   3. If the shard is not registered:
 		///     - Iterate through existing tasks.
 		///     - For each task, check if it is a registration task for the same shard.

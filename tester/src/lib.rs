@@ -2,9 +2,7 @@ use alloy_primitives::{Address, U256};
 use alloy_sol_types::{sol, SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{
-	AtBlock, CallContract, CallResult, GetTransactionCount, SubmitResult,
-};
+use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
 use schnorr_evm::SigningKey;
 use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
@@ -208,7 +206,6 @@ impl Tester {
 	pub async fn deposit_funds(
 		&self,
 		gmp_address: EthContractAddress,
-		source_network: NetworkId,
 		source: EthContractAddress,
 		is_contract: bool,
 		amount: u128,
@@ -220,11 +217,7 @@ impl Tester {
 		if is_contract {
 			src[11] = 1;
 		}
-		let payload = IGateway::depositCall {
-			network: source_network,
-			source: src.into(),
-		}
-		.abi_encode();
+		let payload = IGateway::depositCall {}.abi_encode();
 		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
 		Ok(())
 	}
@@ -677,7 +670,7 @@ sol! {
 		function upgrade(address newImplementation) external payable;
 		function setAdmin(address newAdmin) external payable;
 		function sudoAddShards(TssKey[] memory shards) external payable;
-		function estimateMessageCost(uint16 networkid, uint256 messageSize) external view returns (uint256);
+		function estimateMessageCost(uint16 networkid, uint256 messageSize, uint256 gasLimit) external view returns (uint256);
 		function setNetworkInfo(UpdateNetworkInfo calldata info) external;
 	}
 }
@@ -701,7 +694,6 @@ pub fn create_evm_view_call(address: EthContractAddress) -> Function {
 #[derive(Debug)]
 pub struct GmpBenchState {
 	total_calls: u64,
-	total_deposit: u128,
 	gmp_start_time: Instant,
 	gmp_execution_duration: Duration,
 	pub tasks: HashMap<TaskId, TaskPhaseInfo>,
@@ -716,16 +708,11 @@ impl GmpBenchState {
 			total_calls,
 			gmp_start_time: Instant::now(),
 			gmp_execution_duration: Duration::from_secs(0),
-			total_deposit: Default::default(),
 			tasks: HashMap::with_capacity(total_calls as usize),
 			recv_tasks: Default::default(),
 			errored_tasks: Default::default(),
 			total_src_gas: Vec::with_capacity(total_calls as usize),
 		}
-	}
-
-	pub fn set_deposit(&mut self, deposit: u128) {
-		self.total_deposit = deposit;
 	}
 
 	pub fn start(&mut self) {
@@ -746,10 +733,6 @@ impl GmpBenchState {
 
 	pub fn insert_src_gas(&mut self, src_gas: Vec<u128>) {
 		self.total_src_gas.extend(src_gas);
-	}
-
-	pub fn dest_src_gas(&mut self, dest_gas: u128) {
-		self.total_deposit = dest_gas;
 	}
 
 	pub fn add_task(&mut self, task_id: u64) {
@@ -1265,8 +1248,7 @@ pub async fn setup_gmp_with_contracts(
 	src: &Tester,
 	dest: &Tester,
 	contract: &Path,
-	total_calls: u128,
-) -> Result<(EthContractAddress, EthContractAddress, u128)> {
+) -> Result<(EthContractAddress, EthContractAddress)> {
 	src.faucet().await;
 	dest.faucet().await;
 	let src_proxy = src.get_proxy_addr().await?;
@@ -1342,39 +1324,9 @@ pub async fn setup_gmp_with_contracts(
 		.await?;
 
 	set_network_info(src, dest, src_proxy_contract, dest_proxy_contract).await?;
+	// let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
 
-	let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
-
-	Ok((src_contract, dest_contract, deposit_amount))
-}
-
-///
-/// gmp setup if the test and gateway contract is already deployed
-///
-/// # Argument
-/// `contracts`: (src_contract, destination_contract) in respective chains
-/// `src`: tester connected to source chain
-/// `dest`: tester connected to destination chain
-/// `total_calls`: total number of calls
-pub async fn setup_funds_if_needed(
-	contracts: (String, String),
-	src: &Tester,
-	dest: &Tester,
-	total_calls: u128,
-) -> Result<(EthContractAddress, EthContractAddress, u128)> {
-	// if contracts already provided then get
-	let mut src_contract: EthContractAddress = [0; 20];
-	let mut dest_contract: EthContractAddress = [0; 20];
-	src_contract.copy_from_slice(
-		&hex::decode(contracts.0.strip_prefix("0x").unwrap_or(&contracts.0)).unwrap()[..20],
-	);
-	dest_contract.copy_from_slice(
-		&hex::decode(contracts.1.strip_prefix("0x").unwrap_or(&contracts.1)).unwrap()[..20],
-	);
-
-	let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
-
-	Ok((src_contract, dest_contract, deposit_amount))
+	Ok((src_contract, dest_contract))
 }
 
 ///
@@ -1403,7 +1355,7 @@ pub async fn set_network_info(
 					networkId: dest_network,
 					domainSeparator: [0; 32].into(),
 					gasLimit: 1_000_000,
-					relativeGasPrice: 1,
+					relativeGasPrice: get_relative_gas_fee(src_network, dest_network),
 					baseFee: 100_000,
 					mortality: u64::MAX,
 				},
@@ -1424,7 +1376,7 @@ pub async fn set_network_info(
 						networkId: src_network,
 						domainSeparator: [0; 32].into(),
 						gasLimit: 1_000_000,
-						relativeGasPrice: 1,
+						relativeGasPrice: get_relative_gas_fee(dest_network, src_network),
 						baseFee: 100_000,
 						mortality: u64::MAX,
 					},
@@ -1439,99 +1391,18 @@ pub async fn set_network_info(
 	Ok(())
 }
 
-///
-/// Wait for src contract gmp calls in chunks
-///
-/// # Argument
-/// `src`: tester connected to source chain
-/// `src_contract`: contract in source chain that implements IGMPReceiver
-/// `dest`: tester connected to destination chain
-/// `dest_contract`: contract in destination chain that implements IGMPReceiver interface
-/// `total_calls`: total number of calls to deposit funds for
-pub async fn deposit_gmp_funds(
-	src: &Tester,
-	src_contract: EthContractAddress,
-	dest: &Tester,
-	total_calls: u128,
-) -> Result<u128> {
-	let dest_gmp_contract = dest.runtime.get_gateway(dest.network_id).await.unwrap().unwrap();
-	let src_network = src.network_id();
-
-	// calculate how many funds do we have in contract
-	let funds_in_contract = {
-		let mut deposit_src = [0; 32];
-		deposit_src[11] = 1;
-		deposit_src[12..32].copy_from_slice(&src_contract[..]);
-
-		let call = IGateway::depositOfCall {
-			source: deposit_src.into(),
-			networkId: src_network,
-		}
-		.abi_encode();
-
-		let result = dest.wallet().eth_view_call(dest_gmp_contract, call, AtBlock::Latest).await?;
-		match result {
-			CallResult::Success(payload) => {
-				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
-			},
-			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
-		}
-	};
-
-	// this is transfer call to just get the effective_gas_price in recent blocks.
-	let transfer_result = dest.wallet().transfer(dest.wallet.account(), 1000, None, None).await?;
-	let receipt = transfer_result.receipt().unwrap();
-
-	// Calculate the gas price based on the latest transaction
-	let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-
-	// Get the GMP_GAS_LIMIT from the VotingContract
-	let gmp_gas_limit = {
-		let result = dest
-			.wallet()
-			.query(CallContract {
-				from: None,
-				to: src_contract.into(),
-				value: 0.into(),
-				data: VotingContract::GMP_GAS_LIMITCall {}.abi_encode(),
-				block: AtBlock::Latest,
-			})
-			.await?;
-		match result {
-			CallResult::Success(payload) => {
-				u128::try_from(alloy_primitives::U256::from_be_slice(&payload)).unwrap()
-			},
-			_ => anyhow::bail!("Failed to get GMP_GAS_LIMIT: {result:?}"),
-		}
-	};
-
-	// Calculate the deposit amount based on the gas_cost x gas_price + 20%
-	// how much the user provides the gmp
-	let gmp_gas_limit = gmp_gas_limit
-		.saturating_add(GATEWAY_EXECUTE_GAS_COST)
-		.saturating_add(GATEWAY_BASE_GAS_COST);
-	let deposit_amount = gas_price
-		.saturating_mul(gmp_gas_limit)
-		.saturating_mul(15)
-		.saturating_mul(total_calls)
-		/ 10; // 50% more, in case of the gas price increase
-
-	let remaining_submitable_gas = deposit_amount.saturating_sub(funds_in_contract);
-	println!("funds required for call:     {:?}", deposit_amount);
-	println!("funds available in contract: {:?}", funds_in_contract);
-	println!("depositing in contract:      {:?}", remaining_submitable_gas);
-	println!("balance in wallet            {:?}", dest.wallet.balance().await?);
-
-	//check if wallet have enough funds to deposit funds
-	assert!(dest.wallet.balance().await? > remaining_submitable_gas);
-
-	if remaining_submitable_gas > 0 {
-		// deposit funds for source in gmp contract to be able to execute the call
-		dest.deposit_funds(dest_gmp_contract, src_network, src_contract, true, deposit_amount)
-			.await?;
+pub fn get_relative_gas_fee(src: NetworkId, dest: NetworkId) -> u64 {
+	// 1.0 : 0x8000000000000000
+	// 2.0 : 0x8080000000000000
+	// 0.5 : 0x7f80000000000000
+	// 0.25 : 0x7f00000000000000
+	match (src, dest) {
+		(3, 3) => 0x8000000000000000,
+		(6, 6) => 0x8000000000000000,
+		(3, 6) => 0x8080000000000000,
+		(6, 3) => 0x7f80000000000000,
+		_ => 0,
 	}
-
-	Ok(deposit_amount)
 }
 
 ///

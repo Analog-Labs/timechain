@@ -10,8 +10,8 @@ use sysinfo::System;
 use tc_subxt::ext::futures::{FutureExt, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient};
 use tester::{
-	format_duration, setup_funds_if_needed, setup_gmp_with_contracts, sleep_or_abort, stats,
-	test_setup, wait_for_gmp_calls, ChainNetwork, Gateway, GmpBenchState, Network, Tester,
+	format_duration, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup,
+	wait_for_gmp_calls, ChainNetwork, EthContractAddress, Gateway, GmpBenchState, Network, Tester,
 	VotingContract,
 };
 use time_primitives::{Payload, ShardId};
@@ -266,17 +266,19 @@ async fn gmp_benchmark(
 	let mut bench_state = GmpBenchState::new(number_of_calls);
 
 	// check if deployed test contracts are already provided
-	let (src_contract, dest_contract, deposit_amount) = if let Some(test_contracts) = test_contracts
-	{
-		// if contracts are already deployed check the funds and add more funds in gateway contract if needed
-		setup_funds_if_needed(test_contracts, src_tester, dest_tester, number_of_calls as u128)
-			.await?
+	let (src_contract, dest_contract) = if let Some(contracts) = test_contracts {
+		let mut src_contract: EthContractAddress = [0; 20];
+		let mut dest_contract: EthContractAddress = [0; 20];
+		src_contract.copy_from_slice(
+			&hex::decode(contracts.0.strip_prefix("0x").unwrap_or(&contracts.0)).unwrap()[..20],
+		);
+		dest_contract.copy_from_slice(
+			&hex::decode(contracts.1.strip_prefix("0x").unwrap_or(&contracts.1)).unwrap()[..20],
+		);
+		(src_contract, dest_contract)
 	} else {
-		// if contracts are not provided deploy contracts and fund gmp contract
-		setup_gmp_with_contracts(src_tester, dest_tester, contract, number_of_calls as u128).await?
+		setup_gmp_with_contracts(src_tester, dest_tester, contract).await?
 	};
-
-	bench_state.set_deposit(deposit_amount);
 
 	// get contract stats of src contract
 	let start_stats = stats(src_tester, src_contract, None).await?;
@@ -295,6 +297,7 @@ async fn gmp_benchmark(
 			Gateway::estimateMessageCostCall {
 				networkid: dest_tester.network_id(),
 				messageSize: msg_size,
+				gasLimit: U256::from(100_000),
 			}
 			.abi_encode(),
 			0,
@@ -531,7 +534,7 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 }
 
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
-	let (src_contract, dest_contract, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
+	let (src_contract, dest_contract) = setup_gmp_with_contracts(src, dest, contract).await?;
 
 	println!("submitting vote");
 	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
@@ -569,7 +572,7 @@ async fn gmp_funds_check(
 	chronicles: &[Tester],
 	timechain_url: &str,
 ) -> Result<()> {
-	let (src_contract, _, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
+	let (src_contract, _) = setup_gmp_with_contracts(src, dest, contract).await?;
 
 	let subxt_client = SubxtClient::get_client(timechain_url).await?;
 

@@ -73,9 +73,13 @@ contract VotingContract {
         emit LocalVote(msg.sender, _vote);
     }
 
-    function estimate_vote_cost() external view returns (uint256) {
-        bytes memory payload = abi.encode(true); 
-        return gateway.estimateMessageCost(dest_network, payload.length, GMP_GAS_LIMIT);
+    function vote_wihtout_gmp(bool _vote) external {
+        if (_vote) {
+            yes_votes += 1;
+        } else {
+            no_votes += 1;
+        }
+        emit LocalVote(msg.sender, _vote);
     }
 
     // Implementing the IGmpReceiver interface

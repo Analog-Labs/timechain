@@ -217,6 +217,7 @@ impl Tester {
 		if is_contract {
 			src[11] = 1;
 		}
+
 		let payload = IGateway::depositCall {}.abi_encode();
 		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
 		Ok(())
@@ -396,11 +397,37 @@ impl Tester {
 		// deploy and initialize gateway proxy
 		println!("deploying proxy contract...");
 		let (proxy_addr, block_height) = self
-			.deploy_proxy(address.into(), proxy_addr, gateway_admin, gateway_keys, networks)
+			.deploy_proxy(address.into(), proxy_addr, gateway_admin, gateway_keys, networks.clone())
 			.await?;
 
 		// register proxy
 		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
+
+		if !networks.is_empty() {
+			let src_network = networks.first().unwrap().id;
+			let dest_network = networks.last().unwrap().id;
+
+			// set network info
+			self.wallet()
+				.eth_send_call(
+					proxy_addr,
+					Gateway::setNetworkInfoCall {
+						info: UpdateNetworkInfo {
+							networkId: networks.last().unwrap().id,
+							domainSeparator: [0; 32].into(),
+							gasLimit: 1_000_000,
+							relativeGasPrice: get_relative_gas_fee(src_network, dest_network),
+							baseFee: 100_000,
+							mortality: u64::MAX,
+						},
+					}
+					.abi_encode(),
+					0,
+					None,
+					None,
+				)
+				.await?;
+		}
 
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
@@ -609,76 +636,10 @@ pub fn restart_node(node_name: String) {
 	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
-sol! {
-	#[derive(Debug, PartialEq, Eq)]
-	struct GmpVotingContract {
-		address dest;
-		uint16 network;
-	}
-
-	contract VotingContract {
-		// Minium gas required for execute the `onGmpReceived` method
-		function GMP_GAS_LIMIT() external pure returns(uint256);
-
-		constructor(address _gateway);
-		function registerGmpContract(GmpVotingContract memory _registered) external;
-		function vote(bool _vote) external payable;
-		function stats() public view returns (uint256[] memory);
-	}
-}
-
-sol! {
-	contract GatewayProxy {
-		constructor(address implementation, bytes memory initializer) payable;
-	}
-}
-
-sol! {
-	#[derive(Debug, PartialEq, Eq)]
-	struct Network {
-		uint16 id;
-		address gateway;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct TssKey {
-		uint8 yParity;
-		uint256 xCoord;
-	}
-
-	type UFloat9x56 is uint64;
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct UpdateNetworkInfo {
-		uint16 networkId;
-		bytes32 domainSeparator;
-		uint64 gasLimit;
-		UFloat9x56 relativeGasPrice;
-		uint128 baseFee;
-		uint64 mortality;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct Signature {
-		uint256 xCoord;
-		uint256 e;
-		uint256 s;
-	}
-
-	contract Gateway {
-		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
-		function upgrade(address newImplementation) external payable;
-		function setAdmin(address newAdmin) external payable;
-		function sudoAddShards(TssKey[] memory shards) external payable;
-		function estimateMessageCost(uint16 networkid, uint256 messageSize, uint256 gasLimit) external view returns (uint256);
-		function setNetworkInfo(UpdateNetworkInfo calldata info) external;
-	}
-}
-
 pub fn create_evm_call(address: EthContractAddress) -> Function {
 	Function::EvmCall {
 		address,
-		input: VotingContract::voteCall { _vote: true }.abi_encode(),
+		input: VotingContract::vote_wihtout_gmpCall { _vote: true }.abi_encode(),
 		amount: 0,
 		gas_limit: None,
 	}
@@ -1253,7 +1214,7 @@ pub async fn setup_gmp_with_contracts(
 	dest.faucet().await;
 	let src_proxy = src.get_proxy_addr().await?;
 	let dest_proxy = dest.get_proxy_addr().await?;
-	let networks = vec![
+	let mut networks = vec![
 		Network {
 			id: src.network_id(),
 			gateway: src_proxy.into_array().into(),
@@ -1264,6 +1225,8 @@ pub async fn setup_gmp_with_contracts(
 		},
 	];
 	let src_proxy_contract = src.setup_gmp(false, None, networks.clone()).await?;
+	// the reason for reverse is to set network info and this way we can compute relative gas price in order
+	networks.reverse();
 	let dest_proxy_contract = dest.setup_gmp(false, None, networks).await?;
 
 	// deploy testing contract for source chain
@@ -1323,72 +1286,7 @@ pub async fn setup_gmp_with_contracts(
 		)
 		.await?;
 
-	set_network_info(src, dest, src_proxy_contract, dest_proxy_contract).await?;
-	// let deposit_amount = deposit_gmp_funds(src, src_contract, dest, total_calls).await?;
-
 	Ok((src_contract, dest_contract))
-}
-
-///
-/// Sets network info on gateway contracts
-///
-/// # Argument
-/// `src`: tester connected to source chain
-/// `dest`: tester connected to destination chain
-/// `src_proxy`: src chain proxy address
-/// `dest_proxy`: dest chain proxy address
-pub async fn set_network_info(
-	src: &Tester,
-	dest: &Tester,
-	src_proxy: EthContractAddress,
-	dest_proxy: EthContractAddress,
-) -> Result<()> {
-	let src_network = src.network_id();
-	let dest_network = dest.network_id();
-
-	// set network info
-	src.wallet()
-		.eth_send_call(
-			src_proxy,
-			Gateway::setNetworkInfoCall {
-				info: UpdateNetworkInfo {
-					networkId: dest_network,
-					domainSeparator: [0; 32].into(),
-					gasLimit: 1_000_000,
-					relativeGasPrice: get_relative_gas_fee(src_network, dest_network),
-					baseFee: 100_000,
-					mortality: u64::MAX,
-				},
-			}
-			.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?;
-
-	if src_network != dest_network {
-		dest.wallet()
-			.eth_send_call(
-				dest_proxy,
-				Gateway::setNetworkInfoCall {
-					info: UpdateNetworkInfo {
-						networkId: src_network,
-						domainSeparator: [0; 32].into(),
-						gasLimit: 1_000_000,
-						relativeGasPrice: get_relative_gas_fee(dest_network, src_network),
-						baseFee: 100_000,
-						mortality: u64::MAX,
-					},
-				}
-				.abi_encode(),
-				0,
-				None,
-				None,
-			)
-			.await?;
-	}
-	Ok(())
 }
 
 pub fn get_relative_gas_fee(src: NetworkId, dest: NetworkId) -> u64 {

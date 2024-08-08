@@ -17,6 +17,8 @@ use tester::{
 use time_primitives::{Payload, ShardId};
 use tokio::time::{interval_at, Instant};
 
+mod sol;
+
 // 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
 // 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1
 // 0x64AC191E26b66564bfda3249de27C9a8A96F9981 keyfile2
@@ -285,15 +287,16 @@ async fn gmp_benchmark(
 	// get contract stats of destination contract
 	let dest_stats = stats(dest_tester, dest_contract, None).await?;
 	println!("stats in start: {:?}", start_stats);
-	let gateway = src_tester.geteway().await?.context("Gateway not found")?;
+	let src_proxy = src_tester.geteway().await?.context("Gateway not found")?;
 	let voting_call = VotingContract::voteCall { _vote: true }.abi_encode();
 	let msg_size = U256::from_str_radix(&voting_call.len().to_string(), 16).unwrap();
 
+	println!("sending estimateMsg cost to: {:?}", src_proxy);
 	// estimate message_cost
 	let result = src_tester
 		.wallet()
 		.eth_send_call(
-			gateway,
+			src_proxy,
 			Gateway::estimateMessageCostCall {
 				networkid: dest_tester.network_id(),
 				messageSize: msg_size,
@@ -536,17 +539,39 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
 	let (src_contract, dest_contract) = setup_gmp_with_contracts(src, dest, contract).await?;
 
-	println!("submitting vote");
-	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
-	let res = src
+	let src_proxy = src.geteway().await?.context("Gateway not found")?;
+	let voting_call = VotingContract::voteCall { _vote: true }.abi_encode();
+	let msg_size = U256::from_str_radix(&voting_call.len().to_string(), 16).unwrap();
+
+	println!("sending estimateMsg cost to: {:?}", src_contract);
+	// estimate message_cost
+	let result = src
 		.wallet()
 		.eth_send_call(
-			src_contract,
-			VotingContract::voteCall { _vote: true }.abi_encode(),
+			src_proxy,
+			Gateway::estimateMessageCostCall {
+				networkid: dest.network_id(),
+				messageSize: msg_size,
+				gasLimit: U256::from(100_000),
+			}
+			.abi_encode(),
 			0,
 			None,
 			None,
 		)
+		.await?;
+
+	let SubmitResult::Executed { result, .. } = result else { anyhow::bail!("{:?}", result) };
+	let CallResult::Success(data) = result else { anyhow::bail!("failed parsing {:?}", result) };
+	let msg_cost: u128 = Gateway::estimateMessageCostCall::abi_decode_returns(&data, true)?
+		._0
+		.try_into()
+		.unwrap();
+
+	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
+	let res = src
+		.wallet()
+		.eth_send_call(src_contract, voting_call, msg_cost, None, None)
 		.await?;
 	let block = res.receipt().unwrap().block_number.unwrap();
 	println!("submitted vote in block {block}, tx_hash: {:?}", res.tx_hash());

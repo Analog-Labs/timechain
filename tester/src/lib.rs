@@ -1,9 +1,12 @@
 use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, SolCall, SolConstructor};
+use alloy_sol_types::{SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
 use schnorr_evm::SigningKey;
+use sol::{
+	Gateway, GatewayProxy, GmpVotingContract, Network, TssKey, UpdateNetworkInfo, VotingContract,
+};
 use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -22,6 +25,8 @@ use time_primitives::{
 	H160,
 };
 use tokio::time::Instant;
+
+pub mod sol;
 
 // type for eth contract address
 pub type EthContractAddress = [u8; 20];

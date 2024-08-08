@@ -9,15 +9,13 @@ use std::time::Duration;
 use sysinfo::System;
 use tc_subxt::ext::futures::{FutureExt, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient};
+use tester::sol::{Gateway, Network, VotingContract};
 use tester::{
 	format_duration, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup,
-	wait_for_gmp_calls, ChainNetwork, EthContractAddress, Gateway, GmpBenchState, Network, Tester,
-	VotingContract,
+	wait_for_gmp_calls, ChainNetwork, EthContractAddress, GmpBenchState, Tester,
 };
 use time_primitives::{Payload, ShardId};
 use tokio::time::{interval_at, Instant};
-
-mod sol;
 
 // 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
 // 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1

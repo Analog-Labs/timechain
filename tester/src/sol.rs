@@ -1,5 +1,4 @@
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, SolCall, SolConstructor};
+use alloy_sol_types::sol;
 
 sol! {
 	#[derive(Debug, PartialEq, Eq)]

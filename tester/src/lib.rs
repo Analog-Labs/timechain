@@ -1294,14 +1294,21 @@ pub async fn setup_gmp_with_contracts(
 	Ok((src_contract, dest_contract))
 }
 
+///
+/// Returns gas price of destination chain, in terms of the source chain token
+///
+/// # Argument
+/// `src`: source network_id
+/// `dest`: dest network_id
 pub fn get_relative_gas_fee(src: NetworkId, dest: NetworkId) -> u64 {
 	// 1.0 : 0x8000000000000000
 	// 2.0 : 0x8080000000000000
 	// 0.5 : 0x7f80000000000000
 	// 0.25 : 0x7f00000000000000
+	if src == dest {
+		return 0x8000000000000000;
+	}
 	match (src, dest) {
-		(3, 3) => 0x8000000000000000,
-		(6, 6) => 0x8000000000000000,
 		(3, 6) => 0x8080000000000000,
 		(6, 3) => 0x7f80000000000000,
 		_ => 0,

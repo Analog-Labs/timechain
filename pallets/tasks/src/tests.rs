@@ -1676,7 +1676,7 @@ fn regenerate_read_message_task_on_error() {
 			1,
 			mock_result_error(0, 1)
 		));
-		roll(2);
+		roll(1);
 		let third_block_height = crate::RecvTasks::<Test>::get(ETHEREUM).unwrap_or_default();
 		assert_eq!(third_block_height, second_block_height);
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![2]);

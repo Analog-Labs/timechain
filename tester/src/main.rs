@@ -95,7 +95,6 @@ enum Test {
 	Basic,
 	Batch { tasks: u64 },
 	Gmp,
-	ChroniclePayment,
 	ChronicleFundCheck,
 	Migration,
 	Restart,
@@ -211,15 +210,6 @@ async fn main() {
 		Command::Test(Test::Basic) => basic_test(&testers[0], &contract).await.unwrap(),
 		Command::Test(Test::Batch { tasks }) => {
 			batch_test(&testers[0], &contract, tasks).await.unwrap();
-		},
-		// chronicles are refunded the gas for gmp call
-		Command::Test(Test::ChroniclePayment) => {
-			// "This test is only available local with single node shard"
-			let starting_balance = chronicles[0].wallet().balance().await.unwrap();
-			gmp_test(&testers[0], &testers[1], &contract).await.unwrap();
-			let ending_balance = chronicles[0].wallet().balance().await.unwrap();
-			println!("Verifying balance");
-			assert!(starting_balance <= ending_balance);
 		},
 		// chronicles are refunded the gas for gmp call
 		Command::Test(Test::ChronicleFundCheck) => {

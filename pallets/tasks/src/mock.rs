@@ -95,9 +95,9 @@ impl pallet_balances::Config for Test {
 }
 
 thread_local! {
-	pub static PAID: RefCell<BTreeMap<(u128, u32), u128>> = RefCell::new(BTreeMap::new());
-	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
-	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+	pub static PAID: RefCell<BTreeMap<(u128, u32), u128>> = const { RefCell::new(BTreeMap::new()) };
+	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = const { RefCell::new(BTreeMap::new()) };
+	pub static LAST_ID: RefCell<u64> = const { RefCell::new(0u64) };
 }
 
 /// set status for a given payment id
@@ -148,7 +148,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	type Success = u128;
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(o).and_then(|o| match o {
-			frame_system::RawOrigin::Root => Ok(u128::max_value()),
+			frame_system::RawOrigin::Root => Ok(u128::MAX),
 			r => Err(RuntimeOrigin::from(r)),
 		})
 	}
@@ -162,7 +162,7 @@ pub struct MulBy<N>(PhantomData<N>);
 impl<N: Get<u128>> ConversionFromAssetBalance<u128, u32, u128> for MulBy<N> {
 	type Error = ();
 	fn from_asset_balance(balance: u128, _asset_id: u32) -> Result<u128, Self::Error> {
-		return balance.checked_mul(N::get()).ok_or(());
+		balance.checked_mul(N::get()).ok_or(())
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: u32) {}

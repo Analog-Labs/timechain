@@ -29,7 +29,6 @@ jobs:
   run-benchmark:
     needs: [build-benchmark]
     runs-on: [self-hosted, benchmark]
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -53,8 +52,6 @@ jobs:
   update-weights:
     needs: [run-benchmark]
     runs-on: [self-hosted, benchmark]
-    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark') && always() }}
-    continue-on-error: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -63,14 +60,12 @@ jobs:
           submodules: recursive
       - name: Download mainnet weights
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           path: runtimes/mainnet/src/weights
           pattern: weights-staging-*
           merge-multiple: true
       - name: Download testnet weights
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           path: runtimes/testnet/src/weights
           pattern: weights-development-*

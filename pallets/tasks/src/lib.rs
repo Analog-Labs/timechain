@@ -1007,7 +1007,7 @@ pub mod pallet {
 		///   1. Insert network_id and block_height into RecvTasks storage.
 		///   2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
 		///   3. Set the task's start field to block_height.
-		///   4. Start the task by funding it via `funded_by`.
+		///   4. Start the task with [`TaskFunder::Treasury`].
 		fn recv_messages(
 			network_id: NetworkId,
 			block_height: u64,

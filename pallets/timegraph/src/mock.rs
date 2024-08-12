@@ -46,7 +46,7 @@ impl pallet_timegraph::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1_u64, 10_000_000_000), (2_u64, 20_000_000_000)],
+		balances: vec![(1_u64, 10_000_000), (2_u64, 20_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

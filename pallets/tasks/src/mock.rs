@@ -191,8 +191,6 @@ impl pallet_treasury::Config for Test {
 	type Paymaster = TestPay;
 	type BalanceConverter = MulBy<ConstU128<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 }
 
 impl pallet_members::Config for Test {

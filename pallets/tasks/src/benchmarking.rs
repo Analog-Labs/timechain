@@ -169,6 +169,10 @@ benchmarks! {
 	}: _(RawOrigin::Signed(signer), 0, Ok([0u8; 32])) verify {}
 
 	submit_signature {
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&pallet_treasury::Pallet::<T>::account_id(),
+			pallet_balances::Pallet::<T>::issue(30_000_000_000),
+		);
 		let function = Function::SendMessage { msg: Msg::default() };
 		let descriptor = TaskDescriptorParams {
 			network: ETHEREUM,
@@ -212,6 +216,10 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), 0, signature) verify {}
 
 	register_gateway {
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&pallet_treasury::Pallet::<T>::account_id(),
+			pallet_balances::Pallet::<T>::issue(30_000_000_000),
+		);
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,
 			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
@@ -256,6 +264,10 @@ benchmarks! {
 	unregister_gateways {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..10;
+		pallet_balances::Pallet::<T>::resolve_creating(
+			&pallet_treasury::Pallet::<T>::account_id(),
+			pallet_balances::Pallet::<T>::issue(30_000_000_000),
+		);
 		for i in 0..b {
 			<T as Config>::Shards::create_shard(
 				ETHEREUM,

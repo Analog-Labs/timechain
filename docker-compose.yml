@@ -129,7 +129,6 @@ services:
     - '--target-min-balance=1000000000000000'
     - '--target-keyfile=/etc/target_keyfile'
     - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--target-min-balance=100000000000'
     - '--tss-keyshare-cache=/etc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'

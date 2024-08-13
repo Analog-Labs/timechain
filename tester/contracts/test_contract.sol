@@ -34,6 +34,8 @@ contract VotingContract {
         no_votes = 0;
     }
 
+    function deposit() external payable {}
+
     function registerGmpContract(GmpVotingContract memory _registered) external {
         require(msg.sender == owner && started == false);
         dest_address = _registered.dest;

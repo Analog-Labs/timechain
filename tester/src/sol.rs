@@ -12,6 +12,7 @@ sol! {
 		function GMP_GAS_LIMIT() external pure returns(uint256);
 
 		constructor(address _gateway);
+		function deposit() external payable;
 		function registerGmpContract(GmpVotingContract memory _registered) external;
 		function vote(bool _vote) external payable;
 		function vote_wihtout_gmp(bool _vote) external;

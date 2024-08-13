@@ -1257,6 +1257,21 @@ pub async fn setup_gmp_with_contracts(
 	let src_network = src.network_id();
 	let dest_network = dest.network_id();
 
+	// for astar networks we need to deposit funds to voting contract.
+	// because frontier considers this an account so when we execute a tx of gmp
+	// it thinks account is going empty and throws outoffunds error
+	if src_network == 7 || src_network == 6 {
+		src.wallet()
+			.eth_send_call(
+				src_contract,
+				VotingContract::depositCall {}.abi_encode(),
+				1_000_000,
+				None,
+				None,
+			)
+			.await?;
+	}
+
 	// registers destination contract in source contract to inform gmp compatibility.
 	src.wallet()
 		.eth_send_call(

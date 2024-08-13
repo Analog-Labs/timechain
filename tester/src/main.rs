@@ -331,6 +331,9 @@ async fn gmp_benchmark(
 		});
 	}
 
+	println!("single message cost: {:?}", msg_cost);
+	println!("total message cost: {:?}", (msg_cost * number_of_calls as u128));
+
 	// block stream of timechain
 	let mut block_stream = src_tester.finality_block_stream().await;
 	let mut one_min_tick = interval_at(Instant::now(), Duration::from_secs(60));

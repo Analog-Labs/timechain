@@ -12,7 +12,7 @@ use time_primitives::{
 
 const ETHEREUM: NetworkId = 0;
 
-const TREASURY_BALANCE: u128 = 10_u128.pow(12);
+const TREASURY_BALANCE: u128 = 100_u128.pow(12);
 
 fn public_key(acc: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))

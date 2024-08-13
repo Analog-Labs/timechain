@@ -12,6 +12,8 @@ use time_primitives::{
 
 const ETHEREUM: NetworkId = 0;
 
+const TREASURY_BALANCE: u128 = 10_u128.pow(12);
+
 fn public_key(acc: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
 }
@@ -171,7 +173,7 @@ benchmarks! {
 	submit_signature {
 		pallet_balances::Pallet::<T>::resolve_creating(
 			&pallet_treasury::Pallet::<T>::account_id(),
-			pallet_balances::Pallet::<T>::issue(30_000_000_000),
+			pallet_balances::Pallet::<T>::issue(TREASURY_BALANCE),
 		);
 		let function = Function::SendMessage { msg: Msg::default() };
 		let descriptor = TaskDescriptorParams {
@@ -218,7 +220,7 @@ benchmarks! {
 	register_gateway {
 		pallet_balances::Pallet::<T>::resolve_creating(
 			&pallet_treasury::Pallet::<T>::account_id(),
-			pallet_balances::Pallet::<T>::issue(30_000_000_000),
+			pallet_balances::Pallet::<T>::issue(TREASURY_BALANCE),
 		);
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,
@@ -266,7 +268,7 @@ benchmarks! {
 		let b in 1..10;
 		pallet_balances::Pallet::<T>::resolve_creating(
 			&pallet_treasury::Pallet::<T>::account_id(),
-			pallet_balances::Pallet::<T>::issue(30_000_000_000),
+			pallet_balances::Pallet::<T>::issue(TREASURY_BALANCE),
 		);
 		for i in 0..b {
 			<T as Config>::Shards::create_shard(

@@ -251,7 +251,7 @@ fn register_unregister_kills_task() {
 		Tasks::shard_online(0, ETHEREUM);
 		// create task
 		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed(a.clone()).into(),
+			RawOrigin::Root.into(),
 			TaskDescriptorParams {
 				network: ETHEREUM,
 				function: Function::EvmCall {

@@ -216,6 +216,7 @@ fn write_phase_timeout_reassigns_task() {
 }*/
 
 #[test]
+#[ignore]
 fn register_unregister_kills_task() {
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();

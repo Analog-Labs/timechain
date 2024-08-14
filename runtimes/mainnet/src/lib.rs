@@ -951,13 +951,21 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 }
 
 #[cfg(feature = "development")]
+// Limit membership check to development mode
 type TechnicalMember = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
 
+#[allow(dead_code)]
 type TechnicalMajority =
 	pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>;
 #[allow(dead_code)]
-type TechnicalSuperMajority =
+type TechnicalQualifiedMajority =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
+#[allow(dead_code)]
+type TechnicalSuperMajority =
+	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 3, 4>;
+#[allow(dead_code)]
+type TechnicalUnanimity =
+	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>;
 
 type EnsureRootOrHalfTechnical = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMajority>;
 
@@ -1225,9 +1233,29 @@ parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
+// Mainnet config
+
+#[cfg(not(feature = "development"))]
+/// Default admin origin for system related governance
+type SystemAdmin = TechnicalUnanimity;
+
+#[cfg(not(feature = "development"))]
+/// Default admin origin for staking related governance
+type StakingAdmin = TechnicalSuperMajority;
+
 #[cfg(not(feature = "development"))]
 /// Default admin origin for all chronicle related pallets
-type ChronicleAdmin = TechnicalSuperMajority;
+type ChronicleAdmin = TechnicalQualifiedMajority;
+
+// Staging config
+
+#[cfg(feature = "development")]
+/// Development admin origin for all system calls
+type SystemAdmin = TechnicalMember;
+
+#[cfg(feature = "development")]
+/// Development admin origin for all staking calls
+type StakingAdmin = TechnicalMember;
 
 #[cfg(feature = "development")]
 /// Development admin origin for all chronicle related pallets
@@ -1295,6 +1323,11 @@ impl pallet_networks::Config for Runtime {
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 }
 
+impl pallet_governance::Config for Runtime {
+	type SystemAdmin = SystemAdmin;
+	type StakingAdmin = StakingAdmin;
+}
+
 /// Main runtime assembly
 #[frame_support::runtime]
 mod runtime {
@@ -1313,6 +1346,8 @@ mod runtime {
 		RuntimeTask
 	)]
 	pub struct Runtime;
+
+	// = SDK pallets =
 
 	// Core pallets
 	#[runtime::pallet_index(0)]
@@ -1417,7 +1452,9 @@ mod runtime {
 	#[runtime::pallet_index(31)]
 	pub type Tips = pallet_tips;
 
-	// Custom pallets
+	// = Custom pallets =
+
+	// general message passing pallets
 	#[runtime::pallet_index(32)]
 	pub type Members = pallet_members;
 
@@ -1436,8 +1473,14 @@ mod runtime {
 	#[runtime::pallet_index(37)]
 	pub type Networks = pallet_networks;
 
-	// Pallet to control the initial launch
+	// Custom governance
 	#[runtime::pallet_index(38)]
+	pub type Governance = pallet_governance;
+
+	// = Temp pallets =
+
+	// Pallet to control the initial launch
+	#[runtime::pallet_index(42)]
 	pub type SafeMode = pallet_safe_mode;
 }
 

@@ -7683,6 +7683,7 @@ version = "0.6.0"
 dependencies = [
  "log",
  "pallet-elections",
+ "pallet-governance",
  "pallet-members",
  "pallet-networks",
  "pallet-shards",
@@ -9609,6 +9610,16 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0 (git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.14.0-anlog0)",
+]
+
+[[package]]
+name = "pallet-governance"
+version = "0.6.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "time-primitives",
 ]
 
 [[package]]

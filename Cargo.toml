@@ -14,6 +14,7 @@ members = [
 	"docs",
 	"node",
 	"pallets/elections",
+	"pallets/governance",
 	"pallets/members",
 	"pallets/networks",
 	"pallets/shards",
@@ -71,6 +72,7 @@ time-primitives = { path = "primitives", default-features = false }
 
 # pallets in workspace (nostd by default)
 pallet-elections = { path = "pallets/elections", default-features = false }
+pallet-governance = { path = "pallets/governance", default-features = false }
 pallet-members = { path = "pallets/members", default-features = false }
 pallet-networks = { path = "pallets/networks", default-features = false }
 pallet-shards = { path = "pallets/shards", default-features = false }

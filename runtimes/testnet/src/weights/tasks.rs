@@ -199,7 +199,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::NetworkWriteReward` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::NetworkSendMessageReward` (r:1 w:0)
 	/// Proof: `Tasks::NetworkSendMessageReward` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
+	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Tasks::UASystemTasksInsertIndex` (r:1 w:1)
 	/// Proof: `Tasks::UASystemTasksInsertIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)

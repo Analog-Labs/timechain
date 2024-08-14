@@ -10322,6 +10322,7 @@ dependencies = [
  "pallet-elections",
  "pallet-members",
  "pallet-shards",
+ "pallet-treasury",
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",

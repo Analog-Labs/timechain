@@ -467,12 +467,12 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::create_task(schedule.function.get_input_length()))]
 		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			ensure_root(origin)?;
 			ensure!(
 				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
 				Error::<T>::MatchingShardNotOnline
 			);
-			Self::start_task(schedule, TaskFunder::Account(who))?;
+			Self::start_task(schedule, TaskFunder::Treasury)?;
 			Ok(())
 		}
 
@@ -1180,7 +1180,7 @@ pub mod pallet {
 					.saturating_add(send_message_reward.saturating_mul(schedule.shard_size.into()));
 			}
 			let owner = match who {
-				TaskFunder::Account(user) => {
+				/*TaskFunder::Account(user) => {
 					let funds = if schedule.funds >= required_funds {
 						schedule.funds
 					} else {
@@ -1193,7 +1193,7 @@ pub mod pallet {
 						ExistenceRequirement::KeepAlive,
 					)?;
 					Some(user)
-				},
+				},*/
 				TaskFunder::Treasury => {
 					pallet_balances::Pallet::<T>::transfer(
 						&pallet_treasury::Pallet::<T>::account_id(),

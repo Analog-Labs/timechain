@@ -90,7 +90,7 @@ fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountI
 		&caller,
 		pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 	);
-	Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
+	Pallet::<T>::create_task(RawOrigin::Root.into(), descriptor)?;
 	Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
 	Ok(caller)
 }
@@ -122,7 +122,7 @@ benchmarks! {
 			&caller,
 			pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 		);
-	}: _(RawOrigin::Signed(whitelisted_caller()), descriptor) verify {}
+	}: _(RawOrigin::Root, descriptor) verify {}
 
 	submit_result {
 		let caller = create_simple_task::<T>()?;
@@ -173,7 +173,7 @@ benchmarks! {
 		// manually assign task and signer in case not working
 		let raw_signer = [0u8; 32];
 		let signer: AccountId = raw_signer.into();
-		Pallet::<T>::create_task(RawOrigin::Signed(signer.clone()).into(), descriptor)?;
+		Pallet::<T>::create_task(RawOrigin::Root.into(), descriptor)?;
 		TaskShard::<T>::insert(0, 0);
 		TaskSigner::<T>::insert(0, public_key(raw_signer));
 	}: _(RawOrigin::Signed(signer), 0, Ok([0u8; 32])) verify {}
@@ -218,7 +218,7 @@ benchmarks! {
 		Pallet::<T>::shard_online(0, ETHEREUM);
 		let raw_caller = [0u8; 32];
 		let caller: AccountId = raw_caller.into();
-		Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
+		Pallet::<T>::create_task(RawOrigin::Root.into(), descriptor)?;
 		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
 		let (pub_key, signature) = mock_submit_sig();
 		ShardCommitment::<T>::insert(0, vec![pub_key]);

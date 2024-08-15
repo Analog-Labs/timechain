@@ -1,6 +1,6 @@
 use crate::{Call, Config, Pallet, TaskShard, TaskSigner};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
-use frame_support::traits::{Currency, Get, OnFinalize};
+use frame_support::traits::{Currency, Get, OnInitialize};
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use sp_runtime::DispatchError;
@@ -83,7 +83,7 @@ fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountI
 		pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 	);
 	Pallet::<T>::create_task(RawOrigin::Signed(caller.clone()).into(), descriptor)?;
-	Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+	Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Ok(caller)
 }
 
@@ -214,7 +214,7 @@ benchmarks! {
 		Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
 		let (pub_key, signature) = mock_submit_sig();
 		ShardCommitment::<T>::insert(0, vec![pub_key]);
-		Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	}: _(RawOrigin::Signed(caller), 0, signature) verify {}
 
 	register_gateway {

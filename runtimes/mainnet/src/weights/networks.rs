@@ -43,13 +43,13 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `359`
 		//  Estimated: `21149`
-		// Minimum execution time: 46_948_000 picoseconds.
-		Weight::from_parts(48_489_077, 0)
+		// Minimum execution time: 47_239_000 picoseconds.
+		Weight::from_parts(46_878_129, 0)
 			.saturating_add(Weight::from_parts(0, 21149))
-			// Standard Error: 345
-			.saturating_add(Weight::from_parts(2_155, 0).saturating_mul(a.into()))
-			// Standard Error: 345
-			.saturating_add(Weight::from_parts(1_423, 0).saturating_mul(b.into()))
+			// Standard Error: 417
+			.saturating_add(Weight::from_parts(3_155, 0).saturating_mul(a.into()))
+			// Standard Error: 417
+			.saturating_add(Weight::from_parts(1_617, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

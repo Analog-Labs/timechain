@@ -21,6 +21,7 @@ scale-info.workspace = true
 frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+pallet-treasury = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
 sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
@@ -51,6 +52,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-treasury/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",

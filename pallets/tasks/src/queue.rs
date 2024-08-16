@@ -50,15 +50,13 @@ where
 	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
 	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
 {
-	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)> {
+	fn get_n(&self, n: usize, _shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)> {
 		(self.remove..self.insert)
 			.filter_map(|index| {
 				Queue::get(self.network, index).and_then(|task_id| {
 					Tasks::<T>::get(task_id)
-						.filter(|task| {
-							task.shard_size == shard_size
-								&& (is_registered
-									|| TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign)
+						.filter(|_task| {
+							is_registered || TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign
 						})
 						.map(|_| (index, task_id))
 				})

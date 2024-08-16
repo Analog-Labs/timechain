@@ -1,4 +1,7 @@
 use crate::{self as pallet_shards};
+
+use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io, sp_runtime};
+
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU64};
@@ -65,6 +68,7 @@ impl pallet_balances::Config for Test {
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type TaskScheduler = MockTaskScheduler;
 	type Members = Members;
 	type Elections = MockElections;

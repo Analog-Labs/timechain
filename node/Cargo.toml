@@ -98,7 +98,7 @@ polkadot-sdk = { workspace = true, features = [
 ] }
 
 # node's rpc dependencies
-jsonrpsee = { version = "0.22.1", features = [ "server" ] }
+jsonrpsee = { version = "0.23.2", features = [ "server" ] }
 
 # node's local dependencies
 time-primitives.workspace = true

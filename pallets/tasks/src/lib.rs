@@ -48,17 +48,22 @@ pub mod queue;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
 	use crate::queue::*;
 	use core::num::NonZeroU64;
+	use scale_info::prelude::string::String;
+
+	use polkadot_sdk::{
+		frame_support, frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
+	};
+
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::string::String;
 	use sp_runtime::{
 		traits::{AccountIdConversion, IdentifyAccount, Zero},
 		Saturating,
@@ -66,6 +71,7 @@ pub mod pallet {
 	use sp_std::boxed::Box;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
+
 	use time_primitives::{
 		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
 		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
@@ -160,11 +166,13 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config<AccountId = AccountId>
+		polkadot_sdk::frame_system::Config<AccountId = AccountId>
 		+ pallet_balances::Config<Balance = Balance>
 		+ pallet_treasury::Config
 	{
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Elections: ElectionsInterface;
@@ -632,7 +640,7 @@ pub mod pallet {
 			address: [u8; 20],
 			block_height: u64,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
 			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -674,7 +682,7 @@ pub mod pallet {
 			network: NetworkId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			NetworkReadReward::<T>::insert(network, amount);
 			Self::deposit_event(Event::ReadTaskRewardSet(network, amount));
 			Ok(())
@@ -694,7 +702,7 @@ pub mod pallet {
 			network: NetworkId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			NetworkWriteReward::<T>::insert(network, amount);
 			Self::deposit_event(Event::WriteTaskRewardSet(network, amount));
 			Ok(())
@@ -714,7 +722,7 @@ pub mod pallet {
 			network: NetworkId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			NetworkSendMessageReward::<T>::insert(network, amount);
 			Self::deposit_event(Event::SendMessageTaskRewardSet(network, amount));
 			Ok(())
@@ -730,7 +738,7 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_task())]
 		pub fn sudo_cancel_task(origin: OriginFor<T>, task_id: TaskId) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			Self::cancel_task(task_id, task.network);
 			Ok(())
@@ -745,7 +753,7 @@ pub mod pallet {
 		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_tasks(*max))]
 		pub fn sudo_cancel_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			// TODO (followup): ensure max <= PalletMax which is set according to our current block size limit
 			let mut cancelled = 0;
 			for (network, _, task_id) in
@@ -780,7 +788,7 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks(*max))]
 		pub fn reset_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let mut to_be_reset = 0u32;
 			for (task_id, shard_id) in TaskShard::<T>::drain() {
 				ShardTasks::<T>::remove(shard_id, task_id);
@@ -820,7 +828,7 @@ pub mod pallet {
 			network: NetworkId,
 			limit: u32,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			ShardTaskLimit::<T>::insert(network, limit);
 			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
 			Ok(())
@@ -837,7 +845,7 @@ pub mod pallet {
 		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways(*num_gateways))]
 		pub fn unregister_gateways(origin: OriginFor<T>, num_gateways: u32) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let _ = Gateway::<T>::clear(num_gateways, None);
 			// safest to keep this clear_all or add additional weight hint in
 			// follow up. Iterating through only the removed gateways would complicate
@@ -877,7 +885,7 @@ pub mod pallet {
 			batch_size: u64,
 			offset: u64,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			NetworkBatchSize::<T>::insert(network, batch_size);
 			NetworkOffset::<T>::insert(network, offset);
 			Self::deposit_event(Event::BatchSizeSet(network, batch_size, offset));

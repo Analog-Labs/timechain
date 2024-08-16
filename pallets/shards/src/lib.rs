@@ -72,14 +72,19 @@ mod tests;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::{ValueQuery, *};
+	use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_runtime, sp_std};
+
+	use frame_support::pallet_prelude::{EnsureOrigin, ValueQuery, *};
 	use frame_system::pallet_prelude::*;
-	use schnorr_evm::VerifyingKey;
+
 	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
+
+	use schnorr_evm::VerifyingKey;
+
 	use time_primitives::{
 		AccountId, Balance, Commitment, ElectionsInterface, MemberEvents, MemberStatus,
 		MemberStorage, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
@@ -118,9 +123,12 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+		polkadot_sdk::frame_system::Config<AccountId = AccountId>
+		+ pallet_balances::Config<Balance = Balance>
 	{
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
 		type Members: MemberStorage;
@@ -321,7 +329,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
 		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::remove_shard_offline(shard_id);
 			Ok(())
 		}

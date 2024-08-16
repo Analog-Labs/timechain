@@ -36,8 +36,6 @@
 
 pub use pallet::*;
 
-//use polkadot_sdk::{frame_support, frame_system, sp_std};
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -45,14 +43,15 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
+	use polkadot_sdk::{frame_support, frame_system, sp_std};
+
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::BuildGenesisConfig;
 	use frame_system::pallet_prelude::*;
-	use sp_std::marker::PhantomData;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
+
 	use time_primitives::{
 		AccountId, ElectionsInterface, MemberEvents, MemberStorage, NetworkId, ShardsInterface,
 	};
@@ -73,11 +72,14 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: polkadot_sdk::frame_system::Config<AccountId = AccountId> {
 		/// The runtime event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		///  The weight information for the pallet's extrinsics.
 		type WeightInfo: WeightInfo;
+		/// Ensured origin for calls changing config or electables
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// The interface for shard-related operations.
 		type Shards: ShardsInterface + MemberEvents;
 		///  The storage interface for member-related data.
@@ -172,7 +174,7 @@ pub mod pallet {
 			shard_size: u16,
 			shard_threshold: u16,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
@@ -191,7 +193,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_shard_config())]
 		pub fn set_electable(origin: OriginFor<T>, electable: Vec<AccountId>) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let _ = Electable::<T>::clear(u32::MAX, None);
 			for account in electable {
 				Electable::<T>::insert(account, ());

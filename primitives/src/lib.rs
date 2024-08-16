@@ -3,10 +3,9 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use frame_support::weights::Weight;
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
-use sp_std::vec::Vec;
+use scale_info::prelude::vec::Vec;
 
 // Export scoped ...
 pub mod currency;
@@ -22,6 +21,9 @@ pub use crate::network::*;
 pub use crate::shard::*;
 pub use crate::task::*;
 
+use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
+
+use frame_support::weights::Weight;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
@@ -30,6 +32,8 @@ use sp_runtime::{
 
 /// Re-exported substrate traits
 pub mod traits {
+	use polkadot_sdk::{sp_core, sp_runtime};
+
 	pub use sp_core::crypto::Ss58Codec;
 	pub use sp_runtime::traits::IdentifyAccount;
 }
@@ -37,6 +41,7 @@ pub mod traits {
 /// Re-export key and hash types
 pub use sp_core::{ed25519, sr25519, H160, H256, H512};
 
+use polkadot_sdk::sp_application_crypto;
 /// Time key type identifier
 pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
 	sp_application_crypto::KeyTypeId(*b"time");
@@ -83,6 +88,8 @@ pub type BlockId = generic::BlockId<Block>;
 pub type PublicKey = MultiSigner;
 
 pub mod crypto {
+	use polkadot_sdk::{frame_system, sp_runtime};
+
 	use sp_runtime::app_crypto::{app_crypto, sr25519};
 	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
 

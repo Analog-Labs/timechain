@@ -948,14 +948,9 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
-	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
 	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 	type PalletId = TreasuryPalletId;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ProposalBondMinimum;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
@@ -987,6 +982,7 @@ impl pallet_members::Config for Runtime {
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
@@ -994,6 +990,7 @@ impl pallet_elections::Config for Runtime {
 
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type Members = Members;
 	type Elections = Elections;
@@ -1010,6 +1007,7 @@ parameter_types! {
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Shards = Shards;
@@ -1032,6 +1030,7 @@ impl pallet_timegraph::Config for Runtime {
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 }
 
@@ -1115,35 +1114,35 @@ mod runtime {
 	#[runtime::pallet_index(18)]
 	pub type Historical = pallet_session_historical;
 
-	// 19 - 30 is reserved for mainnet governance
+	// 19 - 26 is reserved for mainnet governance
 
 	// On-chain governance
-	#[runtime::pallet_index(31)]
+	#[runtime::pallet_index(27)]
 	pub type Sudo = pallet_sudo;
 
 	// On-chain funding
-	#[runtime::pallet_index(32)]
+	#[runtime::pallet_index(28)]
 	pub type Treasury = pallet_treasury;
 
-	// 33 - 35 is reserved for advanced funding
+	// 29 - 31 is reserved for advanced funding
 
 	// Custom pallets
-	#[runtime::pallet_index(36)]
+	#[runtime::pallet_index(32)]
 	pub type Members = pallet_members;
 
-	#[runtime::pallet_index(37)]
+	#[runtime::pallet_index(33)]
 	pub type Shards = pallet_shards;
 
-	#[runtime::pallet_index(38)]
+	#[runtime::pallet_index(34)]
 	pub type Elections = pallet_elections;
 
-	#[runtime::pallet_index(39)]
+	#[runtime::pallet_index(35)]
 	pub type Tasks = pallet_tasks;
 
-	#[runtime::pallet_index(40)]
+	#[runtime::pallet_index(36)]
 	pub type Timegraph = pallet_timegraph;
 
-	#[runtime::pallet_index(41)]
+	#[runtime::pallet_index(37)]
 	pub type Networks = pallet_networks;
 }
 
@@ -1586,6 +1585,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[cfg(feature = "development")]
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)

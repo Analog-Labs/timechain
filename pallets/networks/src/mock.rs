@@ -1,7 +1,9 @@
 use crate::{self as pallet_networks};
-use frame_support::derive_impl;
-use sp_core::{ConstU128, ConstU64};
-use sp_runtime::{app_crypto::sp_core, traits::IdentityLookup, BuildStorage};
+
+use polkadot_sdk::frame_support::derive_impl;
+use polkadot_sdk::sp_core::{ConstU128, ConstU64};
+use polkadot_sdk::sp_runtime::{traits::IdentityLookup, BuildStorage};
+use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_io};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u64;
@@ -38,6 +40,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 }
 

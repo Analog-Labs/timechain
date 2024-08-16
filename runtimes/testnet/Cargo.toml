@@ -57,7 +57,6 @@ polkadot-sdk = { workspace = true, features = [
 	"sp-block-builder",
 	"sp-consensus-babe",
 	"sp-core",
-	"sp-genesis-builder",
 	"sp-inherents",
 	"sp-io",
 	"sp-npos-elections",
@@ -138,5 +137,7 @@ try-runtime = [
 	"pallet-timegraph/try-runtime",
 ]
 development = [
+	"polkadot-sdk/sp-genesis-builder",
+
 	"runtime-common/development"
 ]

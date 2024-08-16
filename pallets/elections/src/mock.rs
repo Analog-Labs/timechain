@@ -1,6 +1,6 @@
 use crate::{self as pallet_elections};
 
-//use polkadot_sdk::*;
+use polkadot_sdk::*;
 
 use frame_support::derive_impl;
 use sp_core::{ConstU128, ConstU64};
@@ -77,6 +77,7 @@ impl pallet_balances::Config for Test {
 
 impl pallet_elections::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = MockMembers;
@@ -84,6 +85,7 @@ impl pallet_elections::Config for Test {
 
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type TaskScheduler = MockTaskScheduler;
 	type Members = MockMembers;

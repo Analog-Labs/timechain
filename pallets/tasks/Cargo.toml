@@ -16,31 +16,19 @@ log.workspace = true
 scale-codec = { workspace = true, features = [ "max-encoded-len" ] }
 scale-info.workspace = true
 
-#polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "pallet_balances", "sp-core", "sp-runtime", "sp-std" ] }
-
-frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-pallet-treasury = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false, optional = true }
+polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "pallet-balances", "pallet-treasury", "sp-core", "sp-runtime", "sp-std" ] }
 
 schnorr-evm = { version = "0.1.0", default-features = false }
 
-pallet-elections = { path = "../elections", default-features = false }
-pallet-members = { path = "../members", default-features = false }
-pallet-shards = { path = "../shards", default-features = false }
-time-primitives = { path = "../../primitives", default-features = false }
+pallet-elections.workspace = true
+pallet-members.workspace = true
+pallet-shards.workspace = true
+time-primitives.workspace = true
 
 simple-mermaid.workspace = true
 
 [dev-dependencies]
-#polkadot-sdk = { workspace = true, features = [ "sp-io" ] }
-
-sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+polkadot-sdk = { workspace = true, features = [ "sp-io" ] }
 
 [features]
 default = [ "std" ]
@@ -48,34 +36,27 @@ std = [
 	"log/std",
 	"scale-codec/std",
 	"scale-info/std",
-	#"polkadot-sdk/std",
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-balances/std",
-	"pallet-treasury/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"frame-benchmarking?/std",
+
+	"polkadot-sdk/std",
 
 	"schnorr-evm/std",
+
 	"pallet-elections/std",
 	"pallet-members/std",
 	"pallet-shards/std",
 	"time-primitives/std",
 ]
 runtime-benchmarks = [
-	#"polkadot-sdk/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
+	"polkadot-sdk/runtime-benchmarks",
+	"polkadot-sdk/frame-benchmarking",
+
 	"pallet-elections/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",
 ]
 try-runtime = [
-	#"polkadot-sdk/try-runtime",
-	"frame-support/try-runtime",
-	"pallet-balances/try-runtime",
+	"polkadot-sdk/try-runtime",
+
 	"pallet-elections/try-runtime",
 	"pallet-members/try-runtime",
 	"pallet-shards/try-runtime",

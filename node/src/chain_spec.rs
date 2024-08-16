@@ -418,7 +418,7 @@ impl GenesisKeysConfig {
 
 		let target_patch = match runtime {
 			RuntimeTarget::Mainnet => serde_json::json!({
-				"council": {
+				"technicalCommittee": {
 					"members": Some(self.sudo.clone()).iter().chain(self.councils.iter()).collect::<Vec<_>>(),
 				},
 			}),

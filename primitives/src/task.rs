@@ -1,11 +1,14 @@
 use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
-use scale_info::{prelude::string::String, TypeInfo};
+use scale_info::{
+	prelude::{string::String, vec::Vec},
+	TypeInfo,
+};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::Percent;
-use sp_std::vec::Vec;
+
+use polkadot_sdk::sp_runtime::Percent;
 
 pub type TaskId = u64;
 pub type TaskIndex = u64;

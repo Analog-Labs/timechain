@@ -28,12 +28,13 @@ mod tests;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
+	use polkadot_sdk::{frame_support, frame_system};
+
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::string::String;
-	use scale_info::prelude::vec::Vec;
+	use scale_info::prelude::{string::String, vec::Vec};
 	use time_primitives::{ChainName, ChainNetwork, NetworkId};
 
 	pub trait WeightInfo {
@@ -51,8 +52,10 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config: polkadot_sdk::frame_system::Config {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -156,7 +159,7 @@ pub mod pallet {
 			chain_name: ChainName,
 			chain_network: ChainNetwork,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let network_id = Self::insert_network(chain_name, chain_network)?;
 			Self::deposit_event(Event::NetworkAdded(network_id));
 			Ok(())

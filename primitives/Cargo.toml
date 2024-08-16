@@ -37,19 +37,11 @@ polkadot-sdk = { workspace = true, features = [ "sp-core", "sp-runtime" ] }
 [features]
 default = ["std"]
 std = [
-	"scale-codec/std",
 	"futures",
-
-	"polkadot-sdk/std",
-	"frame-support/std",
-	"frame-system/std",
+	"scale-codec/std",
 	"scale-info/std",
 
-	"sp-api/std",
-	"sp-application-crypto/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-std/std",
+	"polkadot-sdk/std",
 ]
 
 [dev-dependencies]

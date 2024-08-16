@@ -1,12 +1,18 @@
 use crate::{self as task_schedule};
 use core::marker::PhantomData;
+
+use polkadot_sdk::{
+	frame_support, frame_system, pallet_balances, pallet_treasury, sp_core, sp_io, sp_runtime,
+	sp_std,
+};
+
 use frame_support::derive_impl;
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnFinalize, OnInitialize,
 };
 use frame_support::PalletId;
-use schnorr_evm::SigningKey;
+
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
@@ -14,6 +20,9 @@ use sp_runtime::{
 };
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
+
+use schnorr_evm::SigningKey;
+
 use time_primitives::{
 	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
 	TransferStake,
@@ -171,13 +180,8 @@ impl<N: Get<u128>> ConversionFromAssetBalance<u128, u32, u128> for MulBy<N> {
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
-	type ApproveOrigin = frame_system::EnsureRoot<AccountId>;
 	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
-	type ProposalBond = ProposalBond;
-	type ProposalBondMinimum = ConstU128<1>;
-	type ProposalBondMaximum = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
@@ -205,6 +209,7 @@ impl pallet_members::Config for Test {
 
 impl pallet_elections::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
@@ -218,6 +223,7 @@ parameter_types! {
 
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type TaskScheduler = Tasks;
 	type Members = MockMembers;
@@ -227,6 +233,7 @@ impl pallet_shards::Config for Test {
 
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Elections = MockElections;
 	type Shards = Shards;

@@ -27,13 +27,18 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
+	use polkadot_sdk::{frame_support, frame_system, sp_runtime, sp_std};
+
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::IdentifyAccount;
 	use sp_std::vec;
+
+	use polkadot_sdk::pallet_balances;
+
 	use time_primitives::{
 		AccountId, Balance, MemberEvents, MemberStorage, NetworkId, PeerId, PublicKey,
 		TransferStake,
@@ -65,9 +70,11 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config<AccountId = AccountId> + pallet_balances::Config<Balance = Balance>
+		polkadot_sdk::frame_system::Config<AccountId = AccountId>
+		+ pallet_balances::Config<Balance = Balance>
 	{
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Elections: MemberEvents;
 		/// Minimum stake to register member

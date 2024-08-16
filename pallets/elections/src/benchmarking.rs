@@ -1,9 +1,9 @@
 use super::*;
 use crate::Pallet;
 
-//use polkadot_sdk::*;
+use polkadot_sdk::frame_benchmarking::benchmarks;
+use polkadot_sdk::frame_system;
 
-use frame_benchmarking::benchmarks;
 use frame_system::RawOrigin;
 
 benchmarks! {

@@ -16,8 +16,10 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet]
+#[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
+	use polkadot_sdk::{frame_support, frame_system};
+
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement};
 	use frame_system::pallet_prelude::*;
@@ -45,8 +47,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config: polkadot_sdk::frame_system::Config {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 		type Currency: Currency<Self::AccountId>;
 	}

@@ -149,6 +149,7 @@ parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	// 5EYCAe5ijiYfyeZ2JJCGq56LmPyNRAKzpG4QkoQkkQNB5e6Z
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
 }

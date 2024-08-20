@@ -153,6 +153,20 @@ pub mod pallet {
 		ThresholdLargerThanSize,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			let mut weight = Weight::default();
+			for (network, _, _) in Unassigned::<T>::iter() {
+				weight = weight
+					// 1 Read of Unassigned per Loop
+					.saturating_add(T::DbWeight::get().read.into())
+					.saturating_add(Self::try_elect_shard(network));
+			}
+			weight
+		}
+	}
+
 	/// The pallet provides mechanisms to configure and manage shards, elect members to shards,
 	/// and handle member events. It includes storage items to keep track of shard sizes,
 	/// thresholds, and electable members. It also defines events and errors related to shard
@@ -208,15 +222,13 @@ pub mod pallet {
 		///    1. Checks if the member is not already a shard member.
 		///    2. Checks if the member is electable or if there are no electable members defined.
 		///    3. Inserts the member into the [`Unassigned`] storage for the given network.
-		///    4. Attempts to elect a new shard for the network by calling `try_elect_shard`.
-		///    5. Notifies the `Shards` interface about the member coming online.
+		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
 			if !T::Shards::is_shard_member(member) {
 				if Electable::<T>::iter().next().is_none() || Electable::<T>::get(member).is_some()
 				{
 					Unassigned::<T>::insert(network, member, ());
 				}
-				Self::try_elect_shard(network);
 			}
 			T::Shards::member_online(member, network);
 		}
@@ -237,10 +249,8 @@ pub mod pallet {
 		///  Handles the event when a shard goes offline.
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
-		///    2. Attempts to elect a new shard for the network by calling `try_elect_shard`.
 		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
 			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
-			Self::try_elect_shard(network);
 		}
 
 		///  Retrieves the default shard size.
@@ -257,11 +267,27 @@ pub mod pallet {
 		///    1. Calls `new_shard_members` to get a list of new shard members.
 		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
 		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
-		fn try_elect_shard(network: NetworkId) {
+		fn try_elect_shard(network: NetworkId) -> Weight {
+			let mut weight = Weight::default();
 			if let Some(members) = Self::new_shard_members(network) {
 				members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+				weight = weight
+					// write Unassigned remnoval per member
+					.saturating_add(
+						T::DbWeight::get().writes(members.len().try_into().unwrap_or_default()),
+					);
 				T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
+				// TODO: include weight consumed by create_shard && new_shard_members
+				weight = weight
+					// read ShardThreshold once to create shard
+					.saturating_add(T::DbWeight::get().read.into());
+			} else {
+				// TODO: add other stuff done in this branch
+				weight = weight
+					// read ShardSize once for new_shard_members
+					.saturating_add(T::DbWeight::get().read.into());
 			}
+			weight
 		}
 
 		///  Determines the members for a new shard.

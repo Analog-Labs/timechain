@@ -25,10 +25,13 @@ fn shard_size_new_members_online_creates_shard() {
 	let c: AccountId = [3u8; 32].into();
 	new_test_ext().execute_with(|| {
 		Elections::member_online(&a, ETHEREUM);
+		roll(1);
 		assert!(Unassigned::<Test>::get(ETHEREUM, &a).is_some());
 		Elections::member_online(&b, ETHEREUM);
+		roll(2);
 		assert!(Unassigned::<Test>::get(ETHEREUM, &b).is_some());
 		Elections::member_online(&c, ETHEREUM);
+		roll(3);
 		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(0, ETHEREUM).into());
 		for member in [a, b, c] {
 			assert!(Unassigned::<Test>::get(ETHEREUM, member).is_none());
@@ -57,8 +60,10 @@ fn shard_offline_automatically_creates_new_shard() {
 		Elections::member_online(&a, ETHEREUM);
 		Elections::member_online(&b, ETHEREUM);
 		Elections::member_online(&c, ETHEREUM);
+		roll(1);
 		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(0, ETHEREUM).into());
 		Elections::shard_offline(ETHEREUM, [a, b, c].to_vec());
+		roll(2);
 		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(1, ETHEREUM).into());
 	});
 }

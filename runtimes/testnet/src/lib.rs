@@ -112,7 +112,7 @@ pub struct StakingBenchmarkingConfig;
 #[cfg(any(feature = "std", test))]
 pub use pallet_staking::StakerStatus;
 
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(8 * HOURS, 5 * MINUTES);
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(1 * HOURS, 4 * MINUTES);
 
 /// We assume that an on-initialize consumes 1% of the weight on average, hence a single extrinsic
 /// will not be allowed to consume more than `AvailableBlockRatio - 1%`.

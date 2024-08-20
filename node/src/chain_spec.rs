@@ -149,7 +149,10 @@ impl Default for GenesisKeysConfig {
 			// TODO: Would be better to assign individual controllers
 			controller: None,
 			councils: vec![Bob.into(), Charlie.into(), Dave.into(), Eve.into(), Ferdie.into()],
-			endowments: vec![],
+			endowments: vec![(
+				hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"].into(),
+				TREASURY_SUPPLY,
+			)],
 			nominators: vec![],
 			stakes: vec![
 				AliceStash.into(),

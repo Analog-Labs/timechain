@@ -3,6 +3,7 @@ use alloy_sol_types::SolCall;
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -93,11 +94,19 @@ enum Command {
 #[derive(Parser, Debug)]
 enum Test {
 	Basic,
-	Batch { tasks: u64 },
+	Batch {
+		tasks: u64,
+	},
 	Gmp,
-	ChronicleFundCheck,
+	ChronicleMinFundCheck,
 	Migration,
 	Restart,
+	ChroniclePaymentRefund {
+		#[clap(default_value_t = 10000000000000000)]
+		src_deposit: u128,
+		#[clap(default_value_t = 10000000000000000)]
+		dest_deposit: u128,
+	},
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -154,14 +163,17 @@ async fn main() {
 			testers[0].faucet().await;
 		},
 		Command::SetupGmp { redeploy, keyfile } => {
-			let mut networks = vec![];
+			let mut network_map = HashMap::new();
 			for tester in &testers {
 				tester.faucet().await;
-				networks.push(Network {
-					id: tester.network_id(),
-					gateway: tester.get_proxy_addr().await.unwrap(),
-				})
+				let network_id = tester.network_id();
+				let proxy_addr = tester.get_proxy_addr().await.unwrap();
+				network_map.entry(network_id).or_insert_with(|| Network {
+					id: network_id,
+					gateway: proxy_addr,
+				});
 			}
+			let networks: Vec<Network> = network_map.into_values().collect();
 			for tester in &testers {
 				tester.setup_gmp(redeploy, keyfile.clone(), networks.clone()).await.unwrap();
 			}
@@ -211,15 +223,24 @@ async fn main() {
 		Command::Test(Test::Batch { tasks }) => {
 			batch_test(&testers[0], &contract, tasks).await.unwrap();
 		},
-		// chronicles are refunded the gas for gmp call
-		Command::Test(Test::ChronicleFundCheck) => {
+		Command::Test(Test::ChroniclePaymentRefund { src_deposit, dest_deposit }) => {
+			// This test is meant to run on local
+			// Make sure GMP is already setup otherwise this test will fail
+			let starting_balance = chronicles[0].wallet().balance().await.unwrap();
+			gmp_test(&testers[0], &testers[1], &contract, Some((src_deposit, dest_deposit)))
+				.await
+				.unwrap();
+			let ending_balance = chronicles[0].wallet().balance().await.unwrap();
+			assert!(starting_balance <= ending_balance);
+		},
+		Command::Test(Test::ChronicleMinFundCheck) => {
 			// "This test is only available in local setup"
 			gmp_funds_check(&testers[0], &testers[1], &contract, &chronicles, &args.timechain_url)
 				.await
 				.unwrap();
 		},
 		Command::Test(Test::Gmp) => {
-			gmp_test(&testers[0], &testers[1], &contract).await.unwrap();
+			gmp_test(&testers[0], &testers[1], &contract, None).await.unwrap();
 		},
 		Command::Test(Test::Migration) => {
 			task_migration_test(&testers[0], &contract).await.unwrap();
@@ -349,10 +370,10 @@ async fn gmp_benchmark(
 				let result = result.unwrap();
 				let blocks = result
 					.iter()
-					.map(|item| item.receipt().unwrap().block_number.unwrap())
+					.map(|item| item.receipt().expect("Transaction receipt not found").block_number.expect("Transaction not finalized"))
 					.collect::<Vec<_>>();
 				all_gmp_blocks.extend(blocks);
-				println!("tx hash for first gmp call {:?}", result.first().unwrap().tx_hash());
+				println!("tx hash for first gmp call {:?}", result.first().expect("Gmp calls are empty").tx_hash());
 				println!(
 					"tx block for first gmp call {:?}",
 					result.first().unwrap().receipt().unwrap().block_number
@@ -361,9 +382,9 @@ async fn gmp_benchmark(
 				let gas_amount_used = result
 					.iter()
 					.map(|result| {
-						let receipt = result.receipt().unwrap();
-						let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).unwrap();
-						let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).unwrap();
+						let receipt = result.receipt().expect("Transaction receipt not found");
+						let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).expect("Unable to parse gas price");
+						let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).expect("Unable to parse gas used");
 						gas_price.saturating_mul(gas_used)
 					})
 					.collect::<Vec<_>>();
@@ -414,22 +435,19 @@ async fn gmp_benchmark(
 					// finish tasks
 					let task_result_submitted = events.find::<events::TaskResult>();
 					for task_result in task_result_submitted.flatten() {
-						// finish the task
 						let task_id = task_result.0;
 						let task_payload = task_result.1;
 
-						match task_payload.payload {
-							Payload::Gmp(msgs) => {
-								bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
-							},
-							Payload::Error(error) => {
-								bench_state.add_errored_tasks(task_id, error);
-							},
-							_ => {}
+						if let Payload::Gmp(ref msgs) = task_payload.payload {
+							bench_state.update_recv_gmp_task(task_id, msgs.len() as u64);
 						}
 
 						if bench_state.task_ids().contains(&task_id) || bench_state.recv_task_ids().contains(&task_id) {
+							if let Payload::Error(error) = task_payload.payload {
+								bench_state.add_errored_tasks(task_id, error);
+							}
 							bench_state.finish_task(task_id);
+							println!("finishing task: {:?}", task_id);
 						}
 					}
 					// update task phase
@@ -527,12 +545,31 @@ async fn batch_test(tester: &Tester, contract: &Path, total_tasks: u64) -> Resul
 	Ok(())
 }
 
-async fn gmp_test(src: &Tester, dest: &Tester, contract: &Path) -> Result<()> {
+///
+/// Runs gmp test flow
+///
+/// # Arguments:
+/// `src`: src chain connected tester
+/// `dest`: dest chain connected tester
+/// `contract`: test contract path
+/// `deposit_amount`: optional deposit amount on gateway contracts, gmp works wihtout it but chronicles are not refunded.
+async fn gmp_test(
+	src: &Tester,
+	dest: &Tester,
+	contract: &Path,
+	deposit_amount: Option<(u128, u128)>,
+) -> Result<()> {
 	let (src_contract, dest_contract) = setup_gmp_with_contracts(src, dest, contract).await?;
 
 	let src_proxy = src.geteway().await?.context("Gateway not found")?;
+	let dest_proxy = dest.geteway().await?.context("Gateway not found")?;
 	let voting_call = VotingContract::voteCall { _vote: true }.abi_encode();
 	let msg_size = U256::from_str_radix(&voting_call.len().to_string(), 16).unwrap();
+
+	if let Some((src_deposit, dest_deposit)) = deposit_amount {
+		src.deposit_gateway_funds(src_proxy, src_deposit).await?;
+		dest.deposit_gateway_funds(dest_proxy, dest_deposit).await?;
+	}
 
 	println!("sending estimateMsg cost to: {:?}", src_contract);
 	// estimate message_cost

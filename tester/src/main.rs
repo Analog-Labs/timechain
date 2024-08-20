@@ -2,6 +2,7 @@ use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolCall;
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
+use num_bigint::BigUint;
 use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -12,8 +13,8 @@ use tc_subxt::ext::futures::{FutureExt, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient};
 use tester::sol::{Gateway, Network, VotingContract};
 use tester::{
-	format_duration, setup_gmp_with_contracts, sleep_or_abort, stats, test_setup,
-	wait_for_gmp_calls, ChainNetwork, EthContractAddress, GmpBenchState, Tester,
+	format_duration, rational_to_ufloat, setup_gmp_with_contracts, sleep_or_abort, stats,
+	test_setup, wait_for_gmp_calls, ChainNetwork, EthContractAddress, GmpBenchState, Tester,
 };
 use time_primitives::{Payload, ShardId};
 use tokio::time::{interval_at, Instant};
@@ -83,6 +84,10 @@ enum Command {
 	SetShardConfig {
 		shard_size: u16,
 		shard_threshold: u16,
+	},
+	SetNetworkInfo {
+		num: BigUint,
+		den: BigUint,
 	},
 	#[clap(subcommand)]
 	Test(Test),
@@ -186,6 +191,9 @@ async fn main() {
 		},
 		Command::SetShardConfig { shard_size, shard_threshold } => {
 			testers[0].set_shard_config(shard_size, shard_threshold).await.unwrap();
+		},
+		Command::SetNetworkInfo { num, den } => {
+			rational_to_ufloat(num, den);
 		},
 		Command::WatchTask { task_id } => {
 			testers[0].wait_for_task(task_id).await;

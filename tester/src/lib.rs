@@ -1,6 +1,9 @@
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::{SolCall, SolConstructor};
 use anyhow::{Context, Result};
+use num_bigint::BigUint;
+use num_integer::Integer;
+use num_traits::{One, Zero};
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
 use schnorr_evm::SigningKey;
@@ -24,8 +27,7 @@ use time_primitives::{
 	ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
 	H160,
 };
-use tokio::time::Instant;
-
+use tokio::time::Instant; // ^0.1.46
 pub mod sol;
 
 // type for eth contract address
@@ -1365,3 +1367,5 @@ pub fn format_duration(duration: Duration) -> String {
 
 	format!("{:02} hrs {:02} mins {:02} secs", hours, minutes, secs)
 }
+
+pub fn rational_to_ufloat(numerator: BigUint, denominator: BigUint) {}

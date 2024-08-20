@@ -208,21 +208,11 @@ impl Tester {
 		Ok((actual_addr.into_array(), block_number))
 	}
 
-	pub async fn deposit_funds(
+	pub async fn deposit_gateway_funds(
 		&self,
 		gmp_address: EthContractAddress,
-		source: EthContractAddress,
-		is_contract: bool,
 		amount: u128,
 	) -> Result<()> {
-		let mut src = [0; 32];
-		src[12..32].copy_from_slice(&source[..]);
-
-		// Enable the contract flag
-		if is_contract {
-			src[11] = 1;
-		}
-
 		let payload = IGateway::depositCall {}.abi_encode();
 		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
 		Ok(())
@@ -381,7 +371,7 @@ impl Tester {
 		}
 
 		if !redeploy {
-			println!("looking for gateway");
+			println!("looking for gateway against network id: {:?}", self.network_id);
 			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
 				println!("Gateway contract already deployed at {:?}. If you want to redeploy, please use the --redeploy flag.", H160::from_slice(&gateway[..]));
 				return Ok(gateway);
@@ -407,6 +397,7 @@ impl Tester {
 
 		// register proxy
 		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
+		println!("registering network on gateway");
 
 		if !networks.is_empty() {
 			let src_network = networks.first().unwrap().id;
@@ -1219,19 +1210,22 @@ pub async fn setup_gmp_with_contracts(
 	dest.faucet().await;
 	let src_proxy = src.get_proxy_addr().await?;
 	let dest_proxy = dest.get_proxy_addr().await?;
-	let mut networks = vec![
-		Network {
-			id: src.network_id(),
-			gateway: src_proxy.into_array().into(),
-		},
-		Network {
+	let mut networks = vec![];
+	networks.push(Network {
+		id: src.network_id(),
+		gateway: src_proxy.into_array().into(),
+	});
+	if src.network_id() != dest.network_id() {
+		networks.push(Network {
 			id: dest.network_id(),
 			gateway: dest_proxy.into_array().into(),
-		},
-	];
+		});
+	}
+	println!("deploying from source");
 	let src_proxy_contract = src.setup_gmp(false, None, networks.clone()).await?;
 	// the reason for reverse is to set network info and this way we can compute relative gas price in order
 	networks.reverse();
+	println!("deploying from destination");
 	let dest_proxy_contract = dest.setup_gmp(false, None, networks).await?;
 
 	// deploy testing contract for source chain

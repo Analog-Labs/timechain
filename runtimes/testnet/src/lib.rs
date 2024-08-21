@@ -112,7 +112,7 @@ pub struct StakingBenchmarkingConfig;
 #[cfg(any(feature = "std", test))]
 pub use pallet_staking::StakerStatus;
 
-pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(1 * HOURS, 4 * MINUTES);
+pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(20 * MINUTES, 4 * MINUTES);
 
 /// We assume that an on-initialize consumes 1% of the weight on average, hence a single extrinsic
 /// will not be allowed to consume more than `AvailableBlockRatio - 1%`.
@@ -405,9 +405,8 @@ impl pallet_authority_discovery::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/8 (1h) of the last session for each.
-	pub SignedPhase: u32 = prod_or_dev!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
-	pub UnsignedPhase: u32 = prod_or_dev!(EPOCH_DURATION_IN_SLOTS / 8, 5 * MINUTES);
+	pub SignedPhase: u32 = EPOCH_DURATION_IN_SLOTS;
+	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS;
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
@@ -435,7 +434,7 @@ generate_solution_type!(
 
 parameter_types! {
 	// TODO Needs to be properly configured.
-	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_dev!(1, 3);
+	pub const SessionsPerEra: sp_staking::SessionIndex = 3;
 	pub const BondingDuration: sp_staking::EraIndex = prod_or_dev!(2, 4);
 	pub const SlashDeferDuration: sp_staking::EraIndex = 0;//24 * 7; // 1/4 the bonding duration.
 

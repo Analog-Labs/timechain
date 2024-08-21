@@ -174,7 +174,7 @@ impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	}
 }
 
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 10 * MINUTES;
+pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 4 * HOURS;
 pub const EPOCH_DURATION_IN_SLOTS: u64 = {
 	const SLOT_FILL_RATE: f64 = MILLISECS_PER_BLOCK as f64 / SLOT_DURATION as f64;
 
@@ -373,10 +373,20 @@ impl pallet_proxy::Config for Runtime {
 }
 
 parameter_types! {
-	// NOTE: Currently it is not possible to change the epoch duration after the chain has started.
-	//       Attempting to do so will brick block production.
+	/// An epoch is a unit of time used for key operations in the consensus mechanism, such as validator
+	/// rotations and randomness generation. Once set at genesis, this value cannot be changed without
+	/// breaking block production.
+	///
+	/// Note: Do not attempt to modify after chain launch, as it will cause serious issues with block production.
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
+	/// This defines the interval at which new blocks are produced in the blockchain. It impacts
+	/// the speed of transaction processing and finality, as well as the load on the network
+	/// and validators. The value is defined in milliseconds.
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+	/// This defines how long a misbehavior reports in the staking or consensus system
+	/// remains valid before it expires. It is based on the bonding
+	/// duration, sessions per era, and the epoch duration. The longer the bonding duration or
+	/// number of sessions per era, the longer reports remain valid.
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
@@ -405,7 +415,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
-	pub const ExistentialDeposit: Balance = 1_000_000;
+	pub const ExistentialDeposit: Balance = 1 * MILLIANLOG;
 }
 
 parameter_types! {
@@ -531,8 +541,8 @@ impl pallet_session::historical::Config for Runtime {
 
 pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
+		min_inflation: 0_020_000,
+		max_inflation: 0_080_000,
 		ideal_stake: 0_500_000,
 		falloff: 0_050_000,
 		max_piece_count: 40,
@@ -541,14 +551,43 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	/// The number of session per era
+	/// The number of sessions that constitute an era. An era is the time period over which staking rewards
+	/// are distributed, and validator set changes can occur. The era duration is a function of the number of
+	/// sessions and the length of each session.
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+
+	/// The number of eras that a bonded stake must remain locked after the owner has requested to unbond.
+	/// This value represents 21 days, assuming each era is 24 hours long. This delay is intended to increase
+	/// network security by preventing stakers from immediately withdrawing funds after participating in staking.
+	pub const BondingDuration: sp_staking::EraIndex = 24 * 21;
+
+	/// The number of eras after a slashing event before the slashing is enacted. This delay allows participants
+	/// to challenge slashes or react to slashing events. It is set to 1/4 of the BondingDuration.
+	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7;
+
+	/// The reward curve used for staking payouts. This curve defines how rewards are distributed across validators
+	/// and nominators, typically favoring higher stakes but ensuring diminishing returns as stakes increase.
+	/// The curve is piecewise linear, allowing for different reward distribution models.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+
+	/// The maximum number of validators a nominator can nominate. This sets an upper limit on how many validators
+	/// can be supported by a single nominator. A higher number allows more decentralization but increases the
+	/// complexity of the staking system.
 	pub const MaxNominators: u32 = 64;
+
+	/// The maximum number of controllers that can be included in a deprecation batch when deprecated staking controllers
+	/// are being phased out. This helps manage the process of retiring controllers to prevent overwhelming the system
+	/// during upgrades.
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
+
+	/// The number of blocks before an off-chain worker repeats a task. Off-chain workers handle tasks that are performed
+	/// outside the main blockchain execution, such as fetching data or performing computation-heavy operations. This value
+	/// sets how frequently these tasks are repeated.
 	pub OffchainRepeat: BlockNumber = 5;
+
+	/// The number of eras that historical staking data is kept in storage. This depth determines how far back the system
+	/// keeps records of staking events and rewards for historical queries and audits. Older data beyond this depth will
+	/// be pruned to save storage.
 	pub HistoryDepth: u32 = 84;
 }
 
@@ -598,23 +637,47 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/4 of the last session for each.
+	/// This phase determines the time window, in blocks, during which signed transactions (those that
+	/// are authorized by users with private keys, usually nominators or council members) can be submitted.
+	/// It is calculated as 1/4 of the total epoch duration, ensuring that signed
+	/// transactions are allowed for a quarter of the epoch.
 	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	/// This phase determines the time window, in blocks, during which unsigned transactions (those
+	/// without authorization, usually by offchain workers) can be submitted. Like the signed phase,
+	/// it occupies 1/4 of the total epoch duration.
 	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 
-	// signed config
+	// Signed Config
+	/// This represents the fixed reward given to participants for submitting valid signed
+	/// transactions. It is set to 1 ANLOG token, meaning that any participant who successfully
+	/// submits a signed transaction will receive this base reward.
 	pub const SignedRewardBase: Balance = 1 * ANLOG;
+	/// This deposit ensures that users have economic stakes in the submission of valid signed
+	/// transactions. It is currently set to 1 ANLOG, meaning participants must lock 1 ANLOG as
 	pub const SignedFixedDeposit: Balance = 1 * ANLOG;
+	/// This percentage increase applies to deposits for multiple or repeated signed transactions.
+	/// It is set to 10%, meaning that each additional submission after the first will increase the
+	/// required deposit by 10%. This serves as a disincentive to spamming the system with repeated
+	/// submissions.
 	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
+	/// This deposit ensures that larger signed transactions incur higher costs, reflecting the
+	/// increased resource consumption they require. It is set to 10 milliANLOG per byte.
 	pub const SignedDepositByte: Balance = 10 * MILLIANLOG;
 
-	// miner configs
+	// Miner Configs
+	/// This priority level determines the order in which unsigned transactions are included
+	/// in blocks relative to other transactions.
 	pub const MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - 1u64;
+	/// The maximum weight (computational limit) allowed for miner operations in a block.
+	/// This ensures that the block has enough space left for miner operations while maintaining
+	/// a limit on overall block execution weight.
 	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
 		.get(DispatchClass::Normal)
 		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
 		.saturating_sub(BlockExecutionWeight::get());
-	// Solution can occupy 90% of normal block size
+	/// This value is set to 90% of the maximum allowed block length for normal transactions.
+	/// It ensures that miner solutions do not consume too much block space, leaving enough
+	/// room for other transactions.
 	pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
 		*RuntimeBlockLength::get()
 		.max

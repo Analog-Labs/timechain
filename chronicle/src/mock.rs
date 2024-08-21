@@ -231,7 +231,7 @@ impl Runtime for Mock {
 		self.account_id.as_ref().unwrap()
 	}
 
-	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
+	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
 			let n = n + 1;
 			Some(([n as _; 32].into(), n))
@@ -241,6 +241,15 @@ impl Runtime for Mock {
 			e
 		})
 		.boxed()
+	}
+
+	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
+		self.block_notification_stream()
+			.then(|e| async move {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				e
+			})
+			.boxed()
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {

@@ -378,18 +378,19 @@ where
 
 		let task_executor = self.task_executor.clone();
 		let mut block_stream = task_executor.block_stream().fuse();
+		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		event!(target: TW_LOG, parent: span, Level::INFO, "Started chronicle loop");
 		let mut send_heartbeat = false;
 		loop {
 			futures::select! {
-				notification = finality_notifications.next().fuse() => {
-					let Some((block_hash, block_number)) = notification else {
+				notification = block_notifications.next().fuse() => {
+					let Some((_block_hash, block_number)) = notification else {
 						event!(
 							target: TW_LOG,
 							parent: span,
 							Level::DEBUG,
-							"no new finality notifications"
+							"no new block notifications"
 						);
 						continue;
 					};
@@ -427,6 +428,17 @@ where
 							}
 						}
 					}
+				},
+				notification = finality_notifications.next().fuse() => {
+					let Some((block_hash, block_number)) = notification else {
+						event!(
+							target: TW_LOG,
+							parent: span,
+							Level::DEBUG,
+							"no new finality notifications"
+						);
+						continue;
+					};
 					if let Err(e) = self.on_finality(span, block_hash, block_number).await {
 						event!(
 							target: TW_LOG,

@@ -185,6 +185,8 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	fn account_id(&self) -> &AccountId;
 
+	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
+
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;

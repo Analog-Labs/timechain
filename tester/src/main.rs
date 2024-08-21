@@ -16,7 +16,7 @@ use tester::{
 	format_duration, rational_to_ufloat, setup_gmp_with_contracts, sleep_or_abort, stats,
 	test_setup, wait_for_gmp_calls, ChainNetwork, EthContractAddress, GmpBenchState, Tester,
 };
-use time_primitives::{Payload, ShardId};
+use time_primitives::{NetworkId, Payload, ShardId};
 use tokio::time::{interval_at, Instant};
 
 // 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
@@ -64,6 +64,10 @@ enum Command {
 		tasks: u64,
 		test_contract_addresses: Vec<String>,
 	},
+	GetUFloat {
+		num: BigUint,
+		den: BigUint,
+	},
 	RegisterGmpShard {
 		shard_id: ShardId,
 		#[clap(default_value = "/etc/gmp_signer")]
@@ -88,6 +92,11 @@ enum Command {
 	SetNetworkInfo {
 		num: BigUint,
 		den: BigUint,
+		network_id: NetworkId,
+		#[clap(default_value_t = 1_000_000)]
+		gas_limit: u64,
+		#[clap(default_value_t = 100_000)]
+		base_fee: u128,
 	},
 	#[clap(subcommand)]
 	Test(Test),
@@ -192,8 +201,17 @@ async fn main() {
 		Command::SetShardConfig { shard_size, shard_threshold } => {
 			testers[0].set_shard_config(shard_size, shard_threshold).await.unwrap();
 		},
-		Command::SetNetworkInfo { num, den } => {
-			rational_to_ufloat(num, den);
+		Command::SetNetworkInfo {
+			num,
+			den,
+			network_id,
+			gas_limit,
+			base_fee,
+		} => {
+			testers[0]
+				.set_network_info(num, den, network_id, gas_limit, base_fee)
+				.await
+				.unwrap();
 		},
 		Command::WatchTask { task_id } => {
 			testers[0].wait_for_task(task_id).await;
@@ -209,6 +227,10 @@ async fn main() {
 		},
 		Command::GatewayAddShards { shard_ids } => {
 			testers[0].gateway_add_shards(shard_ids).await.unwrap();
+		},
+		Command::GetUFloat { num, den } => {
+			let float = rational_to_ufloat(num, den).unwrap();
+			println!("Float9x56 {float:#018x}");
 		},
 		Command::GmpBenchmark { tasks, test_contract_addresses } => {
 			let contracts = if test_contract_addresses.len() >= 2 {
@@ -304,7 +326,7 @@ async fn gmp_benchmark(
 	// get contract stats of destination contract
 	let dest_stats = stats(dest_tester, dest_contract, None).await?;
 	println!("stats in start: {:?}", start_stats);
-	let src_proxy = src_tester.geteway().await?.context("Gateway not found")?;
+	let src_proxy = src_tester.gateway().await?.context("Gateway not found")?;
 	let voting_call = VotingContract::voteCall { _vote: true }.abi_encode();
 	let msg_size = U256::from_str_radix(&voting_call.len().to_string(), 16).unwrap();
 
@@ -569,8 +591,8 @@ async fn gmp_test(
 ) -> Result<()> {
 	let (src_contract, dest_contract) = setup_gmp_with_contracts(src, dest, contract).await?;
 
-	let src_proxy = src.geteway().await?.context("Gateway not found")?;
-	let dest_proxy = dest.geteway().await?.context("Gateway not found")?;
+	let src_proxy = src.gateway().await?.context("Gateway not found")?;
+	let dest_proxy = dest.gateway().await?.context("Gateway not found")?;
 	let voting_call = VotingContract::voteCall { _vote: true }.abi_encode();
 	let msg_size = U256::from_str_radix(&voting_call.len().to_string(), 16).unwrap();
 

@@ -284,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "analog-docs"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chronicle",
  "mainnet-runtime",
@@ -2178,7 +2178,7 @@ dependencies = [
 
 [[package]]
 name = "chronicle"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "alloy-primitives 0.6.4",
  "alloy-sol-types 0.6.4",
@@ -7584,7 +7584,7 @@ dependencies = [
 
 [[package]]
 name = "mainnet-runtime"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "log",
  "pallet-elections",
@@ -9423,7 +9423,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-elections"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "env_logger 0.11.5",
  "lazy_static",
@@ -9493,7 +9493,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-governance"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -9602,7 +9602,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-members"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "env_logger 0.11.5",
  "lazy_static",
@@ -9719,7 +9719,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-networks"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -10152,7 +10152,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-shards"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "log",
  "pallet-members",
@@ -10295,7 +10295,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-tasks"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "log",
  "pallet-elections",
@@ -10311,7 +10311,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-timegraph"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -18858,7 +18858,7 @@ dependencies = [
 
 [[package]]
 name = "testnet-runtime"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "log",
  "pallet-elections",
@@ -19057,7 +19057,7 @@ dependencies = [
 
 [[package]]
 name = "timechain-node"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-channel 1.9.0",

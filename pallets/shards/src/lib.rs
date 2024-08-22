@@ -363,9 +363,7 @@ pub mod pallet {
 					reads += 1;
 				}
 			});
-			T::DbWeight::get()
-				.writes(writes)
-				.saturating_add(T::DbWeight::get().reads(reads))
+			T::DbWeight::get().reads_writes(reads, writes)
 		}
 	}
 
@@ -563,18 +561,28 @@ pub mod pallet {
 		///   6. Inserts each member into ShardMembers and associates them with [`MemberStatus::Added`].
 		///   7. Registers each member in `MemberShard` with the `shard_id`.
 		///   8. Emits a [`Event::ShardCreated`] event with the `shard_id` and network.
-		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) {
+		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> Weight {
+			let (mut reads, mut writes) = (0, 0);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
 			<DkgTimeout<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
 			<ShardThreshold<T>>::insert(shard_id, threshold);
+			// ShardIdCounter, frame_system::Pallet::<T>::block_number()
+			reads = reads.saturating_add(2);
+			// ShardIdCounter, ShardNetwork, ShardState, DkgTimeout, ShardThreshold
+			writes = writes.saturating_add(5);
 			for member in &members {
 				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
 				MemberShard::<T>::insert(member, shard_id);
+				// ShardMembers, MemberShard
+				writes = writes.saturating_add(2);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
+			// Event Emission
+			writes = writes.saturating_plus_one();
+			T::DbWeight::get().reads_writes(reads, writes)
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

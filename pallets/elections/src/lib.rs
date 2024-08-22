@@ -268,26 +268,16 @@ pub mod pallet {
 		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
 		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
 		fn try_elect_shard(network: NetworkId) -> Weight {
-			let mut weight = Weight::default();
-			if let Some(members) = Self::new_shard_members(network) {
-				members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-				weight = weight
-					// write Unassigned remnoval per member
-					.saturating_add(
-						T::DbWeight::get().writes(members.len().try_into().unwrap_or_default()),
-					);
-				T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
-				// TODO: include weight consumed by create_shard && new_shard_members
-				weight = weight
-					// read ShardThreshold once to create shard
-					.saturating_add(T::DbWeight::get().reads(1));
-			} else {
-				// TODO: add other stuff done in this branch
-				weight = weight
-					// read ShardSize once for new_shard_members
-					.saturating_add(T::DbWeight::get().reads(1));
+			match Self::new_shard_members(network) {
+				(Some(members), r) => {
+					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+					let weight = T::DbWeight::get()
+						.reads_writes(r, members.len().try_into().unwrap_or_default());
+					T::Shards::create_shard(network, members, ShardThreshold::<T>::get())
+						.saturating_add(weight)
+				},
+				(None, r) => T::DbWeight::get().reads(r),
 			}
-			weight
 		}
 
 		///  Determines the members for a new shard.
@@ -297,17 +287,21 @@ pub mod pallet {
 		///    3. Returns `None` if there are not enough members to form a shard.
 		///    4. If there are just enough members, returns the list of members.
 		///    5. If there are more members than needed, sorts them by their stake and selects the top members to form the shard.
-		fn new_shard_members(network: NetworkId) -> Option<Vec<AccountId>> {
+		fn new_shard_members(network: NetworkId) -> (Option<Vec<AccountId>>, u64) {
+			let mut reads: u64 = 0;
 			let shard_members_len = ShardSize::<T>::get() as usize;
-			let mut members = Unassigned::<T>::iter_prefix(network)
-				.map(|(m, _)| m)
-				.filter(T::Members::is_member_online)
-				.collect::<Vec<_>>();
+			let mut members = Vec::new();
+			for (m, _) in Unassigned::<T>::iter_prefix(network) {
+				if T::Members::is_member_online(&m) {
+					members.push(m);
+				}
+				reads = reads.saturating_add(2);
+			}
 			if members.len() < shard_members_len {
-				return None;
+				return (None, reads);
 			}
 			if members.len() == shard_members_len {
-				return Some(members);
+				return (Some(members), reads);
 			}
 			// else members.len() > shard_members_len:
 			members.sort_unstable_by(|a, b| {
@@ -317,7 +311,7 @@ pub mod pallet {
 					.then_with(|| a.cmp(b))
 					.reverse()
 			});
-			Some(members.into_iter().take(shard_members_len).collect())
+			(Some(members.into_iter().take(shard_members_len).collect()), reads)
 		}
 	}
 }

@@ -56,10 +56,10 @@ scale-decode = { version = "0.13.1", default-features = false, features = [ "der
 scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
 
 # main substrate sdk
-polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
 
 # specialized wasm builder
-substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", features = [ "metadata-hash" ] }
+substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", features = [ "metadata-hash" ] }
 
 # chain connectors
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }

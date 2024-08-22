@@ -66,6 +66,7 @@ fn roll(n: u32) {
 		Tasks::on_finalize(now);
 		System::set_block_number(now + 1);
 		Tasks::on_initialize(now + 1);
+		Elections::on_initialize(now + 1);
 	}
 }
 
@@ -99,6 +100,7 @@ fn shard_not_stuck_in_committed_state() {
 			get_peer_id(C),
 			90_000 * ANLOG,
 		));
+		roll(1);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
 			assert!(first_shard.contains(&m));
 		}
@@ -241,6 +243,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(B),
 			90_000 * ANLOG,
 		));
+		roll(1);
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
@@ -248,6 +251,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(C),
 			90_000 * ANLOG,
 		));
+		roll(2);
 		// verify shard 0 created for Network Ethereum
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
@@ -268,12 +272,12 @@ fn register_unregister_kills_task() {
 				shard_size: 3,
 			}
 		));
-		roll(1);
+		roll(3);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(),));
-		roll(1);
+		roll(4);
 		// task not assigned to shard 0
 		assert_eq!(Tasks::task_shard(0), None);
 		// member unregisters
@@ -281,7 +285,7 @@ fn register_unregister_kills_task() {
 		Elections::shard_offline(ETHEREUM, old_shard);
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Offline);
 		Tasks::shard_offline(0, ETHEREUM);
-		roll(1);
+		roll(5);
 		// task no longer assigned
 		assert!(Tasks::task_shard(0).is_none());
 		// task not killed
@@ -302,6 +306,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(E),
 			90_002 * ANLOG,
 		));
+		roll(6);
 		// verify shard 1 created for Network Ethereum
 		assert_eq!(Shards::shard_network(1), Some(ETHEREUM));
 	});

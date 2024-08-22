@@ -86,7 +86,7 @@ impl SubstrateCli for Cli {
 
 #[allow(clippy::extra_unused_type_parameters)]
 /// Parse command line arguments into service configuration.
-pub fn run_with<Runtime, RuntimeApi>(cli: Cli) -> sc_cli::Result<()>
+pub fn run_with<Runtime, RuntimeApi>(mut cli: Cli) -> sc_cli::Result<()>
 where
 	Runtime: frame_system::Config + pallet_transaction_payment::Config + Send + Sync,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
@@ -102,6 +102,13 @@ where
 		+ frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 {
+	// Support for custom "--sta" flag
+	if cli.sta {
+		cli.run.shared_params.dev = true;
+		cli.run.shared_params.chain = Some("sta".to_string());
+	}
+
+	// Parse subcommand to determine what to run
 	match &cli.subcommand {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;

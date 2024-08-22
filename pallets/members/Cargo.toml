@@ -18,13 +18,13 @@ log.workspace = true
 scale-codec.workspace = true
 scale-info.workspace = true
 
-frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false, optional = true }
-frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false, optional = true }
-sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false, optional = true }
+frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false, optional = true }
+sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+sp-std = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
 
 time-primitives = { path = "../../primitives", default-features = false }
 
@@ -33,8 +33,8 @@ simple-mermaid.workspace = true
 [dev-dependencies]
 env_logger.workspace = true
 lazy_static = "1.4.0"
-sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
-sp-keystore = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.13.0-patched2", default-features = false }
+sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+sp-keystore = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
 
 [features]
 default = [ "std" ]

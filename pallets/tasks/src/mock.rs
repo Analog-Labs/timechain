@@ -110,6 +110,7 @@ thread_local! {
 }
 
 /// set status for a given payment id
+#[allow(dead_code)]
 fn set_status(id: u64, s: PaymentStatus) {
 	STATUS.with(|m| m.borrow_mut().insert(id, s));
 }

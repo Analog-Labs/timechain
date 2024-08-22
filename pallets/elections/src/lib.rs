@@ -160,7 +160,7 @@ pub mod pallet {
 			for (network, _, _) in Unassigned::<T>::iter() {
 				weight = weight
 					// 1 Read of Unassigned per Loop
-					.saturating_add(T::DbWeight::get().read.into())
+					.saturating_add(T::DbWeight::get().reads(1))
 					.saturating_add(Self::try_elect_shard(network));
 			}
 			weight
@@ -224,11 +224,11 @@ pub mod pallet {
 		///    3. Inserts the member into the [`Unassigned`] storage for the given network.
 		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
-			if !T::Shards::is_shard_member(member) {
-				if Electable::<T>::iter().next().is_none() || Electable::<T>::get(member).is_some()
-				{
-					Unassigned::<T>::insert(network, member, ());
-				}
+			if !T::Shards::is_shard_member(member)
+				&& (Electable::<T>::iter().next().is_none()
+					|| Electable::<T>::get(member).is_some())
+			{
+				Unassigned::<T>::insert(network, member, ());
 			}
 			T::Shards::member_online(member, network);
 		}
@@ -280,12 +280,12 @@ pub mod pallet {
 				// TODO: include weight consumed by create_shard && new_shard_members
 				weight = weight
 					// read ShardThreshold once to create shard
-					.saturating_add(T::DbWeight::get().read.into());
+					.saturating_add(T::DbWeight::get().reads(1));
 			} else {
 				// TODO: add other stuff done in this branch
 				weight = weight
 					// read ShardSize once for new_shard_members
-					.saturating_add(T::DbWeight::get().read.into());
+					.saturating_add(T::DbWeight::get().reads(1));
 			}
 			weight
 		}

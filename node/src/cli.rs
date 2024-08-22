@@ -11,6 +11,14 @@ pub struct Cli {
 	#[clap(flatten)]
 	pub run: sc_cli::RunCmd,
 
+	/// Specify the staging chain.
+	///
+	/// This flag sets `--chain=sta`, `--force-authoring`, `--rpc-cors=all`,
+	/// `--alice`, and `--tmp` flags, unless explicitly overridden.
+	/// It also disables local peer discovery (see --no-mdns and --discover-local)
+	#[arg(long, conflicts_with_all = &["dev", "chain"])]
+	pub sta: bool,
+
 	/// Disable automatic hardware benchmarks.
 	///
 	/// By default these benchmarks are automatically ran at startup and measure

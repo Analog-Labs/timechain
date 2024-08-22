@@ -1,7 +1,7 @@
 [workspace.package]
 authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
 edition = "2021"
-version = "0.6.0"
+version = "0.6.1"
 homepage = "https://analog.one/"
 license = "GPL-3.0-only"
 readme = "README.md"

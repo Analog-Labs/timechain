@@ -1,6 +1,7 @@
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::{SolCall, SolConstructor};
 use anyhow::{Context, Result};
+use num_bigint::BigUint;
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
 use schnorr_evm::SigningKey;
@@ -25,8 +26,9 @@ use time_primitives::{
 	H160,
 };
 use tokio::time::Instant;
-
+use ufloat::{Float, Rounding, UFloat9x56};
 pub mod sol;
+mod ufloat;
 
 // type for eth contract address
 pub type EthContractAddress = [u8; 20];
@@ -124,7 +126,7 @@ impl Tester {
 		self.network_id
 	}
 
-	pub async fn geteway(&self) -> Result<Option<EthContractAddress>> {
+	pub async fn gateway(&self) -> Result<Option<EthContractAddress>> {
 		self.runtime.get_gateway(self.network_id).await
 	}
 
@@ -398,36 +400,19 @@ impl Tester {
 		// register proxy
 		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
 		println!("registering network on gateway");
+		// can you believe it, substrate can return old values after emitting a
+		// successful event
+		tokio::time::sleep(Duration::from_secs(20)).await;
 
 		if !networks.is_empty() {
 			let src_network = networks.first().unwrap().id;
 			let dest_network = networks.last().unwrap().id;
 
-			// set network info
-			self.wallet()
-				.eth_send_call(
-					proxy_addr,
-					Gateway::setNetworkInfoCall {
-						info: UpdateNetworkInfo {
-							networkId: networks.last().unwrap().id,
-							domainSeparator: [0; 32].into(),
-							gasLimit: 1_000_000,
-							relativeGasPrice: get_relative_gas_fee(src_network, dest_network),
-							baseFee: 100_000,
-							mortality: u64::MAX,
-						},
-					}
-					.abi_encode(),
-					0,
-					None,
-					None,
-				)
+			let (num, den) = get_network_ratio(src_network, dest_network);
+
+			self.set_network_info(num.into(), den.into(), dest_network, 1_000_000, 100_000)
 				.await?;
 		}
-
-		// can you believe it, substrate can return old values after emitting a
-		// successful event
-		tokio::time::sleep(Duration::from_secs(20)).await;
 		Ok(proxy_addr)
 	}
 
@@ -598,6 +583,38 @@ impl Tester {
 				println!("tx timedout: {:?}", tx_hash)
 			},
 		}
+		Ok(())
+	}
+	pub async fn set_network_info(
+		&self,
+		numerator: BigUint,
+		denominator: BigUint,
+		network_id: NetworkId,
+		gas_limit: u64,
+		base_fee: u128,
+	) -> Result<()> {
+		let gateway = self.gateway().await?.expect("Gateway address not found");
+		let float =
+			UFloat9x56::rational_to_float(numerator, denominator, Rounding::NearestTiesEven)
+				.map_err(|e| anyhow::anyhow!("{:?}", e))?;
+		let gmp_params = GmpParams {
+			network_id,
+			gateway_contract: gateway.into(),
+			// doesnt matter when computing domain seperator
+			tss_public_key: [0; 33],
+		};
+		let call = Gateway::setNetworkInfoCall {
+			info: UpdateNetworkInfo {
+				networkId: network_id,
+				domainSeparator: gmp_params.eip712_domain_separator().hash_struct(),
+				gasLimit: gas_limit,
+				relativeGasPrice: float,
+				baseFee: base_fee,
+				mortality: u64::MAX,
+			},
+		}
+		.abi_encode();
+		self.wallet().eth_send_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 }
@@ -1309,18 +1326,14 @@ pub async fn setup_gmp_with_contracts(
 /// # Argument
 /// `src`: source network_id
 /// `dest`: dest network_id
-pub fn get_relative_gas_fee(src: NetworkId, dest: NetworkId) -> u64 {
-	// 1.0 : 0x8000000000000000
-	// 2.0 : 0x8080000000000000
-	// 0.5 : 0x7f80000000000000
-	// 0.25 : 0x7f00000000000000
+pub fn get_network_ratio(src: NetworkId, dest: NetworkId) -> (u64, u64) {
 	if src == dest {
-		return 0x8000000000000000;
+		return (1, 1);
 	}
 	match (src, dest) {
-		(3, 6) => 0x8080000000000000,
-		(6, 3) => 0x7f80000000000000,
-		_ => 0,
+		(3, 6) => (2, 1),
+		(6, 3) => (1, 2),
+		_ => (1, 1),
 	}
 }
 
@@ -1364,4 +1377,10 @@ pub fn format_duration(duration: Duration) -> String {
 	let secs = seconds % 60;
 
 	format!("{:02} hrs {:02} mins {:02} secs", hours, minutes, secs)
+}
+
+pub fn rational_to_ufloat(numerator: BigUint, denominator: BigUint) -> Result<u64> {
+	let float = UFloat9x56::rational_to_float(numerator, denominator, Rounding::NearestTiesEven)
+		.map_err(|e| anyhow::anyhow!("{:?}", e))?;
+	Ok(float)
 }

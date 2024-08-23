@@ -17,7 +17,7 @@ pub struct GmpParams {
 }
 
 impl GmpParams {
-	fn eip712_domain_separator(&self) -> Eip712Domain {
+	pub fn eip712_domain_separator(&self) -> Eip712Domain {
 		Eip712Domain {
 			name: Some(EIP712_NAME.into()),
 			version: Some(EIP712_VERSION.into()),

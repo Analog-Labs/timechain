@@ -563,7 +563,7 @@ pub mod pallet {
 		///   6. Inserts each member into ShardMembers and associates them with [`MemberStatus::Added`].
 		///   7. Registers each member in `MemberShard` with the `shard_id`.
 		///   8. Emits a [`Event::ShardCreated`] event with the `shard_id` and network.
-		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) {
+		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> ShardId {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
@@ -575,6 +575,7 @@ pub mod pallet {
 				MemberShard::<T>::insert(member, shard_id);
 			}
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
+			shard_id
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

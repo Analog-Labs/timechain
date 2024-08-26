@@ -225,10 +225,24 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 }
 
 parameter_types! {
-	pub const EnterDuration: BlockNumber = 4 * HOURS;
-	pub const EnterDepositAmount: Balance = 2_000_000 * ANLOG;
-	pub const ExtendDuration: BlockNumber = 2 * HOURS;
-	pub const ExtendDepositAmount: Balance = 1_000_000 * ANLOG;
+	/// This represents duration of the networks safe mode.
+	/// Safe mode is typically activated in response to potential threats or instabilities
+	/// to restrict certain network operations.
+	pub const EnterDuration: BlockNumber = 1 * DAYS;
+	/// The deposit amount required to initiate the safe mode entry process.
+	/// This ensures that only participants with a significant economic stake (2,000,000 ANLOG tokens)
+	/// can trigger safe mode, preventing frivolous or malicious activations.
+	pub const EnterDepositAmount: Balance = 5_000_000 * ANLOG;  // ~5.5% of overall supply
+	/// The safe mode duration (in blocks) can be to extended.
+	/// This represents an additional 2 hours before an extension can be applied,
+	/// ensuring that any continuation of safe mode is deliberate and considered.
+	pub const ExtendDuration: BlockNumber = 12 * HOURS;
+	/// This ensures that participants must provide a moderate economic stake (1,000,000 ANLOG tokens)
+	/// to request an extension of safe mode, making it a costly action to prolong the restricted state.
+	pub const ExtendDepositAmount: Balance = 2_000_000 * ANLOG;
+	/// The minimal duration a deposit will remain reserved after safe-mode is entered or extended,
+	/// unless ['Pallet::force_release_deposit'] is successfully called sooner, acts as a security buffer
+	/// to ensure stability and allow for safe recovery from critical events
 	pub const ReleaseDelay: u32 = 2 * DAYS;
 }
 
@@ -276,7 +290,8 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	/// Base deposit required for storing a multisig execution, covering the cost of a single storage item.
+	// One storage item; key size is 32; value is size 4+4(block number)+16(balance)+32(account ID) bytes = 56 bytes.
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
@@ -408,14 +423,13 @@ impl pallet_babe::Config for Runtime {
 #[cfg(not(feature = "runtime-benchmarks"))]
 parameter_types! {
 	/// Minimum allowed account balance under which account will be reaped
-	/// 1 MILLIANLOG = 0.001 ANLOG, the base extrinsic weight fee is MICROANLOG which is less than this amount
-	pub const ExistentialDeposit: Balance = 1 * MILLIANLOG;
+	pub const ExistentialDeposit: Balance = 1 * ANLOG;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
-	pub const ExistentialDeposit: Balance = 1 * MILLIANLOG;
+	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
 }
 
 parameter_types! {
@@ -641,11 +655,11 @@ parameter_types! {
 	/// are authorized by users with private keys, usually nominators or council members) can be submitted.
 	/// It is calculated as 1/4 of the total epoch duration, ensuring that signed
 	/// transactions are allowed for a quarter of the epoch.
-	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 3;
 	/// This phase determines the time window, in blocks, during which unsigned transactions (those
 	/// without authorization, usually by offchain workers) can be submitted. Like the signed phase,
 	/// it occupies 1/4 of the total epoch duration.
-	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 3;
 
 	// Signed Config
 	/// This represents the fixed reward given to participants for submitting valid signed

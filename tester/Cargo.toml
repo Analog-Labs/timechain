@@ -30,6 +30,10 @@ sha3 = "0.10.8"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 sysinfo = "0.30.10"
 tracing-subscriber = "0.3.18"
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+num-integer = "0.1.46"
+
 
 tc-subxt.workspace = true
 time-primitives = { workspace = true, default-features = true }

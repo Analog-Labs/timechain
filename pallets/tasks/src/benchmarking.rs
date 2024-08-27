@@ -1,4 +1,4 @@
-use crate::{Call, Config, Pallet, TaskShard, TaskSigner};
+use crate::{Call, Config, Pallet, ShardRegistered, TaskShard, TaskSigner};
 
 use polkadot_sdk::{
 	frame_benchmarking, frame_support, frame_system, pallet_balances, pallet_treasury, sp_core,
@@ -85,6 +85,7 @@ fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountI
 	);
 	ShardState::<T>::insert(0, ShardStatus::Online);
 	Pallet::<T>::shard_online(0, ETHEREUM);
+	ShardRegistered::<T>::insert(0, ());
 	let caller = whitelisted_caller();
 	pallet_balances::Pallet::<T>::resolve_creating(
 		&caller,

@@ -88,7 +88,7 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 	for i in 0..n {
 		members.push([i; 32].into());
 	}
-	let shard_id = Shards::create_shard(network, members, t);
+	let shard_id = Shards::create_shard(network, members, t).0;
 	let pub_key = MockTssSigner::new().public_key();
 	ShardCommitment::<Test>::insert(shard_id, vec![pub_key]);
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);

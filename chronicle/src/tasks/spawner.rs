@@ -295,6 +295,7 @@ where
 					gas_limit,
 				} => {
 					let _guard = self.wallet_guard.lock().await;
+					panic!("test break");
 					self.wallet.eth_send_call(address, input.clone(), amount, None, gas_limit).await
 				},
 				_ => anyhow::bail!("not a write function {function:?}"),

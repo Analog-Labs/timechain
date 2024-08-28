@@ -1,6 +1,6 @@
 use crate::{metadata_scope, SubxtClient};
 use anyhow::Result;
-use time_primitives::{Payload, TaskId, TaskPhase};
+use time_primitives::{Payload, ShardId, TaskId, TaskPhase};
 
 impl SubxtClient {
 	pub async fn get_network_unassigned_tasks(&self, network_id: u16) -> Result<Vec<TaskId>> {
@@ -41,6 +41,13 @@ impl SubxtClient {
 				.fetch(&storage_query)
 				.await?
 				.map(|s| s.0))
+		})
+	}
+
+	pub async fn get_task_shard(&self, task_id: u64) -> Result<Option<ShardId>> {
+		metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().tasks().task_shard(task_id);
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 		})
 	}
 }

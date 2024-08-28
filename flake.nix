@@ -59,7 +59,7 @@
         );
 
       # Create developer shell for combination of build and target package set
-      mkDevShell = pkgs: tpkgs: pkgs.mkShell {
+      mkDevShell = pkgs: tpkgs: tpkgs.mkShell {
         # Provide target platform to cargo via env var
         CARGO_BUILD_TARGET = tpkgs.rust.toRustTarget tpkgs.stdenv.targetPlatform;
 
@@ -68,8 +68,8 @@
           # - Customized rust toolchain (via path)
           (mkRustToolchain tpkgs)
           # - Some helpers to improve compatibility
-          tpkgs.pkg-config
-          tpkgs.rustPlatform.bindgenHook
+          pkgs.gcc
+          pkgs.pkg-config
         ];
 
         # - Protobuf compiler (via env var)

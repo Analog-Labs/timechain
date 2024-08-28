@@ -6,7 +6,7 @@
 //! Currently only wraps a few important root call to lower the required privilege level
 //! to a custom origin.
 //!
-//! See [`Calls`] for a list of wrapped extrinsics.
+//! See [`Call`] for a list of wrapped extrinsics.
 
 pub use pallet::*;
 

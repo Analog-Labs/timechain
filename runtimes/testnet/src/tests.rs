@@ -256,6 +256,7 @@ fn register_unregister_kills_task() {
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
+		<pallet_tasks::ShardRegistered<Runtime>>::insert(0, ());
 		// create task
 		assert_ok!(Tasks::create_task(
 			RawOrigin::Root.into(),

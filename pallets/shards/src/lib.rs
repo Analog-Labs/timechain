@@ -561,7 +561,11 @@ pub mod pallet {
 		///   6. Inserts each member into ShardMembers and associates them with [`MemberStatus::Added`].
 		///   7. Registers each member in `MemberShard` with the `shard_id`.
 		///   8. Emits a [`Event::ShardCreated`] event with the `shard_id` and network.
-		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> Weight {
+		fn create_shard(
+			network: NetworkId,
+			members: Vec<AccountId>,
+			threshold: u16,
+		) -> (ShardId, Weight) {
 			let (mut reads, mut writes) = (0, 0);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id + 1);
@@ -582,7 +586,8 @@ pub mod pallet {
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			// Event Emission
 			writes = writes.saturating_plus_one();
-			T::DbWeight::get().reads_writes(reads, writes)
+			let weight = T::DbWeight::get().reads_writes(reads, writes);
+			(shard_id, weight)
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

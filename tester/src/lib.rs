@@ -646,9 +646,11 @@ impl Tester {
 		else {
 			anyhow::bail!("Only EvmCall functions are supported");
 		};
-		self.wallet()
+		let result = self
+			.wallet()
 			.eth_send_call(address, input.clone(), amount, None, gas_limit)
 			.await?;
+		println!("Tx result: {:?}", result);
 		Ok(())
 	}
 

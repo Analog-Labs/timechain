@@ -30,7 +30,7 @@ esac
 # Evaluate optional environment argument
 environment="${1:-development}"
 case "${environment}" in
-	timechain)
+	mainnet)
 		profile=production
 		features=default
 		;;
@@ -44,7 +44,7 @@ case "${environment}" in
 		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"
-		echo >&2 "      - options: timechain testnet development"
+		echo >&2 "      - options: mainnet staging testnet development"
 		echo >&2 "      - default: development"
 		exit 1
 		;;

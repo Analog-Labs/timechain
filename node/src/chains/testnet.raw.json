@@ -20,7 +20,8 @@
   },
   "codeSubstitutes": {},
   "badBlocks": [
-    "0x4a352822c5de2b3519e27f2c56aa030512c1335e65e9ae420ba6754cfd9a39f9"
+    "0x4a352822c5de2b3519e27f2c56aa030512c1335e65e9ae420ba6754cfd9a39f9",
+    "0x913a451d8aff289b219f577d0564df5b02c258f0acfdeafe90bf4f94116b5fbe"
   ],
   "genesis": {
     "raw": {

@@ -1,6 +1,8 @@
 # cargo
 /target
 
+/config/subxt
+
 # forge
 /out
 /cache

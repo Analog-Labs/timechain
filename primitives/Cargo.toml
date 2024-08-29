@@ -38,7 +38,9 @@ polkadot-sdk = { workspace = true, features = [ "sp-core", "sp-runtime" ] }
 default = ["std"]
 std = [
 	"futures",
+	"futures",
 	"scale-codec/std",
+	"scale-info/std",
 	"scale-info/std",
 
 	"polkadot-sdk/std",

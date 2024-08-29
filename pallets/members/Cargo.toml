@@ -14,6 +14,7 @@ repository.workspace = true
 [package.metadata.docs.rs]
 targets = [ "x86_64-unknown-linux-gnu" ]
 
+
 [dependencies]
 log.workspace = true
 scale-codec.workspace = true
@@ -39,18 +40,6 @@ sp-keystore = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.1
 
 [features]
 default = [ "std" ]
-std = [
-	"scale-codec/std",
-	"scale-info/std",
-
-	"polkadot-sdk/std",
-
-	"time-primitives/std",
-]
-runtime-benchmarks = [
-	"polkadot-sdk/runtime-benchmarks",
-	"polkadot-sdk/frame-benchmarking",
-]
-try-runtime = [
-	"polkadot-sdk/try-runtime",
-]
+std = [ "scale-codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "pallet-balances/std", "scale-info/std", "sp-core/std", "sp-runtime/std", "sp-std/std", "time-primitives/std" ]
+runtime-benchmarks = [ "frame-benchmarking/runtime-benchmarks", "sp-core" ]
+try-runtime = [ "frame-support/try-runtime" ]

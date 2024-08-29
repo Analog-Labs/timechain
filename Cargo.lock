@@ -284,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "analog-docs"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "chronicle",
  "mainnet-runtime",
@@ -858,10 +858,10 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-assets",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-collator-selection",
  "pallet-session",
  "pallet-timestamp",
@@ -885,7 +885,7 @@ version = "0.17.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "frame-support",
+ "frame-support 37.0.0",
  "impl-trait-for-tuples",
  "log",
  "pallet-asset-conversion",
@@ -893,7 +893,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "staging-xcm",
  "staging-xcm-builder",
@@ -1569,7 +1569,7 @@ version = "0.13.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "bp-xcm-bridge-hub-router",
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -1580,7 +1580,7 @@ version = "0.12.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "bp-xcm-bridge-hub-router",
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -1593,10 +1593,10 @@ dependencies = [
  "bp-messages",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "polkadot-primitives",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
 
@@ -1608,8 +1608,8 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
@@ -1622,8 +1622,8 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
@@ -1636,8 +1636,8 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
@@ -1650,8 +1650,8 @@ dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
@@ -1663,7 +1663,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bp-runtime",
  "finality-grandpa",
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1681,8 +1681,8 @@ dependencies = [
  "bp-header-chain",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
 
@@ -1693,7 +1693,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bp-header-chain",
  "bp-runtime",
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -1709,7 +1709,7 @@ dependencies = [
  "bp-header-chain",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
+ "frame-support 37.0.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
@@ -1726,8 +1726,8 @@ dependencies = [
  "bp-header-chain",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
 
@@ -1740,11 +1740,11 @@ dependencies = [
  "bp-messages",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
@@ -1756,8 +1756,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bp-messages",
  "bp-runtime",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "parity-util-mem",
  "scale-info",
@@ -1774,7 +1774,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bp-messages",
  "bp-runtime",
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
@@ -1789,8 +1789,8 @@ dependencies = [
  "bp-header-chain",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
 
@@ -1799,8 +1799,8 @@ name = "bp-runtime"
 version = "0.17.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "hash-db",
  "impl-trait-for-tuples",
  "log",
@@ -1845,8 +1845,8 @@ dependencies = [
  "bp-header-chain",
  "bp-polkadot-core",
  "bp-runtime",
- "frame-support",
- "sp-api",
+ "frame-support 37.0.0",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
 
@@ -1875,7 +1875,7 @@ version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "frame-support",
+ "frame-support 37.0.0",
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
@@ -1900,11 +1900,11 @@ dependencies = [
  "bridge-runtime-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
  "pallet-bridge-parachains",
@@ -1937,8 +1937,8 @@ dependencies = [
  "bp-runtime",
  "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -2178,7 +2178,7 @@ dependencies = [
 
 [[package]]
 name = "chronicle"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "alloy-primitives 0.6.4",
  "alloy-sol-types 0.6.4",
@@ -2858,8 +2858,8 @@ version = "0.16.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-pallet-parachain-system",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-aura",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -2876,8 +2876,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "cumulus-primitives-core",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -2898,8 +2898,8 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "environmental",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "pallet-message-queue",
@@ -2910,13 +2910,13 @@ dependencies = [
  "scale-info",
  "sp-core 34.0.0",
  "sp-externalities 0.29.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-state-machine 0.43.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-trie 37.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "trie-db 0.29.1",
@@ -2939,8 +2939,8 @@ version = "18.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-session",
  "parity-scale-codec",
  "sp-runtime 39.0.0",
@@ -2952,8 +2952,8 @@ version = "0.16.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-pallet-parachain-system",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-sudo",
  "parity-scale-codec",
  "polkadot-primitives",
@@ -2967,8 +2967,8 @@ version = "0.16.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -2985,8 +2985,8 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "cumulus-primitives-core",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -3008,8 +3008,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "cumulus-pallet-xcm",
  "cumulus-primitives-core",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
@@ -3024,7 +3024,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-primitives",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-consensus-aura",
  "sp-runtime 39.0.0",
 ]
@@ -3039,7 +3039,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-trie 37.0.0",
  "staging-xcm",
@@ -3055,7 +3055,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-state-machine 0.43.0",
  "sp-trie 37.0.0",
@@ -3079,8 +3079,8 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
  "docify",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -3093,7 +3093,7 @@ version = "0.15.1"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-timestamp",
 ]
 
@@ -3103,7 +3103,7 @@ version = "0.16.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "frame-support",
+ "frame-support 37.0.0",
  "log",
  "pallet-asset-conversion",
  "parity-scale-codec",
@@ -4437,16 +4437,16 @@ name = "frame-benchmarking"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-support-procedural",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-support-procedural 30.0.2",
+ "frame-system 37.1.0",
  "linregress",
  "log",
  "parity-scale-codec",
  "paste",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
@@ -4467,8 +4467,8 @@ dependencies = [
  "clap",
  "comfy-table",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "gethostname",
  "handlebars",
  "itertools 0.11.0",
@@ -4488,13 +4488,13 @@ dependencies = [
  "sc-sysinfo",
  "serde",
  "serde_json",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-database",
  "sp-externalities 0.29.0",
- "sp-genesis-builder",
- "sp-inherents",
+ "sp-genesis-builder 0.15.0",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-keystore 0.40.0",
  "sp-runtime 39.0.0",
@@ -4512,8 +4512,8 @@ version = "27.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -4537,8 +4537,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-election-provider-solution-type",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic 26.0.0",
@@ -4553,8 +4553,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "aquamarine",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "frame-try-runtime",
  "log",
  "parity-scale-codec",
@@ -4595,12 +4595,52 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "array-bytes",
  "docify",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
+]
+
+[[package]]
+name = "frame-support"
+version = "28.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "aquamarine",
+ "array-bytes",
+ "bitflags 1.3.2",
+ "docify",
+ "environmental",
+ "frame-metadata 16.0.0",
+ "frame-support-procedural 23.0.0",
+ "impl-trait-for-tuples",
+ "k256",
+ "log",
+ "macro_magic",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "sp-api 26.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing-proc-macro 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-metadata-ir 0.6.0",
+ "sp-runtime 31.0.1",
+ "sp-staking 26.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-tracing 16.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-weights 27.0.0",
+ "static_assertions",
+ "tt-call",
 ]
 
 [[package]]
@@ -4614,7 +4654,7 @@ dependencies = [
  "docify",
  "environmental",
  "frame-metadata 16.0.0",
- "frame-support-procedural",
+ "frame-support-procedural 30.0.2",
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -4625,23 +4665,42 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 34.0.0",
- "sp-crypto-hashing-proc-macro",
+ "sp-crypto-hashing-proc-macro 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
- "sp-genesis-builder",
- "sp-inherents",
+ "sp-genesis-builder 0.15.0",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
- "sp-metadata-ir",
+ "sp-metadata-ir 0.7.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
  "sp-state-machine 0.43.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-tracing 17.0.0",
  "sp-weights 31.0.0",
  "static_assertions",
  "tt-call",
+]
+
+[[package]]
+name = "frame-support-procedural"
+version = "23.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "Inflector",
+ "cfg-expr",
+ "derive-syn-parse",
+ "expander",
+ "frame-support-procedural-tools 10.0.0",
+ "itertools 0.11.0",
+ "macro_magic",
+ "proc-macro-warning 1.0.2",
+ "proc-macro2",
+ "quote",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "syn 2.0.75",
 ]
 
 [[package]]
@@ -4653,7 +4712,7 @@ dependencies = [
  "cfg-expr",
  "derive-syn-parse",
  "expander",
- "frame-support-procedural-tools",
+ "frame-support-procedural-tools 13.0.0",
  "itertools 0.11.0",
  "macro_magic",
  "proc-macro-warning 1.0.2",
@@ -4665,11 +4724,33 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural-tools"
+version = "10.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "frame-support-procedural-tools-derive 11.0.0",
+ "proc-macro-crate 3.1.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
+name = "frame-support-procedural-tools"
 version = "13.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support-procedural-tools-derive",
+ "frame-support-procedural-tools-derive 12.0.0",
  "proc-macro-crate 3.1.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
+name = "frame-support-procedural-tools-derive"
+version = "11.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.75",
@@ -4687,12 +4768,32 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
+version = "28.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "cfg-if",
+ "docify",
+ "frame-support 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-version 29.0.0",
+ "sp-weights 27.0.0",
+]
+
+[[package]]
+name = "frame-system"
 version = "37.1.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cfg-if",
  "docify",
- "frame-support",
+ "frame-support 37.0.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -4701,7 +4802,7 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
- "sp-version",
+ "sp-version 37.0.0",
  "sp-weights 31.0.0",
 ]
 
@@ -4711,8 +4812,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -4726,7 +4827,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
 ]
 
 [[package]]
@@ -4734,9 +4835,9 @@ name = "frame-try-runtime"
 version = "0.43.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
 ]
 
@@ -5020,11 +5121,11 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "chrono",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "num-format",
  "pallet-staking",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -7584,10 +7685,11 @@ dependencies = [
 
 [[package]]
 name = "mainnet-runtime"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "log",
  "pallet-elections",
+ "pallet-governance",
  "pallet-members",
  "pallet-networks",
  "pallet-shards",
@@ -7841,7 +7943,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-client-api",
  "sc-offchain",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-beefy",
@@ -7858,7 +7960,7 @@ dependencies = [
  "jsonrpsee 0.23.2",
  "parity-scale-codec",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-mmr-primitives",
@@ -8751,8 +8853,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "array-bytes",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-collective",
  "pallet-identity",
@@ -8770,12 +8872,12 @@ version = "19.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
@@ -8788,8 +8890,8 @@ version = "0.5.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-asset-conversion",
  "parity-scale-codec",
@@ -8805,8 +8907,8 @@ name = "pallet-asset-conversion-tx-payment"
 version = "19.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-asset-conversion",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -8820,8 +8922,8 @@ version = "16.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -8834,8 +8936,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
@@ -8851,8 +8953,8 @@ version = "39.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -8867,8 +8969,8 @@ version = "0.4.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-assets",
  "parity-scale-codec",
@@ -8881,8 +8983,8 @@ name = "pallet-atomic-swap"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -8895,8 +8997,8 @@ name = "pallet-aura"
 version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -8911,8 +9013,8 @@ name = "pallet-authority-discovery"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -8926,8 +9028,8 @@ name = "pallet-authorship"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
@@ -8940,8 +9042,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -8954,7 +9056,7 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -8966,10 +9068,10 @@ dependencies = [
  "docify",
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -8980,13 +9082,28 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
+version = "28.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "docify",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+]
+
+[[package]]
+name = "pallet-balances"
 version = "38.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -8998,8 +9115,8 @@ name = "pallet-beefy"
 version = "38.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -9009,7 +9126,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9019,8 +9136,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "array-bytes",
  "binary-merkle-tree",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-beefy",
  "pallet-mmr",
@@ -9028,7 +9145,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-consensus-beefy",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
@@ -9042,10 +9159,10 @@ version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -9062,8 +9179,8 @@ dependencies = [
  "bp-runtime",
  "bp-test-utils",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9081,8 +9198,8 @@ dependencies = [
  "bp-messages",
  "bp-runtime",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9101,8 +9218,8 @@ dependencies = [
  "bp-polkadot-core",
  "bp-runtime",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
@@ -9120,8 +9237,8 @@ dependencies = [
  "bp-relayers",
  "bp-runtime",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-bridge-messages",
  "parity-scale-codec",
@@ -9138,12 +9255,12 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bitvec",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 34.0.0",
  "sp-runtime 39.0.0",
@@ -9155,11 +9272,11 @@ version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-bounties",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -9173,17 +9290,17 @@ version = "18.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-authorship",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-session",
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9192,8 +9309,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9208,8 +9325,8 @@ version = "0.15.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -9224,11 +9341,11 @@ dependencies = [
  "bitflags 1.3.2",
  "environmental",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-contracts-proc-macro",
  "pallet-contracts-uapi",
  "parity-scale-codec",
@@ -9238,7 +9355,7 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
@@ -9254,10 +9371,10 @@ name = "pallet-contracts-mock-network"
 version = "13.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-assets",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-contracts",
  "pallet-contracts-proc-macro",
  "pallet-contracts-uapi",
@@ -9272,7 +9389,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
  "sp-keystore 0.40.0",
@@ -9313,8 +9430,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -9328,8 +9445,8 @@ version = "21.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-ranked-collective",
  "parity-scale-codec",
@@ -9345,12 +9462,12 @@ name = "pallet-delegated-staking"
 version = "4.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9359,8 +9476,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9375,10 +9492,10 @@ name = "pallet-dev-mode"
 version = "19.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -9392,8 +9509,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-election-provider-support-benchmarking",
  "parity-scale-codec",
@@ -9414,7 +9531,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-system",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "sp-npos-elections",
  "sp-runtime 39.0.0",
@@ -9422,15 +9539,15 @@ dependencies = [
 
 [[package]]
 name = "pallet-elections"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "env_logger 0.11.5",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "lazy_static",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-shards",
  "parity-scale-codec",
  "scale-info",
@@ -9449,8 +9566,8 @@ version = "38.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9458,7 +9575,7 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-npos-elections",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9469,14 +9586,14 @@ dependencies = [
  "docify",
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9486,15 +9603,25 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "blake2 0.10.6",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
+]
+
+[[package]]
+name = "pallet-governance"
+version = "0.7.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "time-primitives",
 ]
 
 [[package]]
@@ -9503,8 +9630,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -9516,7 +9643,7 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9526,8 +9653,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9541,8 +9668,8 @@ version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-authorship",
  "parity-scale-codec",
@@ -9551,7 +9678,7 @@ dependencies = [
  "sp-core 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9560,8 +9687,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -9575,8 +9702,8 @@ name = "pallet-insecure-randomness-collective-flip"
 version = "25.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "safe-mix",
  "scale-info",
@@ -9589,8 +9716,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
@@ -9598,15 +9725,15 @@ dependencies = [
 
 [[package]]
 name = "pallet-members"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "env_logger 0.11.5",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "lazy_static",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "simple-mermaid",
@@ -9624,8 +9751,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9641,8 +9768,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "environmental",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9660,8 +9787,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -9676,8 +9803,8 @@ version = "0.13.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9695,8 +9822,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9712,8 +9839,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9723,12 +9850,12 @@ dependencies = [
 
 [[package]]
 name = "pallet-networks"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "simple-mermaid",
@@ -9744,8 +9871,8 @@ version = "20.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-assets",
  "pallet-nfts",
@@ -9761,8 +9888,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9778,7 +9905,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "pallet-nfts",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
 ]
 
 [[package]]
@@ -9787,8 +9914,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic 26.0.0",
@@ -9801,8 +9928,8 @@ name = "pallet-node-authorization"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9816,16 +9943,16 @@ name = "pallet-nomination-pools"
 version = "34.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
  "sp-tracing 17.0.0",
 ]
 
@@ -9836,8 +9963,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-bags-list",
  "pallet-delegated-staking",
  "pallet-nomination-pools",
@@ -9846,7 +9973,7 @@ dependencies = [
  "scale-info",
  "sp-runtime 39.0.0",
  "sp-runtime-interface 28.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9856,7 +9983,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "pallet-nomination-pools",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
 ]
 
 [[package]]
@@ -9864,15 +9991,15 @@ name = "pallet-offences"
 version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9882,11 +10009,11 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-babe",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-offences",
@@ -9895,7 +10022,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -9905,13 +10032,13 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
- "sp-metadata-ir",
+ "sp-metadata-ir 0.7.0",
  "sp-runtime 39.0.0",
 ]
 
@@ -9922,8 +10049,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "paste",
  "scale-info",
@@ -9938,8 +10065,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -9954,8 +10081,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -9968,8 +10095,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
@@ -9986,8 +10113,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -10001,8 +10128,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10018,8 +10145,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -10033,14 +10160,14 @@ name = "pallet-root-offences"
 version = "34.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-session",
  "pallet-staking",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -10048,8 +10175,8 @@ name = "pallet-root-testing"
 version = "13.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -10064,9 +10191,9 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
+ "pallet-balances 38.0.0",
  "pallet-proxy",
  "pallet-utility",
  "parity-scale-codec",
@@ -10081,8 +10208,8 @@ version = "22.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-ranked-collective",
  "parity-scale-codec",
@@ -10100,8 +10227,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10115,8 +10242,8 @@ name = "pallet-scored-pool"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -10128,8 +10255,8 @@ name = "pallet-session"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "pallet-timestamp",
@@ -10139,7 +10266,7 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
  "sp-state-machine 0.43.0",
  "sp-trie 37.0.0",
 ]
@@ -10150,8 +10277,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "pallet-session",
  "pallet-staking",
  "parity-scale-codec",
@@ -10162,18 +10289,17 @@ dependencies = [
 
 [[package]]
 name = "pallet-shards"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-members",
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
- "simple-mermaid",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
@@ -10186,8 +10312,8 @@ name = "pallet-skip-feeless-payment"
 version = "12.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
@@ -10199,8 +10325,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "rand_chacha 0.3.1",
@@ -10217,8 +10343,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -10229,7 +10355,7 @@ dependencies = [
  "sp-application-crypto 38.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -10258,8 +10384,8 @@ version = "22.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "parity-scale-codec",
- "sp-api",
- "sp-staking",
+ "sp-api 34.0.0",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -10268,8 +10394,8 @@ version = "39.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10283,12 +10409,12 @@ name = "pallet-statement"
 version = "19.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
@@ -10302,8 +10428,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-io 38.0.0",
@@ -10312,17 +10438,17 @@ dependencies = [
 
 [[package]]
 name = "pallet-tasks"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-elections",
  "pallet-members",
  "pallet-shards",
- "pallet-treasury",
+ "pallet-treasury 27.0.0",
  "parity-scale-codec",
  "scale-info",
  "schnorr-evm",
@@ -10336,12 +10462,12 @@ dependencies = [
 
 [[package]]
 name = "pallet-timegraph"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "simple-mermaid",
@@ -10357,12 +10483,12 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-storage 21.0.0",
@@ -10375,10 +10501,10 @@ version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -10392,8 +10518,8 @@ name = "pallet-transaction-payment"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -10410,7 +10536,7 @@ dependencies = [
  "jsonrpsee 0.23.2",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-rpc",
@@ -10425,7 +10551,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
  "sp-weights 31.0.0",
 ]
@@ -10437,17 +10563,33 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "array-bytes",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-transaction-storage-proof",
+]
+
+[[package]]
+name = "pallet-treasury"
+version = "27.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "docify",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "impl-trait-for-tuples",
+ "pallet-balances 28.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
 ]
 
 [[package]]
@@ -10457,10 +10599,10 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -10475,9 +10617,9 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "docify",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
+ "pallet-balances 38.0.0",
  "pallet-proxy",
  "pallet-utility",
  "parity-scale-codec",
@@ -10491,8 +10633,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10505,8 +10647,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
@@ -10520,8 +10662,8 @@ version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10534,11 +10676,11 @@ version = "36.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
 ]
 
@@ -10549,10 +10691,10 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -10571,8 +10713,8 @@ version = "16.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10592,8 +10734,8 @@ dependencies = [
  "bp-runtime",
  "bp-xcm-bridge-hub",
  "bridge-runtime-common",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-bridge-messages",
  "parity-scale-codec",
@@ -10613,8 +10755,8 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10643,13 +10785,13 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-authorship",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-xcm",
@@ -10676,9 +10818,9 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-test-relay-sproof-builder",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
+ "pallet-balances 38.0.0",
  "pallet-collator-selection",
  "pallet-session",
  "pallet-timestamp",
@@ -11284,7 +11426,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sp-blockchain",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "thiserror",
  "tracing-gum",
 ]
@@ -11407,7 +11549,7 @@ dependencies = [
  "sc-network-types",
  "sc-transaction-pool-api",
  "smallvec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-consensus-babe",
@@ -11468,7 +11610,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "sc-client-api",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "tikv-jemalloc-ctl",
  "tracing-gum",
@@ -11503,17 +11645,17 @@ dependencies = [
  "polkadot-parachain-primitives",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-arithmetic 26.0.0",
  "sp-authority-discovery",
  "sp-consensus-slots",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-keystore 0.40.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
 ]
 
 [[package]]
@@ -11538,7 +11680,7 @@ dependencies = [
  "sc-rpc-spec-v2",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -11559,15 +11701,15 @@ dependencies = [
  "bitvec",
  "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "libsecp256k1",
  "log",
  "pallet-asset-rate",
  "pallet-authorship",
  "pallet-babe",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-broker",
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
@@ -11577,7 +11719,7 @@ dependencies = [
  "pallet-staking-reward-fn",
  "pallet-timestamp",
  "pallet-transaction-payment",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "pallet-vesting",
  "parity-scale-codec",
  "polkadot-primitives",
@@ -11587,14 +11729,14 @@ dependencies = [
  "serde",
  "serde_derive",
  "slot-range-helper",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-npos-elections",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -11622,14 +11764,14 @@ dependencies = [
  "bitvec",
  "derive_more 0.99.18",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-broker",
  "pallet-message-queue",
  "pallet-session",
@@ -11645,16 +11787,16 @@ dependencies = [
  "rand_chacha 0.3.1",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-arithmetic 26.0.0",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-keystore 0.40.0",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
  "staging-xcm",
  "staging-xcm-executor",
  "static_assertions",
@@ -11715,9 +11857,9 @@ dependencies = [
  "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
- "frame-support",
- "frame-support-procedural",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-support-procedural 30.0.2",
+ "frame-system 37.1.0",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
@@ -11736,7 +11878,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-bags-list",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-bounties",
@@ -11814,7 +11956,7 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-transaction-storage",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
@@ -11879,8 +12021,8 @@ dependencies = [
  "snowbridge-runtime-common",
  "snowbridge-runtime-test-common",
  "snowbridge-system-runtime-api",
- "sp-api",
- "sp-api-proc-macro",
+ "sp-api 34.0.0",
+ "sp-api-proc-macro 20.0.0",
  "sp-application-crypto 38.0.0",
  "sp-arithmetic 26.0.0",
  "sp-authority-discovery",
@@ -11899,12 +12041,12 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-externalities 0.29.0",
- "sp-genesis-builder",
- "sp-inherents",
+ "sp-genesis-builder 0.15.0",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-keyring 39.0.0",
  "sp-keystore 0.40.0",
- "sp-metadata-ir",
+ "sp-metadata-ir 0.7.0",
  "sp-mixnet",
  "sp-mmr-primitives",
  "sp-npos-elections",
@@ -11912,7 +12054,7 @@ dependencies = [
  "sp-runtime 39.0.0",
  "sp-runtime-interface 28.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
  "sp-state-machine 0.43.0",
  "sp-statement-store",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
@@ -11922,7 +12064,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-transaction-storage-proof",
  "sp-trie 37.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "sp-wasm-interface 21.0.0",
  "sp-weights 31.0.0",
  "staging-node-inspect",
@@ -11947,28 +12089,28 @@ dependencies = [
  "docify",
  "frame-benchmarking",
  "frame-executive",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-arithmetic 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-offchain",
  "sp-runtime 39.0.0",
  "sp-session",
  "sp-storage 21.0.0",
  "sp-transaction-pool",
- "sp-version",
+ "sp-version 37.0.0",
 ]
 
 [[package]]
@@ -11979,8 +12121,8 @@ dependencies = [
  "async-trait",
  "frame-benchmarking",
  "frame-benchmarking-cli",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "frame-system-rpc-runtime-api",
  "futures",
  "hex-literal",
@@ -12033,7 +12175,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain",
@@ -12042,7 +12184,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-keyring 39.0.0",
  "sp-keystore 0.40.0",
@@ -12054,7 +12196,7 @@ dependencies = [
  "sp-storage 21.0.0",
  "sp-timestamp",
  "sp-transaction-pool",
- "sp-version",
+ "sp-version 37.0.0",
  "sp-weights 31.0.0",
  "staging-xcm",
  "substrate-prometheus-endpoint",
@@ -13431,8 +13573,8 @@ dependencies = [
  "frame-benchmarking",
  "frame-executive",
  "frame-metadata-hash-extension",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
@@ -13442,7 +13584,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-bounties",
@@ -13477,7 +13619,7 @@ dependencies = [
  "pallet-tips",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "pallet-utility",
  "pallet-vesting",
  "pallet-whitelist",
@@ -13494,7 +13636,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "smallvec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-arithmetic 26.0.0",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -13502,17 +13644,17 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
  "sp-core 34.0.0",
- "sp-genesis-builder",
- "sp-inherents",
+ "sp-genesis-builder 0.15.0",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-mmr-primitives",
  "sp-offchain",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
  "sp-storage 21.0.0",
  "sp-transaction-pool",
- "sp-version",
+ "sp-version 37.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -13526,7 +13668,7 @@ name = "rococo-runtime-constants"
 version = "16.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "smallvec",
@@ -14355,7 +14497,7 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sc-network-types",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-core 34.0.0",
@@ -14378,11 +14520,11 @@ dependencies = [
  "sc-proposer-metrics",
  "sc-telemetry",
  "sc-transaction-pool-api",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "substrate-prometheus-endpoint",
 ]
@@ -14393,11 +14535,11 @@ version = "0.42.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-block-builder",
  "sp-blockchain",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-trie 37.0.0",
 ]
@@ -14422,7 +14564,7 @@ dependencies = [
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
- "sp-genesis-builder",
+ "sp-genesis-builder 0.15.0",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
  "sp-state-machine 0.43.0",
@@ -14476,7 +14618,7 @@ dependencies = [
  "sp-keystore 0.40.0",
  "sp-panic-handler 13.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-runtime 39.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "thiserror",
  "tokio",
 ]
@@ -14494,7 +14636,7 @@ dependencies = [
  "sc-executor",
  "sc-transaction-pool-api",
  "sc-utils",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 34.0.0",
@@ -14548,7 +14690,7 @@ dependencies = [
  "sc-network-types",
  "sc-utils",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 34.0.0",
@@ -14578,7 +14720,7 @@ dependencies = [
  "sc-consensus-slots",
  "sc-telemetry",
  "sc-transaction-pool-api",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-block-builder",
  "sp-blockchain",
@@ -14587,7 +14729,7 @@ dependencies = [
  "sp-consensus-slots",
  "sp-core 34.0.0",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-keystore 0.40.0",
  "sp-runtime 39.0.0",
  "substrate-prometheus-endpoint",
@@ -14605,7 +14747,7 @@ dependencies = [
  "sc-consensus-epochs",
  "sc-rpc-api",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-blockchain",
  "sp-consensus",
@@ -14636,7 +14778,7 @@ dependencies = [
  "sc-network-sync",
  "sc-network-types",
  "sc-utils",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-arithmetic 26.0.0",
  "sp-blockchain",
@@ -14715,7 +14857,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde_json",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-arithmetic 26.0.0",
  "sp-blockchain",
@@ -14767,7 +14909,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-slots",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-state-machine 0.43.0",
 ]
@@ -14783,14 +14925,14 @@ dependencies = [
  "sc-executor-polkavm",
  "sc-executor-wasmtime",
  "schnellru",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-externalities 0.29.0",
  "sp-io 38.0.0",
  "sp-panic-handler 13.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-runtime-interface 28.0.0",
  "sp-trie 37.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "sp-wasm-interface 21.0.0",
  "tracing",
 ]
@@ -14888,7 +15030,7 @@ dependencies = [
  "sc-network",
  "sc-network-types",
  "sc-transaction-pool-api",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-consensus",
  "sp-core 34.0.0",
  "sp-keystore 0.40.0",
@@ -15103,7 +15245,7 @@ dependencies = [
  "sc-network-types",
  "sc-transaction-pool-api",
  "sc-utils",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-externalities 0.29.0",
  "sp-keystore 0.40.0",
@@ -15141,7 +15283,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde_json",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-keystore 0.40.0",
@@ -15150,7 +15292,7 @@ dependencies = [
  "sp-runtime 39.0.0",
  "sp-session",
  "sp-statement-store",
- "sp-version",
+ "sp-version 37.0.0",
  "tokio",
 ]
 
@@ -15170,7 +15312,7 @@ dependencies = [
  "sp-core 34.0.0",
  "sp-rpc",
  "sp-runtime 39.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "thiserror",
 ]
 
@@ -15217,12 +15359,12 @@ dependencies = [
  "sc-utils",
  "schnellru",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-rpc",
  "sp-runtime 39.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -15269,7 +15411,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-consensus",
  "sp-core 34.0.0",
@@ -15282,7 +15424,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-transaction-storage-proof",
  "sp-trie 37.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "static_init",
  "substrate-prometheus-endpoint",
  "tempfile",
@@ -15394,7 +15536,7 @@ dependencies = [
  "sc-client-api",
  "sc-tracing-proc-macro",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-rpc",
@@ -15433,7 +15575,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-blockchain",
  "sp-core 34.0.0",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
@@ -16331,7 +16473,7 @@ version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "byte-slice-cast",
- "frame-support",
+ "frame-support 37.0.0",
  "hex",
  "parity-scale-codec",
  "rlp",
@@ -16353,8 +16495,8 @@ version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "ethabi-decode",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "hex-literal",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -16421,11 +16563,11 @@ name = "snowbridge-outbound-queue-runtime-api"
 version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "snowbridge-core",
  "snowbridge-outbound-queue-merkle-tree",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
 ]
 
@@ -16435,8 +16577,8 @@ version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "hex-literal",
  "log",
  "pallet-timestamp",
@@ -16474,11 +16616,11 @@ dependencies = [
  "alloy-primitives 0.4.2",
  "alloy-sol-types 0.4.2",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "hex-literal",
  "log",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -16514,8 +16656,8 @@ dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -16534,8 +16676,8 @@ version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -16553,7 +16695,7 @@ name = "snowbridge-router-primitives"
 version = "0.15.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "hex-literal",
  "log",
  "parity-scale-codec",
@@ -16572,7 +16714,7 @@ name = "snowbridge-runtime-common"
 version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "log",
  "parity-scale-codec",
  "snowbridge-core",
@@ -16589,9 +16731,9 @@ version = "0.9.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-pallet-parachain-system",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
+ "pallet-balances 38.0.0",
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-session",
@@ -16621,7 +16763,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "staging-xcm",
 ]
@@ -16693,6 +16835,23 @@ dependencies = [
 
 [[package]]
 name = "sp-api"
+version = "26.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api-proc-macro 15.0.0",
+ "sp-core 28.0.0",
+ "sp-metadata-ir 0.6.0",
+ "sp-runtime 31.0.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-version 29.0.0",
+]
+
+[[package]]
+name = "sp-api"
 version = "34.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
@@ -16701,16 +16860,30 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api-proc-macro",
+ "sp-api-proc-macro 20.0.0",
  "sp-core 34.0.0",
  "sp-externalities 0.29.0",
- "sp-metadata-ir",
+ "sp-metadata-ir 0.7.0",
  "sp-runtime 39.0.0",
  "sp-runtime-interface 28.0.0",
  "sp-state-machine 0.43.0",
  "sp-trie 37.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "thiserror",
+]
+
+[[package]]
+name = "sp-api-proc-macro"
+version = "15.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "Inflector",
+ "blake2 0.10.6",
+ "expander",
+ "proc-macro-crate 3.1.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
 ]
 
 [[package]]
@@ -16725,6 +16898,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.75",
+]
+
+[[package]]
+name = "sp-application-crypto"
+version = "30.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
 ]
 
 [[package]]
@@ -16751,6 +16937,21 @@ dependencies = [
  "serde",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
+]
+
+[[package]]
+name = "sp-arithmetic"
+version = "23.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "docify",
+ "integer-sqrt",
+ "num-traits",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "static_assertions",
 ]
 
 [[package]]
@@ -16789,7 +16990,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-runtime 39.0.0",
 ]
@@ -16799,8 +17000,8 @@ name = "sp-block-builder"
 version = "34.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "sp-api",
- "sp-inherents",
+ "sp-api 34.0.0",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
 ]
 
@@ -16813,7 +17014,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "schnellru",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-consensus",
  "sp-core 34.0.0",
  "sp-database",
@@ -16832,7 +17033,7 @@ dependencies = [
  "futures",
  "log",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-state-machine 0.43.0",
  "thiserror",
@@ -16846,10 +17047,10 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-consensus-slots",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-timestamp",
 ]
@@ -16863,11 +17064,11 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-consensus-slots",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-timestamp",
 ]
@@ -16881,7 +17082,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-core 34.0.0",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
@@ -16902,7 +17103,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-core 34.0.0",
  "sp-keystore 0.40.0",
@@ -16915,7 +17116,7 @@ version = "0.40.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "parity-scale-codec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-runtime 39.0.0",
 ]
@@ -16929,6 +17130,42 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-timestamp",
+]
+
+[[package]]
+name = "sp-core"
+version = "28.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "array-bytes",
+ "bitflags 1.3.2",
+ "blake2 0.10.6",
+ "bounded-collections",
+ "bs58 0.5.1",
+ "ed25519-zebra 4.0.3",
+ "hash-db",
+ "hash256-std-hasher",
+ "impl-serde",
+ "k256",
+ "libsecp256k1",
+ "log",
+ "merlin",
+ "parity-bip39",
+ "parity-scale-codec",
+ "paste",
+ "primitive-types",
+ "scale-info",
+ "schnorrkel",
+ "secrecy",
+ "serde",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-storage 19.0.0",
+ "ss58-registry",
+ "substrate-bip39 0.4.7",
+ "zeroize",
 ]
 
 [[package]]
@@ -17069,6 +17306,19 @@ dependencies = [
 [[package]]
 name = "sp-crypto-hashing"
 version = "0.1.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "blake2b_simd",
+ "byteorder",
+ "digest 0.10.7",
+ "sha2 0.10.8",
+ "sha3",
+ "twox-hash",
+]
+
+[[package]]
+name = "sp-crypto-hashing"
+version = "0.1.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "blake2b_simd",
@@ -17077,6 +17327,16 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "twox-hash",
+]
+
+[[package]]
+name = "sp-crypto-hashing-proc-macro"
+version = "0.1.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "quote",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "syn 2.0.75",
 ]
 
 [[package]]
@@ -17112,11 +17372,31 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
+
+[[package]]
+name = "sp-debug-derive"
+version = "14.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.75",
+]
+
+[[package]]
+name = "sp-externalities"
+version = "0.25.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "environmental",
+ "parity-scale-codec",
+ "sp-storage 19.0.0",
 ]
 
 [[package]]
@@ -17143,14 +17423,36 @@ dependencies = [
 
 [[package]]
 name = "sp-genesis-builder"
+version = "0.8.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "serde_json",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "sp-genesis-builder"
 version = "0.15.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde_json",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
+]
+
+[[package]]
+name = "sp-inherents"
+version = "26.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
 ]
 
 [[package]]
@@ -17164,6 +17466,25 @@ dependencies = [
  "scale-info",
  "sp-runtime 39.0.0",
  "thiserror",
+]
+
+[[package]]
+name = "sp-io"
+version = "30.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "bytes",
+ "parity-scale-codec",
+ "polkavm-derive 0.9.1",
+ "rustversion",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-externalities 0.25.0",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-tracing 16.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "tracing",
+ "tracing-core",
 ]
 
 [[package]]
@@ -17187,7 +17508,7 @@ dependencies = [
  "sp-runtime-interface 26.0.0",
  "sp-state-machine 0.38.0",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-tracing 16.0.0",
+ "sp-tracing 16.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-trie 32.0.0",
  "tracing",
  "tracing-core",
@@ -17274,6 +17595,16 @@ dependencies = [
 
 [[package]]
 name = "sp-metadata-ir"
+version = "0.6.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "frame-metadata 16.0.0",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "sp-metadata-ir"
 version = "0.7.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
@@ -17289,7 +17620,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
 ]
 
@@ -17303,7 +17634,7 @@ dependencies = [
  "polkadot-ckb-merkle-mountain-range",
  "scale-info",
  "serde",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-runtime 39.0.0",
@@ -17328,7 +17659,7 @@ name = "sp-offchain"
 version = "34.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-runtime 39.0.0",
 ]
@@ -17362,6 +17693,29 @@ dependencies = [
  "rustc-hash 1.1.0",
  "serde",
  "sp-core 34.0.0",
+]
+
+[[package]]
+name = "sp-runtime"
+version = "31.0.1"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "docify",
+ "either",
+ "hash256-std-hasher",
+ "impl-trait-for-tuples",
+ "log",
+ "num-traits",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
+ "serde",
+ "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]
@@ -17417,6 +17771,25 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface"
+version = "24.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "bytes",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "polkavm-derive 0.9.1",
+ "primitive-types",
+ "sp-externalities 0.25.0",
+ "sp-runtime-interface-proc-macro 17.0.0",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-wasm-interface 20.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "static_assertions",
+]
+
+[[package]]
+name = "sp-runtime-interface"
 version = "26.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e48a675ea4858333d4d755899ed5ed780174aa34fec15953428d516af5452295"
@@ -17430,8 +17803,8 @@ dependencies = [
  "sp-runtime-interface-proc-macro 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-storage 20.0.0",
- "sp-tracing 16.0.0",
- "sp-wasm-interface 20.0.0",
+ "sp-tracing 16.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-wasm-interface 20.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "static_assertions",
 ]
 
@@ -17452,6 +17825,19 @@ dependencies = [
  "sp-tracing 17.0.0",
  "sp-wasm-interface 21.0.0",
  "static_assertions",
+]
+
+[[package]]
+name = "sp-runtime-interface-proc-macro"
+version = "17.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "Inflector",
+ "expander",
+ "proc-macro-crate 3.1.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
 ]
 
 [[package]]
@@ -17488,11 +17874,23 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-core 34.0.0",
  "sp-keystore 0.40.0",
  "sp-runtime 39.0.0",
- "sp-staking",
+ "sp-staking 34.0.0",
+]
+
+[[package]]
+name = "sp-staking"
+version = "26.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -17563,7 +17961,7 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "sha2 0.10.8",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-core 34.0.0",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
@@ -17583,7 +17981,24 @@ checksum = "12f8ee986414b0a9ad741776762f4083cd3a5128449b982a3919c4df36874834"
 [[package]]
 name = "sp-std"
 version = "14.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+
+[[package]]
+name = "sp-std"
+version = "14.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
+
+[[package]]
+name = "sp-storage"
+version = "19.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "impl-serde",
+ "parity-scale-codec",
+ "ref-cast",
+ "serde",
+ "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+]
 
 [[package]]
 name = "sp-storage"
@@ -17618,7 +18033,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "async-trait",
  "parity-scale-codec",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "thiserror",
 ]
@@ -17638,6 +18053,16 @@ dependencies = [
 
 [[package]]
 name = "sp-tracing"
+version = "16.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "parity-scale-codec",
+ "tracing",
+ "tracing-core",
+]
+
+[[package]]
+name = "sp-tracing"
 version = "17.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
@@ -17652,7 +18077,7 @@ name = "sp-transaction-pool"
 version = "34.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "sp-api",
+ "sp-api 34.0.0",
  "sp-runtime 39.0.0",
 ]
 
@@ -17665,7 +18090,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 34.0.0",
- "sp-inherents",
+ "sp-inherents 34.0.0",
  "sp-runtime 39.0.0",
  "sp-trie 37.0.0",
 ]
@@ -17720,6 +18145,21 @@ dependencies = [
 
 [[package]]
 name = "sp-version"
+version = "29.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "impl-serde",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-crypto-hashing-proc-macro 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
+ "sp-version-proc-macro 13.0.0",
+]
+
+[[package]]
+name = "sp-version"
 version = "37.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
@@ -17728,11 +18168,22 @@ dependencies = [
  "parity-wasm",
  "scale-info",
  "serde",
- "sp-crypto-hashing-proc-macro",
+ "sp-crypto-hashing-proc-macro 0.1.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
  "sp-runtime 39.0.0",
  "sp-std 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0)",
- "sp-version-proc-macro",
+ "sp-version-proc-macro 14.0.0",
  "thiserror",
+]
+
+[[package]]
+name = "sp-version-proc-macro"
+version = "13.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "parity-scale-codec",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
 ]
 
 [[package]]
@@ -17762,6 +18213,15 @@ dependencies = [
 
 [[package]]
 name = "sp-wasm-interface"
+version = "20.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+]
+
+[[package]]
+name = "sp-wasm-interface"
 version = "21.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
@@ -17770,6 +18230,20 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "wasmtime",
+]
+
+[[package]]
+name = "sp-weights"
+version = "27.0.0"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "bounded-collections",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "smallvec",
+ "sp-arithmetic 23.0.0",
+ "sp-debug-derive 14.0.0 (git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2)",
 ]
 
 [[package]]
@@ -17945,8 +18419,8 @@ version = "0.16.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime 39.0.0",
@@ -17975,8 +18449,8 @@ name = "staging-xcm-builder"
 version = "16.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "impl-trait-for-tuples",
  "log",
  "pallet-transaction-payment",
@@ -17998,7 +18472,7 @@ source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066
 dependencies = [
  "environmental",
  "frame-benchmarking",
- "frame-support",
+ "frame-support 37.0.0",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
@@ -18258,6 +18732,18 @@ dependencies = [
 
 [[package]]
 name = "substrate-bip39"
+version = "0.4.7"
+source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.13.0-patched2#20deb43f0ea8adb3bdac1350de00a36dae73e799"
+dependencies = [
+ "hmac 0.12.1",
+ "pbkdf2 0.12.2",
+ "schnorrkel",
+ "sha2 0.10.8",
+ "zeroize",
+]
+
+[[package]]
+name = "substrate-bip39"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2b564c293e6194e8b222e52436bcb99f60de72043c7f845cf6c4406db4df121"
@@ -18312,7 +18798,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-rpc-api",
  "sc-transaction-pool-api",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-block-builder",
  "sp-blockchain",
  "sp-core 34.0.0",
@@ -18370,7 +18856,7 @@ dependencies = [
  "sp-io 38.0.0",
  "sp-maybe-compressed-blob",
  "sp-tracing 17.0.0",
- "sp-version",
+ "sp-version 37.0.0",
  "strum 0.26.3",
  "tempfile",
  "toml 0.8.19",
@@ -18881,7 +19367,7 @@ version = "9.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
  "cumulus-primitives-core",
- "frame-support",
+ "frame-support 37.0.0",
  "polkadot-core-primitives",
  "rococo-runtime-constants",
  "smallvec",
@@ -18892,7 +19378,7 @@ dependencies = [
 
 [[package]]
 name = "testnet-runtime"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "log",
  "pallet-elections",
@@ -19067,8 +19553,8 @@ dependencies = [
  "alloy-sol-types 0.6.4",
  "anyhow",
  "async-trait",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "futures",
  "hex",
  "log",
@@ -19078,7 +19564,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sha3",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-core 34.0.0",
  "sp-io 38.0.0",
@@ -19099,7 +19585,7 @@ dependencies = [
 
 [[package]]
 name = "timechain-node"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-channel 1.9.0",
@@ -20555,8 +21041,8 @@ dependencies = [
  "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
@@ -20567,7 +21053,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-bags-list",
- "pallet-balances",
+ "pallet-balances 38.0.0",
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-collective",
@@ -20607,7 +21093,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
+ "pallet-treasury 36.0.0",
  "pallet-utility",
  "pallet-vesting",
  "pallet-whitelist",
@@ -20622,7 +21108,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "smallvec",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-application-crypto 38.0.0",
  "sp-arithmetic 26.0.0",
  "sp-authority-discovery",
@@ -20630,18 +21116,18 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core 34.0.0",
- "sp-genesis-builder",
- "sp-inherents",
+ "sp-genesis-builder 0.15.0",
+ "sp-inherents 34.0.0",
  "sp-io 38.0.0",
  "sp-mmr-primitives",
  "sp-npos-elections",
  "sp-offchain",
  "sp-runtime 39.0.0",
  "sp-session",
- "sp-staking",
+ "sp-staking 34.0.0",
  "sp-storage 21.0.0",
  "sp-transaction-pool",
- "sp-version",
+ "sp-version 37.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -20655,7 +21141,7 @@ name = "westend-runtime-constants"
 version = "16.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "polkadot-primitives",
  "polkadot-runtime-common",
  "smallvec",
@@ -21233,10 +21719,10 @@ name = "xcm-runtime-apis"
 version = "0.3.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
+ "frame-support 37.0.0",
  "parity-scale-codec",
  "scale-info",
- "sp-api",
+ "sp-api 34.0.0",
  "sp-weights 31.0.0",
  "staging-xcm",
  "staging-xcm-executor",
@@ -21247,8 +21733,8 @@ name = "xcm-simulator"
 version = "16.0.0"
 source = "git+https://github.com/analog-labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
 dependencies = [
- "frame-support",
- "frame-system",
+ "frame-support 37.0.0",
+ "frame-system 37.1.0",
  "parity-scale-codec",
  "paste",
  "polkadot-core-primitives",

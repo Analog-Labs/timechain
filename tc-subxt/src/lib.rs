@@ -167,10 +167,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					self.create_signed_payload(&payload).await
 				},
 				Tx::CreateTask { task } => {
-					use metadata::runtime_types::time_primitives::task;
-					let task_params: task::TaskDescriptorParams =
-						unsafe { std::mem::transmute(task) };
-					let payload = metadata::tx().tasks().create_task(task_params);
+					let payload = metadata::tx().tasks().create_task(subxt::utils::Static(task));
 					self.create_signed_payload(&payload).await
 				},
 				Tx::RegisterGateway {

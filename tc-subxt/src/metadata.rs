@@ -20,6 +20,10 @@ use scale_codec::{Decode, Encode};
 		with = "::subxt::utils::Static<::time_primitives::TaskDescriptor>",
 	),
 	substitute_type(
+		path = "time_primitives::task::TaskDescriptorParams",
+		with = "::subxt::utils::Static<::time_primitives::TaskDescriptorParams>",
+	),
+	substitute_type(
 		path = "time_primitives::task::TaskExecution",
 		with = "::subxt::utils::Static<::time_primitives::TaskExecution>",
 	),
@@ -52,6 +56,10 @@ pub mod timechain {}
 	substitute_type(
 		path = "time_primitives::task::TaskDescriptor",
 		with = "::subxt::utils::Static<::time_primitives::TaskDescriptor>",
+	),
+	substitute_type(
+		path = "time_primitives::task::TaskDescriptorParams",
+		with = "::subxt::utils::Static<::time_primitives::TaskDescriptorParams>",
 	),
 	substitute_type(
 		path = "time_primitives::task::TaskExecution",
@@ -88,6 +96,10 @@ pub mod staging {}
 		with = "::subxt::utils::Static<::time_primitives::TaskDescriptor>",
 	),
 	substitute_type(
+		path = "time_primitives::task::TaskDescriptorParams",
+		with = "::subxt::utils::Static<::time_primitives::TaskDescriptorParams>",
+	),
+	substitute_type(
 		path = "time_primitives::task::TaskExecution",
 		with = "::subxt::utils::Static<::time_primitives::TaskExecution>",
 	),
@@ -120,6 +132,10 @@ pub mod testnet {}
 	substitute_type(
 		path = "time_primitives::task::TaskDescriptor",
 		with = "::subxt::utils::Static<::time_primitives::TaskDescriptor>",
+	),
+	substitute_type(
+		path = "time_primitives::task::TaskDescriptorParams",
+		with = "::subxt::utils::Static<::time_primitives::TaskDescriptorParams>",
 	),
 	substitute_type(
 		path = "time_primitives::task::TaskExecution",

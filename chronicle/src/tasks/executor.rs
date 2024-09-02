@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use futures::Stream;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	BlockHash, BlockNumber, Function, GmpParams, Message, NetworkId, Runtime, ShardId,
+	BlockHash, BlockNumber, Function, GatewayMessage, GmpParams, NetworkId, Runtime, ShardId,
 	TaskExecution, TaskPhase,
 };
 use tokio::task::JoinHandle;
@@ -150,7 +150,7 @@ where
 			);
 			let task = match phase {
 				TaskPhase::Sign => {
-					let Some(gmp_params) = self.gmp_params(shard_id, block_hash).await? else {
+					let Some(params) = self.gmp_params(shard_id, block_hash).await? else {
 						event!(
 							target: TW_LOG,
 							parent: &span,
@@ -161,28 +161,15 @@ where
 						continue;
 					};
 					let payload = match function {
-						Function::RegisterShard { shard_id } => {
-							let tss_public_key = self
-								.substrate
-								.get_shard_commitment(block_hash, shard_id)
-								.await?
-								.unwrap()[0];
-							Message::update_keys([], [tss_public_key]).to_eip712_bytes(&gmp_params)
-						},
-						Function::UnregisterShard { shard_id } => {
-							let tss_public_key = self
-								.substrate
-								.get_shard_commitment(block_hash, shard_id)
-								.await?
-								.unwrap()[0];
-							Message::update_keys([tss_public_key], []).to_eip712_bytes(&gmp_params)
-						},
-						Function::SendMessage { msg } => {
-							Message::gmp(msg).to_eip712_bytes(&gmp_params)
-						},
+						Function::SubmitGatewayMessage { ops } => GatewayMessage::new(task_id, ops),
 						_ => anyhow::bail!("invalid task {task_id}"),
 					};
-					self.task_spawner.execute_sign(shard_id, task_id, payload.into(), block_number)
+					self.task_spawner.execute_sign(
+						shard_id,
+						task_id,
+						payload.hash(&params).to_vec(),
+						block_number,
+					)
 				},
 				TaskPhase::Write => {
 					let Some(public_key) = self.substrate.get_task_signer(task_id).await? else {
@@ -198,87 +185,29 @@ where
 					if &public_key != self.substrate.public_key() {
 						continue;
 					}
-					let gmp_params = self.gmp_params(shard_id, block_hash).await?;
 
-					if gmp_params.is_none() && function.initial_phase() == TaskPhase::Sign {
-						event!(
+					match function {
+						Function::SubmitGatewayMessage { ops } => {
+							let Some(params) = self.gmp_params(shard_id, block_hash).await? else {
+								anyhow::bail!("gmp not configured for {shard_id:?}, skipping task");
+							};
+							let Some(tss_signature) =
+								self.substrate.get_task_signature(task_id).await?
+							else {
+								anyhow::bail!("tss signature not found for task {task_id}");
+							};
+							let msg = GatewayMessage::new(task_id, ops);
+							event!(
 							target: TW_LOG,
 							parent: &span,
 							Level::INFO,
 							task_id,
-							"gmp not configured for {shard_id:?}, skipping task",
-						);
-						continue;
+							"Running write phase",
+							);
+							self.task_spawner.execute_write(params, msg, tss_signature)
+						},
+						_ => anyhow::bail!("invalid task {task_id}"),
 					}
-
-					let function = match function {
-						Function::RegisterShard { shard_id } => {
-							if let Some(gmp_params) = gmp_params {
-								let tss_public_key = self
-									.substrate
-									.get_shard_commitment(block_hash, shard_id)
-									.await?
-									.unwrap()[0];
-								let Some(tss_signature) =
-									self.substrate.get_task_signature(task_id).await?
-								else {
-									anyhow::bail!("tss signature not found for task {task_id}");
-								};
-								Message::update_keys([], [tss_public_key])
-									.into_evm_call(&gmp_params, tss_signature)
-							} else {
-								// not gonna hit here since we already continue on is_gmp check
-								anyhow::bail!(
-									"gmp not configured for {shard_id:?}, skipping task {task_id}"
-								)
-							}
-						},
-						Function::UnregisterShard { shard_id } => {
-							if let Some(gmp_params) = gmp_params {
-								let tss_public_key = self
-									.substrate
-									.get_shard_commitment(block_hash, shard_id)
-									.await?
-									.unwrap()[0];
-								let Some(tss_signature) =
-									self.substrate.get_task_signature(task_id).await?
-								else {
-									anyhow::bail!("tss signature not found for task {task_id}");
-								};
-								Message::update_keys([tss_public_key], [])
-									.into_evm_call(&gmp_params, tss_signature)
-							} else {
-								// not gonna hit here since we already continue on is_gmp check
-								anyhow::bail!(
-									"gmp not configured for {shard_id:?}, skipping task {task_id}"
-								)
-							}
-						},
-						Function::SendMessage { msg } => {
-							if let Some(gmp_params) = gmp_params {
-								let Some(tss_signature) =
-									self.substrate.get_task_signature(task_id).await?
-								else {
-									anyhow::bail!("tss signature not found for task {task_id}");
-								};
-								Message::gmp(msg).into_evm_call(&gmp_params, tss_signature)
-							} else {
-								// not gonna hit here since we already continue on is_gmp check
-								anyhow::bail!(
-									"gmp not configured for {shard_id:?}, skipping task {task_id}"
-								)
-							}
-						},
-						_ => function,
-					};
-					event!(
-						target: TW_LOG,
-						parent: &span,
-						Level::INFO,
-						task_id,
-						"Running write phase",
-					);
-					self.task_spawner.execute_write(task_id, function)
 				},
 				TaskPhase::Read => {
 					event!(
@@ -289,7 +218,7 @@ where
 						"Getting task_hash",
 					);
 					let function = if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
-						Function::EvmTxReceipt { tx }
+						Function::GatewayMessageReceipt { tx }
 					} else {
 						function
 					};
@@ -390,9 +319,9 @@ where
 			return Ok(None);
 		};
 		Ok(Some(GmpParams {
-			network_id: self.network,
-			tss_public_key: commitment[0],
-			gateway_contract: gateway_contract.into(),
+			network: self.network,
+			signer: commitment[0],
+			gateway: gateway_contract.into(),
 		}))
 	}
 }

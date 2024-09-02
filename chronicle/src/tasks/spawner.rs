@@ -4,19 +4,12 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
 use schnorr_evm::VerifyingKey;
 use std::time::Duration;
-use std::{
-	future::Future,
-	num::NonZeroU64,
-	path::PathBuf,
-	pin::Pin,
-	sync::Arc,
-	task::{Context, Poll},
-};
+use std::{future::Future, num::NonZeroU64, path::PathBuf, pin::Pin};
 use time_primitives::{
-	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskExecution, TaskId, TaskPhase,
-	TaskResult, TssHash, TssSignature, TssSigningRequest,
+	BlockNumber, Function, GatewayMessage, GmpParams, NetworkId, Payload, Runtime, ShardId,
+	TaskExecution, TaskId, TaskPhase, TaskResult, TssHash, TssSignature, TssSigningRequest,
 };
-use time_primitives::{IGateway, Msg};
+use tokio::time::sleep;
 
 #[derive(Clone)]
 pub struct TaskSpawnerParams<S> {
@@ -35,7 +28,7 @@ pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	connector: Connector,
 	substrate: S,
-	network_id: NetworkId,
+	min_balance: u128,
 }
 
 impl<S> TaskSpawner<S>
@@ -48,15 +41,23 @@ where
 			&params.network,
 			&params.url,
 			&params.keyfile,
-			params.min_balance,
+			params.network_id,
 		)
 		.await?;
+		while connector.balance().await? < params.min_balance {
+			sleep(Duration::from_secs(10)).await;
+			tracing::warn!("Chronicle balance is too low, retrying...");
+		}
 		Ok(Self {
 			tss: params.tss,
 			substrate: params.substrate,
-			network_id: params.network_id,
 			connector,
+			min_balance: params.min_balance,
 		})
+	}
+
+	pub fn target_address(&self) -> &str {
+		self.connector.account()
 	}
 
 	async fn tss_sign(
@@ -81,6 +82,56 @@ where
 		Ok(rx.await?)
 	}
 
+	/// executes the task function
+	///
+	/// # Arguments
+	/// `function`: function of task
+	/// `target_block_number`: block number of target chain (usable for read tasks)
+	async fn execute_read_function(
+		&self,
+		function: &Function,
+		target_block_number: u64,
+	) -> Result<Payload> {
+		Ok(match function {
+			// execute the read function of task
+			Function::EvmViewCall { address, input } => {
+				let result = self
+					.connector
+					.evm_view_call(*address, input.clone(), target_block_number)
+					.await?;
+				Payload::Hashed(VerifyingKey::message_hash(&result))
+			},
+			// reads the receipt for a transaction on target chain
+			Function::GatewayMessageReceipt { tx } => {
+				let result = self.connector.verify_gateway_message_receipt(*tx).await?;
+				Payload::Hashed(VerifyingKey::message_hash(&result))
+			},
+			// executs the read message function. it looks for event emitted from gateway contracts
+			Function::ReadMessages { batch_size } => {
+				let network_id = self.connector.network_id();
+				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
+					anyhow::bail!("no gateway registered: skipped reading messages");
+				};
+				// gets gmp created events form contract and then convert it to a `Msg`
+				let logs: Vec<_> = self
+					.connector
+					.read_messages(
+						gateway_contract,
+						NonZeroU64::new(target_block_number - batch_size.get() + 1),
+						target_block_number,
+					)
+					.await
+					.context("get_gmp_events_at")?;
+				tracing::info!("read target block: {:?}", target_block_number);
+				if !logs.is_empty() {
+					tracing::info!("read {} messages", logs.len());
+				}
+				Payload::Gmp(logs)
+			},
+			_ => anyhow::bail!("not a read function {function:?}"),
+		})
+	}
+
 	#[allow(clippy::too_many_arguments)]
 	async fn read(
 		self,
@@ -91,7 +142,7 @@ where
 		block_num: BlockNumber,
 	) -> Result<()> {
 		tracing::debug!(task_id = task_id, shard_id = shard_id, "executing read function",);
-		let result = self.execute_function(&function, target_block).await.map_err(|err| {
+		let result = self.execute_read_function(&function, target_block).await.map_err(|err| {
 			tracing::error!(task_id = task_id, shard_id = shard_id, "{:#?}", err);
 			format!("{err}")
 		});
@@ -116,44 +167,24 @@ where
 		Ok(())
 	}
 
-	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		match self.is_balance_available().await {
-			Ok(false) => {
+	async fn write(self, params: GmpParams, msg: GatewayMessage, sig: TssSignature) -> Result<()> {
+		match self.connector.balance().await {
+			Ok(balance) if balance < self.min_balance => {
 				// unregister member
 				if let Err(e) = self.substrate.submit_unregister_member().await {
-					tracing::error!(task_id = task_id, "Failed to unregister member: {:?}", e);
+					tracing::error!(task_id = msg.task_id, "Failed to unregister member: {:?}", e);
 				};
-				tracing::warn!(task_id = task_id, "Chronicle balance too low, exiting");
+				tracing::warn!(task_id = msg.task_id, "Chronicle balance too low, exiting");
 				std::process::exit(1);
 			},
-			Ok(true) => {},
+			Ok(_) => {},
 			Err(err) => {
-				tracing::error!(task_id = task_id, "Could not fetch account balance: {:?}", err)
+				tracing::error!(task_id = msg.task_id, "Could not fetch account balance: {:?}", err)
 			},
 		}
-
-		let submission = async move {
-			match function {
-				Function::EvmDeploy { bytecode } => {
-					let _guard = self.wallet_guard.lock().await;
-					self.wallet.eth_deploy_contract(bytecode.clone()).await
-				},
-				Function::EvmCall {
-					address,
-					input,
-					amount,
-					gas_limit,
-				} => {
-					let _guard = self.wallet_guard.lock().await;
-					self.wallet.eth_send_call(address, input.clone(), amount, None, gas_limit).await
-				},
-				_ => anyhow::bail!("not a write function {function:?}"),
-			}
-		}
-		.await
-		.map(|s| s.tx_hash().0)
-		.map_err(|err| err.to_string());
-		if let Err(e) = self.substrate.submit_task_hash(task_id, submission).await {
+		let task_id = msg.task_id;
+		let hash = self.connector.submit_gateway_message(params, msg, sig).await;
+		if let Err(e) = self.substrate.submit_task_hash(task_id, hash).await {
 			tracing::error!(task_id = task_id, "Error submitting task hash {:?}", e);
 		}
 		Ok(())
@@ -212,9 +243,10 @@ where
 
 	fn execute_write(
 		&self,
-		task_id: TaskId,
-		function: Function,
+		params: GmpParams,
+		msg: GatewayMessage,
+		sig: TssSignature,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().write(task_id, function).boxed()
+		self.clone().write(params, msg, sig).boxed()
 	}
 }

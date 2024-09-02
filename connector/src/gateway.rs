@@ -1,56 +1,4 @@
-use crate::{Function, Msg, NetworkId, TssPublicKey, TssSignature};
-
-use alloy_primitives::private::Vec;
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, Eip712Domain, SolCall, SolStruct};
-
-const EIP712_NAME: &str = "Analog Gateway Contract";
-const EIP712_VERSION: &str = "0.1.0";
-
-pub type Eip712Bytes = [u8; 66];
-pub type Eip712Hash = [u8; 32];
-
-impl Msg {
-	#[must_use]
-	pub fn from_event(event: IGateway::GmpCreated, source_network: u16) -> Self {
-		Self {
-			source_network,
-			source: event.sender.0,
-			dest_network: event.network,
-			dest: event.recipient.0 .0,
-			gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
-			salt: event.salt.to_be_bytes(),
-			data: event.data,
-		}
-	}
-}
-
-pub struct GmpParams {
-	pub network_id: NetworkId,
-	pub gateway_contract: Address,
-	pub tss_public_key: TssPublicKey,
-}
-
-impl GmpParams {
-	pub fn eip712_domain_separator(&self) -> Eip712Domain {
-		Eip712Domain {
-			name: Some(EIP712_NAME.into()),
-			version: Some(EIP712_VERSION.into()),
-			chain_id: Some(U256::from(self.network_id)),
-			verifying_contract: Some(self.gateway_contract),
-			salt: None,
-		}
-	}
-
-	fn to_eip712_bytes(&self, hash: Eip712Hash) -> Eip712Bytes {
-		let mut digest_input = [0u8; 2 + 32 + 32];
-		digest_input[0] = 0x19;
-		digest_input[1] = 0x01;
-		digest_input[2..34].copy_from_slice(&self.eip712_domain_separator().hash_struct()[..]);
-		digest_input[34..66].copy_from_slice(&hash[..]);
-		digest_input
-	}
-}
+use alloy_sol_types::sol;
 
 sol! {
 	#[derive(Debug, Default, PartialEq, Eq)]
@@ -112,6 +60,72 @@ sol! {
 		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
 		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
 		function deposit() public payable;
+	}
+}
+
+pub fn event_to_gmp_message(
+	event: IGateway::GmpCreated,
+	src_network: u16,
+) -> time_primitives::GmpMessage {
+	let mut dest = [0; 32];
+	dest[12..].copy_from_slice(&event.recipient.0 .0[..]);
+	time_primitives::GmpMessage {
+		src_network,
+		src: event.sender.0,
+		dest_network: event.network,
+		dest,
+		nonce: event.salt.to(),
+		gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
+		bytes: event.data.into(),
+	}
+}
+
+/*
+const EIP712_NAME: &str = "Analog Gateway Contract";
+const EIP712_VERSION: &str = "0.1.0";
+
+pub type Eip712Bytes = [u8; 66];
+pub type Eip712Hash = [u8; 32];
+
+impl Msg {
+	#[must_use]
+	pub fn from_event(event: IGateway::GmpCreated, source_network: u16) -> Self {
+		Self {
+			source_network,
+			source: event.sender.0,
+			dest_network: event.network,
+			dest: event.recipient.0 .0,
+			gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
+			salt: event.salt.to_be_bytes(),
+			data: event.data,
+		}
+	}
+}
+
+pub struct GmpParams {
+	pub network_id: NetworkId,
+	pub gateway_contract: Address,
+	pub tss_public_key: TssPublicKey,
+}
+
+impl GmpParams {
+	pub fn eip712_domain_separator(&self) -> Eip712Domain {
+		Eip712Domain {
+			name: Some(EIP712_NAME.into()),
+			version: Some(EIP712_VERSION.into()),
+			chain_id: Some(U256::from(self.network_id)),
+			verifying_contract: Some(self.gateway_contract),
+			salt: None,
+		}
+	}
+
+	fn to_eip712_bytes(&self, hash: Eip712Hash) -> Eip712Bytes {
+		let mut digest_input = [0u8; 2 + 32 + 32];
+		digest_input[0] = 0x19;
+		digest_input[1] = 0x01;
+		digest_input[2..34].copy_from_slice(&self.eip712_domain_separator().hash_struct()[..]);
+		digest_input[34..66].copy_from_slice(&hash[..]);
+		digest_input
 	}
 }
 
@@ -221,4 +235,4 @@ mod tests {
 		let bytes = Message::gmp(msg).to_eip712_bytes(&params);
 		assert_eq!(hex::encode(bytes), expected_bytes);
 	}
-}
+}*/

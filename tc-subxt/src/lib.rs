@@ -106,9 +106,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 	where
 		Call: TxPayload,
 	{
-		// testing
-		let nonce = if self.nonce == 1 { 0 } else { self.nonce };
-		let params = DefaultExtrinsicParamsBuilder::new().nonce(nonce).build();
+		let params = DefaultExtrinsicParamsBuilder::new().nonce(self.nonce).build();
 		self.client
 			.tx()
 			.create_signed(call, &self.keypair, params)

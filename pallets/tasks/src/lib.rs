@@ -73,10 +73,10 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, DepreciationRate, ElectionsInterface, Function, GmpParams, Message,
-		Msg, NetworkId, Payload, PublicKey, RewardConfig, ShardId, ShardsInterface, TaskDescriptor,
-		TaskDescriptorParams, TaskExecution, TaskFunder, TaskId, TaskIndex, TaskPhase, TaskResult,
-		TasksInterface, TransferStake, TssSignature,
+		gmp::GmpParams, AccountId, Balance, DepreciationRate, ElectionsInterface, Function,
+		GatewayMessage, GatewayOp, GmpMessage, NetworkId, Payload, PublicKey, RewardConfig,
+		ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskFunder,
+		TaskId, TaskIndex, TaskPhase, TaskResult, TasksInterface, TransferStake, TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -416,7 +416,7 @@ pub mod pallet {
 		/// Insufficient Treasury Balance to create UnRegisterShard task
 		InsufficientTreasuryBalanceToUnRegisterShard(ShardId),
 		/// Insufficient Treasury Balance To Create SendMessage task as an effect of calling `submit_result`
-		InsufficientTreasuryBalanceToSendMessage(Msg),
+		InsufficientTreasuryBalanceToSendMessage(GmpMessage),
 	}
 
 	#[pallet::error]
@@ -514,7 +514,7 @@ pub mod pallet {
 					}
 					for msg in msgs {
 						if let Ok(send_task_id) = Self::send_message(result.shard_id, msg.clone()) {
-							MessageTask::<T>::insert(msg.salt, (task_id, send_task_id));
+							MessageTask::<T>::insert(msg.message_id(), (task_id, send_task_id));
 						} else {
 							Self::deposit_event(Event::InsufficientTreasuryBalanceToSendMessage(
 								msg.clone(),
@@ -533,8 +533,12 @@ pub mod pallet {
 			}
 			Self::finish_task(task_id, result.clone());
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
-			if let Function::RegisterShard { shard_id } = task.function {
-				ShardRegistered::<T>::insert(shard_id, ());
+			if let Function::SubmitGatewayMessage { ops } = task.function {
+				for op in ops {
+					if let GatewayOp::RegisterShard(shard_id, _) = op {
+						ShardRegistered::<T>::insert(shard_id, ());
+					}
+				}
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
 			Ok(())
@@ -1016,10 +1020,13 @@ pub mod pallet {
 		///  1. Create a task descriptor with `network_id`, [`Function::RegisterShard`] { `shard_id` }, and shard member count.
 		///  2. Start the task with [`TaskFunder::Treasury`].
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
+			let public_key = T::Shards::tss_public_key(shard_id).unwrap();
 			if Self::start_task(
 				TaskDescriptorParams::new(
 					network_id,
-					Function::RegisterShard { shard_id },
+					Function::SubmitGatewayMessage {
+						ops: vec![GatewayOp::RegisterShard(shard_id, public_key)],
+					},
 					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Treasury,
@@ -1060,11 +1067,14 @@ pub mod pallet {
 		///   4. If a matching task is found, finish the task indicating the shard is offline or the gateway has changed.
 
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
+			let public_key = T::Shards::tss_public_key(shard_id).unwrap();
 			if ShardRegistered::<T>::take(shard_id).is_some() {
 				if Self::start_task(
 					TaskDescriptorParams::new(
 						network,
-						Function::UnregisterShard { shard_id },
+						Function::SubmitGatewayMessage {
+							ops: vec![GatewayOp::UnregisterShard(shard_id, public_key)],
+						},
 						T::Shards::shard_members(shard_id).len() as _,
 					),
 					TaskFunder::Treasury,
@@ -1081,16 +1091,22 @@ pub mod pallet {
 				let Some(task) = Tasks::<T>::get(task_id) else {
 					return;
 				};
-				if let Function::RegisterShard { shard_id: s } = task.function {
-					if s == shard_id {
-						Self::finish_task(
-							task_id,
-							TaskResult {
-								shard_id: 0,
-								payload: Payload::Error("shard offline or gateway changed".into()),
-								signature: [0u8; 64],
-							},
-						);
+				if let Function::SubmitGatewayMessage { ops } = task.function {
+					for op in ops {
+						if let GatewayOp::RegisterShard(s, _) = op {
+							if s == shard_id {
+								Self::finish_task(
+									task_id,
+									TaskResult {
+										shard_id: 0,
+										payload: Payload::Error(
+											"shard offline or gateway changed".into(),
+										),
+										signature: [0u8; 64],
+									},
+								);
+							}
+						}
 					}
 				}
 			});
@@ -1105,11 +1121,13 @@ pub mod pallet {
 		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Treasury`].
 		///   3. Ensure the task is successfully started and funded using the chronicle.
 		///   4. Return the Task ID of the started task.
-		fn send_message(shard_id: ShardId, msg: Msg) -> Result<TaskId, DispatchError> {
+		fn send_message(shard_id: ShardId, msg: GmpMessage) -> Result<TaskId, DispatchError> {
 			Self::start_task(
 				TaskDescriptorParams::new(
 					msg.dest_network,
-					Function::SendMessage { msg },
+					Function::SubmitGatewayMessage {
+						ops: vec![GatewayOp::SendMessage(msg)],
+					},
 					T::Shards::shard_members(shard_id).len() as _,
 				),
 				TaskFunder::Treasury,
@@ -1491,7 +1509,7 @@ pub mod pallet {
 		fn get_gmp_hash(
 			task_id: TaskId,
 			shard_id: ShardId,
-		) -> Result<Vec<u8>, sp_runtime::DispatchError> {
+		) -> Result<[u8; 32], sp_runtime::DispatchError> {
 			let task_descriptor = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let tss_public_key =
 				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
@@ -1500,31 +1518,15 @@ pub mod pallet {
 				Gateway::<T>::get(network_id).ok_or(Error::<T>::GatewayNotRegistered)?;
 
 			let gmp_params = GmpParams {
-				network_id,
-				tss_public_key,
-				gateway_contract: gateway_contract.into(),
+				network: network_id,
+				signer: tss_public_key,
+				gateway: gateway_contract,
 			};
 
-			match task_descriptor.function {
-				Function::SendMessage { msg } => {
-					Ok(Message::gmp(msg).to_eip712_bytes(&gmp_params).into())
-				},
-				Function::RegisterShard { shard_id } => {
-					let tss_public_key =
-						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-					Ok(Message::update_keys([], [tss_public_key])
-						.to_eip712_bytes(&gmp_params)
-						.into())
-				},
-				Function::UnregisterShard { shard_id } => {
-					let tss_public_key =
-						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-					Ok(Message::update_keys([tss_public_key], [])
-						.to_eip712_bytes(&gmp_params)
-						.into())
-				},
-				_ => Err(Error::<T>::InvalidTaskFunction.into()),
-			}
+			let Function::SubmitGatewayMessage { ops } = task_descriptor.function else {
+				return Err(Error::<T>::InvalidTaskFunction.into());
+			};
+			Ok(GatewayMessage::new(task_id, ops).hash(&gmp_params))
 		}
 
 		/// Manage the assignment of tasks to networks based on their function type, prioritizing system tasks differently from others.
@@ -1538,9 +1540,7 @@ pub mod pallet {
 			let Some(task) = Tasks::<T>::get(task_id) else { return };
 			match task.function {
 				// system tasks
-				Function::UnregisterShard { .. }
-				| Function::RegisterShard { .. }
-				| Function::ReadMessages { .. } => {
+				Function::ReadMessages { .. } => {
 					Self::prioritized_unassigned_tasks(network).push(task_id);
 				},
 				_ => {
@@ -1560,9 +1560,7 @@ pub mod pallet {
 			let Some(task) = Tasks::<T>::get(task_id) else { return };
 			match task.function {
 				// system tasks
-				Function::UnregisterShard { .. }
-				| Function::RegisterShard { .. }
-				| Function::ReadMessages { .. } => {
+				Function::ReadMessages { .. } => {
 					Self::prioritized_unassigned_tasks(network).remove(task_index);
 				},
 				_ => {

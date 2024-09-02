@@ -5,6 +5,7 @@ use futures::channel::oneshot;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "std")]
 use crate::TaskExecution;
 use scale_codec::{Decode, Encode};
 use scale_info::prelude::string::String;
@@ -18,6 +19,28 @@ pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
 pub type Commitment = Vec<TssPublicKey>;
+
+#[cfg(feature = "std")]
+pub mod serde_tss_public_key {
+	use super::TssPublicKey;
+	use serde::de::Error;
+	use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+	pub fn serialize<S>(t: &TssPublicKey, ser: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		t[..].serialize(ser)
+	}
+
+	pub fn deserialize<'de, D>(de: D) -> Result<TssPublicKey, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let bytes = <Vec<u8>>::deserialize(de)?;
+		TssPublicKey::try_from(bytes).map_err(|_| D::Error::custom("invalid public key length"))
+	}
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {

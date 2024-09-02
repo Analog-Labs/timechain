@@ -12,13 +12,11 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+connector.workspace = true
 clap.workspace = true
 hex.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
-
-rosetta-client.workspace = true
-rosetta-config-ethereum.workspace = true
 
 alloy-primitives = { version = "0.6.4", features = ["std", "rlp"] }
 alloy-sol-types = { version = "0.6.4" }

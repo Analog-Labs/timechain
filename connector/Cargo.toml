@@ -1,0 +1,19 @@
+[package]
+name = "connector"
+authors.workspace = true
+edition.workspace = true
+version.workspace = true
+homepage.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
+anyhow.workspace = true
+futures.workspace = true
+time-primitives = { workspace = true, default-features = true }
+tokio.workspace = true
+tracing.workspace = true

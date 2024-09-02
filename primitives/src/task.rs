@@ -1,4 +1,4 @@
-use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
+use crate::{AccountId, Balance, GatewayOp, GmpMessage, NetworkId, ShardId, TssSignature};
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
 use scale_info::{
@@ -16,36 +16,20 @@ pub type TaskIndex = u64;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
-	// sign
-	RegisterShard { shard_id: ShardId },
-	UnregisterShard { shard_id: ShardId },
-	SendMessage { msg: Msg },
-	// write
-	EvmDeploy { bytecode: Vec<u8> },
-	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128, gas_limit: Option<u64> },
-	// read
-	EvmViewCall { address: [u8; 20], input: Vec<u8> },
-	EvmTxReceipt { tx: [u8; 32] },
 	ReadMessages { batch_size: core::num::NonZeroU64 },
+	SubmitGatewayMessage { ops: Vec<GatewayOp> },
+	GatewayMessageReceipt { tx: [u8; 32] },
+	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 }
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for Function {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Function::RegisterShard { shard_id: _ } => write!(f, "RegisterShard"),
-			Function::UnregisterShard { shard_id: _ } => write!(f, "UnregisterShard"),
 			Function::ReadMessages { batch_size } => write!(f, "ReadMessages({batch_size})"),
-			Function::SendMessage { msg: _ } => write!(f, "SendMessage"),
-			Function::EvmDeploy { bytecode: _ } => write!(f, "EvmDeploy"),
-			Function::EvmCall {
-				address: _,
-				input: _,
-				amount: _,
-				gas_limit: _,
-			} => write!(f, "EvmCall"),
+			Function::SubmitGatewayMessage { ops: _ } => write!(f, "SubmitGatewayMessage"),
+			Function::GatewayMessageReceipt { tx: _ } => write!(f, "GatewayMessageReceipt"),
 			Function::EvmViewCall { address: _, input: _ } => write!(f, "EvmViewCall"),
-			Function::EvmTxReceipt { tx: _ } => write!(f, "EvmTxReceipt"),
 		}
 	}
 }
@@ -53,13 +37,10 @@ impl std::fmt::Display for Function {
 impl Function {
 	pub fn initial_phase(&self) -> TaskPhase {
 		match self {
-			Self::RegisterShard { .. }
-			| Self::UnregisterShard { .. }
-			| Self::SendMessage { .. } => TaskPhase::Sign,
-			Self::EvmDeploy { .. } | Self::EvmCall { .. } => TaskPhase::Write,
-			Self::EvmViewCall { .. } | Self::EvmTxReceipt { .. } | Self::ReadMessages { .. } => {
-				TaskPhase::Read
-			},
+			Self::SubmitGatewayMessage { .. } => TaskPhase::Sign,
+			Self::EvmViewCall { .. }
+			| Self::GatewayMessageReceipt { .. }
+			| Self::ReadMessages { .. } => TaskPhase::Read,
 		}
 	}
 
@@ -80,7 +61,7 @@ pub struct TaskResult {
 pub enum Payload {
 	Hashed([u8; 32]),
 	Error(String),
-	Gmp(Vec<Msg>),
+	Gmp(Vec<GmpMessage>),
 }
 
 impl Payload {
@@ -90,33 +71,6 @@ impl Payload {
 
 	pub fn get_input_length(&self) -> u32 {
 		self.encoded_size() as _
-	}
-}
-
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
-pub struct Msg {
-	pub source_network: NetworkId,
-	pub source: [u8; 32],
-	pub dest_network: NetworkId,
-	pub dest: [u8; 20],
-	pub gas_limit: u128,
-	pub salt: [u8; 32],
-	pub data: Vec<u8>,
-}
-
-impl Msg {
-	#[must_use]
-	pub fn from_event(event: IGateway::GmpCreated, source_network: u16) -> Self {
-		Self {
-			source_network,
-			source: event.sender.0,
-			dest_network: event.network,
-			dest: event.recipient.0 .0,
-			gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
-			salt: event.salt.to_be_bytes(),
-			data: event.data,
-		}
 	}
 }
 

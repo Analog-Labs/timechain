@@ -11,6 +11,7 @@ repository = "https://github.com/Analog-Labs/timechain"
 resolver = "2"
 members = [
 	"chronicle",
+	"connector",
 	"docs",
 	"node",
 	"pallets/elections",
@@ -62,11 +63,6 @@ polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.
 # specialized wasm builder
 substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", features = [ "metadata-hash" ] }
 
-# chain connectors
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
-rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
-rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
-
 # shared code between node and runtime (nostd by default)
 time-primitives = { path = "primitives", default-features = false }
 
@@ -87,6 +83,7 @@ mainnet-runtime = { path = "runtimes/mainnet" }
 testnet-runtime = { path = "runtimes/testnet" }
 
 # shared libs in workspace
+connector = { path = "connector" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
 

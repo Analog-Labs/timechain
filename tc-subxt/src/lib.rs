@@ -117,12 +117,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 
 	async fn resync_nonce(&mut self) -> Result<()> {
 		let account_id: subxt::utils::AccountId32 = self.keypair.public_key().into();
-		let best_block = self
-			.legacy_rpc
-			.chain_get_block_hash(None)
-			.await?
-			.ok_or(anyhow::anyhow!("Unable to get best block"))?;
-		self.nonce = self.client.blocks().at(best_block).await?.account_nonce(&account_id).await?;
+		self.nonce = self.legacy_rpc.system_account_next_index(&account_id).await?;
 		Ok(())
 	}
 

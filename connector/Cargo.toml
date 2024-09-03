@@ -9,15 +9,18 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
-rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
-rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
+alloy-primitives = { version = "0.8.0", features = ["rlp"] }
+alloy-sol-types = "0.8.0"
 anyhow.workspace = true
 futures.workspace = true
+hex.workspace = true
+num-bigint = "0.4.6"
+num-integer = "0.1.46"
+num-traits = "0.2.19"
+rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
+rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
+serde_json = "1.0.127"
 time-primitives = { workspace = true, default-features = true }
 tokio.workspace = true
 tracing.workspace = true
-alloy-primitives = "0.8.0"
-serde_json = "1.0.127"
-hex.workspace = true
-alloy-sol-types = "0.8.0"

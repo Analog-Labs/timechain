@@ -17,7 +17,10 @@ use std::task::{Context, Poll};
 use time_primitives::{GatewayMessage, GmpMessage, GmpParams, NetworkId, TssSignature};
 use tokio::sync::Mutex;
 
+pub mod admin;
 mod gateway;
+pub(crate) mod sol;
+pub(crate) mod ufloat;
 
 #[derive(Clone)]
 pub struct Connector {
@@ -41,6 +44,10 @@ impl Connector {
 			guard: Arc::new(Mutex::new(())),
 			network_id,
 		})
+	}
+
+	pub(crate) fn wallet(&self) -> &Wallet {
+		&self.wallet
 	}
 
 	pub fn network_id(&self) -> NetworkId {

@@ -1,12 +1,12 @@
 use crate::gateway::IGateway;
-use alloy_primitives::B256;
-use alloy_sol_types::SolEvent;
+use alloy_primitives::{B256, U256};
+use alloy_sol_types::{SolCall, SolEvent};
 use anyhow::Result;
 use futures::stream::Stream;
 use futures::FutureExt;
 use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption};
+use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption, SubmitResult};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use std::future::Future;
 use std::num::NonZeroU64;
@@ -14,7 +14,7 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use time_primitives::{GatewayMessage, GmpMessage, GmpParams, NetworkId, TssSignature};
+use time_primitives::{Gateway, GatewayMessage, GmpMessage, GmpParams, NetworkId, TssSignature};
 use tokio::sync::Mutex;
 
 pub mod admin;
@@ -155,6 +155,40 @@ impl Connector {
 			}),
 		};
 		Ok(json.to_string().into_bytes())
+	}
+
+	pub async fn estimate_message_cost(
+		&self,
+		gateway: Gateway,
+		dest: NetworkId,
+		msg_size: usize,
+	) -> Result<u128> {
+		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
+		let result = self
+			.wallet()
+			.eth_send_call(
+				gateway,
+				sol::Gateway::estimateMessageCostCall {
+					networkid: dest,
+					messageSize: msg_size,
+					gasLimit: U256::from(100_000),
+				}
+				.abi_encode(),
+				0,
+				None,
+				None,
+			)
+			.await?;
+		let SubmitResult::Executed { result, .. } = result else { anyhow::bail!("{:?}", result) };
+		let CallResult::Success(data) = result else {
+			anyhow::bail!("failed parsing {:?}", result)
+		};
+		let msg_cost: u128 =
+			sol::Gateway::estimateMessageCostCall::abi_decode_returns(&data, true)?
+				._0
+				.try_into()
+				.unwrap();
+		Ok(msg_cost)
 	}
 
 	pub fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {

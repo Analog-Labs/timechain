@@ -12,13 +12,14 @@ use polkadot_sdk::sp_runtime::Percent;
 
 pub type TaskId = u64;
 pub type TaskIndex = u64;
+pub type TxHash = [u8; 32];
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Function {
 	ReadMessages { batch_size: core::num::NonZeroU64 },
 	SubmitGatewayMessage { ops: Vec<GatewayOp> },
-	GatewayMessageReceipt { tx: [u8; 32] },
+	GatewayMessageReceipt { tx: TxHash },
 	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 }
 

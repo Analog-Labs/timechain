@@ -130,7 +130,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_gateway(network: NetworkId) -> Option<[u8; 20]>;
+		fn get_gateway(network: NetworkId) -> Option<Gateway>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -235,9 +235,9 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
 
-	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>>;
+	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<TxHash>>;
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
 
 	async fn submit_register_member(
 		&self,
@@ -261,8 +261,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
 
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Result<[u8; 32], String>)
-		-> Result<()>;
+	async fn submit_task_hash(&self, task_id: TaskId, hash: Result<TxHash, String>) -> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 }

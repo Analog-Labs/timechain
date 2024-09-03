@@ -1,13 +1,9 @@
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{SolCall, SolConstructor};
+use alloy_primitives::Address;
+use alloy_sol_types::SolCall;
 use anyhow::{Context, Result};
-use num_bigint::BigUint;
-use rosetta_client::Wallet;
-use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
+use connector::admin::AdminConnector;
+use connector::Connector;
 use schnorr_evm::SigningKey;
-use sol::{
-	Gateway, GatewayProxy, GmpVotingContract, Network, TssKey, UpdateNetworkInfo, VotingContract,
-};
 use std::collections::{BTreeSet, HashMap};
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -21,19 +17,15 @@ use tc_subxt::ext::futures::{stream, StreamExt};
 use tc_subxt::{events, MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::traits::Ss58Codec;
 use time_primitives::{
-	BlockHash, BlockNumber, Function, GmpParams, IGateway, Message, Msg, NetworkId, Runtime,
-	ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
-	H160,
+	BlockHash, BlockNumber, Function, Gateway, GatewayOp, GmpMessage, GmpParams, NetworkId,
+	Runtime, ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase,
+	TssPublicKey, H160,
 };
 use tokio::time::Instant;
-use ufloat::{Float, Rounding, UFloat9x56};
-pub mod sol;
-mod ufloat;
 
-// type for eth contract address
-pub type EthContractAddress = [u8; 20];
+mod sol;
 
-type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
+pub use crate::sol::VotingContract;
 
 // A fixed gas cost of executing the gateway contract
 pub const GATEWAY_EXECUTE_GAS_COST: u128 = 100_000;
@@ -70,11 +62,16 @@ impl FromStr for ChainNetwork {
 }
 
 pub struct Tester {
-	network_id: NetworkId,
-	gateway_contract: PathBuf,
-	proxy_contract: PathBuf,
 	runtime: SubxtClient,
-	wallet: Wallet,
+	connector: AdminConnector,
+}
+
+impl std::ops::Deref for Tester {
+	type Target = AdminConnector;
+
+	fn deref(&self) -> &Self::Target {
+		&self.connector
+	}
 }
 
 pub async fn subxt_client(
@@ -106,125 +103,29 @@ impl Tester {
 			.await?
 			.ok_or(anyhow::anyhow!("Unknown network id"))?;
 
-		let wallet =
-			Wallet::new(conn_blockchain.parse()?, &conn_network, &network.url, Some(keyfile), None)
+		let connector =
+			Connector::new(&conn_blockchain, &conn_network, &network.url, keyfile, network.id)
 				.await?;
-		Ok(Self {
-			network_id: network.id,
-			gateway_contract: gateway.into(),
-			proxy_contract: proxy.into(),
-			runtime,
-			wallet,
-		})
-	}
+		let connector = AdminConnector::new(connector, gateway.into(), proxy.into());
 
-	pub fn wallet(&self) -> &Wallet {
-		&self.wallet
+		Ok(Self { runtime, connector })
 	}
 
 	pub fn network_id(&self) -> NetworkId {
-		self.network_id
+		self.connector.network_id()
 	}
 
-	pub async fn gateway(&self) -> Result<Option<EthContractAddress>> {
-		self.runtime.get_gateway(self.network_id).await
-	}
-
-	pub async fn faucet(&self) {
-		// TODO: Calculate the gas_limit necessary to execute the test, then replace this
-		// by: gas_limit * gas_price, where gas_price changes depending on the network
-		let balance = match self.network_id {
-			6 => 10u128.pow(25), // astar
-			3 => 10u128.pow(29), // ethereum
-			network_id => {
-				println!("network id: {network_id} not compatible for faucet");
-				return;
-			},
-		};
-		if let Err(err) = self.wallet.faucet(balance).await {
-			println!("Error occured while funding wallet {:?}", err);
-		}
-	}
-
-	pub async fn deploy(
-		&self,
-		path: &Path,
-		constructor: impl SolConstructor,
-	) -> Result<(EthContractAddress, u64)> {
-		println!("Deploying contract from {:?}", self.wallet.account().address);
-		let mut contract = compile_file(path)?;
-		contract.extend(constructor.abi_encode());
-		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-		let contract_address = tx_receipt.contract_address.unwrap();
-		let block_number = tx_receipt.block_number.unwrap();
-
-		println!("Deploy contract address {contract_address:?} on {block_number:?}");
-		Ok((contract_address.0, block_number))
-	}
-
-	pub async fn deploy_gateway(&self, proxy: Address) -> Result<(EthContractAddress, u64)> {
-		let call = IGateway::constructorCall {
-			networkId: self.network_id,
-			proxy,
-		};
-		self.deploy(&self.gateway_contract, call).await
-	}
-
-	pub async fn deploy_proxy(
-		&self,
-		implementation: Address,
-		proxy_addr: Address,
-		admin: Address,
-		tss_public_key: Vec<TssPublicKey>,
-		networks: Vec<Network>,
-	) -> Result<(EthContractAddress, u64)> {
-		// Build the Gateway initializer
-		let tss_keys: Vec<TssKeyR> = tss_public_key
-			.into_iter()
-			.map(|key| {
-				let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
-				let x_coords = hex::encode(&key[1..]);
-				TssKeyR {
-					yParity: parity_bit,
-					xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-				}
-			})
-			.collect();
-		let initializer = Gateway::initializeCall {
-			admin: admin.into_array().into(),
-			keys: tss_keys,
-			networks,
-		}
-		.abi_encode();
-
-		// Deploy the proxy contract
-		let call = GatewayProxy::constructorCall { implementation, initializer };
-		let (actual_addr, block_number) = self.deploy(&self.proxy_contract, call).await?;
-
-		// Check if the proxy address match the expect address
-		let actual_addr: Address = actual_addr.into();
-		if actual_addr != proxy_addr.into_array() {
-			anyhow::bail!("Proxy address mismatch, expect {proxy_addr:?}, got {actual_addr:?}");
-		}
-		Ok((actual_addr.into_array(), block_number))
-	}
-
-	pub async fn deposit_gateway_funds(
-		&self,
-		gmp_address: EthContractAddress,
-		amount: u128,
-	) -> Result<()> {
-		let payload = IGateway::depositCall {}.abi_encode();
-		self.wallet.eth_send_call(gmp_address, payload, amount, None, None).await?;
-		Ok(())
+	pub async fn gateway(&self) -> Result<Option<[u8; 20]>> {
+		self.runtime.get_gateway(self.network_id()).await
 	}
 
 	pub async fn get_shard_id(&self) -> Result<Option<ShardId>> {
 		let shard_id_counter = self.runtime.shard_id_counter().await?;
 		for shard_id in 0..shard_id_counter {
 			match self.runtime.shard_network(shard_id).await {
-				Ok(shard_network) if shard_network == self.network_id => return Ok(Some(shard_id)),
+				Ok(shard_network) if shard_network == self.network_id() => {
+					return Ok(Some(shard_id))
+				},
 				Ok(_) => continue,
 				Err(err) => {
 					println!("Skipping shard_id {shard_id}: {err}");
@@ -289,7 +190,7 @@ impl Tester {
 		println!("creating task");
 		let shard_size = self.shard_size().await?;
 		let params = TaskDescriptorParams {
-			network: self.network_id,
+			network: self.network_id(),
 			function,
 			start: block,
 			shard_size,
@@ -306,7 +207,7 @@ impl Tester {
 	pub async fn register_gateway_address(
 		&self,
 		shard_id: u64,
-		address: EthContractAddress,
+		address: [u8; 20],
 		block_height: u64,
 	) -> Result<()> {
 		let events = self
@@ -356,135 +257,73 @@ impl Tester {
 		self.wait_for_task(task_id).await
 	}
 
-	pub async fn setup_gmp(
-		&self,
-		redeploy: bool,
-		keyfile: Option<PathBuf>,
-		networks: Vec<Network>,
-	) -> Result<EthContractAddress> {
-		let mut gateway_keys: Vec<TssPublicKey> = vec![];
+	pub async fn setup_gmp(&self, redeploy: bool, keyfile: Option<PathBuf>) -> Result<Gateway> {
+		let mut keys: Vec<TssPublicKey> = vec![];
 		if let Some(file) = keyfile {
 			let bytes = std::fs::read_to_string(file)?;
 			let key: Vec<u8> = serde_json::from_str(&bytes)?;
 			let schnorr_signing_key =
 				SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
 			let public_key = schnorr_signing_key.public().to_bytes()?;
-			gateway_keys.push(public_key);
+			keys.push(public_key);
 		}
 
 		if !redeploy {
-			println!("looking for gateway against network id: {:?}", self.network_id);
-			if let Some(gateway) = self.runtime.get_gateway(self.network_id).await? {
+			println!("looking for gateway against network id: {:?}", self.network_id());
+			if let Some(gateway) = self.runtime.get_gateway(self.network_id()).await? {
 				println!("Gateway contract already deployed at {:?}. If you want to redeploy, please use the --redeploy flag.", H160::from_slice(&gateway[..]));
 				return Ok(gateway);
 			}
 		}
 		let shard_id = self.wait_for_shard().await?;
 		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		gateway_keys.push(shard_public_key);
+		keys.push(shard_public_key);
 
-		// get proxy and admin addresses
-		let proxy_addr = self.get_proxy_addr().await?;
-		let gateway_admin = Address::from_str(self.wallet().account().address.as_str())?;
-
-		// deploy gateway implementation
-		println!("deploying implementation contract...");
-		let (address, _) = self.deploy_gateway(proxy_addr).await?;
-
-		// deploy and initialize gateway proxy
-		println!("deploying proxy contract...");
-		let (proxy_addr, block_height) = self
-			.deploy_proxy(address.into(), proxy_addr, gateway_admin, gateway_keys, networks.clone())
-			.await?;
-
+		let (gateway, block_height) = self.connector.deploy_gateway(&keys).await?;
 		// register proxy
-		self.register_gateway_address(shard_id, proxy_addr, block_height).await?;
+		self.register_gateway_address(shard_id, gateway, block_height).await?;
 		println!("registering network on gateway");
 		// can you believe it, substrate can return old values after emitting a
 		// successful event
 		tokio::time::sleep(Duration::from_secs(20)).await;
+		Ok(gateway)
+	}
 
-		if !networks.is_empty() {
-			let src_network = networks.first().unwrap().id;
-			let dest_network = networks.last().unwrap().id;
+	pub async fn set_network_info(&self, tester: &Tester) -> Result<()> {
+		let (num, den) = get_network_ratio(self.network_id(), tester.network_id());
+		self.connector
+			.sudo_set_network_info(
+				self.gateway().await?.unwrap(),
+				tester.network_id(),
+				tester.gateway().await?.unwrap(),
+				num.into(),
+				den.into(),
+				1_000_000,
+				100_000,
+			)
+			.await
+	}
 
-			let (num, den) = get_network_ratio(src_network, dest_network);
-
-			self.set_network_info(num.into(), den.into(), dest_network, 1_000_000, 100_000)
-				.await?;
+	pub async fn gateway_add_shards(&self, shards: &[ShardId]) -> Result<()> {
+		let mut keys = vec![];
+		for shard_id in shards {
+			let key = self.runtime.shard_public_key(*shard_id).await?;
+			keys.push(key);
 		}
-		Ok(proxy_addr)
+		let gateway = self.gateway().await?.unwrap();
+		self.connector.sudo_register_shards(gateway, &keys).await
 	}
 
-	pub async fn get_proxy_addr(&self) -> Result<Address> {
-		// account which is going to deploy the gateway
-		let deployer = Address::from_str(self.wallet().account().address.as_str())?;
-
-		// get deployer's nonce
-		let nonce = self
-			.wallet()
-			.query(GetTransactionCount {
-				address: deployer.into_array().into(),
-				block: AtBlock::Latest,
-			})
-			.await?;
-
-		// compute the proxy address
-		Ok(deployer.create(nonce + 1))
-	}
-
-	pub async fn register_shard_on_gateway(
-		&self,
-		shard_id: ShardId,
-		keyfile: PathBuf,
-	) -> Result<()> {
-		// schnorr signing key
-		let bytes = std::fs::read_to_string(keyfile)?;
-		let key: Vec<u8> = serde_json::from_str(&bytes)?;
-		let schnorr_signing_key =
-			SigningKey::from_bytes(key.try_into().expect("Invalid secret key provided"))?;
-		let public_key = schnorr_signing_key.public().to_bytes()?;
-
-		// msg building
-		// provides signer who is gonna sign to gmp_params i.e. must be registered in gateway contract
-		let gmp_params = self.get_gmp_params(&public_key).await?;
-		// shard commitment
-		let shard_public_key = self.runtime.shard_public_key(shard_id).await.unwrap();
-		// provides key to register
-		let msg = Message::update_keys([], [shard_public_key]);
-		// builds signing payload
-		let payload = msg.to_eip712_bytes(&gmp_params);
-		// sign the msg
-		let sig = schnorr_signing_key.sign(&payload).to_bytes();
-
-		let call = msg.into_evm_call(&gmp_params, sig);
-		let Function::EvmCall {
-			address,
-			input,
-			amount,
-			gas_limit,
-		} = call
-		else {
-			println!("function is not valid");
-			return Ok(());
-		};
-		self.wallet()
-			.eth_send_call(address, input.clone(), amount, None, gas_limit)
-			.await?;
-		println!("Shard sucessfully registered");
-		Ok(())
-	}
-
-	async fn get_gmp_params(&self, shard_key: &[u8; 33]) -> Result<GmpParams> {
+	pub async fn get_gmp_params(&self, shard_key: TssPublicKey) -> Result<GmpParams> {
 		let gateway = self
 			.runtime
-			.get_gateway(self.network_id)
+			.get_gateway(self.network_id())
 			.await?
 			.expect("Gateway contract not registered");
 		Ok(GmpParams {
-			network_id: self.network_id,
-			gateway_contract: gateway.into(),
-			tss_public_key: *shard_key,
+			network: self.network_id(),
+			gateway: gateway.into(),
+			signer: shard_key,
 		})
 	}
 
@@ -499,130 +338,29 @@ impl Tester {
 	pub async fn send_message(
 		&self,
 		source_network: NetworkId,
-		source: EthContractAddress,
-		dest: EthContractAddress,
-		payload: Vec<u8>,
+		source: [u8; 20],
+		destination: [u8; 20],
+		nonce: u64,
+		bytes: Vec<u8>,
 		gas_limit: u128,
 	) -> Result<TaskId> {
+		let mut dest = [0; 32];
+		dest[12..32].copy_from_slice(&destination[..]);
 		let mut src = [0; 32];
 		src[12..32].copy_from_slice(&source[..]);
-		let mut salt = [0; 32];
-		getrandom::getrandom(&mut salt).unwrap();
-		let f = Function::SendMessage {
-			msg: Msg {
-				source_network,
-				source: src,
+		let f = Function::SubmitGatewayMessage {
+			ops: vec![GatewayOp::SendMessage(GmpMessage {
+				src_network: source_network,
+				src,
 				dest_network: self.network_id(),
 				dest,
-				data: payload,
-				salt,
+				bytes,
+				nonce,
 				gas_limit,
-			},
+			})],
 		};
 		self.create_task(f, 0).await
 	}
-
-	pub async fn gateway_update(&self, proxy_address: Address) -> Result<()> {
-		let (gateway_addr, _) = self.deploy_gateway(proxy_address).await?;
-		let call = Gateway::upgradeCall {
-			newImplementation: gateway_addr.into(),
-		}
-		.abi_encode();
-		println!("call data for gateway update: {:?}", hex::encode(&call));
-		let result = self.wallet().eth_send_call(proxy_address.into(), call, 0, None, None).await?;
-		match result {
-			SubmitResult::Executed { tx_hash, .. } => {
-				println!("tx successful: {:?}", tx_hash)
-			},
-			SubmitResult::Timeout { tx_hash } => {
-				println!("tx timedout: {:?}", tx_hash)
-			},
-		}
-		Ok(())
-	}
-	pub async fn gateway_set_admin(
-		&self,
-		proxy_address: Address,
-		new_admin: Address,
-	) -> Result<()> {
-		let call = Gateway::setAdminCall { newAdmin: new_admin }.abi_encode();
-		println!("call data for set admin: {:?}", hex::encode(&call));
-		let result = self.wallet().eth_send_call(proxy_address.into(), call, 0, None, None).await?;
-		match result {
-			SubmitResult::Executed { tx_hash, .. } => {
-				println!("tx successful: {:?}", tx_hash)
-			},
-			SubmitResult::Timeout { tx_hash } => {
-				println!("tx timedout: {:?}", tx_hash)
-			},
-		}
-		Ok(())
-	}
-	pub async fn gateway_add_shards(&self, shard_ids: Vec<ShardId>) -> Result<()> {
-		let Some(proxy) = self.runtime.get_gateway(self.network_id).await? else {
-			panic!("No proxy deployed for this network");
-		};
-		let mut tss_keys: Vec<TssKeyR> = vec![];
-		for id in shard_ids {
-			let key = self.runtime.shard_public_key(id).await?;
-			let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
-			let x_coords = hex::encode(&key[1..]);
-			tss_keys.push(TssKeyR {
-				yParity: parity_bit,
-				xCoord: U256::from_str_radix(&x_coords, 16).unwrap(),
-			});
-		}
-		let call = Gateway::sudoAddShardsCall { shards: tss_keys }.abi_encode();
-		println!("call data for add shards: {:?}", hex::encode(&call));
-		let result = self.wallet().eth_send_call(proxy, call, 0, None, None).await?;
-		match result {
-			SubmitResult::Executed { tx_hash, .. } => {
-				println!("tx successful: {:?}", tx_hash)
-			},
-			SubmitResult::Timeout { tx_hash } => {
-				println!("tx timedout: {:?}", tx_hash)
-			},
-		}
-		Ok(())
-	}
-	pub async fn set_network_info(
-		&self,
-		numerator: BigUint,
-		denominator: BigUint,
-		network_id: NetworkId,
-		gas_limit: u64,
-		base_fee: u128,
-	) -> Result<()> {
-		let gateway = self.gateway().await?.expect("Gateway address not found");
-		let float =
-			UFloat9x56::rational_to_float(numerator, denominator, Rounding::NearestTiesEven)
-				.map_err(|e| anyhow::anyhow!("{:?}", e))?;
-		let gmp_params = GmpParams {
-			network_id,
-			gateway_contract: gateway.into(),
-			// doesnt matter when computing domain seperator
-			tss_public_key: [0; 33],
-		};
-		let call = Gateway::setNetworkInfoCall {
-			info: UpdateNetworkInfo {
-				networkId: network_id,
-				domainSeparator: gmp_params.eip712_domain_separator().hash_struct(),
-				gasLimit: gas_limit,
-				relativeGasPrice: float,
-				baseFee: base_fee,
-				mortality: u64::MAX,
-			},
-		}
-		.abi_encode();
-		self.wallet().eth_send_call(gateway, call, 0, None, None).await?;
-		Ok(())
-	}
-}
-
-fn compile_file(path: &Path) -> Result<Vec<u8>> {
-	let abi = std::fs::read_to_string(path)?;
-	let json_abi: serde_json::Value = serde_json::from_str(&abi)?;
-	Ok(hex::decode(json_abi["bytecode"]["object"].as_str().unwrap().replace("0x", ""))?)
 }
 
 pub fn stop_node(node_name: String) {
@@ -649,6 +387,7 @@ pub fn restart_node(node_name: String) {
 	println!("Restart node {:?}", output.stderr.is_empty());
 }
 
+/*
 pub fn create_evm_call(address: EthContractAddress) -> Function {
 	Function::EvmCall {
 		address,
@@ -656,12 +395,12 @@ pub fn create_evm_call(address: EthContractAddress) -> Function {
 		amount: 0,
 		gas_limit: None,
 	}
-}
+}*/
 
-pub fn create_evm_view_call(address: EthContractAddress) -> Function {
+pub fn create_evm_view_call(address: Address) -> Function {
 	Function::EvmViewCall {
-		address,
-		input: VotingContract::statsCall {}.abi_encode(),
+		address: address.into(),
+		input: sol::VotingContract::statsCall {}.abi_encode(),
 	}
 }
 
@@ -1179,32 +918,23 @@ pub async fn test_setup(
 	contract: &Path,
 	shard_size: u16,
 	threshold: u16,
-) -> Result<(EthContractAddress, EthContractAddress, u64)> {
+) -> Result<(Gateway, Gateway, u64)> {
 	tester.set_shard_config(shard_size, threshold).await?;
 	tester.faucet().await;
-	let gmp_contract = tester.setup_gmp(false, None, vec![]).await?;
+	let gmp_contract = tester.setup_gmp(false, None).await?;
 	let (contract, start_block) = tester
-		.deploy(contract, VotingContract::constructorCall { _gateway: gmp_contract.into() })
+		.deploy_contract(
+			contract,
+			sol::VotingContract::constructorCall { _gateway: gmp_contract.into() },
+		)
 		.await?;
 	Ok((gmp_contract, contract, start_block))
 }
 
 ///
 /// fetches the testcontract state (contains yes and no votes and gets total of each)
-pub async fn stats(
-	tester: &Tester,
-	contract: EthContractAddress,
-	block: Option<u64>,
-) -> Result<(u64, u64)> {
-	let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
-	let call = VotingContract::statsCall {};
-	let stats = tester.wallet().eth_view_call(contract, call.abi_encode(), block).await?;
-	let CallResult::Success(stats) = stats else { anyhow::bail!("{:?}", stats) };
-	if stats.is_empty() {
-		println!("Stats are empty returning default on block {:?}", block);
-		return Ok((0, 0));
-	}
-	let stats = VotingContract::statsCall::abi_decode_returns(&stats, true)?._0;
+pub async fn stats(tester: &Tester, contract: Address, block: Option<u64>) -> Result<(u64, u64)> {
+	let stats = tester.evm_view(contract, sol::VotingContract::statsCall {}, block).await?._0;
 	let yes_votes = stats[0].try_into().unwrap();
 	let no_votes = stats[1].try_into().unwrap();
 	Ok((yes_votes, no_votes))
@@ -1222,34 +952,21 @@ pub async fn setup_gmp_with_contracts(
 	src: &Tester,
 	dest: &Tester,
 	contract: &Path,
-) -> Result<(EthContractAddress, EthContractAddress)> {
+) -> Result<(Gateway, Gateway)> {
 	src.faucet().await;
 	dest.faucet().await;
-	let src_proxy = src.get_proxy_addr().await?;
-	let dest_proxy = dest.get_proxy_addr().await?;
-	let mut networks = vec![];
-	networks.push(Network {
-		id: src.network_id(),
-		gateway: src_proxy.into_array().into(),
-	});
-	if src.network_id() != dest.network_id() {
-		networks.push(Network {
-			id: dest.network_id(),
-			gateway: dest_proxy.into_array().into(),
-		});
-	}
 	println!("deploying from source");
-	let src_proxy_contract = src.setup_gmp(false, None, networks.clone()).await?;
+	let src_proxy_contract = src.setup_gmp(false, None).await?;
 	// the reason for reverse is to set network info and this way we can compute relative gas price in order
-	networks.reverse();
 	println!("deploying from destination");
-	let dest_proxy_contract = dest.setup_gmp(false, None, networks).await?;
+	let dest_proxy_contract = dest.setup_gmp(false, None).await?;
+	src.set_network_info(&dest).await?;
 
 	// deploy testing contract for source chain
 	let (src_contract, _) = src
-		.deploy(
+		.deploy_contract(
 			contract,
-			VotingContract::constructorCall {
+			sol::VotingContract::constructorCall {
 				_gateway: src_proxy_contract.into(),
 			},
 		)
@@ -1257,9 +974,9 @@ pub async fn setup_gmp_with_contracts(
 
 	// deploy testing contract for destination/target chain
 	let (dest_contract, _) = dest
-		.deploy(
+		.deploy_contract(
 			contract,
-			VotingContract::constructorCall {
+			sol::VotingContract::constructorCall {
 				_gateway: dest_proxy_contract.into(),
 			},
 		)
@@ -1272,50 +989,36 @@ pub async fn setup_gmp_with_contracts(
 	// because frontier considers this an account so when we execute a tx of gmp
 	// it thinks account is going empty and throws outoffunds error
 	if src_network == 7 || src_network == 6 {
-		src.wallet()
-			.eth_send_call(
-				src_contract,
-				VotingContract::depositCall {}.abi_encode(),
-				1_000_000,
-				None,
-				None,
-			)
-			.await?;
+		src.transfer(src_contract.into(), 1_000_000).await?;
 	}
 
 	// registers destination contract in source contract to inform gmp compatibility.
-	src.wallet()
-		.eth_send_call(
-			src_contract,
-			VotingContract::registerGmpContractCall {
-				_registered: GmpVotingContract {
-					dest: dest_contract.into(),
-					network: dest_network,
-				},
-			}
-			.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?;
+	src.evm_call(
+		src_contract.into(),
+		sol::VotingContract::registerGmpContractCall {
+			_registered: sol::GmpVotingContract {
+				dest: dest_contract.into(),
+				network: dest_network,
+			},
+		},
+		0,
+		None,
+	)
+	.await?;
 
 	// registers source contract in destination contract to inform gmp compatibility.
-	dest.wallet()
-		.eth_send_call(
-			dest_contract,
-			VotingContract::registerGmpContractCall {
-				_registered: GmpVotingContract {
-					dest: src_contract.into(),
-					network: src_network,
-				},
-			}
-			.abi_encode(),
-			0,
-			None,
-			None,
-		)
-		.await?;
+	dest.evm_call(
+		dest_contract.into(),
+		sol::VotingContract::registerGmpContractCall {
+			_registered: sol::GmpVotingContract {
+				dest: src_contract.into(),
+				network: src_network,
+			},
+		},
+		0,
+		None,
+	)
+	.await?;
 
 	Ok((src_contract, dest_contract))
 }
@@ -1344,14 +1047,14 @@ pub fn get_network_ratio(src: NetworkId, dest: NetworkId) -> (u64, u64) {
 /// `calls`: futures contianing gmp calls to src_contract
 /// `number_of_calls`: total number of calls for for gmp benchmarks
 /// `chunks`: chunks to wait for in a single turn
-pub async fn wait_for_gmp_calls<I, F>(
+pub async fn wait_for_gmp_calls<I, F, R>(
 	calls: I,
 	number_of_calls: u64,
 	chunk_size: usize,
-) -> Result<Vec<SubmitResult>>
+) -> Result<Vec<R>>
 where
 	I: IntoIterator<Item = F>,
-	F: Future<Output = Result<SubmitResult, anyhow::Error>>,
+	F: Future<Output = Result<R, anyhow::Error>>,
 {
 	let mut results = Vec::new();
 
@@ -1377,10 +1080,4 @@ pub fn format_duration(duration: Duration) -> String {
 	let secs = seconds % 60;
 
 	format!("{:02} hrs {:02} mins {:02} secs", hours, minutes, secs)
-}
-
-pub fn rational_to_ufloat(numerator: BigUint, denominator: BigUint) -> Result<u64> {
-	let float = UFloat9x56::rational_to_float(numerator, denominator, Rounding::NearestTiesEven)
-		.map_err(|e| anyhow::anyhow!("{:?}", e))?;
-	Ok(float)
 }

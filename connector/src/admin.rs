@@ -1,23 +1,22 @@
 use crate::gateway::IGateway;
-use crate::sol::{Gateway, GatewayProxy, Network, TssKey, UpdateNetworkInfo};
+use crate::sol;
 use crate::ufloat::{Float, Rounding, UFloat9x56};
 use crate::Connector;
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::{SolCall, SolConstructor};
 use anyhow::Result;
 use num_bigint::BigUint;
-use rosetta_client::Wallet;
-use rosetta_config_ethereum::SubmitResult;
+use rosetta_client::types::AccountIdentifier;
 use rosetta_config_ethereum::{AtBlock, GetTransactionCount};
+use rosetta_config_ethereum::{CallResult, SubmitResult};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use time_primitives::{NetworkId, TssPublicKey};
+use time_primitives::{Gateway, NetworkId, TssPublicKey};
 
-// type for eth contract address
-pub type EthContractAddress = [u8; 20];
+pub use rosetta_config_ethereum::TransactionReceipt;
 
-type TssKeyR = <TssKey as alloy_sol_types::SolType>::RustType;
+type TssKeyR = <sol::TssKey as alloy_sol_types::SolType>::RustType;
 
 fn compile_file(path: &Path) -> Result<Vec<u8>> {
 	let abi = std::fs::read_to_string(path)?;
@@ -44,8 +43,61 @@ impl AdminConnector {
 		Self { connector, gateway, proxy }
 	}
 
-	pub fn wallet(&self) -> &Wallet {
-		self.connector.wallet()
+	pub async fn nonce(&self) -> Result<u64> {
+		let admin = Address::from_str(self.connector.account())?;
+		self.wallet()
+			.query(GetTransactionCount {
+				address: admin.into_array().into(),
+				block: AtBlock::Latest,
+			})
+			.await
+	}
+
+	pub async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
+		self.connector
+			.wallet()
+			.transfer(&AccountIdentifier::new(address.to_string()), amount, None, None)
+			.await?;
+		Ok(())
+	}
+
+	pub async fn evm_call<T: SolCall>(
+		&self,
+		contract: Address,
+		call: T,
+		amount: u128,
+		nonce: Option<u64>,
+	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
+		let result = self
+			.connector
+			.wallet()
+			.eth_send_call(contract.into(), call.abi_encode(), amount, nonce, None)
+			.await?;
+		let SubmitResult::Executed {
+			result: CallResult::Success(result),
+			receipt,
+			tx_hash,
+		} = result
+		else {
+			anyhow::bail!("{:?}", result)
+		};
+		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash.into()))
+	}
+
+	pub async fn evm_view<T: SolCall>(
+		&self,
+		contract: Address,
+		call: T,
+		block: Option<u64>,
+	) -> Result<T::Return> {
+		let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
+		let result = self
+			.connector
+			.wallet()
+			.eth_view_call(contract.into(), call.abi_encode(), block)
+			.await?;
+		let CallResult::Success(result) = result else { anyhow::bail!("{:?}", result) };
+		Ok(T::abi_decode_returns(&result, true)?)
 	}
 
 	pub async fn faucet(&self) {
@@ -68,7 +120,7 @@ impl AdminConnector {
 		&self,
 		path: &Path,
 		constructor: impl SolConstructor,
-	) -> Result<(EthContractAddress, u64)> {
+	) -> Result<([u8; 20], u64)> {
 		println!("Deploying contract from {:?}", self.wallet.account().address);
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor.abi_encode());
@@ -81,21 +133,11 @@ impl AdminConnector {
 		Ok((contract_address.0, block_number))
 	}
 
-	pub async fn deploy_gateway(
-		&self,
-		keys: Vec<TssPublicKey>,
-		networks: Vec<Network>,
-	) -> Result<([u8; 20], u64)> {
+	pub async fn deploy_gateway(&self, keys: &[TssPublicKey]) -> Result<(Gateway, u64)> {
 		let admin = Address::from_str(self.connector.account())?;
 
 		// get deployer's nonce
-		let nonce = self
-			.wallet()
-			.query(GetTransactionCount {
-				address: admin.into_array().into(),
-				block: AtBlock::Latest,
-			})
-			.await?;
+		let nonce = self.nonce().await?;
 
 		// compute the proxy address
 		let proxy_addr = admin.create(nonce + 1);
@@ -112,7 +154,7 @@ impl AdminConnector {
 		println!("deploying proxy contract...");
 		// Build the Gateway initializer
 		let tss_keys: Vec<TssKeyR> = keys
-			.into_iter()
+			.iter()
 			.map(|key| {
 				let parity_bit = if key[0] % 2 == 0 { 0 } else { 1 };
 				let x_coords = hex::encode(&key[1..]);
@@ -122,15 +164,15 @@ impl AdminConnector {
 				}
 			})
 			.collect();
-		let initializer = Gateway::initializeCall {
+		let initializer = sol::Gateway::initializeCall {
 			admin: admin.into_array().into(),
 			keys: tss_keys,
-			networks,
+			networks: vec![],
 		}
 		.abi_encode();
 
 		// Deploy the proxy contract
-		let call = GatewayProxy::constructorCall {
+		let call = sol::GatewayProxy::constructorCall {
 			implementation: gateway_addr.into(),
 			initializer: initializer.into(),
 		};
@@ -144,13 +186,13 @@ impl AdminConnector {
 		Ok((actual_addr.into_array(), block_number))
 	}
 
-	pub async fn redeploy_gateway(&self, gateway: [u8; 20]) -> Result<()> {
+	pub async fn redeploy_gateway(&self, gateway: Gateway) -> Result<()> {
 		let call = IGateway::constructorCall {
 			networkId: self.network_id,
 			proxy: gateway.into(),
 		};
 		let (gateway_addr, _) = self.deploy_contract(&self.gateway, call).await?;
-		let call = Gateway::upgradeCall {
+		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr.into(),
 		}
 		.abi_encode();
@@ -167,8 +209,8 @@ impl AdminConnector {
 		Ok(())
 	}
 
-	pub async fn sudo_set_admin(&self, gateway: [u8; 20], new_admin: Address) -> Result<()> {
-		let call = Gateway::setAdminCall { newAdmin: new_admin }.abi_encode();
+	pub async fn sudo_set_admin(&self, gateway: Gateway, new_admin: Address) -> Result<()> {
+		let call = sol::Gateway::setAdminCall { newAdmin: new_admin }.abi_encode();
 		println!("call data for set admin: {:?}", hex::encode(&call));
 		let result = self.wallet().eth_send_call(gateway, call, 0, None, None).await?;
 		match result {
@@ -184,7 +226,7 @@ impl AdminConnector {
 
 	pub async fn sudo_register_shards(
 		&self,
-		gateway: [u8; 20],
+		gateway: Gateway,
 		keys: &[TssPublicKey],
 	) -> Result<()> {
 		let tss_keys = keys
@@ -198,7 +240,7 @@ impl AdminConnector {
 				}
 			})
 			.collect::<Vec<_>>();
-		let call = Gateway::sudoAddShardsCall { shards: tss_keys }.abi_encode();
+		let call = sol::Gateway::sudoAddShardsCall { shards: tss_keys }.abi_encode();
 		println!("call data for add shards: {:?}", hex::encode(&call));
 		let result = self.wallet().eth_send_call(gateway, call, 0, None, None).await?;
 		match result {
@@ -214,8 +256,9 @@ impl AdminConnector {
 
 	pub async fn sudo_set_network_info(
 		&self,
-		gateway: [u8; 20],
+		gateway: Gateway,
 		network_id: NetworkId,
+		dest_gateway: Gateway,
 		numerator: BigUint,
 		denominator: BigUint,
 		gas_limit: u64,
@@ -224,8 +267,8 @@ impl AdminConnector {
 		let float =
 			UFloat9x56::rational_to_float(numerator, denominator, Rounding::NearestTiesEven)
 				.map_err(|e| anyhow::anyhow!("{:?}", e))?;
-		let call = Gateway::setNetworkInfoCall {
-			info: UpdateNetworkInfo {
+		let call = sol::Gateway::setNetworkInfoCall {
+			info: sol::UpdateNetworkInfo {
 				networkId: network_id,
 				domainSeparator: [0; 32].into(),
 				gasLimit: gas_limit,

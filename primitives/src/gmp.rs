@@ -5,11 +5,19 @@ use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+pub type Gateway = [u8; 20];
+
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct GmpParams {
 	pub network: NetworkId,
-	pub gateway: [u8; 20],
+	pub gateway: Gateway,
 	pub signer: TssPublicKey,
+}
+
+impl GmpParams {
+	pub fn domain_separator(&self) -> [u8; 32] {
+		todo!()
+	}
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

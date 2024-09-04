@@ -1,12 +1,16 @@
 //! This is our mainnet runtime.
 //!
-//! # Flows
-//!
 //! ## Governance
 //!
-//! There are two main governance bodies, both are implemented using [`pallet_collection`].
+//! There are two main governance bodies. The first one is responsible for maintaining the chain
+//! and keeping it operational, while the second body is responsible to manage treasury spending and unallocated issuance.
 //!
-//! For more details [`pallet_identity`]
+//! ### Technical Committee
+//!
+//! The technical committee is managed using the [`pallet_collective`], [`pallet_membership`] and our own custom [`pallet_governance`].
+//!
+//! While the first two pallets tally the votes and manage the membership of the committee, our custom pallet it used to elevate committee origin to more privileged level for selected calls.
+//!
 #![allow(clippy::identity_op)]
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limits.
@@ -262,7 +266,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
-	type SS58Prefix = ConstU16<42>;
+	type SS58Prefix = ConstU16<12850>;
 	type MaxConsumers = ConstU32<16>;
 }
 

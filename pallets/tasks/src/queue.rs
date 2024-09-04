@@ -1,4 +1,4 @@
-use crate::{Config, TaskPhaseState, Tasks, UATaskIndex};
+use crate::{Config, Tasks, UATaskIndex};
 use core::marker::PhantomData;
 
 use polkadot_sdk::{frame_support, sp_runtime, sp_std};
@@ -7,11 +7,11 @@ use frame_support::storage::{StorageDoubleMap, StorageMap};
 use sp_runtime::Saturating;
 use sp_std::vec::Vec;
 
-use time_primitives::{NetworkId, TaskId, TaskIndex, TaskPhase};
+use time_primitives::{NetworkId, TaskId, TaskIndex};
 
 pub trait TaskQ<T: Config> {
 	/// Return the next `n` assignable tasks.
-	fn get_n(&self, n: usize, shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)>;
+	fn get_n(&self, n: usize) -> Vec<(u64, TaskId)>;
 	/// Push an item onto the end of the queue.
 	fn push(&self, task_id: TaskId);
 	/// Remove an item from the queue.
@@ -54,16 +54,11 @@ where
 	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
 	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
 {
-	fn get_n(&self, n: usize, _shard_size: u16, is_registered: bool) -> Vec<(u64, TaskId)> {
+	fn get_n(&self, n: usize) -> Vec<(u64, TaskId)> {
 		(self.remove..self.insert)
 			.filter_map(|index| {
-				Queue::get(self.network, index).and_then(|task_id| {
-					Tasks::<T>::get(task_id)
-						.filter(|_task| {
-							is_registered || TaskPhaseState::<T>::get(task_id) != TaskPhase::Sign
-						})
-						.map(|_| (index, task_id))
-				})
+				Queue::get(self.network, index)
+					.and_then(|task_id| Tasks::<T>::get(task_id).map(|_| (index, task_id)))
 			})
 			.take(n)
 			.collect::<Vec<_>>()

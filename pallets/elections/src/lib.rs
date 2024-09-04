@@ -274,6 +274,7 @@ pub mod pallet {
 					let weight = T::DbWeight::get()
 						.reads_writes(r, members.len().try_into().unwrap_or_default());
 					T::Shards::create_shard(network, members, ShardThreshold::<T>::get())
+						.1
 						.saturating_add(weight)
 				},
 				(None, r) => T::DbWeight::get().reads(r),

@@ -1256,16 +1256,17 @@ pub async fn setup_gmp_with_contracts(
 	dest.faucet().await;
 	let src_proxy = src.get_proxy_addr().await?;
 	let dest_proxy = dest.get_proxy_addr().await?;
-	let networks = vec![
-		Network {
-			id: src.network_id(),
-			gateway: src_proxy.into_array().into(),
-		},
-		Network {
+	let mut networks = vec![];
+	networks.push(Network {
+		id: src.network_id(),
+		gateway: src_proxy.into_array().into(),
+	});
+	if src.network_id() != dest.network_id() {
+		networks.push(Network {
 			id: dest.network_id(),
 			gateway: dest_proxy.into_array().into(),
-		},
-	];
+		});
+	}
 	let src_proxy_contract = src.setup_gmp(false, None, networks.clone()).await?;
 	let dest_proxy_contract = dest.setup_gmp(false, None, networks).await?;
 

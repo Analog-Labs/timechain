@@ -7,6 +7,7 @@ use futures::{FutureExt, StreamExt};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
+use subxt::backend::legacy::LegacyRpcMethods;
 use subxt::backend::rpc::reconnecting_rpc_client::{Client, ExponentialBackoff};
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
@@ -64,6 +65,7 @@ pub enum Tx {
 struct SubxtWorker<T: TxSubmitter> {
 	client: OnlineClient<PolkadotConfig>,
 	metadata: MetadataVariant,
+	legacy_rpc: LegacyRpcMethods<PolkadotConfig>,
 	keypair: Keypair,
 	nonce: u64,
 	tx_submitter: T,
@@ -71,12 +73,14 @@ struct SubxtWorker<T: TxSubmitter> {
 
 impl<T: TxSubmitter> SubxtWorker<T> {
 	pub async fn new(
+		legacy_rpc: LegacyRpcMethods<PolkadotConfig>,
 		client: OnlineClient<PolkadotConfig>,
 		metadata: MetadataVariant,
 		keypair: Keypair,
 		tx_submitter: T,
 	) -> Result<Self> {
 		let mut me = Self {
+			legacy_rpc,
 			client,
 			metadata,
 			keypair,
@@ -112,7 +116,7 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 
 	async fn resync_nonce(&mut self) -> Result<()> {
 		let account_id: subxt::utils::AccountId32 = self.keypair.public_key().into();
-		self.nonce = self.client.tx().account_nonce(&account_id).await?;
+		self.nonce = self.legacy_rpc.system_account_next_index(&account_id).await?;
 		Ok(())
 	}
 
@@ -309,8 +313,9 @@ impl SubxtClient {
 		keypair: Keypair,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let client = Self::get_client(url).await?;
-		let worker = SubxtWorker::new(client.clone(), metadata, keypair, tx_submitter).await?;
+		let (rpc_client, client) = Self::get_client(url).await?;
+		let worker =
+			SubxtWorker::new(rpc_client, client.clone(), metadata, keypair, tx_submitter).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
@@ -338,16 +343,20 @@ impl SubxtClient {
 		Self::new(url, metadata, keypair, tx_submitter).await
 	}
 
-	pub async fn get_client(url: &str) -> Result<OnlineClient<PolkadotConfig>> {
+	pub async fn get_client(
+		url: &str,
+	) -> Result<(LegacyRpcMethods<PolkadotConfig>, OnlineClient<PolkadotConfig>)> {
 		let rpc_client = Client::builder()
 			.retry_policy(
 				ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)).take(3),
 			)
 			.build(url.to_string())
 			.await?;
-		OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone())
+		let rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client.clone().into());
+		let client = OnlineClient::<PolkadotConfig>::from_rpc_client(rpc_client.clone())
 			.await
-			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))
+			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))?;
+		Ok((rpc, client))
 	}
 
 	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxInBlock> {
@@ -674,7 +683,7 @@ pub struct SubxtTxSubmitter {
 impl SubxtTxSubmitter {
 	pub async fn try_new(url: &str) -> Result<Self> {
 		Ok(Self {
-			client: SubxtClient::get_client(url).await?,
+			client: SubxtClient::get_client(url).await?.1,
 		})
 	}
 }

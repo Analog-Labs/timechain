@@ -259,7 +259,7 @@ async fn gmp_benchmark(
 	// Initialized it to get events from timechain
 	// SubxtClient client doesnt support exporting client to outer space
 	// doesnt want to modify it without asking David.
-	let subxt_client = SubxtClient::get_client(timechain_url).await?;
+	let (_, subxt_client) = SubxtClient::get_client(timechain_url).await?;
 
 	// gmp_bench_state to do analysis on data in the end
 	let mut bench_state = GmpBenchState::new(number_of_calls);
@@ -544,7 +544,7 @@ async fn gmp_funds_check(
 ) -> Result<()> {
 	let (src_contract, _, _) = setup_gmp_with_contracts(src, dest, contract, 1).await?;
 
-	let subxt_client = SubxtClient::get_client(timechain_url).await?;
+	let (_, subxt_client) = SubxtClient::get_client(timechain_url).await?;
 
 	// submit a vote on source contract (testing contract) which will emit a gmpcreated event on gateway contract
 	let res = src

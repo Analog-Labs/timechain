@@ -1493,27 +1493,6 @@ fn test_task_execution_order() {
 }
 
 #[test]
-#[ignore]
-fn test_multi_shard_distribution() {
-	new_test_ext().execute_with(|| {
-		// Shard creation
-		for _ in 0..3 {
-			create_shard(ETHEREUM, 3, 1);
-		}
-
-		// Tasks creation and assingment
-		for _ in 0..9 {
-			create_task(ETHEREUM, 3, TaskPhase::Read);
-		}
-		register_gateway(0);
-		roll(1);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 3);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 3);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 3);
-	});
-}
-
-#[test]
 fn test_multi_shard_distribution_task_more_than_limit() {
 	new_test_ext().execute_with(|| {
 		// Shard creation
@@ -1619,6 +1598,31 @@ fn test_assignment_with_diff_shard_size() {
 			UATasksRemoveIndex::<Test>::get(ETHEREUM),
 			UATasksInsertIndex::<Test>::get(ETHEREUM)
 		)
+	});
+}
+*/
+
+/*
+// Ignored in PR #1047 (schedule in on-finalize)
+to reintroduce unbalanced task distribution bug
+// Expect this PR to make this test passing
+#[test]
+fn test_multi_shard_distribution() {
+	new_test_ext().execute_with(|| {
+		// Shard creation
+		for _ in 0..3 {
+			create_shard(ETHEREUM, 3, 1);
+		}
+
+		// Tasks creation and assingment
+		for _ in 0..9 {
+			create_task(ETHEREUM, 3, TaskPhase::Read);
+		}
+		register_gateway(0);
+		roll(1);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 3);
 	});
 }
 */

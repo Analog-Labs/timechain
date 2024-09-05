@@ -54,6 +54,7 @@ pub struct TaskResult {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub enum Payload {
+	Hashed([u8; 32]),
 	Error(String),
 	Gmp(Vec<GmpMessage>),
 }

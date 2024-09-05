@@ -6,8 +6,9 @@ use schnorr_evm::VerifyingKey;
 use std::time::Duration;
 use std::{future::Future, num::NonZeroU64, path::PathBuf, pin::Pin};
 use time_primitives::{
-	BlockNumber, Function, GatewayMessage, GmpParams, NetworkId, Payload, Runtime, ShardId,
-	TaskExecution, TaskId, TaskPhase, TaskResult, TssHash, TssSignature, TssSigningRequest,
+	BlockNumber, Function, GatewayMessage, GmpParams, IConnector, NetworkId, Payload, Runtime,
+	ShardId, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash, TssSignature,
+	TssSigningRequest,
 };
 use tokio::time::sleep;
 
@@ -37,11 +38,11 @@ where
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
 		let connector = Connector::new(
+			params.network_id,
 			&params.blockchain,
 			&params.network,
 			&params.url,
 			&params.keyfile,
-			params.network_id,
 		)
 		.await?;
 		while connector.balance().await? < params.min_balance {
@@ -93,17 +94,9 @@ where
 		target_block_number: u64,
 	) -> Result<Payload> {
 		Ok(match function {
-			// execute the read function of task
-			Function::EvmViewCall { address, input } => {
-				let result = self
-					.connector
-					.evm_view_call(*address, input.clone(), target_block_number)
-					.await?;
-				Payload::Hashed(VerifyingKey::message_hash(&result))
-			},
 			// reads the receipt for a transaction on target chain
 			Function::GatewayMessageReceipt { tx } => {
-				let result = self.connector.verify_gateway_message_receipt(*tx).await?;
+				let result = self.connector.verify_submission(*tx).await?;
 				Payload::Hashed(VerifyingKey::message_hash(&result))
 			},
 			// executs the read message function. it looks for event emitted from gateway contracts
@@ -183,7 +176,7 @@ where
 			},
 		}
 		let task_id = msg.task_id;
-		let hash = self.connector.submit_gateway_message(params, msg, sig).await;
+		let hash = self.connector.submit_messages(params.gateway, msg, params.signer, sig).await;
 		if let Err(e) = self.substrate.submit_task_hash(task_id, hash).await {
 			tracing::error!(task_id = task_id, "Error submitting task hash {:?}", e);
 		}

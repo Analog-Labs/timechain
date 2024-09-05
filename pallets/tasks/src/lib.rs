@@ -524,6 +524,7 @@ pub mod pallet {
 						}
 					}
 				},
+				_ => {},
 			}
 			Self::finish_task(task_id, result.clone());
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());

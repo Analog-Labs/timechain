@@ -1305,6 +1305,9 @@ pub mod pallet {
 		/// 		number_of_tasks_to_assign = tasks_per_shard - shard_capacity(shard)
 		fn schedule_tasks() -> Weight {
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
+			// To account for any computation involved outside of accounted reads/writes
+			// Overestimating can lead to more consistent block times especially if weight was underestimated prior to adding the safety margin
+			const WEIGHT_SAFETY_MARGIN: Weight = Weight::from_parts(500_000_000, 0);
 			let mut weight = Weight::default();
 			for (network, _) in Gateway::<T>::iter() {
 				let unassigned_tasks = UnassignedTasks::<T>::iter_prefix(network)
@@ -1337,9 +1340,6 @@ pub mod pallet {
 						weight.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
 				}
 			}
-			// To account for any computation involved outside of accounted reads/writes
-			// Overestimating can lead to more consistent block times especially if weight was underestimated prior to adding the safety margin
-			const WEIGHT_SAFETY_MARGIN: Weight = Weight::from_parts(500_000_000, 0);
 			weight.saturating_add(WEIGHT_SAFETY_MARGIN)
 		}
 

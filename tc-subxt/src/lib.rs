@@ -13,9 +13,9 @@ use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::SecretUri;
 use time_primitives::{
-	AccountId, Balance, BlockHash, BlockNumber, Commitment, MemberStatus, NetworkId, PeerId,
-	ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskDescriptor,
-	TaskDescriptorParams, TaskExecution, TaskId, TaskResult, TssSignature,
+	AccountId, Balance, BlockHash, BlockNumber, Commitment, Gateway, MemberStatus, NetworkId,
+	PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskDescriptor,
+	TaskDescriptorParams, TaskExecution, TaskId, TaskResult, TssSignature, TxHash,
 };
 use tokio::sync::oneshot::{self, Sender};
 
@@ -53,11 +53,11 @@ pub enum Tx {
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	CreateTask { task: TaskDescriptorParams },
-	RegisterGateway { shard_id: ShardId, address: [u8; 20], block_height: u64 },
+	RegisterGateway { shard_id: ShardId, address: Gateway, block_height: u64 },
 	RegisterNetwork { chain_name: String, chain_network: String },
 	SetShardConfig { shard_size: u16, shard_threshold: u16 },
 	Ready { shard_id: ShardId },
-	TaskHash { task_id: TaskId, hash: Result<[u8; 32], String> },
+	TaskHash { task_id: TaskId, hash: Result<Vec<TxHash>, String> },
 	TaskResult { task_id: TaskId, result: TaskResult },
 	TaskSignature { task_id: TaskId, signature: TssSignature },
 }
@@ -405,7 +405,7 @@ impl SubxtClient {
 	pub async fn register_gateway(
 		&self,
 		shard_id: ShardId,
-		address: [u8; 20],
+		address: Gateway,
 		block_height: u64,
 	) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
@@ -619,7 +619,7 @@ impl Runtime for SubxtClient {
 		Ok(unsafe { std::mem::transmute(data) })
 	}
 
-	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>> {
+	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<Vec<TxHash>>> {
 		let data = metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_task_hash(task_id);
 			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
@@ -627,7 +627,7 @@ impl Runtime for SubxtClient {
 		Ok(data)
 	}
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>> {
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>> {
 		let data = metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_gateway(network);
 			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
@@ -698,7 +698,7 @@ impl Runtime for SubxtClient {
 	async fn submit_task_hash(
 		&self,
 		task_id: TaskId,
-		hash: Result<[u8; 32], String>,
+		hash: Result<Vec<TxHash>, String>,
 	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::TaskHash { task_id, hash }, tx))?;

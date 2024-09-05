@@ -1,4 +1,4 @@
-use crate::{AccountId, Balance, GatewayOp, GmpMessage, NetworkId, ShardId, TssSignature};
+use crate::{GatewayOp, GmpMessage, NetworkId, ShardId, TssSignature};
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
 use scale_info::{
@@ -19,7 +19,6 @@ pub type TxHash = [u8; 32];
 pub enum Function {
 	ReadMessages { batch_size: core::num::NonZeroU64 },
 	SubmitGatewayMessage { ops: Vec<GatewayOp> },
-	GatewayMessageReceipt { tx: TxHash },
 }
 
 #[cfg(feature = "std")]
@@ -28,7 +27,6 @@ impl std::fmt::Display for Function {
 		match self {
 			Function::ReadMessages { batch_size } => write!(f, "ReadMessages({batch_size})"),
 			Function::SubmitGatewayMessage { ops: _ } => write!(f, "SubmitGatewayMessage"),
-			Function::GatewayMessageReceipt { tx: _ } => write!(f, "GatewayMessageReceipt"),
 		}
 	}
 }
@@ -37,7 +35,7 @@ impl Function {
 	pub fn initial_phase(&self) -> TaskPhase {
 		match self {
 			Self::SubmitGatewayMessage { .. } => TaskPhase::Sign,
-			Self::GatewayMessageReceipt { .. } | Self::ReadMessages { .. } => TaskPhase::Read,
+			Self::ReadMessages { .. } => TaskPhase::Read,
 		}
 	}
 
@@ -56,7 +54,6 @@ pub struct TaskResult {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub enum Payload {
-	Hashed([u8; 32]),
 	Error(String),
 	Gmp(Vec<GmpMessage>),
 }
@@ -74,31 +71,14 @@ impl Payload {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskDescriptor {
-	pub owner: Option<AccountId>,
 	pub network: NetworkId,
 	pub function: Function,
 	pub start: u64,
-	pub shard_size: u16,
 }
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskDescriptorParams {
-	pub network: NetworkId,
-	pub start: u64,
-	pub function: Function,
-	pub funds: Balance,
-	pub shard_size: u16,
-}
-
-impl TaskDescriptorParams {
-	pub fn new(network: NetworkId, function: Function, shard_size: u16) -> Self {
-		Self {
-			network,
-			start: 0,
-			function,
-			funds: 0,
-			shard_size,
-		}
+impl TaskDescriptor {
+	pub fn new(network: NetworkId, function: Function) -> Self {
+		Self { network, function, start: 0 }
 	}
 }
 
@@ -165,10 +145,4 @@ pub struct RewardConfig<Balance, BlockNumber> {
 	pub send_message_reward: Balance,
 	/// Depreciation rate for all rewards
 	pub depreciation_rate: DepreciationRate<BlockNumber>,
-}
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TaskFunder {
-	//Account(AccountId),
-	Treasury,
 }

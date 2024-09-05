@@ -65,7 +65,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{AccountIdConversion, IdentifyAccount, Zero},
+		traits::{IdentifyAccount, Zero},
 		Saturating,
 	};
 	use sp_std::boxed::Box;
@@ -75,9 +75,8 @@ pub mod pallet {
 	use time_primitives::{
 		gmp::GmpParams, AccountId, Address, Balance, DepreciationRate, ElectionsInterface,
 		Function, GatewayMessage, GatewayOp, GmpMessage, NetworkId, Payload, PublicKey,
-		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
-		TaskExecution, TaskFunder, TaskId, TaskIndex, TaskPhase, TaskResult, TasksInterface,
-		TransferStake, TssSignature, TxHash,
+		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskExecution, TaskId, TaskIndex,
+		TaskPhase, TaskResult, TasksInterface, TransferStake, TssSignature, TxHash,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -451,8 +450,6 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Bootstrap shard must be online to call register_gateway
 		BootstrapShardMustBeOnline,
-		/// Shard for task must be online at task creation
-		MatchingShardNotOnline,
 		/// Insufficient balance in Treasury to fund register_gateway Recv Tasks
 		InsufficientTreasuryBalanceToRecvTasks,
 	}
@@ -468,13 +465,9 @@ pub mod pallet {
 		///    4. Return success or failure.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::create_task(schedule.function.get_input_length()))]
-		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptorParams) -> DispatchResult {
+		pub fn create_task(origin: OriginFor<T>, schedule: TaskDescriptor) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(
-				T::Shards::matching_shard_online(schedule.network, schedule.shard_size),
-				Error::<T>::MatchingShardNotOnline
-			);
-			Self::start_task(schedule, TaskFunder::Treasury)?;
+			Self::start_task(schedule)?;
 			Ok(())
 		}
 
@@ -515,7 +508,7 @@ pub mod pallet {
 						}
 					}
 					for msg in msgs {
-						if let Ok(send_task_id) = Self::send_message(result.shard_id, msg.clone()) {
+						if let Ok(send_task_id) = Self::send_message(msg.clone()) {
 							MessageTask::<T>::insert(msg.message_id(), (task_id, send_task_id));
 						} else {
 							Self::deposit_event(Event::InsufficientTreasuryBalanceToSendMessage(
@@ -531,7 +524,6 @@ pub mod pallet {
 						}
 					}
 				},
-				_ => {},
 			}
 			Self::finish_task(task_id, result.clone());
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
@@ -965,11 +957,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// The account ID containing the funds for a task.
-		fn task_account(task_id: TaskId) -> T::AccountId {
-			<T as Config>::PalletId::get().into_sub_account_truncating(task_id)
-		}
-
 		/// Prioritized tasks
 		/// function = {UnRegisterShard, RegisterShard, ReadMessages}
 		fn prioritized_unassigned_tasks(network: NetworkId) -> Box<dyn TaskQ<T>> {
@@ -996,20 +983,16 @@ pub mod pallet {
 		///   1. Insert network_id and block_height into RecvTasks storage.
 		///   2. Create a task descriptor with `network_id`, [`Function::ReadMessages`] { `batch_size` }, and default shard size.
 		///   3. Set the task's start field to block_height.
-		///   4. Start the task with [`TaskFunder::Treasury`].
+		///   4. Start the task
 		fn recv_messages(
 			network_id: NetworkId,
 			block_height: u64,
 			batch_size: NonZeroU64,
 		) -> DispatchResult {
-			let mut task = TaskDescriptorParams::new(
-				network_id,
-				Function::ReadMessages { batch_size },
-				T::Elections::default_shard_size(),
-			);
+			let mut task = TaskDescriptor::new(network_id, Function::ReadMessages { batch_size });
 			task.start = block_height;
 			ensure!(
-				Self::start_task(task, TaskFunder::Treasury).is_ok(),
+				Self::start_task(task).is_ok(),
 				Error::<T>::InsufficientTreasuryBalanceToRecvTasks
 			);
 			RecvTasks::<T>::insert(network_id, block_height);
@@ -1020,19 +1003,15 @@ pub mod pallet {
 		///
 		/// # Flow
 		///  1. Create a task descriptor with `network_id`, [`Function::RegisterShard`] { `shard_id` }, and shard member count.
-		///  2. Start the task with [`TaskFunder::Treasury`].
+		///  2. Start the task
 		fn register_shard(shard_id: ShardId, network_id: NetworkId) {
 			let public_key = T::Shards::tss_public_key(shard_id).unwrap();
-			if Self::start_task(
-				TaskDescriptorParams::new(
-					network_id,
-					Function::SubmitGatewayMessage {
-						ops: vec![GatewayOp::RegisterShard(shard_id, public_key)],
-					},
-					T::Shards::shard_members(shard_id).len() as _,
-				),
-				TaskFunder::Treasury,
-			)
+			if Self::start_task(TaskDescriptor::new(
+				network_id,
+				Function::SubmitGatewayMessage {
+					ops: vec![GatewayOp::RegisterShard(shard_id, public_key)],
+				},
+			))
 			.is_err()
 			{
 				Self::deposit_event(Event::InsufficientTreasuryBalanceToRegisterShard(shard_id));
@@ -1071,16 +1050,12 @@ pub mod pallet {
 		fn unregister_shard(shard_id: ShardId, network: NetworkId) {
 			let public_key = T::Shards::tss_public_key(shard_id).unwrap();
 			if ShardRegistered::<T>::take(shard_id).is_some() {
-				if Self::start_task(
-					TaskDescriptorParams::new(
-						network,
-						Function::SubmitGatewayMessage {
-							ops: vec![GatewayOp::UnregisterShard(shard_id, public_key)],
-						},
-						T::Shards::shard_members(shard_id).len() as _,
-					),
-					TaskFunder::Treasury,
-				)
+				if Self::start_task(TaskDescriptor::new(
+					network,
+					Function::SubmitGatewayMessage {
+						ops: vec![GatewayOp::UnregisterShard(shard_id, public_key)],
+					},
+				))
 				.is_err()
 				{
 					Self::deposit_event(Event::InsufficientTreasuryBalanceToUnRegisterShard(
@@ -1120,20 +1095,16 @@ pub mod pallet {
 		///   1. Create task parameters using `TaskDescriptorParams::new` with the following:
 		///     - Destination network from `msg.dest_network`.
 		///    	- Function to send the message ([`Function::SendMessage { msg }`][Function::SendMessage]).
-		///   2. Start a task with the created parameters and fund it using [`TaskFunder::Treasury`].
+		///   2. Start a task with the created parameters
 		///   3. Ensure the task is successfully started and funded using the chronicle.
 		///   4. Return the Task ID of the started task.
-		fn send_message(shard_id: ShardId, msg: GmpMessage) -> Result<TaskId, DispatchError> {
-			Self::start_task(
-				TaskDescriptorParams::new(
-					msg.dest_network,
-					Function::SubmitGatewayMessage {
-						ops: vec![GatewayOp::SendMessage(msg)],
-					},
-					T::Shards::shard_members(shard_id).len() as _,
-				),
-				TaskFunder::Treasury,
-			)
+		fn send_message(msg: GmpMessage) -> Result<TaskId, DispatchError> {
+			Self::start_task(TaskDescriptor::new(
+				msg.dest_network,
+				Function::SubmitGatewayMessage {
+					ops: vec![GatewayOp::SendMessage(msg)],
+				},
+			))
 		}
 
 		/// To initialize and start a task with the given parameters and fund it through various means.
@@ -1154,73 +1125,14 @@ pub mod pallet {
 		///    8. Add the task to the list of unassigned tasks for the specified network.
 		///    9. Emit an event indicating the task has been created.
 		///    10. Schedule the tasks for the specified network.
-		fn start_task(
-			schedule: TaskDescriptorParams,
-			who: TaskFunder,
-		) -> Result<TaskId, DispatchError> {
+		fn start_task(task: TaskDescriptor) -> Result<TaskId, DispatchError> {
 			let task_id = TaskIdCounter::<T>::get();
-			let phase = schedule.function.initial_phase();
-			let (read_task_reward, write_task_reward, send_message_reward) = (
-				T::BaseReadReward::get() + NetworkReadReward::<T>::get(schedule.network),
-				T::BaseWriteReward::get() + NetworkWriteReward::<T>::get(schedule.network),
-				T::BaseSendMessageReward::get()
-					+ NetworkSendMessageReward::<T>::get(schedule.network),
-			);
-			let mut required_funds = read_task_reward.saturating_mul(schedule.shard_size.into());
-			if phase == TaskPhase::Write || phase == TaskPhase::Sign {
-				required_funds = required_funds.saturating_add(write_task_reward);
-			}
-			if phase == TaskPhase::Sign {
-				required_funds = required_funds
-					.saturating_add(send_message_reward.saturating_mul(schedule.shard_size.into()));
-			}
-			let owner = match who {
-				/*TaskFunder::Account(user) => {
-					let funds = if schedule.funds >= required_funds {
-						schedule.funds
-					} else {
-						required_funds
-					};
-					pallet_balances::Pallet::<T>::transfer(
-						&user,
-						&Self::task_account(task_id),
-						funds,
-						ExistenceRequirement::KeepAlive,
-					)?;
-					Some(user)
-				},*/
-				TaskFunder::Treasury => {
-					pallet_balances::Pallet::<T>::transfer(
-						&pallet_treasury::Pallet::<T>::account_id(),
-						&Self::task_account(task_id),
-						required_funds,
-						ExistenceRequirement::KeepAlive,
-					)?;
-					None
-				},
-			};
-			TaskRewardConfig::<T>::insert(
-				task_id,
-				RewardConfig {
-					read_task_reward,
-					write_task_reward,
-					send_message_reward,
-					depreciation_rate: T::RewardDeclineRate::get(),
-				},
-			);
-			Tasks::<T>::insert(
-				task_id,
-				TaskDescriptor {
-					owner,
-					network: schedule.network,
-					function: schedule.function.clone(),
-					start: schedule.start,
-					shard_size: schedule.shard_size,
-				},
-			);
+			let network = task.network;
+			let phase = task.function.initial_phase();
+			Tasks::<T>::insert(task_id, task);
 			TaskPhaseState::<T>::insert(task_id, phase);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
-			Self::add_unassigned_task(schedule.network, task_id);
+			Self::add_unassigned_task(network, task_id);
 			Self::deposit_event(Event::TaskCreated(task_id));
 			Ok(task_id)
 		}
@@ -1470,7 +1382,7 @@ pub mod pallet {
 		///   2. Distribute the rewards to the shard members and signers based on predefined rules.
 		///   3. Return `Ok(())` if the operation succeeds.
 		fn payout_task_rewards(task_id: TaskId, shard_id: ShardId, phase: TaskPhase) {
-			let task_account_id = Self::task_account(task_id);
+			let task_account_id = pallet_treasury::Pallet::<T>::account_id();
 			let start = PhaseStart::<T>::take(task_id, TaskPhase::Read);
 			let Some(RewardConfig {
 				read_task_reward,
@@ -1494,7 +1406,7 @@ pub mod pallet {
 					&task_account_id,
 					&account,
 					shard_member_reward,
-					ExistenceRequirement::AllowDeath,
+					ExistenceRequirement::KeepAlive,
 				);
 			});
 			// payout write signer reward and cleanup storage
@@ -1503,7 +1415,7 @@ pub mod pallet {
 					&task_account_id,
 					&account,
 					amount,
-					ExistenceRequirement::AllowDeath,
+					ExistenceRequirement::KeepAlive,
 				);
 			});
 		}

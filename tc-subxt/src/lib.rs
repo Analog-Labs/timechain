@@ -15,7 +15,7 @@ use subxt_signer::SecretUri;
 use time_primitives::{
 	AccountId, Balance, BlockHash, BlockNumber, Commitment, Gateway, MemberStatus, NetworkId,
 	PeerId, ProofOfKnowledge, PublicKey, Runtime, ShardId, ShardStatus, TaskDescriptor,
-	TaskDescriptorParams, TaskExecution, TaskId, TaskResult, TssSignature, TxHash,
+	TaskExecution, TaskId, TaskResult, TssSignature, TxHash,
 };
 use tokio::sync::oneshot::{self, Sender};
 
@@ -52,7 +52,7 @@ pub enum Tx {
 	UnregisterMember,
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
-	CreateTask { task: TaskDescriptorParams },
+	CreateTask { task: TaskDescriptor },
 	RegisterGateway { shard_id: ShardId, address: Gateway, block_height: u64 },
 	RegisterNetwork { chain_name: String, chain_network: String },
 	SetShardConfig { shard_size: u16, shard_threshold: u16 },
@@ -396,7 +396,7 @@ impl SubxtClient {
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))
 	}
 
-	pub async fn create_task(&self, task: TaskDescriptorParams) -> Result<TxInBlock> {
+	pub async fn create_task(&self, task: TaskDescriptor) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::CreateTask { task }, tx))?;
 		Ok(rx.await?)

@@ -217,11 +217,6 @@ where
 						task_id,
 						"Getting task_hash",
 					);
-					let function = if let Some(tx) = self.substrate.get_task_hash(task_id).await? {
-						Function::GatewayMessageReceipt { tx }
-					} else {
-						function
-					};
 					self.task_spawner.execute_read(
 						target_block_number,
 						shard_id,

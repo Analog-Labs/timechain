@@ -90,13 +90,17 @@ where
 	/// `target_block_number`: block number of target chain (usable for read tasks)
 	async fn execute_read_function(
 		&self,
-		function: &Function,
+		task_id: TaskId,
+		function: Function,
 		target_block_number: u64,
 	) -> Result<Payload> {
 		Ok(match function {
 			// reads the receipt for a transaction on target chain
-			Function::GatewayMessageReceipt { tx } => {
-				let result = self.connector.verify_submission(*tx).await?;
+			Function::SubmitGatewayMessage { ops } => {
+				let msg = GatewayMessage::new(task_id, ops);
+				let txs =
+					self.substrate.get_task_hash(task_id).await?.context("no txs to validate")?;
+				let result = self.connector.verify_submission(msg, txs).await?;
 				Payload::Hashed(VerifyingKey::message_hash(&result))
 			},
 			// executs the read message function. it looks for event emitted from gateway contracts
@@ -121,7 +125,6 @@ where
 				}
 				Payload::Gmp(logs)
 			},
-			_ => anyhow::bail!("not a read function {function:?}"),
 		})
 	}
 
@@ -135,10 +138,13 @@ where
 		block_num: BlockNumber,
 	) -> Result<()> {
 		tracing::debug!(task_id = task_id, shard_id = shard_id, "executing read function",);
-		let result = self.execute_read_function(&function, target_block).await.map_err(|err| {
-			tracing::error!(task_id = task_id, shard_id = shard_id, "{:#?}", err);
-			format!("{err}")
-		});
+		let result =
+			self.execute_read_function(task_id, function, target_block)
+				.await
+				.map_err(|err| {
+					tracing::error!(task_id = task_id, shard_id = shard_id, "{:#?}", err);
+					format!("{err}")
+				});
 		let payload = match result {
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),

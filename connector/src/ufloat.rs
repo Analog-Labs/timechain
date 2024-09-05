@@ -30,7 +30,10 @@ pub trait Float {
 		clippy::unwrap_used,
 		clippy::missing_errors_doc
 	)]
-	fn rational_to_float<N, D>(num: N, den: D, rounding: Rounding) -> Result<u64, ConversionError>
+	fn rational_to_float<N, D>(
+		(num, den): (N, D),
+		rounding: Rounding,
+	) -> Result<u64, ConversionError>
 	where
 		N: Into<BigUint>,
 		D: Into<BigUint>,

@@ -73,10 +73,11 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		gmp::GmpParams, AccountId, Balance, DepreciationRate, ElectionsInterface, Function,
-		GatewayMessage, GatewayOp, GmpMessage, NetworkId, Payload, PublicKey, RewardConfig,
-		ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams, TaskExecution, TaskFunder,
-		TaskId, TaskIndex, TaskPhase, TaskResult, TasksInterface, TransferStake, TssSignature,
+		gmp::GmpParams, AccountId, Address, Balance, DepreciationRate, ElectionsInterface,
+		Function, GatewayMessage, GatewayOp, GmpMessage, NetworkId, Payload, PublicKey,
+		RewardConfig, ShardId, ShardsInterface, TaskDescriptor, TaskDescriptorParams,
+		TaskExecution, TaskFunder, TaskId, TaskIndex, TaskPhase, TaskResult, TasksInterface,
+		TransferStake, TssSignature, TxHash,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -314,7 +315,8 @@ pub mod pallet {
 
 	/// Map storage for task hashes.
 	#[pallet::storage]
-	pub type TaskHash<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, [u8; 32], OptionQuery>;
+	pub type TaskHash<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, Vec<TxHash>, OptionQuery>;
 
 	/// Double map storage for phase start times.
 	#[pallet::storage]
@@ -339,7 +341,7 @@ pub mod pallet {
 
 	/// Map storage for network gateways.
 	#[pallet::storage]
-	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, [u8; 20], OptionQuery>;
+	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, Address, OptionQuery>;
 
 	///  Map storage for received tasks.
 	#[pallet::storage]
@@ -400,7 +402,7 @@ pub mod pallet {
 		/// Task succeeded with result
 		TaskResult(TaskId, TaskResult),
 		/// Gateway registered on network
-		GatewayRegistered(NetworkId, [u8; 20], u64),
+		GatewayRegistered(NetworkId, Address, u64),
 		/// Read task reward set for network
 		ReadTaskRewardSet(NetworkId, BalanceOf<T>),
 		/// Write task reward set for network
@@ -557,7 +559,7 @@ pub mod pallet {
 		pub fn submit_hash(
 			origin: OriginFor<T>,
 			task_id: TaskId,
-			hash: Result<[u8; 32], String>,
+			hash: Result<Vec<[u8; 32]>, String>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(Tasks::<T>::get(task_id).is_some(), Error::<T>::UnknownTask);
@@ -641,7 +643,7 @@ pub mod pallet {
 		pub fn register_gateway(
 			origin: OriginFor<T>,
 			bootstrap: ShardId,
-			address: [u8; 20],
+			address: Address,
 			block_height: u64,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
@@ -919,7 +921,7 @@ pub mod pallet {
 
 		/// Retrieves the hash for a given task.
 		/// Look up the hash associated with the provided `task` ID in the storage.
-		pub fn get_task_hash(task: TaskId) -> Option<[u8; 32]> {
+		pub fn get_task_hash(task: TaskId) -> Option<Vec<TxHash>> {
 			TaskHash::<T>::get(task)
 		}
 
@@ -939,7 +941,7 @@ pub mod pallet {
 
 		/// Retrieves the gateway address for a given network.
 		/// Look up the gateway address associated with the provided `network` ID in the storage.
-		pub fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
+		pub fn get_gateway(network: NetworkId) -> Option<Address> {
 			Gateway::<T>::get(network)
 		}
 

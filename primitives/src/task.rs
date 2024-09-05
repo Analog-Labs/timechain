@@ -20,7 +20,6 @@ pub enum Function {
 	ReadMessages { batch_size: core::num::NonZeroU64 },
 	SubmitGatewayMessage { ops: Vec<GatewayOp> },
 	GatewayMessageReceipt { tx: TxHash },
-	EvmViewCall { address: [u8; 20], input: Vec<u8> },
 }
 
 #[cfg(feature = "std")]
@@ -30,7 +29,6 @@ impl std::fmt::Display for Function {
 			Function::ReadMessages { batch_size } => write!(f, "ReadMessages({batch_size})"),
 			Function::SubmitGatewayMessage { ops: _ } => write!(f, "SubmitGatewayMessage"),
 			Function::GatewayMessageReceipt { tx: _ } => write!(f, "GatewayMessageReceipt"),
-			Function::EvmViewCall { address: _, input: _ } => write!(f, "EvmViewCall"),
 		}
 	}
 }
@@ -39,9 +37,7 @@ impl Function {
 	pub fn initial_phase(&self) -> TaskPhase {
 		match self {
 			Self::SubmitGatewayMessage { .. } => TaskPhase::Sign,
-			Self::EvmViewCall { .. }
-			| Self::GatewayMessageReceipt { .. }
-			| Self::ReadMessages { .. } => TaskPhase::Read,
+			Self::GatewayMessageReceipt { .. } | Self::ReadMessages { .. } => TaskPhase::Read,
 		}
 	}
 

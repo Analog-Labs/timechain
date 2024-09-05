@@ -2473,6 +2473,7 @@ dependencies = [
  "alloy-primitives 0.8.0",
  "alloy-sol-types 0.8.0",
  "anyhow",
+ "async-trait",
  "futures",
  "hex",
  "num-bigint",

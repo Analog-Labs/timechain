@@ -12,6 +12,7 @@ repository.workspace = true
 alloy-primitives = { version = "0.8.0", features = ["rlp"] }
 alloy-sol-types = "0.8.0"
 anyhow.workspace = true
+async-trait.workspace = true
 futures.workspace = true
 hex.workspace = true
 num-bigint = "0.4.6"

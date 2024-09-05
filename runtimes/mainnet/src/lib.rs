@@ -81,9 +81,9 @@ use static_assertions::const_assert;
 
 pub use time_primitives::{
 	AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	DepreciationRate, MemberStatus, MemberStorage, Moment, NetworkId, Nonce, PeerId,
+	DepreciationRate, Gateway, MemberStatus, MemberStorage, Moment, NetworkId, Nonce, PeerId,
 	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, TaskDescriptor, TaskExecution,
-	TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, ANLOG,
+	TaskId, TaskPhase, TaskResult, TssPublicKey, TssSignature, TxHash, ANLOG,
 };
 
 /// Constant values used within the runtime.
@@ -1840,7 +1840,7 @@ impl_runtime_apis! {
 			Tasks::get_task_signer(task_id)
 		}
 
-		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]> {
+		fn get_task_hash(task_id: TaskId) -> Option<Vec<TxHash>> {
 			Tasks::get_task_hash(task_id)
 		}
 
@@ -1856,7 +1856,7 @@ impl_runtime_apis! {
 			Tasks::get_task_shard(task_id)
 		}
 
-		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
+		fn get_gateway(network: NetworkId) -> Option<Gateway> {
 			Tasks::get_gateway(network)
 		}
 	}

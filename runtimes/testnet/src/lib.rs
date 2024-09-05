@@ -73,9 +73,9 @@ pub use runtime_common::{
 };
 pub use time_primitives::{
 	AccountId, Balance, BlockNumber, ChainName, ChainNetwork, Commitment, DepreciationRate,
-	MemberStatus, MemberStorage, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	Gateway, MemberStatus, MemberStorage, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Signature, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult,
-	TssPublicKey, TssSignature, ANLOG,
+	TssPublicKey, TssSignature, TxHash, ANLOG,
 };
 
 // A few exports that help ease life for downstream crates.
@@ -1474,7 +1474,7 @@ impl_runtime_apis! {
 			Tasks::get_task_signer(task_id)
 		}
 
-		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]> {
+		fn get_task_hash(task_id: TaskId) -> Option<Vec<TxHash>> {
 			Tasks::get_task_hash(task_id)
 		}
 
@@ -1490,7 +1490,7 @@ impl_runtime_apis! {
 			Tasks::get_task_shard(task_id)
 		}
 
-		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
+		fn get_gateway(network: NetworkId) -> Option<Gateway> {
 			Tasks::get_gateway(network)
 		}
 	}

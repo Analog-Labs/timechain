@@ -1,12 +1,11 @@
-use crate::gateway::IGateway;
-use alloy_primitives::{B256, U256};
-use alloy_sol_types::{SolCall, SolEvent};
+use alloy_primitives::B256;
+use alloy_sol_types::SolEvent;
 use anyhow::Result;
 use futures::stream::Stream;
 use futures::FutureExt;
 use rosetta_client::client::GenericClientStream;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption, SubmitResult};
+use rosetta_config_ethereum::{query::GetLogs, FilterBlockOption};
 use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use std::future::Future;
 use std::num::NonZeroU64;
@@ -14,11 +13,12 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use time_primitives::{Gateway, GatewayMessage, GmpMessage, GmpParams, NetworkId, TssSignature};
+use time_primitives::{
+	Gateway, GatewayMessage, GmpMessage, IConnector, NetworkId, TssPublicKey, TssSignature, TxHash,
+};
 use tokio::sync::Mutex;
 
 pub mod admin;
-mod gateway;
 pub(crate) mod sol;
 pub(crate) mod ufloat;
 
@@ -30,12 +30,19 @@ pub struct Connector {
 }
 
 impl Connector {
-	pub async fn new(
+	pub(crate) fn wallet(&self) -> &Wallet {
+		&self.wallet
+	}
+}
+
+#[async_trait::async_trait]
+impl IConnector for Connector {
+	async fn new(
+		network_id: NetworkId,
 		blockchain: &str,
 		network: &str,
 		url: &str,
 		keyfile: &Path,
-		network_id: NetworkId,
 	) -> Result<Self> {
 		let wallet =
 			Arc::new(Wallet::new(blockchain.parse()?, network, url, Some(keyfile), None).await?);
@@ -46,33 +53,29 @@ impl Connector {
 		})
 	}
 
-	pub(crate) fn wallet(&self) -> &Wallet {
-		&self.wallet
-	}
-
-	pub fn network_id(&self) -> NetworkId {
+	fn network_id(&self) -> NetworkId {
 		self.network_id
 	}
 
-	pub fn account(&self) -> &str {
+	fn account(&self) -> &str {
 		&self.wallet.account().address
 	}
 
 	/// Checks if wallet have enough balance
-	pub async fn balance(&self) -> Result<u128> {
+	async fn balance(&self) -> Result<u128> {
 		self.wallet.balance().await
 	}
 
-	pub async fn read_messages(
+	async fn read_messages(
 		&self,
-		gateway: [u8; 20],
+		gateway: Gateway,
 		from_block: Option<NonZeroU64>,
 		to_block: u64,
 	) -> Result<Vec<GmpMessage>> {
 		self.wallet
 			.query(GetLogs {
-				contracts: vec![gateway.into()],
-				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
+				contracts: vec![sol::addr(gateway).0 .0.into()],
+				topics: vec![sol::IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
 				block: FilterBlockOption::Range {
 					from_block: from_block.map(|x| x.get().into()),
 					to_block: Some(to_block.into()),
@@ -84,114 +87,65 @@ impl Connector {
 				// if any GmpCreated message is received collect them and returns
 				let topics =
 					log.topics.into_iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
-				let log =
-					alloy_primitives::Log::new(gateway.into(), topics, log.data.0.to_vec().into())
-						.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
-				let log = IGateway::GmpCreated::decode_log(&log, true)?;
-				let msg = gateway::event_to_gmp_message(log.data, self.network_id);
+				let log = alloy_primitives::Log::new(
+					sol::addr(gateway).into(),
+					topics,
+					log.data.0.to_vec().into(),
+				)
+				.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
+				let log = sol::IGateway::GmpCreated::decode_log(&log, true)?;
+				let msg = sol::event_to_gmp_message(log.data, self.network_id);
 				Ok::<_, anyhow::Error>(msg)
 			})
 			.collect::<Result<Vec<_>, _>>()
 	}
 
-	pub async fn submit_gateway_message(
+	async fn submit_messages(
 		&self,
-		params: GmpParams,
-		msg: GatewayMessage,
-		sig: TssSignature,
-	) -> Result<[u8; 32], String> {
+		gateway: Gateway,
+		_msg: GatewayMessage,
+		_signer: TssPublicKey,
+		_sig: TssSignature,
+	) -> Result<Vec<TxHash>, String> {
 		// TODO: construct input
 		let input = vec![];
 		let gas_limit = 0;
 		let _guard = self.guard.lock().await;
-		self.wallet
-			.eth_send_call(params.gateway, input, 0, None, Some(gas_limit))
+		let hash = self
+			.wallet
+			.eth_send_call(sol::addr(gateway).into(), input, 0, None, Some(gas_limit))
 			.await
 			.map(|s| s.tx_hash().0)
-			.map_err(|err| err.to_string())
+			.map_err(|err| err.to_string())?;
+		Ok(vec![hash])
 	}
 
-	pub async fn verify_gateway_message_receipt(&self, tx: [u8; 32]) -> Result<Vec<u8>> {
-		let Some(receipt) = self.wallet.eth_transaction_receipt(tx).await? else {
-			anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
-		};
-		if receipt.status_code != Some(1) {
-			anyhow::bail!("transaction reverted");
+	async fn verify_submission(&self, _msg: GatewayMessage, txs: Vec<TxHash>) -> Result<Vec<u8>> {
+		let mut json = vec![];
+		for tx in txs {
+			let Some(receipt) = self.wallet.eth_transaction_receipt(tx).await? else {
+				anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
+			};
+			if receipt.status_code != Some(1) {
+				anyhow::bail!("transaction reverted");
+			}
+			json.push(serde_json::json!({
+				"transactionHash": format!("{:?}", receipt.transaction_hash),
+				"transactionIndex": receipt.transaction_index,
+				"blockHash": receipt.block_hash.0.map(|block_hash| format!("{block_hash:?}")),
+				"blockNumber": receipt.block_number,
+				"from": format!("{:?}", receipt.from),
+				"to": receipt.to.map(|to| format!("{to:?}")),
+				"gasUsed": receipt.gas_used.map(|gas_used| format!("{gas_used:?}")),
+				"contractAddress": receipt.contract_address.map(|contract| format!("{contract:?}")),
+				"status": receipt.status_code,
+				"type": receipt.transaction_type,
+			}));
 		}
-		let json = serde_json::json!({
-			"transactionHash": format!("{:?}", receipt.transaction_hash),
-			"transactionIndex": receipt.transaction_index,
-			"blockHash": receipt.block_hash.0.map(|block_hash| format!("{block_hash:?}")),
-			"blockNumber": receipt.block_number,
-			"from": format!("{:?}", receipt.from),
-			"to": receipt.to.map(|to| format!("{to:?}")),
-			"gasUsed": receipt.gas_used.map(|gas_used| format!("{gas_used:?}")),
-			"contractAddress": receipt.contract_address.map(|contract| format!("{contract:?}")),
-			"status": receipt.status_code,
-			"type": receipt.transaction_type,
-		});
-		Ok(json.to_string().into_bytes())
+		Ok(serde_json::json!(json).to_string().into_bytes())
 	}
 
-	pub async fn evm_view_call(
-		&self,
-		address: [u8; 20],
-		input: Vec<u8>,
-		target_block: u64,
-	) -> Result<Vec<u8>> {
-		let data = self.wallet.eth_view_call(address, input, target_block.into()).await?;
-		let json = match data {
-			// Call executed successfully
-			CallResult::Success(data) => serde_json::json!({
-				"success": hex::encode(data),
-			}),
-			// Call reverted
-			CallResult::Revert(data) => serde_json::json!({
-				"revert": hex::encode(data),
-			}),
-			// Call invalid or EVM error
-			CallResult::Error => serde_json::json!({
-				"error": null,
-			}),
-		};
-		Ok(json.to_string().into_bytes())
-	}
-
-	pub async fn estimate_message_cost(
-		&self,
-		gateway: Gateway,
-		dest: NetworkId,
-		msg_size: usize,
-	) -> Result<u128> {
-		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
-		let result = self
-			.wallet()
-			.eth_send_call(
-				gateway,
-				sol::Gateway::estimateMessageCostCall {
-					networkid: dest,
-					messageSize: msg_size,
-					gasLimit: U256::from(100_000),
-				}
-				.abi_encode(),
-				0,
-				None,
-				None,
-			)
-			.await?;
-		let SubmitResult::Executed { result, .. } = result else { anyhow::bail!("{:?}", result) };
-		let CallResult::Success(data) = result else {
-			anyhow::bail!("failed parsing {:?}", result)
-		};
-		let msg_cost: u128 =
-			sol::Gateway::estimateMessageCostCall::abi_decode_returns(&data, true)?
-				._0
-				.try_into()
-				.unwrap();
-		Ok(msg_cost)
-	}
-
-	pub fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
 		Box::pin(BlockStream::new(&self.wallet))
 	}
 }

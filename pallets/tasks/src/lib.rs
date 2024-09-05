@@ -1322,14 +1322,25 @@ pub mod pallet {
 				weight = weight.saturating_add(T::DbWeight::get().reads(6));
 				// for shard in networks
 				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+					// no tasks assignable to unregistered shards
+					if ShardRegistered::<T>::get(shard).is_none() {
+						// READ: ShardRegistered
+						weight = weight.saturating_add(T::DbWeight::get().reads(1));
+						continue;
+					}
 					let shard_capacity = max_assignable_tasks
 						.saturating_sub(ShardTasks::<T>::iter_prefix(shard).count());
+					// READS: ShardTasks, ShardRegistered
+					weight = weight.saturating_add(T::DbWeight::get().reads(2));
 					let capacity = tasks_per_shard.saturating_sub(shard_capacity);
 					weight =
 						weight.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
 				}
 			}
-			weight
+			// To account for any computation involved outside of accounted reads/writes
+			// Overestimating can lead to more consistent block times especially if weight was underestimated prior to adding the safety margin
+			const WEIGHT_SAFETY_MARGIN: Weight = Weight::from_parts(500_000_000, 0);
+			weight.saturating_add(WEIGHT_SAFETY_MARGIN)
 		}
 
 		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing

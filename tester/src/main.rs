@@ -19,7 +19,7 @@ use tester::{
 use time_primitives::{NetworkId, Payload, ShardId};
 use tokio::time::{interval_at, Instant};
 
-// 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
+// 0x67352073052831eD0de7f288041A0C168F3f7023 tester wallet key
 // 0x56AEe94c0022F866f7f15BeB730B987826AfA4C5 keyfile1
 // 0x64AC191E26b66564bfda3249de27C9a8A96F9981 keyfile2
 // 0x1Be6ACA05B9e3E28Cb8ED04B99C9B989D1342eF4 keyfile3

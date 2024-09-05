@@ -1304,16 +1304,13 @@ pub mod pallet {
 		/// 	for shard in network:
 		/// 		number_of_tasks_to_assign = tasks_per_shard - shard_capacity(shard)
 		fn schedule_tasks() -> Weight {
-			// TODO: benchmarking like previous version
-			// TODO: do not include unregistered shards like previous version
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
 			let mut weight = Weight::default();
 			for (network, _) in Gateway::<T>::iter() {
 				let unassigned_tasks = UnassignedTasks::<T>::iter_prefix(network)
 					.count()
 					.saturating_add(UnassignedSystemTasks::<T>::iter_prefix(network).count());
-				// TODO: write migration to set correctly on live, running networks
-				let assigned_tasks = AssignedTaskCount::<T>::get(network);
+				let assigned_tasks = AssignedTaskCount::<T>::get(network) as usize;
 				let network_shards = NetworkShards::<T>::iter_prefix(network);
 				let mut tasks_per_shard = (assigned_tasks.saturating_add(unassigned_tasks))
 					.saturating_div(network_shards.count());

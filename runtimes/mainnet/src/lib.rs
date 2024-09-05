@@ -174,7 +174,7 @@ impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	}
 }
 
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 4 * HOURS;
+pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * HOURS;
 pub const EPOCH_DURATION_IN_SLOTS: u64 = {
 	const SLOT_FILL_RATE: f64 = MILLISECS_PER_BLOCK as f64 / SLOT_DURATION as f64;
 
@@ -311,9 +311,10 @@ parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 33 bytes.
+	// 32 + proxy_type.encode().len() bytes of data.
 	pub const ProxyDepositFactor: Balance = deposit(0, 33);
-	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
-	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const AnnouncementDepositBase: Balance = deposit(1, 16);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -456,9 +457,6 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	/// Transaction byte fee, calculated as 10 MILLIANLOG.
-	/// 10 MILLIANLOG is equivalent to 0.01 ANLOG (1 MILLIANLOG = 10^-3 ANLOG).
-	pub const TransactionByteFee: Balance = 10 * MILLIANLOG;
 
 	/// Multiplier for operational fees, set to 5.
 	pub const OperationalFeeMultiplier: u8 = 5;
@@ -498,7 +496,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 
 	/// Defines a constant multiplier for the length (in bytes) of a transaction, applied as an additional fee.
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
 
 	/// Defines how the fee multiplier is updated based on the block fullness.
 	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
@@ -653,13 +651,13 @@ impl pallet_staking::Config for Runtime {
 parameter_types! {
 	/// This phase determines the time window, in blocks, during which signed transactions (those that
 	/// are authorized by users with private keys, usually nominators or council members) can be submitted.
-	/// It is calculated as 1/4 of the total epoch duration, ensuring that signed
+	/// It is calculated as 1/3 of the total epoch duration, ensuring that signed
 	/// transactions are allowed for a quarter of the epoch.
 	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 3;
 	/// This phase determines the time window, in blocks, during which unsigned transactions (those
 	/// without authorization, usually by offchain workers) can be submitted. Like the signed phase,
-	/// it occupies 1/4 of the total epoch duration.
-	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 3;
+	/// it occupies 1/3 of the total epoch duration.
+	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 
 	// Signed Config
 	/// This represents the fixed reward given to participants for submitting valid signed
@@ -676,7 +674,7 @@ parameter_types! {
 	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	/// This deposit ensures that larger signed transactions incur higher costs, reflecting the
 	/// increased resource consumption they require. It is set to 10 milliANLOG per byte.
-	pub const SignedDepositByte: Balance = 10 * MILLIANLOG;
+	pub const SignedDepositByte: Balance = deposit(0, 1);
 
 	// Miner Configs
 	/// This priority level determines the order in which unsigned transactions are included
@@ -782,7 +780,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type Solution = NposSolution16;
 	type MaxVotesPerVoter =
 	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = MaxActiveValidators;
+	type MaxWinners =  ConstU32<100>;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
@@ -820,7 +818,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
 	type ForceOrigin = EnsureRootOrHalfTechnical;
-	type MaxWinners = MaxActiveValidators;
+	type MaxWinners = ConstU32<100>;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
@@ -845,7 +843,7 @@ parameter_types! {
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 	/// TODO: Select good value
 	pub const StorageBaseDeposit: Balance = 1 * ANLOG;
-	pub const StorageByteDeposit: Balance = 10 * MILLIANLOG;
+	pub const StorageByteDeposit: Balance = deposit(0,1);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -1095,11 +1093,11 @@ parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = 1 * ANLOG;
 	pub const SpendPeriod: BlockNumber = 1 * DAYS;
-	pub const Burn: Permill = Permill::from_percent(50);
+	pub const Burn: Permill = Permill::from_perthousand(1);
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
 	pub const TipReportDepositBase: Balance = 1 * ANLOG;
-	pub const DataDepositPerByte: Balance = 10 * MILLIANLOG;
+	pub const DataDepositPerByte: Balance = deposit(0,1);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;

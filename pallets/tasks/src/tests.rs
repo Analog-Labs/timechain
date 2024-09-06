@@ -1545,7 +1545,6 @@ fn test_multi_shard_distribution_task_before_shard_online() {
 	});
 }
 
-/*
 #[test]
 fn balanced_task_shard_distribution_below_task_limit() {
 	new_test_ext().execute_with(|| {
@@ -1563,7 +1562,7 @@ fn balanced_task_shard_distribution_below_task_limit() {
 
 		// Tasks creation and assignment
 		for _ in 0..27 {
-			assert_ok!(Tasks::create_task(RawOrigin::Root.into(), mock_task(ETHEREUM, 3)));
+			create_task(ETHEREUM, 3, TaskPhase::Read);
 		}
 
 		// shards come online when there are already some pending tasks to work with
@@ -1603,17 +1602,12 @@ fn test_assignment_with_diff_shard_size() {
 			.collect::<Vec<_>>()
 			.is_empty());
 		assert_eq!(
-			UATasksRemoveIndex::<Test>::get(ETHEREUM),
-			UATasksInsertIndex::<Test>::get(ETHEREUM)
+			crate::UATasksRemoveIndex::<Test>::get(ETHEREUM),
+			crate::UATasksInsertIndex::<Test>::get(ETHEREUM)
 		)
 	});
 }
-*/
 
-/*
-// Ignored in PR #1047 (schedule in on-finalize)
-to reintroduce unbalanced task distribution bug
-// Expect this PR to make this test passing
 #[test]
 fn test_multi_shard_distribution() {
 	new_test_ext().execute_with(|| {
@@ -1633,4 +1627,3 @@ fn test_multi_shard_distribution() {
 		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 3);
 	});
 }
-*/

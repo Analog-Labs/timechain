@@ -1304,6 +1304,7 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
+			println!("scheduling tasks");
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
 			// To account for any computation involved outside of accounted reads/writes
 			// Overestimating can lead to more consistent block times especially if weight was underestimated prior to adding the safety margin
@@ -1321,6 +1322,7 @@ pub mod pallet {
 					}
 				}
 				if registered_network_shards.is_zero() {
+					println!("skipping network because no shards registered");
 					continue;
 				}
 				let mut tasks_per_shard = (assigned_tasks.saturating_add(unassigned_tasks))
@@ -1335,6 +1337,9 @@ pub mod pallet {
 				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 					// no tasks assignable to unregistered shards
 					if ShardRegistered::<T>::get(shard).is_none() {
+						println!(
+							"skipping task assignment because shard: {shard} is not registered"
+						);
 						// READ: ShardRegistered
 						weight = weight.saturating_add(T::DbWeight::get().reads(1));
 						continue;

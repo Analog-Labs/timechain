@@ -1498,8 +1498,11 @@ fn test_task_execution_order() {
 fn test_multi_shard_distribution_task_more_than_limit() {
 	new_test_ext().execute_with(|| {
 		// Shard creation
-		for i in 0..3 {
+		for _ in 0..3 {
 			create_shard(ETHEREUM, 3, 1);
+		}
+		register_gateway(0);
+		for i in 1..3 {
 			ShardRegistered::<Test>::insert(i, ());
 		}
 
@@ -1521,8 +1524,11 @@ fn test_multi_shard_distribution_task_more_than_limit() {
 fn test_multi_shard_distribution_task_before_shard_online() {
 	new_test_ext().execute_with(|| {
 		// Shard creation
-		for i in 0..3 {
+		for _ in 0..3 {
 			create_shard(ETHEREUM, 3, 1);
+		}
+		register_gateway(0);
+		for i in 1..3 {
 			ShardRegistered::<Test>::insert(i, ());
 		}
 		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 10));
@@ -1533,9 +1539,9 @@ fn test_multi_shard_distribution_task_before_shard_online() {
 		}
 
 		roll(1);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 10);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 10);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 5);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 9);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 9);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 9);
 	});
 }
 

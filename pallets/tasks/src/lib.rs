@@ -1314,9 +1314,12 @@ pub mod pallet {
 					.count()
 					.saturating_add(UnassignedSystemTasks::<T>::iter_prefix(network).count());
 				let assigned_tasks = AssignedTaskCount::<T>::get(network) as usize;
-				let network_shards = NetworkShards::<T>::iter_prefix(network);
+				let network_shards = NetworkShards::<T>::iter_prefix(network).count();
+				if network_shards.is_zero() {
+					continue;
+				}
 				let mut tasks_per_shard = (assigned_tasks.saturating_add(unassigned_tasks))
-					.saturating_div(network_shards.count());
+					.saturating_div(network_shards);
 				let max_assignable_tasks =
 					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT) as usize;
 				tasks_per_shard = sp_std::cmp::min(tasks_per_shard, max_assignable_tasks);

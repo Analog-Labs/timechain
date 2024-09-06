@@ -626,23 +626,35 @@ impl Tester {
 		};
 		let shard_id = self.runtime.get_task_shard(task_id).await?.expect("Task not assigned");
 		let shard_status = self.shard_status(shard_id).await?;
-		let ShardStatus::Online = shard_status else {
-			anyhow::bail!("Shard is offline");
-		};
+		if ShardStatus::Offline == shard_status {
+			tracing::warn!("Warning! Shard is offline");
+		}
 		let task = self.get_task(task_id).await;
 		let gmp_params = self.build_gmp_params(shard_id).await?;
-		let Function::SendMessage { msg } = task.function else {
-			anyhow::bail!("Only SendMessage calls are supported");
-		};
 		let task_signature =
 			self.runtime.get_task_signature(task_id).await?.expect("Task not signed");
-		let msg = Message::gmp(msg).into_evm_call(&gmp_params, task_signature);
+		let function = match task.function {
+			Function::RegisterShard { shard_id } => {
+				let shard_key = self.runtime.shard_public_key(shard_id).await?;
+				Message::update_keys([], [shard_key]).into_evm_call(&gmp_params, task_signature)
+			},
+			Function::UnregisterShard { shard_id } => {
+				let shard_key = self.runtime.shard_public_key(shard_id).await?;
+				Message::update_keys([shard_key], []).into_evm_call(&gmp_params, task_signature)
+			},
+			Function::SendMessage { msg } => {
+				Message::gmp(msg).into_evm_call(&gmp_params, task_signature)
+			},
+			_ => {
+				anyhow::bail!("Call not supported");
+			},
+		};
 		let Function::EvmCall {
 			address,
 			input,
 			amount,
 			gas_limit,
-		} = msg
+		} = function
 		else {
 			anyhow::bail!("Only EvmCall functions are supported");
 		};

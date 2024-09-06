@@ -1302,7 +1302,7 @@ pub mod pallet {
 		/// 	tasks_per_shard = (assigned_tasks(network) + unassigned_tasks(network)) / number_of_shards(network)
 		/// 	tasks_per_shard = min(tasks_per_shard, max_assignable_tasks)
 		/// 	for shard in network:
-		/// 		number_of_tasks_to_assign = tasks_per_shard - shard_capacity(shard)
+		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity)
 		fn schedule_tasks() -> Weight {
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
 			// To account for any computation involved outside of accounted reads/writes
@@ -1335,9 +1335,16 @@ pub mod pallet {
 						.saturating_sub(ShardTasks::<T>::iter_prefix(shard).count());
 					// READS: ShardTasks, ShardRegistered
 					weight = weight.saturating_add(T::DbWeight::get().reads(2));
-					let capacity = tasks_per_shard.saturating_sub(shard_capacity);
-					weight =
-						weight.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
+					println!(
+						"tasks_per_shard = {tasks_per_shard}, shard_capacity = {shard_capacity}"
+					);
+					let tasks_for_shard = sp_std::cmp::min(tasks_per_shard, shard_capacity);
+					println!("tasks_for_shard = {tasks_for_shard}");
+					weight = weight.saturating_add(Self::schedule_tasks_shard(
+						network,
+						shard,
+						tasks_for_shard,
+					));
 				}
 			}
 			weight.saturating_add(WEIGHT_SAFETY_MARGIN)

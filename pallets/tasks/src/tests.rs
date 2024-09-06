@@ -1318,7 +1318,11 @@ fn regenerate_read_message_task_on_error() {
 	new_test_ext().execute_with(|| {
 		let shard_id = create_shard(ETHEREUM, 3, 1);
 		register_gateway(shard_id);
+		//System::assert_last_event(ShardEvent::<Test>::ShardCreated(0, 0).into());
+		// why is this last event not GatewayRegistered
+		assert!(Gateway::<Test>::get(ETHEREUM).is_some());
 		roll(1);
+		System::assert_last_event(Event::<Test>::TaskCreated(0).into());
 		assert_eq!(ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<Vec<_>>(), vec![0]);
 		let first_block_height = crate::RecvTasks::<Test>::get(ETHEREUM).unwrap_or_default();
 		assert_ok!(Tasks::submit_result(

@@ -1299,10 +1299,10 @@ pub mod pallet {
 		///   
 		/// # Flow
 		/// for network in networks:
-		/// 	tasks_per_shard = (assigned_tasks(network) + unassigned_tasks(network)) / number_of_shards(network)
+		/// 	tasks_per_shard = (assigned_tasks(network) + unassigned_tasks(network)) / number_of_registered_shards(network)
 		/// 	tasks_per_shard = min(tasks_per_shard, max_assignable_tasks)
-		/// 	for shard in network:
-		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity)
+		/// 	for registered_shard in network:
+		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
 			// To account for any computation involved outside of accounted reads/writes

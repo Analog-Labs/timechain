@@ -130,11 +130,11 @@ impl Message {
 		Self::Gmp(GmpMessage {
 			source: msg.source.into(),
 			srcNetwork: msg.source_network,
-			dest: Address(msg.dest.into()),
+			dest: alloy_primitives::Address(msg.dest.into()),
 			destNetwork: msg.dest_network,
 			gasLimit: U256::from(msg.gas_limit),
 			salt: U256::from_be_bytes(msg.salt),
-			data: msg.data,
+			data: msg.data.into(),
 		})
 	}
 
@@ -206,4 +206,91 @@ mod tests {
 		let bytes = Message::gmp(msg).to_eip712_bytes(&params);
 		assert_eq!(hex::encode(bytes), expected_bytes);
 	}
+}
+
+#[cfg(feature = "std")]
+use anyhow::Result;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "std")]
+use std::ops::Range;
+#[cfg(feature = "std")]
+use std::path::{Path, PathBuf};
+
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Network {
+	pub network_id: NetworkId,
+	pub gateway: [u8; 20],
+	pub relative_gas_price: (u128, u128),
+	pub gas_limit: u64,
+	pub base_fee: u128,
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait IConnectorAdmin {
+	type Address: Clone
+		+ Copy
+		+ From<[u8; 32]>
+		+ Into<[u8; 32]>
+		+ From<[u8; 20]>
+		+ Into<[u8; 20]>
+		+ From<Address>
+		+ Into<Address>
+		+ std::fmt::Display
+		+ std::str::FromStr;
+
+	/// Creates a new connector.
+	async fn new(
+		network_id: NetworkId,
+		blockchain: &str,
+		network: &str,
+		url: &str,
+		keyfile: &Path,
+		gateway: PathBuf,
+		proxy: PathBuf,
+		tester: PathBuf,
+	) -> Result<Self>
+	where
+		Self: Sized;
+	/// Network identifier.
+	fn network_id(&self) -> NetworkId;
+	/// Human readable connector account identifier.
+	fn address(&self) -> Self::Address;
+	/// Queries the account balance.
+	async fn balance(&self, address: Self::Address) -> Result<u128>;
+	/// Deploys the gateway contract.
+	async fn deploy_gateway(&self) -> Result<(Self::Address, u64)>;
+	/// Redeploys the gateway contract.
+	async fn redeploy_gateway(&self, gateway: Self::Address) -> Result<()>;
+	/// Returns the gateway admin.
+	async fn admin(&self, gateway: Self::Address) -> Result<Self::Address>;
+	/// Sets the gateway admin.
+	async fn set_admin(&self, gateway: Self::Address, admin: Self::Address) -> Result<()>;
+	/// Returns the registered shard keys.
+	async fn shards(&self, gateway: Self::Address) -> Result<Vec<TssPublicKey>>;
+	/// Sets the registered shard keys. Overwrites any other keys.
+	async fn set_shards(&self, gateway: Self::Address, keys: &[TssPublicKey]) -> Result<()>;
+	/// Returns the gateway routing table.
+	async fn networks(&self, gateway: Self::Address) -> Result<Vec<Network>>;
+	/// Updates an entry in the gateway routing table.
+	async fn set_network(&self, gateway: Self::Address, network: Network) -> Result<()>;
+	/// Uses a faucet to fund the account when possible.
+	async fn faucet(&self) -> Result<()>;
+	/// Transfers an amount to an account.
+	async fn transfer(&self, address: Self::Address, amount: u128) -> Result<()>;
+	/// Deploys a test contract.
+	async fn deploy_test(&self, gateway: Self::Address) -> Result<(Self::Address, u64)>;
+	/// Estimates the message cost.
+	async fn estimate_message_cost(
+		&self,
+		gateway: Self::Address,
+		dest: NetworkId,
+		msg_size: usize,
+	) -> Result<u128>;
+	/// Sends a message using the test contract.
+	async fn send_message(&self, contract: Self::Address, msg: Msg) -> Result<()>;
+	/// Receives messages from test contract.
+	async fn recv_messages(&self, contract: Self::Address, blocks: Range<u64>) -> Result<Vec<Msg>>;
 }

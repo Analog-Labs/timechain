@@ -115,7 +115,7 @@ impl Msg {
 			dest: event.recipient.0 .0,
 			gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
 			salt: event.salt.to_be_bytes(),
-			data: event.data,
+			data: event.data.into(),
 		}
 	}
 }

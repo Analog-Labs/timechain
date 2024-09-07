@@ -12,6 +12,7 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
+	"gmp/evm",
 	"node",
 	"pallets/elections",
 	"pallets/governance",

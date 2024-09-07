@@ -585,6 +585,7 @@ impl Tester {
 		}
 		Ok(())
 	}
+
 	pub async fn set_network_info(
 		&self,
 		numerator: BigUint,
@@ -616,6 +617,65 @@ impl Tester {
 		.abi_encode();
 		self.wallet().eth_send_call(gateway, call, 0, None, None).await?;
 		Ok(())
+	}
+
+	pub async fn submit_signed_payload(&self, task_id: TaskId) -> Result<()> {
+		let phase = self.runtime.get_task_phase(task_id).await?.expect("Task not found");
+		let TaskPhase::Write = phase else {
+			anyhow::bail!("Wrong task phase");
+		};
+		let shard_id = self.runtime.get_task_shard(task_id).await?.expect("Task not assigned");
+		let shard_status = self.shard_status(shard_id).await?;
+		if ShardStatus::Offline == shard_status {
+			tracing::warn!("Warning! Shard is offline");
+		}
+		let task = self.get_task(task_id).await;
+		let gmp_params = self.build_gmp_params(shard_id).await?;
+		let task_signature =
+			self.runtime.get_task_signature(task_id).await?.expect("Task not signed");
+		let function = match task.function {
+			Function::RegisterShard { shard_id } => {
+				let shard_key = self.runtime.shard_public_key(shard_id).await?;
+				Message::update_keys([], [shard_key]).into_evm_call(&gmp_params, task_signature)
+			},
+			Function::UnregisterShard { shard_id } => {
+				let shard_key = self.runtime.shard_public_key(shard_id).await?;
+				Message::update_keys([shard_key], []).into_evm_call(&gmp_params, task_signature)
+			},
+			Function::SendMessage { msg } => {
+				Message::gmp(msg).into_evm_call(&gmp_params, task_signature)
+			},
+			_ => {
+				anyhow::bail!("Call not supported");
+			},
+		};
+		let Function::EvmCall {
+			address,
+			input,
+			amount,
+			gas_limit,
+		} = function
+		else {
+			anyhow::bail!("Only EvmCall functions are supported");
+		};
+		let result = self
+			.wallet()
+			.eth_send_call(address, input.clone(), amount, None, gas_limit)
+			.await?;
+		println!("Tx result: {:?}", result);
+		Ok(())
+	}
+
+	pub async fn build_gmp_params(&self, shard_id: ShardId) -> Result<GmpParams> {
+		let gateway_contract = self.gateway().await?.expect("Unable to get gateway");
+		let network_id = self.network_id();
+		let tss_public_key = self.runtime.shard_public_key(shard_id).await?;
+		let gmp_params = GmpParams {
+			network_id,
+			gateway_contract: gateway_contract.into(),
+			tss_public_key,
+		};
+		Ok(gmp_params)
 	}
 }
 

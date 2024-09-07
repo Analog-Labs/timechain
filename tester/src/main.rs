@@ -16,7 +16,7 @@ use tester::{
 	format_duration, rational_to_ufloat, setup_gmp_with_contracts, sleep_or_abort, stats,
 	test_setup, wait_for_gmp_calls, ChainNetwork, EthContractAddress, GmpBenchState, Tester,
 };
-use time_primitives::{NetworkId, Payload, ShardId};
+use time_primitives::{NetworkId, Payload, ShardId, TaskId};
 use tokio::time::{interval_at, Instant};
 
 // 0xD3e34B4a2530956f9eD2D56e3C6508B7bBa3aC84 tester wallet key
@@ -97,6 +97,9 @@ enum Command {
 		gas_limit: u64,
 		#[clap(default_value_t = 100_000)]
 		base_fee: u128,
+	},
+	SubmitSignedPayload {
+		task_id: TaskId,
 	},
 	#[clap(subcommand)]
 	Test(Test),
@@ -212,6 +215,9 @@ async fn main() {
 				.set_network_info(num, den, network_id, gas_limit, base_fee)
 				.await
 				.unwrap();
+		},
+		Command::SubmitSignedPayload { task_id } => {
+			testers[0].submit_signed_payload(task_id).await.unwrap();
 		},
 		Command::WatchTask { task_id } => {
 			testers[0].wait_for_task(task_id).await;

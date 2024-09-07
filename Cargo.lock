@@ -18841,6 +18841,7 @@ dependencies = [
  "tc-subxt",
  "time-primitives",
  "tokio",
+ "tracing",
  "tracing-subscriber 0.3.18",
 ]
 

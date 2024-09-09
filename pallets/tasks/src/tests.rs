@@ -1548,7 +1548,6 @@ fn test_multi_shard_distribution_task_before_shard_online() {
 #[test]
 fn balanced_task_shard_distribution_below_task_limit() {
 	new_test_ext().execute_with(|| {
-		// Shard creation
 		for i in 0..3 {
 			Shards::create_shard(
 				ETHEREUM,
@@ -1557,8 +1556,12 @@ fn balanced_task_shard_distribution_below_task_limit() {
 			);
 			ShardState::<Test>::insert(i, ShardStatus::Online);
 		}
+		register_gateway(0);
+		for i in 1..3 {
+			ShardRegistered::<Test>::insert(i, ());
+		}
 
-		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 10));
+		assert_ok!(Tasks::set_shard_task_limit(RawOrigin::Root.into(), ETHEREUM, 15));
 
 		// Tasks creation and assignment
 		for _ in 0..27 {
@@ -1571,9 +1574,9 @@ fn balanced_task_shard_distribution_below_task_limit() {
 		}
 
 		roll(1);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 9);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 9);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 9);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 10);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 10);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 10);
 	});
 }
 
@@ -1590,12 +1593,12 @@ fn test_assignment_with_diff_shard_size() {
 		}
 		assert_eq!(
 			UnassignedTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>(),
-			vec![6, 5, 3, 1, 8, 4, 7, 9, 0, 2]
+			vec![8, 7, 5, 3, 10, 6, 9, 11, 2, 4]
 		);
 		roll(1);
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(_, t, _)| t).collect::<BTreeSet<_>>(),
-			BTreeSet::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+			BTreeSet::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 		);
 		assert!(UnassignedTasks::<Test>::iter()
 			.map(|(_, _, t)| t)
@@ -1621,9 +1624,12 @@ fn test_multi_shard_distribution() {
 			create_task(ETHEREUM, 3, TaskPhase::Read);
 		}
 		register_gateway(0);
+		for i in 1..3 {
+			ShardRegistered::<Test>::insert(i, ());
+		}
 		roll(1);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 3);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 3);
-		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 3);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 4);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(1).count(), 4);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(2).count(), 4);
 	});
 }

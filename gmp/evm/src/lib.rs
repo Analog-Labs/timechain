@@ -4,7 +4,7 @@ pub(crate) mod admin;
 pub(crate) mod sol;
 pub(crate) mod ufloat;
 
-//pub use crate::admin::AdminConnector;
+pub use crate::admin::AdminConnector;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Address([u8; 20]);

@@ -3,6 +3,13 @@ use anyhow::{anyhow, Result};
 use time_primitives::{NetworkId, ShardId, ShardStatus};
 
 impl SubxtClient {
+	pub async fn network_id_counter(&self) -> Result<NetworkId> {
+		metadata_scope!(self.metadata, {
+			let storage = metadata::storage().networks().network_id_counter();
+			Ok(self.client.storage().at_latest().await?.fetch_or_default(&storage).await?)
+		})
+	}
+
 	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<[u8; 33]> {
 		metadata_scope!(self.metadata, {
 			let storage = metadata::storage().shards().shard_commitment(shard_id);

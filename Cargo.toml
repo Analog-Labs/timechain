@@ -25,6 +25,7 @@ members = [
 	"runtimes/common",
 	"runtimes/mainnet",
 	"runtimes/testnet",
+	"tc-cli",
 	"tc-subxt",
 	"tester",
 	"tss",
@@ -88,6 +89,7 @@ mainnet-runtime = { path = "runtimes/mainnet" }
 testnet-runtime = { path = "runtimes/testnet" }
 
 # shared libs in workspace
+gmp-evm = { path = "gmp/evm" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
 

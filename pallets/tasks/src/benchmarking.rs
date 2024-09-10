@@ -1,4 +1,4 @@
-use crate::{Call, Config, Pallet, ShardRegistered, TaskShard, TaskSigner};
+use crate::{Call, Config, Pallet, TaskShard, TaskSigner};
 
 use polkadot_sdk::{
 	frame_benchmarking, frame_support, frame_system, pallet_balances, pallet_treasury, sp_core,

@@ -1302,18 +1302,18 @@ pub mod pallet {
 			let mut weight = Weight::default();
 			for (network, _) in Gateway::<T>::iter() {
 				// for this network, compute unassigned tasks count for this network
-				let unassigned_tasks = UnassignedTasks::<T>::iter_prefix(network)
+				let unassigned_task_count = UnassignedTasks::<T>::iter_prefix(network)
 					.count()
 					.saturating_add(UnassignedSystemTasks::<T>::iter_prefix(network).count());
 				// READs: Gateway, UnassignedTasks, UnassignedSystemTasks
 				weight = weight.saturating_add(T::DbWeight::get().reads(3));
-				// for this network, compute assigned tasks count and registered shards count
-				let (mut assigned_tasks, mut registered_shards) = (0usize, Vec::new());
+				// for this network, compute assigned task count and registered shards
+				let (mut assigned_tasks_count, mut registered_shards) = (0usize, Vec::new());
 				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 					if ShardRegistered::<T>::get(shard).is_some() {
 						registered_shards.push(shard);
 					}
-					assigned_tasks = assigned_tasks.saturating_add(
+					assigned_tasks_count = assigned_tasks_count.saturating_add(
 						ShardTasks::<T>::iter_prefix(shard)
 							.filter(|(task, _)| TaskOutput::<T>::get(task).is_none())
 							.count(),
@@ -1326,8 +1326,9 @@ pub mod pallet {
 					continue;
 				}
 				// for this network, compute a number of tasks per shard to balance task allocation
-				let mut tasks_per_shard = (assigned_tasks.saturating_add(unassigned_tasks))
-					.saturating_div(registered_shards.len());
+				let mut tasks_per_shard = (assigned_tasks_count
+					.saturating_add(unassigned_task_count))
+				.saturating_div(registered_shards.len());
 				let max_assignable_tasks =
 					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT) as usize;
 				tasks_per_shard = sp_std::cmp::min(tasks_per_shard, max_assignable_tasks);

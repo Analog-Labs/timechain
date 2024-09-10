@@ -17,7 +17,7 @@ jobs:
       commit_hash8: ${{ steps.get-sha.outputs.sha8 }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Get SHA
         id: get-sha
         run: |
@@ -44,7 +44,7 @@ jobs:
             features: development
     steps:
       - name: Fetch latest code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Create target dir
         run: mkdir -p ${{ github.workspace }}/target/${{ matrix.profile }}
       - name: Cache Rust deps

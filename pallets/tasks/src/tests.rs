@@ -336,8 +336,6 @@ fn shard_offline_then_shard_online_reassigns_tasks() {
 		create_task(ETHEREUM, 3, TaskPhase::Read);
 		register_gateway(s1);
 		roll(1);
-		// we expect shard 0 to be assigned all tasks in this case
-		// because shard 1 is not registered TODO
 		assert_eq!(
 			ShardTasks::<Test>::iter().map(|(s, t, _)| (s, t)).collect::<Vec<_>>(),
 			vec![(0, 1), (0, 0), (0, 2)]

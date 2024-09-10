@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y librocksdb-dev protobuf-compiler clang
     - name: Checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Install rust toolchain
       shell: bash
       run: rustup show
@@ -40,7 +40,7 @@ jobs:
         aws configure set aws_secret_access_key $UPLOAD_SECRET_ACCESS_KEY
         aws configure set region $AWS_REGION
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Generate state
       run: try-runtime create-snapshot --uri ${{ matrix.url }} ${{ matrix.chain}}-state.snap
     - name: Upload to S3

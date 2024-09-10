@@ -85,7 +85,7 @@ fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountI
 	);
 	ShardState::<T>::insert(0, ShardStatus::Online);
 	Pallet::<T>::shard_online(0, ETHEREUM);
-	ShardRegistered::<T>::insert(0, ());
+	Pallet::<T>::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0)?;
 	let caller = whitelisted_caller();
 	pallet_balances::Pallet::<T>::resolve_creating(
 		&caller,

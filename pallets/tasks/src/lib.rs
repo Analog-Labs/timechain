@@ -224,11 +224,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Map storage for assigned task count per network.
-	#[pallet::storage]
-	pub type AssignedTaskCount<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
-
 	/// Map storage for the insert index of unassigned system tasks.
 	#[pallet::storage]
 	pub type UASystemTasksInsertIndex<T: Config> =
@@ -536,10 +531,6 @@ pub mod pallet {
 				},
 				_ => {},
 			}
-			// AssignedTaskCount only includes incomplete tasks, NOT finished tasks
-			AssignedTaskCount::<T>::mutate(task.network, |count| {
-				*count = count.saturating_less_one()
-			});
 			Self::finish_task(task_id, result.clone());
 			Self::payout_task_rewards(task_id, result.shard_id, task.function.initial_phase());
 			if let Function::RegisterShard { shard_id } = task.function {
@@ -1313,12 +1304,17 @@ pub mod pallet {
 				let unassigned_tasks = UnassignedTasks::<T>::iter_prefix(network)
 					.count()
 					.saturating_add(UnassignedSystemTasks::<T>::iter_prefix(network).count());
-				let assigned_tasks = AssignedTaskCount::<T>::get(network) as usize;
+				let mut assigned_tasks = 0usize;
 				let mut registered_network_shards = 0usize;
 				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 					if ShardRegistered::<T>::get(shard).is_some() {
 						registered_network_shards = registered_network_shards.saturating_plus_one();
 					}
+					assigned_tasks = assigned_tasks.saturating_add(
+						ShardTasks::<T>::iter_prefix(shard)
+							.filter(|(task, _)| TaskOutput::<T>::get(task).is_none())
+							.count(),
+					);
 				}
 				if registered_network_shards.is_zero() {
 					continue;
@@ -1329,8 +1325,8 @@ pub mod pallet {
 					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT) as usize;
 				tasks_per_shard = sp_std::cmp::min(tasks_per_shard, max_assignable_tasks);
 				// READs: Gateway, UnassignedTasks, UnassignedSystemTasks,
-				// AssignedActiveTaskCount, NetworkShards, ShardTaskLimit
-				weight = weight.saturating_add(T::DbWeight::get().reads(6));
+				// NetworkShards, ShardTaskLimit
+				weight = weight.saturating_add(T::DbWeight::get().reads(5));
 				// for shard in networks
 				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 					// no tasks assignable to unregistered shards
@@ -1402,27 +1398,20 @@ pub mod pallet {
 			task_index: TaskIndex,
 			task_id: TaskId,
 		) -> Weight {
-			let mut task_reassigned_from_old_shard = false;
 			let (mut reads, mut writes) = (0, 0);
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
 				// writes: ShardTasks
 				writes = writes.saturating_plus_one();
-				task_reassigned_from_old_shard = true;
 			}
 			Self::remove_unassigned_task(network, task_index, task_id);
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
-			if !task_reassigned_from_old_shard {
-				AssignedTaskCount::<T>::mutate(network, |count| {
-					*count = count.saturating_plus_one()
-				});
-			}
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
-			// writes: remove_unassigned_task, ShardTasks, TaskShard, start_phase, AssignedTaskCount
-			writes = writes.saturating_add(5);
-			// reads: TaskShard, TaskPhaseState, AssignedTaskCount
-			reads = reads.saturating_add(3);
+			// writes: remove_unassigned_task, ShardTasks, TaskShard, start_phase
+			writes = writes.saturating_add(4);
+			// reads: TaskShard, TaskPhaseState
+			reads = reads.saturating_add(2);
 			T::DbWeight::get()
 				.reads(reads)
 				.saturating_add(T::DbWeight::get().writes(writes))

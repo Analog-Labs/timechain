@@ -460,34 +460,36 @@ impl SubxtClient {
 	}
 }
 
-fn block_stream(
-	f: impl Future<
-			Output = Result<
-				StreamOfResults<subxt::blocks::Block<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
-				subxt::error::Error,
-			>,
-		> + Send
-		+ 'static,
+type BlockStreamOutput = Result<
+	StreamOfResults<subxt::blocks::Block<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
+	subxt::error::Error,
+>;
+
+fn block_stream<B: Future<Output = BlockStreamOutput> + Send + 'static, F: Fn() -> B>(
+	f: F,
 ) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 	let stream = async_stream::stream! {
-		let mut block_stream = match f.await {
-			Ok(stream) => stream,
-			Err(e) => {
-				tracing::error!("Error fetching block {:?}", e);
-				return;
-			},
-		};
-		while let Some(block_result) = block_stream.next().await {
-			match block_result {
-				Ok(block) => {
-					let block_hash = block.hash();
-					let block_number = block.header().number;
-					yield (block_hash, block_number);
-				},
+		loop {
+			let mut block_stream = match f().await {
+				Ok(stream) => stream,
 				Err(e) => {
-					tracing::error!("Error receiving block: {:?}", e);
-					continue
+					tracing::error!("Error subscribing to block stream {:?}", e);
+					return;
 				},
+			};
+			while let Some(block_result) = block_stream.next().await {
+				match block_result {
+					Ok(block) => {
+						let block_hash = block.hash();
+						let block_number = block.header().number;
+						yield (block_hash, block_number);
+					},
+					Err(subxt::error::Error::Rpc(_)) => break,
+					Err(e) => {
+						tracing::error!("Error receiving block: {:?}", e);
+						continue
+					},
+				}
 			}
 		}
 	};
@@ -505,13 +507,15 @@ impl Runtime for SubxtClient {
 	}
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		let future = self.client.blocks().subscribe_all();
-		block_stream(future)
+		let client = self.client.clone();
+		let f = move || client.blocks().subscribe_all();
+		block_stream(f)
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		let future = self.client.blocks().subscribe_finalized();
-		block_stream(future)
+		let client = self.client.clone();
+		let f = move || client.blocks().subscribe_finalized();
+		block_stream(f)
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {

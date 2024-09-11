@@ -1339,7 +1339,6 @@ pub mod pallet {
 					let shard_capacity = max_assignable_tasks
 						.saturating_sub(ShardTasks::<T>::iter_prefix(shard).count());
 					let tasks_for_shard = sp_std::cmp::min(tasks_per_shard, shard_capacity);
-					weight = weight.saturating_add(T::DbWeight::get().reads(1));
 					weight = weight
 						.saturating_add(Self::schedule_tasks_shard(network, shard, tasks_for_shard))
 						// READS: ShardTasks

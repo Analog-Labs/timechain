@@ -465,7 +465,10 @@ type BlockStreamOutput = Result<
 	subxt::error::Error,
 >;
 
-fn block_stream<B: Future<Output = BlockStreamOutput> + Send + 'static, F: Fn() -> B>(
+fn block_stream<
+	B: Future<Output = BlockStreamOutput> + Send + 'static,
+	F: Fn() -> B + Send + 'static,
+>(
 	f: F,
 ) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 	let stream = async_stream::stream! {
@@ -474,7 +477,8 @@ fn block_stream<B: Future<Output = BlockStreamOutput> + Send + 'static, F: Fn() 
 				Ok(stream) => stream,
 				Err(e) => {
 					tracing::error!("Error subscribing to block stream {:?}", e);
-					return;
+					tokio::time::sleep(Duration::from_secs(1)).await;
+					continue;
 				},
 			};
 			while let Some(block_result) = block_stream.next().await {
@@ -487,7 +491,8 @@ fn block_stream<B: Future<Output = BlockStreamOutput> + Send + 'static, F: Fn() 
 					Err(subxt::error::Error::Rpc(_)) => break,
 					Err(e) => {
 						tracing::error!("Error receiving block: {:?}", e);
-						continue
+						tokio::time::sleep(Duration::from_secs(1)).await;
+						continue;
 					},
 				}
 			}

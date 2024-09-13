@@ -1289,39 +1289,63 @@ pub mod pallet {
 		/// Schedule tasks for a specified network, optionally targeting a specific shard if provided.
 		///   
 		/// # Flow
-		///   1. If `shard_id` is provided, call [`Self::schedule_tasks_shard(network, shard_id)`] to schedule tasks for that specific shard.
-		///   2. If no `shard_id` is provided:
-		///     - Retrieve all shards associated with the `network`.
-		///     - Collect these shards into a list.
-		///     - Sort the list based on the number of tasks each shard currently has.
-		///     - Iterate through the sorted list.
-		///     - For each shard in the list, call [`Self::schedule_tasks_shard`] to schedule tasks.
+		/// for network in networks:
+		/// 	tasks_per_shard = (assigned_tasks(network) + unassigned_tasks(network)) / number_of_registered_shards(network)
+		/// 	tasks_per_shard = min(tasks_per_shard, max_assignable_tasks)
+		/// 	for registered_shard in network:
+		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
-			let mut reads = 0;
-			let mut shards = Vec::new();
-			for (network, shard, _) in NetworkShards::<T>::iter() {
-				let is_registered = ShardRegistered::<T>::get(shard).is_some();
-				if !is_registered {
+			// To account for any computation involved outside of accounted reads/writes
+			// Overestimating can lead to more consistent block times especially if weight was underestimated prior to adding the safety margin
+			const WEIGHT_SAFETY_MARGIN: Weight = Weight::from_parts(500_000_000, 0);
+			let mut weight = Weight::default();
+			for (network, _) in Gateway::<T>::iter() {
+				// for this network, compute unassigned tasks count for this network
+				let unassigned_task_count = UnassignedTasks::<T>::iter_prefix(network)
+					.count()
+					.saturating_add(UnassignedSystemTasks::<T>::iter_prefix(network).count());
+				// READs: Gateway, UnassignedTasks, UnassignedSystemTasks
+				weight = weight.saturating_add(T::DbWeight::get().reads(3));
+				// for this network, compute assigned task count and registered shards
+				let (mut assigned_tasks_count, mut registered_shards) = (0usize, Vec::new());
+				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+					if ShardRegistered::<T>::get(shard).is_some() {
+						registered_shards.push(shard);
+					}
+					assigned_tasks_count = assigned_tasks_count.saturating_add(
+						ShardTasks::<T>::iter_prefix(shard)
+							.filter(|(task, _)| TaskOutput::<T>::get(task).is_none())
+							.count(),
+					);
+					// READs: NetworkShards, ShardRegistered, UnassignedSystemTasks
+					weight = weight.saturating_add(T::DbWeight::get().reads(3));
+				}
+				// for this network, assign 0 tasks if 0 registered shards
+				if registered_shards.is_empty() {
 					continue;
 				}
-				let task_limit =
+				// for this network, compute a number of tasks per shard to balance task allocation
+				let mut tasks_per_shard = (assigned_tasks_count
+					.saturating_add(unassigned_task_count))
+				.saturating_div(registered_shards.len());
+				let max_assignable_tasks =
 					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT) as usize;
-				let tasks = ShardTasks::<T>::iter_prefix(shard).count();
-				let capacity = task_limit.saturating_sub(tasks);
-				if !capacity.is_zero() {
-					shards.push((network, shard, capacity));
+				tasks_per_shard = sp_std::cmp::min(tasks_per_shard, max_assignable_tasks);
+				// READs: ShardTaskLimit
+				weight = weight.saturating_add(T::DbWeight::get().reads(1));
+				// for this network, assign unassigned tasks to registered shards evenly
+				for shard in registered_shards {
+					let shard_capacity = max_assignable_tasks
+						.saturating_sub(ShardTasks::<T>::iter_prefix(shard).count());
+					let tasks_for_shard = sp_std::cmp::min(tasks_per_shard, shard_capacity);
+					weight = weight
+						.saturating_add(Self::schedule_tasks_shard(network, shard, tasks_for_shard))
+						// READS: ShardTasks
+						.saturating_add(T::DbWeight::get().reads(1));
 				}
-				// reads: NetworkShards, ShardTaskLimit, ShardTasks
-				reads = reads.saturating_add(3);
 			}
-			let mut weight = T::DbWeight::get().reads(reads);
-			shards.sort_by(|(_, _, a), (_, _, b)| a.cmp(b));
-			for (network, shard, capacity) in shards {
-				weight =
-					weight.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
-			}
-			weight
+			weight.saturating_add(WEIGHT_SAFETY_MARGIN)
 		}
 
 		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing

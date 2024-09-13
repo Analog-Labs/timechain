@@ -1274,7 +1274,7 @@ pub mod pallet {
 				weight =
 					weight.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
 			}
-			weight
+			weight.saturating_add(Weight::from_parts(500000, 0)
 		}
 
 		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing

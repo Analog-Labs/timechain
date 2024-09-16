@@ -1,8 +1,7 @@
 use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
-use scale_decode::DecodeAsType;
-use scale_info::{prelude::string::String, TypeInfo};
+use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -71,22 +70,23 @@ impl Function {
 	}
 }
 
-#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct TaskResult {
 	pub shard_id: ShardId,
-	// TODO: bound
 	pub payload: Payload,
 	pub signature: TssSignature,
 }
 
+pub const MAX_ERROR_LEN: u32 = 10_000;
+pub const MAX_GMP_MSGS: u32 = 5_000;
+pub const MAX_MSG_DATA_LEN: u32 = 1_000;
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Payload {
 	Hashed([u8; 32]),
-	// TODO: bound
-	Error(String),
-	// TODO: bound
-	Gmp(Vec<Msg>),
+	Error(BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>),
+	Gmp(BoundedVec<Msg, ConstU32<MAX_GMP_MSGS>>),
 }
 
 impl Payload {
@@ -100,7 +100,7 @@ impl Payload {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, PartialEq)]
 pub struct Msg {
 	pub source_network: NetworkId,
 	pub source: [u8; 32],
@@ -108,8 +108,7 @@ pub struct Msg {
 	pub dest: [u8; 20],
 	pub gas_limit: u128,
 	pub salt: [u8; 32],
-	// TODO: bound
-	pub data: Vec<u8>,
+	pub data: BoundedVec<u8, ConstU32<MAX_MSG_DATA_LEN>>,
 }
 
 impl Msg {
@@ -122,7 +121,7 @@ impl Msg {
 			dest: event.recipient.0 .0,
 			gas_limit: u128::try_from(event.gasLimit).unwrap_or(u128::MAX),
 			salt: event.salt.to_be_bytes(),
-			data: event.data,
+			data: BoundedVec::truncate_from(event.data),
 		}
 	}
 }

@@ -28,8 +28,7 @@ rosetta-config-ethereum.workspace = true
 alloy-primitives = { version = "0.6.4" }
 alloy-sol-types = { version = "0.6.4" }
 bincode = "1.3.3"
-#peernet = "0.2.0"
-peernet = { git = "https://github.com/dvc94ch/peernet", rev = "f8ae1372178f5f23e714738701df2ce4c583e51e" }
+peernet = "0.3.0"
 prometheus_exporter = { version = "0.8.5", default-features = false, features = ["logging"] }
 schnorr-evm = { version = "0.1.0" }
 sha3 = { version = "0.10" }

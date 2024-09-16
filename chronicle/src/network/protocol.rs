@@ -61,7 +61,7 @@ impl TssEndpoint {
 		}
 		builder.handler(handler);
 		builder.republish_interval(Duration::from_secs(60 * 5));
-		builder.publish_ttl(60 * 5 * 4);
+		builder.publish_ttl(Duration::from_secs(60 * 5 * 4));
 		builder.relay_map(None);
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();
@@ -94,7 +94,7 @@ impl Network for TssEndpoint {
 		let endpoint = self.endpoint.clone();
 		async move {
 			let peer = peernet::PeerId::from_bytes(&peer)?;
-			endpoint.notify::<TssProtocol>(&peer, &msg).await
+			endpoint.notify::<TssProtocol>(peer, &msg).await
 		}
 		.boxed()
 	}

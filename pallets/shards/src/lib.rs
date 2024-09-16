@@ -210,7 +210,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Indicates that the specified shard network does not exist.
 		UnknownShardNetwork,
-		/// Indicates that the specified shard commitment does not exist
+		/// Indicates that the specified shard commitment does not exist.
 		UnknownShardCommitment,
 		/// Indicates that an unexpected commitment was provided for the shard.
 		UnexpectedCommit,

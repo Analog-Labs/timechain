@@ -134,13 +134,12 @@ pub mod pallet {
 
 	#[pallet::error]
 	///  Define possible errors that can occur during pallet operations.
-	/// [`Error::InvalidPublicKey`], [`Error::AlreadyMember`], [`Error::NotMember`],
+	/// [`Error::InvalidPublicKey`], [`Error::NotMember`],
 	/// [`Error::BondBelowMinStake`], [`Error::StakedBelowTransferAmount`]: Errors
 	/// related to invalid public keys, existing memberships, non-membership, insufficient
 	/// bond for membership, and insufficient stake for transfer.
 	pub enum Error<T> {
 		InvalidPublicKey,
-		AlreadyMember,
 		NotMember,
 		BondBelowMinStake,
 		StakedBelowTransferAmount,
@@ -178,7 +177,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// `register_member`: Registers a member with specified network ID, public key, peer ID, and bond (staking amount).
-		/// # Flow
+		/// # Flowm
 		///	1. Receives `origin` (caller's account), `network` (NetworkId), `public_key` (PublicKey), `peer_id` (PeerId), `bond` (Balance to stake).
 		///	2. Ensures the `origin` is signed (authenticated).
 		///	3. Validates the `public_key` against the `origin` account.

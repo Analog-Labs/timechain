@@ -208,22 +208,24 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Indicates that the specified shard does not exist.
-		UnknownShard,
+		/// Indicates that the specified shard network does not exist.
+		UnknownShardNetwork,
+		/// Indicates that the specified shard commitment does not exist
+		UnknownShardCommitment,
 		/// Indicates that an unexpected commitment was provided for the shard.
 		UnexpectedCommit,
 		/// Indicates that a peer id cannot be found for the member.
 		MemberPeerIdNotFound,
+		/// Commitment length not equal to threshold.
+		CommitmentLenNotEqualToThreshold,
+		/// Verify Key in Commitment was invalid.
+		InvalidVerifyingKeyInCommitment,
 		/// Indicates that an invalid commitment was provided.
 		InvalidCommitment,
 		/// Indicates that an invalid proof of knowledge was provided.
 		InvalidProofOfKnowledge,
 		/// Indicates that an unexpected ready state occurred.
 		UnexpectedReady,
-		/// Indicates that the shard is already offline.
-		ShardAlreadyOffline,
-		/// Indicates that an offline shard cannot go online again.
-		OfflineShardMayNotGoOnline,
 	}
 
 	#[pallet::call]
@@ -251,9 +253,15 @@ pub mod pallet {
 				Error::<T>::UnexpectedCommit
 			);
 			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
-			ensure!(commitment.len() == threshold as usize, Error::<T>::InvalidCommitment);
+			ensure!(
+				commitment.len() == threshold as usize,
+				Error::<T>::CommitmentLenNotEqualToThreshold
+			);
 			for c in &commitment {
-				ensure!(VerifyingKey::from_bytes(*c).is_ok(), Error::<T>::InvalidCommitment);
+				ensure!(
+					VerifyingKey::from_bytes(*c).is_ok(),
+					Error::<T>::InvalidVerifyingKeyInCommitment
+				);
 			}
 			let peer_id =
 				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
@@ -310,8 +318,10 @@ pub mod pallet {
 				),
 				Error::<T>::UnexpectedReady,
 			);
-			let network = ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let commitment = ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let network =
+				ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardNetwork)?;
+			let commitment =
+				ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardCommitment)?;
 			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
 			if ShardMembers::<T>::iter_prefix(shard_id)
 				.all(|(_, status)| status == MemberStatus::Ready)

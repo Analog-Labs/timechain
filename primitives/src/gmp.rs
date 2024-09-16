@@ -1,4 +1,4 @@
-use crate::{Function, Msg, NetworkId, TssPublicKey, TssSignature};
+use crate::{EthereumByteCode, Function, Msg, NetworkId, TssPublicKey, TssSignature};
 
 use alloy_primitives::private::Vec;
 use alloy_primitives::{Address, U256};
@@ -175,7 +175,7 @@ impl Message {
 		let payload = self.payload(signature);
 		Function::EvmCall {
 			address: params.gateway_contract.into(),
-			input: payload,
+			input: EthereumByteCode::truncate_from(payload),
 			amount: 0u128,
 			gas_limit,
 		}

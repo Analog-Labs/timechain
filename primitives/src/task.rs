@@ -1,10 +1,8 @@
 use crate::{AccountId, Balance, IGateway, NetworkId, ShardId, TssSignature};
+use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
-use scale_info::{
-	prelude::{string::String, vec::Vec},
-	TypeInfo,
-};
+use scale_info::{prelude::string::String, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +10,11 @@ use polkadot_sdk::sp_runtime::Percent;
 
 pub type TaskId = u64;
 pub type TaskIndex = u64;
+
+/// 24 KB maximum = 24,576 bytes
+pub const MAX_CODE_LEN: u32 = 24_576;
+/// Bounded vec alias for Ethereum bytecode inputs
+pub type EthereumByteCode = BoundedVec<u8, ConstU32<MAX_CODE_LEN>>;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
@@ -21,10 +24,10 @@ pub enum Function {
 	UnregisterShard { shard_id: ShardId },
 	SendMessage { msg: Msg },
 	// write
-	EvmDeploy { bytecode: Vec<u8> },
-	EvmCall { address: [u8; 20], input: Vec<u8>, amount: u128, gas_limit: Option<u64> },
+	EvmDeploy { bytecode: EthereumByteCode },
+	EvmCall { address: [u8; 20], input: EthereumByteCode, amount: u128, gas_limit: Option<u64> },
 	// read
-	EvmViewCall { address: [u8; 20], input: Vec<u8> },
+	EvmViewCall { address: [u8; 20], input: EthereumByteCode },
 	EvmTxReceipt { tx: [u8; 32] },
 	ReadMessages { batch_size: core::num::NonZeroU64 },
 }
@@ -71,6 +74,7 @@ impl Function {
 #[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub struct TaskResult {
 	pub shard_id: ShardId,
+	// TODO: bound
 	pub payload: Payload,
 	pub signature: TssSignature,
 }
@@ -79,7 +83,9 @@ pub struct TaskResult {
 #[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub enum Payload {
 	Hashed([u8; 32]),
+	// TODO: bound
 	Error(String),
+	// TODO: bound
 	Gmp(Vec<Msg>),
 }
 
@@ -102,6 +108,7 @@ pub struct Msg {
 	pub dest: [u8; 20],
 	pub gas_limit: u128,
 	pub salt: [u8; 32],
+	// TODO: bound
 	pub data: Vec<u8>,
 }
 

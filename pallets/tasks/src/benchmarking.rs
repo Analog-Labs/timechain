@@ -14,8 +14,8 @@ use sp_std::vec;
 use pallet_shards::{ShardCommitment, ShardState};
 
 use time_primitives::{
-	AccountId, ElectionsInterface, Function, Msg, NetworkId, PublicKey, ShardStatus,
-	ShardsInterface, TaskDescriptorParams, TaskResult, TasksInterface,
+	AccountId, ElectionsInterface, EthereumByteCode, Function, Msg, NetworkId, PublicKey,
+	ShardStatus, ShardsInterface, TaskDescriptorParams, TaskResult, TasksInterface, MAX_CODE_LEN,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -99,8 +99,8 @@ fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountI
 benchmarks! {
 	where_clause {  where T: pallet_shards::Config + pallet_members::Config }
 	create_task {
-		let b in 1..10000;
-		let input = vec![0u8; b as usize];
+		let b in 1..(MAX_CODE_LEN as u32);
+		let input = EthereumByteCode::truncate_from(vec![0u8; b as usize]);
 		let descriptor = TaskDescriptorParams {
 			network: ETHEREUM,
 			function: Function::EvmViewCall {

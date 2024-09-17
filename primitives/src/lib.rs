@@ -111,6 +111,7 @@ sp_api::decl_runtime_apis! {
 
 	pub trait NetworksApi {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
+		fn get_gateway(network: NetworkId) -> Option<Gateway>;
 	}
 
 	pub trait ShardsApi {
@@ -122,15 +123,11 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait TasksApi {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
 		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
 		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
-		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]>;
-		fn get_task_phase(task_id: TaskId) -> TaskPhase;
 		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_gateway(network: NetworkId) -> Option<[u8; 20]>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -223,21 +220,13 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 		shard_id: ShardId,
 	) -> Result<Option<Commitment>>;
 
-	async fn get_shard_tasks(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<TaskExecution>>;
+	async fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId) -> Result<Vec<TaskId>>;
 
 	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>>;
 
-	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
-
 	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
 
-	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>>;
-
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
+	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
 
 	async fn submit_register_member(
 		&self,
@@ -258,11 +247,6 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 	) -> Result<()>;
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
-
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
-
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Result<[u8; 32], String>)
-		-> Result<()>;
 
 	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
 }

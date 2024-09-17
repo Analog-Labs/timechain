@@ -1,209 +1,283 @@
-use crate::{Function, Msg, NetworkId, TssPublicKey, TssSignature};
+use crate::{NetworkId, ShardId, TaskId, TssPublicKey};
+use scale_codec::{Decode, Encode};
+use scale_decode::DecodeAsType;
+use scale_info::{prelude::vec::Vec, TypeInfo};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
-use alloy_primitives::private::Vec;
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, Eip712Domain, SolCall, SolStruct};
+pub type Address = [u8; 32];
+pub type Gateway = Address;
+pub type MessageId = [u8; 32];
+pub type Hash = [u8; 32];
 
-const EIP712_NAME: &str = "Analog Gateway Contract";
-const EIP712_VERSION: &str = "0.1.0";
+const GMP_VERSION: &str = "Analog GMP v2";
 
-pub type Eip712Bytes = [u8; 66];
-pub type Eip712Hash = [u8; 32];
-
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct GmpParams {
-	pub network_id: NetworkId,
-	pub gateway_contract: Address,
-	pub tss_public_key: TssPublicKey,
+	pub network: NetworkId,
+	pub gateway: Gateway,
+	pub signer: TssPublicKey,
 }
 
 impl GmpParams {
-	pub fn eip712_domain_separator(&self) -> Eip712Domain {
-		Eip712Domain {
-			name: Some(EIP712_NAME.into()),
-			version: Some(EIP712_VERSION.into()),
-			chain_id: Some(U256::from(self.network_id)),
-			verifying_contract: Some(self.gateway_contract),
-			salt: None,
+	pub fn hash(&self, payload: &[u8]) -> Hash {
+		use sha3::Digest;
+		let mut hasher = sha3::Keccak256::new();
+		hasher.update(GMP_VERSION);
+		hasher.update(&self.network.to_be_bytes());
+		hasher.update(&self.gateway);
+		hasher.update(&self.signer);
+		hasher.update(payload);
+		hasher.finalize().into()
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+pub struct GmpMessage {
+	pub src_network: NetworkId,
+	pub dest_network: NetworkId,
+	pub src: Address,
+	pub dest: Address,
+	pub nonce: u64,
+	pub gas_limit: u128,
+	pub bytes: Vec<u8>,
+}
+
+impl GmpMessage {
+	const HEADER_LEN: usize = 86;
+
+	pub fn encoded_len(&self) -> usize {
+		Self::HEADER_LEN + self.bytes.len()
+	}
+
+	fn encode_header(&self) -> [u8; 86] {
+		let mut hdr = [0; Self::HEADER_LEN];
+		hdr[..2].copy_from_slice(&self.src_network.to_be_bytes());
+		hdr[2..4].copy_from_slice(&self.dest_network.to_be_bytes());
+		hdr[4..36].copy_from_slice(&self.src);
+		hdr[36..68].copy_from_slice(&self.dest);
+		hdr[68..76].copy_from_slice(&self.nonce.to_be_bytes());
+		hdr[76..82].copy_from_slice(&self.gas_limit.to_be_bytes());
+		hdr[82..86].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
+		hdr
+	}
+
+	pub fn encode_to(&self, buf: &mut Vec<u8>) {
+		buf.extend_from_slice(&self.encode_header());
+		buf.extend_from_slice(&self.bytes);
+	}
+
+	pub fn message_id(&self) -> MessageId {
+		use sha3::Digest;
+		let mut hasher = sha3::Keccak256::new();
+		hasher.update(&self.encode_header());
+		hasher.update(&self.bytes);
+		hasher.finalize().into()
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub enum GatewayOp {
+	SendMessage(GmpMessage),
+	RegisterShard(
+		ShardId,
+		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
+		TssPublicKey,
+	),
+	UnregisterShard(
+		ShardId,
+		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
+		TssPublicKey,
+	),
+}
+
+impl GatewayOp {
+	pub fn encoded_len(&self) -> usize {
+		1 + match self {
+			Self::SendMessage(msg) => msg.encoded_len(),
+			_ => 8 + 33,
 		}
 	}
 
-	fn to_eip712_bytes(&self, hash: Eip712Hash) -> Eip712Bytes {
-		let mut digest_input = [0u8; 2 + 32 + 32];
-		digest_input[0] = 0x19;
-		digest_input[1] = 0x01;
-		digest_input[2..34].copy_from_slice(&self.eip712_domain_separator().hash_struct()[..]);
-		digest_input[34..66].copy_from_slice(&hash[..]);
-		digest_input
-	}
-}
-
-sol! {
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct TssKey {
-		uint8 yParity;
-		uint256 xCoord;
-	}
-
-	#[derive(Debug, PartialEq, Eq)]
-	struct UpdateKeysMessage {
-		TssKey[] revoke;
-		TssKey[] register;
-	}
-
-	#[derive(Debug, PartialEq, Eq)]
-	struct GmpMessage {
-		bytes32 source;
-		uint16 srcNetwork;
-		address dest;
-		uint16 destNetwork;
-		uint256 gasLimit;
-		uint256 salt;
-		bytes data;
-	}
-
-	#[derive(Debug, PartialEq, Eq)]
-	struct Signature {
-		uint256 xCoord;
-		uint256 e;
-		uint256 s;
-	}
-
-	interface IGateway {
-		event GmpExecuted(
-			bytes32 indexed id,
-			bytes32 indexed source,
-			address indexed dest,
-			uint256 status,
-			bytes32 result
-		);
-
-		event KeySetChanged(
-			bytes32 indexed id,
-			TssKey[] revoked,
-			TssKey[] registered
-		);
-
-		event GmpCreated(
-			bytes32 indexed id,
-			bytes32 indexed sender,
-			address indexed recipient,
-			uint16 network,
-			uint256 gasLimit,
-			uint256 salt,
-			bytes data
-		);
-
-		constructor(uint16 networkId, address proxy) payable;
-		function execute(Signature memory signature, GmpMessage memory message) external returns (uint8 status, bytes32 result);
-		function updateKeys(Signature memory signature, UpdateKeysMessage memory message) external;
-		function deposit() public payable;
-	}
-}
-
-impl From<TssPublicKey> for TssKey {
-	fn from(bytes: TssPublicKey) -> Self {
-		Self {
-			yParity: if bytes[0] % 2 == 0 { 0 } else { 1 },
-			xCoord: U256::from_be_slice(&bytes[1..]),
-		}
-	}
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Message {
-	UpdateKeys(UpdateKeysMessage),
-	Gmp(GmpMessage),
-}
-
-impl Message {
-	pub fn update_keys(
-		revoke: impl IntoIterator<Item = TssPublicKey>,
-		register: impl IntoIterator<Item = TssPublicKey>,
-	) -> Message {
-		Self::UpdateKeys(UpdateKeysMessage {
-			revoke: revoke.into_iter().map(TssKey::from).collect(),
-			register: register.into_iter().map(TssKey::from).collect(),
-		})
-	}
-
-	pub fn gmp(msg: Msg) -> Message {
-		Self::Gmp(GmpMessage {
-			source: msg.source.into(),
-			srcNetwork: msg.source_network,
-			dest: Address(msg.dest.into()),
-			destNetwork: msg.dest_network,
-			gasLimit: U256::from(msg.gas_limit),
-			salt: U256::from_be_bytes(msg.salt),
-			data: msg.data.into(),
-		})
-	}
-
-	fn payload(self, signature: Signature) -> Vec<u8> {
+	pub fn encode_to(&self, buf: &mut Vec<u8>) {
 		match self {
-			Self::UpdateKeys(message) => {
-				IGateway::updateKeysCall { message, signature }.abi_encode()
+			Self::SendMessage(msg) => {
+				buf.push(0);
+				msg.encode_to(buf);
 			},
-			Self::Gmp(message) => IGateway::executeCall { message, signature }.abi_encode(),
-		}
-	}
-
-	fn eip712_hash_struct(&self) -> [u8; 32] {
-		match self {
-			Self::UpdateKeys(msg) => msg.eip712_hash_struct().into(),
-			Self::Gmp(msg) => msg.eip712_hash_struct().into(),
-		}
-	}
-
-	pub fn to_eip712_bytes(&self, params: &GmpParams) -> Eip712Bytes {
-		let hash = self.eip712_hash_struct();
-		params.to_eip712_bytes(hash)
-	}
-
-	/// Converts `Message` into `Function::EvmCall`
-	pub fn into_evm_call(self, params: &GmpParams, signature: TssSignature) -> Function {
-		let signature = Signature {
-			xCoord: TssKey::from(params.tss_public_key).xCoord,
-			e: U256::from_be_slice(&signature[0..32]),
-			s: U256::from_be_slice(&signature[32..64]),
-		};
-		let gas_limit = if let Self::Gmp(GmpMessage { gasLimit, .. }) = &self {
-			let gas_limit = u64::try_from(*gasLimit).unwrap_or(u64::MAX).saturating_add(100_000);
-			Some(gas_limit.min(29_900_000))
-		} else {
-			None
-		};
-		let payload = self.payload(signature);
-		Function::EvmCall {
-			address: params.gateway_contract.into(),
-			input: payload,
-			amount: 0u128,
-			gas_limit,
+			Self::RegisterShard(shard, pubkey) => {
+				buf.push(1);
+				buf.extend_from_slice(&shard.to_be_bytes());
+				buf.extend_from_slice(pubkey);
+			},
+			Self::UnregisterShard(shard, pubkey) => {
+				buf.push(2);
+				buf.extend_from_slice(&shard.to_be_bytes());
+				buf.extend_from_slice(pubkey);
+			},
 		}
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct GatewayMessage {
+	pub task_id: TaskId,
+	pub ops: Vec<GatewayOp>,
+}
 
-	#[test]
-	fn test_payload() {
-		let msg = Msg {
-			source_network: 42,
-			source: [0; 32],
-			dest_network: 69,
-			dest: [0; 20],
-			gas_limit: 0,
-			salt: [0; 32],
-			data: vec![],
-		};
-		let params = GmpParams {
-			network_id: msg.dest_network,
-			gateway_contract: [0; 20].into(),
-			tss_public_key: [0; 33],
-		};
-		let expected_bytes = "19013e3afdf794f679fcbf97eba49dbe6b67cec6c7d029f1ad9a5e1a8ffefa8db2724ed044f24764343e77b5677d43585d5d6f1b7618eeddf59280858c68350af1cd";
-		let bytes = Message::gmp(msg).to_eip712_bytes(&params);
-		assert_eq!(hex::encode(bytes), expected_bytes);
+impl GatewayMessage {
+	pub fn new(task_id: TaskId, ops: Vec<GatewayOp>) -> Self {
+		Self { task_id, ops }
 	}
+
+	pub fn encode(&self) -> Vec<u8> {
+		let mut buf = vec![];
+		buf.extend_from_slice(&self.task_id.to_be_bytes());
+		for op in &self.ops {
+			op.encode_to(&mut buf);
+		}
+		buf
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+pub enum GmpEvent {
+	MessageReceived(GmpMessage),
+	MessageExecuted(MessageId),
+}
+
+#[cfg(feature = "std")]
+use crate::TssSignature;
+#[cfg(feature = "std")]
+use anyhow::Result;
+#[cfg(feature = "std")]
+use futures::Stream;
+#[cfg(feature = "std")]
+use std::num::NonZeroU64;
+#[cfg(feature = "std")]
+use std::ops::Range;
+#[cfg(feature = "std")]
+use std::path::PathBuf;
+#[cfg(feature = "std")]
+use std::pin::Pin;
+
+#[cfg(feature = "std")]
+pub struct ConnectorParams {
+	pub network_id: NetworkId,
+	pub blockchain: String,
+	pub network: String,
+	pub url: String,
+	pub keyfile: PathBuf,
+}
+
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Network {
+	pub network_id: NetworkId,
+	pub gateway: Gateway,
+	pub relative_gas_price: (u128, u128),
+	pub gas_limit: u64,
+	pub base_fee: u128,
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait IChain {
+	/// Formats an address into a string.
+	fn format_address(&self, address: Address) -> String;
+	/// Parses an address from a string.
+	fn parse_address(&self, address: &str) -> Result<Address>;
+	/// Formats a balance into a string.
+	fn format_balance(&self, balance: u128) -> String {
+		balance.to_string()
+	}
+	/// Parses a balance from a string.
+	fn parse_balance(&self, balance: &str) -> Result<u128> {
+		Ok(balance.parse().map_err(|_| anyhow::anyhow!("expected unsigned integer"))?)
+	}
+	/// Network identifier.
+	fn network_id(&self) -> NetworkId;
+	/// Human readable connector account identifier.
+	fn address(&self) -> Address;
+	/// Queries the account balance.
+	async fn balance(&self, address: Address) -> Result<u128>;
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait IConnector: IChain {
+	/// Creates a new connector.
+	async fn new(params: ConnectorParams) -> Result<Self>
+	where
+		Self: Sized;
+	/// Reads gmp messages from the target chain.
+	async fn read_events(
+		&self,
+		gateway: Gateway,
+		from_block: Option<NonZeroU64>,
+		to_block: u64,
+	) -> Result<Vec<GmpEvent>>;
+	/// Submits a gmp message to the target chain.
+	async fn submit_commands(
+		&self,
+		gateway: Gateway,
+		msg: Vec<u8>,
+		signer: TssPublicKey,
+		sig: TssSignature,
+	) -> Result<(), String>;
+	/// Stream of finalized block indexes.
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait IConnectorAdmin: IChain {
+	/// Creates a new connector.
+	async fn new(
+		params: ConnectorParams,
+		gateway: PathBuf,
+		proxy: PathBuf,
+		tester: PathBuf,
+	) -> Result<Self>
+	where
+		Self: Sized;
+
+	/// Deploys the gateway contract.
+	async fn deploy_gateway(&self) -> Result<(Address, u64)>;
+	/// Redeploys the gateway contract.
+	async fn redeploy_gateway(&self, gateway: Address) -> Result<()>;
+	/// Returns the gateway admin.
+	async fn admin(&self, gateway: Address) -> Result<Address>;
+	/// Sets the gateway admin.
+	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()>;
+	/// Returns the registered shard keys.
+	async fn shards(&self, gateway: Address) -> Result<Vec<TssPublicKey>>;
+	/// Sets the registered shard keys. Overwrites any other keys.
+	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()>;
+	/// Returns the gateway routing table.
+	async fn networks(&self, gateway: Address) -> Result<Vec<Network>>;
+	/// Updates an entry in the gateway routing table.
+	async fn set_network(&self, gateway: Address, network: Network) -> Result<()>;
+	/// Uses a faucet to fund the account when possible.
+	async fn faucet(&self) -> Result<()>;
+	/// Transfers an amount to an account.
+	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
+	/// Deploys a test contract.
+	async fn deploy_test(&self, gateway: Address) -> Result<(Address, u64)>;
+	/// Estimates the message cost.
+	async fn estimate_message_cost(
+		&self,
+		gateway: Address,
+		dest: NetworkId,
+		msg_size: usize,
+	) -> Result<u128>;
+	/// Sends a message using the test contract.
+	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<()>;
+	/// Receives messages from test contract.
+	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
+		-> Result<Vec<GmpMessage>>;
 }

@@ -18,9 +18,6 @@ serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
 scale-decode.workspace = true
 scale-info.workspace = true
-
-alloy-primitives = { version = "0.8", default-features = false }
-alloy-sol-types = { version = "0.8", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 
 polkadot-sdk = { workspace = true, features = [

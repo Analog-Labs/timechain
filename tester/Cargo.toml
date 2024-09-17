@@ -21,8 +21,8 @@ tracing.workspace = true
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
 
-alloy-primitives = { version = "0.6.4", features = ["std", "rlp"] }
-alloy-sol-types = { version = "0.6.4" }
+alloy-primitives = { version = "0.8", features = ["std", "rlp"] }
+alloy-sol-types = { version = "0.8" }
 ethers-solc = "2.0.1"
 getrandom = "0.2.12"
 tabled = "0.15.0"

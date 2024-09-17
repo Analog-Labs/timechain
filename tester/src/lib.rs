@@ -199,7 +199,10 @@ impl Tester {
 		.abi_encode();
 
 		// Deploy the proxy contract
-		let call = GatewayProxy::constructorCall { implementation, initializer };
+		let call = GatewayProxy::constructorCall {
+			implementation,
+			initializer: initializer.into(),
+		};
 		let (actual_addr, block_number) = self.deploy(&self.proxy_contract, call).await?;
 
 		// Check if the proxy address match the expect address

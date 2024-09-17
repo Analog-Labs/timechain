@@ -25,6 +25,7 @@ members = [
 	"runtimes/common",
 	"runtimes/mainnet",
 	"runtimes/testnet",
+	"tc-cli",
 	"tc-subxt",
 	"tc-subxt/metadata",
 	"tss",

@@ -1,0 +1,19 @@
+backends:
+  evm:
+    proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
+    gateway: "/etc/contracts/Gateway.sol/Gateway.json"
+    tester: "/etc/contracts/test_contract.sol/VotingContract.json"
+  rust:
+    proxy: "/etc/db"
+    gateway: ""
+    tester: ""
+networks:
+  1:
+    backend: "rust"
+    url: ""
+  3:
+    backend: "evm"
+    url: "ws://ethereum.8545"
+  6:
+    backend: "evm"
+    url: "ws://astar:9944"

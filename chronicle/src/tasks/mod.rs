@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use futures::{Future, Stream};
 use std::pin::Pin;
 use time_primitives::{
-	BlockHash, BlockNumber, Function, NetworkId, ShardId, TaskExecution, TaskId,
+	BlockHash, BlockNumber, Function, GatewayMessage, GmpParams, NetworkId, ShardId, TaskExecution,
+	TaskId, TssSignature,
 };
 
 pub mod executor;
@@ -31,8 +32,9 @@ pub trait TaskSpawner: Clone + Send + Sync + 'static {
 
 	fn execute_write(
 		&self,
-		task_id: TaskId,
-		function: Function,
+		params: GmpParams,
+		msg: GatewayMessage,
+		sig: TssSignature,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
 }
 

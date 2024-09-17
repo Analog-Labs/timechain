@@ -1,28 +1,15 @@
-use alloy_primitives::B256;
-use alloy_sol_types::SolEvent;
 use anyhow::{Context as _, Result};
+use connector::Connector;
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, SinkExt, Stream};
-use rosetta_client::client::GenericClientStream;
-use rosetta_client::Wallet;
-use rosetta_config_ethereum::{query::GetLogs, CallResult, FilterBlockOption};
-use rosetta_core::{BlockOrIdentifier, ClientEvent};
 use schnorr_evm::VerifyingKey;
 use std::time::Duration;
-use std::{
-	future::Future,
-	num::NonZeroU64,
-	path::PathBuf,
-	pin::Pin,
-	sync::Arc,
-	task::{Context, Poll},
-};
+use std::{future::Future, num::NonZeroU64, path::PathBuf, pin::Pin};
 use time_primitives::{
-	BlockNumber, Function, NetworkId, Payload, Runtime, ShardId, TaskExecution, TaskId, TaskPhase,
-	TaskResult, TssHash, TssSignature, TssSigningRequest,
+	BlockNumber, Function, GatewayMessage, GmpParams, IConnector, NetworkId, Payload, Runtime,
+	ShardId, TaskExecution, TaskId, TaskPhase, TaskResult, TssHash, TssSignature,
+	TssSigningRequest,
 };
-use time_primitives::{IGateway, Msg};
-use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 #[derive(Clone)]
@@ -40,11 +27,9 @@ pub struct TaskSpawnerParams<S> {
 #[derive(Clone)]
 pub struct TaskSpawner<S> {
 	tss: mpsc::Sender<TssSigningRequest>,
-	wallet: Arc<Wallet>,
-	wallet_min_balance: u128,
-	wallet_guard: Arc<Mutex<()>>,
+	connector: Connector,
 	substrate: S,
-	network_id: NetworkId,
+	min_balance: u128,
 }
 
 impl<S> TaskSpawner<S>
@@ -52,161 +37,28 @@ where
 	S: Runtime,
 {
 	pub async fn new(params: TaskSpawnerParams<S>) -> Result<Self> {
-		let wallet = Arc::new(
-			Wallet::new(
-				params.blockchain.parse()?,
-				&params.network,
-				&params.url,
-				Some(&params.keyfile),
-				None,
-			)
-			.await?,
-		);
-
-		let spawner = Self {
-			tss: params.tss,
-			wallet_min_balance: params.min_balance,
-			wallet,
-			wallet_guard: Arc::new(Mutex::new(())),
-			substrate: params.substrate,
-			network_id: params.network_id,
-		};
-
-		while !spawner.is_balance_available().await? {
+		let connector = Connector::new(
+			params.network_id,
+			&params.blockchain,
+			&params.network,
+			&params.url,
+			&params.keyfile,
+		)
+		.await?;
+		while connector.balance().await? < params.min_balance {
 			sleep(Duration::from_secs(10)).await;
 			tracing::warn!("Chronicle balance is too low, retrying...");
 		}
-
-		Ok(spawner)
-	}
-
-	///
-	/// Checks if wallet have enough balance
-	async fn is_balance_available(&self) -> Result<bool> {
-		let balance = self.wallet.balance().await?;
-		Ok(balance > self.wallet_min_balance)
-	}
-
-	///
-	/// look for gmp events and filter GmpCreated events from them
-	async fn get_gmp_events_at(
-		&self,
-		gateway_contract: [u8; 20],
-		from_block: Option<NonZeroU64>,
-		to_block: u64,
-	) -> Result<Vec<IGateway::GmpCreated>> {
-		let logs = self
-			.wallet
-			.query(GetLogs {
-				contracts: vec![gateway_contract.into()],
-				topics: vec![IGateway::GmpCreated::SIGNATURE_HASH.0.into()],
-				block: FilterBlockOption::Range {
-					from_block: from_block.map(|x| x.get().into()),
-					to_block: Some(to_block.into()),
-				},
-			})
-			.await?
-			.into_iter()
-			.map(|log| {
-				// if any GmpCreated message is received collect them and returns
-				let topics =
-					log.topics.into_iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
-				let log = alloy_primitives::Log::new(
-					gateway_contract.into(),
-					topics,
-					log.data.0.to_vec().into(),
-				)
-				.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
-				let log = IGateway::GmpCreated::decode_log(&log, true)?;
-				Ok::<IGateway::GmpCreated, anyhow::Error>(log.data)
-			})
-			.collect::<Result<Vec<_>, _>>()?;
-		Ok(logs)
-	}
-
-	///
-	/// executes the task function
-	///
-	/// # Arguments
-	/// `function`: function of task
-	/// `target_block_number`: block number of target chain (usable for read tasks)
-	async fn execute_function(
-		&self,
-		function: &Function,
-		target_block_number: u64,
-	) -> Result<Payload> {
-		Ok(match function {
-			// execute the read function of task
-			Function::EvmViewCall { address, input } => {
-				let data = self
-					.wallet
-					.eth_view_call(*address, input.clone(), target_block_number.into())
-					.await?;
-				let json = match data {
-					// Call executed successfully
-					CallResult::Success(data) => serde_json::json!({
-						"success": hex::encode(data),
-					}),
-					// Call reverted
-					CallResult::Revert(data) => serde_json::json!({
-						"revert": hex::encode(data),
-					}),
-					// Call invalid or EVM error
-					CallResult::Error => serde_json::json!({
-						"error": null,
-					}),
-				};
-				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
-			},
-			// reads the receipt for a transaction on target chain
-			Function::EvmTxReceipt { tx } => {
-				let Some(receipt) = self.wallet.eth_transaction_receipt(*tx).await? else {
-					anyhow::bail!("transaction receipt from tx {} not found", hex::encode(tx));
-				};
-				if receipt.status_code != Some(1) {
-					anyhow::bail!("transaction reverted");
-				}
-				let json = serde_json::json!({
-					"transactionHash": format!("{:?}", receipt.transaction_hash),
-					"transactionIndex": receipt.transaction_index,
-					"blockHash": receipt.block_hash.0.map(|block_hash| format!("{block_hash:?}")),
-					"blockNumber": receipt.block_number,
-					"from": format!("{:?}", receipt.from),
-					"to": receipt.to.map(|to| format!("{to:?}")),
-					"gasUsed": receipt.gas_used.map(|gas_used| format!("{gas_used:?}")),
-					"contractAddress": receipt.contract_address.map(|contract| format!("{contract:?}")),
-					"status": receipt.status_code,
-					"type": receipt.transaction_type,
-				})
-				.to_string();
-				Payload::Hashed(VerifyingKey::message_hash(json.to_string().as_bytes()))
-			},
-			// executs the read message function. it looks for event emitted from gateway contracts
-			Function::ReadMessages { batch_size } => {
-				let network_id = self.network_id;
-				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
-					anyhow::bail!("no gateway registered: skipped reading messages");
-				};
-				// gets gmp created events form contract and then convert it to a `Msg`
-				let logs: Vec<_> = self
-					.get_gmp_events_at(
-						gateway_contract,
-						NonZeroU64::new(target_block_number - batch_size.get() + 1),
-						target_block_number,
-					)
-					.await
-					.context("get_gmp_events_at")?
-					.into_iter()
-					.map(|event| Msg::from_event(event, network_id))
-					.collect();
-				tracing::info!("read target block: {:?}", target_block_number);
-				if !logs.is_empty() {
-					tracing::info!("read {} messages", logs.len());
-				}
-				Payload::Gmp(logs)
-			},
-			_ => anyhow::bail!("not a read function {function:?}"),
+		Ok(Self {
+			tss: params.tss,
+			substrate: params.substrate,
+			connector,
+			min_balance: params.min_balance,
 		})
+	}
+
+	pub fn target_address(&self) -> &str {
+		self.connector.account()
 	}
 
 	async fn tss_sign(
@@ -231,6 +83,51 @@ where
 		Ok(rx.await?)
 	}
 
+	/// executes the task function
+	///
+	/// # Arguments
+	/// `function`: function of task
+	/// `target_block_number`: block number of target chain (usable for read tasks)
+	async fn execute_read_function(
+		&self,
+		task_id: TaskId,
+		function: Function,
+		target_block_number: u64,
+	) -> Result<Payload> {
+		Ok(match function {
+			// reads the receipt for a transaction on target chain
+			Function::SubmitGatewayMessage { ops } => {
+				let msg = GatewayMessage::new(task_id, ops);
+				let txs =
+					self.substrate.get_task_hash(task_id).await?.context("no txs to validate")?;
+				let result = self.connector.verify_submission(msg, txs).await?;
+				Payload::Hashed(VerifyingKey::message_hash(&result))
+			},
+			// executs the read message function. it looks for event emitted from gateway contracts
+			Function::ReadMessages { batch_size } => {
+				let network_id = self.connector.network_id();
+				let Some(gateway_contract) = self.substrate.get_gateway(network_id).await? else {
+					anyhow::bail!("no gateway registered: skipped reading messages");
+				};
+				// gets gmp created events form contract and then convert it to a `Msg`
+				let logs: Vec<_> = self
+					.connector
+					.read_messages(
+						gateway_contract,
+						NonZeroU64::new(target_block_number - batch_size.get() + 1),
+						target_block_number,
+					)
+					.await
+					.context("get_gmp_events_at")?;
+				tracing::info!("read target block: {:?}", target_block_number);
+				if !logs.is_empty() {
+					tracing::info!("read {} messages", logs.len());
+				}
+				Payload::Gmp(logs)
+			},
+		})
+	}
+
 	#[allow(clippy::too_many_arguments)]
 	async fn read(
 		self,
@@ -241,10 +138,13 @@ where
 		block_num: BlockNumber,
 	) -> Result<()> {
 		tracing::debug!(task_id = task_id, shard_id = shard_id, "executing read function",);
-		let result = self.execute_function(&function, target_block).await.map_err(|err| {
-			tracing::error!(task_id = task_id, shard_id = shard_id, "{:#?}", err);
-			format!("{err}")
-		});
+		let result =
+			self.execute_read_function(task_id, function, target_block)
+				.await
+				.map_err(|err| {
+					tracing::error!(task_id = task_id, shard_id = shard_id, "{:#?}", err);
+					format!("{err}")
+				});
 		let payload = match result {
 			Ok(payload) => payload,
 			Err(payload) => Payload::Error(payload),
@@ -266,44 +166,24 @@ where
 		Ok(())
 	}
 
-	async fn write(self, task_id: TaskId, function: Function) -> Result<()> {
-		match self.is_balance_available().await {
-			Ok(false) => {
+	async fn write(self, params: GmpParams, msg: GatewayMessage, sig: TssSignature) -> Result<()> {
+		match self.connector.balance().await {
+			Ok(balance) if balance < self.min_balance => {
 				// unregister member
 				if let Err(e) = self.substrate.submit_unregister_member().await {
-					tracing::error!(task_id = task_id, "Failed to unregister member: {:?}", e);
+					tracing::error!(task_id = msg.task_id, "Failed to unregister member: {:?}", e);
 				};
-				tracing::warn!(task_id = task_id, "Chronicle balance too low, exiting");
+				tracing::warn!(task_id = msg.task_id, "Chronicle balance too low, exiting");
 				std::process::exit(1);
 			},
-			Ok(true) => {},
+			Ok(_) => {},
 			Err(err) => {
-				tracing::error!(task_id = task_id, "Could not fetch account balance: {:?}", err)
+				tracing::error!(task_id = msg.task_id, "Could not fetch account balance: {:?}", err)
 			},
 		}
-
-		let submission = async move {
-			match function {
-				Function::EvmDeploy { bytecode } => {
-					let _guard = self.wallet_guard.lock().await;
-					self.wallet.eth_deploy_contract(bytecode.clone()).await
-				},
-				Function::EvmCall {
-					address,
-					input,
-					amount,
-					gas_limit,
-				} => {
-					let _guard = self.wallet_guard.lock().await;
-					self.wallet.eth_send_call(address, input.clone(), amount, None, gas_limit).await
-				},
-				_ => anyhow::bail!("not a write function {function:?}"),
-			}
-		}
-		.await
-		.map(|s| s.tx_hash().0)
-		.map_err(|err| err.to_string());
-		if let Err(e) = self.substrate.submit_task_hash(task_id, submission).await {
+		let task_id = msg.task_id;
+		let hash = self.connector.submit_messages(params.gateway, msg, params.signer, sig).await;
+		if let Err(e) = self.substrate.submit_task_hash(task_id, hash).await {
 			tracing::error!(task_id = task_id, "Error submitting task hash {:?}", e);
 		}
 		Ok(())
@@ -329,10 +209,6 @@ where
 		}
 		Ok(())
 	}
-
-	pub fn target_address(&self) -> &str {
-		&self.wallet.account().address
-	}
 }
 
 impl<S> super::TaskSpawner for TaskSpawner<S>
@@ -340,7 +216,7 @@ where
 	S: Runtime,
 {
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
-		Box::pin(BlockStream::new(&self.wallet))
+		self.connector.block_stream()
 	}
 
 	fn execute_read(
@@ -366,77 +242,10 @@ where
 
 	fn execute_write(
 		&self,
-		task_id: TaskId,
-		function: Function,
+		params: GmpParams,
+		msg: GatewayMessage,
+		sig: TssSignature,
 	) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
-		self.clone().write(task_id, function).boxed()
-	}
-}
-
-#[allow(clippy::type_complexity)]
-struct BlockStream<'a> {
-	wallet: &'a Arc<Wallet>,
-	opening:
-		Option<Pin<Box<dyn Future<Output = Result<Option<GenericClientStream<'a>>>> + Send + 'a>>>,
-	listener: Option<GenericClientStream<'a>>,
-}
-
-impl<'a> BlockStream<'a> {
-	pub fn new(wallet: &'a Arc<Wallet>) -> Self {
-		Self {
-			wallet,
-			opening: None,
-			listener: None,
-		}
-	}
-}
-
-impl<'a> Stream for BlockStream<'a> {
-	type Item = u64;
-
-	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-		loop {
-			if let Some(listener) = self.listener.as_mut() {
-				match Pin::new(listener).poll_next(cx) {
-					Poll::Ready(Some(event)) => match event {
-						ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(identifier)) => {
-							return Poll::Ready(Some(identifier.index));
-						},
-						ClientEvent::NewFinalized(BlockOrIdentifier::Block(block)) => {
-							return Poll::Ready(Some(block.block_identifier.index));
-						},
-						ClientEvent::NewHead(_) => continue,
-						ClientEvent::Event(_) => continue,
-						ClientEvent::Close(reason) => {
-							tracing::warn!("block stream closed {}", reason);
-							self.listener.take();
-						},
-					},
-					Poll::Ready(None) => {
-						self.listener.take();
-					},
-					Poll::Pending => return Poll::Pending,
-				}
-			}
-			if let Some(opening) = self.opening.as_mut() {
-				match Pin::new(opening).poll(cx) {
-					Poll::Ready(Ok(Some(stream))) => {
-						self.opening.take();
-						self.listener = Some(stream);
-					},
-					Poll::Ready(Ok(None)) => {
-						self.opening.take();
-						tracing::debug!("error opening listener");
-					},
-					Poll::Ready(Err(err)) => {
-						self.opening.take();
-						tracing::debug!("error opening listener {}", err);
-					},
-					Poll::Pending => return Poll::Pending,
-				}
-			}
-			let wallet = self.wallet;
-			self.opening = Some(wallet.listen().boxed());
-		}
+		self.clone().write(params, msg, sig).boxed()
 	}
 }

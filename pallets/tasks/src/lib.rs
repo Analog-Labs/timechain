@@ -69,9 +69,10 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, BatchId, ElectionsInterface, GatewayMessage, GatewayOp, GmpEvent,
-		GmpParams, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface,
-		Task, TaskId, TaskResult, TasksInterface, TransferStake, TssPublicKey, TssSignature,
+		AccountId, Balance, BatchBuilder, BatchId, ElectionsInterface, GatewayMessage, GatewayOp,
+		GmpEvent, GmpParams, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId,
+		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TransferStake, TssPublicKey,
+		TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -220,6 +221,9 @@ pub mod pallet {
 	pub type MessageBatchId<T: Config> =
 		StorageMap<_, Blake2_128Concat, MessageId, BatchId, OptionQuery>;
 
+	#[pallet::storage]
+	pub type BatchIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
+
 	/// Map storage for batches.
 	#[pallet::storage]
 	pub type BatchMessage<T: Config> =
@@ -279,7 +283,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::schedule_tasks()
+			Self::prepare_batches() + Self::schedule_tasks()
 		}
 	}
 
@@ -457,14 +461,14 @@ pub mod pallet {
 		/// all prioritized tasks are assigned.
 		fn ua_task_queue(network: NetworkId) -> Box<dyn QueueT<T, TaskId>> {
 			Box::new(
-				QueueImpl::<TaskId, UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UATasks<T>>::new(
+				QueueImpl::<T, TaskId, UATasksInsertIndex<T>, UATasksRemoveIndex<T>, UATasks<T>>::new(
 					network,
 				),
 			)
 		}
 
 		fn ops_queue(network: NetworkId) -> Box<dyn QueueT<T, GatewayOp>> {
-			Box::new(QueueImpl::<GatewayOp, OpsInsertIndex<T>, OpsRemoveIndex<T>, Ops<T>>::new(
+			Box::new(QueueImpl::<T, GatewayOp, OpsInsertIndex<T>, OpsRemoveIndex<T>, Ops<T>>::new(
 				network,
 			))
 		}
@@ -476,12 +480,7 @@ pub mod pallet {
 			ShardRegistered::<T>::get(pubkey).is_some()
 		}
 
-		fn assign_task(
-			network: NetworkId,
-			shard: ShardId,
-			task_id: TaskId,
-			task_index: Index,
-		) -> Weight {
+		fn assign_task(shard: ShardId, task_id: TaskId) -> Weight {
 			let (mut reads, mut writes) = (0, 0);
 			let needs_signer =
 				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
@@ -490,7 +489,6 @@ pub mod pallet {
 				// writes: ShardTasks
 				writes = writes.saturating_plus_one();
 			}
-			Self::ua_task_queue(network).remove(task_index);
 			ShardTasks::<T>::insert(shard, task_id, ());
 			TaskShard::<T>::insert(task_id, shard);
 			if needs_signer {
@@ -520,12 +518,15 @@ pub mod pallet {
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: usize) -> Weight {
 			let mut reads = 0;
-			let tasks = Self::ua_task_queue(network).get_n(capacity);
+			let queue = Self::ua_task_queue(network);
 			// reads: T::Shards::shard_members, ShardRegistered, prioritized_unassigned_tasks
 			reads = reads.saturating_add(3);
 			let mut weight = T::DbWeight::get().reads(reads);
-			for (index, task) in tasks {
-				weight = weight.saturating_add(Self::assign_task(network, shard_id, index, task));
+			for _ in 0..capacity {
+				let Some(task) = queue.pop() else {
+					break;
+				};
+				weight = weight.saturating_add(Self::assign_task(shard_id, task));
 			}
 			weight
 		}
@@ -583,6 +584,37 @@ pub mod pallet {
 				}
 			}
 			weight.saturating_add(WEIGHT_SAFETY_MARGIN)
+		}
+
+		fn prepare_batches() -> Weight {
+			let weight = Weight::default();
+			for network in 0..T::Networks::max_network_id() {
+				let batch_gas_limit = T::Networks::batch_gas_limit(network);
+				let mut batcher = BatchBuilder::new(batch_gas_limit);
+				let queue = Self::ops_queue(network);
+				while let Some(op) = queue.pop() {
+					if let Some(msg) = batcher.push(op) {
+						Self::start_batch(network, msg);
+					}
+				}
+				if let Some(msg) = batcher.take_batch() {
+					Self::start_batch(network, msg);
+				}
+			}
+			weight
+		}
+
+		fn start_batch(network: NetworkId, msg: GatewayMessage) {
+			let batch_id = BatchIdCounter::<T>::get();
+			BatchIdCounter::<T>::put(batch_id.saturating_add(1));
+			for op in &msg.ops {
+				if let GatewayOp::SendMessage(msg) = op {
+					let msg_id = msg.message_id();
+					MessageBatchId::<T>::insert(msg_id, batch_id);
+				}
+			}
+			BatchMessage::<T>::insert(batch_id, msg);
+			Self::create_task(network, Task::SignGatewayMessage { batch_id });
 		}
 	}
 

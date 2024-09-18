@@ -124,10 +124,9 @@ sp_api::decl_runtime_apis! {
 
 	pub trait TasksApi {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
-		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
-		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
+		fn get_task(task_id: TaskId) -> Option<Task>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
+		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -162,7 +161,6 @@ pub trait ElectionsInterface {
 pub trait ShardsInterface {
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
-	fn matching_shard_online(network: NetworkId, size: u16) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
 	fn create_shard(
@@ -177,6 +175,14 @@ pub trait ShardsInterface {
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
+	fn gateway_registered(network: NetworkId, block: u64);
+}
+
+pub trait NetworksInterface {
+	fn gateway(network: NetworkId) -> Option<Address>;
+	fn next_batch_size(network: NetworkId, block_height: u64) -> u64;
+	fn batch_gas_limit(network: NetworkId) -> u128;
+	fn max_network_id() -> NetworkId;
 }
 
 #[cfg(feature = "std")]
@@ -222,7 +228,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId) -> Result<Vec<TaskId>>;
 
-	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>>;
+	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<Task>>;
 
 	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
 
@@ -248,5 +254,5 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
 
-	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
+	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()>;
 }

@@ -42,6 +42,28 @@ pub mod serde_tss_public_key {
 	}
 }
 
+#[cfg(feature = "std")]
+pub mod serde_tss_signature {
+	use super::TssSignature;
+	use serde::de::Error;
+	use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+	pub fn serialize<S>(t: &TssSignature, ser: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		t[..].serialize(ser)
+	}
+
+	pub fn deserialize<'de, D>(de: D) -> Result<TssSignature, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let bytes = <Vec<u8>>::deserialize(de)?;
+		TssSignature::try_from(bytes).map_err(|_| D::Error::custom("invalid signature length"))
+	}
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {
 	Added,

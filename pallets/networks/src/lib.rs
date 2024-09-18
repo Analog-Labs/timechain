@@ -35,14 +35,26 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::{string::String, vec::Vec};
-	use time_primitives::{ChainName, ChainNetwork, NetworkId};
+	use time_primitives::{
+		Address, ChainName, ChainNetwork, NetworkId, NetworksInterface, TasksInterface,
+	};
 
 	pub trait WeightInfo {
 		fn add_network(name: u32, network: u32) -> Weight;
+		fn register_gateway() -> Weight;
+		fn set_batch_size() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn add_network(_name: u32, _network: u32) -> Weight {
+			Weight::default()
+		}
+
+		fn register_gateway() -> Weight {
+			Weight::default()
+		}
+
+		fn set_batch_size() -> Weight {
 			Weight::default()
 		}
 	}
@@ -57,6 +69,7 @@ pub mod pallet {
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
+		type Tasks: TasksInterface;
 	}
 
 	#[pallet::event]
@@ -64,6 +77,10 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event emitted when a new network is successfully added, providing the corresponding `NetworkId` as part of the event payload.
 		NetworkAdded(NetworkId),
+		/// Gateway was registered.
+		GatewayRegistered(NetworkId, Address, u64),
+		/// Batch size changed.
+		BatchSizeChanged(NetworkId, u64, u64),
 	}
 
 	#[pallet::error]
@@ -72,6 +89,8 @@ pub mod pallet {
 		NetworkIdOverflow,
 		/// Error indicating that a network with the same `ChainName` and `ChainNetwork` already exists and cannot be added again.
 		NetworkExists,
+		/// Gateway was already registered.
+		GatewayAlreadyRegistered,
 	}
 
 	// stores a counter for each network type supported
@@ -82,6 +101,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Networks<T: Config> =
 		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
+
+	/// Map storage for network gateways.
+	#[pallet::storage]
+	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, Address, OptionQuery>;
+
+	///  Map storage for network batch sizes.
+	#[pallet::storage]
+	pub type NetworkBatchSize<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	/// Map storage for network offsets.
+	#[pallet::storage]
+	pub type NetworkOffset<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
+
+	/// Map storage for batch gas limit.
+	#[pallet::storage]
+	pub type NetworkBatchGasLimit<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u128, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -164,6 +201,45 @@ pub mod pallet {
 			Self::deposit_event(Event::NetworkAdded(network_id));
 			Ok(())
 		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::register_gateway())]
+		pub fn register_gateway(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			address: Address,
+			block_height: u64,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(Gateway::<T>::get(network).is_none(), Error::<T>::GatewayAlreadyRegistered);
+			Gateway::<T>::insert(network, address);
+			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
+			T::Tasks::gateway_registered(network, block_height);
+			Ok(())
+		}
+
+		/// Sets the batch size and offset for a specific network.
+		///
+		/// # Flow
+		///   1. Ensure the origin of the transaction is a root user.
+		///   2. Insert the new batch size for the specified network into the [`NetworkBatchSize`] storage.
+		///   3. Insert the new offset for the specified network into the [`NetworkOffset`] storage.
+		///   4. Emit an event indicating the batch size and offset have been set.
+		///   5. Return `Ok(())` if all operations succeed.
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
+		pub fn set_batch_size(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			batch_size: u64,
+			offset: u64,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			NetworkBatchSize::<T>::insert(network, batch_size);
+			NetworkOffset::<T>::insert(network, offset);
+			Self::deposit_event(Event::BatchSizeChanged(network, batch_size, offset));
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -174,6 +250,29 @@ pub mod pallet {
 		///  2. Return the network information if it exists, otherwise return `None`.
 		pub fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
 			Networks::<T>::get(network_id)
+		}
+	}
+
+	impl<T: Config> NetworksInterface for Pallet<T> {
+		fn gateway(network: NetworkId) -> Option<Address> {
+			Gateway::<T>::get(network)
+		}
+
+		fn next_batch_size(network: NetworkId, block_height: u64) -> u64 {
+			const DEFAULT_BATCH_SIZE: u64 = 32;
+			let network_batch_size =
+				NetworkBatchSize::<T>::get(network).unwrap_or(DEFAULT_BATCH_SIZE);
+			let network_offset = NetworkOffset::<T>::get(network);
+			network_batch_size - ((block_height + network_offset) % network_batch_size)
+		}
+
+		fn batch_gas_limit(network: NetworkId) -> u128 {
+			const DEFAULT_BATCH_GAS_LIMIT: u128 = 10_000;
+			NetworkBatchGasLimit::<T>::get(network).unwrap_or(DEFAULT_BATCH_GAS_LIMIT)
+		}
+
+		fn max_network_id() -> NetworkId {
+			NetworkIdCounter::<T>::get()
 		}
 	}
 }

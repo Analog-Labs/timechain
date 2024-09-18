@@ -1,4 +1,4 @@
-use crate::{NetworkId, ShardId, TaskId, TssPublicKey};
+use crate::{NetworkId, TssPublicKey};
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
 use scale_info::{prelude::vec::Vec, TypeInfo};
@@ -9,6 +9,7 @@ pub type Address = [u8; 32];
 pub type Gateway = Address;
 pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
+pub type BatchId = u64;
 
 const GMP_VERSION: &str = "Analog GMP v2";
 
@@ -16,7 +17,6 @@ const GMP_VERSION: &str = "Analog GMP v2";
 pub struct GmpParams {
 	pub network: NetworkId,
 	pub gateway: Gateway,
-	pub signer: TssPublicKey,
 }
 
 impl GmpParams {
@@ -26,7 +26,6 @@ impl GmpParams {
 		hasher.update(GMP_VERSION);
 		hasher.update(&self.network.to_be_bytes());
 		hasher.update(&self.gateway);
-		hasher.update(&self.signer);
 		hasher.update(payload);
 		hasher.finalize().into()
 	}
@@ -41,25 +40,28 @@ pub struct GmpMessage {
 	pub dest: Address,
 	pub nonce: u64,
 	pub gas_limit: u128,
+	pub gas_cost: u128,
 	pub bytes: Vec<u8>,
 }
 
 impl GmpMessage {
-	const HEADER_LEN: usize = 86;
+	const HEADER_LEN: usize = 103;
 
 	pub fn encoded_len(&self) -> usize {
 		Self::HEADER_LEN + self.bytes.len()
 	}
 
-	fn encode_header(&self) -> [u8; 86] {
+	fn encode_header(&self) -> [u8; 103] {
 		let mut hdr = [0; Self::HEADER_LEN];
-		hdr[..2].copy_from_slice(&self.src_network.to_be_bytes());
-		hdr[2..4].copy_from_slice(&self.dest_network.to_be_bytes());
-		hdr[4..36].copy_from_slice(&self.src);
-		hdr[36..68].copy_from_slice(&self.dest);
-		hdr[68..76].copy_from_slice(&self.nonce.to_be_bytes());
-		hdr[76..82].copy_from_slice(&self.gas_limit.to_be_bytes());
-		hdr[82..86].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
+		hdr[0] = 0; // struct version
+		hdr[1..3].copy_from_slice(&self.src_network.to_be_bytes());
+		hdr[3..5].copy_from_slice(&self.dest_network.to_be_bytes());
+		hdr[5..37].copy_from_slice(&self.src);
+		hdr[37..69].copy_from_slice(&self.dest);
+		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
+		hdr[77..83].copy_from_slice(&self.gas_limit.to_be_bytes());
+		hdr[83..99].copy_from_slice(&self.gas_limit.to_be_bytes());
+		hdr[99..103].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
 		hdr
 	}
 
@@ -82,12 +84,10 @@ impl GmpMessage {
 pub enum GatewayOp {
 	SendMessage(GmpMessage),
 	RegisterShard(
-		ShardId,
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
 		TssPublicKey,
 	),
 	UnregisterShard(
-		ShardId,
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
 		TssPublicKey,
 	),
@@ -107,16 +107,21 @@ impl GatewayOp {
 				buf.push(0);
 				msg.encode_to(buf);
 			},
-			Self::RegisterShard(shard, pubkey) => {
+			Self::RegisterShard(pubkey) => {
 				buf.push(1);
-				buf.extend_from_slice(&shard.to_be_bytes());
 				buf.extend_from_slice(pubkey);
 			},
-			Self::UnregisterShard(shard, pubkey) => {
+			Self::UnregisterShard(pubkey) => {
 				buf.push(2);
-				buf.extend_from_slice(&shard.to_be_bytes());
 				buf.extend_from_slice(pubkey);
 			},
+		}
+	}
+
+	pub fn gas(&self) -> u128 {
+		match self {
+			Self::SendMessage(msg) => msg.gas_cost,
+			_ => 10_000,
 		}
 	}
 }
@@ -124,18 +129,18 @@ impl GatewayOp {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct GatewayMessage {
-	pub task_id: TaskId,
 	pub ops: Vec<GatewayOp>,
 }
 
 impl GatewayMessage {
-	pub fn new(task_id: TaskId, ops: Vec<GatewayOp>) -> Self {
-		Self { task_id, ops }
+	pub fn new(ops: Vec<GatewayOp>) -> Self {
+		Self { ops }
 	}
 
 	pub fn encode(&self) -> Vec<u8> {
 		let mut buf = vec![];
-		buf.extend_from_slice(&self.task_id.to_be_bytes());
+		buf.push(0); // struct version
+		buf.extend_from_slice(&(self.ops.len() as u32).to_be_bytes());
 		for op in &self.ops {
 			op.encode_to(&mut buf);
 		}
@@ -143,9 +148,53 @@ impl GatewayMessage {
 	}
 }
 
+pub struct BatchBuilder {
+	batch_gas_limit: u128,
+	gas: u128,
+	ops: Vec<GatewayOp>,
+}
+
+impl BatchBuilder {
+	pub fn new(batch_gas_limit: u128) -> Self {
+		Self {
+			batch_gas_limit,
+			gas: 0,
+			ops: Default::default(),
+		}
+	}
+
+	pub fn set_gas_limit(&mut self, batch_gas_limit: u128) {
+		self.batch_gas_limit = batch_gas_limit;
+	}
+
+	pub fn take_batch(&mut self) -> Option<GatewayMessage> {
+		if self.ops.is_empty() {
+			return None;
+		}
+		self.gas = 0;
+		let ops = std::mem::take(&mut self.ops);
+		Some(GatewayMessage::new(ops))
+	}
+
+	pub fn push(&mut self, op: GatewayOp) -> Option<GatewayMessage> {
+		let gas = op.gas();
+		let batch = if self.gas + gas > self.batch_gas_limit { self.take_batch() } else { None };
+		self.ops.push(op);
+		batch
+	}
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
 pub enum GmpEvent {
+	ShardRegistered(
+		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
+		TssPublicKey,
+	),
+	ShardUnregistered(
+		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
+		TssPublicKey,
+	),
 	MessageReceived(GmpMessage),
 	MessageExecuted(MessageId),
 }

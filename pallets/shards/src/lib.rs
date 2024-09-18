@@ -519,21 +519,6 @@ pub mod pallet {
 		fn is_shard_member(member: &AccountId) -> bool {
 			MemberShard::<T>::get(member).is_some()
 		}
-		/// Checks if there exists a shard with a matching network and size that is online.
-		///
-		/// # Flow
-		///   1. Iterates over all [`ShardNetwork`] entries.
-		///   2. Checks if the network ID matches the specified network parameter.
-		///   3. Checks if the shard is online using `Function::is_shard_online`.
-		///   4. Counts the number of members in the shard and compares it to `size`.
-		///   5. Returns `true` if such a shard is found; otherwise, returns `false``.
-		fn matching_shard_online(network: NetworkId, size: u16) -> bool {
-			ShardNetwork::<T>::iter().any(|(s, n)| {
-				n == network
-					&& Self::is_shard_online(s)
-					&& ShardMembers::<T>::iter_prefix(s).collect::<Vec<_>>().len() as u16 == size
-			})
-		}
 		/// Retrieves the network identifier associated with a specified shard.
 		///
 		/// # Flow

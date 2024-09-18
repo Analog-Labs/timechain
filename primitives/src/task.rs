@@ -1,4 +1,5 @@
-use crate::{GatewayOp, GmpEvent, NetworkId, ShardId, TssSignature};
+use crate::{BatchId, GmpEvent, TssSignature, ANLOG};
+use core::ops::Range;
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
 use scale_info::{prelude::vec::Vec, TypeInfo};
@@ -6,55 +7,69 @@ use scale_info::{prelude::vec::Vec, TypeInfo};
 use serde::{Deserialize, Serialize};
 
 pub type TaskId = u64;
-pub type TaskIndex = u64;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub enum Function {
-	ReadGatewayEvents { batch_size: core::num::NonZeroU64 },
-	SignPayload { payload: Vec<u8> },
-	SubmitGatewayMessage { ops: Vec<GatewayOp> },
+pub enum Task {
+	ReadGatewayEvents { blocks: Range<u64> },
+	SignGatewayMessage { batch_id: BatchId },
+	SubmitGatewayMessage { batch_id: BatchId },
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for Function {
+impl std::fmt::Display for Task {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Function::ReadGatewayEvents { batch_size } => {
-				write!(f, "ReadGatewayEvents({batch_size})")
+			Task::ReadGatewayEvents { blocks } => {
+				let start = blocks.start;
+				let end = blocks.end;
+				write!(f, "ReadGatewayEvents({start}..{end})")
 			},
-			Function::SubmitGatewayMessage { ops: _ } => write!(f, "SubmitGatewayMessage"),
-			Function::SignPayload { payload } => {
-				let len = payload.len();
-				write!(f, "SignPayload({len})")
+			Task::SignGatewayMessage { batch_id } => {
+				write!(f, "SignPayload({batch_id})")
+			},
+			Task::SubmitGatewayMessage { batch_id } => {
+				write!(f, "SubmitGatewayMessage({batch_id})")
 			},
 		}
 	}
 }
 
-impl Function {
+impl Task {
 	pub fn get_input_length(&self) -> u32 {
 		self.encoded_size() as _
 	}
+
+	pub fn reward(&self) -> u128 {
+		2 * ANLOG
+	}
+
+	pub fn needs_registration(&self) -> bool {
+		!matches!(self, Self::ReadGatewayEvents { .. })
+	}
+
+	pub fn needs_signer(&self) -> bool {
+		matches!(self, Self::SubmitGatewayMessage { .. })
+	}
 }
 
-#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
-pub struct TaskResult {
-	pub shard_id: ShardId,
-	pub payload: Vec<GmpEvent>,
-	pub signature: TssSignature,
+pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
+	(task_id, events).encode()
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct TaskDescriptor {
-	pub network: NetworkId,
-	pub function: Function,
-	pub start: u64,
-}
-
-impl TaskDescriptor {
-	pub fn new(network: NetworkId, function: Function) -> Self {
-		Self { network, function, start: 0 }
-	}
+#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+pub enum TaskResult {
+	ReadGatewayEvents {
+		events: Vec<GmpEvent>,
+		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
+		signature: TssSignature,
+	},
+	SignGatewayMessage {
+		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
+		signature: TssSignature,
+	},
+	SubmitGatewayMessage {
+		error: Option<String>,
+	},
 }

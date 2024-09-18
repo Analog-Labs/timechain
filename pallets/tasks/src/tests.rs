@@ -639,6 +639,7 @@ fn task_unassigned_for_unregister_shard() {
 			vec![task_id]
 		);
 		register_gateway(shard_id);
+		roll(1);
 		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
 	});
 }

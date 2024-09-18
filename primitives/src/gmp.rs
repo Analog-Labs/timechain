@@ -134,7 +134,7 @@ impl Message {
 			destNetwork: msg.dest_network,
 			gasLimit: U256::from(msg.gas_limit),
 			salt: U256::from_be_bytes(msg.salt),
-			data: msg.data,
+			data: msg.data.into(),
 		})
 	}
 

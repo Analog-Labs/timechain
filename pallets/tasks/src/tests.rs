@@ -630,6 +630,20 @@ fn register_gateway_updates_gateway_storage() {
 }
 
 #[test]
+fn task_unassigned_for_unregister_shard() {
+	new_test_ext().execute_with(|| {
+		let shard_id = create_shard(ETHEREUM, 3, 1);
+		let task_id = create_task(ETHEREUM, 3, TaskPhase::Sign);
+		assert_eq!(
+			UnassignedTasks::<Test>::iter().map(|(_, _, t)| t).collect::<Vec<_>>(),
+			vec![task_id]
+		);
+		register_gateway(shard_id);
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 0);
+	});
+}
+
+#[test]
 fn shard_offline_starts_unregister_shard_task_and_unregisters_shard_immediately() {
 	new_test_ext().execute_with(|| {
 		let s1 = create_shard(ETHEREUM, 3, 1);

@@ -7,9 +7,9 @@ use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature,
+	BuildStorage, DispatchResult, MultiSignature,
 };
-use time_primitives::{MemberStorage, NetworkId, PeerId, PublicKey, ShardId, TasksInterface};
+use time_primitives::{MembersInterface, NetworkId, PeerId, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -18,7 +18,7 @@ pub type Signature = MultiSignature;
 
 pub struct MockMembers;
 
-impl MemberStorage for MockMembers {
+impl MembersInterface for MockMembers {
 	fn member_stake(_: &AccountId) -> u128 {
 		0u128
 	}
@@ -34,13 +34,17 @@ impl MemberStorage for MockMembers {
 	fn total_stake() -> u128 {
 		0u128
 	}
+	fn transfer_stake(_: &AccountId, _: &AccountId, _: u128) -> DispatchResult {
+		Ok(())
+	}
 }
 
-pub struct MockTaskScheduler;
+pub struct MockTasks;
 
-impl TasksInterface for MockTaskScheduler {
+impl TasksInterface for MockTasks {
 	fn shard_online(_: ShardId, _: NetworkId) {}
 	fn shard_offline(_: ShardId, _: NetworkId) {}
+	fn gateway_registered(_: NetworkId, _: u64) {}
 }
 
 frame_support::construct_runtime!(
@@ -88,7 +92,7 @@ impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
-	type TaskScheduler = MockTaskScheduler;
+	type Tasks = MockTasks;
 	type Members = MockMembers;
 	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;

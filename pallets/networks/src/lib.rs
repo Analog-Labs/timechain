@@ -43,6 +43,7 @@ pub mod pallet {
 		fn add_network(name: u32, network: u32) -> Weight;
 		fn register_gateway() -> Weight;
 		fn set_batch_size() -> Weight;
+		fn set_batch_gas_limit() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -55,6 +56,10 @@ pub mod pallet {
 		}
 
 		fn set_batch_size() -> Weight {
+			Weight::default()
+		}
+
+		fn set_batch_gas_limit() -> Weight {
 			Weight::default()
 		}
 	}
@@ -81,6 +86,8 @@ pub mod pallet {
 		GatewayRegistered(NetworkId, Address, u64),
 		/// Batch size changed.
 		BatchSizeChanged(NetworkId, u64, u64),
+		/// Batch gas limit changed.
+		BatchGasLimitChanged(NetworkId, u128),
 	}
 
 	#[pallet::error]
@@ -238,6 +245,20 @@ pub mod pallet {
 			NetworkBatchSize::<T>::insert(network, batch_size);
 			NetworkOffset::<T>::insert(network, offset);
 			Self::deposit_event(Event::BatchSizeChanged(network, batch_size, offset));
+			Ok(())
+		}
+
+		/// Sets the batch gas limit
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
+		pub fn set_batch_gas_limit(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			batch_gas_limit: u128,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			NetworkBatchGasLimit::<T>::insert(network, batch_gas_limit);
+			Self::deposit_event(Event::BatchGasLimitChanged(network, batch_gas_limit));
 			Ok(())
 		}
 	}

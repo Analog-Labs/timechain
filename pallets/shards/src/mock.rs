@@ -3,24 +3,25 @@ use crate::{self as pallet_shards};
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io, sp_runtime};
 
 use frame_support::derive_impl;
-use frame_support::traits::OnInitialize;
+use frame_support::{pallet_prelude::Weight, traits::OnInitialize};
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ElectionsInterface, NetworkId, ShardId, TasksInterface};
+use time_primitives::{ElectionsInterface, NetworkId, ShardId, ShardsInterface, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockTaskScheduler;
+pub struct MockTasks;
 
-impl TasksInterface for MockTaskScheduler {
+impl TasksInterface for MockTasks {
 	fn shard_online(_: ShardId, _: NetworkId) {}
 	fn shard_offline(_: ShardId, _: NetworkId) {}
+	fn gateway_registered(_: NetworkId, _: u64) {}
 }
 
 pub struct MockElections;
@@ -29,6 +30,12 @@ impl ElectionsInterface for MockElections {
 	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
 	fn default_shard_size() -> u16 {
 		3
+	}
+	fn member_online(member: &AccountId, network: NetworkId) {
+		Shards::member_online(member, network)
+	}
+	fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
+		Shards::member_offline(member, network)
 	}
 }
 
@@ -69,7 +76,7 @@ impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
-	type TaskScheduler = MockTaskScheduler;
+	type Tasks = MockTasks;
 	type Members = Members;
 	type Elections = MockElections;
 	type DkgTimeout = ConstU64<10>;
@@ -78,7 +85,7 @@ impl pallet_shards::Config for Test {
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
-	type Elections = Shards;
+	type Elections = MockElections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }

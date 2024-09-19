@@ -403,34 +403,25 @@ async fn gmp_benchmark(
 		tokio::select! {
 			// wait for gmp calls to be sent to src contract
 			result = &mut gmp_task => {
-				let result = result.unwrap();
-				let blocks = result
-					.iter()
-					.map(|item| item.receipt().expect("Transaction receipt not found").block_number.expect("Transaction not finalized"))
-					.collect::<Vec<_>>();
-				all_gmp_blocks.extend(blocks);
-				println!("tx hash for first gmp call {:?}", result.first().expect("Gmp calls are empty").tx_hash());
-				println!(
-					"tx block for first gmp call {:?}",
-					result.first().unwrap().receipt().unwrap().block_number
-				);
+				let results = result.unwrap();
+				let mut gas_amounts = Vec::new();
+				for item in results.iter() {
+					let tx_hash = item.tx_hash();
+					let receipt = src_tester.get_transaction_receipt(tx_hash.into()).await?;
 
-				let gas_amount_used = result
-					.iter()
-					.map(|result| {
-						let receipt = result.receipt().expect("Transaction receipt not found");
-						let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).expect("Unable to parse gas price");
-						let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).expect("Unable to parse gas used");
-						gas_price.saturating_mul(gas_used)
-					})
-					.collect::<Vec<_>>();
+					let block_number = receipt.block_number.expect("Transaction not finalized");
+					all_gmp_blocks.push(block_number);
+
+					let gas_price = u128::try_from(receipt.effective_gas_price.unwrap()).expect("Unable to parse gas price");
+					let gas_used = u128::try_from(receipt.gas_used.unwrap_or_default()).expect("Unable to parse gas used");
+					gas_amounts.push(gas_price.saturating_mul(gas_used));
+				}
 
 				// total gas fee for src_contract call
-				bench_state.insert_src_gas(gas_amount_used);
+				bench_state.insert_src_gas(gas_amounts);
 
 				// Get last block result of contract stats
-				let last_result = result.last().unwrap().receipt().unwrap().block_number;
-				let src_stats = stats(src_tester, src_contract, last_result).await?;
+				let src_stats = stats(src_tester, src_contract, None).await?;
 				println!("1: yes: {} no: {}", src_stats.0, src_stats.1);
 				assert_eq!(src_stats, (number_of_calls + start_stats.0, start_stats.1));
 

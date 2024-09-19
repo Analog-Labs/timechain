@@ -3,7 +3,9 @@ use alloy_sol_types::{SolCall, SolConstructor};
 use anyhow::{Context, Result};
 use num_bigint::BigUint;
 use rosetta_client::Wallet;
-use rosetta_config_ethereum::{AtBlock, CallResult, GetTransactionCount, SubmitResult};
+use rosetta_config_ethereum::{
+	AtBlock, CallResult, GetTransactionCount, SubmitResult, TransactionReceipt,
+};
 use schnorr_evm::SigningKey;
 use sol::{
 	Gateway, GatewayProxy, GmpVotingContract, Network, TssKey, UpdateNetworkInfo, VotingContract,
@@ -25,7 +27,7 @@ use time_primitives::{
 	ShardId, ShardStatus, TaskDescriptor, TaskDescriptorParams, TaskId, TaskPhase, TssPublicKey,
 	H160,
 };
-use tokio::time::Instant;
+use tokio::time::{sleep, Instant};
 use ufloat::{Float, Rounding, UFloat9x56};
 pub mod sol;
 mod ufloat;
@@ -146,6 +148,16 @@ impl Tester {
 		}
 	}
 
+	pub async fn get_transaction_receipt(&self, tx_hash: [u8; 32]) -> Result<TransactionReceipt> {
+		loop {
+			if let Some(receipt) = self.wallet.eth_transaction_receipt(tx_hash).await? {
+				return Ok(receipt);
+			}
+			println!("Unable to fetch transaction receipt retying...");
+			sleep(Duration::from_secs(5)).await;
+		}
+	}
+
 	pub async fn deploy(
 		&self,
 		path: &Path,
@@ -155,7 +167,7 @@ impl Tester {
 		let mut contract = compile_file(path)?;
 		contract.extend(constructor.abi_encode());
 		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+		let tx_receipt = self.get_transaction_receipt(tx_hash).await?;
 		let contract_address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
 

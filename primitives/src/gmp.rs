@@ -45,13 +45,13 @@ pub struct GmpMessage {
 }
 
 impl GmpMessage {
-	const HEADER_LEN: usize = 103;
+	const HEADER_LEN: usize = 113;
 
 	pub fn encoded_len(&self) -> usize {
 		Self::HEADER_LEN + self.bytes.len()
 	}
 
-	fn encode_header(&self) -> [u8; 103] {
+	fn encode_header(&self) -> [u8; 113] {
 		let mut hdr = [0; Self::HEADER_LEN];
 		hdr[0] = 0; // struct version
 		hdr[1..3].copy_from_slice(&self.src_network.to_be_bytes());
@@ -59,9 +59,9 @@ impl GmpMessage {
 		hdr[5..37].copy_from_slice(&self.src);
 		hdr[37..69].copy_from_slice(&self.dest);
 		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
-		hdr[77..83].copy_from_slice(&self.gas_limit.to_be_bytes());
-		hdr[83..99].copy_from_slice(&self.gas_limit.to_be_bytes());
-		hdr[99..103].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
+		hdr[77..93].copy_from_slice(&self.gas_limit.to_be_bytes());
+		hdr[93..109].copy_from_slice(&self.gas_cost.to_be_bytes());
+		hdr[109..113].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
 		hdr
 	}
 
@@ -137,9 +137,10 @@ impl GatewayMessage {
 		Self { ops }
 	}
 
-	pub fn encode(&self) -> Vec<u8> {
+	pub fn encode(&self, batch_id: BatchId) -> Vec<u8> {
 		let mut buf = Vec::new();
 		buf.push(0); // struct version
+		buf.extend_from_slice(&batch_id.to_be_bytes());
 		buf.extend_from_slice(&(self.ops.len() as u32).to_be_bytes());
 		for op in &self.ops {
 			op.encode_to(&mut buf);

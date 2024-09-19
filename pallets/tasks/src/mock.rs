@@ -45,9 +45,6 @@ impl NetworksInterface for MockNetworks {
 	fn batch_gas_limit(_network: NetworkId) -> u128 {
 		10_000
 	}
-	fn max_network_id() -> NetworkId {
-		1
-	}
 }
 
 pub struct MockMembers;

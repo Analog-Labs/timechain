@@ -141,7 +141,6 @@ pub trait NetworksInterface {
 	fn gateway(network: NetworkId) -> Option<Address>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u64;
 	fn batch_gas_limit(network: NetworkId) -> u128;
-	fn max_network_id() -> NetworkId;
 }
 
 pub trait MembersInterface {

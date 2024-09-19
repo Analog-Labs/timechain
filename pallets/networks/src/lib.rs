@@ -291,9 +291,5 @@ pub mod pallet {
 			const DEFAULT_BATCH_GAS_LIMIT: u128 = 10_000;
 			NetworkBatchGasLimit::<T>::get(network).unwrap_or(DEFAULT_BATCH_GAS_LIMIT)
 		}
-
-		fn max_network_id() -> NetworkId {
-			NetworkIdCounter::<T>::get()
-		}
 	}
 }

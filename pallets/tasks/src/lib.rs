@@ -183,6 +183,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+	#[pallet::storage]
+	pub type TaskCount<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
+
+	#[pallet::storage]
+	pub type ExecutedTaskCount<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
+
+	#[pallet::storage]
+	pub type ShardTaskCount<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u32, ValueQuery>;
+
 	/// Map storage for tasks.
 	#[pallet::storage]
 	#[pallet::getter(fn tasks)]
@@ -286,7 +296,7 @@ pub mod pallet {
 		/// Used by chroncles to submit task results.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::submit_task_result())]
-		pub fn submit_result(
+		pub fn submit_task_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,
 			result: TaskResult,
@@ -344,7 +354,7 @@ pub mod pallet {
 				) => {
 					// verify signature
 					let msg = BatchMessage::<T>::get(batch_id).ok_or(Error::<T>::InvalidBatchId)?;
-					let payload = msg.encode();
+					let payload = msg.encode(batch_id);
 					let params = GmpParams { network, gateway };
 					let bytes = params.hash(&payload);
 					Self::verify_signature(shard, &bytes, signature)?;
@@ -375,6 +385,11 @@ pub mod pallet {
 			TaskOutput::<T>::insert(task_id, task_result.clone());
 			TaskShard::<T>::remove(task_id);
 			ShardTasks::<T>::remove(shard, task_id);
+			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_sub(1));
+			ExecutedTaskCount::<T>::insert(
+				network,
+				ExecutedTaskCount::<T>::get(network).saturating_add(1),
+			);
 			Self::deposit_event(Event::TaskResult(task_id, task_result));
 			Ok(())
 		}
@@ -444,9 +459,14 @@ pub mod pallet {
 
 		fn create_task(network: NetworkId, task: Task) -> TaskId {
 			let task_id = TaskIdCounter::<T>::get();
+			let needs_registration = task.needs_registration();
 			Tasks::<T>::insert(task_id, task);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
+			if !needs_registration {
+				ReadEventsTask::<T>::insert(network, task_id);
+			}
 			Self::ua_task_queue(network).push(task_id);
+			TaskCount::<T>::insert(network, TaskCount::<T>::get(network).saturating_add(1));
 			Self::deposit_event(Event::TaskCreated(task_id));
 			task_id
 		}
@@ -467,24 +487,20 @@ pub mod pallet {
 			))
 		}
 
-		fn is_shard_registered(shard: ShardId) -> bool {
+		pub(crate) fn is_shard_registered(shard: ShardId) -> bool {
 			let Some(pubkey) = T::Shards::tss_public_key(shard) else {
 				return false;
 			};
 			ShardRegistered::<T>::get(pubkey).is_some()
 		}
 
-		fn assign_task(shard: ShardId, task_id: TaskId) -> Weight {
+		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) -> Weight {
 			let (mut reads, mut writes) = (0, 0);
 			let needs_signer =
 				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
-			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
-				ShardTasks::<T>::remove(old_shard_id, task_id);
-				// writes: ShardTasks
-				writes = writes.saturating_plus_one();
-			}
 			ShardTasks::<T>::insert(shard, task_id, ());
 			TaskShard::<T>::insert(task_id, shard);
+			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_add(1));
 			if needs_signer {
 				TaskSigner::<T>::insert(task_id, T::Shards::next_signer(shard));
 				writes = writes.saturating_plus_one();
@@ -510,7 +526,7 @@ pub mod pallet {
 		///   6. If `capacity` is zero, stop further task assignments.
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
-		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: usize) -> Weight {
+		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> Weight {
 			let mut reads = 0;
 			let queue = Self::ua_task_queue(network);
 			// reads: T::Shards::shard_members, ShardRegistered, prioritized_unassigned_tasks
@@ -535,54 +551,47 @@ pub mod pallet {
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
 			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
-			// To account for any computation involved outside of accounted reads/writes
-			// Overestimating can lead to more consistent block times especially if weight was underestimated prior to adding the safety margin
-			const WEIGHT_SAFETY_MARGIN: Weight = Weight::from_parts(500_000_000, 0);
-			let mut weight = Weight::default();
-			for network in 0..T::Networks::max_network_id() {
-				// for this network, compute unassigned tasks count for this network
-				let unassigned_task_count = UATasks::<T>::iter_prefix(network).count();
-				// READs: Gateway, UnassignedTasks, UnassignedSystemTasks
-				weight = weight.saturating_add(T::DbWeight::get().reads(3));
-				// for this network, compute assigned task count and registered shards
-				let (assigned_tasks_count, mut registered_shards) = (0usize, Vec::new());
-				for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
-					if Self::is_shard_registered(shard) {
-						registered_shards.push(shard);
+			for (network, task_id) in ReadEventsTask::<T>::iter() {
+				let max_assignable_tasks =
+					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT);
+
+				// handle read events task assignment
+				if TaskShard::<T>::get(task_id).is_none() {
+					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
+							Self::assign_task(shard, task_id);
+						}
 					}
-					// READs: NetworkShards, ShardRegistered, UnassignedSystemTasks
-					weight = weight.saturating_add(T::DbWeight::get().reads(3));
 				}
-				// for this network, assign 0 tasks if 0 registered shards
+
+				// collect registered shards
+				let registered_shards: Vec<ShardId> = NetworkShards::<T>::iter_prefix(network)
+					.map(|(shard, _)| shard)
+					.filter(|shard| Self::is_shard_registered(*shard))
+					.collect();
 				if registered_shards.is_empty() {
 					continue;
 				}
-				// for this network, compute a number of tasks per shard to balance task allocation
-				let mut tasks_per_shard = (assigned_tasks_count
-					.saturating_add(unassigned_task_count))
-				.saturating_div(registered_shards.len());
-				let max_assignable_tasks =
-					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT) as usize;
-				tasks_per_shard = sp_std::cmp::min(tasks_per_shard, max_assignable_tasks);
-				// READs: ShardTaskLimit
-				weight = weight.saturating_add(T::DbWeight::get().reads(1));
-				// for this network, assign unassigned tasks to registered shards evenly
+
+				// calculate tasks per shard
+				let task_count = TaskCount::<T>::get(network);
+				let executed_task_count = ExecutedTaskCount::<T>::get(network);
+				let assignable_task_count = task_count - executed_task_count;
+				let tasks_per_shard = assignable_task_count as u32 / registered_shards.len() as u32;
+				let tasks_per_shard = core::cmp::min(tasks_per_shard, max_assignable_tasks);
+
+				// assign tasks
 				for shard in registered_shards {
-					let shard_capacity = max_assignable_tasks
-						.saturating_sub(ShardTasks::<T>::iter_prefix(shard).count());
-					let tasks_for_shard = sp_std::cmp::min(tasks_per_shard, shard_capacity);
-					weight = weight
-						.saturating_add(Self::schedule_tasks_shard(network, shard, tasks_for_shard))
-						// READS: ShardTasks
-						.saturating_add(T::DbWeight::get().reads(1));
+					let capacity = tasks_per_shard - ShardTaskCount::<T>::get(shard);
+					Self::schedule_tasks_shard(network, shard, capacity);
 				}
 			}
-			weight.saturating_add(WEIGHT_SAFETY_MARGIN)
+			Weight::default()
 		}
 
 		fn prepare_batches() -> Weight {
 			let weight = Weight::default();
-			for network in 0..T::Networks::max_network_id() {
+			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
 				let queue = Self::ops_queue(network);
@@ -642,6 +651,14 @@ pub mod pallet {
 		pub fn get_task_result(task_id: TaskId) -> Option<Result<(), String>> {
 			TaskOutput::<T>::get(task_id)
 		}
+
+		pub fn get_batch_message(batch: BatchId) -> Option<GatewayMessage> {
+			BatchMessage::<T>::get(batch)
+		}
+
+		pub fn get_batch_signature(batch: BatchId) -> Option<TssSignature> {
+			BatchSignature::<T>::get(batch)
+		}
 	}
 
 	impl<T: Config> TasksInterface for Pallet<T> {
@@ -662,6 +679,7 @@ pub mod pallet {
 				TaskShard::<T>::remove(task_id);
 				Self::ua_task_queue(network).push(task_id);
 			});
+			ShardTaskCount::<T>::insert(shard_id, 0);
 			let Some(key) = T::Shards::tss_public_key(shard_id) else {
 				return;
 			};

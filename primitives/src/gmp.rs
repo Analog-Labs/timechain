@@ -138,7 +138,7 @@ impl GatewayMessage {
 	}
 
 	pub fn encode(&self) -> Vec<u8> {
-		let mut buf = vec![];
+		let mut buf = Vec::new();
 		buf.push(0); // struct version
 		buf.extend_from_slice(&(self.ops.len() as u32).to_be_bytes());
 		for op in &self.ops {
@@ -172,7 +172,7 @@ impl BatchBuilder {
 			return None;
 		}
 		self.gas = 0;
-		let ops = std::mem::take(&mut self.ops);
+		let ops = core::mem::take(&mut self.ops);
 		Some(GatewayMessage::new(ops))
 	}
 

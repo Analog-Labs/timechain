@@ -53,7 +53,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberEvents, MemberStorage, NetworkId, ShardsInterface,
+		AccountId, ElectionsInterface, MembersInterface, NetworkId, ShardsInterface,
 	};
 
 	pub trait WeightInfo {
@@ -81,9 +81,9 @@ pub mod pallet {
 		/// Ensured origin for calls changing config or electables
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// The interface for shard-related operations.
-		type Shards: ShardsInterface + MemberEvents;
+		type Shards: ShardsInterface;
 		///  The storage interface for member-related data.
-		type Members: MemberStorage;
+		type Members: MembersInterface;
 	}
 
 	/// Size of each new shard
@@ -216,7 +216,21 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> MemberEvents for Pallet<T> {
+	impl<T: Config> ElectionsInterface for Pallet<T> {
+		///  Handles the event when a shard goes offline.
+		/// # Flow
+		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
+		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
+			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
+		}
+
+		///  Retrieves the default shard size.
+		/// # Flow
+		///    1. Returns the value of [`ShardSize`] from storage.
+		fn default_shard_size() -> u16 {
+			ShardSize::<T>::get()
+		}
+
 		///  Handles the event when a member comes online.
 		/// # Flow
 		///    1. Checks if the member is not already a shard member.
@@ -242,22 +256,6 @@ pub mod pallet {
 			T::DbWeight::get()
 				.writes(1)
 				.saturating_add(T::Shards::member_offline(member, network))
-		}
-	}
-
-	impl<T: Config> ElectionsInterface for Pallet<T> {
-		///  Handles the event when a shard goes offline.
-		/// # Flow
-		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
-		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
-			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
-		}
-
-		///  Retrieves the default shard size.
-		/// # Flow
-		///    1. Returns the value of [`ShardSize`] from storage.
-		fn default_shard_size() -> u16 {
-			ShardSize::<T>::get()
 		}
 	}
 

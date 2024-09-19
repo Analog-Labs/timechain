@@ -60,7 +60,6 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Currency, ExistenceRequirement},
-		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
@@ -69,10 +68,9 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, BatchBuilder, BatchId, ElectionsInterface, GatewayMessage, GatewayOp,
-		GmpEvent, GmpParams, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId,
-		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TransferStake, TssPublicKey,
-		TssSignature,
+		AccountId, Balance, BatchBuilder, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpParams,
+		MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
+		TaskResult, TasksInterface, TssPublicKey, TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -106,11 +104,7 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
-		type Elections: ElectionsInterface;
-		type Members: TransferStake;
 		type Networks: NetworksInterface;
-		#[pallet::constant]
-		type PalletId: Get<PalletId>;
 	}
 
 	/// Double map storage for unassigned tasks.

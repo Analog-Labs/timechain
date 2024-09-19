@@ -2,10 +2,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
+#[cfg(feature = "std")]
 use async_trait::async_trait;
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
-use scale_info::prelude::vec::Vec;
+use scale_info::prelude::{string::String, vec::Vec};
 
 // Export scoped ...
 pub mod currency;
@@ -127,6 +128,7 @@ sp_api::decl_runtime_apis! {
 		fn get_task(task_id: TaskId) -> Option<Task>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
 		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -135,30 +137,32 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-/// Expose unbond and transfer functionality to pay for (Un)RegisterShard task fees
-pub trait TransferStake {
-	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
+pub trait NetworksInterface {
+	fn gateway(network: NetworkId) -> Option<Address>;
+	fn next_batch_size(network: NetworkId, block_height: u64) -> u64;
+	fn batch_gas_limit(network: NetworkId) -> u128;
+	fn max_network_id() -> NetworkId;
 }
 
-pub trait MemberEvents {
-	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
-}
-
-pub trait MemberStorage {
+pub trait MembersInterface {
 	fn member_stake(account: &AccountId) -> Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;
 	fn total_stake() -> Balance;
+	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
 }
 
 pub trait ElectionsInterface {
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 	fn default_shard_size() -> u16;
+	fn member_online(id: &AccountId, network: NetworkId);
+	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
 }
 
 pub trait ShardsInterface {
+	fn member_online(id: &AccountId, network: NetworkId);
+	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
@@ -176,13 +180,6 @@ pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
 	fn gateway_registered(network: NetworkId, block: u64);
-}
-
-pub trait NetworksInterface {
-	fn gateway(network: NetworkId) -> Option<Address>;
-	fn next_batch_size(network: NetworkId, block_height: u64) -> u64;
-	fn batch_gas_limit(network: NetworkId) -> u128;
-	fn max_network_id() -> NetworkId;
 }
 
 #[cfg(feature = "std")]

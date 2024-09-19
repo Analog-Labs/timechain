@@ -2,7 +2,7 @@ use crate::{BatchId, GmpEvent, TssSignature, ANLOG};
 use core::ops::Range;
 use scale_codec::{Decode, Encode};
 use scale_decode::DecodeAsType;
-use scale_info::{prelude::vec::Vec, TypeInfo};
+use scale_info::{prelude::string::String, prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 

@@ -55,4 +55,32 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	/// Storage: `Tasks::NetworkBatchSize` (r:0 w:1)
+	/// Proof: `Tasks::NetworkBatchSize` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::NetworkOffset` (r:0 w:1)
+	/// Proof: `Tasks::NetworkOffset` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn register_gateway() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 11_392_000 picoseconds.
+		Weight::from_parts(11_992_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+
+	/// Storage: `Tasks::NetworkBatchSize` (r:0 w:1)
+	/// Proof: `Tasks::NetworkBatchSize` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::NetworkOffset` (r:0 w:1)
+	/// Proof: `Tasks::NetworkOffset` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn set_batch_size() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 11_392_000 picoseconds.
+		Weight::from_parts(11_992_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }

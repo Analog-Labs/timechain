@@ -86,9 +86,9 @@ pub mod pallet {
 	use schnorr_evm::VerifyingKey;
 
 	use time_primitives::{
-		AccountId, Balance, Commitment, ElectionsInterface, MemberEvents, MemberStatus,
-		MemberStorage, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
-		ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, Balance, Commitment, ElectionsInterface, MemberStatus, MembersInterface,
+		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -131,8 +131,8 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
-		type Members: MemberStorage;
-		type TaskScheduler: TasksInterface;
+		type Members: MembersInterface;
+		type Tasks: TasksInterface;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -318,7 +318,7 @@ pub mod pallet {
 			{
 				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
-				T::TaskScheduler::shard_online(shard_id, network);
+				T::Tasks::shard_online(shard_id, network);
 			}
 			Ok(())
 		}
@@ -380,7 +380,7 @@ pub mod pallet {
 			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
 			ShardThreshold::<T>::remove(shard_id);
 			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
-			T::TaskScheduler::shard_offline(shard_id, network);
+			T::Tasks::shard_offline(shard_id, network);
 			let members = ShardMembers::<T>::drain_prefix(shard_id)
 				.map(|(m, _)| {
 					MemberShard::<T>::remove(&m);
@@ -436,7 +436,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> MemberEvents for Pallet<T> {
+	impl<T: Config> ShardsInterface for Pallet<T> {
 		/// Updates shard state when a member comes online.
 		///
 		/// # Flow
@@ -500,9 +500,7 @@ pub mod pallet {
 			}
 			<T as Config>::WeightInfo::member_offline()
 		}
-	}
 
-	impl<T: Config> ShardsInterface for Pallet<T> {
 		/// Checks if a specified shard is currently online.
 		///
 		/// # Flow

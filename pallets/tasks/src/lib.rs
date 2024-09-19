@@ -277,7 +277,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::prepare_batches() + Self::schedule_tasks()
+			Self::prepare_batches().saturating_add(Self::schedule_tasks())
 		}
 	}
 
@@ -373,7 +373,7 @@ pub mod pallet {
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};
 			TaskOutput::<T>::insert(task_id, task_result.clone());
-			TaskShard::<T>::take(task_id);
+			TaskShard::<T>::remove(task_id);
 			ShardTasks::<T>::remove(shard, task_id);
 			Self::deposit_event(Event::TaskResult(task_id, task_result));
 			Ok(())

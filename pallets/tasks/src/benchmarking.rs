@@ -92,6 +92,12 @@ fn create_simple_task<T: Config + pallet_shards::Config>() -> Result<T::AccountI
 		pallet_balances::Pallet::<T>::issue(100_000_000_000_000),
 	);
 	Pallet::<T>::create_task(RawOrigin::Root.into(), descriptor)?;
+	Ok(caller)
+}
+
+fn create_simple_task_and_assign<T: Config + pallet_shards::Config>(
+) -> Result<T::AccountId, DispatchError> {
+	let caller = create_simple_task_and_assign::<T>()?;
 	Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Ok(caller)
 }
@@ -126,7 +132,7 @@ benchmarks! {
 	}: _(RawOrigin::Root, descriptor) verify {}
 
 	submit_result {
-		let caller = create_simple_task::<T>()?;
+		let caller = create_simple_task_and_assign::<T>()?;
 		let (pub_key, result) = mock_result_ok();
 		ShardCommitment::<T>::insert(0, vec![pub_key]);
 	}: _(RawOrigin::Signed(caller), 0, result) verify {}
@@ -250,14 +256,14 @@ benchmarks! {
 	}: _(RawOrigin::Root, 0, 20) verify {}
 
 	sudo_cancel_task {
-		let _ = create_simple_task::<T>()?;
+		let _ = create_simple_task_and_assign::<T>()?;
 	}: _(RawOrigin::Root, 0) verify {}
 
 	sudo_cancel_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..10;
 		for i in 0..b {
-			let _ = create_simple_task::<T>()?;
+			let _ = create_simple_task_and_assign::<T>()?;
 		}
 	}: _(RawOrigin::Root, b) verify {}
 
@@ -265,7 +271,7 @@ benchmarks! {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..10;
 		for i in 0..b {
-			let _ = create_simple_task::<T>()?;
+			let _ = create_simple_task_and_assign::<T>()?;
 		}
 	}: _(RawOrigin::Root, b) verify {}
 
@@ -294,6 +300,14 @@ benchmarks! {
 
 	set_batch_size {
 	}: _(RawOrigin::Root, ETHEREUM, 100, 25) verify {}
+
+	schedule_tasks {
+		// TODO: replace upper bound once upper bound added, separate PR
+		let b in 1..10;
+		for i in 0..b {
+			let _ = create_simple_task::<T>()?;
+		}
+	}: _() verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

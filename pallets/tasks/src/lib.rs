@@ -77,6 +77,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn submit_task_result() -> Weight;
 		fn set_shard_task_limit() -> Weight;
+		fn schedule_tasks(n: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {

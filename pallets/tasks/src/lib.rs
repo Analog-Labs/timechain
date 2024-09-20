@@ -238,6 +238,10 @@ pub mod pallet {
 	pub type BatchSignature<T: Config> =
 		StorageMap<_, Blake2_128Concat, BatchId, TssSignature, OptionQuery>;
 
+	#[pallet::storage]
+	pub type BatchSubmissionTaskId<T: Config> =
+		StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
+
 	/// Map storage for task signers.
 	#[pallet::storage]
 	pub type TaskSigner<T: Config> =
@@ -310,7 +314,7 @@ pub mod pallet {
 			let network = T::Shards::shard_network(shard).ok_or(Error::<T>::UnknownShard)?;
 			let gateway = T::Networks::gateway(network).ok_or(Error::<T>::GatewayNotRegistered)?;
 			let reward = task.reward();
-			let task_result = match (task, result) {
+			match (task, result) {
 				(
 					Task::ReadGatewayEvents { blocks },
 					TaskResult::ReadGatewayEvents { events, signature },
@@ -342,11 +346,16 @@ pub mod pallet {
 								MessageExecutedTaskId::<T>::insert(msg_id, task_id);
 								Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
 							},
+							GmpEvent::BatchExecuted(batch_id) => {
+								if let Some(task_id) = BatchSubmissionTaskId::<T>::get(batch_id) {
+									Self::finish_task(network, task_id, Ok(()));
+								}
+							},
 						}
 					}
-					// transfer reward
+					// complete task
 					Self::treasury_transfer_shard(shard, reward);
-					Ok(())
+					Self::finish_task(network, task_id, Ok(()));
 				},
 				(
 					Task::SignGatewayMessage { batch_id },
@@ -361,36 +370,23 @@ pub mod pallet {
 					// store signature
 					BatchSignature::<T>::insert(batch_id, signature);
 					// start submission
-					Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
-					// transfer reward
+					let submission_task_id =
+						Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
+					BatchSubmissionTaskId::<T>::insert(batch_id, submission_task_id);
+					// complete task
 					Self::treasury_transfer_shard(shard, reward);
-					// result
-					Ok(())
+					Self::finish_task(network, task_id, Ok(()));
 				},
 				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {
 					// verify signature
 					let expected_signer = TaskSigner::<T>::get(task_id).map(|s| s.into_account());
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
-					// transfer reward
+					// complete task
 					Self::treasury_transfer(signer, reward);
-					// result
-					if let Some(error) = error {
-						Err(error)
-					} else {
-						Ok(())
-					}
+					Self::finish_task(network, task_id, Err(error));
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};
-			TaskOutput::<T>::insert(task_id, task_result.clone());
-			TaskShard::<T>::remove(task_id);
-			ShardTasks::<T>::remove(shard, task_id);
-			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_sub(1));
-			ExecutedTaskCount::<T>::insert(
-				network,
-				ExecutedTaskCount::<T>::get(network).saturating_add(1),
-			);
-			Self::deposit_event(Event::TaskResult(task_id, task_result));
 			Ok(())
 		}
 
@@ -464,11 +460,28 @@ pub mod pallet {
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			if !needs_registration {
 				ReadEventsTask::<T>::insert(network, task_id);
+			} else {
+				Self::ua_task_queue(network).push(task_id);
 			}
-			Self::ua_task_queue(network).push(task_id);
 			TaskCount::<T>::insert(network, TaskCount::<T>::get(network).saturating_add(1));
 			Self::deposit_event(Event::TaskCreated(task_id));
 			task_id
+		}
+
+		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), String>) {
+			TaskOutput::<T>::insert(task_id, result.clone());
+			if let Some(shard) = TaskShard::<T>::take(task_id) {
+				ShardTasks::<T>::remove(shard, task_id);
+				ShardTaskCount::<T>::insert(
+					shard,
+					ShardTaskCount::<T>::get(shard).saturating_sub(1),
+				);
+				ExecutedTaskCount::<T>::insert(
+					network,
+					ExecutedTaskCount::<T>::get(network).saturating_add(1),
+				);
+			}
+			Self::deposit_event(Event::TaskResult(task_id, result));
 		}
 
 		/// Non-prioritized tasks which are assigned only after

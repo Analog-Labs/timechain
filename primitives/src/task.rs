@@ -70,6 +70,6 @@ pub enum TaskResult {
 		signature: TssSignature,
 	},
 	SubmitGatewayMessage {
-		error: Option<String>,
+		error: String,
 	},
 }

@@ -198,6 +198,7 @@ pub enum GmpEvent {
 	),
 	MessageReceived(GmpMessage),
 	MessageExecuted(MessageId),
+	BatchExecuted(BatchId),
 }
 
 #[cfg(feature = "std")]

@@ -58,6 +58,14 @@ fn submit_message_signature(network: NetworkId, task: TaskId, batch: BatchId) {
 	assert_ok!(Tasks::submit_task_result(RawOrigin::Signed([0; 32].into()).into(), task, result));
 }
 
+fn submit_submission_error(task: TaskId, error: &str) {
+	assert_ok!(Tasks::submit_task_result(
+		RawOrigin::Signed([0; 32].into()).into(),
+		task,
+		TaskResult::SubmitGatewayMessage { error: error.to_string() }
+	));
+}
+
 fn mock_gmp_msg(nonce: u64) -> GmpMessage {
 	GmpMessage {
 		src_network: ETHEREUM,
@@ -214,20 +222,38 @@ fn test_shard_registered_event_registers_or_unregisters_shard() {
 
 #[test]
 fn test_msg_execution_event_completes_submit_task() {
-	/*register_gateway(ETHEREUM, 42);
-	let shard = create_shard(ETHEREUM, 3, 1);
-	roll(1);
-	assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
-	Tasks::assign_task(shard, 1);
-	submit_message_signature(ETHEREUM, 1, 0);
-	roll(1);
-	assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
-	Tasks::assign_task(shard, 2);
-	submit_gateway_events(0, vec![GmpEvent::MessageExecuted()])*/
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 1);
+		submit_message_signature(ETHEREUM, 1, 0);
+		roll(1);
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 2);
+		submit_gateway_events(0, vec![GmpEvent::BatchExecuted(0)]);
+		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
+	})
 }
 
 #[test]
-fn test_msg_execution_error_completes_submit_task() {}
+fn test_msg_execution_error_completes_submit_task() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 1);
+		submit_message_signature(ETHEREUM, 1, 0);
+		roll(1);
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 2);
+		assert!(Tasks::get_task_result(2).is_none());
+		submit_submission_error(2, "error message");
+		assert_eq!(Tasks::get_task_result(2), Some(Err("error message".to_string())));
+	})
+}
 
 #[test]
 fn test_tasks_are_assigned_to_registered_shards() {
@@ -237,6 +263,6 @@ fn test_tasks_are_assigned_to_registered_shards() {
 		register_shard(shard);
 		assert!(Tasks::is_shard_registered(shard));
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![0, 1]);
-	});
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 0]);
+	})
 }

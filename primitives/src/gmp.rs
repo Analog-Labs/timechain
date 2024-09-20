@@ -32,7 +32,9 @@ impl GmpParams {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+#[derive(
+	Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd,
+)]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
@@ -186,7 +188,7 @@ impl BatchBuilder {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
 pub enum GmpEvent {
 	ShardRegistered(
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
@@ -208,11 +210,9 @@ use anyhow::Result;
 #[cfg(feature = "std")]
 use futures::Stream;
 #[cfg(feature = "std")]
-use std::num::NonZeroU64;
-#[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(feature = "std")]
 use std::pin::Pin;
 
@@ -226,7 +226,7 @@ pub struct ConnectorParams {
 }
 
 #[cfg(feature = "std")]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Network {
 	pub network_id: NetworkId,
 	pub gateway: Gateway,
@@ -254,8 +254,14 @@ pub trait IChain {
 	fn network_id(&self) -> NetworkId;
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address;
+	/// Uses a faucet to fund the account when possible.
+	async fn faucet(&self) -> Result<()>;
+	/// Transfers an amount to an account.
+	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
 	/// Queries the account balance.
 	async fn balance(&self, address: Address) -> Result<u128>;
+	/// Stream of finalized block indexes.
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 }
 
 #[cfg(feature = "std")]
@@ -266,12 +272,7 @@ pub trait IConnector: IChain {
 	where
 		Self: Sized;
 	/// Reads gmp messages from the target chain.
-	async fn read_events(
-		&self,
-		gateway: Gateway,
-		from_block: Option<NonZeroU64>,
-		to_block: u64,
-	) -> Result<Vec<GmpEvent>>;
+	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
@@ -280,27 +281,15 @@ pub trait IConnector: IChain {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String>;
-	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
 }
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IChain {
-	/// Creates a new connector.
-	async fn new(
-		params: ConnectorParams,
-		gateway: PathBuf,
-		proxy: PathBuf,
-		tester: PathBuf,
-	) -> Result<Self>
-	where
-		Self: Sized;
-
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self) -> Result<(Address, u64)>;
+	async fn deploy_gateway(&self, proxy: &Path, gateway: &Path) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, gateway: Address) -> Result<()>;
+	async fn redeploy_gateway(&self, proxy: Address, gateway: &Path) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address>;
 	/// Sets the gateway admin.
@@ -313,12 +302,8 @@ pub trait IConnectorAdmin: IChain {
 	async fn networks(&self, gateway: Address) -> Result<Vec<Network>>;
 	/// Updates an entry in the gateway routing table.
 	async fn set_network(&self, gateway: Address, network: Network) -> Result<()>;
-	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self) -> Result<()>;
-	/// Transfers an amount to an account.
-	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address) -> Result<(Address, u64)>;
+	async fn deploy_test(&self, gateway: Address, tester: &Path) -> Result<(Address, u64)>;
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,

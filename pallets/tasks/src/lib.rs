@@ -425,6 +425,12 @@ pub mod pallet {
 		UnknownTask,
 		/// Unknown Shard
 		UnknownShard,
+		/// Unknown Network for Shard
+		UnknownShardNetwork,
+		/// Unknown Shard Public Key
+		UnknownShardPublicKey,
+		/// Conversion to Schnorr Public Key from Shard Public Key Failed
+		SchnorrPKConversionFailed,
 		/// Invalid Signature
 		InvalidSignature,
 		/// Signature Verification Failed
@@ -642,7 +648,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(T::Shards::is_shard_online(bootstrap), Error::<T>::BootstrapShardMustBeOnline);
-			let network = T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShard)?;
+			let network =
+				T::Shards::shard_network(bootstrap).ok_or(Error::<T>::UnknownShardNetwork)?;
 			for (shard_id, _) in NetworkShards::<T>::iter_prefix(network) {
 				Self::unregister_shard(shard_id, network);
 			}
@@ -1275,11 +1282,12 @@ pub mod pallet {
 			data: &[u8],
 			signature: TssSignature,
 		) -> DispatchResult {
-			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+			let public_key =
+				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShardPublicKey)?;
 			let signature = schnorr_evm::Signature::from_bytes(signature)
 				.map_err(|_| Error::<T>::InvalidSignature)?;
 			let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)
-				.map_err(|_| Error::<T>::UnknownShard)?;
+				.map_err(|_| Error::<T>::SchnorrPKConversionFailed)?;
 			schnorr_public_key
 				.verify(data, &signature)
 				.map_err(|_| Error::<T>::SignatureVerificationFailed)?;
@@ -1518,8 +1526,9 @@ pub mod pallet {
 		) -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			let task_descriptor = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
 			let tss_public_key =
-				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let network_id = T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShard)?;
+				T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShardPublicKey)?;
+			let network_id =
+				T::Shards::shard_network(shard_id).ok_or(Error::<T>::UnknownShardNetwork)?;
 			let gateway_contract =
 				Gateway::<T>::get(network_id).ok_or(Error::<T>::GatewayNotRegistered)?;
 
@@ -1534,15 +1543,15 @@ pub mod pallet {
 					Ok(Message::gmp(msg).to_eip712_bytes(&gmp_params).into())
 				},
 				Function::RegisterShard { shard_id } => {
-					let tss_public_key =
-						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+					let tss_public_key = T::Shards::tss_public_key(shard_id)
+						.ok_or(Error::<T>::UnknownShardPublicKey)?;
 					Ok(Message::update_keys([], [tss_public_key])
 						.to_eip712_bytes(&gmp_params)
 						.into())
 				},
 				Function::UnregisterShard { shard_id } => {
-					let tss_public_key =
-						T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
+					let tss_public_key = T::Shards::tss_public_key(shard_id)
+						.ok_or(Error::<T>::UnknownShardPublicKey)?;
 					Ok(Message::update_keys([tss_public_key], [])
 						.to_eip712_bytes(&gmp_params)
 						.into())

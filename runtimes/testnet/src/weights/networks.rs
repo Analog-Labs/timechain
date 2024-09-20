@@ -83,4 +83,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	fn set_batch_gas_limit() -> Weight {
+		Weight::default()
+	}
 }

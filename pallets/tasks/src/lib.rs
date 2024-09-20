@@ -244,7 +244,7 @@ pub mod pallet {
 
 	/// Map storage for task signers.
 	#[pallet::storage]
-	pub type TaskSigner<T: Config> =
+	pub type TaskSubmitter<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, PublicKey, OptionQuery>;
 
 	#[pallet::event]
@@ -379,7 +379,8 @@ pub mod pallet {
 				},
 				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {
 					// verify signature
-					let expected_signer = TaskSigner::<T>::get(task_id).map(|s| s.into_account());
+					let expected_signer =
+						TaskSubmitter::<T>::get(task_id).map(|s| s.into_account());
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
 					// complete task
 					Self::treasury_transfer(signer, reward);
@@ -510,7 +511,7 @@ pub mod pallet {
 			TaskShard::<T>::insert(task_id, shard);
 			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_add(1));
 			if needs_signer {
-				TaskSigner::<T>::insert(task_id, T::Shards::next_signer(shard));
+				TaskSubmitter::<T>::insert(task_id, T::Shards::next_signer(shard));
 				writes = writes.saturating_plus_one();
 			}
 			// writes: remove_unassigned_task, ShardTasks, TaskShard, start_phase
@@ -632,8 +633,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Retrieves the public key of the signer for a given task.
 		/// Look up the `PublicKey` of the signer associated with the provided `task` ID in the storage.
-		pub fn get_task_signer(task: TaskId) -> Option<PublicKey> {
-			TaskSigner::<T>::get(task)
+		pub fn get_task_submitter(task: TaskId) -> Option<PublicKey> {
+			TaskSubmitter::<T>::get(task)
 		}
 
 		/// Retrieves a list of tasks associated with a given shard.

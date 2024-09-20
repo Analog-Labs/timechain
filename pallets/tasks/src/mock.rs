@@ -21,8 +21,6 @@ use sp_runtime::{
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
 
-use schnorr_evm::SigningKey;
-
 use time_primitives::{
 	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
 	PublicKey, ShardsInterface,
@@ -302,31 +300,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
-}
-
-pub struct MockTssSigner {
-	signing_key: SigningKey,
-}
-
-impl MockTssSigner {
-	pub fn new() -> Self {
-		Self {
-			//random key bytes
-			signing_key: SigningKey::from_bytes([
-				62, 78, 161, 128, 140, 236, 177, 67, 143, 75, 171, 207, 104, 60, 36, 95, 104, 71,
-				17, 91, 237, 184, 132, 165, 52, 240, 194, 4, 138, 196, 89, 176,
-			])
-			.unwrap(),
-		}
-	}
-
-	pub fn public_key(&self) -> [u8; 33] {
-		self.signing_key.public().to_bytes().unwrap()
-	}
-
-	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
-		self.signing_key.sign(data)
-	}
 }
 
 pub fn roll(n: u64) {

@@ -21,6 +21,7 @@ use time_primitives::{
 const BLOCK_TIME: u64 = 1;
 const FINALIZATION_TIME: u64 = 2;
 const FAUCET: u128 = 1_000_000_000;
+
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
 const ADMIN: TableDefinition<Address, Address> = TableDefinition::new("admin");
 const EVENTS: MultimapTableDefinition<(Address, u64), Bincode<GmpEvent>> =
@@ -79,9 +80,12 @@ impl IChain for Connector {
 
 	async fn faucet(&self) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		let mut t = tx.open_table(BALANCE)?;
-		let balance = read_balance(&t, self.address)?;
-		t.insert(self.address, balance + FAUCET)?;
+		{
+			let mut t = tx.open_table(BALANCE)?;
+			let balance = read_balance(&t, self.address)?;
+			t.insert(self.address, balance + FAUCET)?;
+		}
+		tx.commit()?;
 		Ok(())
 	}
 
@@ -97,14 +101,17 @@ impl IChain for Connector {
 
 	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		let mut t = tx.open_table(BALANCE)?;
-		let balance = read_balance(&t, self.address)?;
-		if balance < amount {
-			anyhow::bail!("insufficient balance");
+		{
+			let mut t = tx.open_table(BALANCE)?;
+			let balance = read_balance(&t, self.address)?;
+			if balance < amount {
+				anyhow::bail!("insufficient balance");
+			}
+			let dest_balance = read_balance(&t, address)?;
+			t.insert(self.address, balance - amount)?;
+			t.insert(address, dest_balance + amount)?;
 		}
-		let dest_balance = read_balance(&t, address)?;
-		t.insert(self.address, balance - amount)?;
-		t.insert(address, dest_balance + amount)?;
+		tx.commit()?;
 		Ok(())
 	}
 
@@ -127,17 +134,28 @@ impl IConnector for Connector {
 	where
 		Self: Sized,
 	{
-		let mnemonic = std::fs::read_to_string(&params.keyfile)?;
-		let address = Address::from(*blake3::hash(mnemonic.as_bytes()).as_bytes());
-		let (tmpfile, path) = if params.network == "tempfile" {
+		if params.blockchain != "rust" {
+			anyhow::bail!("unsupported blockchain");
+		}
+		let address = Address::from(*blake3::hash(params.mnemonic.as_bytes()).as_bytes());
+		let (tmpfile, path) = if params.url == "tempfile" {
 			let file = NamedTempFile::new()?;
 			let path = file.path().to_owned();
 			(Some(file), path)
 		} else {
-			(None, Path::new(&params.network).to_owned())
+			(None, Path::new(&params.url).to_owned())
 		};
 		let db = Database::create(&path)?;
 		let genesis = std::fs::metadata(&path)?.created()?;
+		let tx = db.begin_write()?;
+		tx.open_table(BALANCE)?;
+		tx.open_table(ADMIN)?;
+		tx.open_table(NETWORKS)?;
+		tx.open_table(GATEWAY)?;
+		tx.open_multimap_table(EVENTS)?;
+		tx.open_multimap_table(SHARDS)?;
+		tx.open_multimap_table(TESTERS)?;
+		tx.commit()?;
 		Ok(Self {
 			network_id: params.network_id,
 			address,
@@ -177,29 +195,35 @@ impl IConnector for Connector {
 			.map_err(|_| "invalid signature".to_string())?;
 		(|| {
 			let tx = self.db.begin_write()?;
-			let mut events = tx.open_multimap_table(EVENTS)?;
-			let mut shards = tx.open_multimap_table(SHARDS)?;
-			let block = block(self.genesis);
-			for op in &msg.ops {
-				match op {
-					GatewayOp::RegisterShard(key) => {
-						shards.insert(gateway, key)?;
-						events.insert((gateway, block), GmpEvent::ShardRegistered(*key))?;
-					},
-					GatewayOp::UnregisterShard(key) => {
-						shards.remove(gateway, key)?;
-						events.insert((gateway, block), GmpEvent::ShardUnregistered(*key))?;
-					},
-					GatewayOp::SendMessage(msg) => {
-						events.insert((msg.dest, block), GmpEvent::MessageReceived(msg.clone()))?;
-						events.insert(
-							(gateway, block),
-							GmpEvent::MessageExecuted(msg.message_id()),
-						)?;
-					},
+			{
+				let mut events = tx.open_multimap_table(EVENTS)?;
+				let mut shards = tx.open_multimap_table(SHARDS)?;
+				let block = block(self.genesis);
+				for op in &msg.ops {
+					match op {
+						GatewayOp::RegisterShard(key) => {
+							shards.insert(gateway, key)?;
+							events.insert((gateway, block), GmpEvent::ShardRegistered(*key))?;
+						},
+						GatewayOp::UnregisterShard(key) => {
+							shards.remove(gateway, key)?;
+							events.insert((gateway, block), GmpEvent::ShardUnregistered(*key))?;
+						},
+						GatewayOp::SendMessage(msg) => {
+							events.insert(
+								(msg.dest, block),
+								GmpEvent::MessageReceived(msg.clone()),
+							)?;
+							events.insert(
+								(gateway, block),
+								GmpEvent::MessageExecuted(msg.message_id()),
+							)?;
+						},
+					}
 				}
+				events.insert((gateway, block), GmpEvent::BatchExecuted(batch))?;
 			}
-			events.insert((gateway, block), GmpEvent::BatchExecuted(batch))?;
+			tx.commit()?;
 			Ok(())
 		})()
 		.map_err(|err: anyhow::Error| err.to_string())
@@ -217,8 +241,11 @@ impl IConnectorAdmin for Connector {
 		getrandom::getrandom(&mut gateway).unwrap();
 		let block = block(self.genesis);
 		let tx = self.db.begin_write()?;
-		let mut t = tx.open_table(ADMIN)?;
-		t.insert(gateway, self.address)?;
+		{
+			let mut t = tx.open_table(ADMIN)?;
+			t.insert(gateway, self.address)?;
+		}
+		tx.commit()?;
 		Ok((gateway.into(), block))
 	}
 
@@ -264,25 +291,28 @@ impl IConnectorAdmin for Connector {
 
 	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		let mut events = tx.open_multimap_table(EVENTS)?;
-		let mut shards = tx.open_multimap_table(SHARDS)?;
-		let block = block(self.genesis);
-		let values = shards.remove_all(gateway)?;
-		let keys: BTreeSet<_> = keys.into_iter().copied().collect();
-		let mut old_keys = BTreeSet::new();
-		for value in values {
-			let old_key = value?.value();
-			old_keys.insert(old_key);
-			if !keys.contains(&old_key) {
-				events.insert((gateway, block), GmpEvent::ShardUnregistered(old_key))?;
+		{
+			let mut events = tx.open_multimap_table(EVENTS)?;
+			let mut shards = tx.open_multimap_table(SHARDS)?;
+			let block = block(self.genesis);
+			let values = shards.remove_all(gateway)?;
+			let keys: BTreeSet<_> = keys.into_iter().copied().collect();
+			let mut old_keys = BTreeSet::new();
+			for value in values {
+				let old_key = value?.value();
+				old_keys.insert(old_key);
+				if !keys.contains(&old_key) {
+					events.insert((gateway, block), GmpEvent::ShardUnregistered(old_key))?;
+				}
+			}
+			for key in keys {
+				shards.insert(gateway, key)?;
+				if !old_keys.contains(&key) {
+					events.insert((gateway, block), GmpEvent::ShardRegistered(key))?;
+				}
 			}
 		}
-		for key in keys {
-			shards.insert(gateway, key)?;
-			if !old_keys.contains(&key) {
-				events.insert((gateway, block), GmpEvent::ShardRegistered(key))?;
-			}
-		}
+		tx.commit()?;
 		Ok(())
 	}
 
@@ -304,24 +334,27 @@ impl IConnectorAdmin for Connector {
 
 	async fn set_network(&self, gateway: Address, new_network: Network) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		let mut t = tx.open_table(NETWORKS)?;
-		let mut network = t
-			.remove((gateway, new_network.network_id))?
-			.map(|g| g.value())
-			.unwrap_or(new_network.clone());
-		if new_network.gateway != [0; 32] {
-			network.gateway = new_network.gateway;
+		{
+			let mut t = tx.open_table(NETWORKS)?;
+			let mut network = t
+				.remove((gateway, new_network.network_id))?
+				.map(|g| g.value())
+				.unwrap_or(new_network.clone());
+			if new_network.gateway != [0; 32] {
+				network.gateway = new_network.gateway;
+			}
+			if new_network.relative_gas_price != (0, 0) {
+				network.relative_gas_price = new_network.relative_gas_price;
+			}
+			if new_network.gas_limit != 0 {
+				network.gas_limit = new_network.gas_limit;
+			}
+			if new_network.base_fee != 0 {
+				network.base_fee = new_network.base_fee;
+			}
+			t.insert((gateway, network.network_id), network)?;
 		}
-		if new_network.relative_gas_price != (0, 0) {
-			network.relative_gas_price = new_network.relative_gas_price;
-		}
-		if new_network.gas_limit != 0 {
-			network.gas_limit = new_network.gas_limit;
-		}
-		if new_network.base_fee != 0 {
-			network.base_fee = new_network.base_fee;
-		}
-		t.insert((gateway, network.network_id), network)?;
+		tx.commit()?;
 		Ok(())
 	}
 
@@ -330,10 +363,13 @@ impl IConnectorAdmin for Connector {
 		getrandom::getrandom(&mut tester).unwrap();
 		let block = block(self.genesis);
 		let tx = self.db.begin_write()?;
-		let mut t = tx.open_table(GATEWAY)?;
-		t.insert(tester, gateway)?;
-		let mut t = tx.open_multimap_table(TESTERS)?;
-		t.insert(gateway, tester)?;
+		{
+			let mut t = tx.open_table(GATEWAY)?;
+			t.insert(tester, gateway)?;
+			let mut t = tx.open_multimap_table(TESTERS)?;
+			t.insert(gateway, tester)?;
+		}
+		tx.commit()?;
 		Ok((tester, block))
 	}
 
@@ -348,11 +384,14 @@ impl IConnectorAdmin for Connector {
 
 	async fn send_message(&self, addr: Address, msg: GmpMessage) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		let t = tx.open_table(GATEWAY)?;
-		let gateway = t.get(addr)?.context("tester not deployed")?.value();
-		let mut t = tx.open_multimap_table(EVENTS)?;
-		let block = block(self.genesis);
-		t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
+		{
+			let t = tx.open_table(GATEWAY)?;
+			let gateway = t.get(addr)?.context("tester not deployed")?.value();
+			let mut t = tx.open_multimap_table(EVENTS)?;
+			let block = block(self.genesis);
+			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
+		}
+		tx.commit()?;
 		Ok(())
 	}
 
@@ -418,5 +457,67 @@ where
 {
 	fn compare(data1: &[u8], data2: &[u8]) -> Ordering {
 		Self::from_bytes(data1).cmp(&Self::from_bytes(data2))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use time_primitives::MockTssSigner;
+
+	async fn connector(network: NetworkId, mnemonic: u8) -> Result<Connector> {
+		Connector::new(ConnectorParams {
+			network_id: network,
+			blockchain: "rust".to_string(),
+			network: network.to_string(),
+			url: "tempfile".to_string(),
+			mnemonic: mnemonic.to_string(),
+		})
+		.await
+	}
+
+	fn gmp_msg(src: Address, dest: Address) -> GmpMessage {
+		GmpMessage {
+			src_network: 0,
+			dest_network: 0,
+			src,
+			dest,
+			nonce: 0,
+			gas_limit: 0,
+			gas_cost: 0,
+			bytes: vec![],
+		}
+	}
+
+	#[tokio::test]
+	async fn smoke_test() -> Result<()> {
+		let network = 0;
+		let chain = connector(network, 0).await?;
+		let shard = MockTssSigner::new(0);
+		assert_eq!(chain.balance(chain.address()).await?, 0);
+		chain.faucet().await?;
+		assert_eq!(chain.balance(chain.address()).await?, FAUCET);
+		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref()).await?;
+		chain.transfer(gateway, 10_000).await?;
+		assert_eq!(chain.balance(gateway).await?, 10_000);
+		chain.set_shards(gateway, &[shard.public_key()]).await?;
+		assert_eq!(&chain.shards(gateway).await?, &[shard.public_key()]);
+		let current = chain.block_stream().next().await.unwrap();
+		let events = chain.read_events(gateway, block..current).await?;
+		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
+		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
+		let (dest, _) = chain.deploy_test(gateway, "".as_ref()).await?;
+		let msg = gmp_msg(src, dest);
+		chain.send_message(src, msg.clone()).await?;
+		let current2 = chain.block_stream().next().await.unwrap();
+		let events = chain.read_events(gateway, current..current2).await?;
+		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);
+		let cmds = GatewayMessage::new(vec![GatewayOp::SendMessage(msg.clone())]);
+		let sig = shard.sign_gateway_message(network, gateway, 0, &cmds);
+		chain.submit_commands(gateway, 0, cmds, shard.public_key(), sig).await.unwrap();
+		let current = chain.block_stream().next().await.unwrap();
+		let msgs = chain.recv_messages(dest, current2..current).await?;
+		assert_eq!(msgs, vec![msg]);
+		Ok(())
 	}
 }

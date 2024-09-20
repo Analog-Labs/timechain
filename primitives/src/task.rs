@@ -20,15 +20,15 @@ pub enum Task {
 impl std::fmt::Display for Task {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Task::ReadGatewayEvents { blocks } => {
+			Self::ReadGatewayEvents { blocks } => {
 				let start = blocks.start;
 				let end = blocks.end;
 				write!(f, "ReadGatewayEvents({start}..{end})")
 			},
-			Task::SignGatewayMessage { batch_id } => {
+			Self::SignGatewayMessage { batch_id } => {
 				write!(f, "SignPayload({batch_id})")
 			},
-			Task::SubmitGatewayMessage { batch_id } => {
+			Self::SubmitGatewayMessage { batch_id } => {
 				write!(f, "SubmitGatewayMessage({batch_id})")
 			},
 		}

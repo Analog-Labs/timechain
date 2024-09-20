@@ -216,7 +216,7 @@ use futures::Stream;
 #[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
-use std::path::{Path, PathBuf};
+use std::path::Path;
 #[cfg(feature = "std")]
 use std::pin::Pin;
 
@@ -226,7 +226,7 @@ pub struct ConnectorParams {
 	pub blockchain: String,
 	pub network: String,
 	pub url: String,
-	pub keyfile: PathBuf,
+	pub mnemonic: String,
 }
 
 #[cfg(feature = "std")]

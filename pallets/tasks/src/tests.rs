@@ -6,8 +6,9 @@ use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use polkadot_sdk::{frame_support, frame_system};
 use time_primitives::{
-	encode_gmp_events, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	NetworkId, ShardId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult, TasksInterface,
+	traits::IdentifyAccount, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
+	MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId,
+	TaskResult, TasksInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -18,7 +19,7 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 		members.push([i; 32].into());
 	}
 	let shard_id = Shards::create_shard(network, members, t).0;
-	let pub_key = MockTssSigner::new().public_key();
+	let pub_key = MockTssSigner::new(shard_id).public_key();
 	ShardCommitment::<Test>::insert(shard_id, vec![pub_key]);
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 	Tasks::shard_online(shard_id, network);
@@ -38,10 +39,12 @@ fn register_shard(shard: ShardId) {
 	ShardRegistered::<Test>::insert(public_key, ());
 }
 
-fn submit_gateway_events(task_id: TaskId, events: Vec<GmpEvent>) {
-	let bytes = encode_gmp_events(task_id, &events);
-	let signature = MockTssSigner::new().sign(&bytes).to_bytes();
-	let result = TaskResult::ReadGatewayEvents { events, signature };
+fn submit_gateway_events(shard: ShardId, task_id: TaskId, events: &[GmpEvent]) {
+	let signature = MockTssSigner::new(shard).sign_gmp_events(task_id, &events);
+	let result = TaskResult::ReadGatewayEvents {
+		events: events.to_vec(),
+		signature,
+	};
 	assert_ok!(Tasks::submit_task_result(
 		RawOrigin::Signed([0; 32].into()).into(),
 		task_id,
@@ -49,18 +52,17 @@ fn submit_gateway_events(task_id: TaskId, events: Vec<GmpEvent>) {
 	));
 }
 
-fn submit_message_signature(network: NetworkId, task: TaskId, batch: BatchId) {
+fn submit_message_signature(shard: ShardId, task: TaskId, batch: BatchId) {
+	let network = Shards::shard_network(shard).unwrap();
 	let msg = Tasks::get_batch_message(batch).unwrap();
-	let bytes = msg.encode(batch);
-	let hash = GmpParams { network, gateway: [0; 32] }.hash(&bytes);
-	let signature = MockTssSigner::new().sign(&hash).to_bytes();
+	let signature = MockTssSigner::new(shard).sign_gateway_message(network, [0; 32], batch, &msg);
 	let result = TaskResult::SignGatewayMessage { signature };
 	assert_ok!(Tasks::submit_task_result(RawOrigin::Signed([0; 32].into()).into(), task, result));
 }
 
-fn submit_submission_error(task: TaskId, error: &str) {
+fn submit_submission_error(account: PublicKey, task: TaskId, error: &str) {
 	assert_ok!(Tasks::submit_task_result(
-		RawOrigin::Signed([0; 32].into()).into(),
+		RawOrigin::Signed(account.into_account()).into(),
 		task,
 		TaskResult::SubmitGatewayMessage { error: error.to_string() }
 	));
@@ -105,10 +107,10 @@ fn test_read_events_completes_starts_next_read_events() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
 		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
-		let shard_id = create_shard(ETHEREUM, 3, 1);
+		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard_id), vec![0]);
-		submit_gateway_events(0, vec![]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
+		submit_gateway_events(shard, 0, &[]);
 		assert_eq!(Tasks::get_task(2), Some(Task::ReadGatewayEvents { blocks: 47..52 }));
 	})
 }
@@ -117,13 +119,13 @@ fn test_read_events_completes_starts_next_read_events() {
 fn test_shard_online_registers_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		create_shard(ETHEREUM, 3, 1);
+		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
 		assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
 		assert_eq!(
 			Tasks::get_batch_message(0),
 			Some(GatewayMessage {
-				ops: vec![GatewayOp::RegisterShard(MockTssSigner::new().public_key())],
+				ops: vec![GatewayOp::RegisterShard(MockTssSigner::new(shard).public_key())],
 			})
 		);
 	})
@@ -142,7 +144,7 @@ fn test_shard_offline_unregisters_shard() {
 		assert_eq!(
 			Tasks::get_batch_message(1),
 			Some(GatewayMessage {
-				ops: vec![GatewayOp::UnregisterShard(MockTssSigner::new().public_key())],
+				ops: vec![GatewayOp::UnregisterShard(MockTssSigner::new(shard).public_key())],
 			})
 		);
 	})
@@ -157,7 +159,7 @@ fn test_recv_msg_sends_msg() {
 		roll(1);
 		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
 		let msg = mock_gmp_msg(0);
-		submit_gateway_events(0, vec![GmpEvent::MessageReceived(msg.clone())]);
+		submit_gateway_events(shard, 0, &[GmpEvent::MessageReceived(msg.clone())]);
 		roll(1);
 		assert_eq!(Tasks::get_task(3), Some(Task::SignGatewayMessage { batch_id: 1 }));
 		assert_eq!(
@@ -190,7 +192,7 @@ fn test_sign_task_creates_submit_task() {
 		roll(1);
 		assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 1);
-		submit_message_signature(ETHEREUM, 1, 0);
+		submit_message_signature(shard, 1, 0);
 		roll(1);
 		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		assert!(Tasks::get_batch_signature(0).is_some());
@@ -202,21 +204,23 @@ fn test_shard_registered_event_registers_or_unregisters_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
 		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
-		let shard_id = create_shard(ETHEREUM, 3, 1);
+		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard_id), vec![0]);
-		assert!(!Tasks::is_shard_registered(shard_id));
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
+		assert!(!Tasks::is_shard_registered(shard));
 		submit_gateway_events(
+			shard,
 			0,
-			vec![GmpEvent::ShardRegistered(MockTssSigner::new().public_key())],
+			&[GmpEvent::ShardRegistered(MockTssSigner::new(shard).public_key())],
 		);
-		assert!(Tasks::is_shard_registered(shard_id));
+		assert!(Tasks::is_shard_registered(shard));
 		roll(1);
 		submit_gateway_events(
+			shard,
 			2,
-			vec![GmpEvent::ShardUnregistered(MockTssSigner::new().public_key())],
+			&[GmpEvent::ShardUnregistered(MockTssSigner::new(shard).public_key())],
 		);
-		assert!(!Tasks::is_shard_registered(shard_id));
+		assert!(!Tasks::is_shard_registered(shard));
 	})
 }
 
@@ -228,11 +232,11 @@ fn test_msg_execution_event_completes_submit_task() {
 		roll(1);
 		assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 1);
-		submit_message_signature(ETHEREUM, 1, 0);
+		submit_message_signature(shard, 1, 0);
 		roll(1);
 		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
-		submit_gateway_events(0, vec![GmpEvent::BatchExecuted(0)]);
+		submit_gateway_events(shard, 0, &[GmpEvent::BatchExecuted(0)]);
 		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
 	})
 }
@@ -245,12 +249,13 @@ fn test_msg_execution_error_completes_submit_task() {
 		roll(1);
 		assert_eq!(Tasks::get_task(1), Some(Task::SignGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 1);
-		submit_message_signature(ETHEREUM, 1, 0);
+		submit_message_signature(shard, 1, 0);
 		roll(1);
 		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
 		assert!(Tasks::get_task_result(2).is_none());
-		submit_submission_error(2, "error message");
+		let account = Tasks::get_task_submitter(2).unwrap();
+		submit_submission_error(account, 2, "error message");
 		assert_eq!(Tasks::get_task_result(2), Some(Err("error message".to_string())));
 	})
 }

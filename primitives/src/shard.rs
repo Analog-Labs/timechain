@@ -2,6 +2,7 @@
 use crate::task::TaskId;
 #[cfg(feature = "std")]
 use crate::BlockNumber;
+use crate::{encode_gmp_events, BatchId, Gateway, GatewayMessage, GmpEvent, GmpParams, NetworkId};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
 #[cfg(feature = "std")]
@@ -127,4 +128,48 @@ pub fn verify_signature(
 	let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key).map_err(|_| ())?;
 	schnorr_public_key.verify(data, &signature).map_err(|_| ())?;
 	Ok(())
+}
+
+pub struct MockTssSigner {
+	signing_key: schnorr_evm::SigningKey,
+}
+
+impl MockTssSigner {
+	pub fn new(shard: ShardId) -> Self {
+		let shard = shard + 1;
+		let mut key = [0; 32];
+		key[24..32].copy_from_slice(&shard.to_be_bytes());
+		Self::from_secret(key)
+	}
+
+	pub fn from_secret(secret: [u8; 32]) -> Self {
+		Self {
+			signing_key: schnorr_evm::SigningKey::from_bytes(secret).unwrap(),
+		}
+	}
+
+	pub fn public_key(&self) -> TssPublicKey {
+		self.signing_key.public().to_bytes().unwrap()
+	}
+
+	pub fn sign(&self, data: &[u8]) -> TssSignature {
+		self.signing_key.sign(data).to_bytes()
+	}
+
+	pub fn sign_gateway_message(
+		&self,
+		network: NetworkId,
+		gateway: Gateway,
+		batch: BatchId,
+		msg: &GatewayMessage,
+	) -> TssSignature {
+		let bytes = msg.encode(batch);
+		let hash = GmpParams { network, gateway }.hash(&bytes);
+		self.sign(&hash)
+	}
+
+	pub fn sign_gmp_events(&self, task: TaskId, events: &[GmpEvent]) -> TssSignature {
+		let bytes = encode_gmp_events(task, events);
+		self.sign(&bytes)
+	}
 }

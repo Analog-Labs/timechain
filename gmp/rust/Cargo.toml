@@ -20,4 +20,4 @@ redb = "2.1.2"
 serde.workspace = true
 tempfile = "3.12.0"
 time-primitives = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

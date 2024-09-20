@@ -425,12 +425,7 @@ pub mod pallet {
 			signature: TssSignature,
 		) -> DispatchResult {
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			let signature = schnorr_evm::Signature::from_bytes(signature)
-				.map_err(|_| Error::<T>::InvalidSignature)?;
-			let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key)
-				.map_err(|_| Error::<T>::UnknownShard)?;
-			schnorr_public_key
-				.verify(data, &signature)
+			time_primitives::verify_signature(public_key, data, signature)
 				.map_err(|_| Error::<T>::InvalidSignature)?;
 			Ok(())
 		}

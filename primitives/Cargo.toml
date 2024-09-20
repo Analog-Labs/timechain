@@ -18,6 +18,7 @@ serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
 scale-decode.workspace = true
 scale-info.workspace = true
+schnorr-evm = { version = "0.1.0", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 
 polkadot-sdk = { workspace = true, features = [
@@ -38,7 +39,7 @@ std = [
 	"futures",
 	"scale-codec/std",
 	"scale-info/std",
-
+	"schnorr-evm/std",
 	"polkadot-sdk/std",
 ]
 

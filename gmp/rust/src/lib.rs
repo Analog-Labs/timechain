@@ -1,23 +1,25 @@
 use anyhow::{Context, Result};
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use redb::{
 	Database, Key, MultimapTableDefinition, ReadableTable, TableDefinition, TypeName, Value,
 };
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
 use std::pin::Pin;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address, ConnectorParams, GmpEvent, GmpMessage, IChain, IConnector, IConnectorAdmin, Network,
-	NetworkId, TssPublicKey, TssSignature,
+	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
+	IChain, IConnector, IConnectorAdmin, Network, NetworkId, TssPublicKey, TssSignature,
 };
 
-const BLOCK_TIME: u64 = 6;
+const BLOCK_TIME: u64 = 1;
+const FINALIZATION_TIME: u64 = 2;
 const FAUCET: u128 = 1_000_000_000;
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
 const ADMIN: TableDefinition<Address, Address> = TableDefinition::new("admin");
@@ -25,9 +27,10 @@ const EVENTS: MultimapTableDefinition<(Address, u64), Bincode<GmpEvent>> =
 	MultimapTableDefinition::new("events");
 const SHARDS: MultimapTableDefinition<Address, TssPublicKey> =
 	MultimapTableDefinition::new("shards");
-const NETWORKS: MultimapTableDefinition<Address, Bincode<Network>> =
-	MultimapTableDefinition::new("networks");
-const TESTERS: TableDefinition<Address, Address> = TableDefinition::new("testers");
+const NETWORKS: TableDefinition<(Address, NetworkId), Bincode<Network>> =
+	TableDefinition::new("networks");
+const GATEWAY: TableDefinition<Address, Address> = TableDefinition::new("gateway");
+const TESTERS: MultimapTableDefinition<Address, Address> = MultimapTableDefinition::new("testers");
 
 pub struct Connector {
 	network_id: NetworkId,
@@ -37,11 +40,9 @@ pub struct Connector {
 	_tmpfile: Option<NamedTempFile>,
 }
 
-impl Connector {
-	fn block(&self) -> u64 {
-		let elapsed = SystemTime::now().duration_since(self.genesis).unwrap();
-		elapsed.as_secs() / BLOCK_TIME
-	}
+fn block(genesis: SystemTime) -> u64 {
+	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
+	elapsed.as_secs() / BLOCK_TIME
 }
 
 fn read_balance<T: ReadableTable<Address, u128>>(table: &T, addr: Address) -> Result<u128> {
@@ -109,7 +110,13 @@ impl IChain for Connector {
 
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
-		todo!()
+		let genesis = self.genesis;
+		futures::stream::repeat(0)
+			.then(move |_| async move {
+				tokio::time::sleep(Duration::from_secs(FINALIZATION_TIME)).await;
+				block(genesis)
+			})
+			.boxed()
 	}
 }
 
@@ -158,12 +165,44 @@ impl IConnector for Connector {
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
-		_gateway: Address,
-		_msg: Vec<u8>,
-		_signer: TssPublicKey,
-		_sig: TssSignature,
+		gateway: Address,
+		batch: BatchId,
+		msg: GatewayMessage,
+		signer: TssPublicKey,
+		sig: TssSignature,
 	) -> Result<(), String> {
-		todo!()
+		let bytes = msg.encode(batch);
+		let hash = GmpParams::new(self.network_id(), gateway).hash(&bytes);
+		time_primitives::verify_signature(signer, &hash, sig)
+			.map_err(|_| "invalid signature".to_string())?;
+		(|| {
+			let tx = self.db.begin_write()?;
+			let mut events = tx.open_multimap_table(EVENTS)?;
+			let mut shards = tx.open_multimap_table(SHARDS)?;
+			let block = block(self.genesis);
+			for op in &msg.ops {
+				match op {
+					GatewayOp::RegisterShard(key) => {
+						shards.insert(gateway, key)?;
+						events.insert((gateway, block), GmpEvent::ShardRegistered(*key))?;
+					},
+					GatewayOp::UnregisterShard(key) => {
+						shards.remove(gateway, key)?;
+						events.insert((gateway, block), GmpEvent::ShardUnregistered(*key))?;
+					},
+					GatewayOp::SendMessage(msg) => {
+						events.insert((msg.dest, block), GmpEvent::MessageReceived(msg.clone()))?;
+						events.insert(
+							(gateway, block),
+							GmpEvent::MessageExecuted(msg.message_id()),
+						)?;
+					},
+				}
+			}
+			events.insert((gateway, block), GmpEvent::BatchExecuted(batch))?;
+			Ok(())
+		})()
+		.map_err(|err: anyhow::Error| err.to_string())
 	}
 }
 
@@ -176,7 +215,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<(Address, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::getrandom(&mut gateway).unwrap();
-		let block = self.block();
+		let block = block(self.genesis);
 		let tx = self.db.begin_write()?;
 		let mut t = tx.open_table(ADMIN)?;
 		t.insert(gateway, self.address)?;
@@ -223,33 +262,78 @@ impl IConnectorAdmin for Connector {
 		Ok(shards)
 	}
 
-	async fn set_shards(&self, _gateway: Address, _keys: &[TssPublicKey]) -> Result<()> {
-		todo!()
+	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		let mut events = tx.open_multimap_table(EVENTS)?;
+		let mut shards = tx.open_multimap_table(SHARDS)?;
+		let block = block(self.genesis);
+		let values = shards.remove_all(gateway)?;
+		let keys: BTreeSet<_> = keys.into_iter().copied().collect();
+		let mut old_keys = BTreeSet::new();
+		for value in values {
+			let old_key = value?.value();
+			old_keys.insert(old_key);
+			if !keys.contains(&old_key) {
+				events.insert((gateway, block), GmpEvent::ShardUnregistered(old_key))?;
+			}
+		}
+		for key in keys {
+			shards.insert(gateway, key)?;
+			if !old_keys.contains(&key) {
+				events.insert((gateway, block), GmpEvent::ShardRegistered(key))?;
+			}
+		}
+		Ok(())
 	}
 
 	async fn networks(&self, gateway: Address) -> Result<Vec<Network>> {
 		let tx = self.db.begin_read()?;
-		let t = tx.open_multimap_table(NETWORKS)?;
-		let values = t.get(gateway)?;
-		let mut networks = Vec::with_capacity(values.len() as _);
-		for value in values {
-			let network = value?.value();
+		let t = tx.open_table(NETWORKS)?;
+		let mut networks = vec![];
+		for r in t.iter()? {
+			let (k, v) = r?;
+			let (g, _) = k.value();
+			if g != gateway {
+				continue;
+			}
+			let network = v.value();
 			networks.push(network);
 		}
 		Ok(networks)
 	}
 
-	async fn set_network(&self, _gateway: Address, _network: Network) -> Result<()> {
-		todo!()
+	async fn set_network(&self, gateway: Address, new_network: Network) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		let mut t = tx.open_table(NETWORKS)?;
+		let mut network = t
+			.remove((gateway, new_network.network_id))?
+			.map(|g| g.value())
+			.unwrap_or(new_network.clone());
+		if new_network.gateway != [0; 32] {
+			network.gateway = new_network.gateway;
+		}
+		if new_network.relative_gas_price != (0, 0) {
+			network.relative_gas_price = new_network.relative_gas_price;
+		}
+		if new_network.gas_limit != 0 {
+			network.gas_limit = new_network.gas_limit;
+		}
+		if new_network.base_fee != 0 {
+			network.base_fee = new_network.base_fee;
+		}
+		t.insert((gateway, network.network_id), network)?;
+		Ok(())
 	}
 
 	async fn deploy_test(&self, gateway: Address, _path: &Path) -> Result<(Address, u64)> {
 		let mut tester = [0; 32];
 		getrandom::getrandom(&mut tester).unwrap();
-		let block = self.block();
+		let block = block(self.genesis);
 		let tx = self.db.begin_write()?;
-		let mut t = tx.open_table(TESTERS)?;
+		let mut t = tx.open_table(GATEWAY)?;
 		t.insert(tester, gateway)?;
+		let mut t = tx.open_multimap_table(TESTERS)?;
+		t.insert(gateway, tester)?;
 		Ok((tester, block))
 	}
 
@@ -262,12 +346,30 @@ impl IConnectorAdmin for Connector {
 		Ok(msg_size as u128 * 100)
 	}
 
-	async fn send_message(&self, _addr: Address, _msg: GmpMessage) -> Result<()> {
-		todo!()
+	async fn send_message(&self, addr: Address, msg: GmpMessage) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		let t = tx.open_table(GATEWAY)?;
+		let gateway = t.get(addr)?.context("tester not deployed")?.value();
+		let mut t = tx.open_multimap_table(EVENTS)?;
+		let block = block(self.genesis);
+		t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
+		Ok(())
 	}
 
-	async fn recv_messages(&self, _addr: Address, _blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
-		todo!()
+	async fn recv_messages(&self, addr: Address, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
+		let tx = self.db.begin_read()?;
+		let t = tx.open_multimap_table(EVENTS)?;
+		let mut msgs = vec![];
+		for block in blocks {
+			for event in t.get((addr, block))? {
+				let event = event?.value();
+				let GmpEvent::MessageReceived(msg) = event else {
+					continue;
+				};
+				msgs.push(msg);
+			}
+		}
+		Ok(msgs)
 	}
 }
 

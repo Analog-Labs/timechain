@@ -20,6 +20,10 @@ pub struct GmpParams {
 }
 
 impl GmpParams {
+	pub fn new(network: NetworkId, gateway: Gateway) -> Self {
+		Self { network, gateway }
+	}
+
 	pub fn hash(&self, payload: &[u8]) -> Hash {
 		use sha3::Digest;
 		let mut hasher = sha3::Keccak256::new();
@@ -277,7 +281,8 @@ pub trait IConnector: IChain {
 	async fn submit_commands(
 		&self,
 		gateway: Gateway,
-		msg: Vec<u8>,
+		batch: BatchId,
+		msg: GatewayMessage,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String>;

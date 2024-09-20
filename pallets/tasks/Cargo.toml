@@ -18,8 +18,6 @@ scale-info.workspace = true
 
 polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "pallet-balances", "pallet-treasury", "sp-core", "sp-runtime", "sp-std" ] }
 
-schnorr-evm = { version = "0.1.0", default-features = false }
-
 pallet-elections.workspace = true
 pallet-members.workspace = true
 pallet-shards.workspace = true
@@ -38,8 +36,6 @@ std = [
 	"scale-info/std",
 
 	"polkadot-sdk/std",
-
-	"schnorr-evm/std",
 
 	"pallet-elections/std",
 	"pallet-members/std",

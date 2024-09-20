@@ -5282,6 +5282,7 @@ dependencies = [
  "serde",
  "tempfile",
  "time-primitives",
+ "tokio",
 ]
 
 [[package]]
@@ -10423,7 +10424,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
- "schnorr-evm",
  "simple-mermaid",
  "time-primitives",
 ]
@@ -19266,6 +19266,7 @@ dependencies = [
  "polkadot-sdk",
  "scale-decode",
  "scale-info",
+ "schnorr-evm",
  "serde",
  "sha3",
 ]

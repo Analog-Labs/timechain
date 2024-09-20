@@ -117,3 +117,14 @@ pub struct TssSigningRequest {
 	pub data: Vec<u8>,
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }
+
+pub fn verify_signature(
+	public_key: TssPublicKey,
+	data: &[u8],
+	signature: TssSignature,
+) -> Result<(), ()> {
+	let signature = schnorr_evm::Signature::from_bytes(signature).map_err(|_| ())?;
+	let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key).map_err(|_| ())?;
+	schnorr_public_key.verify(data, &signature).map_err(|_| ())?;
+	Ok(())
+}

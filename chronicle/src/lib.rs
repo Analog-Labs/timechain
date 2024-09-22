@@ -183,7 +183,7 @@ mod tests {
 		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
 		let mock = Mock::default().instance(42);
-		let network_id = mock.create_network("ethereum".into(), "dev".into());
+		let network_id = mock.create_network("rust".into(), "rust".into());
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {
 			let instance = mock.instance(id);

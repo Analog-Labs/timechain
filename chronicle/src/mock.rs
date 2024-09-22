@@ -111,6 +111,7 @@ impl Mock {
 		shard_id
 	}
 
+	#[allow(unused)]
 	pub fn create_online_shard(&self, members: Vec<AccountId>, threshold: u16) -> ShardId {
 		let shard_id = self.create_shard(members, threshold);
 		let mut shards = self.shards.lock().unwrap();

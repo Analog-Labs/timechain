@@ -133,13 +133,12 @@ pub mod pallet {
 
 	#[pallet::error]
 	///  Define possible errors that can occur during pallet operations.
-	/// [`Error::InvalidPublicKey`], [`Error::AlreadyMember`], [`Error::NotMember`],
+	/// [`Error::InvalidPublicKey`], [`Error::NotMember`],
 	/// [`Error::BondBelowMinStake`], [`Error::StakedBelowTransferAmount`]: Errors
 	/// related to invalid public keys, existing memberships, non-membership, insufficient
 	/// bond for membership, and insufficient stake for transfer.
 	pub enum Error<T> {
 		InvalidPublicKey,
-		AlreadyMember,
 		NotMember,
 		BondBelowMinStake,
 		StakedBelowTransferAmount,

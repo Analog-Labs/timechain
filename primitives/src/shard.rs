@@ -119,6 +119,7 @@ pub struct TssSigningRequest {
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }
 
+#[allow(clippy::result_unit_err)]
 pub fn verify_signature(
 	public_key: TssPublicKey,
 	data: &[u8],

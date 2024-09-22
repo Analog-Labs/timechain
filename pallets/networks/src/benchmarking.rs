@@ -1,15 +1,15 @@
 use super::*;
 use crate::Pallet;
 
-use scale_info::prelude::string::String;
-
+use frame_system::RawOrigin;
 use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::frame_system;
-
-use frame_system::RawOrigin;
+use scale_info::prelude::string::String;
+use time_primitives::NetworkId;
 
 //TODO: choose & enforce MAX in code
 const MAX_LENGTH: u32 = 1000;
+const ETHEREUM: NetworkId = 0;
 
 benchmarks! {
 	add_network {
@@ -25,6 +25,12 @@ benchmarks! {
 		}
 	}: _(RawOrigin::Root, name, network)
 	verify {}
+
+	register_gateway {
+	}: _(RawOrigin::Root, 0, [0u8; 32], 20) verify {}
+
+	set_batch_size {
+	}: _(RawOrigin::Root, ETHEREUM, 100, 25) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

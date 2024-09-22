@@ -12,8 +12,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, Function, MemberEvents, NetworkId, PublicKey, ShardStatus,
-	ShardsInterface, TaskDescriptorParams, TasksInterface,
+	AccountId, ElectionsInterface, NetworkId, PublicKey, ShardStatus, ShardsInterface,
+	TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -161,65 +161,6 @@ fn elections_chooses_top_members_by_stake() {
 	});
 }
 
-/*#[test]
-fn write_phase_timeout_reassigns_task() {
-	let task_id = 0;
-	let a: AccountId = A.into();
-	let b: AccountId = B.into();
-	let c: AccountId = C.into();
-	let shard = [a.clone(), b.clone(), c.clone()].to_vec();
-	new_test_ext().execute_with(|| {
-		assert_ok!(Members::register_member(
-			RawOrigin::Signed(a.clone()).into(),
-			ETHEREUM,
-			pubkey_from_bytes(A),
-			get_peer_id(A),
-			90_000 * ANLOG,
-		));
-		assert_ok!(Members::register_member(
-			RawOrigin::Signed(b.clone()).into(),
-			ETHEREUM,
-			pubkey_from_bytes(B),
-			get_peer_id(B),
-			90_000 * ANLOG,
-		));
-		assert_ok!(Members::register_member(
-			RawOrigin::Signed(c.clone()).into(),
-			ETHEREUM,
-			pubkey_from_bytes(C),
-			get_peer_id(C),
-			90_000 * ANLOG,
-		));
-		Shards::create_shard(ETHEREUM, shard, 1);
-		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
-		Tasks::shard_online(0, ETHEREUM);
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Signed(a.clone()).into(),
-			TaskDescriptorParams {
-				network: ETHEREUM,
-				function: Function::EvmCall {
-					address: Default::default(),
-					input: Default::default(),
-					amount: 0,
-					gas_limit: None,
-				},
-				start: 0,
-				funds: 10_000, //TODO: why does this underflow or below min error
-				shard_size: 3,
-			}
-		));
-		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
-		roll_to(10);
-		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
-		roll_to(11);
-		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(A)));
-		roll_to(21);
-		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(B)));
-		roll_to(31);
-		assert_eq!(<TaskSigner<Runtime>>::get(task_id), Some(pubkey_from_bytes(C)));
-	});
-}*/
-
 #[test]
 fn register_unregister_kills_task() {
 	let a: AccountId = A.into();
@@ -256,23 +197,7 @@ fn register_unregister_kills_task() {
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0));
-		// create task
-		assert_ok!(Tasks::create_task(
-			RawOrigin::Root.into(),
-			TaskDescriptorParams {
-				network: ETHEREUM,
-				function: Function::EvmCall {
-					address: Default::default(),
-					input: Default::default(),
-					amount: 0,
-					gas_limit: None,
-				},
-				start: 0,
-				funds: 10_000, //TODO: why does this underflow if set to correct
-				shard_size: 3,
-			}
-		));
+		assert_ok!(Networks::register_gateway(RawOrigin::Root.into(), ETHEREUM, [0u8; 32], 0));
 		roll(1);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
@@ -342,24 +267,4 @@ fn check_arithmetic() {
 	let fraction = Percent::from_percent(perc_div);
 	let share = fraction * send_reward;
 	assert_eq!(share, 5); // 20 percent of total reward share of each validator.
-}
-
-#[test]
-fn min_shard_stake_greater_than_register_unregister_task_rewards() {
-	new_test_ext().execute_with(|| {
-		let shard_size = <pallet_elections::ShardSize<Runtime>>::get();
-		let read_task_reward: u128 = <Runtime as pallet_tasks::Config>::BaseReadReward::get();
-		let send_message_reward: u128 =
-			<Runtime as pallet_tasks::Config>::BaseSendMessageReward::get();
-		let total_read_task_rewards = read_task_reward.saturating_mul(shard_size.into());
-		let total_send_message_task_rewards = send_message_reward.saturating_mul(shard_size.into());
-		let total_rewards_per_write_task: u128 = total_read_task_rewards
-			.saturating_add(<Runtime as pallet_tasks::Config>::BaseWriteReward::get())
-			.saturating_add(total_send_message_task_rewards);
-		// fees are for 2 write tasks: RegisterShard and UnRegisterShard
-		let shard_registration_fees = total_rewards_per_write_task.saturating_mul(2);
-		let stake_per_member: u128 = <Runtime as pallet_members::Config>::MinStake::get();
-		let min_shard_stake = stake_per_member.saturating_mul(shard_size.into());
-		assert!(min_shard_stake > shard_registration_fees);
-	});
 }

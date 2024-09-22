@@ -60,7 +60,7 @@ fn read_admin<T: ReadableTable<Address, Address>>(table: &T, gateway: Address) -
 impl IChain for Connector {
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {
-		hex::encode(&address)
+		hex::encode(address)
 	}
 
 	/// Parses an address from a string.
@@ -248,7 +248,7 @@ impl IConnectorAdmin for Connector {
 			t.insert(gateway, self.address)?;
 		}
 		tx.commit()?;
-		Ok((gateway.into(), block))
+		Ok((gateway, block))
 	}
 
 	async fn redeploy_gateway(&self, gateway: Address, _gateway_impl: &Path) -> Result<()> {
@@ -265,7 +265,7 @@ impl IConnectorAdmin for Connector {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ADMIN)?;
 		let admin = read_admin(&t, gateway)?;
-		Ok(admin.into())
+		Ok(admin)
 	}
 
 	async fn set_admin(&self, gateway: Address, new_admin: Address) -> Result<()> {
@@ -298,7 +298,7 @@ impl IConnectorAdmin for Connector {
 			let mut shards = tx.open_multimap_table(SHARDS)?;
 			let block = block(self.genesis);
 			let values = shards.remove_all(gateway)?;
-			let keys: BTreeSet<_> = keys.into_iter().copied().collect();
+			let keys: BTreeSet<_> = keys.iter().copied().collect();
 			let mut old_keys = BTreeSet::new();
 			for value in values {
 				let old_key = value?.value();

@@ -449,7 +449,7 @@ pub mod pallet {
 			);
 		}
 
-		fn create_task(network: NetworkId, task: Task) -> TaskId {
+		pub(crate) fn create_task(network: NetworkId, task: Task) -> TaskId {
 			let task_id = TaskIdCounter::<T>::get();
 			let needs_registration = task.needs_registration();
 			Tasks::<T>::insert(task_id, task);

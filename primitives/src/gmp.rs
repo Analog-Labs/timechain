@@ -28,8 +28,8 @@ impl GmpParams {
 		use sha3::Digest;
 		let mut hasher = sha3::Keccak256::new();
 		hasher.update(GMP_VERSION);
-		hasher.update(&self.network.to_be_bytes());
-		hasher.update(&self.gateway);
+		hasher.update(self.network.to_be_bytes());
+		hasher.update(self.gateway);
 		hasher.update(payload);
 		hasher.finalize().into()
 	}
@@ -79,7 +79,7 @@ impl GmpMessage {
 	pub fn message_id(&self) -> MessageId {
 		use sha3::Digest;
 		let mut hasher = sha3::Keccak256::new();
-		hasher.update(&self.encode_header());
+		hasher.update(self.encode_header());
 		hasher.update(&self.bytes);
 		hasher.finalize().into()
 	}
@@ -253,7 +253,7 @@ pub trait IChain: Clone + Send + Sync + 'static {
 	}
 	/// Parses a balance from a string.
 	fn parse_balance(&self, balance: &str) -> Result<u128> {
-		Ok(balance.parse().map_err(|_| anyhow::anyhow!("expected unsigned integer"))?)
+		balance.parse().map_err(|_| anyhow::anyhow!("expected unsigned integer"))
 	}
 	/// Network identifier.
 	fn network_id(&self) -> NetworkId;

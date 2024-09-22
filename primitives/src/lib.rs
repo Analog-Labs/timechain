@@ -127,8 +127,10 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
 		fn get_task(task_id: TaskId) -> Option<Task>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
+		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey>;
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>;
+		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
+		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -194,39 +196,31 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;
 
-	async fn get_member_peer_id(
-		&self,
-		block: BlockHash,
-		account: &AccountId,
-	) -> Result<Option<PeerId>>;
+	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>>;
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
 
 	async fn get_min_stake(&self) -> Result<Balance>;
 
-	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>>;
+	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>>;
 
-	async fn get_shard_members(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<(AccountId, MemberStatus)>>;
+	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>>;
 
-	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16>;
+	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16>;
 
-	async fn get_shard_status(&self, block: BlockHash, shard_id: ShardId) -> Result<ShardStatus>;
+	async fn get_shard_status(&self, shard_id: ShardId) -> Result<ShardStatus>;
 
-	async fn get_shard_commitment(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Option<Commitment>>;
+	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>>;
 
-	async fn get_shard_tasks(&self, block: BlockHash, shard_id: ShardId) -> Result<Vec<TaskId>>;
+	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskId>>;
 
-	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<Task>>;
+	async fn get_task(&self, task_id: TaskId) -> Result<Option<Task>>;
 
-	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
+	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
+
+	async fn get_batch_message(&self, batch_id: BatchId) -> Result<Option<GatewayMessage>>;
+
+	async fn get_batch_signature(&self, batch_id: BatchId) -> Result<Option<TssSignature>>;
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
 

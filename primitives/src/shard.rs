@@ -1,8 +1,8 @@
 #[cfg(feature = "std")]
-use crate::task::TaskId;
-#[cfg(feature = "std")]
 use crate::BlockNumber;
-use crate::{encode_gmp_events, BatchId, Gateway, GatewayMessage, GmpEvent, GmpParams, NetworkId};
+use crate::{
+	encode_gmp_events, BatchId, Gateway, GatewayMessage, GmpEvent, GmpParams, NetworkId, TaskId,
+};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
 #[cfg(feature = "std")]
@@ -152,10 +152,12 @@ impl MockTssSigner {
 		self.signing_key.public().to_bytes().unwrap()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign(&self, data: &[u8]) -> TssSignature {
 		self.signing_key.sign(data).to_bytes()
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign_gateway_message(
 		&self,
 		network: NetworkId,
@@ -168,6 +170,7 @@ impl MockTssSigner {
 		self.sign(&hash)
 	}
 
+	#[cfg(feature = "std")]
 	pub fn sign_gmp_events(&self, task: TaskId, events: &[GmpEvent]) -> TssSignature {
 		let bytes = encode_gmp_events(task, events);
 		self.sign(&bytes)

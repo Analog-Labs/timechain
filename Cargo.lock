@@ -18986,9 +18986,17 @@ dependencies = [
  "scale-info",
  "subxt",
  "subxt-signer",
+ "tc-subxt-metadata",
  "time-primitives",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "tc-subxt-metadata"
+version = "0.1.0"
+dependencies = [
+ "subxt",
 ]
 
 [[package]]

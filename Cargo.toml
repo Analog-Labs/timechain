@@ -26,6 +26,7 @@ members = [
 	"runtimes/mainnet",
 	"runtimes/testnet",
 	"tc-subxt",
+	"tc-subxt/metadata",
 	"tester",
 	"tss",
 	"utils/generate-bags",

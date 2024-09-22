@@ -85,10 +85,10 @@ use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
 pub use time_primitives::{
-	AccountId, Balance, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment, Gateway,
-	MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface, Nonce, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId, TaskResult,
-	TssPublicKey, TssSignature, ANLOG,
+	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	Gateway, GatewayMessage, MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface,
+	Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId,
+	TaskResult, TssPublicKey, TssSignature, ANLOG,
 };
 
 /// Constant values used within the runtime.
@@ -1826,8 +1826,8 @@ impl_runtime_apis! {
 			Tasks::get_task(task_id)
 		}
 
-		fn get_task_signer(task_id: TaskId) -> Option<PublicKey> {
-			Tasks::get_task_signer(task_id)
+		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey> {
+			Tasks::get_task_submitter(task_id)
 		}
 
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>{
@@ -1836,6 +1836,14 @@ impl_runtime_apis! {
 
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
+		}
+
+		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
+			Tasks::get_batch_message(batch_id)
+		}
+
+		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature> {
+			Tasks::get_batch_signature(batch_id)
 		}
 	}
 

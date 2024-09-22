@@ -1,6 +1,6 @@
 use crate::{metadata_scope, SubxtClient};
 use anyhow::{anyhow, Result};
-use time_primitives::{NetworkId, ShardId, ShardStatus};
+use time_primitives::{NetworkId, ShardId, TssPublicKey};
 
 impl SubxtClient {
 	pub async fn network_id_counter(&self) -> Result<NetworkId> {
@@ -10,7 +10,7 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<[u8; 33]> {
+	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<TssPublicKey> {
 		metadata_scope!(self.metadata, {
 			let storage = metadata::storage().shards().shard_commitment(shard_id);
 			self.client
@@ -47,20 +47,6 @@ impl SubxtClient {
 				.fetch(&storage_query)
 				.await?
 				.ok_or(anyhow!("Shard network not found"))
-		})
-	}
-
-	pub async fn shard_state(&self, shard_id: u64) -> Result<ShardStatus> {
-		metadata_scope!(self.metadata, {
-			let storage_query = metadata::storage().shards().shard_state(shard_id);
-			self.client
-				.storage()
-				.at_latest()
-				.await?
-				.fetch(&storage_query)
-				.await?
-				.ok_or(anyhow!("Shard Status not found"))
-				.map(|s| s.0)
 		})
 	}
 

@@ -1,11 +1,11 @@
 use crate::{metadata_scope, SubxtClient};
 use anyhow::Result;
-use time_primitives::{Payload, ShardId, TaskId, TaskPhase};
+use time_primitives::{ShardId, TaskId};
 
 impl SubxtClient {
 	pub async fn get_network_unassigned_tasks(&self, network_id: u16) -> Result<Vec<TaskId>> {
 		let mut items = metadata_scope!(self.metadata, {
-			let storage_query = metadata::storage().tasks().unassigned_tasks_iter1(network_id);
+			let storage_query = metadata::storage().tasks().ua_tasks_iter1(network_id);
 			self.client.storage().at_latest().await?.iter(storage_query).await?
 		});
 		let mut tasks: Vec<TaskId> = vec![];
@@ -23,24 +23,10 @@ impl SubxtClient {
 			else {
 				return Ok(false);
 			};
-			if let Payload::Error(msg) = output.payload.0 {
-				anyhow::bail!("{msg}");
+			if let Err(err) = output {
+				anyhow::bail!("{err}");
 			}
 			Ok(true)
-		})
-	}
-
-	pub async fn get_task_phase(&self, task_id: u64) -> Result<Option<TaskPhase>> {
-		metadata_scope!(self.metadata, {
-			let storage_query = metadata::storage().tasks().task_phase_state(task_id);
-			Ok(self
-				.client
-				.storage()
-				.at_latest()
-				.await?
-				.fetch(&storage_query)
-				.await?
-				.map(|s| s.0))
 		})
 	}
 

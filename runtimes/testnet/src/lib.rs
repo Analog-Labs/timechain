@@ -73,9 +73,10 @@ pub use runtime_common::{
 	BABE_GENESIS_EPOCH_CONFIG,
 };
 pub use time_primitives::{
-	AccountId, Balance, BlockNumber, ChainName, ChainNetwork, Commitment, Gateway, MemberStatus,
-	MembersInterface, NetworkId, NetworksInterface, PeerId, ProofOfKnowledge, PublicKey, ShardId,
-	ShardStatus, Signature, Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
+	AccountId, Balance, BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, Gateway,
+	GatewayMessage, MemberStatus, MembersInterface, NetworkId, NetworksInterface, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId, TaskResult,
+	TssPublicKey, TssSignature, ANLOG,
 };
 
 // A few exports that help ease life for downstream crates.
@@ -1459,12 +1460,20 @@ impl_runtime_apis! {
 			Tasks::get_task_shard(task_id)
 		}
 
-		fn get_task_signer(task_id: TaskId) -> Option<PublicKey> {
-			Tasks::get_task_signer(task_id)
+		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey> {
+			Tasks::get_task_submitter(task_id)
 		}
 
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>> {
 			Tasks::get_task_result(task_id)
+		}
+
+		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
+			Tasks::get_batch_message(batch_id)
+		}
+
+		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature> {
+			Tasks::get_batch_signature(batch_id)
 		}
 	}
 

@@ -51,6 +51,14 @@ impl Task {
 	pub fn needs_signer(&self) -> bool {
 		matches!(self, Self::SubmitGatewayMessage { .. })
 	}
+
+	pub fn start_block(&self) -> u64 {
+		if let Self::ReadGatewayEvents { blocks } = self {
+			blocks.end
+		} else {
+			0
+		}
+	}
 }
 
 pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {

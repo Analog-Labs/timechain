@@ -105,5 +105,5 @@ async fn main() -> Result<()> {
 		tx_submitter,
 	)
 	.await?;
-	chronicle::run_chronicle(config, network, network_requests, subxt).await
+	chronicle::run_chronicle::<gmp_rust::Connector>(config, network, network_requests, subxt).await
 }

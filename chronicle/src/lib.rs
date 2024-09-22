@@ -1,19 +1,18 @@
 use crate::shards::{TimeWorker, TimeWorkerParams};
-use crate::tasks::executor::{TaskExecutor, TaskExecutorParams};
-use crate::tasks::spawner::{TaskSpawner, TaskSpawnerParams};
-use anyhow::Result;
+use crate::tasks::TaskParams;
+use anyhow::{Context, Result};
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tc_subxt::MetadataVariant;
-use time_primitives::{NetworkId, Runtime, TssSigningRequest};
+use time_primitives::{ConnectorParams, IConnector, NetworkId, Runtime};
+use tokio::time::sleep;
 use tracing::{event, span, Level};
 
-mod metrics;
-
-#[cfg(test)]
-mod mock;
+//#[cfg(test)]
+//mod mock;
 mod network;
 mod shards;
 mod tasks;
@@ -77,12 +76,14 @@ impl ChronicleConfig {
 /// # Returns
 ///
 /// * `Result<()>` - Returns an empty result on success, or an error on failure.
-pub async fn run_chronicle(
+pub async fn run_chronicle<C: IConnector>(
 	config: ChronicleConfig,
 	network: Arc<dyn Network>,
 	net_request: BoxStream<'static, (PeerId, Message)>,
 	substrate: impl Runtime,
 ) -> Result<()> {
+	let mnemonic =
+		std::fs::read_to_string(config.target_keyfile).context("failed to read target keyfile")?;
 	// Initialize the blockchain network components.
 	let (chain, subchain) = substrate
 		.get_network(config.network_id)
@@ -91,26 +92,22 @@ pub async fn run_chronicle(
 
 	// Create a channel for TSS requests.
 	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let task_spawner_params = TaskSpawnerParams {
-		tss: tss_tx,
-		blockchain: chain,
-		min_balance: config.target_min_balance,
-		network: subchain,
+	let connector_params = ConnectorParams {
 		network_id: config.network_id,
+		blockchain: chain,
+		network: subchain,
 		url: config.target_url,
-		keyfile: config.target_keyfile,
-		substrate: substrate.clone(),
+		mnemonic,
 	};
-
-	// Initialize the task spawner, retrying on failure.
-	let task_spawner = loop {
-		match TaskSpawner::new(task_spawner_params.clone()).await {
-			Ok(task_spawner) => break task_spawner,
+	// Initialize the connector, retrying on failure.
+	let connector = loop {
+		match C::new(connector_params.clone()).await {
+			Ok(connector) => break connector,
 			Err(error) => {
 				event!(
 					target: TW_LOG,
 					Level::INFO,
-					"Initializing wallet returned an error {:?}, retrying in one second",
+					"Initializing connector returned an error {:?}, retrying in one second",
 					error
 				);
 				tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
@@ -121,50 +118,15 @@ pub async fn run_chronicle(
 	event!(
 		target: TW_LOG,
 		Level::INFO,
-		"Target wallet address: {:?}",
-		task_spawner.target_address()
+		"Target wallet address: {}",
+		connector.format_address(connector.address()),
 	);
 
-	// Run the main application loop with the initialized task spawner.
-	run_chronicle_with_spawner(
-		config.network_id,
-		network,
-		net_request,
-		task_spawner,
-		tss_rx,
-		substrate,
-		config.tss_keyshare_cache,
-	)
-	.await
-}
+	while connector.balance(connector.address()).await? < config.target_min_balance {
+		sleep(Duration::from_secs(10)).await;
+		tracing::warn!("Chronicle balance is too low, retrying...");
+	}
 
-/// Helper function to run the Chronicle application with a task spawner.
-///
-/// This function sets up the necessary workers and starts the main loop that
-/// processes incoming requests and tasks.
-///
-/// # Arguments
-///
-/// * `network_id` - Identifier for the network.
-/// * `network` - Network instance.
-/// * `net_request` - Stream of network requests.
-/// * `task_spawner` - Task spawner instance.
-/// * `tss_request` - Receiver for TSS signing requests.
-/// * `substrate` - Substrate runtime instance.
-/// * `tss_keyshare_cache` - Path to a cache for TSS key shares.
-///
-/// # Returns
-///
-/// * `Result<()>` - Returns an empty result on success, or an error on failure.
-async fn run_chronicle_with_spawner(
-	network_id: NetworkId,
-	network: Arc<dyn Network>,
-	net_request: BoxStream<'static, (PeerId, Message)>,
-	task_spawner: impl crate::tasks::TaskSpawner,
-	tss_request: mpsc::Receiver<TssSigningRequest>,
-	substrate: impl Runtime,
-	tss_keyshare_cache: PathBuf,
-) -> Result<()> {
 	// Get the peer ID of the network and create a tracing span.
 	let peer_id = network.peer_id();
 	let span = span!(
@@ -176,20 +138,16 @@ async fn run_chronicle_with_spawner(
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 
 	// Initialize the task executor.
-	let task_executor = TaskExecutor::new(TaskExecutorParams {
-		network: network_id,
-		task_spawner,
-		substrate: substrate.clone(),
-	});
+	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
 
 	// Initialize the time worker.
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,
-		task_executor,
+		task_params,
 		substrate,
-		tss_request,
+		tss_request: tss_rx,
 		net_request,
-		tss_keyshare_cache,
+		tss_keyshare_cache: config.tss_keyshare_cache,
 	});
 
 	// Run the time worker with the created tracing span.

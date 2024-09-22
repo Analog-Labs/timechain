@@ -221,6 +221,7 @@ use std::path::Path;
 use std::pin::Pin;
 
 #[cfg(feature = "std")]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ConnectorParams {
 	pub network_id: NetworkId,
 	pub blockchain: String,
@@ -241,7 +242,7 @@ pub struct Network {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-pub trait IChain {
+pub trait IChain: Clone + Send + Sync + 'static {
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String;
 	/// Parses an address from a string.

@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
@@ -33,12 +34,13 @@ const NETWORKS: TableDefinition<(Address, NetworkId), Bincode<Network>> =
 const GATEWAY: TableDefinition<Address, Address> = TableDefinition::new("gateway");
 const TESTERS: MultimapTableDefinition<Address, Address> = MultimapTableDefinition::new("testers");
 
+#[derive(Clone)]
 pub struct Connector {
 	network_id: NetworkId,
 	address: Address,
-	db: Database,
+	db: Arc<Database>,
 	genesis: SystemTime,
-	_tmpfile: Option<NamedTempFile>,
+	_tmpfile: Option<Arc<NamedTempFile>>,
 }
 
 fn block(genesis: SystemTime) -> u64 {
@@ -141,7 +143,7 @@ impl IConnector for Connector {
 		let (tmpfile, path) = if params.url == "tempfile" {
 			let file = NamedTempFile::new()?;
 			let path = file.path().to_owned();
-			(Some(file), path)
+			(Some(Arc::new(file)), path)
 		} else {
 			(None, Path::new(&params.url).to_owned())
 		};
@@ -159,7 +161,7 @@ impl IConnector for Connector {
 		Ok(Self {
 			network_id: params.network_id,
 			address,
-			db,
+			db: Arc::new(db),
 			genesis,
 			_tmpfile: tmpfile,
 		})

@@ -1,6 +1,6 @@
 use super::tss::{Tss, TssAction, VerifiableSecretSharingCommitment};
 use crate::network::{Message, Network, PeerId, TssMessage};
-use crate::tasks::TaskExecutor;
+use crate::tasks::{TaskExecutor, TaskParams};
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::future::join_all;
@@ -17,33 +17,33 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, Runtime, ShardId, ShardStatus, TaskExecution, TssSignature,
+	BlockHash, BlockNumber, IConnector, Runtime, ShardId, ShardStatus, TaskId, TssSignature,
 	TssSigningRequest,
 };
 use tokio::time::{sleep, Duration};
 use tracing::{event, span, Level, Span};
 
-pub struct TimeWorkerParams<S, T, Tx, Rx> {
+pub struct TimeWorkerParams<S, C, Tx, Rx> {
 	pub substrate: S,
-	pub task_executor: T,
+	pub task_params: TaskParams<S, C>,
 	pub network: Tx,
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
 	pub net_request: Rx,
 	pub tss_keyshare_cache: PathBuf,
 }
 
-pub struct TimeWorker<S, T, Tx, Rx> {
+pub struct TimeWorker<S, C, Tx, Rx> {
 	substrate: S,
-	task_executor: T,
 	network: Tx,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	net_request: Rx,
 	block_height: u64,
+	task_params: TaskParams<S, C>,
 	tss_states: HashMap<ShardId, Tss>,
-	executor_states: HashMap<ShardId, T>,
+	executor_states: HashMap<ShardId, TaskExecutor<S, C>>,
 	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
-	requests: BTreeMap<BlockNumber, Vec<(ShardId, TaskExecution, Vec<u8>)>>,
-	channels: HashMap<TaskExecution, oneshot::Sender<([u8; 32], TssSignature)>>,
+	requests: BTreeMap<BlockNumber, Vec<(ShardId, TaskId, Vec<u8>)>>,
+	channels: HashMap<TaskId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	#[allow(clippy::type_complexity)]
 	outgoing_requests: FuturesUnordered<
 		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,
@@ -51,17 +51,17 @@ pub struct TimeWorker<S, T, Tx, Rx> {
 	tss_keyshare_cache: PathBuf,
 }
 
-impl<S, T, Tx, Rx> TimeWorker<S, T, Tx, Rx>
+impl<S, C, Tx, Rx> TimeWorker<S, C, Tx, Rx>
 where
 	S: Runtime,
-	T: TaskExecutor + Clone,
+	C: IConnector,
 	Tx: Network + Clone,
 	Rx: Stream<Item = (PeerId, Message)> + Send + Unpin,
 {
-	pub fn new(worker_params: TimeWorkerParams<S, T, Tx, Rx>) -> Self {
+	pub fn new(worker_params: TimeWorkerParams<S, C, Tx, Rx>) -> Self {
 		let TimeWorkerParams {
 			substrate,
-			task_executor,
+			task_params,
 			network,
 			tss_request,
 			net_request,
@@ -69,7 +69,7 @@ where
 		} = worker_params;
 		Self {
 			substrate,
-			task_executor,
+			task_params,
 			network,
 			tss_request,
 			net_request,
@@ -99,14 +99,14 @@ where
 			block_number,
 		);
 		let account_id = self.substrate.account_id();
-		let shards = self.substrate.get_shards(block, account_id).await?;
+		let shards = self.substrate.get_shards(account_id).await?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
 			if self.tss_states.contains_key(&shard_id) {
 				continue;
 			}
-			let members = self.substrate.get_shard_members(block, shard_id).await?;
+			let members = self.substrate.get_shard_members(shard_id).await?;
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -114,13 +114,13 @@ where
 				shard_id,
 				"joining shard",
 			);
-			let threshold = self.substrate.get_shard_threshold(block, shard_id).await?;
+			let threshold = self.substrate.get_shard_threshold(shard_id).await?;
 			let futures: Vec<_> = members
 				.into_iter()
 				.map(|(account, _)| {
 					let substrate = self.substrate.clone();
 					async move {
-						match substrate.get_member_peer_id(block, &account).await {
+						match substrate.get_member_peer_id(&account).await {
 							Ok(Some(peer_id)) => Some(peer_id),
 							Ok(None) | Err(_) => None,
 						}
@@ -130,14 +130,13 @@ where
 			let members =
 				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
 
-			let commitment = if let Some(commitment) =
-				self.substrate.get_shard_commitment(block, shard_id).await?
-			{
-				let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
-				Some(commitment)
-			} else {
-				None
-			};
+			let commitment =
+				if let Some(commitment) = self.substrate.get_shard_commitment(shard_id).await? {
+					let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
+					Some(commitment)
+				} else {
+					None
+				};
 			self.tss_states.insert(
 				shard_id,
 				Tss::new(
@@ -157,10 +156,10 @@ where
 			if tss.committed() {
 				continue;
 			}
-			if self.substrate.get_shard_status(block, shard_id).await? != ShardStatus::Committed {
+			if self.substrate.get_shard_status(shard_id).await? != ShardStatus::Committed {
 				continue;
 			}
-			let commitment = self.substrate.get_shard_commitment(block, shard_id).await?.unwrap();
+			let commitment = self.substrate.get_shard_commitment(shard_id).await?.unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number).await;
@@ -169,13 +168,13 @@ where
 			if n > block_number {
 				break;
 			}
-			for (shard_id, request_id, data) in self.requests.remove(&n).unwrap() {
+			for (shard_id, task_id, data) in self.requests.remove(&n).unwrap() {
 				event!(
 					target: TW_LOG,
 					parent: &span,
 					Level::DEBUG,
 					shard_id,
-					request_id = format!("{:?}", request_id),
+					task_id,
 					"received signing request from task executor",
 				);
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
@@ -184,22 +183,24 @@ where
 						parent: &span,
 						Level::ERROR,
 						shard_id,
-						request_id = format!("{:?}", request_id),
+						task_id,
 						"trying to run task on unknown shard, dropping channel",
 					);
-					self.channels.remove(&request_id);
+					self.channels.remove(&task_id);
 					continue;
 				};
-				tss.on_sign(request_id, data.to_vec());
+				tss.on_sign(task_id, data.to_vec());
 				self.poll_actions(&span, shard_id, block_number).await;
 			}
 		}
 		for shard_id in shards {
-			if self.substrate.get_shard_status(block, shard_id).await? != ShardStatus::Online {
+			if self.substrate.get_shard_status(shard_id).await? != ShardStatus::Online {
 				continue;
 			}
-			let executor =
-				self.executor_states.entry(shard_id).or_insert(self.task_executor.clone());
+			let executor = self
+				.executor_states
+				.entry(shard_id)
+				.or_insert(TaskExecutor::new(self.task_params.clone()));
 			event!(
 				target: TW_LOG,
 				parent: &span,
@@ -305,18 +306,18 @@ where
 					);
 					self.substrate.submit_online(shard_id).await.unwrap();
 				},
-				TssAction::Signature(request_id, hash, tss_signature) => {
+				TssAction::Signature(task_id, hash, tss_signature) => {
 					let tss_signature = tss_signature.to_bytes();
 					event!(
 						target: TW_LOG,
 						parent: span,
 						Level::DEBUG,
 						shard_id,
-						request_id = format!("{:?}", request_id),
+						task_id,
 						"signature {:?}",
 						tss_signature,
 					);
-					if let Some(tx) = self.channels.remove(&request_id) {
+					if let Some(tx) = self.channels.remove(&task_id) {
 						tx.send((hash, tss_signature)).ok();
 					}
 				},
@@ -352,7 +353,7 @@ where
 		let min_stake = self.substrate.get_min_stake().await.unwrap();
 		while let Err(e) = self
 			.substrate
-			.submit_register_member(self.task_executor.network(), self.network.peer_id(), min_stake)
+			.submit_register_member(self.task_params.network(), self.network.peer_id(), min_stake)
 			.await
 		{
 			event!(
@@ -376,8 +377,8 @@ where
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
-		let task_executor = self.task_executor.clone();
-		let mut block_stream = task_executor.block_stream().fuse();
+		let task_params = self.task_params.clone();
+		let mut block_stream = task_params.block_stream().fuse();
 		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		event!(target: TW_LOG, parent: span, Level::INFO, "Started chronicle loop");
@@ -450,7 +451,7 @@ where
 					}
 				},
 				tss_request = self.tss_request.next().fuse() => {
-					let Some(TssSigningRequest { request_id, shard_id, data, tx, block_number }) = tss_request else {
+					let Some(TssSigningRequest { task_id, shard_id, data, tx, block_number }) = tss_request else {
 						continue;
 					};
 					event!(
@@ -458,12 +459,12 @@ where
 						parent: span,
 						Level::DEBUG,
 						shard_id,
-						request_id = format!("{:?}", request_id),
+						task_id,
 						block_number,
 						"received signing request",
 					);
-					self.requests.entry(block_number).or_default().push((shard_id, request_id, data));
-					self.channels.insert(request_id, tx);
+					self.requests.entry(block_number).or_default().push((shard_id, task_id, data));
+					self.channels.insert(task_id, tx);
 				},
 				msg = self.net_request.next().fuse() => {
 					let Some((peer, Message { shard_id, block_number, payload })) = msg else {

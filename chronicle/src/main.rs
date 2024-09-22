@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chronicle::ChronicleConfig;
 use clap::Parser;
 use std::{path::PathBuf, time::Duration};
@@ -46,19 +46,18 @@ pub struct ChronicleArgs {
 }
 
 impl ChronicleArgs {
-	pub fn config(self) -> ChronicleConfig {
-		ChronicleConfig {
+	pub fn config(self) -> Result<ChronicleConfig> {
+		let mnemonic = std::fs::read_to_string(self.target_keyfile)
+			.context("failed to read target keyfile")?;
+		Ok(ChronicleConfig {
 			network_id: self.network_id,
 			network_keyfile: self.network_keyfile,
 			network_port: self.network_port,
 			target_min_balance: self.target_min_balance,
-			timechain_metadata: self.timechain_metadata.unwrap_or_default(),
-			timechain_url: self.timechain_url,
-			timechain_keyfile: self.timechain_keyfile,
 			target_url: self.target_url,
-			target_keyfile: self.target_keyfile,
+			target_mnemonic: mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
-		}
+		})
 	}
 }
 
@@ -85,25 +84,21 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let config = args.config();
-
-	let (network, network_requests) =
-		chronicle::create_iroh_network(config.network_config()).await?;
 	let tx_submitter = loop {
-		if let Ok(t) = SubxtTxSubmitter::try_new(&config.timechain_url).await {
+		if let Ok(t) = SubxtTxSubmitter::try_new(&args.timechain_url).await {
 			break t;
 		} else {
-			tracing::error!("Error connecting to {} retrying", &config.timechain_url);
+			tracing::error!("Error connecting to {} retrying", &args.timechain_url);
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
 	};
 
 	let subxt = SubxtClient::with_keyfile(
-		&config.timechain_url,
-		config.timechain_metadata,
-		&config.timechain_keyfile,
+		&args.timechain_url,
+		args.timechain_metadata.unwrap_or_default(),
+		&args.timechain_keyfile,
 		tx_submitter,
 	)
 	.await?;
-	chronicle::run_chronicle::<gmp_rust::Connector>(config, network, network_requests, subxt).await
+	chronicle::run_chronicle::<gmp_rust::Connector>(args.config()?, subxt).await
 }

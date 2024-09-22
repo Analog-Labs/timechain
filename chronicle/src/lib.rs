@@ -1,26 +1,19 @@
+use crate::network::{create_iroh_network, NetworkConfig};
 use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::channel::mpsc;
-use futures::stream::BoxStream;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
-use tc_subxt::MetadataVariant;
 use time_primitives::{ConnectorParams, IConnector, NetworkId, Runtime};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 
-//#[cfg(test)]
-//mod mock;
+#[cfg(test)]
+mod mock;
 mod network;
 mod shards;
 mod tasks;
-
-/// Re-exported items from the `network` module.
-pub use crate::network::{
-	create_iroh_network, Message, Network, NetworkConfig, PeerId, PROTOCOL_NAME,
-};
 
 /// Logging target for the Chronicle application.
 pub const TW_LOG: &str = "chronicle";
@@ -33,30 +26,14 @@ pub struct ChronicleConfig {
 	pub network_keyfile: Option<PathBuf>,
 	/// Optional network port number.
 	pub network_port: Option<u16>,
-	/// Metadata for the timechain.
-	pub timechain_metadata: MetadataVariant,
-	/// URL for the timechain.
-	pub timechain_url: String,
-	/// Path to a timechain key file.
-	pub timechain_keyfile: PathBuf,
 	/// URL for the target.
 	pub target_url: String,
 	/// Path to a target key file.
-	pub target_keyfile: PathBuf,
+	pub target_mnemonic: String,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
 	/// Minimum balance chronicle should have.
 	pub target_min_balance: u128,
-}
-
-impl ChronicleConfig {
-	/// Creates a `NetworkConfig` from the `ChronicleConfig` instance.
-	pub fn network_config(&self) -> NetworkConfig {
-		NetworkConfig {
-			secret: self.network_keyfile.clone(),
-			bind_port: self.network_port,
-		}
-	}
 }
 
 /// Runs the Chronicle application.
@@ -78,12 +55,8 @@ impl ChronicleConfig {
 /// * `Result<()>` - Returns an empty result on success, or an error on failure.
 pub async fn run_chronicle<C: IConnector>(
 	config: ChronicleConfig,
-	network: Arc<dyn Network>,
-	net_request: BoxStream<'static, (PeerId, Message)>,
 	substrate: impl Runtime,
 ) -> Result<()> {
-	let mnemonic =
-		std::fs::read_to_string(config.target_keyfile).context("failed to read target keyfile")?;
 	// Initialize the blockchain network components.
 	let (chain, subchain) = substrate
 		.get_network(config.network_id)
@@ -97,7 +70,7 @@ pub async fn run_chronicle<C: IConnector>(
 		blockchain: chain,
 		network: subchain,
 		url: config.target_url,
-		mnemonic,
+		mnemonic: config.target_mnemonic,
 	};
 	// Initialize the connector, retrying on failure.
 	let connector = loop {
@@ -127,6 +100,11 @@ pub async fn run_chronicle<C: IConnector>(
 		tracing::warn!("Chronicle balance is too low, retrying...");
 	}
 
+	let (network, network_requests) = create_iroh_network(NetworkConfig {
+		secret: config.network_keyfile.clone(),
+		bind_port: config.network_port,
+	})
+	.await?;
 	// Get the peer ID of the network and create a tracing span.
 	let peer_id = network.peer_id();
 	let span = span!(
@@ -146,7 +124,7 @@ pub async fn run_chronicle<C: IConnector>(
 		task_params,
 		substrate,
 		tss_request: tss_rx,
-		net_request,
+		net_request: network_requests,
 		tss_keyshare_cache: config.tss_keyshare_cache,
 	});
 
@@ -161,7 +139,7 @@ mod tests {
 	use crate::mock::Mock;
 	use std::time::Duration;
 	use time_primitives::traits::IdentifyAccount;
-	use time_primitives::{AccountId, Function, Msg, ShardStatus, TaskDescriptor};
+	use time_primitives::{AccountId, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
 	///
@@ -172,25 +150,20 @@ mod tests {
 	///
 	/// * `mock` - Mock instance for testing.
 	/// * `network_id` - Identifier for the network.
-	async fn chronicle(mut mock: Mock, network_id: NetworkId) {
+	async fn chronicle(mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
-		// Create a mock network and request stream.
-		let (network, network_requests) =
-			create_iroh_network(NetworkConfig { secret: None, bind_port: None })
-				.await
-				.unwrap();
-		// Create a channel for TSS requests and set it up in the mock.
-		let (tss_tx, tss_rx) = mpsc::channel(10);
-		mock.with_tss(tss_tx);
 		// Run the Chronicle application with the mock network.
-		run_chronicle_with_spawner(
-			network_id,
-			network,
-			network_requests,
-			mock.clone(),
-			tss_rx,
-			mock.clone(),
-			"/tmp".into(),
+		run_chronicle::<gmp_rust::Connector>(
+			ChronicleConfig {
+				network_id,
+				network_keyfile: None,
+				network_port: None,
+				target_url: "tempfile".to_string(),
+				target_mnemonic: "mnemonic".into(),
+				tss_keyshare_cache: "/tmp".into(),
+				target_min_balance: 0,
+			},
+			mock,
 		)
 		.await
 		.unwrap();
@@ -239,23 +212,16 @@ mod tests {
 		// Wait for the shard to be online.
 		loop {
 			tracing::info!("waiting for shard");
-			if mock.get_shard_status(Default::default(), shard_id).await.unwrap()
-				!= ShardStatus::Online
-			{
+			if mock.get_shard_status(shard_id).await.unwrap() != ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
 			break;
 		}
+
 		tracing::info!("creating task");
 		// Create a task and assign it to the shard.
-		let task_id = mock.create_task(TaskDescriptor {
-			owner: Some(mock.account_id().clone()),
-			network: network_id,
-			function: Function::SendMessage { msg: Msg::default() },
-			start: 0,
-			shard_size: 3,
-		});
+		let task_id = mock.create_task(Task::ReadGatewayEvents { blocks: 0..1 });
 		tracing::info!("assigning task");
 		mock.assign_task(task_id, shard_id);
 		// Wait for the task to complete.
@@ -263,7 +229,6 @@ mod tests {
 			tracing::info!("waiting for task");
 			let task = mock.task(task_id).unwrap();
 			if task.result.is_none() {
-				tracing::info!("task phase {:?}", task.phase);
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}

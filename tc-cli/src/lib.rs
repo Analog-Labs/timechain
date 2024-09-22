@@ -1,16 +1,17 @@
-use crate::config::{Backend, Config};
+use crate::config::Config;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address, BatchId, BlockHash, BlockNumber, ConnectorParams, Gateway, GatewayMessage,
-	GmpEvent, GmpMessage, IConnector, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
-	NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
+	GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId,
+	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
 };
 
 mod config;
@@ -28,7 +29,7 @@ async fn sleep_or_abort(duration: Duration) -> Result<()> {
 pub struct Tc {
 	config: Config,
 	runtime: SubxtClient,
-	connectors: HashMap<NetworkId, Box<dyn IConnectorAdmin>>,
+	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
 }
 
 impl Tc {
@@ -54,17 +55,7 @@ impl Tc {
 				url: network.url.clone(),
 				mnemonic: std::fs::read_to_string(&config.config.target_keyfile)?,
 			};
-			let connector = match network.backend {
-				Backend::Grpc => {
-					let connector = gmp_grpc::Connector::new(params).await?;
-					Box::new(connector) as Box<dyn IConnectorAdmin>
-				},
-				Backend::Evm => {
-					//let connector = gmp_evm::Connector::new(params).await?;
-					//Box::new(connector)
-					anyhow::bail!("evm backend not supported");
-				},
-			};
+			let connector = network.backend.connect_admin(&params).await?;
 			connectors.insert(id, connector);
 		}
 		Ok(Self { config, runtime, connectors })

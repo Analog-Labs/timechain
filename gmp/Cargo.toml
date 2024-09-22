@@ -1,0 +1,17 @@
+[package]
+name = "gmp"
+authors.workspace = true
+edition.workspace = true
+version.workspace = true
+homepage.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gmp-evm = { path = "evm" }
+gmp-grpc = { path = "grpc" }
+gmp-rust = { path = "rust" }
+serde = { workspace = true, features = ["derive"] }
+time-primitives.workspace = true

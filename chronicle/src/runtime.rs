@@ -9,7 +9,7 @@ use time_primitives::{
 };
 
 #[async_trait]
-pub trait Runtime: Clone + Send + Sync + 'static {
+pub trait Runtime: Send + Sync + 'static {
 	fn public_key(&self) -> &PublicKey;
 
 	fn account_id(&self) -> &AccountId;

@@ -60,13 +60,16 @@ pub async fn run_chronicle<C: IConnector>(
 	config: ChronicleConfig,
 	substrate: impl Runtime,
 ) -> Result<()> {
-	// Initialize the blockchain network components.
-	let (chain, subchain) = substrate
-		.get_network(config.network_id)
-		.await?
-		.ok_or(anyhow::anyhow!("Network Id not supported"))?;
-
-	// Create a channel for TSS requests.
+	// initialize connector
+	let (chain, subchain) = loop {
+		let network = substrate.get_network(config.network_id).await?;
+		if let Some(network) = network {
+			break network;
+		} else {
+			tracing::warn!("network {} isn't registered", config.network_id);
+			sleep(Duration::from_secs(10)).await;
+		};
+	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let connector_params = ConnectorParams {
 		network_id: config.network_id,
@@ -75,7 +78,6 @@ pub async fn run_chronicle<C: IConnector>(
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
 	};
-	// Initialize the connector, retrying on failure.
 	let connector = loop {
 		match C::new(connector_params.clone()).await {
 			Ok(connector) => break connector,
@@ -91,31 +93,31 @@ pub async fn run_chronicle<C: IConnector>(
 		}
 	};
 
+	// initialize wallets
 	let timechain_address = substrate.account_id().to_string();
 	let target_address = connector.format_address(connector.address());
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-
-	let timechain_min_balance = config.timechain_min_balance;
-	while substrate.balance().await? < timechain_min_balance {
-		sleep(Duration::from_secs(10)).await;
-		tracing::warn!("timechain balance is below {timechain_min_balance}, retrying...");
-	}
-	let target_min_balance = config.target_min_balance;
-	while connector.balance(connector.address()).await? < target_min_balance {
-		sleep(Duration::from_secs(10)).await;
-		tracing::warn!("target balance is below {target_min_balance}, retrying...");
-	}
-
 	admin::start(8080, admin::Keys::new(timechain_address, target_address))
 		.await
 		.context("failed to start admin interface")?;
+	let timechain_min_balance = config.timechain_min_balance;
+	while substrate.balance().await? < timechain_min_balance {
+		tracing::warn!("timechain balance is below {timechain_min_balance}");
+		sleep(Duration::from_secs(10)).await;
+	}
+	let target_min_balance = config.target_min_balance;
+	while connector.balance(connector.address()).await? < target_min_balance {
+		tracing::warn!("target balance is below {target_min_balance}");
+		sleep(Duration::from_secs(10)).await;
+	}
+
+	// initialize chronicle
 	let (network, network_requests) = create_iroh_network(NetworkConfig {
 		secret: config.network_keyfile.clone(),
 		bind_port: config.network_port,
 	})
 	.await?;
-	// Get the peer ID of the network and create a tracing span.
 	let peer_id = network.peer_id();
 	let span = span!(
 		target: TW_LOG,
@@ -124,11 +126,7 @@ pub async fn run_chronicle<C: IConnector>(
 		?peer_id,
 	);
 	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
-
-	// Initialize the task executor.
 	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
-
-	// Initialize the time worker.
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,
 		task_params,
@@ -137,8 +135,6 @@ pub async fn run_chronicle<C: IConnector>(
 		net_request: network_requests,
 		tss_keyshare_cache: config.tss_keyshare_cache,
 	});
-
-	// Run the time worker with the created tracing span.
 	time_worker.run(&span).await;
 	Ok(())
 }

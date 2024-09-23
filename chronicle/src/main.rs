@@ -89,7 +89,6 @@ async fn main() -> Result<()> {
 
 	if !args.tss_keyshare_cache.exists() {
 		std::fs::create_dir_all(&args.tss_keyshare_cache)?;
-		anyhow::bail!("tss keyshare cache doesn't exist");
 	}
 
 	if !args.timechain_keyfile.exists() {

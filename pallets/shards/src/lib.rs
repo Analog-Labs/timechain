@@ -354,6 +354,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			sp_std::if_std! {
+				println!("on initialize called from shards");
+			}
 			let mut writes = 0;
 			let mut reads = 0;
 			// use DkgTimeout instead
@@ -476,6 +479,7 @@ pub mod pallet {
 		///     - Updates [`ShardState`] with the new new_status.
 		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
 		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
+			log::debug!("ddebug shard_pallet: member_offline call");
 			let Some(shard_id) = MemberShard::<T>::get(id) else {
 				return T::DbWeight::get().reads(1);
 			};
@@ -486,8 +490,11 @@ pub mod pallet {
 				return T::DbWeight::get().reads(3);
 			};
 			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
+			log::debug!("member_online: {:?}", members_online);
 			members_online = members_online.saturating_less_one();
 			ShardMembersOnline::<T>::insert(shard_id, members_online);
+			log::debug!("member_online after sub: {:?}", members_online);
+			log::debug!("member_online threshold: {:?}", shard_threshold);
 			let new_status = match old_status {
 				// if a member goes offline before the group key is submitted,
 				// then the shard will never go online
@@ -559,8 +566,14 @@ pub mod pallet {
 			members: Vec<AccountId>,
 			threshold: u16,
 		) -> (ShardId, Weight) {
+			sp_std::if_std! {
+				println!("create shard called");
+			}
 			let (mut reads, mut writes) = (0, 0);
 			let shard_id = <ShardIdCounter<T>>::get();
+			sp_std::if_std! {
+				println!("shard_id in create shard is: {:?}", shard_id);
+			}
 			<ShardIdCounter<T>>::put(shard_id + 1);
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);

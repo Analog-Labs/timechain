@@ -9803,6 +9803,7 @@ name = "pallet-shards"
 version = "0.7.0"
 dependencies = [
  "log",
+ "pallet-elections",
  "pallet-members",
  "parity-scale-codec",
  "polkadot-sdk",

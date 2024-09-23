@@ -149,6 +149,9 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		///  `on_initialize`: Handles periodic heartbeat checks and manages member online/offline statuses.
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			sp_std::if_std! {
+				println!("on_initialize called from members");
+			}
 			let mut weight = Weight::default();
 			if n % T::HeartbeatTimeout::get() == BlockNumberFor::<T>::default() {
 				for (member, _) in MemberOnline::<T>::iter() {
@@ -267,6 +270,9 @@ pub mod pallet {
 		///	3. Emits [`Event::MemberOnline`].
 		///	4. Calls `Elections::member_online` to notify the election system of the member's online status.
 		fn member_online(member: &AccountId, network: NetworkId) {
+			sp_std::if_std! {
+				println!("pallet-members:member_online");
+			}
 			MemberOnline::<T>::insert(member.clone(), ());
 			Self::deposit_event(Event::MemberOnline(member.clone()));
 			T::Elections::member_online(member, network);
@@ -279,6 +285,7 @@ pub mod pallet {
 		///	3. Emits [`Event::MemberOffline]`.
 		///	4. Calculates and returns weight adjustments using `T::DbWeight::get()` and `T::Elections::member_offline`.
 		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
+			log::debug!("ddebug-members-pallet: member_offline: {:?}", member);
 			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));
 			T::DbWeight::get()

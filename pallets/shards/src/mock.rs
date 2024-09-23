@@ -44,6 +44,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+		Elections: pallet_elections,
 		Members: pallet_members,
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 	}
@@ -72,20 +73,28 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
 
+impl pallet_elections::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type Members = Members;
+	type Shards = Shards;
+}
+
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type Tasks = MockTasks;
 	type Members = Members;
-	type Elections = MockElections;
+	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
 }
 
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
-	type Elections = MockElections;
+	type Elections = Elections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }
@@ -120,13 +129,20 @@ impl frame_system::offchain::SigningTypes for Test {
 	type Signature = Signature;
 }
 
-/// To from `now` to block `n`.
-pub fn roll_to(n: u64) {
-	let now = System::block_number();
-	for i in now + 1..=n {
-		System::set_block_number(i);
-		Shards::on_initialize(i);
+// roll number of blocks
+pub fn roll(n: u64) {
+	for _ in 0..n {
+		next_block();
 	}
+}
+
+fn next_block() {
+	let mut now = System::block_number();
+	now += 1;
+	System::set_block_number(now);
+	Shards::on_initialize(now);
+	Members::on_initialize(now);
+	Elections::on_initialize(now);
 }
 
 // Build genesis storage according to the mock runtime.

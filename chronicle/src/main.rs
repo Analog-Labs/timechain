@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
+use bip39::Mnemonic;
 use chronicle::ChronicleConfig;
 use clap::Parser;
-use std::{path::PathBuf, time::Duration};
+use std::{
+	path::{Path, PathBuf},
+	time::Duration,
+};
 use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::NetworkId;
 
@@ -22,9 +26,12 @@ pub struct ChronicleArgs {
 	/// key file for connector wallet
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
-	/// key file for connector wallet
-	#[clap(long)]
+	/// target min balance
+	#[clap(long, default_value_t = 0)]
 	pub target_min_balance: u128,
+	/// timechain min balance
+	#[clap(long, default_value_t = 0)]
+	pub timechain_min_balance: u128,
 	/// Metadata version to use to connect to timechain node.
 	#[clap(long)]
 	pub timechain_metadata: Option<MetadataVariant>,
@@ -46,19 +53,26 @@ pub struct ChronicleArgs {
 }
 
 impl ChronicleArgs {
-	pub fn config(self) -> Result<ChronicleConfig> {
-		let mnemonic = std::fs::read_to_string(self.target_keyfile)
-			.context("failed to read target keyfile")?;
+	fn config(self, target_mnemonic: String) -> Result<ChronicleConfig> {
 		Ok(ChronicleConfig {
 			network_id: self.network_id,
 			network_keyfile: self.network_keyfile,
 			network_port: self.network_port,
+			timechain_min_balance: self.timechain_min_balance,
 			target_min_balance: self.target_min_balance,
 			target_url: self.target_url,
-			target_mnemonic: mnemonic,
+			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
 		})
 	}
+}
+
+fn generate_key(path: &Path) -> Result<()> {
+	let mut seed = [0; 32];
+	getrandom::getrandom(&mut seed)?;
+	let mnemonic = Mnemonic::from_entropy(&seed)?;
+	std::fs::write(path, mnemonic.to_string())?;
+	Ok(())
 }
 
 #[tokio::main]
@@ -74,8 +88,23 @@ async fn main() -> Result<()> {
 	let args = ChronicleArgs::parse();
 
 	if !args.tss_keyshare_cache.exists() {
+		std::fs::create_dir_all(&args.tss_keyshare_cache)?;
 		anyhow::bail!("tss keyshare cache doesn't exist");
 	}
+
+	if !args.timechain_keyfile.exists() {
+		generate_key(&args.timechain_keyfile)?;
+	}
+
+	if !args.target_keyfile.exists() {
+		generate_key(&args.target_keyfile)?;
+	}
+
+	let timechain_mnemonic = std::fs::read_to_string(&args.timechain_keyfile)
+		.context("failed to read timechain keyfile")?;
+	let target_mnemonic =
+		std::fs::read_to_string(&args.target_keyfile).context("failed to read target keyfile")?;
+
 	// Setup Prometheus exporter if enabled
 	if args.prometheus_enabled {
 		let binding = format!("0.0.0.0:{}", args.prometheus_port).parse().unwrap();
@@ -93,12 +122,12 @@ async fn main() -> Result<()> {
 		}
 	};
 
-	let subxt = SubxtClient::with_keyfile(
+	let subxt = SubxtClient::with_key(
 		&args.timechain_url,
 		args.timechain_metadata.unwrap_or_default(),
-		&args.timechain_keyfile,
+		&timechain_mnemonic,
 		tx_submitter,
 	)
 	.await?;
-	chronicle::run_chronicle::<gmp_rust::Connector>(args.config()?, subxt).await
+	chronicle::run_chronicle::<gmp_rust::Connector>(args.config(target_mnemonic)?, subxt).await
 }

@@ -32,8 +32,10 @@ pub struct ChronicleConfig {
 	pub target_mnemonic: String,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
-	/// Minimum balance chronicle should have.
+	/// Target min balance.
 	pub target_min_balance: u128,
+	/// Timechain min balance.
+	pub timechain_min_balance: u128,
 }
 
 /// Runs the Chronicle application.
@@ -88,16 +90,23 @@ pub async fn run_chronicle<C: IConnector>(
 		}
 	};
 
+	event!(target: TW_LOG, Level::INFO, "timechain address: {}", substrate.account_id());
 	event!(
 		target: TW_LOG,
 		Level::INFO,
-		"Target wallet address: {}",
+		"target address: {}",
 		connector.format_address(connector.address()),
 	);
 
-	while connector.balance(connector.address()).await? < config.target_min_balance {
+	let timechain_min_balance = config.timechain_min_balance;
+	while substrate.balance().await? < timechain_min_balance {
 		sleep(Duration::from_secs(10)).await;
-		tracing::warn!("Chronicle balance is too low, retrying...");
+		tracing::warn!("timechain balance is below {timechain_min_balance}, retrying...");
+	}
+	let target_min_balance = config.target_min_balance;
+	while connector.balance(connector.address()).await? < target_min_balance {
+		sleep(Duration::from_secs(10)).await;
+		tracing::warn!("target balance is below {target_min_balance}, retrying...");
 	}
 
 	let (network, network_requests) = create_iroh_network(NetworkConfig {

@@ -41,10 +41,10 @@ impl Tc {
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		let tx_submitter = SubxtTxSubmitter::try_new(url).await.unwrap();
-		let runtime = SubxtClient::with_keyfile(
+		let runtime = SubxtClient::with_key(
 			url,
 			metadata.cloned().unwrap_or_default(),
-			keyfile,
+			&std::fs::read_to_string(keyfile)?,
 			tx_submitter,
 		)
 		.await?;

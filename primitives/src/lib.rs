@@ -190,6 +190,8 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	fn account_id(&self) -> &AccountId;
 
+	async fn balance(&self) -> Result<u128>;
+
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;

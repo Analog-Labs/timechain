@@ -100,10 +100,6 @@ pub mod pallet {
 		GatewayAlreadyRegistered,
 	}
 
-	// stores a counter for each network type supported
-	#[pallet::storage]
-	pub type NetworkIdCounter<T: Config> = StorageValue<_, NetworkId, ValueQuery>;
-
 	// stores network_id against (blockchain, network)
 	#[pallet::storage]
 	pub type Networks<T: Config> =
@@ -129,7 +125,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
-		pub networks: Vec<(String, String)>,
+		pub networks: Vec<(NetworkId, String, String)>,
 		pub _marker: PhantomData<T>,
 	}
 
@@ -146,8 +142,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (name, network) in &self.networks {
-				Pallet::<T>::insert_network(name.clone(), network.clone())
+			for (id, blockchain, network) in &self.networks {
+				Pallet::<T>::insert_network(*id, blockchain.clone(), network.clone())
 					.expect("No networks exist before genesis; NetworkId not overflow from 0 at genesis; QED");
 			}
 		}
@@ -165,24 +161,15 @@ pub mod pallet {
 		///    6. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
 		///    7. Return the new `NetworkId`.
 		fn insert_network(
+			network: NetworkId,
 			chain_name: ChainName,
 			chain_network: ChainNetwork,
-		) -> Result<NetworkId, Error<T>> {
-			for (_, (name, network)) in Networks::<T>::iter() {
-				if name == chain_name && network == chain_network {
-					return Err(Error::<T>::NetworkExists);
-				}
+		) -> Result<(), Error<T>> {
+			if Networks::<T>::get(network).is_some() {
+				return Err(Error::<T>::NetworkExists);
 			}
-
-			let network_id = NetworkIdCounter::<T>::get();
-			let Some(next_network_id) = network_id.checked_add(1) else {
-				return Err(Error::<T>::NetworkIdOverflow);
-			};
-
-			NetworkIdCounter::<T>::put(next_network_id);
-			Networks::<T>::insert(network_id, (chain_name, chain_network));
-
-			Ok(network_id)
+			Networks::<T>::insert(network, (chain_name, chain_network));
+			Ok(())
 		}
 	}
 
@@ -200,11 +187,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::add_network(chain_name.len() as u32, chain_network.len() as u32))]
 		pub fn add_network(
 			origin: OriginFor<T>,
+			network_id: NetworkId,
 			chain_name: ChainName,
 			chain_network: ChainNetwork,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			let network_id = Self::insert_network(chain_name, chain_network)?;
+			Self::insert_network(network_id, chain_name, chain_network)?;
 			Self::deposit_event(Event::NetworkAdded(network_id));
 			Ok(())
 		}

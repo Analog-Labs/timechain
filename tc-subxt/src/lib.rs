@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
 use futures::{Future, FutureExt, StreamExt};
-use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::backend::legacy::LegacyRpcMethods;
@@ -296,16 +295,13 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn with_keyfile<T: TxSubmitter>(
+	pub async fn with_key<T: TxSubmitter>(
 		url: &str,
 		metadata: MetadataVariant,
-		keyfile: &Path,
+		mnemonic: &str,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let content = std::fs::read_to_string(keyfile)
-			.context("failed to read substrate keyfile")
-			.with_context(|| keyfile.display().to_string())?;
-		let secret = SecretUri::from_str(&content).context("failed to parse substrate keyfile")?;
+		let secret = SecretUri::from_str(&mnemonic).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
 		Self::new(url, metadata, keypair, tx_submitter).await
 	}
@@ -415,6 +411,21 @@ impl Runtime for SubxtClient {
 
 	fn account_id(&self) -> &AccountId {
 		&self.account_id
+	}
+
+	async fn balance(&self) -> Result<u128> {
+		let data = metadata_scope!(self.metadata, {
+			let account: &subxt::utils::AccountId32 =
+				unsafe { std::mem::transmute(self.account_id()) };
+			let storage_query = metadata::storage().system().account(account);
+			let result = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
+			if let Some(info) = result {
+				info.data.free
+			} else {
+				0
+			}
+		});
+		Ok(data)
 	}
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {

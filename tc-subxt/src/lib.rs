@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
-use futures::{FutureExt, StreamExt};
+use futures::{Future, FutureExt, StreamExt};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -459,12 +459,6 @@ impl Runtime for SubxtClient {
 
 	fn account_id(&self) -> &AccountId {
 		&self.account_id
-	}
-
-	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		let client = self.client.clone();
-		let f = move || client.blocks().subscribe_all();
-		block_stream(f)
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {

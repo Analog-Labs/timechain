@@ -24,21 +24,6 @@ impl TasksInterface for MockTasks {
 	fn gateway_registered(_: NetworkId, _: u64) {}
 }
 
-pub struct MockElections;
-
-impl ElectionsInterface for MockElections {
-	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
-	fn default_shard_size() -> u16 {
-		3
-	}
-	fn member_online(member: &AccountId, network: NetworkId) {
-		Shards::member_online(member, network)
-	}
-	fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
-		Shards::member_offline(member, network)
-	}
-}
-
 frame_support::construct_runtime!(
 	pub struct Test
 	{

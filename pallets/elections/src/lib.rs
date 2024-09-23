@@ -156,9 +156,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			sp_std::if_std! {
-				println!("on initialize called from election");
-			}
 			let mut weight = Weight::default();
 			for (network, _, _) in Unassigned::<T>::iter() {
 				weight = weight
@@ -241,23 +238,11 @@ pub mod pallet {
 		///    3. Inserts the member into the [`Unassigned`] storage for the given network.
 		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
-			sp_std::if_std! {
-				println!("pallet-elections:member_online");
-				println!("{:?}", T::Shards::is_shard_member(member));
-				println!("{:?}", Electable::<T>::iter().next().is_none());
-				println!("{:?}", Electable::<T>::get(member).is_some());
-			}
 			if !T::Shards::is_shard_member(member)
 				&& (Electable::<T>::iter().next().is_none()
 					|| Electable::<T>::get(member).is_some())
 			{
-				sp_std::if_std! {
-					println!("Adding member to unassigned");
-				}
 				Unassigned::<T>::insert(network, member, ());
-			}
-			sp_std::if_std! {
-				println!("calling shard member online from election");
 			}
 			T::Shards::member_online(member, network);
 		}
@@ -281,9 +266,6 @@ pub mod pallet {
 		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
 		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
 		fn try_elect_shard(network: NetworkId) -> Weight {
-			sp_std::if_std! {
-				println!("trying electing shard: {:?}", network);
-			}
 			match Self::new_shard_members(network) {
 				(Some(members), r) => {
 					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));

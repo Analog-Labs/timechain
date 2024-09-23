@@ -164,6 +164,7 @@ fn member_offline_above_threshold_sets_online_shard_offline() {
 	let shard_id = 0;
 	let threshold = 2;
 	new_test_ext().execute_with(|| {
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, threshold));
 		for member in &shard {
 			pallet_balances::Pallet::<Test>::resolve_creating(
 				&member.account_id,
@@ -180,7 +181,6 @@ fn member_offline_above_threshold_sets_online_shard_offline() {
 			));
 			roll(1);
 		}
-		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, threshold));
 		roll(1);
 		for member in &shard {
 			assert_ok!(Shards::commit(
@@ -191,40 +191,29 @@ fn member_offline_above_threshold_sets_online_shard_offline() {
 			));
 			roll(1);
 		}
+		for member in &shard {
+			assert_ok!(Shards::ready(
+				RawOrigin::Signed(member.account_id.clone()).into(),
+				shard_id as _
+			));
+			roll(1);
+		}
 		sp_std::if_std! {
 			println!("{:?}",ShardState::<Test>::get(0));
 		}
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[2].account_id.clone()).into()));
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[0].account_id).is_some());
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[1].account_id).is_some());
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[2].account_id).is_some());
-		roll(10);
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[2].account_id.clone()).into()));
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[0].account_id).is_some());
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[1].account_id).is_some());
-		// assert!(pallet_members::Heartbeat::<Test>::get(&shard[2].account_id).is_some());
-		roll(10);
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[2].account_id.clone()).into()));
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[0].account_id).is_some());
-		assert!(pallet_members::Heartbeat::<Test>::get(&shard[1].account_id).is_some());
-		roll(10);
-		// Shards::member_offline(&shard[0].account_id, ETHEREUM);
+		// Send heartbeat for 3 members
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[2].account_id.clone()).into()));
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
-		// // assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
-		// // assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[2].account_id.clone()).into()));
-		// roll_to(10);
-		// assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
-		// roll_to(10);
-		// assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
-		// roll_to(10);
-		// assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
-		// Shards::member_offline(&shard[0].account_id, ETHEREUM);
+		roll(10);
+		// only send heartbeat for 2 members
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
+		roll(10);
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
 	});
 }

@@ -1,7 +1,7 @@
 use crate::network::{create_iroh_network, NetworkConfig};
 use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use futures::channel::mpsc;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -9,6 +9,7 @@ use time_primitives::{ConnectorParams, IConnector, NetworkId, Runtime};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 
+mod admin;
 #[cfg(test)]
 mod mock;
 mod network;
@@ -90,13 +91,10 @@ pub async fn run_chronicle<C: IConnector>(
 		}
 	};
 
-	event!(target: TW_LOG, Level::INFO, "timechain address: {}", substrate.account_id());
-	event!(
-		target: TW_LOG,
-		Level::INFO,
-		"target address: {}",
-		connector.format_address(connector.address()),
-	);
+	let timechain_address = substrate.account_id().to_string();
+	let target_address = connector.format_address(connector.address());
+	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
+	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
 
 	let timechain_min_balance = config.timechain_min_balance;
 	while substrate.balance().await? < timechain_min_balance {
@@ -109,6 +107,9 @@ pub async fn run_chronicle<C: IConnector>(
 		tracing::warn!("target balance is below {target_min_balance}, retrying...");
 	}
 
+	admin::start(8080, admin::Keys::new(timechain_address, target_address))
+		.await
+		.context("failed to start admin interface")?;
 	let (network, network_requests) = create_iroh_network(NetworkConfig {
 		secret: config.network_keyfile.clone(),
 		bind_port: config.network_port,

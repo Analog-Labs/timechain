@@ -4,13 +4,13 @@ backends:
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
     tester: "/etc/contracts/test_contract.sol/VotingContract.json"
   rust:
-    proxy: "/etc/db"
+    proxy: ""
     gateway: ""
     tester: ""
 networks:
   1:
     backend: "rust"
-    url: ""
+    url: "/etc/db"
   3:
     backend: "evm"
     url: "ws://ethereum.8545"

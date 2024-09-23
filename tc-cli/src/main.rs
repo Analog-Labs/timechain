@@ -29,15 +29,15 @@ impl FromStr for RelGasPrice {
 
 #[derive(Parser, Debug)]
 struct Args {
-	#[arg(long, default_value = "config.yaml")]
+	#[arg(long, default_value = "/etc/config.yaml")]
 	config: PathBuf,
 	#[arg(long)]
 	timechain_metadata: Option<MetadataVariant>,
-	#[arg(long, default_value = "/etc/alice")]
+	#[arg(long, default_value = "/etc/timechain_admin")]
 	timechain_keyfile: PathBuf,
 	#[arg(long, default_value = "ws://validator:9944")]
 	timechain_url: String,
-	#[arg(long, default_value = "/etc/keyfile")]
+	#[arg(long, default_value = "/etc/target_admin")]
 	target_keyfile: PathBuf,
 	#[clap(subcommand)]
 	cmd: Command,

@@ -51,8 +51,10 @@ impl Tc {
 		let mut connectors = HashMap::default();
 		for (id, network) in &config.networks {
 			let id = *id;
-			let (conn_blockchain, conn_network) =
-				runtime.get_network(id).await?.ok_or(anyhow::anyhow!("Unknown network id"))?;
+			let Some((conn_blockchain, conn_network)) = runtime.get_network(id).await? else {
+				tracing::info!("network {id} not registered; skipping");
+				continue;
+			};
 			let params = ConnectorParams {
 				network_id: id,
 				blockchain: conn_blockchain,

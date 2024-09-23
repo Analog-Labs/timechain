@@ -98,7 +98,7 @@ pub async fn run_chronicle<C: IConnector>(
 	let target_address = connector.format_address(connector.address());
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-	admin::start(8080, admin::Keys::new(timechain_address, target_address))
+	admin::start(8080, admin::Keys::new(config.network_id, timechain_address, target_address))
 		.await
 		.context("failed to start admin interface")?;
 	let timechain_min_balance = config.timechain_min_balance;

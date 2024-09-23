@@ -105,6 +105,10 @@ pub mod pallet {
 	pub type Networks<T: Config> =
 		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
 
+	/// Workaround for subxt not supporting iterating over the decoded keys.
+	#[pallet::storage]
+	pub type NetworkIds<T: Config> = StorageMap<_, Twox64Concat, NetworkId, NetworkId, OptionQuery>;
+
 	/// Map storage for network gateways.
 	#[pallet::storage]
 	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, Address, OptionQuery>;
@@ -169,6 +173,7 @@ pub mod pallet {
 				return Err(Error::<T>::NetworkExists);
 			}
 			Networks::<T>::insert(network, (chain_name, chain_network));
+			NetworkIds::<T>::insert(network, network);
 			Ok(())
 		}
 	}

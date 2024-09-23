@@ -51,7 +51,7 @@ pub enum Tx {
 	Heartbeat,
 	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
 	RegisterGateway { network: NetworkId, address: Gateway, block_height: u64 },
-	RegisterNetwork { chain_name: String, chain_network: String },
+	RegisterNetwork { network_id: NetworkId, chain_name: String, chain_network: String },
 	SetShardConfig { shard_size: u16, shard_threshold: u16 },
 	Ready { shard_id: ShardId },
 	TaskResult { task_id: TaskId, result: TaskResult },
@@ -177,9 +177,14 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
-				Tx::RegisterNetwork { chain_name, chain_network } => {
+				Tx::RegisterNetwork {
+					network_id,
+					chain_name,
+					chain_network,
+				} => {
 					let runtime_call = RuntimeCall::Networks(
 						metadata::runtime_types::pallet_networks::pallet::Call::add_network {
+							network_id,
 							chain_name,
 							chain_network,
 						},
@@ -348,12 +353,19 @@ impl SubxtClient {
 
 	pub async fn register_network(
 		&self,
+		network_id: NetworkId,
 		chain_name: String,
 		chain_network: String,
 	) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::RegisterNetwork { chain_name, chain_network }, tx))?;
+		self.tx.unbounded_send((
+			Tx::RegisterNetwork {
+				network_id,
+				chain_name,
+				chain_network,
+			},
+			tx,
+		))?;
 		Ok(rx.await?)
 	}
 

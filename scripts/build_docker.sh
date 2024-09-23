@@ -60,9 +60,8 @@ if ! rustup target list | grep -q "$rustTarget"; then
 fi
 
 # Build docker image
-cargo build -p timechain-node -p chronicle -p tester --target "$rustTarget" --profile "$profile" --features "$features"
+cargo build -p timechain-node -p chronicle -p tc-cli --target "$rustTarget" --profile "$profile" --features "$features"
 
-cp tester/contracts/test_contract.sol analog-gmp/src/
 forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
 
 rm -rf target/docker
@@ -74,5 +73,5 @@ docker build target/docker -f config/docker/Dockerfile -t analoglabs/timenode-$e
 mv "target/$rustTarget/$profile/chronicle" target/docker
 docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/chronicle-$environment
 
-mv "target/$rustTarget/$profile/tester" target/docker
-docker build target/docker -f config/docker/Dockerfile.tester -t analoglabs/tester-$environment
+mv "target/$rustTarget/$profile/tc-cli" target/docker
+docker build target/docker -f config/docker/Dockerfile.tc-cli -t analoglabs/tc-cli-$environment

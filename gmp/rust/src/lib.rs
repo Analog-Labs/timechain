@@ -167,6 +167,14 @@ impl IConnector for Connector {
 		})
 	}
 
+	/// Object-safe clone.
+	fn clone(&self) -> Self
+	where
+		Self: Sized,
+	{
+		Clone::clone(self)
+	}
+
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Address, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let tx = self.db.begin_read()?;

@@ -242,7 +242,7 @@ pub struct Network {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-pub trait IChain: Clone + Send + Sync + 'static {
+pub trait IChain: Send + Sync + 'static {
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String;
 	/// Parses an address from a string.
@@ -276,6 +276,10 @@ pub trait IConnector: IChain {
 	async fn new(params: ConnectorParams) -> Result<Self>
 	where
 		Self: Sized;
+	/// Object-safe clone.
+	fn clone(&self) -> Self
+	where
+		Self: Sized;
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
@@ -291,7 +295,7 @@ pub trait IConnector: IChain {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-pub trait IConnectorAdmin: IChain {
+pub trait IConnectorAdmin: IConnector {
 	/// Deploys the gateway contract.
 	async fn deploy_gateway(&self, proxy: &Path, gateway: &Path) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
@@ -322,4 +326,14 @@ pub trait IConnectorAdmin: IChain {
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn boxed() {
+		std::collections::HashMap::<NetworkId, Box<dyn IConnectorAdmin>>::default();
+	}
 }

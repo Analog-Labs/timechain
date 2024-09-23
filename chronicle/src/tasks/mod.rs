@@ -10,11 +10,20 @@ use time_primitives::{
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level};
 
-#[derive(Clone)]
 pub struct TaskParams<R, C> {
 	tss: mpsc::Sender<TssSigningRequest>,
 	runtime: R,
 	connector: C,
+}
+
+impl<R: Runtime, C: IConnector> Clone for TaskParams<R, C> {
+	fn clone(&self) -> Self {
+		Self {
+			tss: self.tss.clone(),
+			runtime: self.runtime.clone(),
+			connector: self.connector.clone(),
+		}
+	}
 }
 
 impl<R, C> TaskParams<R, C>

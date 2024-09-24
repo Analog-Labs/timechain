@@ -3,13 +3,13 @@ use crate::{self as pallet_shards};
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io, sp_runtime};
 
 use frame_support::derive_impl;
-use frame_support::{pallet_prelude::Weight, traits::OnInitialize};
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ElectionsInterface, NetworkId, ShardId, ShardsInterface, TasksInterface};
+use time_primitives::{NetworkId, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;

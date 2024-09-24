@@ -576,6 +576,7 @@ pub mod pallet {
 				// ShardMembers, MemberShard
 				writes = writes.saturating_add(2);
 			}
+			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			// Event Emission
 			writes = writes.saturating_plus_one();

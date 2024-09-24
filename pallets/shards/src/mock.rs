@@ -3,13 +3,13 @@ use crate::{self as pallet_shards};
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io, sp_runtime};
 
 use frame_support::derive_impl;
-use frame_support::{pallet_prelude::Weight, traits::OnInitialize};
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ElectionsInterface, NetworkId, ShardId, ShardsInterface, TasksInterface};
+use time_primitives::{NetworkId, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -24,26 +24,12 @@ impl TasksInterface for MockTasks {
 	fn gateway_registered(_: NetworkId, _: u64) {}
 }
 
-pub struct MockElections;
-
-impl ElectionsInterface for MockElections {
-	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
-	fn default_shard_size() -> u16 {
-		3
-	}
-	fn member_online(member: &AccountId, network: NetworkId) {
-		Shards::member_online(member, network)
-	}
-	fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
-		Shards::member_offline(member, network)
-	}
-}
-
 frame_support::construct_runtime!(
 	pub struct Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+		Elections: pallet_elections,
 		Members: pallet_members,
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 	}
@@ -72,20 +58,28 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
 
+impl pallet_elections::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type Members = Members;
+	type Shards = Shards;
+}
+
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type Tasks = MockTasks;
 	type Members = Members;
-	type Elections = MockElections;
+	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
 }
 
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
-	type Elections = MockElections;
+	type Elections = Elections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }
@@ -120,13 +114,20 @@ impl frame_system::offchain::SigningTypes for Test {
 	type Signature = Signature;
 }
 
-/// To from `now` to block `n`.
-pub fn roll_to(n: u64) {
-	let now = System::block_number();
-	for i in now + 1..=n {
-		System::set_block_number(i);
-		Shards::on_initialize(i);
+// roll number of blocks
+pub fn roll(n: u64) {
+	for _ in 0..n {
+		next_block();
 	}
+}
+
+fn next_block() {
+	let mut now = System::block_number();
+	now += 1;
+	System::set_block_number(now);
+	Shards::on_initialize(now);
+	Members::on_initialize(now);
+	Elections::on_initialize(now);
 }
 
 // Build genesis storage according to the mock runtime.

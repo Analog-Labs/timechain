@@ -206,9 +206,6 @@ pub mod pallet {
 			MemberPeerId::<T>::insert(&member, peer_id);
 			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
-			sp_std::if_std! {
-				println!("member online: {:?}", member);
-			}
 			Self::member_online(&member, network);
 			Ok(())
 		}
@@ -278,9 +275,6 @@ pub mod pallet {
 		///	4. Calculates and returns weight adjustments using `T::DbWeight::get()` and `T::Elections::member_offline`.
 		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
 			MemberOnline::<T>::remove(member);
-			sp_std::if_std! {
-				println!("member gone offline");
-			}
 			Self::deposit_event(Event::MemberOffline(member.clone()));
 			T::DbWeight::get()
 				.writes(2)

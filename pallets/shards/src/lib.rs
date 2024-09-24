@@ -437,9 +437,6 @@ pub mod pallet {
 		///   3. Increments the count of online members [`ShardMembersOnline`].
 		///   4. Updates [`ShardState`] to `Offline` if the previous status was `Created` or `Committed`.
 		fn member_online(id: &AccountId, _network: NetworkId) {
-			sp_std::if_std! {
-				println!("member online for shard pallet: {:?}", id);
-			}
 			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
 			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
 			ShardMembersOnline::<T>::mutate(shard_id, |x| *x = x.saturating_plus_one());
@@ -471,13 +468,7 @@ pub mod pallet {
 				return T::DbWeight::get().reads(3);
 			};
 			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
-			sp_std::if_std! {
-				println!("member online for shard: {:?}", members_online);
-			}
 			members_online = members_online.saturating_less_one();
-			sp_std::if_std! {
-				println!("member online: {:?}", members_online);
-			}
 			ShardMembersOnline::<T>::insert(shard_id, members_online);
 			let new_status = match old_status {
 				// if a member goes offline before the group key is submitted,
@@ -579,9 +570,6 @@ pub mod pallet {
 				MemberShard::<T>::insert(member, shard_id);
 				// ShardMembers, MemberShard
 				writes = writes.saturating_add(2);
-			}
-			sp_std::if_std! {
-				println!("Created shards with members: {:?}", members.len());
 			}
 			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));

@@ -8,7 +8,7 @@ use schnorr_evm::k256::{ProjectivePoint, Scalar};
 use schnorr_evm::proof_of_knowledge::construct_proof_of_knowledge;
 use schnorr_evm::VerifyingKey;
 use time_primitives::{
-	AccountId, MemberEvents, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+	AccountId, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
 };
 
 const ETHEREUM: NetworkId = 0;

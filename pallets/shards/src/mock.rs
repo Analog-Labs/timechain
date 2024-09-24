@@ -6,7 +6,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{ElectionsInterface, NetworkId, ShardId, TasksInterface};
+use time_primitives::{NetworkId, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -57,7 +57,6 @@ impl pallet_balances::Config for Test {
 impl pallet_elections::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type Members = Members;
 	type Shards = Shards;
 }
@@ -120,9 +119,9 @@ fn next_block() {
 	let mut now = System::block_number();
 	now += 1;
 	System::set_block_number(now);
-	Shards::on_initialize(now);
-	Members::on_initialize(now);
 	Elections::on_initialize(now);
+	Members::on_initialize(now);
+	Shards::on_initialize(now);
 }
 
 // Build genesis storage according to the mock runtime.

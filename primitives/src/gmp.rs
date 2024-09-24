@@ -85,6 +85,7 @@ impl GmpMessage {
 	}
 }
 
+#[cfg(feature = "std")]
 impl std::fmt::Display for GmpMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		f.write_str(&hex::encode(self.message_id()))

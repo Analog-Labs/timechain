@@ -98,11 +98,14 @@ pub async fn run_chronicle<C: IConnector>(
 	let target_address = connector.format_address(connector.address());
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-	admin::start(8080, admin::Keys::new(config.network_id, timechain_address, target_address))
-		.await
-		.context("failed to start admin interface")?;
+	admin::start(
+		8080,
+		admin::Config::new(config.network_id, timechain_address, target_address, "".into()),
+	)
+	.await
+	.context("failed to start admin interface")?;
 	let timechain_min_balance = config.timechain_min_balance;
-	while substrate.balance().await? < timechain_min_balance {
+	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
 		tracing::warn!("timechain balance is below {timechain_min_balance}");
 		sleep(Duration::from_secs(10)).await;
 	}

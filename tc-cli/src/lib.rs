@@ -7,7 +7,8 @@ use std::time::Duration;
 use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
 	AccountId, Address, ConnectorParams, Gateway, GmpEvent, GmpMessage, IConnector,
-	IConnectorAdmin, MemberStatus, NetworkId, Runtime, ShardId, ShardStatus, TssPublicKey,
+	IConnectorAdmin, MemberStatus, Network as Route, NetworkId, Runtime, ShardId, ShardStatus,
+	TssPublicKey,
 };
 
 mod config;
@@ -414,11 +415,7 @@ impl Tc {
 		Ok(())
 	}
 
-	async fn gateway_register_network(
-		&self,
-		network: NetworkId,
-		route: time_primitives::Network,
-	) -> Result<()> {
+	async fn register_route(&self, network: NetworkId, route: Route) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		connector.set_network(gateway, route).await?;
 		Ok(())

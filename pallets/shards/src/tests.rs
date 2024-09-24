@@ -106,6 +106,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 fn test_register_shard() {
 	let shards = shards();
 	new_test_ext().execute_with(|| {
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
 		for shard in &shards {
 			Shards::create_shard(ETHEREUM, shard.iter().map(|m| m.account_id.clone()).collect(), 1);
 		}
@@ -157,8 +158,9 @@ fn test_register_shard() {
 #[test]
 fn dkg_times_out() {
 	new_test_ext().execute_with(|| {
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
 		Shards::create_shard(ETHEREUM, shard().iter().map(|m| m.account_id.clone()).collect(), 1);
-		roll(1);
+		roll(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 		assert!(ShardNetwork::<Test>::get(0).is_none());

@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
-use futures::{FutureExt, StreamExt};
+use futures::{Future, FutureExt, StreamExt};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -410,6 +410,47 @@ impl SubxtClient {
 	}
 }
 
+type BlockStreamOutput = Result<
+	StreamOfResults<subxt::blocks::Block<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
+	subxt::error::Error,
+>;
+
+fn block_stream<
+	B: Future<Output = BlockStreamOutput> + Send + 'static,
+	F: Fn() -> B + Send + 'static,
+>(
+	f: F,
+) -> BoxStream<'static, (BlockHash, BlockNumber)> {
+	let stream = async_stream::stream! {
+		loop {
+			let mut block_stream = match f().await {
+				Ok(stream) => stream,
+				Err(e) => {
+					tracing::error!("Error subscribing to block stream {:?}", e);
+					tokio::time::sleep(Duration::from_secs(1)).await;
+					continue;
+				},
+			};
+			while let Some(block_result) = block_stream.next().await {
+				match block_result {
+					Ok(block) => {
+						let block_hash = block.hash();
+						let block_number = block.header().number;
+						yield (block_hash, block_number);
+					},
+					Err(subxt::error::Error::Rpc(_)) => break,
+					Err(e) => {
+						tracing::error!("Error receiving block: {:?}", e);
+						tokio::time::sleep(Duration::from_secs(1)).await;
+						continue;
+					},
+				}
+			}
+		}
+	};
+	Box::pin(stream)
+}
+
 #[async_trait]
 impl Runtime for SubxtClient {
 	fn public_key(&self) -> &PublicKey {
@@ -421,45 +462,9 @@ impl Runtime for SubxtClient {
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		let api = self.client.clone();
-
-		let stream = async_stream::stream! {
-			let mut block_stream = match api.blocks().subscribe_finalized().await {
-				Ok(stream) => {
-					tracing::info!("got the stream finalized hit");
-					stream
-				},
-				Err(e) => {
-					tracing::error!("Error fetching block {:?}", e);
-					yield Err(e);
-					return;
-				},
-			};
-			while let Some(block_result) = block_stream.next().await {
-				match block_result {
-					Ok(block) => {
-						let block_hash = block.hash();
-						let block_number = block.header().number;
-						yield Ok((block_hash, block_number));
-					},
-					Err(e) => {
-						tracing::error!("Error receiving block: {:?}", e);
-						yield Err(e);
-					},
-				}
-			}
-		};
-
-		let resolve_stream_values = stream.filter_map(|result| async move {
-			match result {
-				Ok(value) => Some(value),
-				Err(e) => {
-					tracing::error!("Error on finality stream {:?}", e);
-					None
-				},
-			}
-		});
-		Box::pin(resolve_stream_values)
+		let client = self.client.clone();
+		let f = move || client.blocks().subscribe_finalized();
+		block_stream(f)
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {

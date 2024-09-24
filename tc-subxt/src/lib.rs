@@ -46,15 +46,52 @@ pub trait TxSubmitter: Clone + Send + Sync + 'static {
 }
 
 pub enum Tx {
-	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
+	// balances
+	Transfer {
+		account: AccountId,
+		balance: u128,
+	},
+	// networks
+	RegisterNetwork {
+		network: NetworkId,
+		chain_name: String,
+		chain_network: String,
+		gateway: Gateway,
+		block_height: u64,
+	},
+	SetNetworkConfig {
+		network: NetworkId,
+		batch_size: u32,
+		batch_offset: u32,
+		batch_gas_limit: u128,
+		shard_task_limit: u32,
+	},
+	// members
+	RegisterMember {
+		network: NetworkId,
+		peer_id: PeerId,
+		stake_amount: u128,
+	},
 	UnregisterMember,
 	Heartbeat,
-	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
-	RegisterGateway { network: NetworkId, address: Gateway, block_height: u64 },
-	RegisterNetwork { network_id: NetworkId, chain_name: String, chain_network: String },
-	SetShardConfig { shard_size: u16, shard_threshold: u16 },
-	Ready { shard_id: ShardId },
-	TaskResult { task_id: TaskId, result: TaskResult },
+	// shards
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
+	Commitment {
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	},
+	Ready {
+		shard_id: ShardId,
+	},
+	// tasks
+	SubmitTaskResult {
+		task_id: TaskId,
+		result: TaskResult,
+	},
 }
 
 struct SubxtWorker<T: TxSubmitter> {
@@ -119,6 +156,54 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 		let (transaction, sender) = tx;
 		let tx = metadata_scope!(self.metadata, {
 			match transaction {
+				// balances
+				Tx::Transfer { account, balance } => {
+					let account: subxt::utils::AccountId32 =
+						unsafe { std::mem::transmute(account) };
+					let payload =
+						metadata::tx().balances().transfer_allow_death(account.into(), balance);
+					self.create_signed_payload(&payload).await
+				},
+				// networks
+				Tx::RegisterNetwork {
+					network,
+					chain_name,
+					chain_network,
+					gateway,
+					block_height,
+				} => {
+					let runtime_call = RuntimeCall::Networks(
+						metadata::runtime_types::pallet_networks::pallet::Call::register_network {
+							network,
+							chain_name,
+							chain_network,
+							gateway,
+							block_height,
+						},
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::SetNetworkConfig {
+					network,
+					batch_size,
+					batch_offset,
+					batch_gas_limit,
+					shard_task_limit,
+				} => {
+					let runtime_call = RuntimeCall::Networks(
+						metadata::runtime_types::pallet_networks::pallet::Call::set_network_config {
+							network,
+							batch_size,
+							batch_offset,
+							batch_gas_limit,
+							shard_task_limit,
+						},
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+				// members
 				Tx::RegisterMember { network, peer_id, stake_amount } => {
 					let public_key = unsafe { std::mem::transmute(self.public_key()) };
 					let payload = metadata::tx().members().register_member(
@@ -137,6 +222,17 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = metadata::tx().members().send_heartbeat();
 					self.create_signed_payload(&payload).await
 				},
+				// shards
+				Tx::SetShardConfig { shard_size, shard_threshold } => {
+					let runtime_call = RuntimeCall::Elections(
+						metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+							shard_size,
+							shard_threshold,
+						},
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
 				Tx::Commitment {
 					shard_id,
 					commitment,
@@ -150,46 +246,11 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = metadata::tx().shards().ready(shard_id);
 					self.create_signed_payload(&payload).await
 				},
-				Tx::TaskResult { task_id, result } => {
+				// tasks
+				Tx::SubmitTaskResult { task_id, result } => {
 					use metadata::runtime_types::time_primitives::task;
 					let result: task::TaskResult = unsafe { std::mem::transmute(result) };
 					let payload = metadata::tx().tasks().submit_task_result(task_id, result);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::RegisterGateway { network, address, block_height } => {
-					let runtime_call = RuntimeCall::Networks(
-						metadata::runtime_types::pallet_networks::pallet::Call::register_gateway {
-							network,
-							address,
-							block_height,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::SetShardConfig { shard_size, shard_threshold } => {
-					let runtime_call = RuntimeCall::Elections(
-						metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
-							shard_size,
-							shard_threshold,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::RegisterNetwork {
-					network_id,
-					chain_name,
-					chain_network,
-				} => {
-					let runtime_call = RuntimeCall::Networks(
-						metadata::runtime_types::pallet_networks::pallet::Call::add_network {
-							network_id,
-							chain_name,
-							chain_network,
-						},
-					);
-					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
 			}
@@ -328,15 +389,57 @@ impl SubxtClient {
 		Ok((rpc, client))
 	}
 
-	pub async fn register_gateway(
+	pub async fn get_latest_block(&self) -> Result<u64> {
+		Ok(self.client.blocks().at_latest().await?.number().into())
+	}
+
+	pub async fn transfer(&self, account: AccountId, balance: u128) -> Result<TxInBlock> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::Transfer { account, balance }, tx))?;
+		Ok(rx.await?)
+	}
+
+	pub async fn register_network(
 		&self,
 		network: NetworkId,
-		address: Gateway,
+		chain_name: String,
+		chain_network: String,
+		gateway: Gateway,
 		block_height: u64,
 	) -> Result<TxInBlock> {
 		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::RegisterGateway { network, address, block_height }, tx))?;
+		self.tx.unbounded_send((
+			Tx::RegisterNetwork {
+				network,
+				chain_name,
+				chain_network,
+				gateway,
+				block_height,
+			},
+			tx,
+		))?;
+		Ok(rx.await?)
+	}
+
+	pub async fn set_network_config(
+		&self,
+		network: NetworkId,
+		batch_size: u32,
+		batch_offset: u32,
+		batch_gas_limit: u128,
+		shard_task_limit: u32,
+	) -> Result<TxInBlock> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((
+			Tx::SetNetworkConfig {
+				network,
+				batch_size,
+				batch_offset,
+				batch_gas_limit,
+				shard_task_limit,
+			},
+			tx,
+		))?;
 		Ok(rx.await?)
 	}
 
@@ -349,28 +452,6 @@ impl SubxtClient {
 		self.tx
 			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
 		Ok(rx.await?)
-	}
-
-	pub async fn register_network(
-		&self,
-		network_id: NetworkId,
-		chain_name: String,
-		chain_network: String,
-	) -> Result<TxInBlock> {
-		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((
-			Tx::RegisterNetwork {
-				network_id,
-				chain_name,
-				chain_network,
-			},
-			tx,
-		))?;
-		Ok(rx.await?)
-	}
-
-	pub async fn get_latest_block(&self) -> Result<u64> {
-		Ok(self.client.blocks().at_latest().await?.number().into())
 	}
 }
 
@@ -425,10 +506,9 @@ impl Runtime for SubxtClient {
 		&self.account_id
 	}
 
-	async fn balance(&self) -> Result<u128> {
+	async fn balance(&self, account: &AccountId) -> Result<u128> {
 		let data = metadata_scope!(self.metadata, {
-			let account: &subxt::utils::AccountId32 =
-				unsafe { std::mem::transmute(self.account_id()) };
+			let account: &subxt::utils::AccountId32 = unsafe { std::mem::transmute(account) };
 			let storage_query = metadata::storage().system().account(account);
 			let result = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
 			if let Some(info) = result {
@@ -634,7 +714,7 @@ impl Runtime for SubxtClient {
 
 	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::TaskResult { task_id, result }, tx))?;
+		self.tx.unbounded_send((Tx::SubmitTaskResult { task_id, result }, tx))?;
 		rx.await?;
 		Ok(())
 	}

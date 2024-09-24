@@ -141,8 +141,9 @@ sp_api::decl_runtime_apis! {
 
 pub trait NetworksInterface {
 	fn gateway(network: NetworkId) -> Option<Address>;
-	fn next_batch_size(network: NetworkId, block_height: u64) -> u64;
+	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
 	fn batch_gas_limit(network: NetworkId) -> u128;
+	fn shard_task_limit(network: NetworkId) -> u32;
 }
 
 pub trait MembersInterface {
@@ -190,7 +191,7 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 
 	fn account_id(&self) -> &AccountId;
 
-	async fn balance(&self) -> Result<u128>;
+	async fn balance(&self, account: &AccountId) -> Result<u128>;
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 

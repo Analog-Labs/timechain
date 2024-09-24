@@ -40,26 +40,16 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn add_network(name: u32, network: u32) -> Weight;
-		fn register_gateway() -> Weight;
-		fn set_batch_size() -> Weight;
-		fn set_batch_gas_limit() -> Weight;
+		fn register_network(name: u32, network: u32) -> Weight;
+		fn set_network_config() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn add_network(_name: u32, _network: u32) -> Weight {
+		fn register_network(_name: u32, _network: u32) -> Weight {
 			Weight::default()
 		}
 
-		fn register_gateway() -> Weight {
-			Weight::default()
-		}
-
-		fn set_batch_size() -> Weight {
-			Weight::default()
-		}
-
-		fn set_batch_gas_limit() -> Weight {
+		fn set_network_config() -> Weight {
 			Weight::default()
 		}
 	}
@@ -80,56 +70,60 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Event emitted when a new network is successfully added, providing the corresponding `NetworkId` as part of the event payload.
-		NetworkAdded(NetworkId),
-		/// Gateway was registered.
-		GatewayRegistered(NetworkId, Address, u64),
-		/// Batch size changed.
-		BatchSizeChanged(NetworkId, u64, u64),
-		/// Batch gas limit changed.
-		BatchGasLimitChanged(NetworkId, u128),
+		/// Network registered.
+		NetworkRegistered(NetworkId, Address, u64),
+		/// Network config changed.
+		NetworkConfigChanged(NetworkId, u32, u32, u128, u32),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Error indicating that the generation of a new `NetworkId` has exceeded its maximum limit.
-		NetworkIdOverflow,
-		/// Error indicating that a network with the same `ChainName` and `ChainNetwork` already exists and cannot be added again.
+		/// Network exists.
 		NetworkExists,
-		/// Gateway was already registered.
-		GatewayAlreadyRegistered,
+		/// Network doesn't exist.
+		NetworkNotFound,
 	}
-
-	// stores network_id against (blockchain, network)
-	#[pallet::storage]
-	pub type Networks<T: Config> =
-		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
 
 	/// Workaround for subxt not supporting iterating over the decoded keys.
 	#[pallet::storage]
-	pub type NetworkIds<T: Config> = StorageMap<_, Twox64Concat, NetworkId, NetworkId, OptionQuery>;
+	pub type Networks<T: Config> = StorageMap<_, Twox64Concat, NetworkId, NetworkId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type NetworkName<T: Config> =
+		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
 
 	/// Map storage for network gateways.
 	#[pallet::storage]
-	pub type Gateway<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, Address, OptionQuery>;
+	pub type NetworkGatewayAddress<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, Address, OptionQuery>;
+
+	#[pallet::storage]
+	pub type NetworkGatewayBlock<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
 	///  Map storage for network batch sizes.
 	#[pallet::storage]
 	pub type NetworkBatchSize<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	/// Map storage for network offsets.
 	#[pallet::storage]
-	pub type NetworkOffset<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
+	pub type NetworkBatchOffset<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
 
 	/// Map storage for batch gas limit.
 	#[pallet::storage]
 	pub type NetworkBatchGasLimit<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u128, OptionQuery>;
 
+	/// Map storage for shard task limits.
+	#[pallet::storage]
+	pub type NetworkShardTaskLimit<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
-		pub networks: Vec<(NetworkId, String, String)>,
+		pub networks: Vec<(NetworkId, String, String, Address, u64)>,
 		pub _marker: PhantomData<T>,
 	}
 
@@ -146,8 +140,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (id, blockchain, network) in &self.networks {
-				Pallet::<T>::insert_network(*id, blockchain.clone(), network.clone())
+			for (id, blockchain, network, gateway, block) in &self.networks {
+				Pallet::<T>::insert_network(*id, blockchain.clone(), network.clone(), *gateway, *block)
 					.expect("No networks exist before genesis; NetworkId not overflow from 0 at genesis; QED");
 			}
 		}
@@ -168,12 +162,17 @@ pub mod pallet {
 			network: NetworkId,
 			chain_name: ChainName,
 			chain_network: ChainNetwork,
+			gateway: Address,
+			block_height: u64,
 		) -> Result<(), Error<T>> {
 			if Networks::<T>::get(network).is_some() {
 				return Err(Error::<T>::NetworkExists);
 			}
-			Networks::<T>::insert(network, (chain_name, chain_network));
-			NetworkIds::<T>::insert(network, network);
+			Networks::<T>::insert(network, network);
+			NetworkName::<T>::insert(network, (chain_name, chain_network));
+			NetworkGatewayAddress::<T>::insert(network, gateway);
+			NetworkGatewayBlock::<T>::insert(network, block_height);
+			T::Tasks::gateway_registered(network, block_height);
 			Ok(())
 		}
 	}
@@ -189,32 +188,18 @@ pub mod pallet {
 		///    3. Emit the [`Event::NetworkAdded`] event with the new `NetworkId`.
 		///    4. Return `Ok(())` to indicate success.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::add_network(chain_name.len() as u32, chain_network.len() as u32))]
-		pub fn add_network(
-			origin: OriginFor<T>,
-			network_id: NetworkId,
-			chain_name: ChainName,
-			chain_network: ChainNetwork,
-		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			Self::insert_network(network_id, chain_name, chain_network)?;
-			Self::deposit_event(Event::NetworkAdded(network_id));
-			Ok(())
-		}
-
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::register_gateway())]
-		pub fn register_gateway(
+		#[pallet::weight(T::WeightInfo::register_network(chain_name.len() as u32, chain_network.len() as u32))]
+		pub fn register_network(
 			origin: OriginFor<T>,
 			network: NetworkId,
-			address: Address,
+			chain_name: ChainName,
+			chain_network: ChainNetwork,
+			gateway: Address,
 			block_height: u64,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(Gateway::<T>::get(network).is_none(), Error::<T>::GatewayAlreadyRegistered);
-			Gateway::<T>::insert(network, address);
-			Self::deposit_event(Event::GatewayRegistered(network, address, block_height));
-			T::Tasks::gateway_registered(network, block_height);
+			Self::insert_network(network, chain_name, chain_network, gateway, block_height)?;
+			Self::deposit_event(Event::NetworkRegistered(network, gateway, block_height));
 			Ok(())
 		}
 
@@ -227,31 +212,27 @@ pub mod pallet {
 		///   4. Emit an event indicating the batch size and offset have been set.
 		///   5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
-		pub fn set_batch_size(
+		#[pallet::weight(<T as Config>::WeightInfo::set_network_config())]
+		pub fn set_network_config(
 			origin: OriginFor<T>,
 			network: NetworkId,
-			batch_size: u64,
-			offset: u64,
+			batch_size: u32,
+			batch_offset: u32,
+			batch_gas_limit: u128,
+			shard_task_limit: u32,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			NetworkBatchSize::<T>::insert(network, batch_size);
-			NetworkOffset::<T>::insert(network, offset);
-			Self::deposit_event(Event::BatchSizeChanged(network, batch_size, offset));
-			Ok(())
-		}
-
-		/// Sets the batch gas limit
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
-		pub fn set_batch_gas_limit(
-			origin: OriginFor<T>,
-			network: NetworkId,
-			batch_gas_limit: u128,
-		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
+			NetworkBatchOffset::<T>::insert(network, batch_offset);
 			NetworkBatchGasLimit::<T>::insert(network, batch_gas_limit);
-			Self::deposit_event(Event::BatchGasLimitChanged(network, batch_gas_limit));
+			NetworkShardTaskLimit::<T>::insert(network, shard_task_limit);
+			Self::deposit_event(Event::NetworkConfigChanged(
+				network,
+				batch_size,
+				batch_offset,
+				batch_gas_limit,
+				shard_task_limit,
+			));
 			Ok(())
 		}
 	}
@@ -262,27 +243,33 @@ pub mod pallet {
 		///  # Flow
 		///  1. Call [`Networks`] to fetch the network information.
 		///  2. Return the network information if it exists, otherwise return `None`.
-		pub fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
-			Networks::<T>::get(network_id)
+		pub fn get_network(network: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+			NetworkName::<T>::get(network)
 		}
 	}
 
 	impl<T: Config> NetworksInterface for Pallet<T> {
 		fn gateway(network: NetworkId) -> Option<Address> {
-			Gateway::<T>::get(network)
+			NetworkGatewayAddress::<T>::get(network)
 		}
 
-		fn next_batch_size(network: NetworkId, block_height: u64) -> u64 {
-			const DEFAULT_BATCH_SIZE: u64 = 32;
+		fn next_batch_size(network: NetworkId, block_height: u64) -> u32 {
+			const DEFAULT_BATCH_SIZE: u32 = 32;
 			let network_batch_size =
 				NetworkBatchSize::<T>::get(network).unwrap_or(DEFAULT_BATCH_SIZE);
-			let network_offset = NetworkOffset::<T>::get(network);
-			network_batch_size - ((block_height + network_offset) % network_batch_size)
+			let network_offset = NetworkBatchOffset::<T>::get(network);
+			network_batch_size
+				- ((block_height + network_offset as u64) % network_batch_size as u64) as u32
 		}
 
 		fn batch_gas_limit(network: NetworkId) -> u128 {
 			const DEFAULT_BATCH_GAS_LIMIT: u128 = 10_000;
 			NetworkBatchGasLimit::<T>::get(network).unwrap_or(DEFAULT_BATCH_GAS_LIMIT)
+		}
+
+		fn shard_task_limit(network: NetworkId) -> u32 {
+			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
+			NetworkShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT)
 		}
 	}
 }

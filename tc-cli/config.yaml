@@ -1,19 +1,23 @@
-backends:
+config:
+  shard_size: 1
+  shard_threshold: 1
+  chronicle_timechain_funds: 10000
+contracts:
   evm:
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
     tester: "/etc/contracts/test_contract.sol/VotingContract.json"
-  rust:
-    proxy: ""
-    gateway: ""
-    tester: ""
 networks:
-  1:
+  0:
     backend: "rust"
+    blockchain: "rust"
+    network: "rust"
     url: "/etc/db"
-  3:
-    backend: "evm"
-    url: "ws://ethereum.8545"
-  6:
-    backend: "evm"
-    url: "ws://astar:9944"
+    gateway_funds: 10000
+    chronicle_target_funds: 10000
+    batch_size: 5
+    batch_offset: 0
+    batch_gas_limit: 10000
+    shard_task_limit: 50
+chronicles:
+- chronicle-0

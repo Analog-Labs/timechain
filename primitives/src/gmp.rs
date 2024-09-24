@@ -85,6 +85,12 @@ impl GmpMessage {
 	}
 }
 
+impl std::fmt::Display for GmpMessage {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		f.write_str(&hex::encode(self.message_id()))
+	}
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum GatewayOp {
@@ -205,6 +211,29 @@ pub enum GmpEvent {
 	MessageReceived(GmpMessage),
 	MessageExecuted(MessageId),
 	BatchExecuted(BatchId),
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for GmpEvent {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::ShardRegistered(key) => {
+				writeln!(f, "shard_registered {}", hex::encode(&key))
+			},
+			Self::ShardUnregistered(key) => {
+				writeln!(f, "shard_unregistered {}", hex::encode(&key))
+			},
+			Self::MessageReceived(msg) => {
+				writeln!(f, "message_received {}", hex::encode(&msg.message_id()))
+			},
+			Self::MessageExecuted(msg) => {
+				writeln!(f, "message_executed {}", hex::encode(&msg))
+			},
+			Self::BatchExecuted(batch) => {
+				writeln!(f, "batch_executed {}", batch)
+			},
+		}
+	}
 }
 
 #[cfg(feature = "std")]

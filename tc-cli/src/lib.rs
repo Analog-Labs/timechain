@@ -1,13 +1,13 @@
 use crate::config::{Backend, Config};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
+use std::ops::Range;
 use std::path::Path;
 use std::time::Duration;
-use tabled::Tabled;
 use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
-	Address, ConnectorParams, Gateway, IConnector, IConnectorAdmin, Network, NetworkId, Runtime,
-	ShardStatus, TssPublicKey,
+	AccountId, Address, ConnectorParams, Gateway, GmpEvent, GmpMessage, IConnector,
+	IConnectorAdmin, NetworkId, Runtime, ShardStatus, TssPublicKey,
 };
 
 mod config;
@@ -82,6 +82,16 @@ impl Tc {
 		self.connectors.get(&network).context("no connector configured for {network}")
 	}
 
+	async fn gateway(&self, network: NetworkId) -> Result<(&Box<dyn IConnectorAdmin>, Gateway)> {
+		let connector = self.connector(network)?;
+		let gateway = self
+			.runtime
+			.get_gateway(network)
+			.await?
+			.context("no gateway configured for {network}")?;
+		Ok((connector, gateway))
+	}
+
 	async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
 		let shard_id_counter = self.runtime.shard_id_counter().await?;
 		let mut shards = vec![];
@@ -115,32 +125,99 @@ impl Tc {
 		Ok(shards)
 	}
 
-	pub fn parse_address(&self, network: NetworkId, address: &str) -> Result<Address> {
-		self.connector(network)?.parse_address(address)
+	pub fn parse_address(&self, network: Option<NetworkId>, address: &str) -> Result<Address> {
+		if let Some(network) = network {
+			self.connector(network)?.parse_address(address)
+		} else {
+			let address: AccountId =
+				address.parse().map_err(|_| anyhow::anyhow!("invalid timechain account"))?;
+			Ok(address.into())
+		}
 	}
 
-	pub fn parse_balance(&self, network: NetworkId, balance: &str) -> Result<u128> {
-		self.connector(network)?.parse_balance(balance)
+	pub fn format_address(&self, network: Option<NetworkId>, address: Address) -> Result<String> {
+		if let Some(network) = network {
+			Ok(self.connector(network)?.format_address(address))
+		} else {
+			let address: AccountId = address.into();
+			Ok(address.to_string())
+		}
+	}
+
+	pub fn parse_balance(&self, network: Option<NetworkId>, balance: &str) -> Result<u128> {
+		if let Some(network) = network {
+			self.connector(network)?.parse_balance(balance)
+		} else {
+			Ok(balance.parse()?)
+		}
+	}
+
+	pub fn format_balance(&self, network: Option<NetworkId>, balance: u128) -> Result<String> {
+		if let Some(network) = network {
+			Ok(self.connector(network)?.format_balance(balance))
+		} else {
+			Ok(balance.to_string())
+		}
+	}
+
+	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
+		self.connector(network)?.faucet().await
+	}
+
+	pub async fn balance(&self, network: Option<NetworkId>, address: Address) -> Result<u128> {
+		if let Some(network) = network {
+			self.connector(network)?.balance(address).await
+		} else {
+			self.runtime.balance(&address.into()).await
+		}
+	}
+
+	pub async fn transfer(
+		&self,
+		network: Option<NetworkId>,
+		address: Address,
+		balance: u128,
+	) -> Result<()> {
+		if let Some(network) = network {
+			self.connector(network)?.transfer(address, balance).await?;
+		} else {
+			self.runtime.transfer(address.into(), balance).await?.wait_for_success().await?;
+		}
+		Ok(())
+	}
+
+	pub async fn fund(
+		&self,
+		network: Option<NetworkId>,
+		address: Address,
+		min_balance: u128,
+	) -> Result<()> {
+		let balance = self.balance(network, address).await?;
+		let diff = min_balance.saturating_sub(balance);
+		if diff > 0 {
+			self.transfer(network, address, diff).await?;
+		}
+		Ok(())
 	}
 }
 
-#[derive(Tabled)]
-pub struct NetworkEntry {
-	id: NetworkId,
-	chain_name: String,
-	chain_network: String,
-	gateway: String,
-	gateway_funds: String,
-	gateway_admin: String,
-	gateway_admin_funds: String,
-	am_admin: String,
+pub struct Network {
+	pub id: NetworkId,
+	pub chain_name: String,
+	pub chain_network: String,
+	pub gateway: Address,
+	pub block_height: u64,
 }
+
+pub struct Member {}
+
+pub struct Shard {}
 
 impl Tc {
-	pub async fn networks(&self) -> Result<Vec<NetworkEntry>> {
-		let network_id_counter = self.runtime.network_id_counter().await?;
+	pub async fn networks(&self) -> Result<Vec<Network>> {
+		/*let network_ids = self.runtime.networks().await?;
 		let mut networks = vec![];
-		for id in 0..network_id_counter {
+		for id in network_ids {
 			let (chain_name, chain_network) =
 				self.runtime.get_network(id).await?.context("invalid network id")?;
 			let gateway_addr = self.runtime.get_gateway(id).await?;
@@ -173,78 +250,117 @@ impl Tc {
 				am_admin: am_admin.unwrap_or_default(),
 			})
 		}
-		Ok(networks)
+		Ok(networks)*/
+		todo!()
 	}
 
-	pub async fn add_network(&self, chain_name: String, chain_network: String) -> Result<()> {
+	pub async fn members(&self) -> Result<Vec<Member>> {
+		todo!()
+	}
+
+	pub async fn shards(&self) -> Result<Vec<Shard>> {
+		todo!()
+	}
+
+	pub async fn routes(&self, network: NetworkId) -> Result<Vec<time_primitives::Network>> {
+		let (connector, gateway) = self.gateway(network).await?;
+		connector.networks(gateway.into()).await
+	}
+
+	pub async fn events(&self, network: NetworkId, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
+		let (connector, gateway) = self.gateway(network).await?;
+		connector.read_events(gateway, blocks).await
+	}
+
+	pub async fn messages(
+		&self,
+		network: NetworkId,
+		tester: Address,
+		blocks: Range<u64>,
+	) -> Result<Vec<GmpMessage>> {
+		let connector = self.connector(network)?;
+		connector.recv_messages(tester, blocks).await
+	}
+}
+
+impl Tc {
+	async fn set_shard_config(&self) -> Result<()> {
 		self.runtime
-			.register_network(chain_name, chain_network)
+			.set_shard_config(self.config.config.shard_size, self.config.config.shard_threshold)
 			.await?
 			.wait_for_success()
 			.await?;
 		Ok(())
 	}
-}
 
-#[derive(Tabled)]
-pub struct Routing {
-	network: NetworkId,
-	gateway: String,
-	relative_gas_price: String,
-	gas_limit: u64,
-	base_fee: u128,
-}
-
-impl Tc {
-	async fn gateway(&self, network: NetworkId) -> Result<(&Box<dyn IConnectorAdmin>, Gateway)> {
+	async fn register_network(&self, network: NetworkId) -> Result<Gateway> {
 		let connector = self.connector(network)?;
-		let gateway = self
-			.runtime
-			.get_gateway(network)
+		let config = self.config.network(network)?;
+		let contracts = self.config.contracts(network)?;
+		let (gateway, block) =
+			connector.deploy_gateway(&contracts.proxy, &contracts.gateway).await?;
+		self.runtime
+			.register_network(
+				network,
+				config.blockchain.clone(),
+				config.network.clone(),
+				gateway,
+				block,
+			)
 			.await?
-			.context("no gateway configured for {network}")?;
-		Ok((connector, gateway))
+			.wait_for_success()
+			.await?;
+		Ok(gateway)
 	}
 
-	pub async fn gateway_routing(&self, network: NetworkId) -> Result<Vec<Routing>> {
-		let (connector, gateway) = self.gateway(network).await?;
-		let networks = connector.networks(gateway.into()).await?;
-		let routing = networks
-			.into_iter()
-			.map(|network| {
-				let (num, den) = network.relative_gas_price;
-				Routing {
-					network: network.network_id,
-					gateway: connector.format_address(Address::from(network.gateway)),
-					relative_gas_price: format!("{}", num as f64 / den as f64),
-					gas_limit: network.gas_limit,
-					base_fee: network.base_fee,
-				}
-			})
-			.collect();
-		Ok(routing)
-	}
-
-	pub async fn deploy_gateway(&self, network: NetworkId) -> Result<()> {
-		let connector = self.connector(network)?;
-		let backend = self.config.backend(network)?;
-		if let Some(gateway) = self.runtime.get_gateway(network).await? {
-			connector.redeploy_gateway(gateway.into(), &backend.gateway).await?;
-		} else {
-			let (gateway, block) =
-				connector.deploy_gateway(&backend.proxy, &backend.gateway).await?;
-			self.runtime
-				.register_gateway(network, gateway.into(), block)
-				.await?
-				.wait_for_success()
-				.await?;
-		}
+	async fn set_network_config(&self, network: NetworkId) -> Result<()> {
+		let config = self.config.network(network)?;
+		self.runtime
+			.set_network_config(
+				network,
+				config.batch_size,
+				config.batch_offset,
+				config.batch_gas_limit,
+				config.shard_task_limit,
+			)
+			.await?
+			.wait_for_success()
+			.await?;
 		Ok(())
 	}
 
-	pub async fn set_gateway_admin(&self, network: NetworkId, admin: String) -> Result<()> {
+	async fn gateway_register_network(
+		&self,
+		network: NetworkId,
+		route: time_primitives::Network,
+	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.set_admin(gateway.into(), connector.parse_address(&admin)?).await?;
+		connector.set_network(gateway, route).await?;
+		Ok(())
+	}
+
+	async fn chronicle_config(&self, _chronicle: &str) -> Result<(AccountId, NetworkId, Address)> {
+		todo!()
+	}
+}
+
+impl Tc {
+	pub async fn deploy(&self) -> Result<()> {
+		self.set_shard_config().await?;
+		for network in self.connectors.keys().copied() {
+			let config = self.config.network(network)?;
+			let gateway = self.register_network(network).await?;
+			self.set_network_config(network).await?;
+			self.fund(Some(network), gateway, config.gateway_funds).await?;
+		}
+		for chronicle in &self.config.chronicles {
+			let (account, network, address) = self.chronicle_config(chronicle).await?;
+			self.fund(None, account.into(), self.config.config.chronicle_timechain_funds)
+				.await?;
+			let config = self.config.network(network)?;
+			self.fund(Some(network), address, config.chronicle_target_funds).await?;
+		}
+		// TODO: register networks in gateways
 		Ok(())
 	}
 
@@ -254,41 +370,32 @@ impl Tc {
 		connector.set_shards(gateway, &keys).await
 	}
 
-	pub async fn set_gateway_routing(
-		&self,
-		network: NetworkId,
-		network_info: Network,
-	) -> Result<()> {
+	pub async fn set_gateway_admin(&self, network: NetworkId, admin: String) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.set_network(gateway, network_info).await?;
+		connector.set_admin(gateway.into(), connector.parse_address(&admin)?).await?;
 		Ok(())
 	}
-}
 
-#[derive(Tabled)]
-pub struct Wallet {
-	address: String,
-	balance: String,
-}
+	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
+		let (connector, gateway) = self.gateway(network).await?;
+		let contracts = self.config.contracts(network)?;
+		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
+		Ok(())
+	}
 
-impl Tc {
-	pub async fn wallet(&self, network: NetworkId) -> Result<Wallet> {
+	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address, u64)> {
+		let contracts = self.config.contracts(network)?;
+		let (connector, gateway) = self.gateway(network).await?;
+		connector.deploy_test(gateway, &contracts.tester).await
+	}
+
+	pub async fn send_message(
+		&self,
+		network: NetworkId,
+		tester: Address,
+		msg: GmpMessage,
+	) -> Result<()> {
 		let connector = self.connector(network)?;
-		let address = connector.address();
-		let balance = connector.balance(address).await?;
-		Ok(Wallet {
-			address: connector.format_address(address),
-			balance: connector.format_balance(balance),
-		})
-	}
-
-	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
-		self.connector(network)?.faucet().await
-	}
-
-	pub async fn transfer(&self, network: NetworkId, address: &str, amount: &str) -> Result<()> {
-		let address = self.parse_address(network, address)?;
-		let balance = self.parse_balance(network, amount)?;
-		self.connector(network)?.transfer(address, balance).await
+		connector.send_message(tester, msg).await
 	}
 }

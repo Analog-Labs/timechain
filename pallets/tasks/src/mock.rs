@@ -43,6 +43,9 @@ impl NetworksInterface for MockNetworks {
 	fn batch_gas_limit(_network: NetworkId) -> u128 {
 		10_000
 	}
+	fn shard_task_limit(_network: NetworkId) -> u32 {
+		10
+	}
 }
 
 pub struct MockMembers;

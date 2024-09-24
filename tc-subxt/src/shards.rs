@@ -6,7 +6,7 @@ impl SubxtClient {
 	pub async fn networks(&self) -> Result<Vec<NetworkId>> {
 		let mut networks = vec![];
 		metadata_scope!(self.metadata, {
-			let storage = metadata::storage().networks().network_ids_iter();
+			let storage = metadata::storage().networks().networks_iter();
 			let mut iter = self.client.storage().at_latest().await?.iter(storage).await?;
 			while let Some(Ok(kv)) = iter.next().await {
 				networks.push(kv.value);

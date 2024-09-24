@@ -13,6 +13,7 @@ repository.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 futures = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
 log.workspace = true
 serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
@@ -37,11 +38,13 @@ polkadot-sdk = { workspace = true, features = [
 default = ["std"]
 std = [
 	"futures",
+	"hex",
 	"scale-codec/std",
 	"scale-info/std",
 	"schnorr-evm/std",
 	"polkadot-sdk/std",
 ]
+hex = ["dep:hex"]
 
 [dev-dependencies]
 hex.workspace = true

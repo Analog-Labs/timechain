@@ -76,15 +76,10 @@ pub mod pallet {
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn submit_task_result() -> Weight;
-		fn set_shard_task_limit() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn submit_task_result() -> Weight {
-			Weight::default()
-		}
-
-		fn set_shard_task_limit() -> Weight {
 			Weight::default()
 		}
 	}
@@ -150,12 +145,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type OpsRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
-
-	/// Map storage for shard task limits.
-	#[pallet::storage]
-	#[pallet::getter(fn shard_task_limit)]
-	pub type ShardTaskLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	/// Double map storage for tasks by shard.
 	#[pallet::storage]
@@ -324,7 +313,7 @@ pub mod pallet {
 					Self::verify_signature(shard, &bytes, signature)?;
 					// start next batch
 					let start = blocks.end;
-					let size = T::Networks::next_batch_size(network, start);
+					let size = T::Networks::next_batch_size(network, start) as u64;
 					let end = start + size;
 					Self::create_task(network, Task::ReadGatewayEvents { blocks: start..end });
 					// process events
@@ -388,25 +377,6 @@ pub mod pallet {
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};
-			Ok(())
-		}
-
-		///  Sets the task limit for a specific shard.
-		/// # Flow
-		///    1. Ensure the origin of the transaction is a root user.
-		///    2. Insert the new task limit for the specified network into the [`ShardTaskLimit`] storage.
-		///    3. Emit an event indicating the shard task limit has been set.
-		///    4. Return `Ok(())` if all operations succeed.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_shard_task_limit())]
-		pub fn set_shard_task_limit(
-			origin: OriginFor<T>,
-			network: NetworkId,
-			limit: u32,
-		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			ShardTaskLimit::<T>::insert(network, limit);
-			Self::deposit_event(Event::ShardTaskLimitSet(network, limit));
 			Ok(())
 		}
 	}
@@ -559,10 +529,8 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
-			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
-				let max_assignable_tasks =
-					ShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT);
+				let max_assignable_tasks = T::Networks::shard_task_limit(network);
 
 				// handle read events task assignment
 				if TaskShard::<T>::get(task_id).is_none() {
@@ -696,7 +664,7 @@ pub mod pallet {
 		}
 
 		fn gateway_registered(network: NetworkId, block: u64) {
-			let size = T::Networks::next_batch_size(network, block);
+			let size = T::Networks::next_batch_size(network, block) as u64;
 			let end = block + size;
 			Self::create_task(network, Task::ReadGatewayEvents { blocks: block..end });
 		}

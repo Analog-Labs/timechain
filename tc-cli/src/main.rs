@@ -3,9 +3,9 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tabled::{Table, Tabled};
-use tc_cli::{Member, Network, Shard, Tc};
+use tc_cli::{Chronicle, Member, Network, Shard, Tc};
 use tc_subxt::MetadataVariant;
-use time_primitives::{GmpEvent, GmpMessage, Network as Route, NetworkId};
+use time_primitives::{GmpEvent, GmpMessage, Network as Route, NetworkId, ShardId};
 
 #[derive(Clone, Debug)]
 pub struct RelGasPrice {
@@ -64,8 +64,9 @@ enum Command {
 	Transfer { network: Option<NetworkId>, address: String, amount: String },
 	// read data
 	Networks,
-	Members,
+	Chronicles,
 	Shards,
+	Members { shard: ShardId },
 	Routes { network: NetworkId },
 	Events { network: NetworkId, start: u64, end: u64 },
 	Messages { network: NetworkId, tester: String, start: u64, end: u64 },
@@ -78,51 +79,115 @@ enum Command {
 	SendMessage { network: NetworkId, tester: String },
 }
 
-trait ToRow {
+trait IntoRow {
 	type Row: Tabled;
 
-	fn to_row(&self, tc: &Tc, network: Option<NetworkId>) -> Result<Self::Row>;
+	fn into_row(self, tc: &Tc) -> Result<Self::Row>;
 }
 
-fn print_table<R: ToRow>(tc: &Tc, network: Option<NetworkId>, table: Vec<R>) -> Result<()> {
+fn print_table<R: IntoRow>(tc: &Tc, table: Vec<R>) -> Result<()> {
 	let mut rows = Vec::with_capacity(table.len());
 	for row in table {
-		rows.push(row.to_row(tc, network)?);
+		rows.push(row.into_row(tc)?);
 	}
 	println!("{}", Table::new(rows));
 	Ok(())
 }
 
 #[derive(Tabled)]
-struct NetworkEntry {}
+struct NetworkEntry {
+	network: NetworkId,
+	chain_name: String,
+	chain_network: String,
+	gateway: String,
+	gateway_balance: String,
+	admin: String,
+	admin_balance: String,
+}
 
-impl ToRow for Network {
+impl IntoRow for Network {
 	type Row = NetworkEntry;
 
-	fn to_row(&self, _tc: &Tc, _network: Option<NetworkId>) -> Result<Self::Row> {
-		Ok(NetworkEntry {})
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		Ok(NetworkEntry {
+			network: self.network,
+			chain_name: self.chain_name,
+			chain_network: self.chain_network,
+			gateway: tc.format_address(Some(self.network), self.gateway)?,
+			gateway_balance: tc.format_balance(Some(self.network), self.gateway_balance)?,
+			admin: tc.format_address(Some(self.network), self.admin)?,
+			admin_balance: tc.format_balance(Some(self.network), self.admin_balance)?,
+		})
 	}
 }
 
 #[derive(Tabled)]
-struct MemberEntry {}
+struct ChronicleEntry {
+	network: NetworkId,
+	account: String,
+	peer_id: String,
+	//status: String,
+	balance: String,
+	target_address: String,
+	target_balance: String,
+}
 
-impl ToRow for Member {
-	type Row = MemberEntry;
+impl IntoRow for Chronicle {
+	type Row = ChronicleEntry;
 
-	fn to_row(&self, _tc: &Tc, _network: Option<NetworkId>) -> Result<Self::Row> {
-		Ok(MemberEntry {})
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		Ok(ChronicleEntry {
+			network: self.network,
+			account: tc.format_address(None, self.account.into())?,
+			peer_id: self.peer_id,
+			balance: tc.format_balance(None, self.balance)?,
+			target_address: tc.format_address(Some(self.network), self.target_address)?,
+			target_balance: tc.format_balance(Some(self.network), self.target_balance)?,
+		})
 	}
 }
 
 #[derive(Tabled)]
-struct ShardEntry {}
+struct ShardEntry {
+	shard: ShardId,
+	network: NetworkId,
+	status: String,
+	key: String,
+	registered: String,
+	size: u16,
+	threshold: u16,
+}
 
-impl ToRow for Shard {
+impl IntoRow for Shard {
 	type Row = ShardEntry;
 
-	fn to_row(&self, _tc: &Tc, _network: Option<NetworkId>) -> Result<Self::Row> {
-		Ok(ShardEntry {})
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(ShardEntry {
+			shard: self.shard,
+			network: self.network,
+			status: self.status.to_string(),
+			key: self.key.map(|key| hex::encode(&key)).unwrap_or_default(),
+			registered: self.registered.to_string(),
+			size: self.size,
+			threshold: self.threshold,
+		})
+	}
+}
+
+#[derive(Tabled)]
+struct MemberEntry {
+	account: String,
+	status: String,
+}
+
+impl IntoRow for Member {
+	type Row = MemberEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(MemberEntry {
+			account: self.account.to_string(),
+			status: self.status.to_string(),
+		})
 	}
 }
 
@@ -135,14 +200,14 @@ struct RouteEntry {
 	base_fee: u128,
 }
 
-impl ToRow for Route {
+impl IntoRow for Route {
 	type Row = RouteEntry;
 
-	fn to_row(&self, tc: &Tc, network: Option<NetworkId>) -> Result<Self::Row> {
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
 		let (num, den) = self.relative_gas_price;
 		Ok(RouteEntry {
 			network: self.network_id,
-			gateway: tc.format_address(network, self.gateway)?,
+			gateway: tc.format_address(Some(self.network_id), self.gateway)?,
 			relative_gas_price: format!("{}", num as f64 / den as f64),
 			gas_limit: self.gas_limit,
 			base_fee: self.base_fee,
@@ -155,10 +220,10 @@ struct EventEntry {
 	event: String,
 }
 
-impl ToRow for GmpEvent {
+impl IntoRow for GmpEvent {
 	type Row = EventEntry;
 
-	fn to_row(&self, _tc: &Tc, _network: Option<NetworkId>) -> Result<Self::Row> {
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(EventEntry { event: self.to_string() })
 	}
 }
@@ -168,10 +233,10 @@ struct MessageEntry {
 	message: String,
 }
 
-impl ToRow for GmpMessage {
+impl IntoRow for GmpMessage {
 	type Row = MessageEntry;
 
-	fn to_row(&self, _tc: &Tc, _network: Option<NetworkId>) -> Result<Self::Row> {
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(MessageEntry { message: self.to_string() })
 	}
 }
@@ -200,28 +265,32 @@ async fn main() -> Result<()> {
 		// read data
 		Command::Networks => {
 			let networks = tc.networks().await?;
-			print_table(&tc, None, networks)?;
+			print_table(&tc, networks)?;
 		},
-		Command::Members => {
-			let members = tc.members().await?;
-			print_table(&tc, None, members)?;
+		Command::Chronicles => {
+			let chronicles = tc.chronicles().await?;
+			print_table(&tc, chronicles)?;
 		},
 		Command::Shards => {
 			let shards = tc.shards().await?;
-			print_table(&tc, None, shards)?;
+			print_table(&tc, shards)?;
+		},
+		Command::Members { shard } => {
+			let members = tc.members(shard).await?;
+			print_table(&tc, members)?;
 		},
 		Command::Routes { network } => {
 			let routes = tc.routes(network).await?;
-			print_table(&tc, Some(network), routes)?;
+			print_table(&tc, routes)?;
 		},
 		Command::Events { network, start, end } => {
 			let events = tc.events(network, start..end).await?;
-			print_table(&tc, Some(network), events)?;
+			print_table(&tc, events)?;
 		},
 		Command::Messages { network, tester, start, end } => {
 			let tester = tc.parse_address(Some(network), &tester)?;
 			let msgs = tc.messages(network, tester, start..end).await?;
-			print_table(&tc, Some(network), msgs)?;
+			print_table(&tc, msgs)?;
 		},
 		// management
 		Command::Deploy => {
@@ -242,7 +311,7 @@ async fn main() -> Result<()> {
 			println!("{address} {block}");
 		},
 		Command::SendMessage { network: _, tester: _ } => {
-			//tc.send_message(network, tester).await?;
+			// TODO: tc.send_message(network, tester).await?;
 			todo!()
 		},
 	}

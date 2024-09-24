@@ -86,6 +86,18 @@ impl MemberStatus {
 	}
 }
 
+#[cfg(feature = "std")]
+impl std::fmt::Display for MemberStatus {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let status = match self {
+			Self::Added => "added",
+			Self::Committed(_) => "commited",
+			Self::Ready => "ready",
+		};
+		f.write_str(status)
+	}
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum SerializedMemberStatus {
@@ -107,6 +119,19 @@ pub enum ShardStatus {
 impl Default for ShardStatus {
 	fn default() -> Self {
 		Self::Offline
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for ShardStatus {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let status = match self {
+			Self::Created => "created",
+			Self::Committed => "commited",
+			Self::Online => "online",
+			Self::Offline => "offline",
+		};
+		f.write_str(status)
 	}
 }
 

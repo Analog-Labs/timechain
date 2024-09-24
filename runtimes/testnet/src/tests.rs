@@ -222,7 +222,6 @@ fn register_unregister_kills_task() {
 	let c: AccountId = C.into();
 	let d: AccountId = D.into();
 	let e: AccountId = E.into();
-	let old_shard = [a.clone(), b.clone(), c.clone()].to_vec();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
@@ -270,13 +269,9 @@ fn register_unregister_kills_task() {
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(),));
-		roll(1);
-		// task not assigned to shard 0
-		assert_eq!(Tasks::task_shard(0), None);
-		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(),));
-		Elections::shard_offline(ETHEREUM, old_shard);
-		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Offline);
+		roll(1);
+		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0), Some(ShardStatus::Offline));
 		Tasks::shard_offline(0, ETHEREUM);
 		roll(1);
 		// task no longer assigned

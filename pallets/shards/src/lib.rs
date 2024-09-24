@@ -566,6 +566,7 @@ pub mod pallet {
 				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
 				MemberShard::<T>::insert(member, shard_id);
 			}
+			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.

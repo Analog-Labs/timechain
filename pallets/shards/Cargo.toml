@@ -41,6 +41,8 @@ simple-mermaid.workspace = true
 
 sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
+pallet-elections.workspace = true
 
 [features]
 default = [ "std" ]
@@ -59,6 +61,7 @@ std = [
 	"time-primitives/std",
 	"pallet-balances/std",
 	"pallet-members/std"
+  "pallet-elections/std",
 ]
 runtime-benchmarks = [
 	#"polkadot-sdk/runtime-benchmarks",

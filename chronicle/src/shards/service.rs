@@ -99,7 +99,21 @@ where
 			block_number,
 		);
 		let account_id = self.substrate.account_id();
+		event!(
+			target: TW_LOG,
+			parent: &span,
+			Level::INFO,
+			"account_id: {:?}",
+			account_id
+		);
 		let shards = self.substrate.get_shards(block, account_id).await?;
+		event!(
+			target: TW_LOG,
+			parent: &span,
+			Level::INFO,
+			"shards received are: {:?}",
+			shards
+		);
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
@@ -110,9 +124,10 @@ where
 			event!(
 				target: TW_LOG,
 				parent: &span,
-				Level::DEBUG,
+				Level::INFO,
 				shard_id,
-				"joining shard",
+				"joining shard with members: {:?}",
+				members
 			);
 			let threshold = self.substrate.get_shard_threshold(block, shard_id).await?;
 			let futures: Vec<_> = members
@@ -129,6 +144,14 @@ where
 				.collect();
 			let members =
 				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
+			event!(
+				target: TW_LOG,
+				parent: &span,
+				Level::INFO,
+				shard_id,
+				"fetched members from substrate: {:?}",
+				members
+			);
 
 			let commitment = if let Some(commitment) =
 				self.substrate.get_shard_commitment(block, shard_id).await?

@@ -9,6 +9,8 @@ use futures::stream::BoxStream;
 use scale_info::prelude::{string::String, vec::Vec};
 
 // Export scoped ...
+#[cfg(feature = "std")]
+pub mod admin;
 pub mod currency;
 pub mod gmp;
 pub mod network;

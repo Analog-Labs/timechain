@@ -5,7 +5,6 @@ use futures::stream::BoxStream;
 use futures::{Future, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{BlockNumber, ShardId, TaskId};
@@ -20,7 +19,7 @@ pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 
 #[derive(Default)]
 pub struct NetworkConfig {
-	pub secret: Option<PathBuf>,
+	pub secret: [u8; 32],
 	pub bind_port: Option<u16>,
 }
 
@@ -34,6 +33,8 @@ pub struct Message {
 pub trait Network: Send + Sync + 'static {
 	fn peer_id(&self) -> PeerId;
 
+	fn format_peer_id(&self, peer_id: PeerId) -> String;
+
 	fn send(
 		&self,
 		peer_id: PeerId,
@@ -44,6 +45,10 @@ pub trait Network: Send + Sync + 'static {
 impl Network for Arc<dyn Network> {
 	fn peer_id(&self) -> PeerId {
 		self.deref().peer_id()
+	}
+
+	fn format_peer_id(&self, peer: PeerId) -> String {
+		self.deref().format_peer_id(peer)
 	}
 
 	fn send(

@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use futures::channel::mpsc;
 use std::path::PathBuf;
 use std::time::Duration;
+use time_primitives::admin::Config;
 use time_primitives::{ConnectorParams, IConnector, NetworkId, Runtime};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
@@ -24,7 +25,7 @@ pub struct ChronicleConfig {
 	/// Identifier for the network.
 	pub network_id: NetworkId,
 	/// Optional path to a network key file.
-	pub network_keyfile: Option<PathBuf>,
+	pub network_key: [u8; 32],
 	/// Optional network port number.
 	pub network_port: Option<u16>,
 	/// URL for the target.
@@ -93,17 +94,23 @@ pub async fn run_chronicle<C: IConnector>(
 		}
 	};
 
+	// initialize networking
+	let (network, network_requests) = create_iroh_network(NetworkConfig {
+		secret: config.network_key,
+		bind_port: config.network_port,
+	})
+	.await?;
+
 	// initialize wallets
 	let timechain_address = substrate.account_id().to_string();
 	let target_address = connector.format_address(connector.address());
+	let peer_id = network.format_peer_id(network.peer_id());
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-	admin::start(
-		8080,
-		admin::Config::new(config.network_id, timechain_address, target_address, "".into()),
-	)
-	.await
-	.context("failed to start admin interface")?;
+	event!(target: TW_LOG, Level::INFO, "peer id {}", peer_id);
+	admin::start(8080, Config::new(config.network_id, timechain_address, target_address, peer_id))
+		.await
+		.context("failed to start admin interface")?;
 	let timechain_min_balance = config.timechain_min_balance;
 	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
 		tracing::warn!("timechain balance is below {timechain_min_balance}");
@@ -115,20 +122,11 @@ pub async fn run_chronicle<C: IConnector>(
 		sleep(Duration::from_secs(10)).await;
 	}
 
-	// initialize chronicle
-	let (network, network_requests) = create_iroh_network(NetworkConfig {
-		secret: config.network_keyfile.clone(),
-		bind_port: config.network_port,
-	})
-	.await?;
-	let peer_id = network.peer_id();
 	let span = span!(
 		target: TW_LOG,
 		Level::INFO,
 		"run_chronicle",
-		?peer_id,
 	);
-	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,

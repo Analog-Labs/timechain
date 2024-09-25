@@ -28,6 +28,7 @@ services:
     - '--timechain-metadata=development'
     - '--timechain-url=ws://validator:9944'
     - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--target-url=/etc/target'
     - '--target-keyfile=/etc/target_keyfile'

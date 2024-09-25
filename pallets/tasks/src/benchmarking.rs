@@ -35,11 +35,8 @@ benchmarks! {
 
 	submit_task_result {
 		create_simple_task::<T>();
-		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: [0; 64] };
-	}: _(RawOrigin::Root, 0, result) verify {}
-
-	set_shard_task_limit {
-	}: _(RawOrigin::Root, ETHEREUM, 50) verify {}
+		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: [0u8; 64] };
+	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -17621,6 +17621,7 @@ dependencies = [
  "clap",
  "gmp-rust",
  "hex",
+ "reqwest",
  "serde",
  "serde_yaml",
  "surf",

@@ -1,5 +1,6 @@
 use crate::config::{Backend, Config};
 use anyhow::{Context, Result};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
@@ -79,11 +80,11 @@ impl Tc {
 		Ok(Self { config, runtime, connectors })
 	}
 
-	fn connector(&self, network: NetworkId) -> Result<&Box<dyn IConnectorAdmin>> {
-		self.connectors.get(&network).context("no connector configured for {network}")
+	fn connector(&self, network: NetworkId) -> Result<&dyn IConnectorAdmin> {
+		Ok(&**self.connectors.get(&network).context("no connector configured for {network}")?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&Box<dyn IConnectorAdmin>, Gateway)> {
+	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -106,7 +107,7 @@ impl Tc {
 				},
 			};
 			match self.runtime.get_shard_status(shard_id).await {
-				Ok(shard_status) if shard_status == ShardStatus::Online => {},
+				Ok(ShardStatus::Online) => {},
 				Ok(_) => continue,
 				Err(err) => {
 					tracing::info!("Skipping shard_id {shard_id}: {err}");
@@ -218,7 +219,7 @@ pub struct Chronicle {
 	pub network: NetworkId,
 	pub account: AccountId,
 	pub peer_id: String,
-	//pub status: ChronicleStatus,
+	pub status: ChronicleStatus,
 	pub balance: u128,
 	pub target_address: Address,
 	pub target_balance: u128,
@@ -231,14 +232,24 @@ struct ChronicleConfig {
 	address: Address,
 }
 
-/*pub enum ChronicleStatus {
-	Unreachable,
+pub enum ChronicleStatus {
 	Unregistered,
 	Registered,
 	Electable,
 	Online,
-	Offline,
-}*/
+}
+
+impl std::fmt::Display for ChronicleStatus {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let status = match self {
+			Self::Unregistered => "unregistered",
+			Self::Registered => "registered",
+			Self::Electable => "electable",
+			Self::Online => "online",
+		};
+		f.write_str(status)
+	}
+}
 
 pub struct Shard {
 	pub shard: ShardId,
@@ -254,7 +265,7 @@ pub struct Shard {
 pub struct Member {
 	pub account: AccountId,
 	pub status: MemberStatus,
-	// TODO: pub stake: u128,
+	pub stake: u128,
 }
 
 impl Tc {
@@ -285,6 +296,7 @@ impl Tc {
 		let mut chronicles = vec![];
 		for chronicle in &self.config.chronicles {
 			let config = self.chronicle_config(chronicle).await?;
+			let status = self.chronicle_status(&config.account).await?;
 			let network = config.network;
 			let balance = self.balance(None, config.account.clone().into()).await?;
 			let target_balance = self.balance(Some(network), config.address).await?;
@@ -293,7 +305,7 @@ impl Tc {
 				network,
 				account: config.account,
 				peer_id: config.peer_id,
-				//status,
+				status,
 				balance,
 				target_address: config.address,
 				target_balance,
@@ -313,8 +325,8 @@ impl Tc {
 		let mut registered_shards = HashMap::new();
 		for shard in 0..shard_id_counter {
 			let network = self.runtime.shard_network(shard).await?;
-			if !registered_shards.contains_key(&network) {
-				registered_shards.insert(network, self.registered_shards(network).await?);
+			if let Entry::Vacant(e) = registered_shards.entry(network) {
+				e.insert(self.registered_shards(network).await?);
 			}
 			let status = self.runtime.get_shard_status(shard).await?;
 			let key = self.runtime.get_shard_commitment(shard).await?.map(|c| c[0]);
@@ -342,15 +354,15 @@ impl Tc {
 		let shard_members = self.runtime.get_shard_members(shard).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
-			// TODO: let stake = self.runtime.member_stake(&account).await?;
-			members.push(Member { account, status })
+			let stake = self.runtime.member_stake(&account).await?;
+			members.push(Member { account, status, stake })
 		}
 		Ok(members)
 	}
 
-	pub async fn routes(&self, network: NetworkId) -> Result<Vec<time_primitives::Network>> {
+	pub async fn routes(&self, network: NetworkId) -> Result<Vec<Route>> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.networks(gateway.into()).await
+		connector.networks(gateway).await
 	}
 
 	pub async fn events(&self, network: NetworkId, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
@@ -415,14 +427,39 @@ impl Tc {
 		Ok(())
 	}
 
+	async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
+		self.runtime.set_electable(accounts).await?.wait_for_success().await?;
+		Ok(())
+	}
+
 	async fn register_route(&self, network: NetworkId, route: Route) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		connector.set_network(gateway, route).await?;
 		Ok(())
 	}
 
-	async fn chronicle_config(&self, _chronicle: &str) -> Result<ChronicleConfig> {
-		todo!()
+	async fn chronicle_config(&self, chronicle: &str) -> Result<ChronicleConfig> {
+		let config: time_primitives::admin::Config =
+			reqwest::get(format!("http://{chronicle}:8080/config")).await?.json().await?;
+		Ok(ChronicleConfig {
+			network: config.network,
+			account: self.parse_address(None, &config.account)?.into(),
+			address: self.parse_address(Some(config.network), &config.address)?,
+			peer_id: config.peer_id,
+		})
+	}
+
+	async fn chronicle_status(&self, account: &AccountId) -> Result<ChronicleStatus> {
+		if self.runtime.member_network(account).await?.is_none() {
+			return Ok(ChronicleStatus::Unregistered);
+		}
+		if !self.runtime.member_electable(account).await? {
+			return Ok(ChronicleStatus::Registered);
+		}
+		if !self.runtime.member_online(account).await? {
+			return Ok(ChronicleStatus::Electable);
+		}
+		Ok(ChronicleStatus::Online)
 	}
 }
 
@@ -435,16 +472,41 @@ impl Tc {
 			self.set_network_config(network).await?;
 			self.fund(Some(network), gateway, config.gateway_funds).await?;
 		}
+		for src in self.connectors.keys().copied() {
+			for dest in self.connectors.keys().copied() {
+				let config = self.config.network(dest)?;
+				let (_, gateway) = self.gateway(dest).await?;
+				self.register_route(
+					src,
+					Route {
+						network_id: dest,
+						gateway,
+						relative_gas_price: (
+							config.route_gas_price.num,
+							config.route_gas_price.den,
+						),
+						gas_limit: config.route_gas_limit,
+						base_fee: config.route_base_fee,
+					},
+				)
+				.await?;
+			}
+		}
+		let mut accounts = Vec::with_capacity(self.config.chronicles.len());
 		for chronicle in &self.config.chronicles {
 			let chronicle = self.chronicle_config(chronicle).await?;
-			self.fund(None, chronicle.account.into(), self.config.config.chronicle_timechain_funds)
-				.await?;
+			self.fund(
+				None,
+				chronicle.account.clone().into(),
+				self.config.config.chronicle_timechain_funds,
+			)
+			.await?;
 			let config = self.config.network(chronicle.network)?;
 			self.fund(Some(chronicle.network), chronicle.address, config.chronicle_target_funds)
 				.await?;
-			// TODO: set electable
+			accounts.push(chronicle.account);
 		}
-		// TODO: register networks in gateways
+		self.set_electable(accounts).await?;
 		Ok(())
 	}
 
@@ -456,7 +518,7 @@ impl Tc {
 
 	pub async fn set_gateway_admin(&self, network: NetworkId, admin: String) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.set_admin(gateway.into(), connector.parse_address(&admin)?).await?;
+		connector.set_admin(gateway, connector.parse_address(&admin)?).await?;
 		Ok(())
 	}
 

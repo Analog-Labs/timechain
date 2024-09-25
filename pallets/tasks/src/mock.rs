@@ -37,7 +37,7 @@ impl NetworksInterface for MockNetworks {
 	fn gateway(_network: NetworkId) -> Option<Address> {
 		Some([0; 32])
 	}
-	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u64 {
+	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
 		5
 	}
 	fn batch_gas_limit(_network: NetworkId) -> u128 {

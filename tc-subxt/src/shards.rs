@@ -1,6 +1,6 @@
 use crate::{metadata_scope, SubxtClient};
 use anyhow::{anyhow, Result};
-use time_primitives::{NetworkId, ShardId, TssPublicKey};
+use time_primitives::{AccountId, NetworkId, ShardId, TssPublicKey};
 
 impl SubxtClient {
 	pub async fn networks(&self) -> Result<Vec<NetworkId>> {
@@ -91,6 +91,45 @@ impl SubxtClient {
 				.fetch(&storage_query)
 				.await?
 				.ok_or(anyhow!("Shard size not found"))
+		})
+	}
+
+	pub async fn member_network(&self, account: &AccountId) -> Result<Option<NetworkId>> {
+		metadata_scope!(self.metadata, {
+			let account: &subxt::utils::AccountId32 = unsafe { std::mem::transmute(account) };
+			let storage_query = metadata::storage().members().member_network(account);
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+		})
+	}
+
+	pub async fn member_stake(&self, account: &AccountId) -> Result<u128> {
+		metadata_scope!(self.metadata, {
+			let account: &subxt::utils::AccountId32 = unsafe { std::mem::transmute(account) };
+			let storage_query = metadata::storage().members().member_stake(account);
+			Ok(self
+				.client
+				.storage()
+				.at_latest()
+				.await?
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default())
+		})
+	}
+
+	pub async fn member_online(&self, account: &AccountId) -> Result<bool> {
+		metadata_scope!(self.metadata, {
+			let account: &subxt::utils::AccountId32 = unsafe { std::mem::transmute(account) };
+			let storage_query = metadata::storage().members().member_online(account);
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
+		})
+	}
+
+	pub async fn member_electable(&self, account: &AccountId) -> Result<bool> {
+		metadata_scope!(self.metadata, {
+			let account: &subxt::utils::AccountId32 = unsafe { std::mem::transmute(account) };
+			let storage_query = metadata::storage().elections().electable(account);
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
 		})
 	}
 }

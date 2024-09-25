@@ -159,16 +159,18 @@ mod tests {
 	/// * `network_id` - Identifier for the network.
 	async fn chronicle(mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
-		// Run the Chronicle application with the mock network.
+		let mut network_key = [0; 32];
+		getrandom::getrandom(&mut network_key).unwrap();
 		run_chronicle::<gmp_rust::Connector>(
 			ChronicleConfig {
 				network_id,
-				network_keyfile: None,
+				network_key,
 				network_port: None,
 				target_url: "tempfile".to_string(),
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache: "/tmp".into(),
 				target_min_balance: 0,
+				timechain_min_balance: 0,
 			},
 			mock,
 		)

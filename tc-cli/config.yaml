@@ -19,5 +19,10 @@ networks:
     batch_offset: 0
     batch_gas_limit: 10000
     shard_task_limit: 50
+    route_gas_limit: 10000
+    route_base_fee: 10000
+    route_gas_price:
+      num: 10
+      den: 1
 chronicles:
 - chronicle-0

@@ -27,7 +27,7 @@ benchmarks! {
 	verify {}
 
 	set_network_config {
-	}: _(RawOrigin::Root, ETHEREUM, 100, 25, 10_000) verify {}
+	}: _(RawOrigin::Root, ETHEREUM, 100, 25, 10_000, 10) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

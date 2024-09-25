@@ -79,6 +79,9 @@ pub enum Tx {
 		shard_size: u16,
 		shard_threshold: u16,
 	},
+	SetElectable {
+		accounts: Vec<AccountId>,
+	},
 	Commitment {
 		shard_id: ShardId,
 		commitment: Commitment,
@@ -233,6 +236,16 @@ impl<T: TxSubmitter> SubxtWorker<T> {
 					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
+				Tx::SetElectable { accounts } => {
+					let electable = unsafe { std::mem::transmute(accounts) };
+					let runtime_call = RuntimeCall::Elections(
+						metadata::runtime_types::pallet_elections::pallet::Call::set_electable {
+							electable,
+						},
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
 				Tx::Commitment {
 					shard_id,
 					commitment,
@@ -367,7 +380,7 @@ impl SubxtClient {
 		mnemonic: &str,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let secret = SecretUri::from_str(&mnemonic).context("failed to parse substrate keyfile")?;
+		let secret = SecretUri::from_str(mnemonic).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
 		Self::new(url, metadata, keypair, tx_submitter).await
 	}
@@ -451,6 +464,12 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
+		Ok(rx.await?)
+	}
+
+	pub async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<TxInBlock> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::SetElectable { accounts }, tx))?;
 		Ok(rx.await?)
 	}
 }

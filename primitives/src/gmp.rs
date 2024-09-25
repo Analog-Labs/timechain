@@ -219,16 +219,16 @@ impl std::fmt::Display for GmpEvent {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::ShardRegistered(key) => {
-				writeln!(f, "shard_registered {}", hex::encode(&key))
+				writeln!(f, "shard_registered {}", hex::encode(key))
 			},
 			Self::ShardUnregistered(key) => {
-				writeln!(f, "shard_unregistered {}", hex::encode(&key))
+				writeln!(f, "shard_unregistered {}", hex::encode(key))
 			},
 			Self::MessageReceived(msg) => {
-				writeln!(f, "message_received {}", hex::encode(&msg.message_id()))
+				writeln!(f, "message_received {}", hex::encode(msg.message_id()))
 			},
 			Self::MessageExecuted(msg) => {
-				writeln!(f, "message_executed {}", hex::encode(&msg))
+				writeln!(f, "message_executed {}", hex::encode(msg))
 			},
 			Self::BatchExecuted(batch) => {
 				writeln!(f, "batch_executed {}", batch)

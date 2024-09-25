@@ -161,6 +161,10 @@ impl Runtime for Mock {
 		self.account_id.as_ref().unwrap()
 	}
 
+	async fn balance(&self, _account: &AccountId) -> Result<u128> {
+		Ok(100_000)
+	}
+
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		stream::iter(std::iter::successors(Some(([0; 32].into(), 0)), |(_, n)| {
 			let n = n + 1;

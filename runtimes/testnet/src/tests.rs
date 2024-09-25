@@ -169,6 +169,14 @@ fn register_unregister_kills_task() {
 	let d: AccountId = D.into();
 	let e: AccountId = E.into();
 	new_test_ext().execute_with(|| {
+		assert_ok!(Networks::register_network(
+			RawOrigin::Root.into(),
+			ETHEREUM,
+			"ethereum".into(),
+			"dev".into(),
+			[0u8; 32],
+			0
+		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,
@@ -196,7 +204,6 @@ fn register_unregister_kills_task() {
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
-		assert_ok!(Networks::register_gateway(RawOrigin::Root.into(), ETHEREUM, [0u8; 32], 0));
 		roll(1);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(0).unwrap(), 0);

@@ -34,7 +34,7 @@ time-primitives = { workspace = true, default-features = true }
 tss.workspace = true
 bip39 = "2.0.0"
 getrandom = "0.2.15"
-tide = { version = "0.16.0", default-features = false }
+tide = { version = "0.16.0", default-features = false, features = ["h1-server"] }
 
 [dev-dependencies]
 env_logger.workspace = true

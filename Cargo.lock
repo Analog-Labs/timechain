@@ -17740,6 +17740,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c459573f0dd2cc734b539047f57489ea875af8ee950860ded20cf93a79a1dee0"
 dependencies = [
+ "async-h1",
  "async-sse",
  "async-std",
  "async-trait",

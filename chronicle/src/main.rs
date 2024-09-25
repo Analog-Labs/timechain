@@ -63,6 +63,7 @@ impl ChronicleArgs {
 			target_url: self.target_url,
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
+			admin: true,
 		})
 	}
 }

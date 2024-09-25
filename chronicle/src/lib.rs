@@ -38,6 +38,8 @@ pub struct ChronicleConfig {
 	pub target_min_balance: u128,
 	/// Timechain min balance.
 	pub timechain_min_balance: u128,
+	/// Enable admin interface.
+	pub admin: bool,
 }
 
 /// Runs the Chronicle application.
@@ -108,9 +110,14 @@ pub async fn run_chronicle<C: IConnector>(
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
 	event!(target: TW_LOG, Level::INFO, "peer id {}", peer_id);
-	admin::start(8080, Config::new(config.network_id, timechain_address, target_address, peer_id))
+	if config.admin {
+		admin::start(
+			8080,
+			Config::new(config.network_id, timechain_address, target_address, peer_id),
+		)
 		.await
 		.context("failed to start admin interface")?;
+	}
 	let timechain_min_balance = config.timechain_min_balance;
 	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
 		tracing::warn!("timechain balance is below {timechain_min_balance}");
@@ -171,6 +178,7 @@ mod tests {
 				tss_keyshare_cache: "/tmp".into(),
 				target_min_balance: 0,
 				timechain_min_balance: 0,
+				admin: false,
 			},
 			mock,
 		)

@@ -15,6 +15,7 @@ members = [
 	"gmp/grpc",
 	"gmp/rust",
 	"node",
+	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",
 	"pallets/members",

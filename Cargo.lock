@@ -9050,6 +9050,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-dmail"
+version = "0.7.0"
+dependencies = [
+ "polkadot-sdk",
+ "time-primitives",
+]
+
+[[package]]
 name = "pallet-election-provider-multi-phase"
 version = "36.0.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"

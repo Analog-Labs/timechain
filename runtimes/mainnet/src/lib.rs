@@ -1317,7 +1317,7 @@ impl pallet_networks::Config for Runtime {
 impl pallet_dmail::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = ChronicleAdmin;
-	type WeightInfo = weights::networks::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 impl pallet_governance::Config for Runtime {

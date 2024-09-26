@@ -8,7 +8,7 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use time_primitives::{DmailMessage, DmailPath, DmailTo};
+	use time_primitives::{AccountId, DmailMessage, DmailPath, DmailTo};
 
 	pub trait WeightInfo {
 		fn send_email(to: u32, path: u32) -> Weight;
@@ -25,7 +25,10 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk::frame_system::Config {
+	pub trait Config:
+		polkadot_sdk::frame_system::Config<AccountId = AccountId>
+		+ polkadot_sdk::frame_system::Config
+	{
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;

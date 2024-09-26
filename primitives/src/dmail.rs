@@ -1,6 +1,7 @@
-use crate::AccountId;
 use scale_codec::{Decode, Encode};
 use scale_info::{prelude::string::String, TypeInfo};
+
+use crate::AccountId;
 
 pub type DmailTo = String;
 pub type DmailPath = String;

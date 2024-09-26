@@ -12,6 +12,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+scale-codec.workspace = true
+scale-info.workspace = true
 polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime" ]}
 time-primitives.workspace = true
 

@@ -87,6 +87,7 @@ polkadot-sdk = { workspace = true, features = [
 ]}
 
 # Custom local pallets
+pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-governance.workspace = true
 pallet-members.workspace = true

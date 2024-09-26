@@ -38,7 +38,7 @@ pub struct GlobalConfig {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Backend {
-	Rust,
+	Grpc,
 	Evm,
 }
 

@@ -12,6 +12,7 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
+	"gmp/grpc",
 	"gmp/rust",
 	"node",
 	"pallets/elections",
@@ -34,6 +35,7 @@ members = [
 default-members = [
   "chronicle",
   "node",
+  "tc-cli",
 ]
 
 [workspace.dependencies]
@@ -90,6 +92,7 @@ testnet-runtime = { path = "runtimes/testnet" }
 
 # shared libs in workspace
 gmp-evm = { path = "gmp/evm" }
+gmp-grpc = { path = "gmp/grpc" }
 gmp-rust = { path = "gmp/rust" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }

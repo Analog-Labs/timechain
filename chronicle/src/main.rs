@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
 		tx_submitter,
 	)
 	.await?;
-	chronicle::run_chronicle::<gmp_rust::Connector>(
+	chronicle::run_chronicle::<gmp_grpc::Connector>(
 		args.config(network_key, target_mnemonic)?,
 		subxt,
 	)

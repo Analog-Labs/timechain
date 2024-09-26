@@ -246,8 +246,6 @@ use futures::Stream;
 #[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
-use std::path::Path;
-#[cfg(feature = "std")]
 use std::pin::Pin;
 
 #[cfg(feature = "std")]
@@ -296,7 +294,7 @@ pub trait IChain: Send + Sync + 'static {
 	/// Queries the account balance.
 	async fn balance(&self, address: Address) -> Result<u128>;
 	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>>;
 }
 
 #[cfg(feature = "std")]
@@ -327,9 +325,9 @@ pub trait IConnector: IChain {
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IConnector {
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: &Path, gateway: &Path) -> Result<(Address, u64)>;
+	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address, gateway: &Path) -> Result<()>;
+	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address>;
 	/// Sets the gateway admin.
@@ -343,7 +341,7 @@ pub trait IConnectorAdmin: IConnector {
 	/// Updates an entry in the gateway routing table.
 	async fn set_network(&self, gateway: Address, network: Network) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &Path) -> Result<(Address, u64)>;
+	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,

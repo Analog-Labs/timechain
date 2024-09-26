@@ -9,10 +9,10 @@ contracts:
     tester: "/etc/contracts/test_contract.sol/VotingContract.json"
 networks:
   0:
-    backend: "rust"
+    backend: "grpc"
     blockchain: "rust"
     network: "rust"
-    url: "/etc/db"
+    url: "gmp-grpc:3000"
     gateway_funds: 10000
     chronicle_target_funds: 10000
     batch_size: 5

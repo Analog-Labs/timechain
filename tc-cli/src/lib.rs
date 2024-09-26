@@ -65,8 +65,8 @@ impl Tc {
 				mnemonic: std::fs::read_to_string(keyfile)?,
 			};
 			let connector = match network.backend {
-				Backend::Rust => {
-					let connector = gmp_rust::Connector::new(params).await?;
+				Backend::Grpc => {
+					let connector = gmp_grpc::Connector::new(params).await?;
 					Box::new(connector) as Box<dyn IConnectorAdmin>
 				},
 				Backend::Evm => {
@@ -395,8 +395,9 @@ impl Tc {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
-		let (gateway, block) =
-			connector.deploy_gateway(&contracts.proxy, &contracts.gateway).await?;
+		let proxy = std::fs::read(&contracts.proxy)?;
+		let gateway = std::fs::read(&contracts.gateway)?;
+		let (gateway, block) = connector.deploy_gateway(&proxy, &gateway).await?;
 		self.runtime
 			.register_network(
 				network,
@@ -525,14 +526,16 @@ impl Tc {
 	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
-		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
+		let contract = std::fs::read(&contracts.gateway)?;
+		connector.redeploy_gateway(gateway, &contract).await?;
 		Ok(())
 	}
 
 	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.deploy_test(gateway, &contracts.tester).await
+		let contract = std::fs::read(&contracts.tester)?;
+		connector.deploy_test(gateway, &contract).await
 	}
 
 	pub async fn send_message(

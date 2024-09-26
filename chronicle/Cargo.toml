@@ -28,6 +28,7 @@ sha3 = { version = "0.10" }
 tracing-panic = "0.1.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
+gmp-grpc.workspace = true
 gmp-rust.workspace = true
 tc-subxt.workspace = true
 time-primitives = { workspace = true, default-features = true }

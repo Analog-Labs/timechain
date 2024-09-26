@@ -13,36 +13,42 @@ services:
     - '--validator'
     - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
-    labels:
-      prometheus-scrape.enabled: 'true'
     ports:
       - 9944:9944
 
+  gmp-grpc:
+    image: 'analoglabs/gmp-grpc-development'
+    command:
+    - '--network-id=0'
+    - '--port=3000'
+    - '--db=/etc/db'
+    environment:
+      RUST_BACKTRACE: 1
+
   chronicle-0:
     image: 'analoglabs/chronicle-development'
+    command:
+    - '--timechain-metadata=development'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=gmp-grpc:3000'
+    - '--network-id=0'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    restart: 'always'
-    command:
-    - '--timechain-metadata=development'
-    - '--timechain-url=ws://validator:9944'
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--network-keyfile=/etc/network_keyfile'
-    - '--tss-keyshare-cache=/etc/tss'
-    - '--target-url=/etc/target'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--network-id=0'
 
   tc-cli:
     image: 'analoglabs/tc-cli-development'
-    profiles:
-    - never
     environment:
-      RUST_LOG: 'tc_subxt=debug,tester=debug'
+      RUST_LOG: 'tc_subxt=debug,tc-cli=debug'
       RUST_BACKTRACE: 1
     volumes:
     - './tc-cli/config.yaml:/etc/config.yaml:ro'
     - './config/wallets/target_admin:/etc/target_admin:ro'
     - './config/wallets/timechain_admin:/etc/timechain_admin:ro'
     - './analog-gmp/out:/etc/contracts:ro'
+    profiles:
+    - never

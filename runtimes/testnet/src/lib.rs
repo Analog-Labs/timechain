@@ -1031,7 +1031,7 @@ impl pallet_networks::Config for Runtime {
 impl pallet_dmail::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = weights::networks::WeightInfo<Runtime>;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

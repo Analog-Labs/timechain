@@ -1,0 +1,29 @@
+[package]
+name = "pallet-dmail"
+description = "A pallet for dmail integration."
+publish = false
+readme = "pallets/dmail/README.md"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime" ]}
+time-primitives.workspace = true
+
+[features]
+default = [ "std" ]
+std = [
+	"polkadot-sdk/std",
+]
+runtime-benchmarks = [
+	"polkadot-sdk/runtime-benchmarks",
+	"polkadot-sdk/frame-benchmarking",
+]
+try-runtime = [
+	"polkadot-sdk/try-runtime"
+]

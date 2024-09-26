@@ -1028,6 +1028,12 @@ impl pallet_networks::Config for Runtime {
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 }
 
+impl pallet_dmail::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = weights::networks::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 #[frame_support::runtime]
 mod runtime {
@@ -1138,6 +1144,11 @@ mod runtime {
 
 	#[runtime::pallet_index(41)]
 	pub type Networks = pallet_networks;
+
+	//mainnet contains pallet index 38 as governance
+
+	#[runtime::pallet_index(39)]
+	pub type Dmail = pallet_dmail;
 }
 
 /// The address format for describing accounts.
@@ -1173,6 +1184,7 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_elections, Elections]
+		[pallet_dmail, Dmail]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_grandpa, Grandpa]

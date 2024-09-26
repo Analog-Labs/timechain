@@ -1356,6 +1356,12 @@ impl pallet_networks::Config for Runtime {
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
 }
 
+impl pallet_dmail::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = ChronicleAdmin;
+	type WeightInfo = weights::networks::WeightInfo<Runtime>;
+}
+
 /// Main runtime assembly
 #[frame_support::runtime]
 mod runtime {
@@ -1509,8 +1515,11 @@ mod runtime {
 	#[runtime::pallet_index(41)]
 	pub type Networks = pallet_networks;
 
-	// Pallet to control the initial launch
 	#[runtime::pallet_index(42)]
+	pub type Dmail = pallet_dmail;
+
+	// Pallet to control the initial launch
+	#[runtime::pallet_index(43)]
 	pub type SafeMode = pallet_safe_mode;
 }
 
@@ -1562,6 +1571,7 @@ mod benches {
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_democracy, Democracy]
 		[pallet_elections, Elections]
+		[pallet_dmail, Dmail]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, CouncilElections]

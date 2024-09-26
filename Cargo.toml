@@ -12,7 +12,8 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
-	"node",
+	"node", 
+	"pallets/dmail",
 	"pallets/elections",
 	"pallets/members",
 	"pallets/networks",

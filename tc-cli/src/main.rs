@@ -117,6 +117,8 @@ enum Command {
 	SendMessage {
 		network: NetworkId,
 		tester: String,
+		dest: NetworkId,
+		dest_addr: String,
 	},
 }
 
@@ -272,14 +274,24 @@ impl IntoRow for GmpEvent {
 
 #[derive(Tabled)]
 struct MessageEntry {
-	message: String,
+	id: String,
+	source_network: NetworkId,
+	source_address: String,
+	dest_network: NetworkId,
+	dest_address: String,
 }
 
 impl IntoRow for GmpMessage {
 	type Row = MessageEntry;
 
-	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
-		Ok(MessageEntry { message: self.to_string() })
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		Ok(MessageEntry {
+			id: self.to_string(),
+			source_network: self.src_network,
+			source_address: tc.format_address(Some(self.src_network), self.src)?,
+			dest_network: self.dest_network,
+			dest_address: tc.format_address(Some(self.dest_network), self.dest)?,
+		})
 	}
 }
 
@@ -362,9 +374,16 @@ async fn main() -> Result<()> {
 			let address = tc.format_address(Some(network), address)?;
 			println!("{address} {block}");
 		},
-		Command::SendMessage { network: _, tester: _ } => {
-			// TODO: tc.send_message(network, tester).await?;
-			todo!()
+		Command::SendMessage {
+			network,
+			tester,
+			dest,
+			dest_addr,
+		} => {
+			let tester = tc.parse_address(Some(network), &tester)?;
+			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
+			let msg_id = tc.send_message(network, tester, dest, dest_addr).await?;
+			println!("{}", hex::encode(msg_id));
 		},
 	}
 	std::process::exit(0);

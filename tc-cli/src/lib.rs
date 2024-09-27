@@ -8,8 +8,8 @@ use std::time::Duration;
 use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
 use time_primitives::{
 	AccountId, Address, ConnectorParams, Gateway, GmpEvent, GmpMessage, IConnector,
-	IConnectorAdmin, MemberStatus, Network as Route, NetworkId, Runtime, ShardId, ShardStatus,
-	TssPublicKey,
+	IConnectorAdmin, MemberStatus, MessageId, Network as Route, NetworkId, Runtime, ShardId,
+	ShardStatus, TssPublicKey,
 };
 
 mod config;
@@ -573,9 +573,22 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		tester: Address,
-		msg: GmpMessage,
-	) -> Result<()> {
+		dest: NetworkId,
+		dest_addr: Address,
+	) -> Result<MessageId> {
+		let msg = GmpMessage {
+			src_network: network,
+			src: tester,
+			dest_network: dest,
+			dest: dest_addr,
+			nonce: 0,
+			gas_limit: 100,
+			gas_cost: 200,
+			bytes: vec![],
+		};
+		let id = msg.message_id();
 		let connector = self.connector(network)?;
-		connector.send_message(tester, msg).await
+		connector.send_message(tester, msg).await?;
+		Ok(id)
 	}
 }

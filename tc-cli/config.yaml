@@ -11,8 +11,24 @@ networks:
   0:
     backend: "grpc"
     blockchain: "rust"
-    network: "rust"
-    url: "http://gmp-grpc:3000"
+    network: "0"
+    url: "http://gmp-grpc-0:3000"
+    gateway_funds: 10000
+    chronicle_target_funds: 10000
+    batch_size: 5
+    batch_offset: 0
+    batch_gas_limit: 10000
+    shard_task_limit: 50
+    route_gas_limit: 10000
+    route_base_fee: 10000
+    route_gas_price:
+      num: 10
+      den: 1
+  1:
+    backend: "grpc"
+    blockchain: "rust"
+    network: "1"
+    url: "http://gmp-grpc-1:3000"
     gateway_funds: 10000
     chronicle_target_funds: 10000
     batch_size: 5
@@ -26,3 +42,4 @@ networks:
       den: 1
 chronicles:
 - chronicle-0
+- chronicle-1

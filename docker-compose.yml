@@ -16,7 +16,7 @@ services:
     ports:
       - 9944:9944
 
-  gmp-grpc:
+  gmp-grpc-0:
     image: 'analoglabs/gmp-grpc-development'
     command:
     - '--network-id=0'
@@ -35,10 +35,37 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=http://gmp-grpc:3000'
+    - '--target-url=http://gmp-grpc-0:3000'
     - '--timechain-min-balance=100000000000000000'
     - '--target-min-balance=10000'
     - '--network-id=0'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
+
+  gmp-grpc-1:
+    image: 'analoglabs/gmp-grpc-development'
+    command:
+    - '--network-id=1'
+    - '--port=3000'
+    - '--db=/etc/db'
+    environment:
+      RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
+      RUST_BACKTRACE: 1
+
+  chronicle-1:
+    image: 'analoglabs/chronicle-development'
+    command:
+    - '--timechain-metadata=development'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=http://gmp-grpc-1:3000'
+    - '--timechain-min-balance=100000000000000000'
+    - '--target-min-balance=10000'
+    - '--network-id=1'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1

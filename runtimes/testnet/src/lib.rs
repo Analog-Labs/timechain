@@ -1523,6 +1523,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmark!(list, extra, pallet_timegraph, Timegraph);
 			list_benchmark!(list, extra, pallet_networks, Networks);
+			list_benchmark!(list, extra, pallet_dmail, Dmail);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1558,6 +1559,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmark!(params, batches, pallet_timegraph, Timegraph);
 			add_benchmark!(params, batches, pallet_network, Networks);
+			add_benchmark!(params, batches, pallet_dmail, Dmail);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

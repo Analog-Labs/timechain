@@ -33,7 +33,8 @@ jobs:
       fail-fast: false
       matrix:
         chain: [staging, development]
-        pallet: [elections, members, networks, shards, tasks, timegraph]
+        # pallet: [elections, members, networks, shards, tasks, timegraph, dmail]
+        pallet: [dmail]
     steps:
       - name: Download runtime benchmarks
         uses: actions/download-artifact@v4

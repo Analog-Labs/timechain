@@ -59,24 +59,65 @@ impl Args {
 #[derive(Parser, Debug)]
 enum Command {
 	// balances
-	Faucet { network: NetworkId },
-	Balance { network: Option<NetworkId>, address: String },
-	Transfer { network: Option<NetworkId>, address: String, amount: String },
+	Address {
+		#[arg(long)]
+		network: Option<NetworkId>,
+	},
+	Faucet {
+		network: NetworkId,
+	},
+	Balance {
+		#[arg(long)]
+		network: Option<NetworkId>,
+		#[arg(long)]
+		address: Option<String>,
+	},
+	Transfer {
+		#[arg(long)]
+		network: Option<NetworkId>,
+		address: String,
+		amount: String,
+	},
 	// read data
 	Networks,
 	Chronicles,
 	Shards,
-	Members { shard: ShardId },
-	Routes { network: NetworkId },
-	Events { network: NetworkId, start: u64, end: u64 },
-	Messages { network: NetworkId, tester: String, start: u64, end: u64 },
+	Members {
+		shard: ShardId,
+	},
+	Routes {
+		network: NetworkId,
+	},
+	Events {
+		network: NetworkId,
+		start: u64,
+		end: u64,
+	},
+	Messages {
+		network: NetworkId,
+		tester: String,
+		start: u64,
+		end: u64,
+	},
 	// management
 	Deploy,
-	RegisterShards { network: NetworkId },
-	SetGatewayAdmin { network: NetworkId, admin: String },
-	RedeployGateway { network: NetworkId },
-	DeployTester { network: NetworkId },
-	SendMessage { network: NetworkId, tester: String },
+	RegisterShards {
+		network: NetworkId,
+	},
+	SetGatewayAdmin {
+		network: NetworkId,
+		admin: String,
+	},
+	RedeployGateway {
+		network: NetworkId,
+	},
+	DeployTester {
+		network: NetworkId,
+	},
+	SendMessage {
+		network: NetworkId,
+		tester: String,
+	},
 }
 
 trait IntoRow {
@@ -252,8 +293,17 @@ async fn main() -> Result<()> {
 		Command::Faucet { network } => {
 			tc.faucet(network).await?;
 		},
+		Command::Address { network } => {
+			let address = tc.address(network)?;
+			let address = tc.format_address(network, address)?;
+			println!("{address}");
+		},
 		Command::Balance { network, address } => {
-			let address = tc.parse_address(network, &address)?;
+			let address = if let Some(address) = address {
+				tc.parse_address(network, &address)?
+			} else {
+				tc.address(network)?
+			};
 			let balance = tc.balance(network, address).await?;
 			let balance = tc.format_balance(network, balance)?;
 			println!("{balance}");
@@ -301,6 +351,7 @@ async fn main() -> Result<()> {
 			tc.register_shards(network).await?;
 		},
 		Command::SetGatewayAdmin { network, admin } => {
+			let admin = tc.parse_address(Some(network), &admin)?;
 			tc.set_gateway_admin(network, admin).await?;
 		},
 		Command::RedeployGateway { network } => {
@@ -316,5 +367,5 @@ async fn main() -> Result<()> {
 			todo!()
 		},
 	}
-	Ok(())
+	std::process::exit(0);
 }

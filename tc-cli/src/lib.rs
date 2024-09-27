@@ -53,14 +53,10 @@ impl Tc {
 		let mut connectors = HashMap::default();
 		for (id, network) in &config.networks {
 			let id = *id;
-			let Some((conn_blockchain, conn_network)) = runtime.get_network(id).await? else {
-				tracing::info!("network {id} not registered; skipping");
-				continue;
-			};
 			let params = ConnectorParams {
 				network_id: id,
-				blockchain: conn_blockchain,
-				network: conn_network,
+				blockchain: network.blockchain.clone(),
+				network: network.network.clone(),
 				url: network.url.clone(),
 				mnemonic: std::fs::read_to_string(keyfile)?,
 			};
@@ -81,7 +77,10 @@ impl Tc {
 	}
 
 	fn connector(&self, network: NetworkId) -> Result<&dyn IConnectorAdmin> {
-		Ok(&**self.connectors.get(&network).context("no connector configured for {network}")?)
+		Ok(&**self
+			.connectors
+			.get(&network)
+			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
 	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
@@ -90,7 +89,7 @@ impl Tc {
 			.runtime
 			.get_gateway(network)
 			.await?
-			.context("no gateway configured for {network}")?;
+			.with_context(|| format!("no gateway configured for {network}"))?;
 		Ok((connector, gateway))
 	}
 
@@ -142,7 +141,7 @@ impl Tc {
 			Ok(self.connector(network)?.format_address(address))
 		} else {
 			let address: AccountId = address.into();
-			Ok(address.to_string())
+			Ok(time_primitives::format_address(&address))
 		}
 	}
 
@@ -160,6 +159,14 @@ impl Tc {
 		} else {
 			Ok(balance.to_string())
 		}
+	}
+
+	pub fn address(&self, network: Option<NetworkId>) -> Result<Address> {
+		Ok(if let Some(network) = network {
+			self.connector(network)?.address()
+		} else {
+			self.runtime.account_id().clone().into()
+		})
 	}
 
 	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
@@ -180,10 +187,15 @@ impl Tc {
 		address: Address,
 		balance: u128,
 	) -> Result<()> {
+		tracing::info!(
+			"transfering {} to {}",
+			self.format_balance(network, balance)?,
+			self.format_address(network, address)?,
+		);
 		if let Some(network) = network {
 			self.connector(network)?.transfer(address, balance).await?;
 		} else {
-			self.runtime.transfer(address.into(), balance).await?.wait_for_success().await?;
+			self.runtime.transfer(address.into(), balance).await?;
 		}
 		Ok(())
 	}
@@ -383,36 +395,42 @@ impl Tc {
 
 impl Tc {
 	async fn set_shard_config(&self) -> Result<()> {
+		tracing::info!("set_shard_config");
 		self.runtime
 			.set_shard_config(self.config.config.shard_size, self.config.config.shard_threshold)
-			.await?
-			.wait_for_success()
 			.await?;
 		Ok(())
 	}
 
 	async fn register_network(&self, network: NetworkId) -> Result<Gateway> {
+		tracing::info!("register_network {network}");
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
-		let proxy = std::fs::read(&contracts.proxy)?;
-		let gateway = std::fs::read(&contracts.gateway)?;
-		let (gateway, block) = connector.deploy_gateway(&proxy, &gateway).await?;
-		self.runtime
-			.register_network(
-				network,
-				config.blockchain.clone(),
-				config.network.clone(),
-				gateway,
-				block,
-			)
-			.await?
-			.wait_for_success()
-			.await?;
+		let gateway = if let Some(gateway) = self.runtime.get_gateway(network).await? {
+			tracing::info!("network already registered; skipping");
+			gateway
+		} else {
+			tracing::info!("deploying gateway");
+			let (gateway, block) =
+				connector.deploy_gateway(&contracts.proxy, &contracts.gateway).await?;
+			self.runtime
+				.register_network(
+					network,
+					config.blockchain.clone(),
+					config.network.clone(),
+					gateway,
+					block,
+				)
+				.await?;
+			gateway
+		};
+		tracing::info!("gateway address {}", self.format_address(Some(network), gateway)?);
 		Ok(gateway)
 	}
 
 	async fn set_network_config(&self, network: NetworkId) -> Result<()> {
+		tracing::info!("set_network_config {network}");
 		let config = self.config.network(network)?;
 		self.runtime
 			.set_network_config(
@@ -422,18 +440,18 @@ impl Tc {
 				config.batch_gas_limit,
 				config.shard_task_limit,
 			)
-			.await?
-			.wait_for_success()
 			.await?;
 		Ok(())
 	}
 
 	async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
-		self.runtime.set_electable(accounts).await?.wait_for_success().await?;
+		tracing::info!("set_electable");
+		self.runtime.set_electable(accounts).await?;
 		Ok(())
 	}
 
 	async fn register_route(&self, network: NetworkId, route: Route) -> Result<()> {
+		tracing::info!("register_route {network} {}", route.network_id);
 		let (connector, gateway) = self.gateway(network).await?;
 		connector.set_network(gateway, route).await?;
 		Ok(())
@@ -471,10 +489,18 @@ impl Tc {
 			let config = self.config.network(network)?;
 			let gateway = self.register_network(network).await?;
 			self.set_network_config(network).await?;
+			if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
+				tracing::info!("admin target balance is 0, using faucet");
+				self.faucet(network).await?;
+			}
+			tracing::info!("funding gateway");
 			self.fund(Some(network), gateway, config.gateway_funds).await?;
 		}
 		for src in self.connectors.keys().copied() {
 			for dest in self.connectors.keys().copied() {
+				if src == dest {
+					continue;
+				}
 				let config = self.config.network(dest)?;
 				let (_, gateway) = self.gateway(dest).await?;
 				self.register_route(
@@ -496,6 +522,7 @@ impl Tc {
 		let mut accounts = Vec::with_capacity(self.config.chronicles.len());
 		for chronicle in &self.config.chronicles {
 			let chronicle = self.chronicle_config(chronicle).await?;
+			tracing::info!("funding chronicle timechain account");
 			self.fund(
 				None,
 				chronicle.account.clone().into(),
@@ -503,6 +530,7 @@ impl Tc {
 			)
 			.await?;
 			let config = self.config.network(chronicle.network)?;
+			tracing::info!("funding chronicle target account");
 			self.fund(Some(chronicle.network), chronicle.address, config.chronicle_target_funds)
 				.await?;
 			accounts.push(chronicle.account);
@@ -514,28 +542,31 @@ impl Tc {
 	pub async fn register_shards(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let keys = self.find_online_shard_keys(network).await?;
+		tracing::info!("register_shards {network} {}", keys.len());
 		connector.set_shards(gateway, &keys).await
 	}
 
-	pub async fn set_gateway_admin(&self, network: NetworkId, admin: String) -> Result<()> {
+	pub async fn set_gateway_admin(&self, network: NetworkId, admin: Address) -> Result<()> {
+		tracing::info!(
+			"set_gateway_admin {network} {}",
+			self.format_address(Some(network), admin)?
+		);
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.set_admin(gateway, connector.parse_address(&admin)?).await?;
+		connector.set_admin(gateway, admin).await?;
 		Ok(())
 	}
 
 	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
-		let contract = std::fs::read(&contracts.gateway)?;
-		connector.redeploy_gateway(gateway, &contract).await?;
+		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
 		Ok(())
 	}
 
 	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network).await?;
-		let contract = std::fs::read(&contracts.tester)?;
-		connector.deploy_test(gateway, &contract).await
+		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
 	pub async fn send_message(

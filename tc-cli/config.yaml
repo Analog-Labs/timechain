@@ -1,7 +1,7 @@
 config:
   shard_size: 1
   shard_threshold: 1
-  chronicle_timechain_funds: 10000
+  chronicle_timechain_funds: 100000000000000000
 contracts:
   evm:
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
@@ -12,7 +12,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "rust"
-    url: "gmp-grpc:3000"
+    url: "http://gmp-grpc:3000"
     gateway_funds: 10000
     chronicle_target_funds: 10000
     batch_size: 5

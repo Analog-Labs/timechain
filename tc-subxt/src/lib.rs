@@ -362,6 +362,7 @@ impl SubxtClient {
 		let worker =
 			SubxtWorker::new(rpc_client, client.clone(), metadata, keypair, tx_submitter).await?;
 		let public_key = worker.public_key();
+		tracing::info!("public key {}", public_key);
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();
@@ -380,7 +381,8 @@ impl SubxtClient {
 		mnemonic: &str,
 		tx_submitter: T,
 	) -> Result<Self> {
-		let secret = SecretUri::from_str(mnemonic).context("failed to parse substrate keyfile")?;
+		let secret =
+			SecretUri::from_str(mnemonic.trim()).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
 		Self::new(url, metadata, keypair, tx_submitter).await
 	}
@@ -406,10 +408,11 @@ impl SubxtClient {
 		Ok(self.client.blocks().at_latest().await?.number().into())
 	}
 
-	pub async fn transfer(&self, account: AccountId, balance: u128) -> Result<TxInBlock> {
+	pub async fn transfer(&self, account: AccountId, balance: u128) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Transfer { account, balance }, tx))?;
-		Ok(rx.await?)
+		rx.await?.wait_for_success().await?;
+		Ok(())
 	}
 
 	pub async fn register_network(
@@ -419,7 +422,7 @@ impl SubxtClient {
 		chain_network: String,
 		gateway: Gateway,
 		block_height: u64,
-	) -> Result<TxInBlock> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
 			Tx::RegisterNetwork {
@@ -431,7 +434,8 @@ impl SubxtClient {
 			},
 			tx,
 		))?;
-		Ok(rx.await?)
+		rx.await?.wait_for_success().await?;
+		Ok(())
 	}
 
 	pub async fn set_network_config(
@@ -441,7 +445,7 @@ impl SubxtClient {
 		batch_offset: u32,
 		batch_gas_limit: u128,
 		shard_task_limit: u32,
-	) -> Result<TxInBlock> {
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((
 			Tx::SetNetworkConfig {
@@ -453,24 +457,23 @@ impl SubxtClient {
 			},
 			tx,
 		))?;
-		Ok(rx.await?)
+		rx.await?.wait_for_success().await?;
+		Ok(())
 	}
 
-	pub async fn set_shard_config(
-		&self,
-		shard_size: u16,
-		shard_threshold: u16,
-	) -> Result<TxInBlock> {
+	pub async fn set_shard_config(&self, shard_size: u16, shard_threshold: u16) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
-		Ok(rx.await?)
+		rx.await?.wait_for_success().await?;
+		Ok(())
 	}
 
-	pub async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<TxInBlock> {
+	pub async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SetElectable { accounts }, tx))?;
-		Ok(rx.await?)
+		rx.await?.wait_for_success().await?;
+		Ok(())
 	}
 }
 
@@ -687,21 +690,21 @@ impl Runtime for SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::RegisterMember { network, peer_id, stake_amount }, tx))?;
-		rx.await?;
+		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 
 	async fn submit_unregister_member(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::UnregisterMember, tx))?;
-		rx.await?;
+		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 
 	async fn submit_heartbeat(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
-		rx.await?;
+		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 
@@ -720,21 +723,21 @@ impl Runtime for SubxtClient {
 			},
 			tx,
 		))?;
-		rx.await?;
+		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 
 	async fn submit_online(&self, shard_id: ShardId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Ready { shard_id }, tx))?;
-		rx.await?;
+		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 
 	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitTaskResult { task_id, result }, tx))?;
-		rx.await?;
+		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 }

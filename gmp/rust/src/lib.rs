@@ -172,7 +172,7 @@ impl IConnector for Connector {
 			(None, Path::new(&params.url).to_owned())
 		};
 		let db = Database::create(&path)?;
-		let genesis = std::fs::metadata(&path)?.created()?;
+		let genesis = SystemTime::now(); //std::fs::metadata(&path)?.created()?;
 		let tx = db.begin_write()?;
 		tx.open_table(BALANCE)?;
 		tx.open_table(ADMIN)?;

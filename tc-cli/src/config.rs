@@ -18,9 +18,13 @@ impl Config {
 		Ok(serde_yaml::from_str(&config)?)
 	}
 
-	pub fn contracts(&self, network: NetworkId) -> Result<&ContractsConfig> {
+	pub fn contracts(&self, network: NetworkId) -> Result<Contracts> {
 		let network = self.network(network)?;
-		self.contracts.get(&network.backend).context("no backend config")
+		Ok(if let Some(contracts) = self.contracts.get(&network.backend) {
+			contracts.load()?
+		} else {
+			Contracts::default()
+		})
 	}
 
 	pub fn network(&self, network: NetworkId) -> Result<&NetworkConfig> {
@@ -47,6 +51,23 @@ pub struct ContractsConfig {
 	pub proxy: PathBuf,
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
+}
+
+impl ContractsConfig {
+	fn load(&self) -> Result<Contracts> {
+		Ok(Contracts {
+			proxy: std::fs::read(&self.proxy)?,
+			gateway: std::fs::read(&self.gateway)?,
+			tester: std::fs::read(&self.tester)?,
+		})
+	}
+}
+
+#[derive(Default)]
+pub struct Contracts {
+	pub proxy: Vec<u8>,
+	pub gateway: Vec<u8>,
+	pub tester: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

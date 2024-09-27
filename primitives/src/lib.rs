@@ -6,6 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 #[cfg(feature = "std")]
 use futures::stream::BoxStream;
+use polkadot_sdk::sp_application_crypto::Ss58Codec;
 use scale_info::prelude::{string::String, vec::Vec};
 
 // Export scoped ...
@@ -90,19 +91,10 @@ pub type BlockId = generic::BlockId<Block>;
 /// General Public Key used across the protocol
 pub type PublicKey = MultiSigner;
 
-pub mod crypto {
-	use polkadot_sdk::{frame_system, sp_runtime};
+pub const SS_58_FORMAT: u16 = 12850;
 
-	use sp_runtime::app_crypto::{app_crypto, sr25519};
-	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
-
-	pub struct SigAuthId;
-
-	impl frame_system::offchain::AppCrypto<crate::PublicKey, crate::Signature> for SigAuthId {
-		type RuntimeAppPublic = Public;
-		type GenericSignature = sr25519::Signature;
-		type GenericPublic = sr25519::Public;
-	}
+pub fn format_address(account: &AccountId) -> String {
+	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))
 }
 
 sp_api::decl_runtime_apis! {

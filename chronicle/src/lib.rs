@@ -1,7 +1,7 @@
 use crate::network::{create_iroh_network, NetworkConfig};
 use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::channel::mpsc;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -69,7 +69,7 @@ pub async fn run_chronicle<C: IConnector>(
 		if let Some(network) = network {
 			break network;
 		} else {
-			tracing::warn!("network {} isn't registered", config.network_id);
+			tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
 			sleep(Duration::from_secs(10)).await;
 		};
 	};
@@ -104,28 +104,26 @@ pub async fn run_chronicle<C: IConnector>(
 	.await?;
 
 	// initialize wallets
-	let timechain_address = substrate.account_id().to_string();
+	let timechain_address = time_primitives::format_address(substrate.account_id());
 	let target_address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-	event!(target: TW_LOG, Level::INFO, "peer id {}", peer_id);
+	event!(target: TW_LOG, Level::INFO, "peer id: {}", peer_id);
 	if config.admin {
 		admin::start(
 			8080,
 			Config::new(config.network_id, timechain_address, target_address, peer_id),
-		)
-		.await
-		.context("failed to start admin interface")?;
+		);
 	}
 	let timechain_min_balance = config.timechain_min_balance;
 	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
-		tracing::warn!("timechain balance is below {timechain_min_balance}");
+		tracing::warn!(target: TW_LOG, "timechain balance is below {timechain_min_balance}");
 		sleep(Duration::from_secs(10)).await;
 	}
 	let target_min_balance = config.target_min_balance;
 	while connector.balance(connector.address()).await? < target_min_balance {
-		tracing::warn!("target balance is below {target_min_balance}");
+		tracing::warn!(target: TW_LOG, "target balance is below {target_min_balance}");
 		sleep(Duration::from_secs(10)).await;
 	}
 

@@ -23,10 +23,6 @@ impl<U: serde::de::DeserializeOwned> Decoder for BincodeDecoder<U> {
 	type Error = Status;
 
 	fn decode(&mut self, buf: &mut DecodeBuf<'_>) -> Result<Option<Self::Item>, Self::Error> {
-		if !buf.has_remaining() {
-			return Ok(None);
-		}
-
 		let item: Self::Item =
 			bincode::deserialize_from(buf.reader()).map_err(|e| Status::internal(e.to_string()))?;
 		Ok(Some(item))

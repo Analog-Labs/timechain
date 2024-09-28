@@ -161,7 +161,7 @@ pub trait ShardsInterface {
 	fn matching_shard_online(network: NetworkId, size: u16) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
-	fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16);
+	fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> Weight;
 	fn next_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }

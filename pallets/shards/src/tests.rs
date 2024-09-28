@@ -8,7 +8,7 @@ use schnorr_evm::k256::{ProjectivePoint, Scalar};
 use schnorr_evm::proof_of_knowledge::construct_proof_of_knowledge;
 use schnorr_evm::VerifyingKey;
 use time_primitives::{
-	AccountId, MemberEvents, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+	AccountId, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -62,7 +62,6 @@ fn shard() -> [Member; 3] {
 }
 
 fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
-	Shards::create_shard(ETHEREUM, shard.iter().map(|m| m.account_id.clone()).collect(), threshold);
 	for member in shard {
 		pallet_balances::Pallet::<Test>::resolve_creating(
 			&member.account_id,
@@ -77,15 +76,24 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 			member.peer_id,
 			<Test as pallet_members::Config>::MinStake::get(),
 		));
+		roll(1);
+	}
+	roll(1);
+	for member in shard {
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(member.account_id.clone()).into(),
-			shard_id,
+			shard_id as _,
 			member.commitment(threshold),
 			member.proof_of_knowledge(),
 		));
+		roll(1);
 	}
 	for member in shard {
-		assert_ok!(Shards::ready(RawOrigin::Signed(member.account_id.clone()).into(), shard_id));
+		assert_ok!(Shards::ready(
+			RawOrigin::Signed(member.account_id.clone()).into(),
+			shard_id as _
+		));
+		roll(1);
 	}
 }
 
@@ -93,6 +101,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 fn test_register_shard() {
 	let shards = shards();
 	new_test_ext().execute_with(|| {
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
 		for shard in &shards {
 			Shards::create_shard(ETHEREUM, shard.iter().map(|m| m.account_id.clone()).collect(), 1);
 		}
@@ -144,8 +153,9 @@ fn test_register_shard() {
 #[test]
 fn dkg_times_out() {
 	new_test_ext().execute_with(|| {
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
 		Shards::create_shard(ETHEREUM, shard().iter().map(|m| m.account_id.clone()).collect(), 1);
-		roll_to(11);
+		roll(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 		assert!(ShardNetwork::<Test>::get(0).is_none());
@@ -156,9 +166,30 @@ fn dkg_times_out() {
 #[test]
 fn member_offline_above_threshold_sets_online_shard_offline() {
 	let shard = shard();
+	let shard_id = 0;
+	let threshold = 2;
 	new_test_ext().execute_with(|| {
-		create_shard(0, &shard, 3);
-		Shards::member_offline(&shard[0].account_id, ETHEREUM);
+		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, threshold));
+		create_shard(shard_id, &shard, 2);
+		// Send heartbeat for 3 members
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[2].account_id.clone()).into()));
+		roll(10);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
+		// only send heartbeat for 2 members
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
+		roll(10);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
+		// only send heartbeat for 2 members
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[1].account_id.clone()).into()));
+		roll(10);
+		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Online));
+		// only send single heartbeat which is below threshold
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));
+		roll(10);
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 	});
 }

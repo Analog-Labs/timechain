@@ -3,6 +3,7 @@ use crate::{self as pallet_elections};
 //use polkadot_sdk::*;
 
 use frame_support::derive_impl;
+use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
@@ -139,4 +140,17 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
+}
+
+pub fn roll(n: u64) {
+	for _ in 0..n {
+		next_block();
+	}
+}
+
+fn next_block() {
+	let mut now = System::block_number();
+	now += 1;
+	System::set_block_number(now);
+	Elections::on_initialize(now);
 }

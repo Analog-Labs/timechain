@@ -151,6 +151,20 @@ pub mod pallet {
 		ThresholdLargerThanSize,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			let mut weight = Weight::default();
+			for (network, _, _) in Unassigned::<T>::iter() {
+				weight = weight
+					// 1 Read of Unassigned per Loop
+					.saturating_add(T::DbWeight::get().reads(1))
+					.saturating_add(Self::try_elect_shard(network));
+			}
+			weight
+		}
+	}
+
 	/// The pallet provides mechanisms to configure and manage shards, elect members to shards,
 	/// and handle member events. It includes storage items to keep track of shard sizes,
 	/// thresholds, and electable members. It also defines events and errors related to shard
@@ -206,15 +220,13 @@ pub mod pallet {
 		///    1. Checks if the member is not already a shard member.
 		///    2. Checks if the member is electable or if there are no electable members defined.
 		///    3. Inserts the member into the [`Unassigned`] storage for the given network.
-		///    4. Attempts to elect a new shard for the network by calling `try_elect_shard`.
-		///    5. Notifies the `Shards` interface about the member coming online.
+		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
-			if !T::Shards::is_shard_member(member) {
-				if Electable::<T>::iter().next().is_none() || Electable::<T>::get(member).is_some()
-				{
-					Unassigned::<T>::insert(network, member, ());
-				}
-				Self::try_elect_shard(network);
+			if !T::Shards::is_shard_member(member)
+				&& (Electable::<T>::iter().next().is_none()
+					|| Electable::<T>::get(member).is_some())
+			{
+				Unassigned::<T>::insert(network, member, ());
 			}
 			T::Shards::member_online(member, network);
 		}
@@ -235,10 +247,8 @@ pub mod pallet {
 		///  Handles the event when a shard goes offline.
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
-		///    2. Attempts to elect a new shard for the network by calling `try_elect_shard`.
 		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
 			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
-			Self::try_elect_shard(network);
 		}
 
 		///  Retrieves the default shard size.
@@ -255,10 +265,16 @@ pub mod pallet {
 		///    1. Calls `new_shard_members` to get a list of new shard members.
 		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
 		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
-		fn try_elect_shard(network: NetworkId) {
-			if let Some(members) = Self::new_shard_members(network) {
-				members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-				T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
+		fn try_elect_shard(network: NetworkId) -> Weight {
+			match Self::new_shard_members(network) {
+				(Some(members), r) => {
+					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+					let weight = T::DbWeight::get()
+						.reads_writes(r, members.len().try_into().unwrap_or_default());
+					T::Shards::create_shard(network, members, ShardThreshold::<T>::get())
+						.saturating_add(weight)
+				},
+				(None, r) => T::DbWeight::get().reads(r),
 			}
 		}
 
@@ -269,17 +285,21 @@ pub mod pallet {
 		///    3. Returns `None` if there are not enough members to form a shard.
 		///    4. If there are just enough members, returns the list of members.
 		///    5. If there are more members than needed, sorts them by their stake and selects the top members to form the shard.
-		fn new_shard_members(network: NetworkId) -> Option<Vec<AccountId>> {
+		fn new_shard_members(network: NetworkId) -> (Option<Vec<AccountId>>, u64) {
+			let mut reads: u64 = 0;
 			let shard_members_len = ShardSize::<T>::get() as usize;
-			let mut members = Unassigned::<T>::iter_prefix(network)
-				.map(|(m, _)| m)
-				.filter(T::Members::is_member_online)
-				.collect::<Vec<_>>();
+			let mut members = Vec::new();
+			for (m, _) in Unassigned::<T>::iter_prefix(network) {
+				if T::Members::is_member_online(&m) {
+					members.push(m);
+				}
+				reads = reads.saturating_add(2);
+			}
 			if members.len() < shard_members_len {
-				return None;
+				return (None, reads);
 			}
 			if members.len() == shard_members_len {
-				return Some(members);
+				return (Some(members), reads);
 			}
 			// else members.len() > shard_members_len:
 			members.sort_unstable_by(|a, b| {
@@ -289,7 +309,7 @@ pub mod pallet {
 					.then_with(|| a.cmp(b))
 					.reverse()
 			});
-			Some(members.into_iter().take(shard_members_len).collect())
+			(Some(members.into_iter().take(shard_members_len).collect()), reads)
 		}
 	}
 }

@@ -45,5 +45,16 @@ benchmarks! {
 		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: SIGNATURE };
 	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
 
+	schedule_tasks {
+		// TODO: replace upper bound once upper bound added, separate PR
+		let b in 1..10;
+		for i in 0..b {
+			// TODO: do not assign, remove on initialize
+			create_simple_task::<T>();
+		}
+	}: {
+		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+	} verify { }
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

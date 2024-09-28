@@ -1,5 +1,6 @@
 use super::tss::{Tss, TssAction, VerifiableSecretSharingCommitment};
 use crate::network::{Message, Network, PeerId, TssMessage};
+use crate::runtime::Runtime;
 use crate::tasks::{TaskExecutor, TaskParams};
 use crate::TW_LOG;
 use anyhow::Result;
@@ -17,7 +18,7 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, IConnector, Runtime, ShardId, ShardStatus, TaskId, TssSignature,
+	BlockHash, BlockNumber, IConnector, ShardId, ShardStatus, TaskId, TssSignature,
 	TssSigningRequest,
 };
 use tokio::time::{sleep, Duration};

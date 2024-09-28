@@ -1,11 +1,12 @@
+use crate::runtime::Runtime;
 use crate::TW_LOG;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream};
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, GmpParams, IConnector, NetworkId, Runtime, ShardId, Task,
-	TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockHash, BlockNumber, GmpParams, IConnector, NetworkId, ShardId, Task, TaskId,
+	TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level};

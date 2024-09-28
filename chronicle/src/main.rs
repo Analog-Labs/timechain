@@ -6,7 +6,7 @@ use std::{
 	path::{Path, PathBuf},
 	time::Duration,
 };
-use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
+use tc_subxt::{MetadataVariant, SubxtClient};
 use time_primitives::NetworkId;
 
 #[derive(Debug, Parser)]
@@ -123,22 +123,22 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let tx_submitter = loop {
-		if let Ok(t) = SubxtTxSubmitter::try_new(&args.timechain_url).await {
-			break t;
+	loop {
+		if SubxtClient::get_client(&args.timechain_url).await.is_ok() {
+			break;
 		} else {
 			tracing::error!("Error connecting to {} retrying", &args.timechain_url);
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
-	};
+	}
 
 	let subxt = SubxtClient::with_key(
 		&args.timechain_url,
 		args.timechain_metadata.unwrap_or_default(),
 		&timechain_mnemonic,
-		tx_submitter,
 	)
 	.await?;
+
 	chronicle::run_chronicle::<gmp_grpc::Connector>(
 		args.config(network_key, target_mnemonic)?,
 		subxt,

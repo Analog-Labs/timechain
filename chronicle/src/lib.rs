@@ -1,4 +1,5 @@
 use crate::network::{create_iroh_network, NetworkConfig};
+use crate::runtime::Runtime;
 use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
 use anyhow::Result;
@@ -6,7 +7,7 @@ use futures::channel::mpsc;
 use std::path::PathBuf;
 use std::time::Duration;
 use time_primitives::admin::Config;
-use time_primitives::{ConnectorParams, IConnector, NetworkId, Runtime};
+use time_primitives::{ConnectorParams, IConnector, NetworkId};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 
@@ -14,6 +15,7 @@ mod admin;
 #[cfg(test)]
 mod mock;
 mod network;
+mod runtime;
 mod shards;
 mod tasks;
 

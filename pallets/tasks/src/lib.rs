@@ -228,6 +228,10 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, BatchId, TssSignature, OptionQuery>;
 
 	#[pallet::storage]
+	pub type BatchSignTaskId<T: Config> =
+		StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
+
+	#[pallet::storage]
 	pub type BatchSubmissionTaskId<T: Config> =
 		StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
 
@@ -327,7 +331,7 @@ pub mod pallet {
 							},
 							GmpEvent::MessageReceived(msg) => {
 								let msg_id = msg.message_id();
-								Self::ops_queue(network).push(GatewayOp::SendMessage(msg));
+								Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 								MessageReceivedTaskId::<T>::insert(msg_id, task_id);
 								Self::deposit_event(Event::<T>::MessageReceived(msg_id));
 							},
@@ -594,7 +598,8 @@ pub mod pallet {
 				}
 			}
 			BatchMessage::<T>::insert(batch_id, msg);
-			Self::create_task(network, Task::SignGatewayMessage { batch_id });
+			let task_id = Self::create_task(network, Task::SignGatewayMessage { batch_id });
+			BatchSignTaskId::<T>::insert(batch_id, task_id);
 		}
 	}
 

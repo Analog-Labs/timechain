@@ -139,6 +139,23 @@ impl GatewayOp {
 	}
 }
 
+#[cfg(feature = "std")]
+impl std::fmt::Display for GatewayOp {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::SendMessage(msg) => {
+				writeln!(f, "send_message {}", hex::encode(msg.message_id()))
+			},
+			Self::RegisterShard(key) => {
+				writeln!(f, "register_shard {}", hex::encode(key))
+			},
+			Self::UnregisterShard(key) => {
+				writeln!(f, "unregister_shard {}", hex::encode(key))
+			},
+		}
+	}
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct GatewayMessage {
@@ -219,16 +236,16 @@ impl std::fmt::Display for GmpEvent {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::ShardRegistered(key) => {
-				writeln!(f, "shard_registered {}", hex::encode(&key))
+				writeln!(f, "shard_registered {}", hex::encode(key))
 			},
 			Self::ShardUnregistered(key) => {
-				writeln!(f, "shard_unregistered {}", hex::encode(&key))
+				writeln!(f, "shard_unregistered {}", hex::encode(key))
 			},
 			Self::MessageReceived(msg) => {
-				writeln!(f, "message_received {}", hex::encode(&msg.message_id()))
+				writeln!(f, "message_received {}", hex::encode(msg.message_id()))
 			},
 			Self::MessageExecuted(msg) => {
-				writeln!(f, "message_executed {}", hex::encode(&msg))
+				writeln!(f, "message_executed {}", hex::encode(msg))
 			},
 			Self::BatchExecuted(batch) => {
 				writeln!(f, "batch_executed {}", batch)
@@ -245,8 +262,6 @@ use anyhow::Result;
 use futures::Stream;
 #[cfg(feature = "std")]
 use std::ops::Range;
-#[cfg(feature = "std")]
-use std::path::Path;
 #[cfg(feature = "std")]
 use std::pin::Pin;
 
@@ -296,7 +311,7 @@ pub trait IChain: Send + Sync + 'static {
 	/// Queries the account balance.
 	async fn balance(&self, address: Address) -> Result<u128>;
 	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>>;
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>>;
 }
 
 #[cfg(feature = "std")]
@@ -327,9 +342,9 @@ pub trait IConnector: IChain {
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IConnector {
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: &Path, gateway: &Path) -> Result<(Address, u64)>;
+	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address, gateway: &Path) -> Result<()>;
+	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address>;
 	/// Sets the gateway admin.
@@ -343,7 +358,7 @@ pub trait IConnectorAdmin: IConnector {
 	/// Updates an entry in the gateway routing table.
 	async fn set_network(&self, gateway: Address, network: Network) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &Path) -> Result<(Address, u64)>;
+	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,

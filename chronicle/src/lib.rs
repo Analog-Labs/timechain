@@ -1,11 +1,13 @@
 use crate::network::{create_iroh_network, NetworkConfig};
+use crate::runtime::Runtime;
 use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::channel::mpsc;
 use std::path::PathBuf;
 use std::time::Duration;
-use time_primitives::{ConnectorParams, IConnector, NetworkId, Runtime};
+use time_primitives::admin::Config;
+use time_primitives::{ConnectorParams, IConnector, NetworkId};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 
@@ -13,6 +15,7 @@ mod admin;
 #[cfg(test)]
 mod mock;
 mod network;
+mod runtime;
 mod shards;
 mod tasks;
 
@@ -24,7 +27,7 @@ pub struct ChronicleConfig {
 	/// Identifier for the network.
 	pub network_id: NetworkId,
 	/// Optional path to a network key file.
-	pub network_keyfile: Option<PathBuf>,
+	pub network_key: [u8; 32],
 	/// Optional network port number.
 	pub network_port: Option<u16>,
 	/// URL for the target.
@@ -37,6 +40,8 @@ pub struct ChronicleConfig {
 	pub target_min_balance: u128,
 	/// Timechain min balance.
 	pub timechain_min_balance: u128,
+	/// Enable admin interface.
+	pub admin: bool,
 }
 
 /// Runs the Chronicle application.
@@ -66,7 +71,7 @@ pub async fn run_chronicle<C: IConnector>(
 		if let Some(network) = network {
 			break network;
 		} else {
-			tracing::warn!("network {} isn't registered", config.network_id);
+			tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
 			sleep(Duration::from_secs(10)).await;
 		};
 	};
@@ -93,42 +98,42 @@ pub async fn run_chronicle<C: IConnector>(
 		}
 	};
 
+	// initialize networking
+	let (network, network_requests) = create_iroh_network(NetworkConfig {
+		secret: config.network_key,
+		bind_port: config.network_port,
+	})
+	.await?;
+
 	// initialize wallets
-	let timechain_address = substrate.account_id().to_string();
+	let timechain_address = time_primitives::format_address(substrate.account_id());
 	let target_address = connector.format_address(connector.address());
+	let peer_id = network.format_peer_id(network.peer_id());
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-	admin::start(
-		8080,
-		admin::Config::new(config.network_id, timechain_address, target_address, "".into()),
-	)
-	.await
-	.context("failed to start admin interface")?;
+	event!(target: TW_LOG, Level::INFO, "peer id: {}", peer_id);
+	if config.admin {
+		admin::start(
+			8080,
+			Config::new(config.network_id, timechain_address, target_address, peer_id),
+		);
+	}
 	let timechain_min_balance = config.timechain_min_balance;
 	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
-		tracing::warn!("timechain balance is below {timechain_min_balance}");
+		tracing::warn!(target: TW_LOG, "timechain balance is below {timechain_min_balance}");
 		sleep(Duration::from_secs(10)).await;
 	}
 	let target_min_balance = config.target_min_balance;
 	while connector.balance(connector.address()).await? < target_min_balance {
-		tracing::warn!("target balance is below {target_min_balance}");
+		tracing::warn!(target: TW_LOG, "target balance is below {target_min_balance}");
 		sleep(Duration::from_secs(10)).await;
 	}
 
-	// initialize chronicle
-	let (network, network_requests) = create_iroh_network(NetworkConfig {
-		secret: config.network_keyfile.clone(),
-		bind_port: config.network_port,
-	})
-	.await?;
-	let peer_id = network.peer_id();
 	let span = span!(
 		target: TW_LOG,
 		Level::INFO,
 		"run_chronicle",
-		?peer_id,
 	);
-	event!(target: TW_LOG, parent: &span, Level::INFO, "PeerId {:?}", peer_id);
 	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,
@@ -161,16 +166,19 @@ mod tests {
 	/// * `network_id` - Identifier for the network.
 	async fn chronicle(mock: Mock, network_id: NetworkId) {
 		tracing::info!("running chronicle ");
-		// Run the Chronicle application with the mock network.
+		let mut network_key = [0; 32];
+		getrandom::getrandom(&mut network_key).unwrap();
 		run_chronicle::<gmp_rust::Connector>(
 			ChronicleConfig {
 				network_id,
-				network_keyfile: None,
+				network_key,
 				network_port: None,
 				target_url: "tempfile".to_string(),
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache: "/tmp".into(),
 				target_min_balance: 0,
+				timechain_min_balance: 0,
+				admin: false,
 			},
 			mock,
 		)

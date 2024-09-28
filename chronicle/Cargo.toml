@@ -28,13 +28,14 @@ sha3 = { version = "0.10" }
 tracing-panic = "0.1.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
+gmp-grpc.workspace = true
 gmp-rust.workspace = true
 tc-subxt.workspace = true
 time-primitives = { workspace = true, default-features = true }
 tss.workspace = true
 bip39 = "2.0.0"
 getrandom = "0.2.15"
-tide = "0.16.0"
+tide = { version = "0.16.0", default-features = false, features = ["h1-server"] }
 
 [dev-dependencies]
 env_logger.workspace = true

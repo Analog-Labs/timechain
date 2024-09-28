@@ -47,7 +47,7 @@ const PER_NOMINATOR_STASH: Balance = 8 * PER_NOMINATION;
 const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
-const SUDO_SUPPLY: Balance = ANLOG * 50_000;
+const SUDO_SUPPLY: Balance = ANLOG * 50_000 + PER_CHRONICLE_STASH * 6;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
 

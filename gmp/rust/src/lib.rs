@@ -43,6 +43,32 @@ pub struct Connector {
 	_tmpfile: Option<Arc<NamedTempFile>>,
 }
 
+impl Connector {
+	pub fn with_mnemonic(&self, mnemonic: String) -> Self {
+		self.with_address(mnemonic_to_address(mnemonic))
+	}
+
+	pub fn with_address(&self, address: Address) -> Self {
+		let mut clone = Clone::clone(self);
+		clone.address = address;
+		clone
+	}
+}
+
+pub fn mnemonic_to_address(mnemonic: String) -> Address {
+	*blake3::hash(mnemonic.as_bytes()).as_bytes()
+}
+
+pub fn format_address(address: Address) -> String {
+	hex::encode(address)
+}
+
+pub fn parse_address(address: &str) -> Result<Address> {
+	let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
+	let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
+	Ok(addr)
+}
+
 fn block(genesis: SystemTime) -> u64 {
 	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
 	elapsed.as_secs() / BLOCK_TIME
@@ -60,14 +86,12 @@ fn read_admin<T: ReadableTable<Address, Address>>(table: &T, gateway: Address) -
 impl IChain for Connector {
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {
-		hex::encode(address)
+		format_address(address)
 	}
 
 	/// Parses an address from a string.
 	fn parse_address(&self, address: &str) -> Result<Address> {
-		let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
-		let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
-		Ok(addr)
+		parse_address(address)
 	}
 
 	/// Network identifier.
@@ -118,7 +142,7 @@ impl IChain for Connector {
 	}
 
 	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		let genesis = self.genesis;
 		futures::stream::repeat(0)
 			.then(move |_| async move {
@@ -139,7 +163,7 @@ impl IConnector for Connector {
 		if params.blockchain != "rust" {
 			anyhow::bail!("unsupported blockchain");
 		}
-		let address = Address::from(*blake3::hash(params.mnemonic.as_bytes()).as_bytes());
+		let address = mnemonic_to_address(params.mnemonic);
 		let (tmpfile, path) = if params.url == "tempfile" {
 			let file = NamedTempFile::new()?;
 			let path = file.path().to_owned();
@@ -147,8 +171,8 @@ impl IConnector for Connector {
 		} else {
 			(None, Path::new(&params.url).to_owned())
 		};
-		let db = Database::create(&path)?;
-		let genesis = std::fs::metadata(&path)?.created()?;
+		let db = Database::create(path)?;
+		let genesis = SystemTime::now(); //std::fs::metadata(&path)?.created()?;
 		let tx = db.begin_write()?;
 		tx.open_table(BALANCE)?;
 		tx.open_table(ADMIN)?;
@@ -244,8 +268,8 @@ impl IConnector for Connector {
 impl IConnectorAdmin for Connector {
 	async fn deploy_gateway(
 		&self,
-		_gateway: &Path,
-		_gateway_impl: &Path,
+		_gateway: &[u8],
+		_gateway_impl: &[u8],
 	) -> Result<(Address, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::getrandom(&mut gateway).unwrap();
@@ -259,7 +283,7 @@ impl IConnectorAdmin for Connector {
 		Ok((gateway, block))
 	}
 
-	async fn redeploy_gateway(&self, gateway: Address, _gateway_impl: &Path) -> Result<()> {
+	async fn redeploy_gateway(&self, gateway: Address, _gateway_impl: &[u8]) -> Result<()> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ADMIN)?;
 		let admin = read_admin(&t, gateway)?;
@@ -368,7 +392,7 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn deploy_test(&self, gateway: Address, _path: &Path) -> Result<(Address, u64)> {
+	async fn deploy_test(&self, gateway: Address, _path: &[u8]) -> Result<(Address, u64)> {
 		let mut tester = [0; 32];
 		getrandom::getrandom(&mut tester).unwrap();
 		let block = block(self.genesis);

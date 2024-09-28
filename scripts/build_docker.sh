@@ -60,7 +60,7 @@ if ! rustup target list | grep -q "$rustTarget"; then
 fi
 
 # Build docker image
-cargo build -p timechain-node -p chronicle -p tc-cli --target "$rustTarget" --profile "$profile" --features "$features"
+cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
 
@@ -75,3 +75,6 @@ docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/c
 
 mv "target/$rustTarget/$profile/tc-cli" target/docker
 docker build target/docker -f config/docker/Dockerfile.tc-cli -t analoglabs/tc-cli-$environment
+
+mv "target/$rustTarget/$profile/gmp-grpc" target/docker
+docker build target/docker -f config/docker/Dockerfile.gmp-grpc -t analoglabs/gmp-grpc-$environment

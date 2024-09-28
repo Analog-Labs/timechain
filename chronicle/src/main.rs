@@ -6,7 +6,7 @@ use std::{
 	path::{Path, PathBuf},
 	time::Duration,
 };
-use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
+use tc_subxt::{MetadataVariant, SubxtClient};
 use time_primitives::NetworkId;
 
 #[derive(Debug, Parser)]
@@ -16,7 +16,7 @@ pub struct ChronicleArgs {
 	pub network_id: NetworkId,
 	/// The secret to use for p2p networking.
 	#[clap(long)]
-	pub network_keyfile: Option<PathBuf>,
+	pub network_keyfile: PathBuf,
 	/// The port to bind to for p2p networking.
 	#[clap(long)]
 	pub network_port: Option<u16>,
@@ -53,16 +53,17 @@ pub struct ChronicleArgs {
 }
 
 impl ChronicleArgs {
-	fn config(self, target_mnemonic: String) -> Result<ChronicleConfig> {
+	fn config(self, network_key: [u8; 32], target_mnemonic: String) -> Result<ChronicleConfig> {
 		Ok(ChronicleConfig {
 			network_id: self.network_id,
-			network_keyfile: self.network_keyfile,
+			network_key,
 			network_port: self.network_port,
 			timechain_min_balance: self.timechain_min_balance,
 			target_min_balance: self.target_min_balance,
 			target_url: self.target_url,
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
+			admin: true,
 		})
 	}
 }
@@ -99,10 +100,20 @@ async fn main() -> Result<()> {
 		generate_key(&args.target_keyfile)?;
 	}
 
+	if !args.network_keyfile.exists() {
+		let mut secret = [0; 32];
+		getrandom::getrandom(&mut secret)?;
+		std::fs::write(&args.network_keyfile, secret)?;
+	}
+
 	let timechain_mnemonic = std::fs::read_to_string(&args.timechain_keyfile)
 		.context("failed to read timechain keyfile")?;
 	let target_mnemonic =
 		std::fs::read_to_string(&args.target_keyfile).context("failed to read target keyfile")?;
+	let network_key = std::fs::read(&args.network_keyfile)
+		.context("network keyfile doesn't exist")?
+		.try_into()
+		.map_err(|_| anyhow::anyhow!("invalid secret"))?;
 
 	// Setup Prometheus exporter if enabled
 	if args.prometheus_enabled {
@@ -112,21 +123,25 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let tx_submitter = loop {
-		if let Ok(t) = SubxtTxSubmitter::try_new(&args.timechain_url).await {
-			break t;
+	loop {
+		if SubxtClient::get_client(&args.timechain_url).await.is_ok() {
+			break;
 		} else {
 			tracing::error!("Error connecting to {} retrying", &args.timechain_url);
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
-	};
+	}
 
 	let subxt = SubxtClient::with_key(
 		&args.timechain_url,
 		args.timechain_metadata.unwrap_or_default(),
 		&timechain_mnemonic,
-		tx_submitter,
 	)
 	.await?;
-	chronicle::run_chronicle::<gmp_rust::Connector>(args.config(target_mnemonic)?, subxt).await
+
+	chronicle::run_chronicle::<gmp_grpc::Connector>(
+		args.config(network_key, target_mnemonic)?,
+		subxt,
+	)
+	.await
 }

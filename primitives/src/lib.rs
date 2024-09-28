@@ -2,13 +2,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
-#[cfg(feature = "std")]
-use async_trait::async_trait;
-#[cfg(feature = "std")]
-use futures::stream::BoxStream;
+use frame_support::weights::Weight;
+use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
 use scale_info::prelude::{string::String, vec::Vec};
+use sp_core::crypto::Ss58Codec;
+use sp_runtime::{
+	generic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
+};
 
 // Export scoped ...
+#[cfg(feature = "std")]
+pub mod admin;
 pub mod currency;
 pub mod gmp;
 pub mod network;
@@ -22,15 +28,6 @@ pub use crate::network::*;
 pub use crate::shard::*;
 pub use crate::task::*;
 
-use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
-
-use frame_support::weights::Weight;
-use sp_runtime::{
-	generic,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
-};
-
 /// Re-exported substrate traits
 pub mod traits {
 	use polkadot_sdk::{sp_core, sp_runtime};
@@ -41,11 +38,6 @@ pub mod traits {
 
 /// Re-export key and hash types
 pub use sp_core::{ed25519, sr25519, H160, H256, H512};
-
-use polkadot_sdk::sp_application_crypto;
-/// Time key type identifier
-pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"time");
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -88,19 +80,10 @@ pub type BlockId = generic::BlockId<Block>;
 /// General Public Key used across the protocol
 pub type PublicKey = MultiSigner;
 
-pub mod crypto {
-	use polkadot_sdk::{frame_system, sp_runtime};
+pub const SS_58_FORMAT: u16 = 12850;
 
-	use sp_runtime::app_crypto::{app_crypto, sr25519};
-	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
-
-	pub struct SigAuthId;
-
-	impl frame_system::offchain::AppCrypto<crate::PublicKey, crate::Signature> for SigAuthId {
-		type RuntimeAppPublic = Public;
-		type GenericSignature = sr25519::Signature;
-		type GenericPublic = sr25519::Public;
-	}
+pub fn format_address(account: &AccountId) -> String {
+	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))
 }
 
 sp_api::decl_runtime_apis! {
@@ -182,70 +165,4 @@ pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
 	fn gateway_registered(network: NetworkId, block: u64);
-}
-
-#[cfg(feature = "std")]
-#[async_trait]
-pub trait Runtime: Clone + Send + Sync + 'static {
-	fn public_key(&self) -> &PublicKey;
-
-	fn account_id(&self) -> &AccountId;
-
-	async fn balance(&self, account: &AccountId) -> Result<u128>;
-
-	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
-
-	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
-
-	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;
-
-	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>>;
-
-	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
-
-	async fn get_min_stake(&self) -> Result<Balance>;
-
-	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>>;
-
-	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>>;
-
-	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16>;
-
-	async fn get_shard_status(&self, shard_id: ShardId) -> Result<ShardStatus>;
-
-	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>>;
-
-	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskId>>;
-
-	async fn get_task(&self, task_id: TaskId) -> Result<Option<Task>>;
-
-	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
-
-	async fn get_batch_message(&self, batch_id: BatchId) -> Result<Option<GatewayMessage>>;
-
-	async fn get_batch_signature(&self, batch_id: BatchId) -> Result<Option<TssSignature>>;
-
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
-
-	async fn submit_register_member(
-		&self,
-		network: NetworkId,
-		peer_id: PeerId,
-		stake_amount: u128,
-	) -> Result<()>;
-
-	async fn submit_unregister_member(&self) -> Result<()>;
-
-	async fn submit_heartbeat(&self) -> Result<()>;
-
-	async fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<()>;
-
-	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
-
-	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()>;
 }

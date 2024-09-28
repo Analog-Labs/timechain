@@ -3,11 +3,10 @@ use frame_benchmarking::benchmarks;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_std};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_std};
 use sp_std::vec;
 use time_primitives::{
-	NetworkId, PublicKey, ShardStatus, ShardsInterface, Task, TaskResult, TasksInterface,
-	TssPublicKey,
+	NetworkId, ShardStatus, ShardsInterface, Task, TaskResult, TasksInterface, TssPublicKey,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -35,8 +34,8 @@ benchmarks! {
 
 	submit_task_result {
 		create_simple_task::<T>();
-		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: [0u8; 64] };
-	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
+		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: [0; 64] };
+	}: _(RawOrigin::Root, 0, result) verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

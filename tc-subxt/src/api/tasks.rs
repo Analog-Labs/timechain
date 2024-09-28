@@ -92,6 +92,13 @@ impl SubxtClient {
 		Ok(data)
 	}
 
+	pub async fn batch_sign_task(&self, batch: BatchId) -> Result<Option<TaskId>> {
+		metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().tasks().batch_sign_task_id(batch);
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+		})
+	}
+
 	pub async fn batch_submission_task(&self, batch: BatchId) -> Result<Option<TaskId>> {
 		metadata_scope!(self.metadata, {
 			let storage_query = metadata::storage().tasks().batch_submission_task_id(batch);

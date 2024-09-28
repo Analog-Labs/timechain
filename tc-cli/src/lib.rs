@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
 use std::time::Duration;
-use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
+use tc_subxt::{MetadataVariant, SubxtClient};
 use time_primitives::{
-	AccountId, Address, ConnectorParams, Gateway, GmpEvent, GmpMessage, IConnector,
-	IConnectorAdmin, MemberStatus, MessageId, Network as Route, NetworkId, Runtime, ShardId,
-	ShardStatus, TssPublicKey,
+	AccountId, Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
+	IConnector, IConnectorAdmin, MemberStatus, MessageId, Network as Route, NetworkId, PublicKey,
+	ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
 };
 
 mod config;
@@ -42,12 +42,10 @@ impl Tc {
 			tracing::info!("waiting for chain to start");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
-		let tx_submitter = SubxtTxSubmitter::try_new(url).await.unwrap();
 		let runtime = SubxtClient::with_key(
 			url,
 			metadata.cloned().unwrap_or_default(),
 			&std::fs::read_to_string(keyfile)?,
-			tx_submitter,
 		)
 		.await?;
 		let mut connectors = HashMap::default();
@@ -87,7 +85,7 @@ impl Tc {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
-			.get_gateway(network)
+			.network_gateway(network)
 			.await?
 			.with_context(|| format!("no gateway configured for {network}"))?;
 		Ok((connector, gateway))
@@ -105,7 +103,7 @@ impl Tc {
 					continue;
 				},
 			};
-			match self.runtime.get_shard_status(shard_id).await {
+			match self.runtime.shard_status(shard_id).await {
 				Ok(ShardStatus::Online) => {},
 				Ok(_) => continue,
 				Err(err) => {
@@ -113,8 +111,8 @@ impl Tc {
 					continue;
 				},
 			}
-			let shard_key = match self.runtime.get_shard_commitment(shard_id).await {
-				Ok(Some(commitment)) => commitment[0],
+			let shard_key = match self.runtime.shard_public_key(shard_id).await {
+				Ok(Some(key)) => key,
 				Ok(_) => continue,
 				Err(err) => {
 					tracing::info!("Skipping shard_id {shard_id}: {err}");
@@ -221,9 +219,9 @@ pub struct Network {
 	pub chain_network: String,
 	pub gateway: Address,
 	pub gateway_balance: u128,
-	// TODO: pub block_height: u64,
 	pub admin: Address,
 	pub admin_balance: u128,
+	pub read_events: TaskId,
 }
 
 pub struct Chronicle {
@@ -280,6 +278,29 @@ pub struct Member {
 	pub stake: u128,
 }
 
+pub struct Task {
+	pub task: TaskId,
+	pub descriptor: time_primitives::Task,
+	pub output: Option<Result<(), String>>,
+	pub shard: Option<ShardId>,
+	pub submitter: Option<PublicKey>,
+}
+
+pub struct Batch {
+	pub batch: BatchId,
+	pub msg: GatewayMessage,
+	pub sign: TaskId,
+	pub sig: Option<TssSignature>,
+	pub submit: Option<TaskId>,
+}
+
+pub struct Message {
+	pub message: MessageId,
+	pub recv: TaskId,
+	pub batch: Option<BatchId>,
+	pub exec: Option<TaskId>,
+}
+
 impl Tc {
 	pub async fn networks(&self) -> Result<Vec<Network>> {
 		let network_ids = self.runtime.networks().await?;
@@ -287,10 +308,12 @@ impl Tc {
 		for network in network_ids {
 			let (connector, gateway) = self.gateway(network).await?;
 			let (chain_name, chain_network) =
-				self.runtime.get_network(network).await?.context("invalid network")?;
+				self.runtime.network_name(network).await?.context("invalid network")?;
 			let gateway_balance = connector.balance(gateway).await?;
 			let admin = connector.admin(gateway).await?;
 			let admin_balance = connector.balance(admin).await?;
+			let read_events =
+				self.runtime.read_events_task(network).await?.context("no read events task")?;
 			networks.push(Network {
 				network,
 				chain_name,
@@ -299,6 +322,7 @@ impl Tc {
 				gateway_balance,
 				admin,
 				admin_balance,
+				read_events,
 			});
 		}
 		Ok(networks)
@@ -340,11 +364,10 @@ impl Tc {
 			if let Entry::Vacant(e) = registered_shards.entry(network) {
 				e.insert(self.registered_shards(network).await?);
 			}
-			let status = self.runtime.get_shard_status(shard).await?;
-			let key = self.runtime.get_shard_commitment(shard).await?.map(|c| c[0]);
-			// TODO: get actual value not config value
-			let size = self.runtime.shard_size().await?;
-			let threshold = self.runtime.shard_threshold().await?;
+			let status = self.runtime.shard_status(shard).await?;
+			let key = self.runtime.shard_commitment(shard).await?.map(|c| c[0]);
+			let size = self.runtime.shard_members(shard).await?.len() as u16;
+			let threshold = self.runtime.shard_threshold(shard).await?;
 			let mut registered = false;
 			if let Some(key) = key {
 				registered = registered_shards.get(&network).unwrap().contains(&key);
@@ -363,7 +386,7 @@ impl Tc {
 	}
 
 	pub async fn members(&self, shard: ShardId) -> Result<Vec<Member>> {
-		let shard_members = self.runtime.get_shard_members(shard).await?;
+		let shard_members = self.runtime.shard_members(shard).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
 			let stake = self.runtime.member_stake(&account).await?;
@@ -391,6 +414,39 @@ impl Tc {
 		let connector = self.connector(network)?;
 		connector.recv_messages(tester, blocks).await
 	}
+
+	pub async fn task(&self, task: TaskId) -> Result<Task> {
+		Ok(Task {
+			task,
+			descriptor: self.runtime.task(task).await?.context("invalid task id")?,
+			output: self.runtime.task_output(task).await?,
+			shard: self.runtime.assigned_shard(task).await?,
+			submitter: self.runtime.task_submitter(task).await?,
+		})
+	}
+
+	pub async fn batch(&self, batch: BatchId) -> Result<Batch> {
+		Ok(Batch {
+			batch,
+			msg: self.runtime.batch_message(batch).await?.context("invalid batch id")?,
+			sign: self.runtime.batch_sign_task(batch).await?.context("invalid batch id")?,
+			sig: self.runtime.batch_signature(batch).await?,
+			submit: self.runtime.batch_submission_task(batch).await?,
+		})
+	}
+
+	pub async fn message(&self, message: MessageId) -> Result<Message> {
+		Ok(Message {
+			message,
+			recv: self
+				.runtime
+				.message_received_task(message)
+				.await?
+				.context("invalid message id")?,
+			batch: self.runtime.message_batch(message).await?,
+			exec: self.runtime.message_executed_task(message).await?,
+		})
+	}
 }
 
 impl Tc {
@@ -407,7 +463,7 @@ impl Tc {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
-		let gateway = if let Some(gateway) = self.runtime.get_gateway(network).await? {
+		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
 			tracing::info!("network already registered; skipping");
 			gateway
 		} else {
@@ -446,7 +502,7 @@ impl Tc {
 
 	async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
 		tracing::info!("set_electable");
-		self.runtime.set_electable(accounts).await?;
+		self.runtime.set_electable_members(accounts).await?;
 		Ok(())
 	}
 

@@ -139,6 +139,23 @@ impl GatewayOp {
 	}
 }
 
+#[cfg(feature = "std")]
+impl std::fmt::Display for GatewayOp {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::SendMessage(msg) => {
+				writeln!(f, "send_message {}", hex::encode(msg.message_id()))
+			},
+			Self::RegisterShard(key) => {
+				writeln!(f, "register_shard {}", hex::encode(key))
+			},
+			Self::UnregisterShard(key) => {
+				writeln!(f, "unregister_shard {}", hex::encode(key))
+			},
+		}
+	}
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct GatewayMessage {

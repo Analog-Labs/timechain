@@ -3,9 +3,12 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tabled::{Table, Tabled};
-use tc_cli::{Chronicle, Member, Network, Shard, Tc};
+use tc_cli::{Batch, Chronicle, Member, Message, Network, Shard, Task, Tc};
 use tc_subxt::MetadataVariant;
-use time_primitives::{GmpEvent, GmpMessage, Network as Route, NetworkId, ShardId};
+use time_primitives::{
+	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, Network as Route, NetworkId,
+	ShardId, TaskId,
+};
 
 #[derive(Clone, Debug)]
 pub struct RelGasPrice {
@@ -99,6 +102,15 @@ enum Command {
 		start: u64,
 		end: u64,
 	},
+	Task {
+		task: TaskId,
+	},
+	Batch {
+		batch: BatchId,
+	},
+	Message {
+		message: String,
+	},
 	// management
 	Deploy,
 	RegisterShards {
@@ -146,6 +158,7 @@ struct NetworkEntry {
 	gateway_balance: String,
 	admin: String,
 	admin_balance: String,
+	read_events: TaskId,
 }
 
 impl IntoRow for Network {
@@ -160,6 +173,7 @@ impl IntoRow for Network {
 			gateway_balance: tc.format_balance(Some(self.network), self.gateway_balance)?,
 			admin: tc.format_address(Some(self.network), self.admin)?,
 			admin_balance: tc.format_balance(Some(self.network), self.admin_balance)?,
+			read_events: self.read_events,
 		})
 	}
 }
@@ -295,6 +309,94 @@ impl IntoRow for GmpMessage {
 	}
 }
 
+#[derive(Tabled)]
+struct TaskEntry {
+	task: TaskId,
+	descriptor: String,
+	output: String,
+	shard: String,
+	submitter: String,
+}
+
+impl IntoRow for Task {
+	type Row = TaskEntry;
+
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		Ok(TaskEntry {
+			task: self.task,
+			descriptor: self.descriptor.to_string(),
+			output: match self.output {
+				Some(Ok(())) => "complete".to_string(),
+				Some(Err(err)) => err,
+				None => "in progress".to_string(),
+			},
+			shard: match self.shard {
+				Some(shard) => shard.to_string(),
+				None => "unassigned".to_string(),
+			},
+			submitter: match self.submitter {
+				Some(submitter) => tc.format_address(None, submitter.into_account().into())?,
+				None => "".to_string(),
+			},
+		})
+	}
+}
+
+#[derive(Tabled)]
+struct BatchEntry {
+	batch: BatchId,
+	sign: TaskId,
+	sig: String,
+	submit: String,
+}
+
+impl IntoRow for Batch {
+	type Row = BatchEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(BatchEntry {
+			batch: self.batch,
+			sign: self.sign,
+			sig: self.sig.map(hex::encode).unwrap_or_default(),
+			submit: self.submit.map(|t| t.to_string()).unwrap_or_default(),
+		})
+	}
+}
+
+#[derive(Tabled)]
+struct BatchOpEntry {
+	op: String,
+}
+
+impl IntoRow for GatewayOp {
+	type Row = BatchOpEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(BatchOpEntry { op: self.to_string() })
+	}
+}
+
+#[derive(Tabled)]
+struct MessageInfoEntry {
+	message: String,
+	recv: TaskId,
+	batch: String,
+	exec: String,
+}
+
+impl IntoRow for Message {
+	type Row = MessageInfoEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(MessageInfoEntry {
+			message: hex::encode(self.message),
+			recv: self.recv,
+			batch: self.batch.map(|b| b.to_string()).unwrap_or_default(),
+			exec: self.exec.map(|t| t.to_string()).unwrap_or_default(),
+		})
+	}
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
 	tracing_subscriber::fmt::init();
@@ -354,6 +456,23 @@ async fn main() -> Result<()> {
 			let tester = tc.parse_address(Some(network), &tester)?;
 			let msgs = tc.messages(network, tester, start..end).await?;
 			print_table(&tc, msgs)?;
+		},
+		Command::Task { task } => {
+			let task = tc.task(task).await?;
+			print_table(&tc, vec![task])?;
+		},
+		Command::Batch { batch } => {
+			let mut batch = tc.batch(batch).await?;
+			let ops = std::mem::take(&mut batch.msg.ops);
+			print_table(&tc, vec![batch])?;
+			print_table(&tc, ops)?;
+		},
+		Command::Message { message } => {
+			let message = hex::decode(message)?
+				.try_into()
+				.map_err(|_| anyhow::anyhow!("invalid message id"))?;
+			let message = tc.message(message).await?;
+			print_table(&tc, vec![message])?;
 		},
 		// management
 		Command::Deploy => {

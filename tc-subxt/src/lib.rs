@@ -56,7 +56,7 @@ impl SubxtClient {
 		Self::new(url, metadata, keypair).await
 	}
 
-	async fn get_client(url: &str) -> Result<(LegacyRpcMethods, OnlineClient)> {
+	pub async fn get_client(url: &str) -> Result<(LegacyRpcMethods, OnlineClient)> {
 		let rpc_client = Client::builder()
 			.retry_policy(
 				ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)).take(3),

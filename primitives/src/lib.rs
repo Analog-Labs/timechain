@@ -2,7 +2,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
-#[cfg(feature = "std")]
 use frame_support::weights::Weight;
 use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
 use scale_info::prelude::{string::String, vec::Vec};

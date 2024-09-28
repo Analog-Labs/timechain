@@ -5,7 +5,6 @@ use std::str::FromStr;
 use std::time::Duration;
 use tabled::{Table, Tabled};
 use tc_cli::{Batch, Chronicle, Member, Message, Network, Shard, Task, Tc};
-use tc_subxt::MetadataVariant;
 use time_primitives::{
 	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, Network as Route, NetworkId,
 	ShardId, TaskId,
@@ -35,27 +34,13 @@ impl FromStr for RelGasPrice {
 struct Args {
 	#[arg(long, default_value = "/etc/config.yaml")]
 	config: PathBuf,
-	#[arg(long)]
-	timechain_metadata: Option<MetadataVariant>,
-	#[arg(long, default_value = "/etc/timechain_admin")]
-	timechain_keyfile: PathBuf,
-	#[arg(long, default_value = "ws://validator:9944")]
-	timechain_url: String,
-	#[arg(long, default_value = "/etc/target_admin")]
-	target_keyfile: PathBuf,
 	#[clap(subcommand)]
 	cmd: Command,
 }
 
 impl Args {
 	async fn tc(&self) -> Result<Tc> {
-		let tc = Tc::new(
-			&self.config,
-			&self.timechain_keyfile,
-			self.timechain_metadata.as_ref(),
-			&self.timechain_url,
-		)
-		.await?;
+		let tc = Tc::new(&self.config).await?;
 		Ok(tc)
 	}
 }

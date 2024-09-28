@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// Helper macro to map derived metadata
 #[macro_export]
 macro_rules! metadata_scope {
@@ -64,7 +66,8 @@ macro_rules! metadata_scope {
 }
 
 /// Specifies the targeted timechain variant and metadata
-#[derive(clap::ValueEnum, Clone, Copy, Default, Debug)]
+#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MetadataVariant {
 	Mainnet,
 	Staging,

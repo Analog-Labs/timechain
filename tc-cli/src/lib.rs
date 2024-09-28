@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
 use std::time::Duration;
-use tc_subxt::{MetadataVariant, SubxtClient};
+use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
 	IConnector, IConnectorAdmin, MemberStatus, MessageId, Network as Route, NetworkId, PublicKey,
@@ -31,21 +31,16 @@ pub struct Tc {
 }
 
 impl Tc {
-	pub async fn new(
-		config: &Path,
-		keyfile: &Path,
-		metadata: Option<&MetadataVariant>,
-		url: &str,
-	) -> Result<Self> {
+	pub async fn new(config: &Path) -> Result<Self> {
 		let config = Config::from_file(config)?;
-		while SubxtClient::get_client(url).await.is_err() {
+		while SubxtClient::get_client(&config.config.timechain_url).await.is_err() {
 			tracing::info!("waiting for chain to start");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		let runtime = SubxtClient::with_key(
-			url,
-			metadata.cloned().unwrap_or_default(),
-			&std::fs::read_to_string(keyfile)?,
+			&config.config.timechain_url,
+			config.config.metadata_variant,
+			&std::fs::read_to_string(&config.config.timechain_keyfile)?,
 		)
 		.await?;
 		let mut connectors = HashMap::default();
@@ -56,7 +51,7 @@ impl Tc {
 				blockchain: network.blockchain.clone(),
 				network: network.network.clone(),
 				url: network.url.clone(),
-				mnemonic: std::fs::read_to_string(keyfile)?,
+				mnemonic: std::fs::read_to_string(&config.config.target_keyfile)?,
 			};
 			let connector = match network.backend {
 				Backend::Grpc => {

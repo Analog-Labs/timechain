@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use tc_subxt::MetadataVariant;
 use time_primitives::NetworkId;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -37,6 +38,10 @@ pub struct GlobalConfig {
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: u128,
+	pub metadata_variant: MetadataVariant,
+	pub timechain_keyfile: PathBuf,
+	pub timechain_url: String,
+	pub target_keyfile: PathBuf,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

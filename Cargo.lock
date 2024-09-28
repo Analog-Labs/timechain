@@ -17741,6 +17741,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
+ "serde",
  "subxt",
  "subxt-signer",
  "tc-subxt-metadata",

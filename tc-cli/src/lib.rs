@@ -537,6 +537,7 @@ impl Tc {
 impl Tc {
 	pub async fn deploy(&self) -> Result<()> {
 		self.set_shard_config().await?;
+		let mut gateways = HashMap::new();
 		for network in self.connectors.keys().copied() {
 			let config = self.config.network(network)?;
 			let gateway = self.register_network(network).await?;
@@ -547,6 +548,7 @@ impl Tc {
 			}
 			tracing::info!("funding gateway");
 			self.fund(Some(network), gateway, config.gateway_funds).await?;
+			gateways.insert(network, gateway);
 		}
 		for src in self.connectors.keys().copied() {
 			for dest in self.connectors.keys().copied() {
@@ -554,7 +556,7 @@ impl Tc {
 					continue;
 				}
 				let config = self.config.network(dest)?;
-				let (_, gateway) = self.gateway(dest).await?;
+				let gateway = *gateways.get(&dest).unwrap();
 				self.register_route(
 					src,
 					Route {

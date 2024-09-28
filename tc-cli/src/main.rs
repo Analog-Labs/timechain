@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 use tabled::{Table, Tabled};
 use tc_cli::{Batch, Chronicle, Member, Message, Network, Shard, Task, Tc};
 use tc_subxt::MetadataVariant;
@@ -131,6 +132,10 @@ enum Command {
 		tester: String,
 		dest: NetworkId,
 		dest_addr: String,
+	},
+	SmokeTest {
+		src: NetworkId,
+		dest: NetworkId,
 	},
 }
 
@@ -379,7 +384,7 @@ impl IntoRow for GatewayOp {
 #[derive(Tabled)]
 struct MessageInfoEntry {
 	message: String,
-	recv: TaskId,
+	recv: String,
 	batch: String,
 	exec: String,
 }
@@ -390,7 +395,7 @@ impl IntoRow for Message {
 	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(MessageInfoEntry {
 			message: hex::encode(self.message),
-			recv: self.recv,
+			recv: self.recv.map(|t| t.to_string()).unwrap_or_default(),
 			batch: self.batch.map(|b| b.to_string()).unwrap_or_default(),
 			exec: self.exec.map(|t| t.to_string()).unwrap_or_default(),
 		})
@@ -503,6 +508,38 @@ async fn main() -> Result<()> {
 			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
 			let msg_id = tc.send_message(network, tester, dest, dest_addr).await?;
 			println!("{}", hex::encode(msg_id));
+		},
+		Command::SmokeTest { src, dest } => {
+			tc.deploy().await?;
+			let (src_addr, _src_block) = tc.deploy_tester(src).await?;
+			let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
+			let msg_id = tc.send_message(src, src_addr, dest, dest_addr).await?;
+			tracing::info!(
+				"sent message to {} {}",
+				dest,
+				tc.format_address(Some(dest), dest_addr)?
+			);
+			while tc.find_online_shard_keys(src).await?.is_empty() {
+				tracing::info!("waiting for shards to come online");
+				tokio::time::sleep(Duration::from_secs(1)).await;
+			}
+			while tc.find_online_shard_keys(dest).await?.is_empty() {
+				tracing::info!("waiting for shards to come online");
+				tokio::time::sleep(Duration::from_secs(1)).await;
+			}
+			tc.register_shards(src).await?;
+			tc.register_shards(dest).await?;
+			let msg = loop {
+				let msgs = tc.messages(dest, dest_addr, dest_block..(dest_block + 1000)).await?;
+				if let Some(msg) = msgs.into_iter().find(|msg| msg.message_id() == msg_id) {
+					break msg;
+				}
+				tracing::info!("waiting for message {}", hex::encode(msg_id));
+				let message = tc.message(msg_id).await?;
+				print_table(&tc, vec![message])?;
+				tokio::time::sleep(Duration::from_secs(1)).await;
+			};
+			print_table(&tc, vec![msg])?;
 		},
 	}
 	std::process::exit(0);

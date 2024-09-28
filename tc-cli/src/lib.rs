@@ -91,7 +91,7 @@ impl Tc {
 		Ok((connector, gateway))
 	}
 
-	async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
+	pub async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
 		let shard_id_counter = self.runtime.shard_id_counter().await?;
 		let mut shards = vec![];
 		for shard_id in 0..shard_id_counter {
@@ -296,7 +296,7 @@ pub struct Batch {
 
 pub struct Message {
 	pub message: MessageId,
-	pub recv: TaskId,
+	pub recv: Option<TaskId>,
 	pub batch: Option<BatchId>,
 	pub exec: Option<TaskId>,
 }
@@ -438,11 +438,7 @@ impl Tc {
 	pub async fn message(&self, message: MessageId) -> Result<Message> {
 		Ok(Message {
 			message,
-			recv: self
-				.runtime
-				.message_received_task(message)
-				.await?
-				.context("invalid message id")?,
+			recv: self.runtime.message_received_task(message).await?,
 			batch: self.runtime.message_batch(message).await?,
 			exec: self.runtime.message_executed_task(message).await?,
 		})

@@ -331,7 +331,7 @@ pub mod pallet {
 							},
 							GmpEvent::MessageReceived(msg) => {
 								let msg_id = msg.message_id();
-								Self::ops_queue(network).push(GatewayOp::SendMessage(msg));
+								Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 								MessageReceivedTaskId::<T>::insert(msg_id, task_id);
 								Self::deposit_event(Event::<T>::MessageReceived(msg_id));
 							},

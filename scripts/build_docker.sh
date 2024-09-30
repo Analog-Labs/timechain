@@ -62,19 +62,21 @@ fi
 # Build docker image
 cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
-forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
+#forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
 
-rm -rf target/docker
 mkdir -p target/docker
 
-mv "target/$rustTarget/$profile/timechain-node" target/docker
-docker build target/docker -f config/docker/Dockerfile -t analoglabs/timenode-$environment
+build_image () {
+	local TARGET="target/$rustTarget/$profile/$1"
+	local CONTEXT="target/docker/$1"
+	mkdir -p $CONTEXT
+	if ! cmp -s $TARGET "$CONTEXT/$1"; then
+		cp $TARGET $CONTEXT
+		docker build $CONTEXT -f "config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
+	fi
+}
 
-mv "target/$rustTarget/$profile/chronicle" target/docker
-docker build target/docker -f config/docker/Dockerfile.chronicle -t analoglabs/chronicle-$environment
-
-mv "target/$rustTarget/$profile/tc-cli" target/docker
-docker build target/docker -f config/docker/Dockerfile.tc-cli -t analoglabs/tc-cli-$environment
-
-mv "target/$rustTarget/$profile/gmp-grpc" target/docker
-docker build target/docker -f config/docker/Dockerfile.gmp-grpc -t analoglabs/gmp-grpc-$environment
+build_image "timechain-node"
+build_image "chronicle"
+build_image "tc-cli"
+build_image "gmp-grpc"

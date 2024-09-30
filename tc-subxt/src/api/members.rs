@@ -95,6 +95,18 @@ impl SubxtClient {
 		Ok(())
 	}
 
+	pub async fn electable_members(&self) -> Result<Vec<AccountId>> {
+		let mut members = vec![];
+		metadata_scope!(self.metadata, {
+			let storage = metadata::storage().elections().electable_iter();
+			let mut iter = self.client.storage().at_latest().await?.iter(storage).await?;
+			while let Some(Ok(kv)) = iter.next().await {
+				members.push(kv.value);
+			}
+		});
+		Ok(unsafe { std::mem::transmute(members) })
+	}
+
 	pub async fn set_electable_members(&self, accounts: Vec<AccountId>) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SetElectable { accounts }, tx))?;

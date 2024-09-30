@@ -19,7 +19,7 @@ prost = "0.13.3"
 serde = { workspace = true, features = ["derive"] }
 serde-big-array = "0.5.1"
 time-primitives = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "signal"] }
 tonic = "0.12.2"
 
 [build-dependencies]

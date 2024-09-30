@@ -42,7 +42,7 @@ jobs:
       - name: Prepare runtime benchmarks
         run: chmod +x timechain-node && mkdir -p weights
       - name: Run runtime benchmarks
-        run: ./timechain-node benchmark pallet --chain ${{ matrix.chain }} --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./weights/${{ matrix.pallet }}.rs
+        run: ./timechain-node benchmark pallet --runtime --genesis-builder=runtime --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./weights/${{ matrix.pallet }}.rs
       - name: Upload weights
         uses: actions/upload-artifact@v4
         with:

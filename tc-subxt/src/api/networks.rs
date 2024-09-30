@@ -78,4 +78,64 @@ impl SubxtClient {
 		});
 		Ok(data)
 	}
+
+	pub async fn network_batch_size(&self, network: NetworkId) -> Result<u32> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_batch_size(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
+
+	pub async fn network_batch_offset(&self, network: NetworkId) -> Result<u32> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_batch_offset(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
+
+	pub async fn network_batch_gas_limit(&self, network: NetworkId) -> Result<u128> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_batch_gas_limit(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
+
+	pub async fn network_shard_task_limit(&self, network: NetworkId) -> Result<u32> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_shard_task_limit(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
 }

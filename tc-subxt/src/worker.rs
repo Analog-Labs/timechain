@@ -297,6 +297,7 @@ impl SubxtWorker {
 							Ok(()) => {
 								tracing::info!("Upgrade to version: {} successful", version)
 							},
+							Err(subxt::client::UpgradeError::SameVersion) => {}
 							Err(e) => {
 								tracing::error!("Upgrade to version {} failed {:?}", version, e);
 							},

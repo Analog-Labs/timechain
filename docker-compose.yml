@@ -36,7 +36,7 @@ services:
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://gmp-grpc-0:3000'
-    - '--timechain-min-balance=100000000000000000'
+    - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
     - '--network-id=0'
     environment:
@@ -63,7 +63,7 @@ services:
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://gmp-grpc-1:3000'
-    - '--timechain-min-balance=100000000000000000'
+    - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
     - '--network-id=1'
     environment:

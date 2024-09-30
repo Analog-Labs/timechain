@@ -538,7 +538,7 @@ pub mod pallet {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
 							if num_tasks_assigned == T::MaxTasksPerBlock::get() {
 								return <T as Config>::WeightInfo::schedule_tasks(
-									num_tasks_assigned,
+									T::MaxTasksPerBlock::get(),
 								);
 							}
 							Self::assign_task(shard, task_id);

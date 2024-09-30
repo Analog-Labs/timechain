@@ -38,10 +38,14 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn add_network(name: u32, network: u32) -> Weight;
+		fn remove_network() -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn add_network(_name: u32, _network: u32) -> Weight {
+			Weight::default()
+		}
+		fn remove_network() -> Weight {
 			Weight::default()
 		}
 	}
@@ -61,6 +65,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event emitted when a new network is successfully added, providing the corresponding `NetworkId` as part of the event payload.
 		NetworkAdded(NetworkId),
+		/// Event emitted when a new network is successfully removed.
+		NetworkRemoved(NetworkId),
 	}
 
 	#[pallet::error]
@@ -69,6 +75,8 @@ pub mod pallet {
 		NetworkIdOverflow,
 		/// Error indicating that a network with the same `ChainName` and `ChainNetwork` already exists and cannot be added again.
 		NetworkExists,
+		/// Error indicating that a network with networkId does not exists.
+		NetworkDoesNotExists,
 	}
 
 	// stores a counter for each network type supported
@@ -117,7 +125,7 @@ pub mod pallet {
 		///    5. Update the [`NetworkIdCounter`] with the new value.
 		///    6. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
 		///    7. Return the new `NetworkId`.
-		fn insert_network(
+		pub fn insert_network(
 			chain_name: ChainName,
 			chain_network: ChainNetwork,
 		) -> Result<NetworkId, Error<T>> {
@@ -159,6 +167,23 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let network_id = Self::insert_network(chain_name, chain_network)?;
 			Self::deposit_event(Event::NetworkAdded(network_id));
+			Ok(())
+		}
+		///  Removes a blockchain network from chain using network_id.
+		///    
+		///  # Flow
+		///    
+		///    1. Ensure the caller is the root user.
+		///    2. Checkes if the network exists for network_id.
+		///    4. Emit the [`Event::NetworkRemoved`] event with the `NetworkId`.
+		///    4. Return `Ok(())` to indicate success.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::remove_network())]
+		pub fn remove_network(origin: OriginFor<T>, network_id: NetworkId) -> DispatchResult {
+			ensure_root(origin)?;
+			Networks::<T>::get(network_id).ok_or(Error::<T>::NetworkDoesNotExists)?;
+			Networks::<T>::remove(network_id);
+			Self::deposit_event(Event::NetworkRemoved(network_id));
 			Ok(())
 		}
 	}

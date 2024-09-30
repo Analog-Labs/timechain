@@ -19,6 +19,22 @@ fn test_add_network() {
 }
 
 #[test]
+fn test_add_and_remove_network() {
+	let blockchain: ChainName = "Ethereum".into();
+	let network: ChainNetwork = "Mainnet".into();
+	new_test_ext().execute_with(|| {
+		assert_ok!(Networks::add_network(
+			RawOrigin::Root.into(),
+			blockchain.clone(),
+			network.clone(),
+		));
+		assert_eq!(pallet_networks::Networks::<Test>::get(0), Some((blockchain, network)));
+		assert_ok!(Networks::remove_network(RawOrigin::Root.into(), 0));
+		assert_eq!(pallet_networks::Networks::<Test>::get(0), None);
+	});
+}
+
+#[test]
 fn test_duplicate_insertion() {
 	let blockchain: ChainName = "Ethereum".into();
 	let network: ChainNetwork = "Mainnet".into();

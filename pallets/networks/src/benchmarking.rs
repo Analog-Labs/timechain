@@ -1,6 +1,7 @@
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::benchmarks;
+use frame_benchmarking::BenchmarkError;
 use frame_system::RawOrigin;
 use scale_info::prelude::string::String;
 
@@ -20,6 +21,14 @@ benchmarks! {
 			network.push('b');
 		}
 	}: _(RawOrigin::Root, name, network)
+	verify {}
+
+	remove_network {
+		let name = String::from("chain_name");
+		let network = String::from("chain_network");
+
+		let network_id = Pallet::<T>::insert_network(name, network).map_err(|_| BenchmarkError::Stop("Faled to insert network, stopping benchmark"))?;
+	}: _(RawOrigin::Root, network_id)
 	verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

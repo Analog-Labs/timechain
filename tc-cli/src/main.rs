@@ -506,10 +506,14 @@ async fn main() -> Result<()> {
 			);
 			while tc.find_online_shard_keys(src).await?.is_empty() {
 				tracing::info!("waiting for shards to come online");
+				let shards = tc.shards().await?;
+				print_table(&tc, shards)?;
 				tokio::time::sleep(Duration::from_secs(1)).await;
 			}
 			while tc.find_online_shard_keys(dest).await?.is_empty() {
 				tracing::info!("waiting for shards to come online");
+				let shards = tc.shards().await?;
+				print_table(&tc, shards)?;
 				tokio::time::sleep(Duration::from_secs(1)).await;
 			}
 			tc.register_shards(src).await?;

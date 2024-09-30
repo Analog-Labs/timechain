@@ -181,8 +181,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_network())]
 		pub fn remove_network(origin: OriginFor<T>, network_id: NetworkId) -> DispatchResult {
 			ensure_root(origin)?;
-			Networks::<T>::get(network_id).ok_or(Error::<T>::NetworkDoesNotExists)?;
-			Networks::<T>::remove(network_id);
+			Networks::<T>::take(network_id).ok_or(Error::<T>::NetworkDoesNotExists)?;
 			Self::deposit_event(Event::NetworkRemoved(network_id));
 			Ok(())
 		}

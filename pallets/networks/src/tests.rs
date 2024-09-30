@@ -35,6 +35,16 @@ fn test_add_and_remove_network() {
 }
 
 #[test]
+fn test_remove_unknown_network() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Networks::remove_network(RawOrigin::Root.into(), 0),
+			Error::<Test>::NetworkDoesNotExists
+		);
+	});
+}
+
+#[test]
 fn test_duplicate_insertion() {
 	let blockchain: ChainName = "Ethereum".into();
 	let network: ChainNetwork = "Mainnet".into();

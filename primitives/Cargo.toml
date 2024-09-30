@@ -14,24 +14,19 @@ anyhow.workspace = true
 async-trait.workspace = true
 futures = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
-log.workspace = true
 serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
-scale-decode.workspace = true
 scale-info.workspace = true
 schnorr-evm = { version = "0.1.0", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 
 polkadot-sdk = { workspace = true, features = [
 	"frame-support",
-    "frame-system",
-
-    "sp-api",
-    "sp-application-crypto",
-    "sp-core",
-    "sp-io",
-    "sp-runtime",
-    "sp-std",
+	"sp-api",
+	"sp-core",
+	"sp-io",
+	"sp-runtime",
+	"sp-std",
 ]}
 
 [features]
@@ -44,8 +39,3 @@ std = [
 	"schnorr-evm/std",
 	"polkadot-sdk/std",
 ]
-hex = ["dep:hex"]
-
-[dev-dependencies]
-hex.workspace = true
-

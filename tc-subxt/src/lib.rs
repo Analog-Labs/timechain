@@ -36,7 +36,6 @@ impl SubxtClient {
 		let (rpc_client, client) = Self::get_client(url).await?;
 		let worker = SubxtWorker::new(rpc_client, client.clone(), metadata, keypair).await?;
 		let public_key = worker.public_key();
-		tracing::info!("public key {}", public_key);
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();

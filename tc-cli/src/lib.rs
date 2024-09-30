@@ -523,8 +523,18 @@ impl Tc {
 	}
 
 	async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
-		let members = self.runtime.electable_members().await?;
-		if same(&members, &accounts) {
+		//let members = self.runtime.electable_members().await?;
+		//if same(&members, &accounts) {
+		//	return Ok(());
+		//}
+		let mut not_electable = false;
+		for account in &accounts {
+			if !self.runtime.member_electable(account).await? {
+				not_electable = true;
+				break;
+			}
+		}
+		if !not_electable {
 			return Ok(());
 		}
 		tracing::info!("set_electable_members");
@@ -581,6 +591,22 @@ impl Tc {
 		}
 		Ok(ChronicleStatus::Online)
 	}
+
+	async fn wait_for_chronicle(&self, chronicle: &str) -> Result<ChronicleConfig> {
+		// 20s should be enough since the chronicle waits for
+		// 10s to check for a registered network and some margin
+		// for the registered network to be finalized.
+		for _ in 0..20 {
+			match self.chronicle_config(chronicle).await {
+				Ok(config) => return Ok(config),
+				Err(_) => {
+					tracing::info!("waiting for chronicle {chronicle} to come online");
+					tokio::time::sleep(Duration::from_secs(1)).await
+				},
+			}
+		}
+		anyhow::bail!("failed to connect to chronicle");
+	}
 }
 
 impl Tc {
@@ -602,7 +628,7 @@ impl Tc {
 		self.register_routes(gateways).await?;
 		let mut accounts = Vec::with_capacity(self.config.chronicles.len());
 		for chronicle in &self.config.chronicles {
-			let chronicle = self.chronicle_config(chronicle).await?;
+			let chronicle = self.wait_for_chronicle(chronicle).await?;
 			tracing::info!("funding chronicle timechain account");
 			let status = self.chronicle_status(&chronicle.account).await?;
 			let mut funds = self.config.config.chronicle_timechain_funds;

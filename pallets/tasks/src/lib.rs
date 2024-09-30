@@ -124,7 +124,7 @@ pub mod pallet {
 	pub type UATasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
 
-	/// Double map storage for unassigned tasks.
+	/// Double map storage for queued ops.
 	#[pallet::storage]
 	pub type Ops<T: Config> = StorageDoubleMap<
 		_,
@@ -136,12 +136,12 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Map storage for the insert index of unassigned tasks.
+	/// Map storage for the insert index of queued ops.
 	#[pallet::storage]
 	pub type OpsInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
 
-	/// Map storage for the remove index of unassigned tasks.
+	/// Map storage for the remove index of queued ops.
 	#[pallet::storage]
 	pub type OpsRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;

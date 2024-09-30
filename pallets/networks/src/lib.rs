@@ -73,7 +73,13 @@ pub mod pallet {
 		/// Network registered.
 		NetworkRegistered(NetworkId, Address, u64),
 		/// Network config changed.
-		NetworkConfigChanged(NetworkId, u32, u32, u128, u32),
+		NetworkConfigChanged {
+			network: NetworkId,
+			batch_size: u32,
+			batch_offset: u32,
+			batch_gas_limit: u128,
+			shard_task_limit: u32,
+		},
 	}
 
 	#[pallet::error]
@@ -165,9 +171,7 @@ pub mod pallet {
 			gateway: Address,
 			block_height: u64,
 		) -> Result<(), Error<T>> {
-			if Networks::<T>::get(network).is_some() {
-				return Err(Error::<T>::NetworkExists);
-			}
+			ensure!(Networks::<T>::get(network).is_some(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network, network);
 			NetworkName::<T>::insert(network, (chain_name, chain_network));
 			NetworkGatewayAddress::<T>::insert(network, gateway);
@@ -226,13 +230,13 @@ pub mod pallet {
 			NetworkBatchOffset::<T>::insert(network, batch_offset);
 			NetworkBatchGasLimit::<T>::insert(network, batch_gas_limit);
 			NetworkShardTaskLimit::<T>::insert(network, shard_task_limit);
-			Self::deposit_event(Event::NetworkConfigChanged(
+			Self::deposit_event(Event::NetworkConfigChanged {
 				network,
 				batch_size,
 				batch_offset,
 				batch_gas_limit,
 				shard_task_limit,
-			));
+			});
 			Ok(())
 		}
 	}

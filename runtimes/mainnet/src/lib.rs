@@ -1298,6 +1298,9 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
+	// TODO: compute and set this value to
+	// x where T::WeightInfo::schedule_tasks(x) = AVERAGE_ON_INITIALIZE
+	type MaxTasksPerBlock = ConstU32<1000>;
 }
 
 impl pallet_timegraph::Config for Runtime {

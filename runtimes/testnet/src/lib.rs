@@ -1030,7 +1030,6 @@ impl pallet_networks::Config for Runtime {
 
 impl pallet_dmail::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::dmail::WeightInfo<Runtime>;
 }
 

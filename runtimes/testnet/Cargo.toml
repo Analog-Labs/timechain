@@ -74,6 +74,7 @@ polkadot-sdk = { workspace = true, features = [
 ]}
 
 # Local Dependencies
+pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-members.workspace = true
 pallet-networks.workspace = true
@@ -101,6 +102,7 @@ std = [
 	"pallet-elections/std",
 	"pallet-members/std",
 	"pallet-networks/std",
+	"pallet-dmail/std",
 	"pallet-shards/std",
 	"pallet-tasks/std",
 	"pallet-timegraph/std",
@@ -120,6 +122,7 @@ runtime-benchmarks = [
 	"pallet-elections/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
 	"pallet-networks/runtime-benchmarks",
+	"pallet-dmail/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timegraph/runtime-benchmarks",
@@ -133,6 +136,7 @@ try-runtime = [
 	"pallet-elections/try-runtime",
 	"pallet-members/try-runtime",
 	"pallet-networks/try-runtime",
+	"pallet-dmail/try-runtime",
 	"pallet-shards/try-runtime",
 	"pallet-tasks/try-runtime",
 	"pallet-timegraph/try-runtime",

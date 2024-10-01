@@ -10,6 +10,7 @@ use sp_std::vec::Vec;
 
 // Export scoped ...
 pub mod currency;
+pub mod dmail;
 pub mod gmp;
 pub mod network;
 pub mod shard;
@@ -17,6 +18,7 @@ pub mod task;
 
 // ... and unscoped
 pub use crate::currency::*;
+pub use crate::dmail::*;
 pub use crate::gmp::*;
 pub use crate::network::*;
 pub use crate::shard::*;

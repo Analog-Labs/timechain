@@ -7587,6 +7587,7 @@ name = "mainnet-runtime"
 version = "0.6.1"
 dependencies = [
  "log",
+ "pallet-dmail",
  "pallet-elections",
  "pallet-members",
  "pallet-networks",
@@ -9383,6 +9384,22 @@ dependencies = [
  "scale-info",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
+]
+
+[[package]]
+name = "pallet-dmail"
+version = "0.6.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.0",
+ "time-primitives",
 ]
 
 [[package]]
@@ -18892,6 +18909,7 @@ name = "testnet-runtime"
 version = "0.6.1"
 dependencies = [
  "log",
+ "pallet-dmail",
  "pallet-elections",
  "pallet-members",
  "pallet-networks",

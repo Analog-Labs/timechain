@@ -1,0 +1,50 @@
+[package]
+name = "pallet-dmail"
+description = "A pallet for dmail integration."
+publish = false
+readme = "pallets/dmail/README.md"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+scale-codec.workspace = true
+scale-info.workspace = true
+
+frame-support = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+frame-system = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+sp-runtime = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+
+frame-benchmarking = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false, optional = true }
+
+time-primitives = { path = "../../primitives", default-features = false }
+
+[dev-dependencies]
+pallet-balances = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+sp-core = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false}
+sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+
+[features]
+default = [ "std" ]
+std = [
+	"scale-codec/std",
+	"scale-info/std",
+	#"polkadot-sdk/std",
+	"frame-support/std",
+	"frame-system/std",
+	"sp-runtime/std",
+	"frame-benchmarking?/std",
+	"time-primitives/std",
+	"pallet-balances/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime"
+]

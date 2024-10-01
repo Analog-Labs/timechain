@@ -110,22 +110,22 @@ pub mod pallet {
 	///  Map storage for network batch sizes.
 	#[pallet::storage]
 	pub type NetworkBatchSize<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	/// Map storage for network offsets.
 	#[pallet::storage]
 	pub type NetworkBatchOffset<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	/// Map storage for batch gas limit.
 	#[pallet::storage]
 	pub type NetworkBatchGasLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u128, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u128, OptionQuery>;
 
 	/// Map storage for shard task limits.
 	#[pallet::storage]
 	pub type NetworkShardTaskLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {

@@ -29,7 +29,7 @@ services:
   chronicle-0:
     image: 'analoglabs/chronicle-development'
     command:
-    - '--timechain-metadata=development'
+    - '--timechain-metadata=testnet'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--network-keyfile=/etc/network_keyfile'
     - '--target-keyfile=/etc/target_keyfile'
@@ -56,7 +56,7 @@ services:
   chronicle-1:
     image: 'analoglabs/chronicle-development'
     command:
-    - '--timechain-metadata=development'
+    - '--timechain-metadata=testnet'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--network-keyfile=/etc/network_keyfile'
     - '--target-keyfile=/etc/target_keyfile'

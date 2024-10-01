@@ -288,6 +288,6 @@ mod bench_helper {
 	fn print_valid_result() {
 		let (signer, signature) = valid_pk_task_result();
 		println!("signer: {:?}\nsignature: {:?}", signer, signature);
-		assert!(false);
+		panic!();
 	}
 }

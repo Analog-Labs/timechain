@@ -168,7 +168,7 @@ pub mod pallet {
 			gateway: Address,
 			block_height: u64,
 		) -> Result<(), Error<T>> {
-			ensure!(Networks::<T>::get(network).is_some(), Error::<T>::NetworkExists);
+			ensure!(Networks::<T>::get(network).is_none(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network, network);
 			NetworkName::<T>::insert(network, (chain_name, chain_network));
 			NetworkGatewayAddress::<T>::insert(network, gateway);

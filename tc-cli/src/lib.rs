@@ -527,7 +527,7 @@ impl Tc {
 		//if same(&members, &accounts) {
 		//	return Ok(());
 		//}
-		let mut not_electable = false;
+		/*let mut not_electable = false;
 		for account in &accounts {
 			if !self.runtime.member_electable(account).await? {
 				not_electable = true;
@@ -536,7 +536,7 @@ impl Tc {
 		}
 		if !not_electable {
 			return Ok(());
-		}
+		}*/
 		tracing::info!("set_electable_members");
 		self.runtime.set_electable_members(accounts).await?;
 		Ok(())

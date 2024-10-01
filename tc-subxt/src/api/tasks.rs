@@ -9,29 +9,26 @@ use time_primitives::{
 
 impl SubxtClient {
 	pub async fn task(&self, task_id: TaskId) -> Result<Option<Task>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_task(task_id);
-			let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			unsafe { std::mem::transmute(data) }
-		});
-		Ok(data)
+			let task = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+			Ok(task.map(|s| s.0))
+		})
 	}
 
 	pub async fn task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_task_submitter(task_id);
 			let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			unsafe { std::mem::transmute(data) }
-		});
-		Ok(data)
+			Ok(data.map(|s| s.0))
+		})
 	}
 
 	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<TaskId>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_shard_tasks(shard);
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<TaskId>> {
@@ -76,20 +73,18 @@ impl SubxtClient {
 	}
 
 	pub async fn batch_message(&self, batch: BatchId) -> Result<Option<GatewayMessage>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_batch_message(batch);
 			let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			unsafe { std::mem::transmute(data) }
-		});
-		Ok(data)
+			Ok(data.map(|s| s.0))
+		})
 	}
 
 	pub async fn batch_signature(&self, batch: BatchId) -> Result<Option<TssSignature>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_batch_signature(batch);
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn batch_sign_task(&self, batch: BatchId) -> Result<Option<TaskId>> {

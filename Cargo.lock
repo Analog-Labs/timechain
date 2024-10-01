@@ -17745,6 +17745,7 @@ dependencies = [
  "mainnet-runtime",
  "subxt",
  "testnet-runtime",
+ "time-primitives",
 ]
 
 [[package]]

@@ -107,49 +107,25 @@ pub mod pallet {
 	pub type NetworkGatewayBlock<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
-	pub struct DefaultNetworkBatchSize;
-
-	impl Get<u32> for DefaultNetworkBatchSize {
-		fn get() -> u32 {
-			32
-		}
-	}
-
 	///  Map storage for network batch sizes.
 	#[pallet::storage]
 	pub type NetworkBatchSize<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery, DefaultNetworkBatchSize>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
 
 	/// Map storage for network offsets.
 	#[pallet::storage]
 	pub type NetworkBatchOffset<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
 
-	pub struct DefaultNetworkBatchGasLimit;
-
-	impl Get<u128> for DefaultNetworkBatchGasLimit {
-		fn get() -> u128 {
-			10_000
-		}
-	}
-
 	/// Map storage for batch gas limit.
 	#[pallet::storage]
 	pub type NetworkBatchGasLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u128, ValueQuery, DefaultNetworkBatchGasLimit>;
-
-	pub struct DefaultNetworkShardTaskLimit;
-
-	impl Get<u32> for DefaultNetworkShardTaskLimit {
-		fn get() -> u32 {
-			10
-		}
-	}
+		StorageMap<_, Blake2_128Concat, NetworkId, u128, ValueQuery>;
 
 	/// Map storage for shard task limits.
 	#[pallet::storage]
 	pub type NetworkShardTaskLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery, DefaultNetworkShardTaskLimit>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {

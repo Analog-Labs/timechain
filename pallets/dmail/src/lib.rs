@@ -8,10 +8,8 @@ mod mock;
 mod tests;
 pub use pallet::*;
 
-#[polkadot_sdk::frame_support::pallet]
+#[frame_support::pallet]
 pub mod pallet {
-	use polkadot_sdk::{frame_support, frame_system};
-
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use time_primitives::{AccountId, DmailMessage, DmailPath, DmailTo};
@@ -31,12 +29,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		polkadot_sdk::frame_system::Config<AccountId = AccountId>
-		+ polkadot_sdk::frame_system::Config
-	{
-		type RuntimeEvent: From<Event<Self>>
-			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+	pub trait Config: frame_system::Config<AccountId = AccountId> + frame_system::Config {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
 	}
 

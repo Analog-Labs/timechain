@@ -9390,9 +9390,15 @@ dependencies = [
 name = "pallet-dmail"
 version = "0.6.1"
 dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
  "parity-scale-codec",
- "polkadot-sdk",
  "scale-info",
+ "sp-core 34.0.0",
+ "sp-io 38.0.0",
+ "sp-runtime 39.0.0",
  "time-primitives",
 ]
 

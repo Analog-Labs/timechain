@@ -1146,7 +1146,7 @@ mod runtime {
 
 	//mainnet contains pallet index 38 as governance
 
-	#[runtime::pallet_index(39)]
+	#[runtime::pallet_index(42)]
 	pub type Dmail = pallet_dmail;
 }
 

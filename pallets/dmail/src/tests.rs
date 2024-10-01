@@ -1,8 +1,6 @@
 use crate::mock::*;
 use crate::Event;
 
-use polkadot_sdk::{frame_support, frame_system};
-
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 

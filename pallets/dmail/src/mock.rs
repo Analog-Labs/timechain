@@ -1,14 +1,12 @@
 use crate::{self as pallet_dmail};
 
-use polkadot_sdk::frame_support::derive_impl;
-use polkadot_sdk::sp_core;
-use polkadot_sdk::sp_core::{ConstU128, ConstU64};
-use polkadot_sdk::sp_runtime::{traits::IdentityLookup, BuildStorage};
-use polkadot_sdk::sp_runtime::{
+use frame_support::derive_impl;
+use sp_core::{ConstU128, ConstU64};
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
+use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
 	MultiSignature,
 };
-use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_io};
 
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;

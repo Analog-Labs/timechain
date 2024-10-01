@@ -17742,7 +17742,9 @@ dependencies = [
 name = "tc-subxt-metadata"
 version = "0.1.0"
 dependencies = [
+ "mainnet-runtime",
  "subxt",
+ "testnet-runtime",
 ]
 
 [[package]]

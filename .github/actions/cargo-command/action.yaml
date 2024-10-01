@@ -36,6 +36,13 @@ runs:
       if: ${{ fromJSON(inputs.annotate) }}
       shell: bash
       run: cargo install cargo-action-fmt
+    - name: Assemble cache key
+      shell: bash
+      id: cache
+      run: |
+        features="${{ inputs.feature }}"
+        cache_key=$(echo "$features" | sed 's/,/-/g')
+        echo "cache_key=$cache_key" >> $GITHUB_OUTPUT
     - name: Cache cargo registry and index
       if: ${{ fromJSON(inputs.cache) }}
       uses: actions/cache@v4
@@ -44,9 +51,9 @@ runs:
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.feature || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        key: cargo-cache-${{ inputs.package || 'workspace' }}-${{ steps.cache.outputs.cache_key }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          cargo-cache-${{ inputs.package || 'workspace' }}-${{ inputs.feature || 'default' }}-
+          cargo-cache-${{ inputs.package || 'workspace' }}-${{ steps.cache.outputs.cache_key }}-
           cargo-cache-${{ inputs.package || 'workspace' }}-default-
           cargo-cache-workspace-
     - name: Cache cargo target folder
@@ -54,9 +61,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: target
-        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.feature || 'default' }}-${{ hashFiles('Cargo.lock') }}
+        key: cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ steps.cache.outputs.cache_key }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ inputs.feature || 'default' }}-
+          cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-${{ steps.cache.outputs.cache_key }}-
           cargo-${{ inputs.command }}-${{ inputs.profile }}-${{ inputs.package || 'workspace' }}-default-
           cargo-${{ inputs.command }}-${{ inputs.profile }}-workspace-
     - name: Run cargo ${{ inputs.command }}

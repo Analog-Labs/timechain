@@ -7,13 +7,13 @@ use time_primitives::{AccountId, Balance, BlockNumber, NetworkId, PeerId};
 impl SubxtClient {
 	pub async fn member_network(&self, account: &AccountId) -> Result<Option<NetworkId>> {
 		metadata_scope!(self.metadata, {
-			let account = subxt::config::substrate::AccountId32(*account.as_ref());
-			let storage_query = metadata::storage().members().member_network(account);
+			let account = subxt::utils::Static(account.clone());
+			let storage_query = metadata::storage().members().member_network(&account);
 			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 		})
 	}
 	pub async fn member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>> {
-		let account = subxt::config::substrate::AccountId32(*account.as_ref());
+		let account = subxt::utils::Static(account.clone());
 		let data = metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().members_api().get_member_peer_id(account);
 			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
@@ -23,8 +23,8 @@ impl SubxtClient {
 
 	pub async fn member_stake(&self, account: &AccountId) -> Result<u128> {
 		metadata_scope!(self.metadata, {
-			let account = subxt::config::substrate::AccountId32(*account.as_ref());
-			let storage_query = metadata::storage().members().member_stake(account);
+			let account = subxt::utils::Static(account.clone());
+			let storage_query = metadata::storage().members().member_stake(&account);
 			Ok(self
 				.client
 				.storage()
@@ -38,7 +38,7 @@ impl SubxtClient {
 
 	pub async fn member_online(&self, account: &AccountId) -> Result<bool> {
 		metadata_scope!(self.metadata, {
-			let account = subxt::config::substrate::AccountId32(*account.as_ref());
+			let account = subxt::utils::Static(account.clone());
 			let storage_query = metadata::storage().members().member_online(account);
 			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
 		})
@@ -46,7 +46,7 @@ impl SubxtClient {
 
 	pub async fn member_electable(&self, account: &AccountId) -> Result<bool> {
 		metadata_scope!(self.metadata, {
-			let account = subxt::config::substrate::AccountId32(*account.as_ref());
+			let account = subxt::utils::Static(account.clone());
 			let storage_query = metadata::storage().elections().electable(account);
 			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
 		})
@@ -93,6 +93,18 @@ impl SubxtClient {
 		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
+	}
+
+	pub async fn electable_members(&self) -> Result<Vec<AccountId>> {
+		let mut members = vec![];
+		metadata_scope!(self.metadata, {
+			let storage = metadata::storage().elections().electable_iter();
+			let mut iter = self.client.storage().at_latest().await?.iter(storage).await?;
+			while let Some(Ok(kv)) = iter.next().await {
+				members.push(kv.value.0);
+			}
+		});
+		Ok(members)
 	}
 
 	pub async fn set_electable_members(&self, accounts: Vec<AccountId>) -> Result<()> {

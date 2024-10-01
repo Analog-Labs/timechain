@@ -2177,15 +2177,12 @@ dependencies = [
  "gmp-grpc",
  "gmp-rust",
  "hex",
- "lazy_static",
- "log-panics",
  "peernet",
  "prometheus_exporter",
  "schnorr-evm",
  "serde",
  "serde_json",
  "sha3",
- "surf",
  "tc-subxt",
  "tide",
  "time-primitives",
@@ -7202,15 +7199,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "log-panics"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f9dd8546191c1850ecf67d22f5ff00a935b890d0e84713159a55495cc2ac5f"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "lru"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7347,7 +7335,7 @@ dependencies = [
  "pallet-timegraph",
  "parity-scale-codec",
  "polkadot-sdk",
- "primitive-types 0.12.2",
+ "primitive-types 0.13.1",
  "runtime-common",
  "scale-info",
  "serde_json",
@@ -10271,9 +10259,9 @@ dependencies = [
 
 [[package]]
 name = "papergrid"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ad43c07024ef767f9160710b3a6773976194758c7919b17e63b863db0bdf7fb"
+checksum = "c7419ad52a7de9b60d33e11085a0fe3df1fbd5926aa3f93d3dd53afbc9e86725"
 dependencies = [
  "bytecount",
  "fnv",
@@ -11967,6 +11955,7 @@ checksum = "d15600a7d856470b7d278b3fe0e311fe28c2526348549f8ef2ff7db3299c87f5"
 dependencies = [
  "fixed-hash",
  "impl-codec 0.7.0",
+ "scale-info",
  "uint 0.10.0",
 ]
 
@@ -17674,20 +17663,19 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c998b0c8b921495196a48aabaf1901ff28be0760136e31604f7967b0792050e"
+checksum = "77c9303ee60b9bedf722012ea29ae3711ba13a67c9b9ae28993838b63057cb1b"
 dependencies = [
  "papergrid",
  "tabled_derive",
- "unicode-width",
 ]
 
 [[package]]
 name = "tabled_derive"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c138f99377e5d653a371cdad263615634cfc8467685dfe8e73e2b8e98f44b17"
+checksum = "bf0fb8bfdc709786c154e24a66777493fb63ae97e3036d914c8666774c477069"
 dependencies = [
  "heck 0.4.1",
  "proc-macro-error 1.0.4",
@@ -17754,7 +17742,10 @@ dependencies = [
 name = "tc-subxt-metadata"
 version = "0.1.0"
 dependencies = [
+ "mainnet-runtime",
  "subxt",
+ "testnet-runtime",
+ "time-primitives",
 ]
 
 [[package]]
@@ -18008,10 +17999,8 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
- "log",
  "parity-scale-codec",
  "polkadot-sdk",
- "scale-decode",
  "scale-info",
  "schnorr-evm",
  "serde",
@@ -18757,9 +18746,9 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.13"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0336d538f7abc86d282a4189614dfaa90810dfc2c6f6427eaf88e16311dd225d"
+checksum = "e51733f11c9c4f72aa0c160008246859e340b00807569a0da0e7a1079b27ba85"
 
 [[package]]
 name = "unicode-xid"

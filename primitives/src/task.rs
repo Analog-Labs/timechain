@@ -1,7 +1,6 @@
 use crate::{BatchId, GmpEvent, TssSignature, ANLOG};
 use core::ops::Range;
 use scale_codec::{Decode, Encode};
-use scale_decode::DecodeAsType;
 use scale_info::{prelude::string::String, prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -66,7 +65,7 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum TaskResult {
 	ReadGatewayEvents {
 		events: Vec<GmpEvent>,

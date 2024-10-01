@@ -20,36 +20,8 @@ macro_rules! metadata_scope {
 
 				$block
 			},
-			$crate::metadata::MetadataVariant::Staging => {
-				use tc_subxt_metadata::staging as metadata;
-
-				#[allow(unused)]
-				use metadata::runtime_types::mainnet_runtime::RuntimeCall;
-
-				#[allow(unused)]
-				fn sudo(call: RuntimeCall) -> impl subxt::tx::Payload {
-					use scale_codec::Encode;
-					let length = call.encoded_size() as u32;
-					metadata::tx().technical_committee().execute(call, length)
-				}
-
-				$block
-			},
 			$crate::metadata::MetadataVariant::Testnet => {
 				use tc_subxt_metadata::testnet as metadata;
-
-				#[allow(unused)]
-				use metadata::runtime_types::testnet_runtime::RuntimeCall;
-
-				#[allow(unused)]
-				fn sudo(call: RuntimeCall) -> impl subxt::tx::Payload {
-					metadata::tx().sudo().sudo(call)
-				}
-
-				$block
-			},
-			$crate::metadata::MetadataVariant::Development => {
-				use tc_subxt_metadata::development as metadata;
 
 				#[allow(unused)]
 				use metadata::runtime_types::testnet_runtime::RuntimeCall;
@@ -70,8 +42,6 @@ macro_rules! metadata_scope {
 #[serde(rename_all = "snake_case")]
 pub enum MetadataVariant {
 	Mainnet,
-	Staging,
 	#[default]
 	Testnet,
-	Development,
 }

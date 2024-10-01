@@ -36,7 +36,6 @@ impl SubxtClient {
 		let (rpc_client, client) = Self::get_client(url).await?;
 		let worker = SubxtWorker::new(rpc_client, client.clone(), metadata, keypair).await?;
 		let public_key = worker.public_key();
-		tracing::info!("public key {}", public_key);
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();
@@ -102,17 +101,12 @@ impl SubxtClient {
 	}
 
 	pub async fn balance(&self, account: &AccountId) -> Result<u128> {
-		let data = metadata_scope!(self.metadata, {
-			let account: &subxt::utils::AccountId32 = unsafe { std::mem::transmute(account) };
-			let storage_query = metadata::storage().system().account(account);
+		metadata_scope!(self.metadata, {
+			let storage_query =
+				metadata::storage().system().account(&subxt::utils::Static(account.clone()));
 			let result = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
-			if let Some(info) = result {
-				info.data.free
-			} else {
-				0
-			}
-		});
-		Ok(data)
+			Ok(if let Some(info) = result { info.data.free } else { 0 })
+		})
 	}
 }
 

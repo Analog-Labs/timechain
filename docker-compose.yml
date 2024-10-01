@@ -29,14 +29,14 @@ services:
   chronicle-0:
     image: 'analoglabs/chronicle-development'
     command:
-    - '--timechain-metadata=development'
+    - '--timechain-metadata=testnet'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--network-keyfile=/etc/network_keyfile'
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://gmp-grpc-0:3000'
-    - '--timechain-min-balance=100000000000000000'
+    - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
     - '--network-id=0'
     environment:
@@ -56,14 +56,14 @@ services:
   chronicle-1:
     image: 'analoglabs/chronicle-development'
     command:
-    - '--timechain-metadata=development'
+    - '--timechain-metadata=testnet'
     - '--timechain-keyfile=/etc/timechain_keyfile'
     - '--network-keyfile=/etc/network_keyfile'
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://gmp-grpc-1:3000'
-    - '--timechain-min-balance=100000000000000000'
+    - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
     - '--network-id=1'
     environment:

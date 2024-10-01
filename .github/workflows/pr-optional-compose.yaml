@@ -9,7 +9,7 @@ concurrency:
 jobs:
   test-basic:
     runs-on: [self-hosted, integration]
-    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
+    #if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -25,21 +25,10 @@ jobs:
           ./scripts/build_docker.sh
       - name: Setup containers
         run: |
-          docker compose --profile ethereum up -d
-      - name: Setup chain
+          docker compose up -d
+      - name: Smoke test
         run: |
-          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' set-shard-config 1 1
-          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' fund-wallet
-      - name: Run EvmViewCall task
-        timeout-minutes: 15
-        run: |
-          sleep 10
-          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test basic
-      - name: Run GMP tests
-        timeout-minutes: 15
-        run: |
-          sleep 10
-          docker compose run --rm --remove-orphans tester --network '3;ws://ethereum:8545' --network '3;ws://ethereum:8545' test gmp
+          docker compose run --rm --remove-orphans tc-cli smoke-test 0 1
       - name: Cleanup
         if: ${{ always() }}
         run: |

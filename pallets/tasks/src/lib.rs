@@ -128,7 +128,7 @@ pub mod pallet {
 	pub type UATasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
 
-	/// Double map storage for unassigned tasks.
+	/// Double map storage for queued ops.
 	#[pallet::storage]
 	pub type Ops<T: Config> = StorageDoubleMap<
 		_,
@@ -140,12 +140,12 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Map storage for the insert index of unassigned tasks.
+	/// Map storage for the insert index of queued ops.
 	#[pallet::storage]
 	pub type OpsInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
 
-	/// Map storage for the remove index of unassigned tasks.
+	/// Map storage for the remove index of queued ops.
 	#[pallet::storage]
 	pub type OpsRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
@@ -395,10 +395,8 @@ pub mod pallet {
 		///
 		/// # Flow
 		///   1. Retrieve the TSS public key for `shard_id`.
-		///   2. Convert the provided `signature` into a [`schnorr_evm::Signature`].
-		///   3. Convert the retrieved public key into a [`schnorr_evm::VerifyingKey`].
-		///   4. Verify the `signature` against the `data` using the verifying key.
-		///   5. Return `Ok(())` if verification succeeds, or an appropriate error if any step fails.
+		///   2. Verify the `signature` against the `data` using the verifying key.
+		///   3. Return `Ok(())` if verification succeeds, or an appropriate error if any step fails.
 		fn verify_signature(
 			shard_id: ShardId,
 			data: &[u8],

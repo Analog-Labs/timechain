@@ -1,6 +1,5 @@
 use crate::{NetworkId, TssPublicKey};
 use scale_codec::{Decode, Encode};
-use scale_decode::DecodeAsType;
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -36,9 +35,7 @@ impl GmpParams {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(
-	Debug, Clone, Default, Decode, DecodeAsType, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd,
-)]
+#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
@@ -216,7 +213,7 @@ impl BatchBuilder {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, DecodeAsType, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
 pub enum GmpEvent {
 	ShardRegistered(
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
@@ -345,6 +342,10 @@ pub trait IConnectorAdmin: IConnector {
 	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
 	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()>;
+	/// Checks if the gateway needs to be redeployed.
+	async fn gateway_needs_redeployment(&self, _proxy: Address, _gateway: &[u8]) -> Result<bool> {
+		Ok(false)
+	}
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address>;
 	/// Sets the gateway admin.

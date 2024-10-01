@@ -107,25 +107,49 @@ pub mod pallet {
 	pub type NetworkGatewayBlock<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
+	pub struct DefaultNetworkBatchSize;
+
+	impl Get<u32> for DefaultNetworkBatchSize {
+		fn get() -> u32 {
+			32
+		}
+	}
+
 	///  Map storage for network batch sizes.
 	#[pallet::storage]
 	pub type NetworkBatchSize<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery, DefaultNetworkBatchSize>;
 
 	/// Map storage for network offsets.
 	#[pallet::storage]
 	pub type NetworkBatchOffset<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
 
+	pub struct DefaultNetworkBatchGasLimit;
+
+	impl Get<u128> for DefaultNetworkBatchGasLimit {
+		fn get() -> u128 {
+			10_000
+		}
+	}
+
 	/// Map storage for batch gas limit.
 	#[pallet::storage]
 	pub type NetworkBatchGasLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u128, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u128, ValueQuery, DefaultNetworkBatchGasLimit>;
+
+	pub struct DefaultNetworkShardTaskLimit;
+
+	impl Get<u32> for DefaultNetworkShardTaskLimit {
+		fn get() -> u32 {
+			10
+		}
+	}
 
 	/// Map storage for shard task limits.
 	#[pallet::storage]
 	pub type NetworkShardTaskLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery, DefaultNetworkShardTaskLimit>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -255,22 +279,18 @@ pub mod pallet {
 		}
 
 		fn next_batch_size(network: NetworkId, block_height: u64) -> u32 {
-			const DEFAULT_BATCH_SIZE: u32 = 32;
-			let network_batch_size =
-				NetworkBatchSize::<T>::get(network).unwrap_or(DEFAULT_BATCH_SIZE);
+			let network_batch_size = NetworkBatchSize::<T>::get(network);
 			let network_offset = NetworkBatchOffset::<T>::get(network);
 			network_batch_size
 				- ((block_height + network_offset as u64) % network_batch_size as u64) as u32
 		}
 
 		fn batch_gas_limit(network: NetworkId) -> u128 {
-			const DEFAULT_BATCH_GAS_LIMIT: u128 = 10_000;
-			NetworkBatchGasLimit::<T>::get(network).unwrap_or(DEFAULT_BATCH_GAS_LIMIT)
+			NetworkBatchGasLimit::<T>::get(network)
 		}
 
 		fn shard_task_limit(network: NetworkId) -> u32 {
-			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
-			NetworkShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT)
+			NetworkShardTaskLimit::<T>::get(network)
 		}
 	}
 }

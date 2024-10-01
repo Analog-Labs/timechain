@@ -8,7 +8,7 @@ use polkadot_sdk::{frame_support, frame_system};
 use time_primitives::{
 	traits::IdentifyAccount, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
 	MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId,
-	TaskResult, TasksInterface,
+	TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -270,4 +270,24 @@ fn test_tasks_are_assigned_to_registered_shards() {
 		roll(1);
 		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 0]);
 	})
+}
+
+mod bench_helper {
+	use super::*;
+
+	fn valid_pk_task_result() -> (TssPublicKey, TssSignature) {
+		let signer = MockTssSigner::new(SHARD_ID);
+		const TASK_ID: TaskId = 0;
+		const SHARD_ID: ShardId = 0;
+		let signature = signer.sign_gmp_events(TASK_ID, &[]);
+		(signer.public_key(), signature)
+	}
+
+	#[test]
+	#[ignore]
+	fn print_valid_result() {
+		let (signer, signature) = valid_pk_task_result();
+		println!("signer: {:?}\nsignature: {:?}", signer, signature);
+		assert!(false);
+	}
 }

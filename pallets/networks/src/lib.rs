@@ -255,18 +255,18 @@ pub mod pallet {
 		}
 
 		fn next_batch_size(network: NetworkId, block_height: u64) -> u32 {
-			let network_batch_size = NetworkBatchSize::<T>::get(network);
-			let network_offset = NetworkBatchOffset::<T>::get(network);
+			let network_batch_size = NetworkBatchSize::<T>::get(network).unwrap_or(32);
+			let network_offset = NetworkBatchOffset::<T>::get(network).unwrap_or_default();
 			network_batch_size
 				- ((block_height + network_offset as u64) % network_batch_size as u64) as u32
 		}
 
 		fn batch_gas_limit(network: NetworkId) -> u128 {
-			NetworkBatchGasLimit::<T>::get(network)
+			NetworkBatchGasLimit::<T>::get(network).unwrap_or(10_000)
 		}
 
 		fn shard_task_limit(network: NetworkId) -> u32 {
-			NetworkShardTaskLimit::<T>::get(network)
+			NetworkShardTaskLimit::<T>::get(network).unwrap_or(10)
 		}
 	}
 }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-mainnet-runtime.workspace = true
+mainnet-runtime = { workspace = true, features = ["development"] }
 subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
-testnet-runtime.workspace = true
+testnet-runtime = { workspace = true, features = ["development"] }
 time-primitives = { workspace = true, default-features = true }

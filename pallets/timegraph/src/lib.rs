@@ -27,9 +27,6 @@ pub mod pallet {
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-
-
-
 	pub trait WeightInfo {
 		fn deposit() -> Weight;
 		fn withdraw() -> Weight;
@@ -67,8 +64,27 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 		#[pallet::constant]
 		type InitialThreshold: Get<BalanceOf<Self>>;
+		#[pallet::constant]
+		type InitialTimegraphAccount: Get<Self::AccountId>;
+		#[pallet::constant]
+		type InitialRewardPoolAccount: Get<Self::AccountId>;
 
 	}
+
+	#[pallet::type_value]
+    pub fn DefaultTimegraphAccount<T: Config>() -> T::AccountId {
+        T::InitialTimegraphAccount::get()
+    }
+
+	#[pallet::type_value]
+    pub fn DefaultRewardPoolAccount<T: Config>() -> T::AccountId {
+        T::InitialRewardPoolAccount::get()
+    }
+
+	#[pallet::type_value]
+    pub fn DefaultThreshold<T: Config>() -> BalanceOf<T> {
+        T::InitialThreshold::get()
+    }
 
 	///Stores the next deposit sequence number for each account.
 	#[pallet::storage]
@@ -84,15 +100,15 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn timegraph_account)]
-	pub type TimegraphAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type TimegraphAccount<T: Config> = StorageValue<_, T::AccountId, ValueQuery, DefaultTimegraphAccount<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward_pool_account)]
-	pub type RewardPoolAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type RewardPoolAccount<T: Config> = StorageValue<_, T::AccountId, ValueQuery, DefaultRewardPoolAccount<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn threshold)]
-	pub type Threshold<T: Config> = StorageValue<_, BalanceOf<T>, OptionQuery>;
+	pub type Threshold<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery, DefaultThreshold<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -198,7 +214,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::transfer_award_to_user())]
 		pub fn transfer_award_to_user(origin: OriginFor<T>, account: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 			Self::ensure_timegraph(origin)?;
-			let pool_account = RewardPoolAccount::<T>::get().ok_or(Error::<T>::SequenceNumberOverflow)?;
+			let pool_account = RewardPoolAccount::<T>::get();
 
 			let pool_balance = T::Currency::free_balance(&pool_account);
 			ensure!(pool_balance > amount, Error::<T>::SequenceNumberOverflow);
@@ -212,8 +228,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::withdraw())]
 		pub fn set_timegraph_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(Some(account.clone()) != TimegraphAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
-			TimegraphAccount::<T>::set(Some(account));
+			ensure!(account.clone() != TimegraphAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			TimegraphAccount::<T>::set(account);
 			Ok(())
 		}
 
@@ -222,10 +238,10 @@ pub mod pallet {
 		pub fn set_reward_pool_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 
-			ensure!(Some(account.clone()) != RewardPoolAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			ensure!(account.clone() != RewardPoolAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
 
 
-			RewardPoolAccount::<T>::set(Some(account));
+			RewardPoolAccount::<T>::set(account);
 
 			Ok(())
 		}
@@ -235,8 +251,8 @@ pub mod pallet {
 		pub fn set_threshold(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			ensure_root(origin)?;
 
-			ensure!(Some(amount) != Threshold::<T>::get(), Error::<T>::SequenceNumberOverflow);
-			Threshold::<T>::set(Some(amount));
+			ensure!(amount != Threshold::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			Threshold::<T>::set(amount);
 
 			Ok(())
 		}
@@ -246,10 +262,8 @@ pub mod pallet {
 		pub fn ensure_timegraph(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let current_account = TimegraphAccount::<T>::get();
-			ensure!(Some(who) == current_account, Error::<T>::SequenceNumberOverflow);
+			ensure!(who == current_account, Error::<T>::SequenceNumberOverflow);
 			Ok(())
 		}
-
-
 	}
 }

@@ -22,31 +22,13 @@ use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
 
 use time_primitives::{
-	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
-	PublicKey, ShardsInterface,
+	Balance, ElectionsInterface, MembersInterface, NetworkId, PeerId, PublicKey, ShardsInterface,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
-
-pub struct MockNetworks;
-
-impl NetworksInterface for MockNetworks {
-	fn gateway(_network: NetworkId) -> Option<Address> {
-		Some([0; 32])
-	}
-	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
-		5
-	}
-	fn batch_gas_limit(_network: NetworkId) -> u128 {
-		10_000
-	}
-	fn shard_task_limit(_network: NetworkId) -> u32 {
-		10
-	}
-}
 
 pub struct MockMembers;
 
@@ -93,6 +75,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
+		Networks: pallet_networks,
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
@@ -246,12 +229,19 @@ impl pallet_shards::Config for Test {
 	type DkgTimeout = ConstU64<10>;
 }
 
+impl pallet_networks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Tasks = Tasks;
+}
+
 impl pallet_tasks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Shards = Shards;
-	type Networks = MockNetworks;
+	type Networks = Networks;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

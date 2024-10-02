@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, Network, NetworkId, TssPublicKey, TssSignature,
+	IConnector, IConnectorAdmin, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -214,15 +214,15 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Returns the gateway routing table.
-	async fn networks(&self, gateway: Address) -> Result<Vec<Network>> {
-		let request = Request::new(proto::NetworksRequest { gateway });
-		let response = self.client.lock().await.networks(request).await?.into_inner();
-		Ok(response.networks)
+	async fn routes(&self, gateway: Address) -> Result<Vec<Route>> {
+		let request = Request::new(proto::RoutesRequest { gateway });
+		let response = self.client.lock().await.routes(request).await?.into_inner();
+		Ok(response.routes)
 	}
 	/// Updates an entry in the gateway routing table.
-	async fn set_network(&self, gateway: Address, network: Network) -> Result<()> {
-		let request = Request::new(proto::SetNetworkRequest { gateway, network });
-		self.client.lock().await.set_network(request).await?;
+	async fn set_route(&self, gateway: Address, route: Route) -> Result<()> {
+		let request = Request::new(proto::SetRouteRequest { gateway, route });
+		self.client.lock().await.set_route(request).await?;
 		Ok(())
 	}
 	/// Deploys a test contract.

@@ -16,7 +16,7 @@ use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	IChain, IConnector, IConnectorAdmin, Network, NetworkId, TssPublicKey, TssSignature,
+	IChain, IConnector, IConnectorAdmin, NetworkId, Route, TssPublicKey, TssSignature,
 };
 
 const BLOCK_TIME: u64 = 1;
@@ -29,8 +29,8 @@ const EVENTS: MultimapTableDefinition<(Address, u64), Bincode<GmpEvent>> =
 	MultimapTableDefinition::new("events");
 const SHARDS: MultimapTableDefinition<Address, TssPublicKey> =
 	MultimapTableDefinition::new("shards");
-const NETWORKS: TableDefinition<(Address, NetworkId), Bincode<Network>> =
-	TableDefinition::new("networks");
+const ROUTES: TableDefinition<(Address, NetworkId), Bincode<Route>> =
+	TableDefinition::new("routes");
 const GATEWAY: TableDefinition<Address, Address> = TableDefinition::new("gateway");
 const TESTERS: MultimapTableDefinition<Address, Address> = MultimapTableDefinition::new("testers");
 
@@ -176,7 +176,7 @@ impl IConnector for Connector {
 		let tx = db.begin_write()?;
 		tx.open_table(BALANCE)?;
 		tx.open_table(ADMIN)?;
-		tx.open_table(NETWORKS)?;
+		tx.open_table(ROUTES)?;
 		tx.open_table(GATEWAY)?;
 		tx.open_multimap_table(EVENTS)?;
 		tx.open_multimap_table(SHARDS)?;
@@ -350,43 +350,42 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn networks(&self, gateway: Address) -> Result<Vec<Network>> {
+	async fn routes(&self, gateway: Address) -> Result<Vec<Route>> {
 		let tx = self.db.begin_read()?;
-		let t = tx.open_table(NETWORKS)?;
-		let mut networks = vec![];
+		let t = tx.open_table(ROUTES)?;
+		let mut routes = vec![];
 		for r in t.iter()? {
 			let (k, v) = r?;
 			let (g, _) = k.value();
 			if g != gateway {
 				continue;
 			}
-			let network = v.value();
-			networks.push(network);
+			routes.push(v.value());
 		}
-		Ok(networks)
+		Ok(routes)
 	}
 
-	async fn set_network(&self, gateway: Address, new_network: Network) -> Result<()> {
+	async fn set_route(&self, gateway: Address, new_route: Route) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
-			let mut t = tx.open_table(NETWORKS)?;
-			let mut network = t
-				.remove((gateway, new_network.network_id))?
+			let mut t = tx.open_table(ROUTES)?;
+			let mut route = t
+				.remove((gateway, new_route.network_id))?
 				.map(|g| g.value())
-				.unwrap_or(new_network.clone());
-			if new_network.gateway != [0; 32] {
-				network.gateway = new_network.gateway;
+				.unwrap_or(new_route.clone());
+			if new_route.gateway != [0; 32] {
+				route.gateway = new_route.gateway;
 			}
-			if new_network.relative_gas_price != (0, 0) {
-				network.relative_gas_price = new_network.relative_gas_price;
+			if new_route.relative_gas_price != (0, 0) {
+				route.relative_gas_price = new_route.relative_gas_price;
 			}
-			if new_network.gas_limit != 0 {
-				network.gas_limit = new_network.gas_limit;
+			if new_route.gas_limit != 0 {
+				route.gas_limit = new_route.gas_limit;
 			}
-			if new_network.base_fee != 0 {
-				network.base_fee = new_network.base_fee;
+			if new_route.base_fee != 0 {
+				route.base_fee = new_route.base_fee;
 			}
-			t.insert((gateway, network.network_id), network)?;
+			t.insert((gateway, route.network_id), route)?;
 		}
 		tx.commit()?;
 		Ok(())

@@ -6,8 +6,8 @@ use std::time::Duration;
 use tabled::{Table, Tabled};
 use tc_cli::{Batch, Chronicle, Member, Message, Network, Shard, Task, Tc};
 use time_primitives::{
-	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, Network as Route, NetworkId,
-	ShardId, TaskId,
+	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route, ShardId,
+	TaskId,
 };
 
 #[derive(Clone, Debug)]

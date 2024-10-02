@@ -40,10 +40,13 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
 
+
+// #[derive_impl(pallet_timegraph::config_preludes::TestDefaultConfig)]
 impl pallet_timegraph::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
+	type InitialThreshold = ConstU128<1_000_000_000_000>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

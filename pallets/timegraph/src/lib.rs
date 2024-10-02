@@ -21,15 +21,20 @@ pub mod pallet {
 	use polkadot_sdk::{frame_support, frame_system};
 
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, ExistenceRequirement};
+	use frame_support::traits::{Currency, ReservableCurrency, ExistenceRequirement};
 	use frame_system::pallet_prelude::*;
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+
+
+
 	pub trait WeightInfo {
 		fn deposit() -> Weight;
 		fn withdraw() -> Weight;
+		fn transfer_to_pool() -> Weight;
+		fn transfer_award_to_user() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -38,6 +43,14 @@ pub mod pallet {
 		}
 
 		fn withdraw() -> Weight {
+			Weight::default()
+		}
+
+		fn transfer_to_pool() -> Weight {
+			Weight::default()
+		}
+
+		fn transfer_award_to_user() -> Weight {
 			Weight::default()
 		}
 	}
@@ -51,7 +64,10 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type Currency: Currency<Self::AccountId>;
+		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		#[pallet::constant]
+		type InitialThreshold: Get<BalanceOf<Self>>;
+
 	}
 
 	///Stores the next deposit sequence number for each account.
@@ -66,13 +82,25 @@ pub mod pallet {
 	pub type NextWithdrawalSequence<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn timegraph_account)]
+	pub type TimegraphAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn reward_pool_account)]
+	pub type RewardPoolAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn threshold)]
+	pub type Threshold<T: Config> = StorageValue<_, BalanceOf<T>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Deposit event
-		Deposit(T::AccountId, T::AccountId, BalanceOf<T>, u64),
+		Deposit(T::AccountId, BalanceOf<T>, u64),
 		/// Withdrawal Event
-		Withdrawal(T::AccountId, T::AccountId, BalanceOf<T>, u64),
+		Withdrawal(T::AccountId, BalanceOf<T>, u64),
 	}
 
 	#[pallet::error]
@@ -94,26 +122,23 @@ pub mod pallet {
 		/// #  Flow
 		/// 1. Ensure the origin is a signed account.
 		/// 2. Validate the amount is greater than zero.
-		/// 3. Ensure the sender and receiver are not the same.
+		/// 3. Ensure the sender .
 		/// 4. Transfer the funds.
-		/// 5. Increment the deposit sequence number.
+		/// 5. Increment the deposit sequence number for origin.
 		/// 6. Emit a [`Event::Deposit`] event.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::deposit())]
-		pub fn deposit(
-			origin: OriginFor<T>,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
+		pub fn deposit(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(amount > 0_u32.into(), Error::<T>::ZeroAmount);
-			ensure!(who != to, Error::<T>::SenderSameWithReceiver);
-			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
-			let deposit_sequence = Self::next_deposit_sequence(&to);
+
+			T::Currency::reserve(&who, amount)?;
+
+			let deposit_sequence = Self::next_deposit_sequence(&who);
 			let next_sequence =
 				deposit_sequence.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
-			NextDepositSequence::<T>::insert(&to, next_sequence);
-			Self::deposit_event(Event::Deposit(who, to, amount, next_sequence));
+			NextDepositSequence::<T>::insert(&who, next_sequence);
+			Self::deposit_event(Event::Deposit(who, amount, next_sequence));
 
 			Ok(())
 		}
@@ -130,23 +155,101 @@ pub mod pallet {
 		/// 7. Emit a [`Event::Withdrawal`] event.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
-		pub fn withdraw(
-			origin: OriginFor<T>,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-			sequence: u64,
-		) -> DispatchResult {
+		pub fn withdraw(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(amount > 0_u32.into(), Error::<T>::ZeroAmount);
-			ensure!(who != to, Error::<T>::SenderSameWithReceiver);
-			let withdrawal_sequence = Self::next_withdrawal_sequence(&who);
-			let next_withdrawal_sequence =
-				withdrawal_sequence.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
-			ensure!(sequence == next_withdrawal_sequence, Error::<T>::WithDrawalSequenceMismatch);
-			T::Currency::transfer(&who, &to, amount, ExistenceRequirement::KeepAlive)?;
-			NextWithdrawalSequence::<T>::insert(&who, next_withdrawal_sequence);
-			Self::deposit_event(Event::Withdrawal(who, to, amount, sequence));
+
+			let current_reserve = T::Currency::reserved_balance(&who);
+			ensure!(amount <= current_reserve, Error::<T>::SequenceNumberOverflow);
+
+			ensure!(
+				T::Currency::unreserve(&who, amount) > (BalanceOf::<T>::from(0_u32)),
+				Error::<T>::SequenceNumberOverflow
+			);
+
+			NextWithdrawalSequence::<T>::try_mutate(&who, |x| -> DispatchResult {
+				*x = x.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::Withdrawal(
+				who.clone(),
+				amount,
+				NextWithdrawalSequence::<T>::get(&who),
+			));
 			Ok(())
 		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::transfer_to_pool())]
+		pub fn transfer_to_pool(origin: OriginFor<T>, account: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			Self::ensure_timegraph(origin)?;
+			let unserved = T::Currency::unreserve(&account, amount);
+			ensure!(
+				unserved > (BalanceOf::<T>::from(0_u32)),
+				Error::<T>::SequenceNumberOverflow
+			);
+
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::transfer_award_to_user())]
+		pub fn transfer_award_to_user(origin: OriginFor<T>, account: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			Self::ensure_timegraph(origin)?;
+			let pool_account = RewardPoolAccount::<T>::get().ok_or(Error::<T>::SequenceNumberOverflow)?;
+
+			let pool_balance = T::Currency::free_balance(&pool_account);
+			ensure!(pool_balance > amount, Error::<T>::SequenceNumberOverflow);
+
+			T::Currency::transfer(&pool_account, &account, amount, ExistenceRequirement::KeepAlive)?;
+
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::withdraw())]
+		pub fn set_timegraph_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(Some(account.clone()) != TimegraphAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			TimegraphAccount::<T>::set(Some(account));
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::withdraw())]
+		pub fn set_reward_pool_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(Some(account.clone()) != RewardPoolAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
+
+
+			RewardPoolAccount::<T>::set(Some(account));
+
+			Ok(())
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::withdraw())]
+		pub fn set_threshold(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(Some(amount) != Threshold::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			Threshold::<T>::set(Some(amount));
+
+			Ok(())
+		}
+	}
+
+	impl<T: Config>  Pallet<T> {
+		pub fn ensure_timegraph(origin: OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let current_account = TimegraphAccount::<T>::get();
+			ensure!(Some(who) == current_account, Error::<T>::SequenceNumberOverflow);
+			Ok(())
+		}
+
+
 	}
 }

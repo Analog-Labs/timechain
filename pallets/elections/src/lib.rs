@@ -261,6 +261,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Return electable accounts.
+		pub fn get_electable() -> Vec<AccountId> {
+			Electable::<T>::iter().map(|(_, e)| e).collect()
+		}
+
 		///   Attempts to elect a new shard for a network.
 		/// # Flow
 		///    1. Calls `new_shard_members` to get a list of new shard members.

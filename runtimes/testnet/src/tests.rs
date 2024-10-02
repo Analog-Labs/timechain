@@ -12,8 +12,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, NetworkId, PublicKey, ShardStatus, ShardsInterface,
-	TasksInterface,
+	AccountId, ElectionsInterface, Network, NetworkConfig, NetworkId, PublicKey, ShardStatus,
+	ShardsInterface, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -27,6 +27,22 @@ fn get_peer_id(random_num: [u8; 32]) -> [u8; 32] {
 		.unwrap()
 		.public()
 		.into()
+}
+
+fn network() -> Network {
+	Network {
+		id: ETHEREUM,
+		chain_name: "ethereum".into(),
+		chain_network: "dev".into(),
+		gateway: [0u8; 32],
+		gateway_block: 0,
+		config: NetworkConfig {
+			batch_size: 32,
+			batch_offset: 0,
+			batch_gas_limit: 10000,
+			shard_task_limit: 10,
+		},
+	}
 }
 
 const ETHEREUM: NetworkId = 0;
@@ -169,14 +185,7 @@ fn register_unregister_kills_task() {
 	let d: AccountId = D.into();
 	let e: AccountId = E.into();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Networks::register_network(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			"ethereum".into(),
-			"dev".into(),
-			[0u8; 32],
-			0
-		));
+		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network(),));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,

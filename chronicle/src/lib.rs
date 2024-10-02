@@ -65,7 +65,7 @@ pub async fn run_chronicle<C: IConnector>(
 	config: ChronicleConfig,
 	substrate: impl Runtime,
 ) -> Result<()> {
-	// initialize connector
+	// Initialize connector
 	let (chain, subchain) = loop {
 		let network = substrate.get_network(config.network_id).await?;
 		if let Some(network) = network {

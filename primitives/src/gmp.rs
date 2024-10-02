@@ -274,7 +274,7 @@ pub struct ConnectorParams {
 
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct Network {
+pub struct Route {
 	pub network_id: NetworkId,
 	pub gateway: Gateway,
 	pub relative_gas_price: (u128, u128),
@@ -355,9 +355,9 @@ pub trait IConnectorAdmin: IConnector {
 	/// Sets the registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()>;
 	/// Returns the gateway routing table.
-	async fn networks(&self, gateway: Address) -> Result<Vec<Network>>;
+	async fn routes(&self, gateway: Address) -> Result<Vec<Route>>;
 	/// Updates an entry in the gateway routing table.
-	async fn set_network(&self, gateway: Address, network: Network) -> Result<()>;
+	async fn set_route(&self, gateway: Address, route: Route) -> Result<()>;
 	/// Deploys a test contract.
 	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
 	/// Estimates the message cost.

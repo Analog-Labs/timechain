@@ -53,19 +53,17 @@ impl SubxtClient {
 	}
 
 	pub async fn heartbeat_timeout(&self) -> Result<BlockNumber> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().members_api().get_heartbeat_timeout();
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn min_stake(&self) -> Result<Balance> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().members_api().get_min_stake();
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn register_member(
@@ -96,15 +94,11 @@ impl SubxtClient {
 	}
 
 	pub async fn electable_members(&self) -> Result<Vec<AccountId>> {
-		let mut members = vec![];
 		metadata_scope!(self.metadata, {
-			let storage = metadata::storage().elections().electable_iter();
-			let mut iter = self.client.storage().at_latest().await?.iter(storage).await?;
-			while let Some(Ok(kv)) = iter.next().await {
-				members.push(kv.value.0);
-			}
-		});
-		Ok(members)
+			let runtime_call = metadata::apis().elections_api().get_electable();
+			let members = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+			Ok(members.into_iter().map(|m| m.0).collect())
+		})
 	}
 
 	pub async fn set_electable_members(&self, accounts: Vec<AccountId>) -> Result<()> {

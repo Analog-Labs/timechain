@@ -8,60 +8,27 @@ use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	traits::IdentifyAccount, AccountId, Commitment, Gateway, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, TaskId, TaskResult,
+	traits::IdentifyAccount, AccountId, Commitment, Network, NetworkConfig, NetworkId, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
 pub enum Tx {
 	// balances
-	Transfer {
-		account: AccountId,
-		balance: u128,
-	},
+	Transfer { account: AccountId, balance: u128 },
 	// networks
-	RegisterNetwork {
-		network: NetworkId,
-		chain_name: String,
-		chain_network: String,
-		gateway: Gateway,
-		block_height: u64,
-	},
-	SetNetworkConfig {
-		network: NetworkId,
-		batch_size: u32,
-		batch_offset: u32,
-		batch_gas_limit: u128,
-		shard_task_limit: u32,
-	},
+	RegisterNetwork { network: Network },
+	SetNetworkConfig { network: NetworkId, config: NetworkConfig },
 	// members
-	RegisterMember {
-		network: NetworkId,
-		peer_id: PeerId,
-		stake_amount: u128,
-	},
+	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
 	UnregisterMember,
 	Heartbeat,
 	// shards
-	SetShardConfig {
-		shard_size: u16,
-		shard_threshold: u16,
-	},
-	SetElectable {
-		accounts: Vec<AccountId>,
-	},
-	Commitment {
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	},
-	Ready {
-		shard_id: ShardId,
-	},
+	SetShardConfig { shard_size: u16, shard_threshold: u16 },
+	SetElectable { accounts: Vec<AccountId> },
+	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
+	Ready { shard_id: ShardId },
 	// tasks
-	SubmitTaskResult {
-		task_id: TaskId,
-		result: TaskResult,
-	},
+	SubmitTaskResult { task_id: TaskId, result: TaskResult },
 }
 
 pub struct SubxtWorker {
@@ -129,39 +96,22 @@ impl SubxtWorker {
 					self.create_signed_payload(&payload).await
 				},
 				// networks
-				Tx::RegisterNetwork {
-					network,
-					chain_name,
-					chain_network,
-					gateway,
-					block_height,
-				} => {
+				Tx::RegisterNetwork { network } => {
+					let network = subxt::utils::Static(network);
 					let runtime_call = RuntimeCall::Networks(
 						metadata::runtime_types::pallet_networks::pallet::Call::register_network {
 							network,
-							chain_name,
-							chain_network,
-							gateway,
-							block_height,
 						},
 					);
 					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
-				Tx::SetNetworkConfig {
-					network,
-					batch_size,
-					batch_offset,
-					batch_gas_limit,
-					shard_task_limit,
-				} => {
+				Tx::SetNetworkConfig { network, config } => {
+					let config = subxt::utils::Static(config);
 					let runtime_call = RuntimeCall::Networks(
 						metadata::runtime_types::pallet_networks::pallet::Call::set_network_config {
 							network,
-							batch_size,
-							batch_offset,
-							batch_gas_limit,
-							shard_task_limit,
+							config,
 						},
 					);
 					let payload = sudo(runtime_call);

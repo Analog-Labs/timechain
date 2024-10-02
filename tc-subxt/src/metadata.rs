@@ -38,10 +38,9 @@ macro_rules! metadata_scope {
 }
 
 /// Specifies the targeted timechain variant and metadata
-#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, Serialize, Deserialize)]
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MetadataVariant {
 	Mainnet,
-	#[default]
 	Testnet,
 }

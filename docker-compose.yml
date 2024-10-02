@@ -1,6 +1,6 @@
 services:
   validator:
-    image: 'analoglabs/timenode-development'
+    image: 'analoglabs/timechain-node-development'
     command:
     - '--chain=dev'
     - '--base-path=/data'

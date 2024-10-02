@@ -9964,6 +9964,7 @@ dependencies = [
  "log",
  "pallet-elections",
  "pallet-members",
+ "pallet-networks",
  "pallet-shards",
  "parity-scale-codec",
  "polkadot-sdk",

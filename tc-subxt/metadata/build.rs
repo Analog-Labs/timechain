@@ -10,6 +10,8 @@ fn derive(path: &Path, module: &str) -> String {
 		"time_primitives::gmp::GatewayOp",
 		"time_primitives::gmp::GatewayMessage",
 		"time_primitives::gmp::GmpEvent",
+		"time_primitives::network::Network",
+		"time_primitives::network::NetworkConfig",
 		"time_primitives::shard::MemberStatus",
 		"time_primitives::shard::ShardStatus",
 		"time_primitives::task::Task",
@@ -40,11 +42,19 @@ fn derive(path: &Path, module: &str) -> String {
 	)
 }
 
+fn mainnet(wbuild: &Path) -> String {
+	let mainnet = wbuild.join("mainnet-runtime").join("mainnet_runtime.metadata.scale");
+	derive(&mainnet, "timechain")
+}
+
+fn testnet(wbuild: &Path) -> String {
+	let testnet = wbuild.join("testnet-runtime").join("testnet_runtime.metadata.scale");
+	derive(&testnet, "testnet")
+}
+
 fn main() {
 	let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
 	let wbuild = out_dir.parent().unwrap().parent().unwrap().parent().unwrap().join("wbuild");
-	let mainnet = wbuild.join("mainnet-runtime").join("mainnet_runtime.metadata.scale");
-	let testnet = wbuild.join("testnet-runtime").join("testnet_runtime.metadata.scale");
-	let metadata = format!("{}\n{}", derive(&mainnet, "timechain"), derive(&testnet, "testnet"));
+	let metadata = format!("{}\n{}", mainnet(&wbuild), testnet(&wbuild));
 	std::fs::write(out_dir.join("metadata.rs"), metadata).unwrap();
 }

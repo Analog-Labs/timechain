@@ -35,7 +35,7 @@ pub struct ChronicleArgs {
 	pub timechain_min_balance: u128,
 	/// Metadata version to use to connect to timechain node.
 	#[clap(long)]
-	pub timechain_metadata: Option<MetadataVariant>,
+	pub timechain_metadata: MetadataVariant,
 	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
@@ -133,12 +133,9 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let subxt = SubxtClient::with_key(
-		&args.timechain_url,
-		args.timechain_metadata.unwrap_or_default(),
-		&timechain_mnemonic,
-	)
-	.await?;
+	let subxt =
+		SubxtClient::with_key(&args.timechain_url, args.timechain_metadata, &timechain_mnemonic)
+			.await?;
 
 	let chronicle = chronicle::run_chronicle::<gmp_grpc::Connector>(
 		args.config(network_key, target_mnemonic)?,

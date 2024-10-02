@@ -8,8 +8,8 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
-	IConnector, IConnectorAdmin, MemberStatus, MessageId, Network as Route, NetworkId, PublicKey,
-	ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
+	IConnector, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey,
+	Route, ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
 };
 
 mod config;
@@ -405,7 +405,7 @@ impl Tc {
 
 	pub async fn routes(&self, network: NetworkId) -> Result<Vec<Route>> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.networks(gateway).await
+		connector.routes(gateway).await
 	}
 
 	pub async fn events(&self, network: NetworkId, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
@@ -474,6 +474,7 @@ impl Tc {
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
 		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
+			self.set_network_config(network).await?;
 			self.redeploy_gateway(network).await?;
 			gateway
 		} else {
@@ -482,13 +483,19 @@ impl Tc {
 				connector.deploy_gateway(&contracts.proxy, &contracts.gateway).await?;
 			tracing::info!("register_network {network}");
 			self.runtime
-				.register_network(
-					network,
-					config.blockchain.clone(),
-					config.network.clone(),
+				.register_network(time_primitives::Network {
+					id: network,
+					chain_name: config.blockchain.clone(),
+					chain_network: config.network.clone(),
 					gateway,
-					block,
-				)
+					gateway_block: block,
+					config: NetworkConfig {
+						batch_size: config.batch_size,
+						batch_offset: config.batch_offset,
+						batch_gas_limit: config.batch_gas_limit,
+						shard_task_limit: config.shard_task_limit,
+					},
+				})
 				.await?;
 			gateway
 		};
@@ -498,6 +505,12 @@ impl Tc {
 
 	async fn set_network_config(&self, network: NetworkId) -> Result<()> {
 		let config = self.config.network(network)?;
+		let config = NetworkConfig {
+			batch_size: config.batch_size,
+			batch_offset: config.batch_offset,
+			batch_gas_limit: config.batch_gas_limit,
+			shard_task_limit: config.shard_task_limit,
+		};
 		let batch_size = self.runtime.network_batch_size(network).await?;
 		let batch_offset = self.runtime.network_batch_offset(network).await?;
 		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
@@ -510,33 +523,15 @@ impl Tc {
 			return Ok(());
 		}
 		tracing::info!("set_network_config {network}");
-		self.runtime
-			.set_network_config(
-				network,
-				config.batch_size,
-				config.batch_offset,
-				config.batch_gas_limit,
-				config.shard_task_limit,
-			)
-			.await?;
+		self.runtime.set_network_config(network, config).await?;
 		Ok(())
 	}
 
 	async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
-		//let members = self.runtime.electable_members().await?;
-		//if same(&members, &accounts) {
-		//	return Ok(());
-		//}
-		/*let mut not_electable = false;
-		for account in &accounts {
-			if !self.runtime.member_electable(account).await? {
-				not_electable = true;
-				break;
-			}
-		}
-		if !not_electable {
+		let members = self.runtime.electable_members().await?;
+		if same(&members, &accounts) {
 			return Ok(());
-		}*/
+		}
 		tracing::info!("set_electable_members");
 		self.runtime.set_electable_members(accounts).await?;
 		Ok(())
@@ -545,7 +540,7 @@ impl Tc {
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
 		for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
-			let routes = connector.networks(gateway).await?;
+			let routes = connector.routes(gateway).await?;
 			for dest in gateways.keys().copied() {
 				if src == dest {
 					continue;
@@ -562,7 +557,7 @@ impl Tc {
 					continue;
 				}
 				tracing::info!("register_route {src} {dest}");
-				connector.set_network(gateway, route).await?;
+				connector.set_route(gateway, route).await?;
 			}
 		}
 		Ok(())
@@ -616,7 +611,6 @@ impl Tc {
 		for network in self.connectors.keys().copied() {
 			let config = self.config.network(network)?;
 			let gateway = self.register_network(network).await?;
-			self.set_network_config(network).await?;
 			if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
 				tracing::info!("admin target balance is 0, using faucet");
 				self.faucet(network).await?;

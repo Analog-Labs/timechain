@@ -191,28 +191,28 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::SetShardsResponse {}))
 	}
 
-	async fn networks(
+	async fn routes(
 		&self,
-		request: Request<proto::NetworksRequest>,
-	) -> GmpResult<proto::NetworksResponse> {
+		request: Request<proto::RoutesRequest>,
+	) -> GmpResult<proto::RoutesResponse> {
 		let (connector, msg) = self.connector(request)?;
-		let networks = connector
-			.networks(msg.gateway)
+		let routes = connector
+			.routes(msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::NetworksResponse { networks }))
+		Ok(Response::new(proto::RoutesResponse { routes }))
 	}
 
-	async fn set_network(
+	async fn set_route(
 		&self,
-		request: Request<proto::SetNetworkRequest>,
-	) -> GmpResult<proto::SetNetworkResponse> {
+		request: Request<proto::SetRouteRequest>,
+	) -> GmpResult<proto::SetRouteResponse> {
 		let (connector, msg) = self.connector(request)?;
 		connector
-			.set_network(msg.gateway, msg.network)
+			.set_route(msg.gateway, msg.route)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::SetNetworkResponse {}))
+		Ok(Response::new(proto::SetRouteResponse {}))
 	}
 
 	async fn deploy_test(

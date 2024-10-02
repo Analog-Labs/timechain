@@ -103,7 +103,7 @@ impl SubxtClient {
 	pub async fn balance(&self, account: &AccountId) -> Result<u128> {
 		metadata_scope!(self.metadata, {
 			let storage_query =
-				metadata::storage().system().account(&subxt::utils::Static(account.clone()));
+				metadata::storage().system().account(subxt::utils::Static(account.clone()));
 			let result = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
 			Ok(if let Some(info) = result { info.data.free } else { 0 })
 		})

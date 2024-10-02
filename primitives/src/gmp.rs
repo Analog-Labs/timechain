@@ -277,7 +277,6 @@ pub struct ConnectorParams {
 pub struct Network {
 	pub network_id: NetworkId,
 	pub gateway: Gateway,
-	pub relative_gas_price: (u128, u128),
 	pub gas_limit: u64,
 	pub base_fee: u128,
 }

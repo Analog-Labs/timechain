@@ -68,6 +68,7 @@ enum Command {
 		amount: String,
 	},
 	// read data
+	FetchTokenPriceData,
 	Networks,
 	Chronicles,
 	Shards,
@@ -243,7 +244,6 @@ impl IntoRow for Member {
 struct RouteEntry {
 	network: NetworkId,
 	gateway: String,
-	relative_gas_price: String,
 	gas_limit: u64,
 	base_fee: u128,
 }
@@ -252,11 +252,9 @@ impl IntoRow for Route {
 	type Row = RouteEntry;
 
 	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
-		let (num, den) = self.relative_gas_price;
 		Ok(RouteEntry {
 			network: self.network_id,
 			gateway: tc.format_address(Some(self.network_id), self.gateway)?,
-			relative_gas_price: format!("{}", num as f64 / den as f64),
 			gas_limit: self.gas_limit,
 			base_fee: self.base_fee,
 		})
@@ -418,6 +416,9 @@ async fn main() -> Result<()> {
 			tc.transfer(network, address, amount).await?;
 		},
 		// read data
+		Command::FetchTokenPriceData => {
+			todo!();
+		},
 		Command::Networks => {
 			let networks = tc.networks().await?;
 			print_table(&tc, networks)?;

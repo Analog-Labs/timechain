@@ -206,6 +206,12 @@ impl Tc {
 		}
 		Ok(())
 	}
+
+	pub async fn fetch_token_prices(&self) {
+		for (network_id, network) in &self.config.networks {
+			let symbol = network.symbol.clone();
+		}
+	}
 }
 
 pub struct Network {
@@ -554,7 +560,6 @@ impl Tc {
 				let route = Route {
 					network_id: dest,
 					gateway,
-					relative_gas_price: (config.route_gas_price.num, config.route_gas_price.den),
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};

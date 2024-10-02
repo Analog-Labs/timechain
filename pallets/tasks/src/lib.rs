@@ -288,7 +288,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::prepare_batches();
 			Self::schedule_tasks()
 		}
 	}
@@ -525,6 +524,7 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
+			Self::prepare_batches();
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
@@ -565,7 +565,6 @@ pub mod pallet {
 			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)
 		}
 
-		// TODO: include num_batches_started as input to schedule_tasks weight fn
 		fn prepare_batches() {
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);

@@ -2002,4 +2002,35 @@ mod tests {
 			size,
 		);
 	}
+
+	#[test]
+	fn compute_max_tasks_per_block() {
+		let max_on_initialize_weight: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
+		// ensure schedule_tasks weight function is not unreasonably expensive
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
+				< max_on_initialize_weight,
+			"Scheduling a single task consumes more weight than max on-initialize"
+		);
+		// ensure schedule_tasks weight function increases monotonically with # tasks
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
+				< <Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2),
+			"Scheduling 2 tasks consumes more weight than scheduling 1"
+		);
+		let mut number_of_tasks: u32 = 1;
+		while <Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(number_of_tasks)
+			< max_on_initialize_weight
+		{
+			number_of_tasks = number_of_tasks.saturating_plus_one();
+			if number_of_tasks == 100_0000 {
+				assert!(false, "did not expect to support this many tasks");
+				break;
+			}
+		}
+		assert!(
+			<Runtime as pallet_tasks::Config>::MaxTasksPerBlock::get() <= number_of_tasks,
+			"MaxTasksPerBlock > max number of tasks per block tested = {number_of_tasks}"
+		);
+	}
 }

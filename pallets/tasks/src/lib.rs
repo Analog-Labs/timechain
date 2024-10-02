@@ -568,6 +568,11 @@ pub mod pallet {
 						num_tasks_assigned = num_tasks_assigned
 							.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
 					} else {
+						println!("{} - {}", T::MaxTasksPerBlock::get(), num_tasks_assigned);
+						println!(
+							"{}",
+							T::MaxTasksPerBlock::get().saturating_sub(num_tasks_assigned)
+						);
 						Self::schedule_tasks_shard(
 							network,
 							shard,

@@ -18,11 +18,12 @@ mod tests;
 
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
-	use polkadot_sdk::{frame_support, frame_system};
+	use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ReservableCurrency, ExistenceRequirement};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::Saturating;
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -127,8 +128,7 @@ pub mod pallet {
 		SequenceNumberOverflow,
 		/// zero amount
 		ZeroAmount,
-		/// sender same with receiver
-		SenderSameWithReceiver,
+
 	}
 
 	#[pallet::call]
@@ -150,11 +150,12 @@ pub mod pallet {
 
 			T::Currency::reserve(&who, amount)?;
 
-			let deposit_sequence = Self::next_deposit_sequence(&who);
-			let next_sequence =
-				deposit_sequence.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
-			NextDepositSequence::<T>::insert(&who, next_sequence);
-			Self::deposit_event(Event::Deposit(who, amount, next_sequence));
+			NextDepositSequence::<T>::try_mutate(&who, |x| -> DispatchResult {
+				*x = x.checked_add(1).ok_or(Error::<T>::SequenceNumberOverflow)?;
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::Deposit(who.clone(), amount, NextDepositSequence::<T>::get(who)));
 
 			Ok(())
 		}
@@ -176,7 +177,9 @@ pub mod pallet {
 			ensure!(amount > 0_u32.into(), Error::<T>::ZeroAmount);
 
 			let current_reserve = T::Currency::reserved_balance(&who);
-			ensure!(amount <= current_reserve, Error::<T>::SequenceNumberOverflow);
+			let threshold = Threshold::<T>::get();
+
+			ensure!(amount.saturating_add(threshold) <= current_reserve, Error::<T>::SequenceNumberOverflow);
 
 			ensure!(
 				T::Currency::unreserve(&who, amount) > (BalanceOf::<T>::from(0_u32)),

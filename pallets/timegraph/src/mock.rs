@@ -47,6 +47,8 @@ impl pallet_timegraph::Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type InitialThreshold = ConstU128<1_000_000_000_000>;
+	type InitialRewardPoolAccount = ConstU64<1>;
+	type InitialTimegraphAccount = ConstU64<2>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

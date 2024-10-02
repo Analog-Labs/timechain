@@ -16,10 +16,10 @@ scale-codec = { workspace = true, features = [ "max-encoded-len" ] }
 scale-info.workspace = true
 simple-mermaid.workspace = true
 
-polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system" ] }
+polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime" ] }
 
 [dev-dependencies]
-polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io", "sp-runtime" ] }
+polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 
 [features]
 default = [ "std" ]

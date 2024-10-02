@@ -7,8 +7,8 @@ use pallet_shards::{ShardCommitment, ShardState};
 use polkadot_sdk::{frame_support, frame_system};
 use time_primitives::{
 	traits::IdentifyAccount, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
-	MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId,
-	TaskResult, TasksInterface, TssPublicKey, TssSignature,
+	MockTssSigner, Network, NetworkConfig, NetworkId, PublicKey, ShardId, ShardStatus,
+	ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -31,6 +31,22 @@ fn shard_offline(network: NetworkId, shard: ShardId) {
 }
 
 fn register_gateway(network: NetworkId, block: u64) {
+	let _ = Networks::register_network(
+		frame_system::RawOrigin::Root.into(),
+		Network {
+			id: network,
+			chain_name: "Ethereum".into(),
+			chain_network: "Mainnet".into(),
+			gateway: [0; 32],
+			gateway_block: block,
+			config: NetworkConfig {
+				batch_size: 5,
+				batch_offset: 0,
+				batch_gas_limit: 10_000,
+				shard_task_limit: 10,
+			},
+		},
+	);
 	Tasks::gateway_registered(network, block);
 }
 

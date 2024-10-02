@@ -75,7 +75,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
-		Networks: pallet_networks,
+		Networks: pallet_networks::{Pallet, Call, Storage, Event<T>},
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,

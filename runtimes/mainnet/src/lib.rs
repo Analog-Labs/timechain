@@ -1798,6 +1798,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl time_primitives::ElectionsApi<Block> for Runtime {
+		fn get_electable() -> Vec<AccountId> {
+			Elections::get_electable()
+		}
+	}
+
 	impl time_primitives::ShardsApi<Block> for Runtime {
 		fn get_shards(account: &AccountId) -> Vec<ShardId> {
 			Shards::get_shards(account)

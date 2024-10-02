@@ -2,28 +2,12 @@ use crate::worker::Tx;
 use crate::{metadata_scope, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
-use time_primitives::{Gateway, NetworkId};
+use time_primitives::{Gateway, Network, NetworkConfig, NetworkId};
 
 impl SubxtClient {
-	pub async fn register_network(
-		&self,
-		network: NetworkId,
-		chain_name: String,
-		chain_network: String,
-		gateway: Gateway,
-		block_height: u64,
-	) -> Result<()> {
+	pub async fn register_network(&self, network: Network) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((
-			Tx::RegisterNetwork {
-				network,
-				chain_name,
-				chain_network,
-				gateway,
-				block_height,
-			},
-			tx,
-		))?;
+		self.tx.unbounded_send((Tx::RegisterNetwork { network }, tx))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
@@ -31,22 +15,10 @@ impl SubxtClient {
 	pub async fn set_network_config(
 		&self,
 		network: NetworkId,
-		batch_size: u32,
-		batch_offset: u32,
-		batch_gas_limit: u128,
-		shard_task_limit: u32,
+		config: NetworkConfig,
 	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((
-			Tx::SetNetworkConfig {
-				network,
-				batch_size,
-				batch_offset,
-				batch_gas_limit,
-				shard_task_limit,
-			},
-			tx,
-		))?;
+		self.tx.unbounded_send((Tx::SetNetworkConfig { network, config }, tx))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
@@ -75,6 +47,66 @@ impl SubxtClient {
 		let data = metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().networks_api().get_gateway(network);
 			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
+		});
+		Ok(data)
+	}
+
+	pub async fn network_batch_size(&self, network: NetworkId) -> Result<u32> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_batch_size(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
+
+	pub async fn network_batch_offset(&self, network: NetworkId) -> Result<u32> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_batch_offset(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
+
+	pub async fn network_batch_gas_limit(&self, network: NetworkId) -> Result<u128> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_batch_gas_limit(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
+		});
+		Ok(data)
+	}
+
+	pub async fn network_shard_task_limit(&self, network: NetworkId) -> Result<u32> {
+		let data = metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().networks().network_shard_task_limit(network);
+			self.client
+				.storage()
+				.at_latest()
+				.await?
+				//.fetch_or_default(&storage_query)
+				.fetch(&storage_query)
+				.await?
+				.unwrap_or_default()
 		});
 		Ok(data)
 	}

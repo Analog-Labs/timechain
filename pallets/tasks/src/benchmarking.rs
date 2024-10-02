@@ -2,6 +2,7 @@ use crate::{Call, Config, Pallet};
 use frame_benchmarking::benchmarks;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
+use pallet_networks::NetworkGatewayAddress;
 use pallet_shards::{ShardCommitment, ShardState};
 use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_std};
 use sp_std::vec;
@@ -33,26 +34,27 @@ fn create_simple_task<T: Config + pallet_shards::Config>() {
 	ShardCommitment::<T>::insert(0, vec![PUBKEY]);
 	Pallet::<T>::shard_online(0, ETHEREUM);
 	Pallet::<T>::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 0..10 });
-	Pallet::<T>::assign_task(0, 0);
-	Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 }
 
 benchmarks! {
-	where_clause {  where T: pallet_shards::Config + pallet_members::Config }
+	where_clause {  where T: pallet_shards::Config + pallet_members::Config + pallet_networks::Config }
 
 	submit_task_result {
+		NetworkGatewayAddress::<T>::insert(0, [0; 32]);
 		create_simple_task::<T>();
+		Pallet::<T>::assign_task(0, 0);
+		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: SIGNATURE };
 	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
 
 	schedule_tasks {
-		// TODO: replace upper bound once upper bound added, separate PR
-		let b in 1..10;
+		// TODO: replace upper bound once added in bounding PR
+		let b in 1..1000;
 		for i in 0..b {
-			// TODO: do not assign, remove on initialize
 			create_simple_task::<T>();
 		}
 	}: {
+		Pallet::<T>::assign_task(0, 0);
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	} verify { }
 

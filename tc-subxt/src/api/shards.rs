@@ -47,46 +47,41 @@ impl SubxtClient {
 	}
 
 	pub async fn member_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {
-		let account: subxt::utils::AccountId32 = subxt::utils::AccountId32(*(account.as_ref()));
-		let data = metadata_scope!(self.metadata, {
+		let account = subxt::utils::Static(account.clone());
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shards(account);
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_members(shard_id);
 			let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			unsafe { std::mem::transmute(data) }
-		});
-		Ok(data)
+			Ok(data.into_iter().map(|(account, status)| (account.0, status.0)).collect())
+		})
 	}
 
 	pub async fn shard_threshold(&self, shard_id: ShardId) -> Result<u16> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_threshold(shard_id);
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn shard_status(&self, shard_id: ShardId) -> Result<ShardStatus> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_status(shard_id);
 			let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			unsafe { std::mem::transmute(data) }
-		});
-		Ok(data)
+			Ok(data.0)
+		})
 	}
 
 	pub async fn shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>> {
-		let data = metadata_scope!(self.metadata, {
+		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
-			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
-		Ok(data)
+			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		})
 	}
 
 	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<Option<TssPublicKey>> {

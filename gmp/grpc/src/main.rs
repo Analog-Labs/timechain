@@ -191,28 +191,28 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::SetShardsResponse {}))
 	}
 
-	async fn networks(
+	async fn routes(
 		&self,
-		request: Request<proto::NetworksRequest>,
-	) -> GmpResult<proto::NetworksResponse> {
+		request: Request<proto::RoutesRequest>,
+	) -> GmpResult<proto::RoutesResponse> {
 		let (connector, msg) = self.connector(request)?;
-		let networks = connector
-			.networks(msg.gateway)
+		let routes = connector
+			.routes(msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::NetworksResponse { networks }))
+		Ok(Response::new(proto::RoutesResponse { routes }))
 	}
 
-	async fn set_network(
+	async fn set_route(
 		&self,
-		request: Request<proto::SetNetworkRequest>,
-	) -> GmpResult<proto::SetNetworkResponse> {
+		request: Request<proto::SetRouteRequest>,
+	) -> GmpResult<proto::SetRouteResponse> {
 		let (connector, msg) = self.connector(request)?;
 		connector
-			.set_network(msg.gateway, msg.network)
+			.set_route(msg.gateway, msg.route)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::SetNetworkResponse {}))
+		Ok(Response::new(proto::SetRouteResponse {}))
 	}
 
 	async fn deploy_test(
@@ -274,6 +274,28 @@ struct Args {
 	db: PathBuf,
 }
 
+async fn shutdown_signal() {
+	let ctrl_c = async {
+		tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+	};
+
+	#[cfg(unix)]
+	let terminate = async {
+		tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+			.expect("failed to install signal handler")
+			.recv()
+			.await;
+	};
+
+	#[cfg(not(unix))]
+	let terminate = std::future::pending::<()>();
+
+	tokio::select! {
+		_ = ctrl_c => {},
+		_ = terminate => {},
+	}
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Args::parse();
@@ -281,7 +303,7 @@ async fn main() -> Result<()> {
 	let svc = GmpServer::new(server);
 	Server::builder()
 		.add_service(svc)
-		.serve(SocketAddr::new([0, 0, 0, 0].into(), args.port))
+		.serve_with_shutdown(SocketAddr::new([0, 0, 0, 0].into(), args.port), shutdown_signal())
 		.await?;
 	Ok(())
 }

@@ -18,7 +18,7 @@ reqwest = { version = "0.12.7", default-features = false, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = "0.9.34"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
-tabled = "0.15.0"
+tabled = "0.16.0"
 tc-subxt.workspace = true
 time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}

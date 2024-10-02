@@ -93,6 +93,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
+		Networks: pallet_networks,
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
@@ -244,6 +245,13 @@ impl pallet_shards::Config for Test {
 	type Members = MockMembers;
 	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
+}
+
+impl pallet_networks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Tasks = Tasks;
 }
 
 impl pallet_tasks::Config for Test {

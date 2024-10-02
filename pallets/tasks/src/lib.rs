@@ -129,7 +129,7 @@ pub mod pallet {
 	pub type UATasksRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
 
-	/// Double map storage for unassigned tasks.
+	/// Double map storage for queued ops.
 	#[pallet::storage]
 	pub type Ops<T: Config> = StorageDoubleMap<
 		_,
@@ -141,12 +141,12 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Map storage for the insert index of unassigned tasks.
+	/// Map storage for the insert index of queued ops.
 	#[pallet::storage]
 	pub type OpsInsertIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
 
-	/// Map storage for the remove index of unassigned tasks.
+	/// Map storage for the remove index of queued ops.
 	#[pallet::storage]
 	pub type OpsRemoveIndex<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Index, OptionQuery>;
@@ -289,7 +289,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::prepare_batches();
 			Self::schedule_tasks()
 		}
 	}
@@ -396,10 +395,8 @@ pub mod pallet {
 		///
 		/// # Flow
 		///   1. Retrieve the TSS public key for `shard_id`.
-		///   2. Convert the provided `signature` into a [`schnorr_evm::Signature`].
-		///   3. Convert the retrieved public key into a [`schnorr_evm::VerifyingKey`].
-		///   4. Verify the `signature` against the `data` using the verifying key.
-		///   5. Return `Ok(())` if verification succeeds, or an appropriate error if any step fails.
+		///   2. Verify the `signature` against the `data` using the verifying key.
+		///   3. Return `Ok(())` if verification succeeds, or an appropriate error if any step fails.
 		fn verify_signature(
 			shard_id: ShardId,
 			data: &[u8],
@@ -528,6 +525,7 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
+			Self::prepare_batches();
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
@@ -584,7 +582,6 @@ pub mod pallet {
 			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)
 		}
 
-		// TODO: include num_batches_started as input to schedule_tasks weight fn
 		fn prepare_batches() {
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);

@@ -6,8 +6,8 @@ use std::time::Duration;
 use tabled::{Table, Tabled};
 use tc_cli::{Batch, Chronicle, Member, Message, Network, Shard, Task, Tc};
 use time_primitives::{
-	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, Network as Route, NetworkId,
-	ShardId, TaskId,
+	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route, ShardId,
+	TaskId,
 };
 
 #[derive(Clone, Debug)]
@@ -506,10 +506,14 @@ async fn main() -> Result<()> {
 			);
 			while tc.find_online_shard_keys(src).await?.is_empty() {
 				tracing::info!("waiting for shards to come online");
+				let shards = tc.shards().await?;
+				print_table(&tc, shards)?;
 				tokio::time::sleep(Duration::from_secs(1)).await;
 			}
 			while tc.find_online_shard_keys(dest).await?.is_empty() {
 				tracing::info!("waiting for shards to come online");
+				let shards = tc.shards().await?;
+				print_table(&tc, shards)?;
 				tokio::time::sleep(Duration::from_secs(1)).await;
 			}
 			tc.register_shards(src).await?;

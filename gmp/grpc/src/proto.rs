@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_big_array::Array;
 use time_primitives::{
-	Address, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, Network, NetworkId,
+	Address, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
 
@@ -124,23 +124,23 @@ pub struct SetShardsRequest {
 pub struct SetShardsResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct NetworksRequest {
+pub struct RoutesRequest {
 	pub gateway: Gateway,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NetworksResponse {
-	pub networks: Vec<Network>,
+pub struct RoutesResponse {
+	pub routes: Vec<Route>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct SetNetworkRequest {
+pub struct SetRouteRequest {
 	pub gateway: Gateway,
-	pub network: Network,
+	pub route: Route,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct SetNetworkResponse {}
+pub struct SetRouteResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct DeployTestRequest {

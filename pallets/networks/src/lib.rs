@@ -34,9 +34,10 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use scale_info::prelude::{string::String, vec::Vec};
+	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address, ChainName, ChainNetwork, NetworkId, NetworksInterface, TasksInterface,
+		Address, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, NetworksInterface,
+		TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -73,7 +74,7 @@ pub mod pallet {
 		/// Network registered.
 		NetworkRegistered(NetworkId, Address, u64),
 		/// Network config changed.
-		NetworkConfigChanged(NetworkId, u32, u32, u128, u32),
+		NetworkConfigChanged(NetworkId, NetworkConfig),
 	}
 
 	#[pallet::error]
@@ -109,7 +110,7 @@ pub mod pallet {
 	/// Map storage for network offsets.
 	#[pallet::storage]
 	pub type NetworkBatchOffset<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u32, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
 
 	/// Map storage for batch gas limit.
 	#[pallet::storage]
@@ -123,7 +124,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
-		pub networks: Vec<(NetworkId, String, String, Address, u64)>,
+		pub networks: Vec<Network>,
 		pub _marker: PhantomData<T>,
 	}
 
@@ -140,39 +141,50 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (id, blockchain, network, gateway, block) in &self.networks {
-				Pallet::<T>::insert_network(*id, blockchain.clone(), network.clone(), *gateway, *block)
+			for network in &self.networks {
+				Pallet::<T>::insert_network(network)
 					.expect("No networks exist before genesis; NetworkId not overflow from 0 at genesis; QED");
 			}
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		///  Inserts a new network into storage if it doesn't already exist. Updates the `NetworkIdCounter` to ensure unique network IDs.
+		///  Inserts a new network into storage if it doesn't already exist.
 		///    
 		///  # Flow
 		///    1. Iterate through existing networks to check if the given `ChainName` and `ChainNetwork` already exist.
 		///    2. If the network exists, return [`Error::<T>::NetworkExists`].
-		///    3. Retrieve the current [`NetworkIdCounter`].
-		///    4. Increment the counter and check for overflow, returning [`Error::<T>::NetworkIdOverflow`] if overflow occurs.
-		///    5. Update the [`NetworkIdCounter`] with the new value.
-		///    6. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
-		///    7. Return the new `NetworkId`.
-		fn insert_network(
+		///    3. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
+		///    4. Return the new `NetworkId`.
+		fn insert_network(network: &Network) -> Result<(), Error<T>> {
+			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
+			Networks::<T>::insert(network.id, network.id);
+			NetworkName::<T>::insert(
+				network.id,
+				(network.chain_name.clone(), network.chain_network.clone()),
+			);
+			NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
+			NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
+			T::Tasks::gateway_registered(network.id, network.gateway_block);
+			Self::insert_network_config(network.id, network.config.clone())?;
+			Self::deposit_event(Event::NetworkRegistered(
+				network.id,
+				network.gateway,
+				network.gateway_block,
+			));
+			Ok(())
+		}
+
+		fn insert_network_config(
 			network: NetworkId,
-			chain_name: ChainName,
-			chain_network: ChainNetwork,
-			gateway: Address,
-			block_height: u64,
+			config: NetworkConfig,
 		) -> Result<(), Error<T>> {
-			if Networks::<T>::get(network).is_some() {
-				return Err(Error::<T>::NetworkExists);
-			}
-			Networks::<T>::insert(network, network);
-			NetworkName::<T>::insert(network, (chain_name, chain_network));
-			NetworkGatewayAddress::<T>::insert(network, gateway);
-			NetworkGatewayBlock::<T>::insert(network, block_height);
-			T::Tasks::gateway_registered(network, block_height);
+			ensure!(Networks::<T>::get(network).is_some(), Error::<T>::NetworkNotFound);
+			NetworkBatchSize::<T>::insert(network, config.batch_size);
+			NetworkBatchOffset::<T>::insert(network, config.batch_offset);
+			NetworkBatchGasLimit::<T>::insert(network, config.batch_gas_limit);
+			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
+			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
 		}
 	}
@@ -184,31 +196,23 @@ pub mod pallet {
 		///  # Flow
 		///    
 		///    1. Ensure the caller is the root user.
-		///    2. Call `Self::insert_network(chain_name, chain_network).
-		///    3. Emit the [`Event::NetworkAdded`] event with the new `NetworkId`.
+		///    2. Call `Self::insert_network(network).
+		///    3. Emit the [`Event::NetworkRegistered`] event with the new `NetworkId`.
 		///    4. Return `Ok(())` to indicate success.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::register_network(chain_name.len() as u32, chain_network.len() as u32))]
-		pub fn register_network(
-			origin: OriginFor<T>,
-			network: NetworkId,
-			chain_name: ChainName,
-			chain_network: ChainNetwork,
-			gateway: Address,
-			block_height: u64,
-		) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::register_network(network.chain_name.len() as u32, network.chain_network.len() as u32))]
+		pub fn register_network(origin: OriginFor<T>, network: Network) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Self::insert_network(network, chain_name, chain_network, gateway, block_height)?;
-			Self::deposit_event(Event::NetworkRegistered(network, gateway, block_height));
+			Self::insert_network(&network)?;
 			Ok(())
 		}
 
-		/// Sets the batch size and offset for a specific network.
+		/// Sets the configuration for a specific network.
 		///
 		/// # Flow
 		///   1. Ensure the origin of the transaction is a root user.
 		///   2. Insert the new batch size for the specified network into the [`NetworkBatchSize`] storage.
-		///   3. Insert the new offset for the specified network into the [`NetworkOffset`] storage.
+		///   3. Insert the new offset for the specified network into the [`NetworkBatchOffset`] storage.
 		///   4. Emit an event indicating the batch size and offset have been set.
 		///   5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(2)]
@@ -216,23 +220,10 @@ pub mod pallet {
 		pub fn set_network_config(
 			origin: OriginFor<T>,
 			network: NetworkId,
-			batch_size: u32,
-			batch_offset: u32,
-			batch_gas_limit: u128,
-			shard_task_limit: u32,
+			config: NetworkConfig,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			NetworkBatchSize::<T>::insert(network, batch_size);
-			NetworkBatchOffset::<T>::insert(network, batch_offset);
-			NetworkBatchGasLimit::<T>::insert(network, batch_gas_limit);
-			NetworkShardTaskLimit::<T>::insert(network, shard_task_limit);
-			Self::deposit_event(Event::NetworkConfigChanged(
-				network,
-				batch_size,
-				batch_offset,
-				batch_gas_limit,
-				shard_task_limit,
-			));
+			Self::insert_network_config(network, config)?;
 			Ok(())
 		}
 	}
@@ -254,22 +245,18 @@ pub mod pallet {
 		}
 
 		fn next_batch_size(network: NetworkId, block_height: u64) -> u32 {
-			const DEFAULT_BATCH_SIZE: u32 = 32;
-			let network_batch_size =
-				NetworkBatchSize::<T>::get(network).unwrap_or(DEFAULT_BATCH_SIZE);
-			let network_offset = NetworkBatchOffset::<T>::get(network);
+			let network_batch_size = NetworkBatchSize::<T>::get(network).unwrap_or(32);
+			let network_offset = NetworkBatchOffset::<T>::get(network).unwrap_or_default();
 			network_batch_size
 				- ((block_height + network_offset as u64) % network_batch_size as u64) as u32
 		}
 
 		fn batch_gas_limit(network: NetworkId) -> u128 {
-			const DEFAULT_BATCH_GAS_LIMIT: u128 = 10_000;
-			NetworkBatchGasLimit::<T>::get(network).unwrap_or(DEFAULT_BATCH_GAS_LIMIT)
+			NetworkBatchGasLimit::<T>::get(network).unwrap_or(10_000)
 		}
 
 		fn shard_task_limit(network: NetworkId) -> u32 {
-			const DEFAULT_SHARD_TASK_LIMIT: u32 = 10;
-			NetworkShardTaskLimit::<T>::get(network).unwrap_or(DEFAULT_SHARD_TASK_LIMIT)
+			NetworkShardTaskLimit::<T>::get(network).unwrap_or(10)
 		}
 	}
 }

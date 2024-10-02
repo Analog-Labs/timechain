@@ -65,7 +65,7 @@ pub async fn run_chronicle<C: IConnector>(
 	config: ChronicleConfig,
 	substrate: impl Runtime,
 ) -> Result<()> {
-	// initialize connector
+	// Initialize connector
 	let (chain, subchain) = loop {
 		let network = substrate.get_network(config.network_id).await?;
 		if let Some(network) = network {
@@ -109,6 +109,7 @@ pub async fn run_chronicle<C: IConnector>(
 	let timechain_address = time_primitives::format_address(substrate.account_id());
 	let target_address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
+	let min_stake = substrate.get_min_stake().await?;
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
 	event!(target: TW_LOG, Level::INFO, "peer id: {}", peer_id);
@@ -118,7 +119,7 @@ pub async fn run_chronicle<C: IConnector>(
 			Config::new(config.network_id, timechain_address, target_address, peer_id),
 		);
 	}
-	let timechain_min_balance = config.timechain_min_balance;
+	let timechain_min_balance = config.timechain_min_balance + min_stake;
 	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
 		tracing::warn!(target: TW_LOG, "timechain balance is below {timechain_min_balance}");
 		sleep(Duration::from_secs(10)).await;

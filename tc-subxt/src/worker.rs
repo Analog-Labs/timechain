@@ -8,60 +8,27 @@ use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	AccountId, Commitment, Gateway, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
-	TaskId, TaskResult,
+	traits::IdentifyAccount, AccountId, Commitment, Network, NetworkConfig, NetworkId, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
 pub enum Tx {
 	// balances
-	Transfer {
-		account: AccountId,
-		balance: u128,
-	},
+	Transfer { account: AccountId, balance: u128 },
 	// networks
-	RegisterNetwork {
-		network: NetworkId,
-		chain_name: String,
-		chain_network: String,
-		gateway: Gateway,
-		block_height: u64,
-	},
-	SetNetworkConfig {
-		network: NetworkId,
-		batch_size: u32,
-		batch_offset: u32,
-		batch_gas_limit: u128,
-		shard_task_limit: u32,
-	},
+	RegisterNetwork { network: Network },
+	SetNetworkConfig { network: NetworkId, config: NetworkConfig },
 	// members
-	RegisterMember {
-		network: NetworkId,
-		peer_id: PeerId,
-		stake_amount: u128,
-	},
+	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
 	UnregisterMember,
 	Heartbeat,
 	// shards
-	SetShardConfig {
-		shard_size: u16,
-		shard_threshold: u16,
-	},
-	SetElectable {
-		accounts: Vec<AccountId>,
-	},
-	Commitment {
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	},
-	Ready {
-		shard_id: ShardId,
-	},
+	SetShardConfig { shard_size: u16, shard_threshold: u16 },
+	SetElectable { accounts: Vec<AccountId> },
+	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
+	Ready { shard_id: ShardId },
 	// tasks
-	SubmitTaskResult {
-		task_id: TaskId,
-		result: TaskResult,
-	},
+	SubmitTaskResult { task_id: TaskId, result: TaskResult },
 }
 
 pub struct SubxtWorker {
@@ -91,13 +58,11 @@ impl SubxtWorker {
 	}
 
 	pub fn public_key(&self) -> PublicKey {
-		let public_key = self.keypair.public_key();
-		PublicKey::Sr25519(unsafe { std::mem::transmute(public_key) })
+		PublicKey::Sr25519(self.keypair.public_key().as_ref().try_into().unwrap())
 	}
 
 	pub fn account_id(&self) -> AccountId {
-		let account_id: subxt::utils::AccountId32 = self.keypair.public_key().into();
-		unsafe { std::mem::transmute(account_id) }
+		self.public_key().into_account()
 	}
 
 	async fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>
@@ -125,46 +90,28 @@ impl SubxtWorker {
 			match transaction {
 				// balances
 				Tx::Transfer { account, balance } => {
-					let account: subxt::utils::AccountId32 =
-						unsafe { std::mem::transmute(account) };
+					let account = subxt::utils::Static(account);
 					let payload =
 						metadata::tx().balances().transfer_allow_death(account.into(), balance);
 					self.create_signed_payload(&payload).await
 				},
 				// networks
-				Tx::RegisterNetwork {
-					network,
-					chain_name,
-					chain_network,
-					gateway,
-					block_height,
-				} => {
+				Tx::RegisterNetwork { network } => {
+					let network = subxt::utils::Static(network);
 					let runtime_call = RuntimeCall::Networks(
 						metadata::runtime_types::pallet_networks::pallet::Call::register_network {
 							network,
-							chain_name,
-							chain_network,
-							gateway,
-							block_height,
 						},
 					);
 					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
-				Tx::SetNetworkConfig {
-					network,
-					batch_size,
-					batch_offset,
-					batch_gas_limit,
-					shard_task_limit,
-				} => {
+				Tx::SetNetworkConfig { network, config } => {
+					let config = subxt::utils::Static(config);
 					let runtime_call = RuntimeCall::Networks(
 						metadata::runtime_types::pallet_networks::pallet::Call::set_network_config {
 							network,
-							batch_size,
-							batch_offset,
-							batch_gas_limit,
-							shard_task_limit,
+							config,
 						},
 					);
 					let payload = sudo(runtime_call);
@@ -172,7 +119,7 @@ impl SubxtWorker {
 				},
 				// members
 				Tx::RegisterMember { network, peer_id, stake_amount } => {
-					let public_key = unsafe { std::mem::transmute(self.public_key()) };
+					let public_key = subxt::utils::Static(self.public_key());
 					let payload = metadata::tx().members().register_member(
 						network,
 						public_key,
@@ -201,7 +148,7 @@ impl SubxtWorker {
 					self.create_signed_payload(&payload).await
 				},
 				Tx::SetElectable { accounts } => {
-					let electable = unsafe { std::mem::transmute(accounts) };
+					let electable = accounts.into_iter().map(subxt::utils::Static).collect();
 					let runtime_call = RuntimeCall::Elections(
 						metadata::runtime_types::pallet_elections::pallet::Call::set_electable {
 							electable,
@@ -225,8 +172,7 @@ impl SubxtWorker {
 				},
 				// tasks
 				Tx::SubmitTaskResult { task_id, result } => {
-					use metadata::runtime_types::time_primitives::task;
-					let result: task::TaskResult = unsafe { std::mem::transmute(result) };
+					let result = subxt::utils::Static(result);
 					let payload = metadata::tx().tasks().submit_task_result(task_id, result);
 					self.create_signed_payload(&payload).await
 				},
@@ -297,6 +243,7 @@ impl SubxtWorker {
 							Ok(()) => {
 								tracing::info!("Upgrade to version: {} successful", version)
 							},
+							Err(subxt::client::UpgradeError::SameVersion) => {}
 							Err(e) => {
 								tracing::error!("Upgrade to version {} failed {:?}", version, e);
 							},

@@ -108,7 +108,8 @@ pub mod pallet {
 
 	/// Electable shard members
 	#[pallet::storage]
-	pub type Electable<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+	pub type Electable<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -136,7 +137,7 @@ pub mod pallet {
 			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
 			for account in &self.electable {
-				Electable::<T>::insert(account, ());
+				Electable::<T>::insert(account.clone(), account);
 			}
 		}
 	}
@@ -210,7 +211,7 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			let _ = Electable::<T>::clear(u32::MAX, None);
 			for account in electable {
-				Electable::<T>::insert(account, ());
+				Electable::<T>::insert(account.clone(), account);
 			}
 			Ok(())
 		}
@@ -260,6 +261,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Return electable accounts.
+		pub fn get_electable() -> Vec<AccountId> {
+			Electable::<T>::iter().map(|(_, e)| e).collect()
+		}
+
 		///   Attempts to elect a new shard for a network.
 		/// # Flow
 		///    1. Calls `new_shard_members` to get a list of new shard members.

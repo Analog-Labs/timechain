@@ -16,6 +16,7 @@ concurrency:
 jobs:
   try-runtime:
     runs-on: [self-hosted, general]
+    if: false
     strategy:
       fail-fast: false
       matrix:

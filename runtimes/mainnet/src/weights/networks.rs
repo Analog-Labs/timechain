@@ -61,13 +61,15 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 1000]`.
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
-	fn register_network(_a: u32, _b: u32, ) -> Weight {
+	fn register_network(a: u32, _b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `118`
 		//  Estimated: `3583`
-		// Minimum execution time: 61_044_000 picoseconds.
-		Weight::from_parts(122_010_057, 0)
+		// Minimum execution time: 55_063_000 picoseconds.
+		Weight::from_parts(63_303_978, 0)
 			.saturating_add(Weight::from_parts(0, 3583))
+			// Standard Error: 771
+			.saturating_add(Weight::from_parts(5_124, 0).saturating_mul(a.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(12))
 	}
@@ -85,8 +87,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `277`
 		//  Estimated: `3742`
-		// Minimum execution time: 23_412_000 picoseconds.
-		Weight::from_parts(27_131_000, 0)
+		// Minimum execution time: 21_800_000 picoseconds.
+		Weight::from_parts(23_825_000, 0)
 			.saturating_add(Weight::from_parts(0, 3742))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(4))

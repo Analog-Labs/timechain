@@ -19,11 +19,11 @@ fn mock_network_config() -> NetworkConfig {
 	}
 }
 
-fn mock_network() -> Network {
+fn mock_network(chain_name: String, chain_network: String) -> Network {
 	Network {
 		id: 42,
-		chain_name: "Ethereum".into(),
-		chain_network: "Mainnet".into(),
+		chain_name,
+		chain_network,
 		gateway: [0; 32],
 		gateway_block: 99,
 		config: mock_network_config(),
@@ -42,10 +42,11 @@ benchmarks! {
 		for _ in 0..b {
 			network.push('b');
 		}
-	}: _(RawOrigin::Root, mock_network())
+	}: _(RawOrigin::Root, mock_network(name, network))
 	verify {}
 
 	set_network_config {
+		Pallet::<T>::register_network(RawOrigin::Root.into(), mock_network("Ethereum".into(), "Mainnet".into())).unwrap();
 	}: _(RawOrigin::Root, 42, mock_network_config())
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

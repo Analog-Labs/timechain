@@ -417,7 +417,7 @@ async fn main() -> Result<()> {
 		},
 		// read data
 		Command::FetchTokenPriceData => {
-			todo!();
+			tc.fetch_token_prices().await;
 		},
 		Command::Networks => {
 			let networks = tc.networks().await?;

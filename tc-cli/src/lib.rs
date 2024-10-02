@@ -1,5 +1,7 @@
 use crate::config::{Backend, Config};
 use anyhow::{Context, Result};
+use dotenv::dotenv;
+use reqwest::header::{HeaderMap, HeaderValue};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -208,8 +210,28 @@ impl Tc {
 	}
 
 	pub async fn fetch_token_prices(&self) {
+		dotenv().ok();
+		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
+		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");
+		let mut header_map = HeaderMap::new();
+		header_map.insert(
+			"X-CMC_PRO_API_KEY",
+			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
+		);
+		let network_prices: HashMap<String, String> = HashMap::new();
 		for (network_id, network) in &self.config.networks {
 			let symbol = network.symbol.clone();
+			let token_url = format!("{}{}", base_url, symbol);
+			let response = reqwest::Client::new()
+				.get(token_url)
+				.headers(header_map.clone())
+				.send()
+				.await
+				.unwrap()
+				.text()
+				.await
+				.unwrap();
+			println!("response: {:?}", response);
 		}
 	}
 }

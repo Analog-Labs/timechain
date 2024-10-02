@@ -11,6 +11,7 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+dotenv = "0.15.0"
 #gmp-evm.workspace = true
 gmp-grpc.workspace = true
 hex.workspace = true

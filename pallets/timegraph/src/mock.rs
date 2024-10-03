@@ -40,7 +40,6 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
 
-
 // #[derive_impl(pallet_timegraph::config_preludes::TestDefaultConfig)]
 impl pallet_timegraph::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

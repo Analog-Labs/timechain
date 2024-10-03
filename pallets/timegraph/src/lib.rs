@@ -21,7 +21,7 @@ pub mod pallet {
 	use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, ReservableCurrency, ExistenceRequirement};
+	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::Saturating;
 
@@ -69,23 +69,22 @@ pub mod pallet {
 		type InitialTimegraphAccount: Get<Self::AccountId>;
 		#[pallet::constant]
 		type InitialRewardPoolAccount: Get<Self::AccountId>;
-
 	}
 
 	#[pallet::type_value]
-    pub fn DefaultTimegraphAccount<T: Config>() -> T::AccountId {
-        T::InitialTimegraphAccount::get()
-    }
+	pub fn DefaultTimegraphAccount<T: Config>() -> T::AccountId {
+		T::InitialTimegraphAccount::get()
+	}
 
 	#[pallet::type_value]
-    pub fn DefaultRewardPoolAccount<T: Config>() -> T::AccountId {
-        T::InitialRewardPoolAccount::get()
-    }
+	pub fn DefaultRewardPoolAccount<T: Config>() -> T::AccountId {
+		T::InitialRewardPoolAccount::get()
+	}
 
 	#[pallet::type_value]
-    pub fn DefaultThreshold<T: Config>() -> BalanceOf<T> {
-        T::InitialThreshold::get()
-    }
+	pub fn DefaultThreshold<T: Config>() -> BalanceOf<T> {
+		T::InitialThreshold::get()
+	}
 
 	///Stores the next deposit sequence number for each account.
 	#[pallet::storage]
@@ -101,11 +100,13 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn timegraph_account)]
-	pub type TimegraphAccount<T: Config> = StorageValue<_, T::AccountId, ValueQuery, DefaultTimegraphAccount<T>>;
+	pub type TimegraphAccount<T: Config> =
+		StorageValue<_, T::AccountId, ValueQuery, DefaultTimegraphAccount<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward_pool_account)]
-	pub type RewardPoolAccount<T: Config> = StorageValue<_, T::AccountId, ValueQuery, DefaultRewardPoolAccount<T>>;
+	pub type RewardPoolAccount<T: Config> =
+		StorageValue<_, T::AccountId, ValueQuery, DefaultRewardPoolAccount<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn threshold)]
@@ -115,20 +116,72 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Deposit event
-		Deposit(T::AccountId, BalanceOf<T>, u64),
-		/// Withdrawal Event
-		Withdrawal(T::AccountId, BalanceOf<T>, u64),
+		///
+		/// # Parameters
+		/// - `who`: The account ID of the user making the deposit.
+		/// - `amount`: The amount of funds deposited.
+		/// - `sequence`: The sequence number of the deposit.
+		Deposit {
+			who: T::AccountId,
+			amount: BalanceOf<T>,
+			sequence: u64,
+		},
+		/// Withdrawal event
+		///
+		/// # Parameters
+		/// - `who`: The account ID of the user making the withdrawal.
+		/// - `amount`: The amount of funds withdrawn.
+		/// - `sequence`: The sequence number of the withdrawal.
+		Withdrawal {
+			who: T::AccountId,
+			amount: BalanceOf<T>,
+			sequence: u64,
+		},
+
+		TransferToPool {
+			from: T::AccountId,
+			to: T::AccountId,
+			amount: BalanceOf<T>,
+		},
+
+		TransferAwardToUser {
+			from: T::AccountId,
+			to: T::AccountId,
+			amount: BalanceOf<T>,
+		},
+
+		TimegraphAccountReset {
+			old: T::AccountId,
+			new: T::AccountId,
+		},
+
+		RewardPoolAccountReset {
+			old: T::AccountId,
+			new: T::AccountId,
+		},
+
+		ThresholdReset {
+			old: BalanceOf<T>,
+			new: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// withdrawal sequence from timegraph is not expected
-		WithDrawalSequenceMismatch,
 		/// sequence number overflow
 		SequenceNumberOverflow,
 		/// zero amount
 		ZeroAmount,
-
+		/// must keep the threshold until account is removed.
+		WithdrawalAmountOverReserve,
+		/// The amount to be withdrawn is not required.
+		NotWithdrawalRequired,
+		/// The reward pool does not have enough balance to complete the operation.
+		RewardPoolOutOfBalance,
+		RewardToSameAccount,
+		SameTimegraphAccount,
+		SameRewardPoolAccount,
+		SameThreshold,
 	}
 
 	#[pallet::call]
@@ -155,7 +208,11 @@ pub mod pallet {
 				Ok(())
 			})?;
 
-			Self::deposit_event(Event::Deposit(who.clone(), amount, NextDepositSequence::<T>::get(who)));
+			Self::deposit_event(Event::Deposit {
+				who: who.clone(),
+				amount,
+				sequence: NextDepositSequence::<T>::get(who),
+			});
 
 			Ok(())
 		}
@@ -179,11 +236,14 @@ pub mod pallet {
 			let current_reserve = T::Currency::reserved_balance(&who);
 			let threshold = Threshold::<T>::get();
 
-			ensure!(amount.saturating_add(threshold) <= current_reserve, Error::<T>::SequenceNumberOverflow);
+			ensure!(
+				amount.saturating_add(threshold) <= current_reserve,
+				Error::<T>::WithdrawalAmountOverReserve
+			);
 
 			ensure!(
-				T::Currency::unreserve(&who, amount) > (BalanceOf::<T>::from(0_u32)),
-				Error::<T>::SequenceNumberOverflow
+				T::Currency::unreserve(&who, amount) == amount,
+				Error::<T>::NotWithdrawalRequired
 			);
 
 			NextWithdrawalSequence::<T>::try_mutate(&who, |x| -> DispatchResult {
@@ -191,77 +251,182 @@ pub mod pallet {
 				Ok(())
 			})?;
 
-			Self::deposit_event(Event::Withdrawal(
-				who.clone(),
+			Self::deposit_event(Event::Withdrawal {
+				who: who.clone(),
 				amount,
-				NextWithdrawalSequence::<T>::get(&who),
-			));
+				sequence: NextWithdrawalSequence::<T>::get(&who),
+			});
 			Ok(())
 		}
 
+		/// The extrinsic from timegraph allows transferring funds to the reward pool
+		///
+		/// # Flow
+		/// 1. Ensure the origin is the timegraph account.
+		/// 2. Unreserve the specified amount from the given account.
+		/// 3. Transfer the unreserved funds to the reward pool account.
+		/// 4. Emit a [`Event::TransferToPool`] event.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::transfer_to_pool())]
-		pub fn transfer_to_pool(origin: OriginFor<T>, account: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn transfer_to_pool(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			Self::ensure_timegraph(origin)?;
 			let unserved = T::Currency::unreserve(&account, amount);
-			ensure!(
-				unserved > (BalanceOf::<T>::from(0_u32)),
-				Error::<T>::SequenceNumberOverflow
-			);
+			ensure!(unserved == amount, Error::<T>::NotWithdrawalRequired);
 
+			T::Currency::transfer(
+				&account,
+				&RewardPoolAccount::<T>::get(),
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
+
+			Self::deposit_event(Event::TransferToPool {
+				from: account.clone(),
+				to: RewardPoolAccount::<T>::get(),
+				amount,
+			});
 
 			Ok(())
 		}
 
+
+		/// The extrinsic from timegraph allows transferring awards to a user
+		///
+		/// # Flow
+		/// 1. Ensure the origin is the timegraph account.
+		/// 2. Ensure the account is not the reward pool account.
+		/// 3. Check if the reward pool has enough balance.
+		/// 4. Transfer the specified amount from the reward pool account to the given account.
+		/// 5. Reserve the transferred amount in the given account.
+		/// 6. Emit a [`Event::TransferAwardToUser`] event.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::transfer_award_to_user())]
-		pub fn transfer_award_to_user(origin: OriginFor<T>, account: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn transfer_award_to_user(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			Self::ensure_timegraph(origin)?;
+			ensure!(account != RewardPoolAccount::<T>::get(), Error::<T>::RewardToSameAccount);
+
 			let pool_account = RewardPoolAccount::<T>::get();
-
 			let pool_balance = T::Currency::free_balance(&pool_account);
-			ensure!(pool_balance > amount, Error::<T>::SequenceNumberOverflow);
+			ensure!(pool_balance > amount, Error::<T>::RewardPoolOutOfBalance);
 
-			T::Currency::transfer(&pool_account, &account, amount, ExistenceRequirement::KeepAlive)?;
+			T::Currency::transfer(
+				&pool_account,
+				&account,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
+
+			T::Currency::reserve(&account, amount)?;
+
+			Self::deposit_event(Event::TransferAwardToUser {
+				from: RewardPoolAccount::<T>::get(),
+				to: account,
+				amount,
+			});
 
 			Ok(())
 		}
 
+		/// The extrinsic allows setting a new timegraph account
+		///
+		/// # Flow
+		/// 1. Ensure the origin is the root account.
+		/// 2. Ensure the new account is different from the current timegraph account.
+		/// 3. Emit a [`Event::TimegraphAccountReset`] event.
+		/// 4. Set the new timegraph account.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
-		pub fn set_timegraph_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+		pub fn set_timegraph_account(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(account.clone() != TimegraphAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			ensure!(
+				account.clone() != TimegraphAccount::<T>::get(),
+				Error::<T>::SameTimegraphAccount
+			);
+
+			Self::deposit_event(Event::TimegraphAccountReset {
+				old: TimegraphAccount::<T>::get(),
+				new: account.clone(),
+			});
+
 			TimegraphAccount::<T>::set(account);
+
 			Ok(())
 		}
 
+		/// The extrinsic allows setting a new reward pool account
+		///
+		/// # Flow
+		/// 1. Ensure the origin is the root account.
+		/// 2. Ensure the new account is different from the current reward pool account.
+		/// 3. Emit a [`Event::RewardPoolAccountReset`] event.
+		/// 4. Set the new reward pool account.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
-		pub fn set_reward_pool_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+		pub fn set_reward_pool_account(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			ensure!(account.clone() != RewardPoolAccount::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			ensure!(
+				account.clone() != RewardPoolAccount::<T>::get(),
+				Error::<T>::SameRewardPoolAccount
+			);
 
+			Self::deposit_event(Event::RewardPoolAccountReset {
+				old: RewardPoolAccount::<T>::get(),
+				new: account.clone(),
+			});
 
 			RewardPoolAccount::<T>::set(account);
 
 			Ok(())
 		}
 
+		/// The extrinsic allows setting a new threshold
+		///
+		/// # Flow
+		/// 1. Ensure the origin is the root account.
+		/// 2. Ensure the new threshold amount is different from the current threshold.
+		/// 3. Emit a [`Event::ThresholdReset`] event.
+		/// 4. Set the new threshold amount.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
 		pub fn set_threshold(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			ensure_root(origin)?;
 
-			ensure!(amount != Threshold::<T>::get(), Error::<T>::SequenceNumberOverflow);
+			ensure!(amount != Threshold::<T>::get(), Error::<T>::SameThreshold);
+
+			Self::deposit_event(Event::ThresholdReset {
+				old: Threshold::<T>::get(),
+				new: amount,
+			});
+
 			Threshold::<T>::set(amount);
 
 			Ok(())
 		}
 	}
 
-	impl<T: Config>  Pallet<T> {
+	impl<T: Config> Pallet<T> {
+		/// Ensures that the origin is the current timegraph account.
+		///
+		/// # Parameters
+		/// - `origin`: The origin of the call, which must be a signed account.
+		///
+		/// # Errors
+		/// - Returns `Error::<T>::SequenceNumberOverflow` if the origin is not the current timegraph account.
 		pub fn ensure_timegraph(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let current_account = TimegraphAccount::<T>::get();

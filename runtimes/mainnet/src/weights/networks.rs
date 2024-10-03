@@ -57,23 +57,23 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::ReadEventsTask` (r:0 w:1)
 	/// Proof: `Tasks::ReadEventsTask` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::TaskNetwork` (r:0 w:1)
+	/// Proof: `Tasks::TaskNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
-	fn register_network(a: u32, b: u32, ) -> Weight {
+	fn register_network(a: u32, _b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `118`
 		//  Estimated: `3583`
-		// Minimum execution time: 58_599_000 picoseconds.
-		Weight::from_parts(50_514_770, 0)
+		// Minimum execution time: 57_739_000 picoseconds.
+		Weight::from_parts(78_081_191, 0)
 			.saturating_add(Weight::from_parts(0, 3583))
-			// Standard Error: 1_089
-			.saturating_add(Weight::from_parts(12_898, 0).saturating_mul(a.into()))
-			// Standard Error: 1_089
-			.saturating_add(Weight::from_parts(15_981, 0).saturating_mul(b.into()))
+			// Standard Error: 1_023
+			.saturating_add(Weight::from_parts(1_414, 0).saturating_mul(a.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(12))
+			.saturating_add(T::DbWeight::get().writes(13))
 	}
 	/// Storage: `Networks::Networks` (r:1 w:0)
 	/// Proof: `Networks::Networks` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -89,8 +89,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `277`
 		//  Estimated: `3742`
-		// Minimum execution time: 22_823_000 picoseconds.
-		Weight::from_parts(24_196_000, 0)
+		// Minimum execution time: 22_161_000 picoseconds.
+		Weight::from_parts(23_815_000, 0)
 			.saturating_add(Weight::from_parts(0, 3742))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(4))

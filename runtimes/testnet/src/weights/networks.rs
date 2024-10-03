@@ -57,6 +57,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::ReadEventsTask` (r:0 w:1)
 	/// Proof: `Tasks::ReadEventsTask` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::TaskNetwork` (r:0 w:1)
+	/// Proof: `Tasks::TaskNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
 	/// The range of component `a` is `[1, 1000]`.
@@ -65,11 +67,11 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `118`
 		//  Estimated: `3583`
-		// Minimum execution time: 58_990_000 picoseconds.
-		Weight::from_parts(91_192_236, 0)
+		// Minimum execution time: 55_625_000 picoseconds.
+		Weight::from_parts(71_791_502, 0)
 			.saturating_add(Weight::from_parts(0, 3583))
 			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(12))
+			.saturating_add(T::DbWeight::get().writes(13))
 	}
 	/// Storage: `Networks::Networks` (r:1 w:0)
 	/// Proof: `Networks::Networks` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -85,8 +87,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `277`
 		//  Estimated: `3742`
-		// Minimum execution time: 23_784_000 picoseconds.
-		Weight::from_parts(31_659_000, 0)
+		// Minimum execution time: 23_053_000 picoseconds.
+		Weight::from_parts(27_952_000, 0)
 			.saturating_add(Weight::from_parts(0, 3742))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(4))

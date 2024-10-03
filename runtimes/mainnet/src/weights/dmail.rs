@@ -35,12 +35,16 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_dmail::WeightInfo for WeightInfo<T> {
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
-	fn send_email(_a: u32, _b: u32, ) -> Weight {
+	fn send_email(a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_996_000 picoseconds.
-		Weight::from_parts(19_364_673, 0)
+		// Minimum execution time: 8_637_000 picoseconds.
+		Weight::from_parts(9_341_654, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 108
+			.saturating_add(Weight::from_parts(377, 0).saturating_mul(a.into()))
+			// Standard Error: 108
+			.saturating_add(Weight::from_parts(624, 0).saturating_mul(b.into()))
 	}
 }

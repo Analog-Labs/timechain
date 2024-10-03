@@ -76,10 +76,14 @@ pub mod pallet {
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn submit_task_result() -> Weight;
+		fn schedule_tasks(n: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn submit_task_result() -> Weight {
+			Weight::default()
+		}
+		fn schedule_tasks(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -288,7 +292,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::prepare_batches().saturating_add(Self::schedule_tasks())
+			Self::schedule_tasks()
 		}
 	}
 
@@ -480,8 +484,7 @@ pub mod pallet {
 			ShardRegistered::<T>::get(pubkey).is_some()
 		}
 
-		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) -> Weight {
-			let (mut reads, mut writes) = (0, 0);
+		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) {
 			let needs_signer =
 				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
 			ShardTasks::<T>::insert(shard, task_id, ());
@@ -489,20 +492,12 @@ pub mod pallet {
 			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_add(1));
 			if needs_signer {
 				TaskSubmitter::<T>::insert(task_id, T::Shards::next_signer(shard));
-				writes = writes.saturating_plus_one();
 			}
-			// writes: remove_unassigned_task, ShardTasks, TaskShard, start_phase
-			writes = writes.saturating_add(4);
-			// reads: TaskShard, TaskPhaseState
-			reads = reads.saturating_add(2);
-			T::DbWeight::get()
-				.reads(reads)
-				.saturating_add(T::DbWeight::get().writes(writes))
 		}
 
 		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing
 		/// task allocation based on current workload and system constraints.
-		///
+		/// Returns number of tasks assigned
 		/// # Flow
 		///   1. Count the number of incomplete tasks (`tasks`) for the specified `shard_id`.
 		///   2. Determine the size of the shard (`shard_size`) based on the number of shard members.
@@ -512,19 +507,17 @@ pub mod pallet {
 		///   6. If `capacity` is zero, stop further task assignments.
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
-		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> Weight {
-			let mut reads = 0;
+		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> u32 {
+			let mut num_tasks_assigned = 0u32;
 			let queue = Self::ua_task_queue(network);
-			// reads: T::Shards::shard_members, ShardRegistered, prioritized_unassigned_tasks
-			reads = reads.saturating_add(3);
-			let mut weight = T::DbWeight::get().reads(reads);
 			for _ in 0..capacity {
 				let Some(task) = queue.pop() else {
 					break;
 				};
-				weight = weight.saturating_add(Self::assign_task(shard_id, task));
+				Self::assign_task(shard_id, task);
+				num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 			}
-			weight
+			num_tasks_assigned
 		}
 
 		/// Schedule tasks for a specified network, optionally targeting a specific shard if provided.
@@ -536,6 +529,8 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
+			Self::prepare_batches();
+			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
 
@@ -544,6 +539,7 @@ pub mod pallet {
 					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
 							Self::assign_task(shard, task_id);
+							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							break;
 						}
 					}
@@ -567,15 +563,15 @@ pub mod pallet {
 
 				// assign tasks
 				for shard in registered_shards {
-					let capacity = tasks_per_shard - ShardTaskCount::<T>::get(shard);
-					Self::schedule_tasks_shard(network, shard, capacity);
+					let capacity = tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard));
+					num_tasks_assigned = num_tasks_assigned
+						.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
 				}
 			}
-			Weight::default()
+			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)
 		}
 
-		fn prepare_batches() -> Weight {
-			let weight = Weight::default();
+		fn prepare_batches() {
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
@@ -589,7 +585,6 @@ pub mod pallet {
 					Self::start_batch(network, msg);
 				}
 			}
-			weight
 		}
 
 		fn start_batch(network: NetworkId, msg: GatewayMessage) {

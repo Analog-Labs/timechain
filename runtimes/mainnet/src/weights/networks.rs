@@ -39,13 +39,17 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::NetworkIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 1000]`.
 	/// The range of component `b` is `[1, 1000]`.
-	fn add_network(_a: u32, _b: u32, ) -> Weight {
+	fn add_network(a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `359`
 		//  Estimated: `21149`
-		// Minimum execution time: 49_693_000 picoseconds.
-		Weight::from_parts(73_051_632, 0)
+		// Minimum execution time: 48_539_000 picoseconds.
+		Weight::from_parts(58_227_517, 0)
 			.saturating_add(Weight::from_parts(0, 21149))
+			// Standard Error: 1_118
+			.saturating_add(Weight::from_parts(289, 0).saturating_mul(a.into()))
+			// Standard Error: 1_118
+			.saturating_add(Weight::from_parts(4_018, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -55,8 +59,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `332`
 		//  Estimated: `3797`
-		// Minimum execution time: 19_997_000 picoseconds.
-		Weight::from_parts(21_209_000, 0)
+		// Minimum execution time: 21_732_000 picoseconds.
+		Weight::from_parts(29_105_000, 0)
 			.saturating_add(Weight::from_parts(0, 3797))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))

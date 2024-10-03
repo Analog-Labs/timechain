@@ -138,28 +138,55 @@ pub mod pallet {
 			sequence: u64,
 		},
 
+		/// Transfer to pool event
+		///
+		/// # Parameters
+		/// - `from`: The account ID of the user transferring the funds.
+		/// - `to`: The account ID of the pool receiving the funds.
+		/// - `amount`: The amount of funds transferred.
 		TransferToPool {
 			from: T::AccountId,
 			to: T::AccountId,
 			amount: BalanceOf<T>,
 		},
 
+		/// Transfer award to user event
+		///
+		/// # Parameters
+		/// - `from`: The account ID of the pool transferring the award.
+		/// - `to`: The account ID of the user receiving the award.
+		/// - `amount`: The amount of award transferred.
 		TransferAwardToUser {
 			from: T::AccountId,
 			to: T::AccountId,
 			amount: BalanceOf<T>,
 		},
 
+		/// Timegraph account reset event
+		///
+		/// # Parameters
+		/// - `old`: The old timegraph account ID.
+		/// - `new`: The new timegraph account ID.
 		TimegraphAccountReset {
 			old: T::AccountId,
 			new: T::AccountId,
 		},
 
+		/// Reward pool account reset event
+		///
+		/// # Parameters
+		/// - `old`: The old reward pool account ID.
+		/// - `new`: The new reward pool account ID.
 		RewardPoolAccountReset {
 			old: T::AccountId,
 			new: T::AccountId,
 		},
 
+		/// Threshold reset event
+		///
+		/// # Parameters
+		/// - `old`: The old threshold value.
+		/// - `new`: The new threshold value.
 		ThresholdReset {
 			old: BalanceOf<T>,
 			new: BalanceOf<T>,
@@ -178,10 +205,17 @@ pub mod pallet {
 		NotWithdrawalRequired,
 		/// The reward pool does not have enough balance to complete the operation.
 		RewardPoolOutOfBalance,
+		/// The reward cannot be transferred to the same account.
 		RewardToSameAccount,
+		/// The new timegraph account cannot be the same as the old one.
 		SameTimegraphAccount,
+		/// The new reward pool account cannot be the same as the old one.
 		SameRewardPoolAccount,
+		/// The new threshold cannot be the same as the old one.
 		SameThreshold,
+
+		/// The sender is not a timegraph account.
+		SenderIsNotTimegraph,
 	}
 
 	#[pallet::call]
@@ -426,11 +460,11 @@ pub mod pallet {
 		/// - `origin`: The origin of the call, which must be a signed account.
 		///
 		/// # Errors
-		/// - Returns `Error::<T>::SequenceNumberOverflow` if the origin is not the current timegraph account.
+		/// - Returns `Error::<T>::SenderIsNotTimegraph` if the origin is not the current timegraph account.
 		pub fn ensure_timegraph(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let current_account = TimegraphAccount::<T>::get();
-			ensure!(who == current_account, Error::<T>::SequenceNumberOverflow);
+			ensure!(who == current_account, Error::<T>::SenderIsNotTimegraph);
 			Ok(())
 		}
 	}

@@ -774,13 +774,14 @@ impl Tc {
 		tester: Address,
 		dest: NetworkId,
 		dest_addr: Address,
+		nonce: u64,
 	) -> Result<MessageId> {
 		let msg = GmpMessage {
 			src_network: network,
 			src: tester,
 			dest_network: dest,
 			dest: dest_addr,
-			nonce: 0,
+			nonce,
 			gas_limit: 100,
 			gas_cost: 200,
 			bytes: vec![],

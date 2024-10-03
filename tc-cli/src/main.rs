@@ -594,6 +594,8 @@ async fn main() -> Result<()> {
 		},
 		Command::Benchmark { src, dest, num_messages } => {
 			let (src_addr, dest_addr) = setup(&tc, src, dest).await?;
+			wait_for_sync(&tc, src).await?;
+			wait_for_sync(&tc, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
 			let mut msgs = HashSet::new();
@@ -614,9 +616,9 @@ async fn main() -> Result<()> {
 				}
 				let num_received = num_messages - msgs.len() as u16;
 				let blocks = block - start;
-				let throughput = num_received as u32 / blocks;
+				let throughput = num_received as f64 / blocks as f64;
 				println!("{num_received} out of {num_messages} received in {blocks} blocks");
-				println!("throughput {throughput} msgs/block");
+				println!("throughput {throughput:.3} msgs/block");
 				if msgs.is_empty() {
 					break;
 				}
@@ -674,4 +676,16 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 		}
 	}
 	Ok((src_addr, dest_addr))
+}
+
+async fn wait_for_sync(tc: &Tc, network: NetworkId) -> Result<()> {
+	let mut blocks = tc.finality_notification_stream();
+	while blocks.next().await.is_some() {
+		let status = tc.sync_status(network).await?;
+		tracing::info!("waiting for network {network} to sync {} / {}", status.sync, status.block);
+		if status.next_sync > status.block {
+			break;
+		}
+	}
+	Ok(())
 }

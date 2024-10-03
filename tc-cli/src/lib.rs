@@ -316,6 +316,7 @@ pub struct SyncStatus {
 	pub task: TaskId,
 	pub block: u64,
 	pub sync: u64,
+	pub next_sync: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -365,6 +366,7 @@ impl Tc {
 			task: sync_task,
 			block,
 			sync: blocks.start,
+			next_sync: blocks.end,
 		})
 	}
 

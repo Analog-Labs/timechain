@@ -121,22 +121,14 @@ pub mod pallet {
 		/// - `who`: The account ID of the user making the deposit.
 		/// - `amount`: The amount of funds deposited.
 		/// - `sequence`: The sequence number of the deposit.
-		Deposit {
-			who: T::AccountId,
-			amount: BalanceOf<T>,
-			sequence: u64,
-		},
+		Deposit { who: T::AccountId, amount: BalanceOf<T>, sequence: u64 },
 		/// Withdrawal event
 		///
 		/// # Parameters
 		/// - `who`: The account ID of the user making the withdrawal.
 		/// - `amount`: The amount of funds withdrawn.
 		/// - `sequence`: The sequence number of the withdrawal.
-		Withdrawal {
-			who: T::AccountId,
-			amount: BalanceOf<T>,
-			sequence: u64,
-		},
+		Withdrawal { who: T::AccountId, amount: BalanceOf<T>, sequence: u64 },
 
 		/// Transfer to pool event
 		///
@@ -144,11 +136,7 @@ pub mod pallet {
 		/// - `from`: The account ID of the user transferring the funds.
 		/// - `to`: The account ID of the pool receiving the funds.
 		/// - `amount`: The amount of funds transferred.
-		TransferToPool {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-		},
+		TransferToPool { from: T::AccountId, to: T::AccountId, amount: BalanceOf<T> },
 
 		/// Transfer award to user event
 		///
@@ -156,41 +144,28 @@ pub mod pallet {
 		/// - `from`: The account ID of the pool transferring the award.
 		/// - `to`: The account ID of the user receiving the award.
 		/// - `amount`: The amount of award transferred.
-		TransferAwardToUser {
-			from: T::AccountId,
-			to: T::AccountId,
-			amount: BalanceOf<T>,
-		},
+		TransferAwardToUser { from: T::AccountId, to: T::AccountId, amount: BalanceOf<T> },
 
 		/// Timegraph account reset event
 		///
 		/// # Parameters
 		/// - `old`: The old timegraph account ID.
 		/// - `new`: The new timegraph account ID.
-		TimegraphAccountReset {
-			old: T::AccountId,
-			new: T::AccountId,
-		},
+		TimegraphAccountReset { old: T::AccountId, new: T::AccountId },
 
 		/// Reward pool account reset event
 		///
 		/// # Parameters
 		/// - `old`: The old reward pool account ID.
 		/// - `new`: The new reward pool account ID.
-		RewardPoolAccountReset {
-			old: T::AccountId,
-			new: T::AccountId,
-		},
+		RewardPoolAccountReset { old: T::AccountId, new: T::AccountId },
 
 		/// Threshold reset event
 		///
 		/// # Parameters
 		/// - `old`: The old threshold value.
 		/// - `new`: The new threshold value.
-		ThresholdReset {
-			old: BalanceOf<T>,
-			new: BalanceOf<T>,
-		},
+		ThresholdReset { old: BalanceOf<T>, new: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -213,7 +188,6 @@ pub mod pallet {
 		SameRewardPoolAccount,
 		/// The new threshold cannot be the same as the old one.
 		SameThreshold,
-
 		/// The sender is not a timegraph account.
 		SenderIsNotTimegraph,
 	}
@@ -326,7 +300,6 @@ pub mod pallet {
 
 			Ok(())
 		}
-
 
 		/// The extrinsic from timegraph allows transferring awards to a user
 		///

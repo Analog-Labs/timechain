@@ -1,13 +1,16 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use futures::StreamExt;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tabled::{Table, Tabled};
-use tc_cli::{Batch, Chronicle, Member, Message, MessageTrace, Network, Shard, Task, Tc};
+use tc_cli::{
+	Batch, Chronicle, ChronicleStatus, Member, Message, MessageTrace, Network, Shard, Task, Tc,
+};
 use time_primitives::{
-	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route, ShardId,
-	TaskId,
+	traits::IdentifyAccount, Address, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route,
+	ShardId, TaskId,
 };
 
 #[derive(Clone, Debug)]
@@ -121,10 +124,16 @@ enum Command {
 		tester: String,
 		dest: NetworkId,
 		dest_addr: String,
+		nonce: u64,
 	},
 	SmokeTest {
 		src: NetworkId,
 		dest: NetworkId,
+	},
+	Benchmark {
+		src: NetworkId,
+		dest: NetworkId,
+		num_messages: u16,
 	},
 }
 
@@ -547,58 +556,31 @@ async fn main() -> Result<()> {
 			tester,
 			dest,
 			dest_addr,
+			nonce,
 		} => {
 			let tester = tc.parse_address(Some(network), &tester)?;
 			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-			let msg_id = tc.send_message(network, tester, dest, dest_addr).await?;
+			let msg_id = tc.send_message(network, tester, dest, dest_addr, nonce).await?;
 			println!("{}", hex::encode(msg_id));
 		},
 		Command::SmokeTest { src, dest } => {
-			// networks
-			tc.deploy().await?;
-			let (src_addr, src_block) = tc.deploy_tester(src).await?;
-			let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
-			tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
-			let msg_id = tc.send_message(src, src_addr, dest, dest_addr).await?;
+			let (src_addr, dest_addr) = setup(&tc, src, dest).await?;
+			let mut blocks = tc.finality_notification_stream();
+			let (_, start) = blocks.next().await.context("expected block")?;
+			let msg_id = tc.send_message(src, src_addr, dest, dest_addr, 0).await?;
 			tracing::info!(
 				"sent message to {} {}",
 				dest,
 				tc.format_address(Some(dest), dest_addr)?
 			);
-			let networks = tc.networks().await?;
-			print_table(&tc, networks.clone())?;
-			for network in networks {
-				let routes = tc.routes(network.network).await?;
-				print_table(&tc, routes)?;
-			}
-			let chronicles = tc.chronicles().await?;
-			print_table(&tc, chronicles)?;
-
-			// shards
-			let mut blocks = tc.finality_notification_stream();
-			while blocks.next().await.is_some() {
-				let src_keys = tc.find_online_shard_keys(src).await?;
-				let dest_keys = tc.find_online_shard_keys(dest).await?;
-				if !src_keys.is_empty() && !dest_keys.is_empty() {
-					break;
-				}
-				tracing::info!("waiting for shards to come online");
-				let shards = tc.shards().await?;
-				print_table(&tc, shards)?;
-			}
-			tc.register_shards(src).await?;
-			tc.register_shards(dest).await?;
-
-			// message
-			let mut blocks = tc.finality_notification_stream();
-			let exec = loop {
-				let _ = blocks.next().await;
+			let (exec, end) = loop {
+				let (_, end) = blocks.next().await.context("expected block")?;
 				let trace = tc.message_trace(src, msg_id).await?;
 				let exec = trace.exec.as_ref().map(|t| t.task);
 				tracing::info!("waiting for message {}", hex::encode(msg_id));
 				print_table(&tc, vec![trace])?;
 				if let Some(exec) = exec {
-					break exec;
+					break (exec, end);
 				}
 			};
 			let blocks = tc.read_events_blocks(exec).await?;
@@ -608,7 +590,101 @@ async fn main() -> Result<()> {
 				.find(|msg| msg.message_id() == msg_id)
 				.context("failed to find message")?;
 			print_table(&tc, vec![msg])?;
+			println!("received message after {} blocks", end - start);
+		},
+		Command::Benchmark { src, dest, num_messages } => {
+			let (src_addr, dest_addr) = setup(&tc, src, dest).await?;
+			wait_for_sync(&tc, src).await?;
+			wait_for_sync(&tc, dest).await?;
+			let mut blocks = tc.finality_notification_stream();
+			let (_, start) = blocks.next().await.context("expected block")?;
+			let mut msgs = HashSet::new();
+			for nonce in 0..num_messages {
+				let msg = tc.send_message(src, src_addr, dest, dest_addr, nonce as _).await?;
+				msgs.insert(msg);
+			}
+			while let Some((_, block)) = blocks.next().await {
+				let mut received = HashSet::new();
+				for msg in &msgs {
+					let msg = tc.message(*msg).await?;
+					if msg.exec.is_some() {
+						received.insert(msg.message);
+					}
+				}
+				for msg in received {
+					msgs.remove(&msg);
+				}
+				let num_received = num_messages - msgs.len() as u16;
+				let blocks = block - start;
+				let throughput = num_received as f64 / blocks as f64;
+				println!("{num_received} out of {num_messages} received in {blocks} blocks");
+				println!("throughput {throughput:.3} msgs/block");
+				if msgs.is_empty() {
+					break;
+				}
+			}
 		},
 	}
 	std::process::exit(0);
+}
+
+async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
+	// networks
+	tc.deploy().await?;
+	let (src_addr, src_block) = tc.deploy_tester(src).await?;
+	let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
+	tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
+	let networks = tc.networks().await?;
+	print_table(tc, networks.clone())?;
+	for network in networks {
+		let routes = tc.routes(network.network).await?;
+		print_table(tc, routes)?;
+	}
+	// chronicles
+	let mut blocks = tc.finality_notification_stream();
+	while blocks.next().await.is_some() {
+		let chronicles = tc.chronicles().await?;
+		let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
+		tracing::info!("waiting for chronicles to be registered");
+		print_table(tc, chronicles)?;
+		if !not_registered {
+			break;
+		}
+	}
+	// shards
+	while blocks.next().await.is_some() {
+		let src_keys = tc.find_online_shard_keys(src).await?;
+		let dest_keys = tc.find_online_shard_keys(dest).await?;
+		if !src_keys.is_empty() && !dest_keys.is_empty() {
+			break;
+		}
+		tracing::info!("waiting for shards to come online");
+		let shards = tc.shards().await?;
+		print_table(tc, shards)?;
+	}
+	// registered shards
+	tc.register_shards(src).await?;
+	tc.register_shards(dest).await?;
+	while blocks.next().await.is_some() {
+		let shards = tc.shards().await?;
+		let is_registered = shards.iter().any(|shard| shard.registered && shard.network == dest);
+		tracing::info!("waiting for shard to be registered");
+		print_table(tc, shards)?;
+		if is_registered {
+			break;
+		}
+	}
+	Ok((src_addr, dest_addr))
+}
+
+async fn wait_for_sync(tc: &Tc, network: NetworkId) -> Result<()> {
+	let mut blocks = tc.finality_notification_stream();
+	while blocks.next().await.is_some() {
+		let status = tc.sync_status(network).await?;
+		tracing::info!("waiting for network {network} to sync {} / {}", status.sync, status.block);
+		if status.next_sync > status.block {
+			break;
+		}
+	}
+	Ok(())
 }

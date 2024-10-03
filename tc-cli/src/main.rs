@@ -635,10 +635,10 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 	let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
 	tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
 	let networks = tc.networks().await?;
-	print_table(&tc, networks.clone())?;
+	print_table(tc, networks.clone())?;
 	for network in networks {
 		let routes = tc.routes(network.network).await?;
-		print_table(&tc, routes)?;
+		print_table(tc, routes)?;
 	}
 	// chronicles
 	let mut blocks = tc.finality_notification_stream();
@@ -646,7 +646,7 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 		let chronicles = tc.chronicles().await?;
 		let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
 		tracing::info!("waiting for chronicles to be registered");
-		print_table(&tc, chronicles)?;
+		print_table(tc, chronicles)?;
 		if !not_registered {
 			break;
 		}
@@ -660,17 +660,16 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 		}
 		tracing::info!("waiting for shards to come online");
 		let shards = tc.shards().await?;
-		print_table(&tc, shards)?;
+		print_table(tc, shards)?;
 	}
 	// registered shards
 	tc.register_shards(src).await?;
 	tc.register_shards(dest).await?;
 	while blocks.next().await.is_some() {
 		let shards = tc.shards().await?;
-		let is_registered =
-			shards.iter().find(|shard| shard.registered && shard.network == dest).is_some();
+		let is_registered = shards.iter().any(|shard| shard.registered && shard.network == dest);
 		tracing::info!("waiting for shard to be registered");
-		print_table(&tc, shards)?;
+		print_table(tc, shards)?;
 		if is_registered {
 			break;
 		}

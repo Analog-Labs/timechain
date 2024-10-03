@@ -116,14 +116,4 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(5))
 			.saturating_add(Weight::from_parts(0, 3).saturating_mul(b.into()))
 	}
-	fn schedule_tasks(_: u32) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1347`
-		//  Estimated: `12237`
-		// Minimum execution time: 635_339_000 picoseconds.
-		Weight::from_parts(900_094_000, 0)
-			.saturating_add(Weight::from_parts(0, 12237))
-			.saturating_add(T::DbWeight::get().reads(20))
-			.saturating_add(T::DbWeight::get().writes(13))
-	}
 }

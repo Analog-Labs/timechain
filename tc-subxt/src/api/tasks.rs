@@ -16,6 +16,13 @@ impl SubxtClient {
 		})
 	}
 
+	pub async fn task_network(&self, task_id: TaskId) -> Result<Option<NetworkId>> {
+		metadata_scope!(self.metadata, {
+			let storage_query = metadata::storage().tasks().task_network(task_id);
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+		})
+	}
+
 	pub async fn task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
 		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().tasks_api().get_task_submitter(task_id);

@@ -17703,6 +17703,7 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
+ "futures",
  "gmp-grpc",
  "hex",
  "reqwest",

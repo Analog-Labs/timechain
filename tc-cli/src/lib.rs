@@ -1,5 +1,6 @@
 use crate::config::{Backend, Config};
 use anyhow::{Context, Result};
+use futures::stream::{BoxStream, StreamExt};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -7,9 +8,9 @@ use std::path::Path;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
-	IConnector, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey,
-	Route, ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
+	AccountId, Address, BatchId, BlockHash, BlockNumber, ConnectorParams, Gateway, GatewayMessage,
+	GmpEvent, GmpMessage, IConnector, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
+	NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
 };
 
 mod config;
@@ -84,6 +85,10 @@ impl Tc {
 			.await?
 			.with_context(|| format!("no gateway configured for {network}"))?;
 		Ok((connector, gateway))
+	}
+
+	pub fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
+		self.runtime.finality_notification_stream()
 	}
 
 	pub async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
@@ -208,6 +213,7 @@ impl Tc {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct Network {
 	pub network: NetworkId,
 	pub chain_name: String,
@@ -216,9 +222,10 @@ pub struct Network {
 	pub gateway_balance: u128,
 	pub admin: Address,
 	pub admin_balance: u128,
-	pub read_events: TaskId,
+	pub sync_status: SyncStatus,
 }
 
+#[derive(Clone, Debug)]
 pub struct Chronicle {
 	pub address: String,
 	pub network: NetworkId,
@@ -257,6 +264,7 @@ impl std::fmt::Display for ChronicleStatus {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct Shard {
 	pub shard: ShardId,
 	pub network: NetworkId,
@@ -268,20 +276,24 @@ pub struct Shard {
 	// TODO: pub stake: u128,
 }
 
+#[derive(Clone, Debug)]
 pub struct Member {
 	pub account: AccountId,
 	pub status: MemberStatus,
 	pub stake: u128,
 }
 
+#[derive(Clone, Debug)]
 pub struct Task {
 	pub task: TaskId,
+	pub network: NetworkId,
 	pub descriptor: time_primitives::Task,
 	pub output: Option<Result<(), String>>,
 	pub shard: Option<ShardId>,
 	pub submitter: Option<PublicKey>,
 }
 
+#[derive(Clone, Debug)]
 pub struct Batch {
 	pub batch: BatchId,
 	pub msg: GatewayMessage,
@@ -290,11 +302,31 @@ pub struct Batch {
 	pub submit: Option<TaskId>,
 }
 
+#[derive(Clone, Debug)]
 pub struct Message {
 	pub message: MessageId,
 	pub recv: Option<TaskId>,
 	pub batch: Option<BatchId>,
 	pub exec: Option<TaskId>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SyncStatus {
+	pub network: NetworkId,
+	pub task: TaskId,
+	pub block: u64,
+	pub sync: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct MessageTrace {
+	pub message: MessageId,
+	pub src: SyncStatus,
+	pub dest: Option<SyncStatus>,
+	pub recv: Option<Task>,
+	pub sign: Option<Task>,
+	pub submit: Option<Task>,
+	pub exec: Option<Task>,
 }
 
 fn same<T: PartialEq>(a: &[T], b: &[T]) -> bool {
@@ -310,6 +342,32 @@ fn same<T: PartialEq>(a: &[T], b: &[T]) -> bool {
 }
 
 impl Tc {
+	pub async fn read_events_blocks(&self, task: TaskId) -> Result<Range<u64>> {
+		let task = self.runtime.task(task).await?.context("no read event task")?;
+		let time_primitives::Task::ReadGatewayEvents { blocks } = task else {
+			anyhow::bail!("invalid read event task descriptor");
+		};
+		Ok(blocks)
+	}
+
+	pub async fn sync_status(&self, network: NetworkId) -> Result<SyncStatus> {
+		let sync_task =
+			self.runtime.read_events_task(network).await?.context("no read events task")?;
+		let blocks = self.read_events_blocks(sync_task).await?;
+		let block = self
+			.connector(network)?
+			.block_stream()
+			.next()
+			.await
+			.context("failed to read target block")?;
+		Ok(SyncStatus {
+			network,
+			task: sync_task,
+			block,
+			sync: blocks.start,
+		})
+	}
+
 	pub async fn networks(&self) -> Result<Vec<Network>> {
 		let network_ids = self.runtime.networks().await?;
 		let mut networks = vec![];
@@ -320,8 +378,7 @@ impl Tc {
 			let gateway_balance = connector.balance(gateway).await?;
 			let admin = connector.admin(gateway).await?;
 			let admin_balance = connector.balance(admin).await?;
-			let read_events =
-				self.runtime.read_events_task(network).await?.context("no read events task")?;
+			let sync_status = self.sync_status(network).await?;
 			networks.push(Network {
 				network,
 				chain_name,
@@ -330,7 +387,7 @@ impl Tc {
 				gateway_balance,
 				admin,
 				admin_balance,
-				read_events,
+				sync_status,
 			});
 		}
 		Ok(networks)
@@ -426,6 +483,7 @@ impl Tc {
 	pub async fn task(&self, task: TaskId) -> Result<Task> {
 		Ok(Task {
 			task,
+			network: self.runtime.task_network(task).await?.context("invalid task id")?,
 			descriptor: self.runtime.task(task).await?.context("invalid task id")?,
 			output: self.runtime.task_output(task).await?,
 			shard: self.runtime.assigned_shard(task).await?,
@@ -449,6 +507,36 @@ impl Tc {
 			recv: self.runtime.message_received_task(message).await?,
 			batch: self.runtime.message_batch(message).await?,
 			exec: self.runtime.message_executed_task(message).await?,
+		})
+	}
+
+	pub async fn message_trace(
+		&self,
+		network: NetworkId,
+		message: MessageId,
+	) -> Result<MessageTrace> {
+		let msg = self.message(message).await?;
+		let src = self.sync_status(network).await?;
+		let recv = if let Some(recv) = msg.recv { Some(self.task(recv).await?) } else { None };
+		let (dest, sign, submit) = if let Some(batch) = msg.batch {
+			let batch = self.batch(batch).await?;
+			let sign = self.task(batch.sign).await?;
+			let dest = self.sync_status(sign.network).await?;
+			let submit =
+				if let Some(submit) = batch.submit { Some(self.task(submit).await?) } else { None };
+			(Some(dest), Some(sign), submit)
+		} else {
+			(None, None, None)
+		};
+		let exec = if let Some(exec) = msg.exec { Some(self.task(exec).await?) } else { None };
+		Ok(MessageTrace {
+			message,
+			src,
+			recv,
+			dest,
+			sign,
+			submit,
+			exec,
 		})
 	}
 }
@@ -591,7 +679,7 @@ impl Tc {
 		// 20s should be enough since the chronicle waits for
 		// 10s to check for a registered network and some margin
 		// for the registered network to be finalized.
-		for _ in 0..20 {
+		for _ in 0..40 {
 			match self.chronicle_config(chronicle).await {
 				Ok(config) => return Ok(config),
 				Err(_) => {

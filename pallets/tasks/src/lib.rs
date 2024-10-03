@@ -195,6 +195,10 @@ pub mod pallet {
 	pub type TaskOutput<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, Result<(), String>, OptionQuery>;
 
+	#[pallet::storage]
+	pub type TaskNetwork<T: Config> =
+		StorageMap<_, Blake2_128Concat, TaskId, NetworkId, OptionQuery>;
+
 	/// Map storage for registered shards.
 	#[pallet::storage]
 	pub type ShardRegistered<T: Config> =
@@ -429,6 +433,7 @@ pub mod pallet {
 			let task_id = TaskIdCounter::<T>::get();
 			let needs_registration = task.needs_registration();
 			Tasks::<T>::insert(task_id, task);
+			TaskNetwork::<T>::insert(task_id, network);
 			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
 			if !needs_registration {
 				ReadEventsTask::<T>::insert(network, task_id);
@@ -535,6 +540,7 @@ pub mod pallet {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
 							Self::assign_task(shard, task_id);
 							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
+							break;
 						}
 					}
 				}

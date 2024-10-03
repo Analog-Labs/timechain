@@ -1298,7 +1298,7 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<5_000_000>;
+	type MaxTasksPerBlock = ConstU32<10_000>;
 }
 
 impl pallet_timegraph::Config for Runtime {

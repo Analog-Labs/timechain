@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use futures::StreamExt;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 use tabled::{Table, Tabled};
-use tc_cli::{Batch, Chronicle, Member, Message, Network, Shard, Task, Tc};
+use tc_cli::{Batch, Chronicle, Member, Message, MessageTrace, Network, Shard, Task, Tc};
 use time_primitives::{
 	traits::IdentifyAccount, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route, ShardId,
 	TaskId,
@@ -97,6 +97,10 @@ enum Command {
 	Message {
 		message: String,
 	},
+	MessageTrace {
+		network: NetworkId,
+		message: String,
+	},
 	// management
 	Deploy,
 	RegisterShards {
@@ -149,6 +153,7 @@ struct NetworkEntry {
 	admin: String,
 	admin_balance: String,
 	read_events: TaskId,
+	sync_status: String,
 }
 
 impl IntoRow for Network {
@@ -163,7 +168,8 @@ impl IntoRow for Network {
 			gateway_balance: tc.format_balance(Some(self.network), self.gateway_balance)?,
 			admin: tc.format_address(Some(self.network), self.admin)?,
 			admin_balance: tc.format_balance(Some(self.network), self.admin_balance)?,
-			read_events: self.read_events,
+			read_events: self.sync_status.task,
+			sync_status: format!("{} / {}", self.sync_status.sync, self.sync_status.block),
 		})
 	}
 }
@@ -302,6 +308,7 @@ impl IntoRow for GmpMessage {
 #[derive(Tabled)]
 struct TaskEntry {
 	task: TaskId,
+	network: NetworkId,
 	descriptor: String,
 	output: String,
 	shard: String,
@@ -314,6 +321,7 @@ impl IntoRow for Task {
 	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
 		Ok(TaskEntry {
 			task: self.task,
+			network: self.network,
 			descriptor: self.descriptor.to_string(),
 			output: match self.output {
 				Some(Ok(())) => "complete".to_string(),
@@ -383,6 +391,50 @@ impl IntoRow for Message {
 			recv: self.recv.map(|t| t.to_string()).unwrap_or_default(),
 			batch: self.batch.map(|b| b.to_string()).unwrap_or_default(),
 			exec: self.exec.map(|t| t.to_string()).unwrap_or_default(),
+		})
+	}
+}
+
+#[derive(Tabled)]
+struct MessageTraceEntry {
+	message: String,
+	src_sync: String,
+	dest_sync: String,
+	recv: String,
+	sign: String,
+	submit: String,
+	exec: String,
+}
+
+impl IntoRow for MessageTrace {
+	type Row = MessageTraceEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		fn task_to_string(task: Task) -> String {
+			let status = if let Some(output) = task.output {
+				match output {
+					Ok(()) => "complete".to_string(),
+					Err(err) => format!("failed '{err}'"),
+				}
+			} else if let Some(shard) = task.shard {
+				format!("assigned to {}", shard)
+			} else {
+				"unassigned".to_string()
+			};
+			format!("{} {}", task.task, status)
+		}
+		Ok(MessageTraceEntry {
+			message: hex::encode(self.message),
+			src_sync: format!("{} / {}", self.src.sync, self.src.block),
+			dest_sync: if let Some(sync) = self.dest {
+				format!("{} / {}", sync.sync, sync.block)
+			} else {
+				"- / -".into()
+			},
+			recv: self.recv.map(task_to_string).unwrap_or_default(),
+			sign: self.sign.map(task_to_string).unwrap_or_default(),
+			submit: self.submit.map(task_to_string).unwrap_or_default(),
+			exec: self.exec.map(task_to_string).unwrap_or_default(),
 		})
 	}
 }
@@ -464,6 +516,13 @@ async fn main() -> Result<()> {
 			let message = tc.message(message).await?;
 			print_table(&tc, vec![message])?;
 		},
+		Command::MessageTrace { network, message } => {
+			let message = hex::decode(message)?
+				.try_into()
+				.map_err(|_| anyhow::anyhow!("invalid message id"))?;
+			let trace = tc.message_trace(network, message).await?;
+			print_table(&tc, vec![trace])?;
+		},
 		// management
 		Command::Deploy => {
 			tc.deploy().await?;
@@ -495,39 +554,59 @@ async fn main() -> Result<()> {
 			println!("{}", hex::encode(msg_id));
 		},
 		Command::SmokeTest { src, dest } => {
+			// networks
 			tc.deploy().await?;
-			let (src_addr, _src_block) = tc.deploy_tester(src).await?;
+			let (src_addr, src_block) = tc.deploy_tester(src).await?;
 			let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
+			tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
 			let msg_id = tc.send_message(src, src_addr, dest, dest_addr).await?;
 			tracing::info!(
 				"sent message to {} {}",
 				dest,
 				tc.format_address(Some(dest), dest_addr)?
 			);
-			while tc.find_online_shard_keys(src).await?.is_empty() {
-				tracing::info!("waiting for shards to come online");
-				let shards = tc.shards().await?;
-				print_table(&tc, shards)?;
-				tokio::time::sleep(Duration::from_secs(1)).await;
+			let networks = tc.networks().await?;
+			print_table(&tc, networks.clone())?;
+			for network in networks {
+				let routes = tc.routes(network.network).await?;
+				print_table(&tc, routes)?;
 			}
-			while tc.find_online_shard_keys(dest).await?.is_empty() {
+			let chronicles = tc.chronicles().await?;
+			print_table(&tc, chronicles)?;
+
+			// shards
+			let mut blocks = tc.finality_notification_stream();
+			while blocks.next().await.is_some() {
+				let src_keys = tc.find_online_shard_keys(src).await?;
+				let dest_keys = tc.find_online_shard_keys(dest).await?;
+				if !src_keys.is_empty() && !dest_keys.is_empty() {
+					break;
+				}
 				tracing::info!("waiting for shards to come online");
 				let shards = tc.shards().await?;
 				print_table(&tc, shards)?;
-				tokio::time::sleep(Duration::from_secs(1)).await;
 			}
 			tc.register_shards(src).await?;
 			tc.register_shards(dest).await?;
-			let msg = loop {
-				let msgs = tc.messages(dest, dest_addr, dest_block..(dest_block + 1000)).await?;
-				if let Some(msg) = msgs.into_iter().find(|msg| msg.message_id() == msg_id) {
-					break msg;
-				}
+
+			// message
+			let mut blocks = tc.finality_notification_stream();
+			let exec = loop {
+				let _ = blocks.next().await;
+				let trace = tc.message_trace(src, msg_id).await?;
+				let exec = trace.exec.as_ref().map(|t| t.task);
 				tracing::info!("waiting for message {}", hex::encode(msg_id));
-				let message = tc.message(msg_id).await?;
-				print_table(&tc, vec![message])?;
-				tokio::time::sleep(Duration::from_secs(1)).await;
+				print_table(&tc, vec![trace])?;
+				if let Some(exec) = exec {
+					break exec;
+				}
 			};
+			let blocks = tc.read_events_blocks(exec).await?;
+			let msgs = tc.messages(dest, dest_addr, blocks).await?;
+			let msg = msgs
+				.into_iter()
+				.find(|msg| msg.message_id() == msg_id)
+				.context("failed to find message")?;
 			print_table(&tc, vec![msg])?;
 		},
 	}

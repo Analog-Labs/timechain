@@ -115,9 +115,9 @@ pub use pallet_staking::StakerStatus;
 
 pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = prod_or_dev!(8 * HOURS, 5 * MINUTES);
 
-/// We assume that an on-initialize consumes 1% of the weight on average, hence a single extrinsic
-/// will not be allowed to consume more than `AvailableBlockRatio - 1%`.
-pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(1);
+/// We assume that an on-initialize consumes 10% of the weight on average, hence a single extrinsic
+/// will not be allowed to consume more than `AvailableBlockRatio - 10%`.
+pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -1005,9 +1005,6 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	// TODO: compute and set this value to
-	// x where T::WeightInfo::schedule_tasks(x) = AVERAGE_ON_INITIALIZE
-	type MaxTasksPerBlock = ConstU32<1000>;
 }
 
 impl pallet_timegraph::Config for Runtime {

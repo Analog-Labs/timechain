@@ -530,9 +530,11 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		fn schedule_tasks() -> Weight {
+			println!("Scheduling Tasks");
 			Self::prepare_batches();
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
+				println!("Network: {network} | Task: {task_id}");
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
 
 				// handle read events task assignment
@@ -540,11 +542,13 @@ pub mod pallet {
 					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
 							if num_tasks_assigned == T::MaxTasksPerBlock::get() {
+								println!("Max tasks assigned per block; returned early in the read event task assignment loop");
 								return <T as Config>::WeightInfo::schedule_tasks(
 									T::MaxTasksPerBlock::get(),
 								);
 							}
 							Self::assign_task(shard, task_id);
+							println!("Read event task {task_id} assigned to shard {shard}");
 							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							break;
 						}
@@ -571,8 +575,11 @@ pub mod pallet {
 				for shard in registered_shards {
 					let capacity = tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard));
 					if T::MaxTasksPerBlock::get() > num_tasks_assigned.saturating_add(capacity) {
+						println!("Trying to assign {capacity} tasks to shard {shard}");
+						println!("Before {num_tasks_assigned} number of tasks assigned");
 						num_tasks_assigned = num_tasks_assigned
 							.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
+						println!("After {num_tasks_assigned} number of tasks assigned");
 					} else {
 						println!("{} - {}", T::MaxTasksPerBlock::get(), num_tasks_assigned);
 						println!(
@@ -584,12 +591,14 @@ pub mod pallet {
 							shard,
 							T::MaxTasksPerBlock::get().saturating_sub(num_tasks_assigned),
 						);
+						println!("Max tasks assigned per block; returned early in the assign tasks to registered shards loop");
 						return <T as Config>::WeightInfo::schedule_tasks(
 							T::MaxTasksPerBlock::get(),
 						);
 					}
 				}
 			}
+			println!("did NOT return early, {num_tasks_assigned} tasks assigned");
 			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)
 		}
 

@@ -316,6 +316,7 @@ pub struct SyncStatus {
 	pub task: TaskId,
 	pub block: u64,
 	pub sync: u64,
+	pub next_sync: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -365,6 +366,7 @@ impl Tc {
 			task: sync_task,
 			block,
 			sync: blocks.start,
+			next_sync: blocks.end,
 		})
 	}
 
@@ -774,13 +776,14 @@ impl Tc {
 		tester: Address,
 		dest: NetworkId,
 		dest_addr: Address,
+		nonce: u64,
 	) -> Result<MessageId> {
 		let msg = GmpMessage {
 			src_network: network,
 			src: tester,
 			dest_network: dest,
 			dest: dest_addr,
-			nonce: 0,
+			nonce,
 			gas_limit: 100,
 			gas_cost: 200,
 			bytes: vec![],

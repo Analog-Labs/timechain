@@ -86,9 +86,9 @@ pub mod pallet {
 	use schnorr_evm::VerifyingKey;
 
 	use time_primitives::{
-		AccountId, Balance, Commitment, ElectionsInterface, MemberEvents, MemberStatus,
-		MemberStorage, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus,
-		ShardsInterface, TasksInterface, TssPublicKey,
+		AccountId, Balance, Commitment, ElectionsInterface, MemberStatus, MembersInterface,
+		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
+		TasksInterface, TssPublicKey,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -131,8 +131,8 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Elections: ElectionsInterface;
-		type Members: MemberStorage;
-		type TaskScheduler: TasksInterface;
+		type Members: MembersInterface;
+		type Tasks: TasksInterface;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -328,7 +328,7 @@ pub mod pallet {
 			{
 				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
 				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
-				T::TaskScheduler::shard_online(shard_id, network);
+				T::Tasks::shard_online(shard_id, network);
 			}
 			Ok(())
 		}
@@ -390,7 +390,7 @@ pub mod pallet {
 			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
 			ShardThreshold::<T>::remove(shard_id);
 			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
-			T::TaskScheduler::shard_offline(shard_id, network);
+			T::Tasks::shard_offline(shard_id, network);
 			let members = ShardMembers::<T>::drain_prefix(shard_id)
 				.map(|(m, _)| {
 					MemberShard::<T>::remove(&m);
@@ -446,7 +446,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> MemberEvents for Pallet<T> {
+	impl<T: Config> ShardsInterface for Pallet<T> {
 		/// Updates shard state when a member comes online.
 		///
 		/// # Flow
@@ -510,9 +510,7 @@ pub mod pallet {
 			}
 			<T as Config>::WeightInfo::member_offline()
 		}
-	}
 
-	impl<T: Config> ShardsInterface for Pallet<T> {
 		/// Checks if a specified shard is currently online.
 		///
 		/// # Flow
@@ -528,21 +526,6 @@ pub mod pallet {
 		///   2. Returns `true` if the shard `ID` is present (`Some`), indicating the account is a member; otherwise, returns `false`.
 		fn is_shard_member(member: &AccountId) -> bool {
 			MemberShard::<T>::get(member).is_some()
-		}
-		/// Checks if there exists a shard with a matching network and size that is online.
-		///
-		/// # Flow
-		///   1. Iterates over all [`ShardNetwork`] entries.
-		///   2. Checks if the network ID matches the specified network parameter.
-		///   3. Checks if the shard is online using `Function::is_shard_online`.
-		///   4. Counts the number of members in the shard and compares it to `size`.
-		///   5. Returns `true` if such a shard is found; otherwise, returns `false``.
-		fn matching_shard_online(network: NetworkId, size: u16) -> bool {
-			ShardNetwork::<T>::iter().any(|(s, n)| {
-				n == network
-					&& Self::is_shard_online(s)
-					&& ShardMembers::<T>::iter_prefix(s).collect::<Vec<_>>().len() as u16 == size
-			})
 		}
 		/// Retrieves the network identifier associated with a specified shard.
 		///
@@ -593,6 +576,7 @@ pub mod pallet {
 				// ShardMembers, MemberShard
 				writes = writes.saturating_add(2);
 			}
+			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			// Event Emission
 			writes = writes.saturating_plus_one();

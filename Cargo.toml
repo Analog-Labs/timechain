@@ -12,6 +12,8 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
+	"gmp/grpc",
+	"gmp/rust",
 	"node",
 	"pallets/elections",
 	"pallets/governance",
@@ -24,14 +26,16 @@ members = [
 	"runtimes/common",
 	"runtimes/mainnet",
 	"runtimes/testnet",
+	"tc-cli",
 	"tc-subxt",
-	"tester",
+	"tc-subxt/metadata",
 	"tss",
 	"utils/generate-bags",
 ]
 default-members = [
   "chronicle",
   "node",
+  "tc-cli",
 ]
 
 [workspace.dependencies]
@@ -87,6 +91,9 @@ mainnet-runtime = { path = "runtimes/mainnet" }
 testnet-runtime = { path = "runtimes/testnet" }
 
 # shared libs in workspace
+gmp-evm = { path = "gmp/evm" }
+gmp-grpc = { path = "gmp/grpc" }
+gmp-rust = { path = "gmp/rust" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
 
@@ -133,7 +140,6 @@ crossbeam-deque = { opt-level = 3 }
 crypto-mac = { opt-level = 3 }
 curve25519-dalek = { opt-level = 3 }
 ed25519-dalek = { opt-level = 3 }
-flate2 = { opt-level = 3 }
 futures-channel = { opt-level = 3 }
 hash-db = { opt-level = 3 }
 hashbrown = { opt-level = 3 }

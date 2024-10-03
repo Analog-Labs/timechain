@@ -7,7 +7,7 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::{DispatchError, ModuleError};
 
-use time_primitives::{AccountId, MemberStorage, NetworkId, PublicKey};
+use time_primitives::{AccountId, MembersInterface, NetworkId, PublicKey};
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))

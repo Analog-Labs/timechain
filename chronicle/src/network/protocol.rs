@@ -1,5 +1,5 @@
 use super::{Message, Network, NetworkConfig, PeerId, PROTOCOL_NAME};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use futures::channel::mpsc;
 use futures::{Future, FutureExt, SinkExt};
 use peernet::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
@@ -49,13 +49,7 @@ impl TssEndpoint {
 		let handler = builder.build();
 
 		let mut builder = Endpoint::builder(PROTOCOL_NAME.as_bytes().to_vec());
-		if let Some(path) = config.secret {
-			let secret = std::fs::read(path)
-				.context("secret doesn't exist")?
-				.try_into()
-				.map_err(|_| anyhow::anyhow!("invalid secret"))?;
-			builder.secret(secret);
-		}
+		builder.secret(config.secret);
 		if let Some(port) = config.bind_port {
 			builder.port(port);
 		}
@@ -88,6 +82,10 @@ impl TssEndpoint {
 impl Network for TssEndpoint {
 	fn peer_id(&self) -> PeerId {
 		*self.endpoint.peer_id().as_bytes()
+	}
+
+	fn format_peer_id(&self, peer: PeerId) -> String {
+		peernet::PeerId::from_bytes(&peer).unwrap().to_string()
 	}
 
 	fn send(&self, peer: PeerId, msg: Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {

@@ -13,7 +13,7 @@ use sp_std::vec;
 use sp_std::vec::Vec;
 
 use time_primitives::{
-	AccountId, Commitment, MemberEvents, NetworkId, ProofOfKnowledge, PublicKey, ShardsInterface,
+	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardsInterface,
 };
 
 pub const ALICE: [u8; 32] = [1u8; 32];

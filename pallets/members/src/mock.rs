@@ -11,19 +11,23 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 
-use time_primitives::{MemberEvents, NetworkId};
+use time_primitives::{ElectionsInterface, NetworkId};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
-pub struct MockShards;
+pub struct MockElections;
 
-impl MemberEvents for MockShards {
+impl ElectionsInterface for MockElections {
 	fn member_online(_: &AccountId, _: NetworkId) {}
 	fn member_offline(_: &AccountId, _: NetworkId) -> Weight {
 		Weight::default()
+	}
+	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
+	fn default_shard_size() -> u16 {
+		0
 	}
 }
 
@@ -92,7 +96,7 @@ impl pallet_balances::Config for Test {
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
-	type Elections = MockShards;
+	type Elections = MockElections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }

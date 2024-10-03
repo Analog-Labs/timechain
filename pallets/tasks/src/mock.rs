@@ -1,4 +1,4 @@
-use crate::{self as task_schedule};
+use crate::{self as pallet_tasks};
 use core::marker::PhantomData;
 
 use polkadot_sdk::{
@@ -11,21 +11,19 @@ use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnFinalize, OnInitialize,
 };
-use frame_support::PalletId;
+use frame_support::{pallet_prelude::Weight, PalletId};
 
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature, Percent, Permill,
+	BuildStorage, DispatchResult, MultiSignature, Permill,
 };
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
 
-use schnorr_evm::SigningKey;
-
 use time_primitives::{
-	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
-	TransferStake,
+	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
+	PublicKey, ShardsInterface,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -33,9 +31,26 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
 
+pub struct MockNetworks;
+
+impl NetworksInterface for MockNetworks {
+	fn gateway(_network: NetworkId) -> Option<Address> {
+		Some([0; 32])
+	}
+	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
+		5
+	}
+	fn batch_gas_limit(_network: NetworkId) -> u128 {
+		10_000
+	}
+	fn shard_task_limit(_network: NetworkId) -> u32 {
+		10
+	}
+}
+
 pub struct MockMembers;
 
-impl MemberStorage for MockMembers {
+impl MembersInterface for MockMembers {
 	fn member_stake(_: &AccountId) -> Balance {
 		0u128
 	}
@@ -51,8 +66,6 @@ impl MemberStorage for MockMembers {
 	fn total_stake() -> u128 {
 		0u128
 	}
-}
-impl TransferStake for MockMembers {
 	fn transfer_stake(_: &AccountId, _: &AccountId, _: Balance) -> DispatchResult {
 		Ok(())
 	}
@@ -65,6 +78,12 @@ impl ElectionsInterface for MockElections {
 	fn default_shard_size() -> u16 {
 		3
 	}
+	fn member_online(member: &AccountId, network: NetworkId) {
+		Shards::member_online(member, network)
+	}
+	fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
+		Shards::member_offline(member, network)
+	}
 }
 
 // Configure a mock runtime to test the pallet.
@@ -72,8 +91,9 @@ frame_support::construct_runtime!(
 	pub struct Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		Tasks: task_schedule::{Pallet, Call, Storage, Event<T>},
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
+		Networks: pallet_networks,
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
@@ -204,7 +224,7 @@ impl pallet_treasury::Config for Test {
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
-	type Elections = Shards;
+	type Elections = MockElections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 }
@@ -217,37 +237,29 @@ impl pallet_elections::Config for Test {
 	type Members = Members;
 }
 
-parameter_types! {
-	pub const PalletIdentifier: PalletId = PalletId(*b"py/tasks");
-	// reward declines by 5% every 10 blocks
-	pub const RewardDeclineRate: DepreciationRate<u64> = DepreciationRate { blocks: 2, percent: Percent::from_percent(50) };
-}
-
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
-	type TaskScheduler = Tasks;
+	type Tasks = Tasks;
 	type Members = MockMembers;
 	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
 }
 
-impl task_schedule::Config for Test {
+impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
-	type Elections = MockElections;
+	type Tasks = Tasks;
+}
+
+impl pallet_tasks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 	type Shards = Shards;
-	type Members = MockMembers;
-	type BaseReadReward = ConstU128<2>;
-	type BaseWriteReward = ConstU128<3>;
-	type BaseSendMessageReward = ConstU128<4>;
-	type RewardDeclineRate = RewardDeclineRate;
-	type SignPhaseTimeout = ConstU64<10>;
-	type WritePhaseTimeout = ConstU64<10>;
-	type ReadPhaseTimeout = ConstU64<20>;
-	type PalletId = PalletIdentifier;
+	type Networks = MockNetworks;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
@@ -299,31 +311,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 	sp_core::sr25519::Public::from_raw([acc_num; 32])
-}
-
-pub struct MockTssSigner {
-	signing_key: SigningKey,
-}
-
-impl MockTssSigner {
-	pub fn new() -> Self {
-		Self {
-			//random key bytes
-			signing_key: SigningKey::from_bytes([
-				62, 78, 161, 128, 140, 236, 177, 67, 143, 75, 171, 207, 104, 60, 36, 95, 104, 71,
-				17, 91, 237, 184, 132, 165, 52, 240, 194, 4, 138, 196, 89, 176,
-			])
-			.unwrap(),
-		}
-	}
-
-	pub fn public_key(&self) -> [u8; 33] {
-		self.signing_key.public().to_bytes().unwrap()
-	}
-
-	pub fn sign(&self, data: &[u8]) -> schnorr_evm::Signature {
-		self.signing_key.sign(data)
-	}
 }
 
 pub fn roll(n: u64) {

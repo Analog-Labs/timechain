@@ -1,84 +1,68 @@
-use crate::{Config, Tasks, UATaskIndex};
+use crate::Config;
 use core::marker::PhantomData;
-
-use polkadot_sdk::{frame_support, sp_runtime, sp_std};
-
 use frame_support::storage::{StorageDoubleMap, StorageMap};
+use polkadot_sdk::{frame_support, sp_runtime};
+use scale_codec::FullCodec;
 use sp_runtime::Saturating;
-use sp_std::vec::Vec;
+use time_primitives::NetworkId;
 
-use time_primitives::{NetworkId, TaskId, TaskIndex};
+pub type Index = u64;
 
-pub trait TaskQ<T: Config> {
-	/// Return the next `n` assignable tasks.
-	fn get_n(&self, n: usize) -> Vec<(u64, TaskId)>;
+pub trait QueueT<T: Config, Value> {
 	/// Push an item onto the end of the queue.
-	fn push(&self, task_id: TaskId);
+	fn push(&self, value: Value);
 	/// Remove an item from the queue.
-	fn remove(&mut self, index: TaskIndex);
+	fn remove(&self, index: Index) -> Option<Value>;
+	/// Pop an item from the beginning of the queue.
+	fn pop(&self) -> Option<Value>;
 }
 
-pub struct TaskQueue<InsertIndex, RemoveIndex, Queue>
-where
-	InsertIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
-	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
-	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
-{
+pub struct QueueImpl<T, Value, InsertIndex, RemoveIndex, Queue> {
 	network: NetworkId,
-	insert: TaskIndex,
-	remove: TaskIndex,
-	_phantom: PhantomData<(InsertIndex, RemoveIndex, Queue)>,
+	_phantom: PhantomData<(T, Value, InsertIndex, RemoveIndex, Queue)>,
 }
 
-impl<InsertIndex, RemoveIndex, Queue> TaskQueue<InsertIndex, RemoveIndex, Queue>
-where
-	InsertIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
-	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
-	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
+impl<T, Value, InsertIndex, RemoveIndex, Queue>
+	QueueImpl<T, Value, InsertIndex, RemoveIndex, Queue>
 {
-	pub fn new(n: NetworkId) -> TaskQueue<InsertIndex, RemoveIndex, Queue> {
-		let (insert, remove) = (InsertIndex::get(n).unwrap_or(0), RemoveIndex::get(n).unwrap_or(0));
-		TaskQueue {
-			network: n,
-			insert,
-			remove,
-			_phantom: PhantomData,
-		}
+	pub fn new(network: NetworkId) -> QueueImpl<T, Value, InsertIndex, RemoveIndex, Queue> {
+		Self { network, _phantom: PhantomData }
 	}
 }
 
-impl<T: Config, InsertIndex, RemoveIndex, Queue> TaskQ<T>
-	for TaskQueue<InsertIndex, RemoveIndex, Queue>
+impl<T: Config, Value, InsertIndex, RemoveIndex, Queue> QueueT<T, Value>
+	for QueueImpl<T, Value, InsertIndex, RemoveIndex, Queue>
 where
-	InsertIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
-	RemoveIndex: StorageMap<NetworkId, TaskIndex, Query = Option<TaskIndex>>,
-	Queue: StorageDoubleMap<NetworkId, TaskIndex, TaskId, Query = Option<TaskId>>,
+	Value: FullCodec,
+	InsertIndex: StorageMap<NetworkId, Index, Query = Option<Index>>,
+	RemoveIndex: StorageMap<NetworkId, Index, Query = Option<Index>>,
+	Queue: StorageDoubleMap<NetworkId, Index, Value, Query = Option<Value>>,
 {
-	fn get_n(&self, n: usize) -> Vec<(u64, TaskId)> {
-		(self.remove..self.insert)
-			.filter_map(|index| {
-				Queue::get(self.network, index)
-					.and_then(|task_id| Tasks::<T>::get(task_id).map(|_| (index, task_id)))
-			})
-			.take(n)
-			.collect::<Vec<_>>()
+	fn pop(&self) -> Option<Value> {
+		let remove_i = RemoveIndex::get(self.network).unwrap_or_default();
+		self.remove(remove_i)
 	}
-	fn push(&self, task_id: TaskId) {
-		Queue::insert(self.network, self.insert, task_id);
-		UATaskIndex::<T>::insert(task_id, self.insert);
-		InsertIndex::insert(self.network, self.insert.saturating_plus_one());
+
+	fn push(&self, value: Value) {
+		let insert_i = InsertIndex::get(self.network).unwrap_or_default();
+		Queue::insert(self.network, insert_i, value);
+		InsertIndex::insert(self.network, insert_i.saturating_plus_one());
 	}
-	fn remove(&mut self, index: TaskIndex) {
-		if self.remove >= self.insert {
-			return;
+
+	fn remove(&self, index: Index) -> Option<Value> {
+		let insert_i = InsertIndex::get(self.network).unwrap_or_default();
+		let mut remove_i = RemoveIndex::get(self.network).unwrap_or_default();
+		if remove_i >= insert_i {
+			return None;
 		}
-		Queue::remove(self.network, index);
-		if index == self.remove {
-			self.remove = self.remove.saturating_plus_one();
-			while Queue::get(self.network, self.remove).is_none() && self.remove < self.insert {
-				self.remove = self.remove.saturating_plus_one();
+		let value = Queue::take(self.network, index);
+		if index == remove_i {
+			remove_i = remove_i.saturating_plus_one();
+			while Queue::get(self.network, remove_i).is_none() && remove_i < insert_i {
+				remove_i = remove_i.saturating_plus_one();
 			}
-			RemoveIndex::insert(self.network, self.remove);
+			RemoveIndex::insert(self.network, remove_i);
 		}
+		value
 	}
 }

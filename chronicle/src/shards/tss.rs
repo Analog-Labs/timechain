@@ -3,23 +3,23 @@ use anyhow::Result;
 use sha3::{Digest, Sha3_256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-pub use time_primitives::TaskExecution;
+pub use time_primitives::TaskId;
 pub use tss::{
 	ProofOfKnowledge, Signature, SigningKey, VerifiableSecretSharingCommitment, VerifyingKey,
 };
 
-pub type TssMessage = tss::TssMessage<TaskExecution>;
+pub type TssMessage = tss::TssMessage<TaskId>;
 
 #[derive(Clone)]
 pub enum TssAction {
 	Send(Vec<(PeerId, TssMessage)>),
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	PublicKey(VerifyingKey),
-	Signature(TaskExecution, [u8; 32], Signature),
+	Signature(TaskId, [u8; 32], Signature),
 }
 
 pub enum Tss {
-	Enabled(tss::Tss<TaskExecution, TssPeerId>),
+	Enabled(tss::Tss<TaskId, TssPeerId>),
 	Disabled(SigningKey, Option<TssAction>, bool),
 }
 
@@ -114,14 +114,14 @@ impl Tss {
 		}
 	}
 
-	pub fn on_start(&mut self, request_id: TaskExecution) {
+	pub fn on_start(&mut self, request_id: TaskId) {
 		match self {
 			Self::Enabled(tss) => tss.on_start(request_id),
 			Self::Disabled(_, _, _) => {},
 		}
 	}
 
-	pub fn on_sign(&mut self, request_id: TaskExecution, data: Vec<u8>) {
+	pub fn on_sign(&mut self, request_id: TaskId, data: Vec<u8>) {
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {
@@ -131,7 +131,7 @@ impl Tss {
 		}
 	}
 
-	pub fn on_complete(&mut self, request_id: TaskExecution) {
+	pub fn on_complete(&mut self, request_id: TaskId) {
 		match self {
 			Self::Enabled(tss) => tss.on_complete(request_id),
 			Self::Disabled(_, _, _) => {},

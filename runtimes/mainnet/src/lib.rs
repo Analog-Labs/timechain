@@ -398,12 +398,20 @@ impl pallet_babe::Config for Runtime {
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
 parameter_types! {
 	pub const ExistentialDeposit: Balance = 1 * MILLIANLOG;
+}
+parameter_types! {
 	// For weight estimation, we assume that the most locks on an individual account will be 50.
 	// This number may need to be adjusted in the future if this assumption no longer holds true.
 	pub const MaxLocks: u32 = 50;
 	pub const MaxReserves: u32 = 50;
+}
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
+	pub const ExistentialDeposit: Balance = 1_000_000;
 }
 
 impl pallet_balances::Config for Runtime {

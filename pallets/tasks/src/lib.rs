@@ -104,6 +104,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Networks: NetworksInterface;
+		type MaxTasksPerBlock: Get<u32>;
 	}
 
 	/// Double map storage for unassigned tasks.
@@ -538,6 +539,11 @@ pub mod pallet {
 				if TaskShard::<T>::get(task_id).is_none() {
 					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
+							if num_tasks_assigned == T::MaxTasksPerBlock::get() {
+								return <T as Config>::WeightInfo::schedule_tasks(
+									T::MaxTasksPerBlock::get(),
+								);
+							}
 							Self::assign_task(shard, task_id);
 							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							break;
@@ -564,8 +570,24 @@ pub mod pallet {
 				// assign tasks
 				for shard in registered_shards {
 					let capacity = tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard));
-					num_tasks_assigned = num_tasks_assigned
-						.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
+					if T::MaxTasksPerBlock::get() > num_tasks_assigned.saturating_add(capacity) {
+						num_tasks_assigned = num_tasks_assigned
+							.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
+					} else {
+						println!("{} - {}", T::MaxTasksPerBlock::get(), num_tasks_assigned);
+						println!(
+							"{}",
+							T::MaxTasksPerBlock::get().saturating_sub(num_tasks_assigned)
+						);
+						Self::schedule_tasks_shard(
+							network,
+							shard,
+							T::MaxTasksPerBlock::get().saturating_sub(num_tasks_assigned),
+						);
+						return <T as Config>::WeightInfo::schedule_tasks(
+							T::MaxTasksPerBlock::get(),
+						);
+					}
 				}
 			}
 			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)

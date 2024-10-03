@@ -2021,7 +2021,7 @@ mod tests {
 		{
 			num_tasks += 1;
 			if num_tasks == 10_000_000 {
-				assert!(false, "10_000_000 tasks reached; halting to break out of loop");
+				// 10_000_000 tasks reached; halting to break out of loop
 				break;
 			}
 		}

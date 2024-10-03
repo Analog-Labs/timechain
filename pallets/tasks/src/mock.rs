@@ -8,10 +8,7 @@ use sp_runtime::{
 	traits::{parameter_types, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, DispatchResult, MultiSignature, Percent,
 };
-use time_primitives::{
-	Balance, DepreciationRate, ElectionsInterface, MemberStorage, NetworkId, PeerId, PublicKey,
-	TransferStake,
-};
+use time_primitives::{Balance, DepreciationRate, MemberStorage, PeerId, PublicKey, TransferStake};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -40,15 +37,6 @@ impl MemberStorage for MockMembers {
 impl TransferStake for MockMembers {
 	fn transfer_stake(_: &AccountId, _: &AccountId, _: Balance) -> DispatchResult {
 		Ok(())
-	}
-}
-
-pub struct MockElections;
-
-impl ElectionsInterface for MockElections {
-	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
-	fn default_shard_size() -> u16 {
-		3
 	}
 }
 
@@ -120,7 +108,7 @@ impl pallet_shards::Config for Test {
 impl task_schedule::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type Elections = MockElections;
+	type Elections = Elections;
 	type Shards = Shards;
 	type Members = MockMembers;
 	type BaseReadReward = ConstU128<2>;

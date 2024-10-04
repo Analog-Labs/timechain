@@ -243,7 +243,7 @@ impl Tc {
 			wtr.write_record(&[network_id.to_string(), symbol.into(), usd_price.to_string()])?;
 		}
 		wtr.flush()?;
-		println!("Done");
+		println!("Saved in prices.csv");
 		Ok(())
 	}
 }

@@ -45,5 +45,5 @@ networks:
       num: 10
       den: 1
 chronicles:
-- chronicle-0:8080
-- chronicle-1:8080
+- http://chronicle-0:8080
+- http://chronicle-1:8080

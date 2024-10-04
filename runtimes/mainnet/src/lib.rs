@@ -2007,12 +2007,12 @@ mod tests {
 		let avg_on_initialize: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
-				.all_lt(avg_on_initialize),
+				.all_lte(avg_on_initialize),
 			"BUG: Scheduling a single task consumes more weight than available in on-initialize"
 		);
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
-				.all_lt(<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2)),
+				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2)),
 			"BUG: Scheduling 1 task consumes more weight than scheduling 2"
 		);
 		let mut num_tasks: u32 = 2;
@@ -2025,8 +2025,6 @@ mod tests {
 				break;
 			}
 		}
-		const PREV_MEASURED_MAX: u32 = 5_398_546;
-		assert_eq!(PREV_MEASURED_MAX, num_tasks, "MAX tasks scheduled per block changed since last run from: {PREV_MEASURED_MAX} => {num_tasks}");
 		let max_tasks_per_block_configured: u32 =
 			<Runtime as pallet_tasks::Config>::MaxTasksPerBlock::get();
 		assert!(

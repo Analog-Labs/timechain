@@ -83,10 +83,10 @@ fn test_withdraw_success() {
 		let user = 1;
 		let origin = RawOrigin::Signed(user);
 		let amount = 1000;
-		Timegraph::deposit(
+		assert_ok!(Timegraph::deposit(
 			RawOrigin::Signed(user).into(),
 			amount + pallet_timegraph::Threshold::<Test>::get(),
-		);
+		));
 		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(&user);
 		assert_eq!(reserved, amount + pallet_timegraph::Threshold::<Test>::get(),);
 		assert_ok!(Timegraph::withdraw(origin.into(), amount));
@@ -124,5 +124,83 @@ fn test_withdraw_bad_origin() {
 		let origin = RawOrigin::None;
 		let amount = 1000;
 		assert_noop!(Timegraph::withdraw(origin.into(), amount), BadOrigin);
+	});
+}
+
+#[test]
+fn transfer_to_pool_works() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		let user_account = 2;
+		let initial_reserved_balance = 1000;
+		let transfer_amount = 500;
+
+		// Set the timegraph account
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+
+		assert_ok!(Timegraph::deposit(
+			RawOrigin::Signed(user_account).into(),
+			transfer_amount + pallet_timegraph::Threshold::<Test>::get(),
+		));
+
+		// Act
+		assert_ok!(Timegraph::transfer_to_pool(
+			RawOrigin::Signed(timegraph_account).into(),
+			user_account,
+			transfer_amount
+		));
+
+		// Assert
+		assert_eq!(Balances::reserved_balance(&user_account), pallet_timegraph::Threshold::<Test>::get());
+	});
+}
+
+#[test]
+fn transfer_to_pool_fails_with_non_timegraph_origin() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let non_timegraph_account = 3;
+		let user_account = 2;
+		let transfer_amount = 500;
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::transfer_to_pool(
+				RawOrigin::Signed(non_timegraph_account).into(),
+				user_account,
+				transfer_amount
+			),
+			Error::<Test>::SenderIsNotTimegraph
+		);
+	});
+}
+
+#[test]
+fn transfer_to_pool_fails_with_insufficient_reserved_balance() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		let user_account = 2;
+		let initial_reserved_balance = 300;
+		let transfer_amount = 500;
+
+		// Set the timegraph account
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+
+		assert_ok!(Timegraph::deposit(
+			RawOrigin::Signed(user_account).into(),
+			initial_reserved_balance + pallet_timegraph::Threshold::<Test>::get(),
+		));
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::transfer_to_pool(
+				RawOrigin::Signed(timegraph_account).into(),
+				user_account,
+				transfer_amount + pallet_timegraph::Threshold::<Test>::get()
+			),
+			Error::<Test>::NotWithdrawalRequired
+		);
 	});
 }

@@ -287,7 +287,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_timegraph(origin)?;
 			let unserved = T::Currency::unreserve(&account, amount);
-			ensure!(unserved == amount, Error::<T>::NotWithdrawalRequired);
+			ensure!(unserved == 0_u32.into(), Error::<T>::NotWithdrawalRequired);
 
 			T::Currency::transfer(
 				&account,

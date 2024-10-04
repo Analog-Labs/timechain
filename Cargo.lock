@@ -10419,6 +10419,7 @@ dependencies = [
 name = "pallet-timegraph"
 version = "0.7.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

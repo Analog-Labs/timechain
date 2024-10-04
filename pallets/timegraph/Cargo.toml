@@ -15,11 +15,12 @@ repository.workspace = true
 scale-codec = { workspace = true, features = [ "max-encoded-len" ] }
 scale-info.workspace = true
 simple-mermaid.workspace = true
+log.workspace = true
 
 polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime" ] }
 
 [dev-dependencies]
-polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
+polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io", "sp-tracing", "sp-runtime" ] }
 
 [features]
 default = [ "std" ]

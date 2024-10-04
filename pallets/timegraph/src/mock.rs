@@ -1,6 +1,8 @@
 use crate::{self as pallet_timegraph};
 
-use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io, sp_runtime};
+use polkadot_sdk::{
+	frame_support, frame_system, pallet_balances, sp_core, sp_io, sp_runtime, sp_tracing,
+};
 
 use frame_support::derive_impl;
 use sp_core::{ConstU128, ConstU64};
@@ -45,12 +47,13 @@ impl pallet_timegraph::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
-	type InitialThreshold = ConstU128<1_000_000_000_000>;
+	type InitialThreshold = ConstU128<1_000>;
 	type InitialRewardPoolAccount = ConstU64<1>;
 	type InitialTimegraphAccount = ConstU64<2>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1_u64, 10_000_000), (2_u64, 20_000_000)],

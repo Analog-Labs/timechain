@@ -71,16 +71,19 @@ pub mod pallet {
 		type InitialRewardPoolAccount: Get<Self::AccountId>;
 	}
 
+	/// Default value from runtime configuration
 	#[pallet::type_value]
 	pub fn DefaultTimegraphAccount<T: Config>() -> T::AccountId {
 		T::InitialTimegraphAccount::get()
 	}
 
+	/// Default value from runtime configuration
 	#[pallet::type_value]
 	pub fn DefaultRewardPoolAccount<T: Config>() -> T::AccountId {
 		T::InitialRewardPoolAccount::get()
 	}
 
+	/// Default value from runtime configuration
 	#[pallet::type_value]
 	pub fn DefaultThreshold<T: Config>() -> BalanceOf<T> {
 		T::InitialThreshold::get()
@@ -242,6 +245,7 @@ pub mod pallet {
 			ensure!(amount > 0_u32.into(), Error::<T>::ZeroAmount);
 
 			let current_reserve = T::Currency::reserved_balance(&who);
+
 			let threshold = Threshold::<T>::get();
 
 			ensure!(
@@ -250,7 +254,7 @@ pub mod pallet {
 			);
 
 			ensure!(
-				T::Currency::unreserve(&who, amount) == amount,
+				T::Currency::unreserve(&who, amount) == 0_u32.into(),
 				Error::<T>::NotWithdrawalRequired
 			);
 

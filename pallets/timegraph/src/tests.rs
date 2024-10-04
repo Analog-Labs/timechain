@@ -2,10 +2,11 @@ use crate as pallet_timegraph;
 use crate::mock::*;
 use crate::{Error, Event};
 
-use polkadot_sdk::{frame_support, frame_system, pallet_balances};
+use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_runtime};
 
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use frame_system::{Origin, RawOrigin};
+use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn deposit_works() {
@@ -76,66 +77,52 @@ fn deposit_fails_with_sequence_overflow() {
 	});
 }
 
-// #[test]
-// fn test_withdraw() {
-// 	new_test_ext().execute_with(|| {x
-// 		let sender = 1;
-// 		let receiver = 2;
-// 		let amount = 100;
-// 		let init_sequence = 0;
-// 		assert_eq!(Timegraph::next_withdrawal_sequence(sender), init_sequence);
+#[test]
+fn test_withdraw_success() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let origin = RawOrigin::Signed(user);
+		let amount = 1000;
+		Timegraph::deposit(
+			RawOrigin::Signed(user).into(),
+			amount + pallet_timegraph::Threshold::<Test>::get(),
+		);
+		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(&user);
+		assert_eq!(reserved, amount + pallet_timegraph::Threshold::<Test>::get(),);
+		assert_ok!(Timegraph::withdraw(origin.into(), amount));
+		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(&user);
+		assert_eq!(reserved, pallet_timegraph::Threshold::<Test>::get());
+	});
+}
 
-// 		assert_noop!(
-// 			Timegraph::withdraw(
-// 				RawOrigin::Signed(sender).into(),
-// 				sender,
-// 				amount,
-// 				init_sequence + 1
-// 			),
-// 			Error::<Test>::SenderSameWithReceiver
-// 		);
+#[test]
+fn test_withdraw_zero_amount() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let origin = RawOrigin::Signed(user);
+		// let amount: BalanceOf<Test> = 0;
+		assert_noop!(Timegraph::withdraw(origin.into(), 0_u32.into()), Error::<Test>::ZeroAmount);
+	});
+}
 
-// 		assert_noop!(
-// 			Timegraph::withdraw(
-// 				RawOrigin::Signed(sender).into(),
-// 				receiver,
-// 				0_u128,
-// 				init_sequence + 1
-// 			),
-// 			Error::<Test>::ZeroAmount
-// 		);
+#[test]
+fn test_withdraw_over_reserve() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let origin = RawOrigin::Signed(user);
+		let amount = 1_000;
+		assert_noop!(
+			Timegraph::withdraw(origin.into(), amount),
+			Error::<Test>::WithdrawalAmountOverReserve
+		);
+	});
+}
 
-// 		assert_noop!(
-// 			Timegraph::withdraw(RawOrigin::Signed(sender).into(), receiver, amount, init_sequence),
-// 			Error::<Test>::WithDrawalSequenceMismatch
-// 		);
-
-// 		assert_noop!(
-// 			Timegraph::withdraw(
-// 				RawOrigin::Signed(sender).into(),
-// 				receiver,
-// 				amount,
-// 				init_sequence + 2
-// 			),
-// 			Error::<Test>::WithDrawalSequenceMismatch
-// 		);
-
-// 		assert_ok!(Timegraph::withdraw(
-// 			RuntimeOrigin::signed(sender),
-// 			receiver,
-// 			amount,
-// 			init_sequence + 1
-// 		));
-// 		assert_eq!(Timegraph::next_withdrawal_sequence(sender), init_sequence + 1);
-
-// 		System::assert_last_event(
-// 			Event::<Test>::Withdrawal(sender, receiver, amount, init_sequence + 1).into(),
-// 		);
-
-// 		pallet_timegraph::NextWithdrawalSequence::<Test>::insert(sender, u64::MAX);
-// 		assert_noop!(
-// 			Timegraph::withdraw(RawOrigin::Signed(sender).into(), receiver, amount, init_sequence),
-// 			Error::<Test>::SequenceNumberOverflow
-// 		);
-// 	});
-// }
+#[test]
+fn test_withdraw_bad_origin() {
+	new_test_ext().execute_with(|| {
+		let origin = RawOrigin::None;
+		let amount = 1000;
+		assert_noop!(Timegraph::withdraw(origin.into(), amount), BadOrigin);
+	});
+}

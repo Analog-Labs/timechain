@@ -372,9 +372,6 @@ impl IConnectorAdmin for Connector {
 			if new_route.gateway != [0; 32] {
 				route.gateway = new_route.gateway;
 			}
-			if new_route.relative_gas_price != (0, 0) {
-				route.relative_gas_price = new_route.relative_gas_price;
-			}
 			if new_route.gas_limit != 0 {
 				route.gas_limit = new_route.gas_limit;
 			}

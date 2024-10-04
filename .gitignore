@@ -7,3 +7,6 @@
 
 # Srtool artifacts
 runtime/target/srtool
+
+#Temp files
+prices.csv

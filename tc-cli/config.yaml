@@ -23,11 +23,9 @@ networks:
     batch_offset: 0
     batch_gas_limit: 10000
     shard_task_limit: 50
+    symbol: "ETH"
     route_gas_limit: 10000
     route_base_fee: 10000
-    route_gas_price:
-      num: 10
-      den: 1
   1:
     backend: "grpc"
     blockchain: "rust"
@@ -39,11 +37,9 @@ networks:
     batch_offset: 0
     batch_gas_limit: 10000
     shard_task_limit: 50
+    symbol: "ASTR"
     route_gas_limit: 10000
     route_base_fee: 10000
-    route_gas_price:
-      num: 10
-      den: 1
 chronicles:
 - http://chronicle-0:8080
 - http://chronicle-1:8080

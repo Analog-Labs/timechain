@@ -224,7 +224,7 @@ impl Tc {
 		);
 		let file = File::create("/etc/files/prices.csv")?;
 		let mut wtr = Writer::from_writer(file);
-		wtr.write_record(&["network_id", "symbol", "usd_price"])?;
+		wtr.write_record(["network_id", "symbol", "usd_price"])?;
 		for (network_id, network) in &self.config.networks {
 			let symbol = network.symbol.clone();
 			let token_url = format!("{}{}", base_url, symbol);

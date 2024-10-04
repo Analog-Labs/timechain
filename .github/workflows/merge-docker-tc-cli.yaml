@@ -1,0 +1,74 @@
+name: Build Docker tc-cli
+on:
+  push:
+    paths:
+      - '.github/workflows/merge-docker-tc-cli.yaml'
+      - 'analog-gmp/**'
+      - 'config/subxt/**'
+      - 'primitives/**'
+      - 'tc-subxt/**'
+      - 'tc-cli/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+    branches:
+      - 'development'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  DOCKER_REPO: analoglabs/tc-cli
+jobs:
+  set-tags:
+    name: Get & set tags
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get-sha.outputs.sha }}
+      commit_hash8: ${{ steps.get-sha.outputs.sha8 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get SHA
+        id: get-sha
+        run: |
+          sha=$(git log -1 --format='%H')
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
+          echo "SHA commit:" $sha
+  build-binary:
+    name: Build Docker image
+    needs: ["set-tags"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Setup Cargo
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-musl,wasm32-unknown-unknown
+      - name: Install musl deps
+        run: apt-get update && apt-get install -y musl-tools
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Build contracts
+        run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
+      - name: Build tc-cli
+        run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl
+      - name: Copy contracts
+        run: cp -r target/x86_64-unknown-linux-musl/testnet/tc-cli tc-cli-bin
+      - name: Build and push
+        uses: ./.github/actions/buildah-action
+        with:
+          image_name: ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
+          containerfile: ./config/docker/Dockerfile.tc-cli-release
+          context: .
+          volume: ${{ github.workspace }}/target:/build/target
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: docker.io
+          push: 'true'

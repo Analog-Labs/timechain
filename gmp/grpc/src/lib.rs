@@ -10,7 +10,7 @@ use time_primitives::{
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::service::interceptor::{InterceptedService, Interceptor};
-use tonic::transport::Channel;
+use tonic::transport::{Channel, ClientTlsConfig};
 use tonic::{Request, Status};
 
 mod codec;
@@ -113,7 +113,12 @@ impl IConnector for Connector {
 		Self: Sized,
 	{
 		let address = gmp_rust::mnemonic_to_address(params.mnemonic);
-		let channel = Channel::from_shared(params.url)?.connect().await?;
+		let channel = if params.url.starts_with("https") {
+			let tls_config = ClientTlsConfig::new().with_native_roots();	
+			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect().await?
+		} else {
+			Channel::from_shared(params.url)?.connect().await?
+		};
 		let client = GmpClient::with_interceptor(channel, AddressInterceptor::new(address));
 		Ok(Self {
 			network: params.network_id,

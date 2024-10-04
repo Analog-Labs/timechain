@@ -20,7 +20,7 @@ serde = { workspace = true, features = ["derive"] }
 serde-big-array = "0.5.1"
 time-primitives = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "signal"] }
-tonic = "0.12.2"
+tonic = { version = "0.12.3", features = ["transport", "tls", "tls-roots"] }
 
 [build-dependencies]
 tonic-build = "0.12.2"

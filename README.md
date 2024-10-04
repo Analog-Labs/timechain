@@ -31,30 +31,13 @@ This repo includes the minimum required components to start a timechain testnet 
 
 Follow the steps below to get started.
 
-### Rust Setup
+1. Install docker, docker compose and musl using your system package manager.
+2. Build the docker image with `./scripts/build_docker.sh`.
+3. Start the timechain validators, chronicles and chain rpc nodes using `docker compose up`.
+4. Deploy the timechain using `docker compose run tc-cli deploy`
+5. Send a gmp message from chain 0 to chain 1 `docker compose run smoke-test 0 1`
 
-First, complete the [Dev Docs Installation](https://docs.substrate.io/v3/getting-started/installation/).
-
-### Build and Run
-
-Init git submodules:
-```sh
-git submodule update --init --recursive
-```
-
-Use the following command to build the node and run it after build successfully:
-```sh
-cargo build --release
-./target/release/timechain-node
-```
-
-## Run Using Docker
-
-### MacOS
-if you're on macos, install [musl-cross](https://github.com/FiloSottile/homebrew-musl-cross) for enable musl-target cross-compilation:
-```bash
-brew install filosottile/musl-cross/musl-cross --with-aarch64
-```
+below are some notes for specific OS'es:
 
 ### Debian/Ubuntu
 if you're on debian/ubuntu system, install [musl-tools](https://packages.debian.org/sid/musl-tools) for enable musl-target cross-compilation:
@@ -62,7 +45,12 @@ if you're on debian/ubuntu system, install [musl-tools](https://packages.debian.
 apt-get install musl-tools
 ```
 
-### Shared Steps
+### MacOS
+if you're on macos, install [musl-cross](https://github.com/FiloSottile/homebrew-musl-cross) for enable musl-target cross-compilation:
+```bash
+brew install filosottile/musl-cross/musl-cross --with-aarch64
+```
+
 add the following to your `.cargo/config`:
 ```toml
 [target.x86_64-unknown-linux-musl]
@@ -75,11 +63,6 @@ linker = "aarch64-linux-musl-gcc"
 CC_x86_64-unknown-linux-musl = "x86_64-linux-musl-gcc"
 CC_aarch64-unknown-linux-musl = "aarch64-linux-musl-gcc"
 ```
-
-1. Install docker, docker compose and musl using your system package manager.
-2. Build the docker image with `./scripts/build_docker.sh`.
-3. Start the timechain validators, connectors and chain nodes with `docker compose up -d`.
-4. Set the validator keys with `./scripts/set_keys.sh`.
 
 ## Logging
 
@@ -94,36 +77,3 @@ For example to query the development eth chronicle for any none-info log message
 The `json` filter flattens all labels, so the json path `fields > log.target` is turned into the key `fields_log_target`, so keep that in mind when filtering.
 
 Use the "Prettify JSON" option to improve readability in Grafana or the raw logcli output `--output raw` and a pipe to `jq` on the command line.
-
-## Run public testnet
-
-* Start your bootnodes, node key can be generate with command `./target/release/timechain-node key generate-node-key`.
-  ```shell
-      ./target/release/timechnode --base-path /tmp/bootnode01 --chain ./timechain-staging.json --port 30333 --ws-port 9945 --rpc-port 9933 --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" --validator --rpc-methods Unsafe --name BootNode01
-  ```
-
-* [Insert session keys](https://substrate.dev/docs/en/tutorials/start-a-private-network/customchain#add-keys-to-keystore)
-
-* Start your initial validators,
-  ```shell
-    ./target/release/node-template \
-    --base-path /tmp/bob \
-    --port 30333 \
-    --ws-port 9946 \
-    --rpc-port 9934 \
-    --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
-    --validator \
-    --connector-url=http://ethereum-connector:8080 \
-    --connector-blockchain=ethereum \
-    --connector-network=dev \
-    --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWDAzWc9PWDapTfx89NmAhxuySLnVU9N62ojYS25Va7gif
-  ```
-
-
-## Test Timechain
-Build images:<br>
-`./scripts/build_docker.sh`<br>
-Run with docker:<br>
-`docker compose --profile ethereum up`<br>
-Test:<br>
-`docker compose run tester --network-id 3 gmp`

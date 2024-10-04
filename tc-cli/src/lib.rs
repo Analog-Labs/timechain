@@ -1,19 +1,20 @@
 use crate::config::{Backend, Config};
 use anyhow::{Context, Result};
+use csv::Writer;
 use dotenv::dotenv;
 use reqwest::header::{HeaderMap, HeaderValue};
-use std::collections::hash_map::Entry;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
 use std::time::Duration;
+use std::{collections::hash_map::Entry, fs::File};
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
 	IConnector, IConnectorAdmin, MemberStatus, MessageId, Network as Route, NetworkId, PublicKey,
 	ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
 };
-
 mod config;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
@@ -209,7 +210,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn fetch_token_prices(&self) {
+	pub async fn fetch_token_prices(&self) -> Result<()> {
 		dotenv().ok();
 		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
 		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");
@@ -218,21 +219,29 @@ impl Tc {
 			"X-CMC_PRO_API_KEY",
 			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
 		);
-		let network_prices: HashMap<String, String> = HashMap::new();
+		let file = File::create("/etc/files/prices.csv")?;
+		let mut wtr = Writer::from_writer(file);
+		wtr.write_record(&["network_id", "symbol", "usd_price"])?;
 		for (network_id, network) in &self.config.networks {
 			let symbol = network.symbol.clone();
 			let token_url = format!("{}{}", base_url, symbol);
-			let response = reqwest::Client::new()
+			let response: Value = reqwest::Client::new()
 				.get(token_url)
 				.headers(header_map.clone())
 				.send()
-				.await
-				.unwrap()
-				.text()
-				.await
-				.unwrap();
-			println!("response: {:?}", response);
+				.await?
+				.json()
+				.await?;
+			let data = response["data"][0].clone();
+			let usd_price =
+				data["quote"]["USD"]["price"].as_f64().expect("Unable to convert price");
+			let symbol = data["symbol"].as_str().expect("Unable to convert symbol");
+
+			wtr.write_record(&[network_id.to_string(), symbol.into(), usd_price.to_string()])?;
 		}
+		wtr.flush()?;
+		println!("Done");
+		Ok(())
 	}
 }
 

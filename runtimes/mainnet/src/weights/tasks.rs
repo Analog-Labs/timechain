@@ -71,16 +71,12 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1381`
 		//  Estimated: `12271`
-		// Minimum execution time: 666_788_000 picoseconds.
-		Weight::from_parts(770_151_000, 0)
+		// Minimum execution time: 639_667_000 picoseconds.
+		Weight::from_parts(668_780_000, 0)
 			.saturating_add(Weight::from_parts(0, 12271))
 			.saturating_add(T::DbWeight::get().reads(20))
 			.saturating_add(T::DbWeight::get().writes(14))
 	}
-	/// Storage: `Tasks::Tasks` (r:2 w:0)
-	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::ShardTaskCount` (r:1 w:1)
-	/// Proof: `Tasks::ShardTaskCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::ReadEventsTask` (r:2 w:0)
 	/// Proof: `Tasks::ReadEventsTask` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Networks::NetworkBatchGasLimit` (r:1 w:0)
@@ -91,29 +87,32 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::OpsInsertIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Networks::NetworkShardTaskLimit` (r:1 w:0)
 	/// Proof: `Networks::NetworkShardTaskLimit` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::TaskShard` (r:1 w:2)
+	/// Storage: `Tasks::TaskShard` (r:1 w:1)
 	/// Proof: `Tasks::TaskShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::NetworkShards` (r:2 w:0)
 	/// Proof: `Tasks::NetworkShards` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::ShardTaskCount` (r:1 w:1)
+	/// Proof: `Tasks::ShardTaskCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::Tasks` (r:1 w:0)
+	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::ShardCommitment` (r:1 w:0)
 	/// Proof: `Shards::ShardCommitment` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::ShardRegistered` (r:1 w:0)
 	/// Proof: `Tasks::ShardRegistered` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::ShardTasks` (r:0 w:2)
+	/// Storage: `Tasks::ShardTasks` (r:0 w:1)
 	/// Proof: `Tasks::ShardTasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `b` is `[1, 1000]`.
-	/// The range of component `b` is `[1, 1000]`.
+	/// The range of component `b` is `[1, 10000]`.
+	/// The range of component `b` is `[1, 10000]`.
 	fn schedule_tasks(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2369 + b * (2 ±0)`
-		//  Estimated: `8055 + b * (3 ±0)`
-		// Minimum execution time: 72_495_000 picoseconds.
-		Weight::from_parts(148_828_149, 0)
-			.saturating_add(Weight::from_parts(0, 8055))
-			// Standard Error: 1_268
-			.saturating_add(Weight::from_parts(36_862, 0).saturating_mul(b.into()))
-			.saturating_add(T::DbWeight::get().reads(14))
-			.saturating_add(T::DbWeight::get().writes(5))
-			.saturating_add(Weight::from_parts(0, 3).saturating_mul(b.into()))
+		//  Measured:  `3665`
+		//  Estimated: `9197`
+		// Minimum execution time: 76_243_000 picoseconds.
+		Weight::from_parts(134_334_549, 0)
+			.saturating_add(Weight::from_parts(0, 9197))
+			// Standard Error: 93
+			.saturating_add(Weight::from_parts(7_227, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(13))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 }

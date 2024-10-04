@@ -1005,6 +1005,7 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
+	type MaxTasksPerBlock = ConstU32<10_000>;
 }
 
 impl pallet_timegraph::Config for Runtime {
@@ -1670,5 +1671,37 @@ mod multiplier_tests {
 			});
 			blocks += 1;
 		}
+	}
+
+	#[test]
+	fn max_tasks_per_block() {
+		use pallet_tasks::WeightInfo;
+		let avg_on_initialize: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
+				.all_lte(avg_on_initialize),
+			"BUG: Scheduling a single task consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
+				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2)),
+			"BUG: Scheduling 1 task consumes more weight than scheduling 2"
+		);
+		let mut num_tasks: u32 = 2;
+		while <Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(num_tasks)
+			.all_lt(avg_on_initialize)
+		{
+			num_tasks += 1;
+			if num_tasks == 10_000_000 {
+				// 10_000_000 tasks reached; halting to break out of loop
+				break;
+			}
+		}
+		let max_tasks_per_block_configured: u32 =
+			<Runtime as pallet_tasks::Config>::MaxTasksPerBlock::get();
+		assert!(
+			max_tasks_per_block_configured <= num_tasks,
+			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
+		);
 	}
 }

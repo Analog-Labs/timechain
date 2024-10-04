@@ -272,6 +272,22 @@ fn test_tasks_are_assigned_to_registered_shards() {
 	})
 }
 
+#[test]
+fn test_max_tasks_per_block() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		register_shard(shard);
+		assert!(Tasks::is_shard_registered(shard));
+		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 0 });
+		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 1 });
+		roll(1);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 0, 2]);
+		roll(1);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 0, 2]);
+	})
+}
+
 mod bench_helper {
 	use super::*;
 

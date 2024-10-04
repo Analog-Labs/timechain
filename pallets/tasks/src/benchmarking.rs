@@ -1,5 +1,6 @@
 use crate::{Call, Config, Pallet};
 use frame_benchmarking::benchmarks;
+use frame_support::pallet_prelude::Get;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use pallet_networks::NetworkGatewayAddress;
@@ -48,13 +49,11 @@ benchmarks! {
 	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
 
 	schedule_tasks {
-		// TODO: replace upper bound once added in bounding PR
-		let b in 1..1000;
+		let b in 1..<T as Config>::MaxTasksPerBlock::get();
 		for i in 0..b {
 			create_simple_task::<T>();
 		}
 	}: {
-		Pallet::<T>::assign_task(0, 0);
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	} verify { }
 

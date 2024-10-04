@@ -653,9 +653,9 @@ impl Tc {
 		Ok(())
 	}
 
-	async fn chronicle_config(&self, chronicle: &str) -> Result<ChronicleConfig> {
+	async fn chronicle_config(&self, chronicle_address: &str) -> Result<ChronicleConfig> {
 		let config: time_primitives::admin::Config =
-			reqwest::get(format!("http://{chronicle}:8080/config")).await?.json().await?;
+			reqwest::get(format!("{chronicle_address}/config")).await?.json().await?;
 		Ok(ChronicleConfig {
 			network: config.network,
 			account: self.parse_address(None, &config.account)?.into(),

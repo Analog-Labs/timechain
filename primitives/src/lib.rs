@@ -117,7 +117,6 @@ sp_api::decl_runtime_apis! {
 		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey>;
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>;
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
-		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature>;
 	}
 
 	pub trait SubmitTransactionApi{

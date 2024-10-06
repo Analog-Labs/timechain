@@ -15,6 +15,7 @@ async-trait.workspace = true
 clap.workspace = true
 futures.workspace = true
 hex.workspace = true
+serde = { workspace = true, features = ["derive"] }
 tokio.workspace = true
 tracing.workspace = true
 
@@ -26,3 +27,4 @@ subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
 subxt-signer = { version = "0.37.0", features = ["subxt"]}
 
 time-primitives = { workspace = true, default-features = true }
+tc-subxt-metadata = { path = "metadata" }

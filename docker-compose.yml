@@ -1,6 +1,6 @@
 services:
   validator:
-    image: 'analoglabs/timenode-development'
+    image: 'analoglabs/timechain-node-development'
     command:
     - '--chain=dev'
     - '--base-path=/data'
@@ -13,246 +13,72 @@ services:
     - '--validator'
     - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
-    labels:
-      prometheus-scrape.enabled: 'true'
     ports:
       - 9944:9944
-    profiles:
-    - ethereum
-    - ethereum3
-    - astar
-    - astar3
 
-  ethereum:
-    image: 'ethereum/client-go:v1.13.14'
+  gmp-grpc-0:
+    image: 'analoglabs/gmp-grpc-development'
     command:
-    - '--dev'
-    - '--dev.gaslimit=30000000'
-    - '--ipcdisable'
-    - '--dev.period=2'
-    - '--http'
-    - '--http.addr=0.0.0.0'
-    - '--http.port=8545'
-    - '--http.vhosts=*'
-    - '--http.corsdomain=*'
-    - '--http.api=eth,debug,admin,txpool,web3,net'
-    - '--ws'
-    - '--ws.addr=0.0.0.0'
-    - '--ws.port=8545'
-    - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3,net'
-    profiles:
-    - ethereum
-    - ethereum3
-    ports:
-    - 8545:8545
+    - '--network-id=0'
+    - '--port=3000'
+    - '--db=/etc/db'
+    environment:
+      RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
+      RUST_BACKTRACE: 1
 
-  astar:
-    image: "staketechnologies/astar-collator:v5.28.0-rerun"
-    command:
-    - 'astar-collator'
-    - '--base-path=/data'
-    - '--chain=dev'
-    - '--rpc-cors=all'
-    - '--rpc-external'
-    - '--alice'
-    - '--enable-evm-rpc'
-    - '--no-mdns'
-    profiles:
-    - astar
-    - astar3
-
-  chronicle-eth-template:
+  chronicle-0:
     image: 'analoglabs/chronicle-development'
     command:
-    - '--network-id=3'
-    - '--target-url=ws://ethereum:8545'
-    - '--timechain-metadata=development'
-    - '--timechain-url=ws://validator:9944'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--target-min-balance=1000000000000000'
+    - '--timechain-metadata=testnet'
     - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--tss-keyshare-cache=/etc'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=http://gmp-grpc-0:3000'
+    - '--timechain-min-balance=1000000000000'
+    - '--target-min-balance=10000'
+    - '--network-id=0'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    restart: 'always'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - never
 
-  chronicle-eth1:
-    extends:
-      service: chronicle-eth-template
-    volumes:
-    - './config/wallets/keyfile1:/etc/target_keyfile:ro'
-    - './config/wallets/eth-1:/etc/timechain_keyfile:ro'
-    profiles:
-    - ethereum
-    - ethereum3
-    depends_on:
-    - validator
-    - ethereum
+  gmp-grpc-1:
+    image: 'analoglabs/gmp-grpc-development'
+    command:
+    - '--network-id=1'
+    - '--port=3000'
+    - '--db=/etc/db'
+    environment:
+      RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
+      RUST_BACKTRACE: 1
 
-  chronicle-eth2:
-    extends:
-      service: chronicle-eth-template
-    volumes:
-    - './config/wallets/keyfile2:/etc/target_keyfile:ro'
-    - './config/wallets/eth-2:/etc/timechain_keyfile:ro'
-    profiles:
-    - ethereum3
-    depends_on:
-    - validator
-    - ethereum
-
-  chronicle-eth3:
-    extends:
-      service: chronicle-eth-template
-    volumes:
-    - './config/wallets/keyfile3:/etc/target_keyfile:ro'
-    - './config/wallets/eth-3:/etc/timechain_keyfile:ro'
-    profiles:
-    - ethereum3
-    depends_on:
-    - validator
-    - ethereum
-
-  chronicle-astar-template:
+  chronicle-1:
     image: 'analoglabs/chronicle-development'
     command:
-    - '--network-id=6'
-    - '--target-url=ws://astar:9944'
-    - '--timechain-metadata=development'
-    - '--timechain-url=ws://validator:9944'
-    - '--target-min-balance=1000000000000000'
-    - '--target-keyfile=/etc/target_keyfile'
+    - '--timechain-metadata=testnet'
     - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--tss-keyshare-cache=/etc'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=http://gmp-grpc-1:3000'
+    - '--timechain-min-balance=1000000000000'
+    - '--target-min-balance=10000'
+    - '--network-id=1'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    restart: 'always'
-    labels:
-      prometheus-scrape.enabled: 'true'
-    profiles:
-    - never
 
-  chronicle-astar1:
-    extends:
-      service: chronicle-astar-template
-    volumes:
-    - './config/wallets/keyfile1:/etc/target_keyfile:ro'
-    - './config/wallets/astar-1:/etc/timechain_keyfile:ro'
-    profiles:
-    - astar
-    - astar3
-    depends_on:
-    - validator
-    - astar
-
-  chronicle-astar2:
-    extends:
-      service: chronicle-astar-template
-    volumes:
-    - './config/wallets/keyfile2:/etc/target_keyfile:ro'
-    - './config/wallets/astar-2:/etc/timechain_keyfile:ro'
-    profiles:
-    - astar3
-    depends_on:
-    - validator
-    - astar
-
-  chronicle-astar3:
-    extends:
-      service: chronicle-astar-template
-    volumes:
-    - './config/wallets/keyfile3:/etc/target_keyfile:ro'
-    - './config/wallets/astar-3:/etc/timechain_keyfile:ro'
-    profiles:
-    - astar3
-    depends_on:
-    - validator
-    - astar
-
-  tester:
-    image: 'analoglabs/tester-development'
-    profiles:
-    - never
+  tc-cli:
+    image: 'analoglabs/tc-cli-development'
     environment:
-      RUST_LOG: 'tc_subxt=debug,tester=debug'
+      RUST_LOG: 'tc_subxt=debug,tc_cli=debug'
       RUST_BACKTRACE: 1
     volumes:
-    - './config/wallets/keyfile_tester:/etc/keyfile:ro'
-    - './config/wallets/gmp_signer:/etc/gmp_signer:ro'
-    - './config/wallets/keyfile1:/etc/keyfile1:ro'
-    - './config/wallets/keyfile2:/etc/keyfile2:ro'
-    - './config/wallets/keyfile3:/etc/keyfile3:ro'
-    - './config/wallets/alice:/etc/alice:ro'
+    - './tc-cli/config.yaml:/etc/config.yaml:ro'
+    - './config/wallets/target_admin:/etc/target_admin:ro'
+    - './config/wallets/timechain_admin:/etc/timechain_admin:ro'
     - './analog-gmp/out:/etc/contracts:ro'
-
-  prometheus:
-    image: prom/prometheus:v2.36.2
-    volumes:
-    - ./config/prometheus/:/etc/prometheus/
-    - prometheus-docker-sd:/prometheus-docker-sd:ro
-    command:
-    - '--config.file=/etc/prometheus/prometheus.yaml'
-    - '--storage.tsdb.path=/prometheus'
-    - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-    - '--web.console.templates=/usr/share/prometheus/consoles'
-    ports:
-    - 9090:9090
-    restart: always
     profiles:
-    - prometheus
-    - grafana
-
-  prometheus-docker-sd:
-    image: "stucky/prometheus-docker-sd:latest"
-    restart: unless-stopped
-    volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-    - prometheus-docker-sd:/prometheus-docker-sd:rw
-    profiles:
-    - prometheus
-    - grafana
-
-  loki:
-    image: grafana/loki:2.9.0
-    ports:
-    - 3100:3100
-    command: -config.file=/etc/loki/local-config.yaml
-    profiles:
-    - loki
-    - grafana
-
-  promtail:
-    image: grafana/promtail:2.9.0
-    volumes:
-    - ./config/promtail/promtail.yaml:/etc/promtail/docker-config.yaml
-    - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/docker-config.yaml
-    profiles:
-    - loki
-    - grafana
-
-  grafana:
-    image: grafana/grafana
-    ports:
-    - 3000:3000
-    volumes:
-    - ./config/grafana/:/etc/grafana/provisioning/
-    environment:
-    - GF_SECURITY_ADMIN_PASSWORD=admin
-    depends_on:
-    - prometheus
-    - loki
-    restart: always
-    profiles:
-    - grafana
-
-volumes:
-  prometheus-docker-sd:
+    - never

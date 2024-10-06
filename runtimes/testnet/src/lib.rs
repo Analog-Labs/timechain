@@ -32,6 +32,7 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use frame_system::{limits::BlockWeights, EnsureRoot};
+use scale_info::prelude::string::String;
 
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_grandpa::{
@@ -72,9 +73,9 @@ pub use runtime_common::{
 	BABE_GENESIS_EPOCH_CONFIG,
 };
 pub use time_primitives::{
-	AccountId, Balance, BlockNumber, ChainName, ChainNetwork, Commitment, DepreciationRate,
-	MemberStatus, MemberStorage, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
-	ShardStatus, Signature, TaskDescriptor, TaskExecution, TaskId, TaskPhase, TaskResult,
+	AccountId, Balance, BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, Gateway,
+	GatewayMessage, MemberStatus, MembersInterface, NetworkId, NetworksInterface, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId, TaskResult,
 	TssPublicKey, TssSignature, ANLOG,
 };
 
@@ -994,32 +995,17 @@ impl pallet_shards::Config for Runtime {
 	type WeightInfo = weights::shards::WeightInfo<Runtime>;
 	type Members = Members;
 	type Elections = Elections;
-	type TaskScheduler = Tasks;
+	type Tasks = Tasks;
 	type DkgTimeout = ConstU32<10>;
-}
-
-parameter_types! {
-	// PalletId used for generating task accounts to fund read tasks.
-	pub const TaskPalletId: PalletId = PalletId(*b"py/tasks");
-	// Rewards decline by 1% every 20 blocks.
-	pub const RewardDeclineRate: DepreciationRate<BlockNumber> = DepreciationRate { blocks: 20, percent: Percent::from_percent(1) };
 }
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
-	type Elections = Elections;
+	type Networks = Networks;
 	type Shards = Shards;
-	type Members = Members;
-	type BaseReadReward = ConstU128<{ 2 * ANLOG }>;
-	type BaseWriteReward = ConstU128<{ 2 * ANLOG }>;
-	type BaseSendMessageReward = ConstU128<{ 2 * ANLOG }>;
-	type RewardDeclineRate = RewardDeclineRate;
-	type SignPhaseTimeout = ConstU32<10>;
-	type WritePhaseTimeout = ConstU32<10>;
-	type ReadPhaseTimeout = ConstU32<10>;
-	type PalletId = TaskPalletId;
+	type MaxTasksPerBlock = ConstU32<10_000>;
 }
 
 impl pallet_timegraph::Config for Runtime {
@@ -1032,6 +1018,7 @@ impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::networks::WeightInfo<Runtime>;
+	type Tasks = Tasks;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1433,6 +1420,16 @@ impl_runtime_apis! {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
 			Networks::get_network(network_id)
 		}
+
+		fn get_gateway(network: NetworkId) -> Option<Gateway> {
+			Networks::gateway(network)
+		}
+	}
+
+	impl time_primitives::ElectionsApi<Block> for Runtime {
+		fn get_electable() -> Vec<AccountId> {
+			Elections::get_electable()
+		}
 	}
 
 	impl time_primitives::ShardsApi<Block> for Runtime {
@@ -1458,40 +1455,32 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::TasksApi<Block> for Runtime {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution> {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
 			Tasks::get_shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>{
+		fn get_task(task_id: TaskId) -> Option<Task>{
 			Tasks::get_task(task_id)
-		}
-
-		fn get_task_signature(task_id: TaskId) -> Option<TssSignature> {
-			Tasks::get_task_signature(task_id)
-		}
-
-		fn get_task_signer(task_id: TaskId) -> Option<PublicKey> {
-			Tasks::get_task_signer(task_id)
-		}
-
-		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]> {
-			Tasks::get_task_hash(task_id)
-		}
-
-		fn get_task_phase(task_id: TaskId) -> TaskPhase {
-			Tasks::get_task_phase(task_id)
-		}
-
-		fn get_task_result(task_id: TaskId) -> Option<TaskResult>{
-			Tasks::get_task_result(task_id)
 		}
 
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
 			Tasks::get_task_shard(task_id)
 		}
 
-		fn get_gateway(network: NetworkId) -> Option<[u8; 20]> {
-			Tasks::get_gateway(network)
+		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey> {
+			Tasks::get_task_submitter(task_id)
+		}
+
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>> {
+			Tasks::get_task_result(task_id)
+		}
+
+		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
+			Tasks::get_batch_message(batch_id)
+		}
+
+		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature> {
+			Tasks::get_batch_signature(batch_id)
 		}
 	}
 
@@ -1682,5 +1671,37 @@ mod multiplier_tests {
 			});
 			blocks += 1;
 		}
+	}
+
+	#[test]
+	fn max_tasks_per_block() {
+		use pallet_tasks::WeightInfo;
+		let avg_on_initialize: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
+				.all_lte(avg_on_initialize),
+			"BUG: Scheduling a single task consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
+				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2)),
+			"BUG: Scheduling 1 task consumes more weight than scheduling 2"
+		);
+		let mut num_tasks: u32 = 2;
+		while <Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(num_tasks)
+			.all_lt(avg_on_initialize)
+		{
+			num_tasks += 1;
+			if num_tasks == 10_000_000 {
+				// 10_000_000 tasks reached; halting to break out of loop
+				break;
+			}
+		}
+		let max_tasks_per_block_configured: u32 =
+			<Runtime as pallet_tasks::Config>::MaxTasksPerBlock::get();
+		assert!(
+			max_tasks_per_block_configured <= num_tasks,
+			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
+		);
 	}
 }

@@ -1,61 +1,56 @@
 use crate::{self as pallet_networks};
 use crate::{mock::*, Error};
-
-use polkadot_sdk::{frame_support, frame_system};
-
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use polkadot_sdk::{frame_support, frame_system};
+use time_primitives::{Network, NetworkConfig};
 
-use time_primitives::{ChainName, ChainNetwork};
+fn mock_network_config() -> NetworkConfig {
+	NetworkConfig {
+		batch_size: 32,
+		batch_offset: 0,
+		batch_gas_limit: 10_000,
+		shard_task_limit: 10,
+	}
+}
 
-#[test]
-fn test_add_network() {
-	let blockchain: ChainName = "Ethereum".into();
-	let network: ChainNetwork = "Mainnet".into();
-	new_test_ext().execute_with(|| {
-		assert_ok!(Networks::add_network(
-			RawOrigin::Root.into(),
-			blockchain.clone(),
-			network.clone(),
-		));
-		assert_eq!(pallet_networks::Networks::<Test>::get(0), Some((blockchain, network)));
-	});
+fn mock_network() -> Network {
+	Network {
+		id: 42,
+		chain_name: "Ethereum".into(),
+		chain_network: "Mainnet".into(),
+		gateway: [0; 32],
+		gateway_block: 99,
+		config: mock_network_config(),
+	}
 }
 
 #[test]
-fn test_duplicate_insertion() {
-	let blockchain: ChainName = "Ethereum".into();
-	let network: ChainNetwork = "Mainnet".into();
+fn test_register_network() {
+	let network = mock_network();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Networks::add_network(
-			RawOrigin::Root.into(),
-			blockchain.clone(),
-			network.clone(),
-		));
-		assert_noop!(
-			Networks::add_network(RawOrigin::Root.into(), blockchain, network),
-			<Error<Test>>::NetworkExists
+		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network.clone(),));
+		assert_eq!(pallet_networks::Networks::<Test>::get(42), Some(network.id));
+		assert_eq!(
+			pallet_networks::NetworkName::<Test>::get(42),
+			Some((network.chain_name, network.chain_network))
+		);
+		assert_eq!(pallet_networks::NetworkGatewayAddress::<Test>::get(42), Some(network.gateway));
+		assert_eq!(
+			pallet_networks::NetworkGatewayBlock::<Test>::get(42),
+			Some(network.gateway_block)
 		);
 	});
 }
 
 #[test]
-fn test_single_blockchain_multiple_networks() {
-	let blockchain: ChainName = "Ethereum".into();
-	let network: ChainNetwork = "Mainnet".into();
-	let network2: ChainNetwork = "Testnet".into();
+fn test_duplicate_insertion() {
+	let network = mock_network();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Networks::add_network(
-			RawOrigin::Root.into(),
-			blockchain.clone(),
-			network.clone(),
-		));
-		assert_ok!(Networks::add_network(
-			RawOrigin::Root.into(),
-			blockchain.clone(),
-			network2.clone(),
-		));
-		assert_eq!(pallet_networks::Networks::<Test>::get(0), Some((blockchain.clone(), network)));
-		assert_eq!(pallet_networks::Networks::<Test>::get(1), Some((blockchain, network2)));
+		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network.clone(),));
+		assert_noop!(
+			Networks::register_network(RawOrigin::Root.into(), network,),
+			<Error<Test>>::NetworkExists
+		);
 	});
 }

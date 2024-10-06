@@ -1,11 +1,13 @@
 #[cfg(feature = "std")]
-use crate::BlockNumber;
+use crate::{
+	encode_gmp_events, BatchId, BlockNumber, Gateway, GatewayMessage, GmpEvent, GmpParams,
+	NetworkId, TaskId,
+};
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use crate::TaskExecution;
 use scale_codec::{Decode, Encode};
 use scale_info::prelude::string::String;
 use scale_info::prelude::vec::Vec;
@@ -18,6 +20,50 @@ pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
 pub type Commitment = Vec<TssPublicKey>;
+
+#[cfg(feature = "std")]
+pub mod serde_tss_public_key {
+	use super::TssPublicKey;
+	use serde::de::Error;
+	use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+	pub fn serialize<S>(t: &TssPublicKey, ser: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		t[..].serialize(ser)
+	}
+
+	pub fn deserialize<'de, D>(de: D) -> Result<TssPublicKey, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let bytes = <Vec<u8>>::deserialize(de)?;
+		TssPublicKey::try_from(bytes).map_err(|_| D::Error::custom("invalid public key length"))
+	}
+}
+
+#[cfg(feature = "std")]
+pub mod serde_tss_signature {
+	use super::TssSignature;
+	use serde::de::Error;
+	use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+	pub fn serialize<S>(t: &TssSignature, ser: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		t[..].serialize(ser)
+	}
+
+	pub fn deserialize<'de, D>(de: D) -> Result<TssSignature, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let bytes = <Vec<u8>>::deserialize(de)?;
+		TssSignature::try_from(bytes).map_err(|_| D::Error::custom("invalid signature length"))
+	}
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {
@@ -37,6 +83,18 @@ impl MemberStatus {
 
 	pub fn is_committed(&self) -> bool {
 		self.commitment().is_some()
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for MemberStatus {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let status = match self {
+			Self::Added => "added",
+			Self::Committed(_) => "commited",
+			Self::Ready => "ready",
+		};
+		f.write_str(status)
 	}
 }
 
@@ -65,10 +123,82 @@ impl Default for ShardStatus {
 }
 
 #[cfg(feature = "std")]
+impl std::fmt::Display for ShardStatus {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let status = match self {
+			Self::Created => "created",
+			Self::Committed => "commited",
+			Self::Online => "online",
+			Self::Offline => "offline",
+		};
+		f.write_str(status)
+	}
+}
+
+#[cfg(feature = "std")]
 pub struct TssSigningRequest {
-	pub request_id: TaskExecution,
+	pub task_id: TaskId,
 	pub shard_id: ShardId,
 	pub block_number: BlockNumber,
 	pub data: Vec<u8>,
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
+}
+
+#[allow(clippy::result_unit_err)]
+pub fn verify_signature(
+	public_key: TssPublicKey,
+	data: &[u8],
+	signature: TssSignature,
+) -> Result<(), ()> {
+	let signature = schnorr_evm::Signature::from_bytes(signature).map_err(|_| ())?;
+	let schnorr_public_key = schnorr_evm::VerifyingKey::from_bytes(public_key).map_err(|_| ())?;
+	schnorr_public_key.verify(data, &signature).map_err(|_| ())?;
+	Ok(())
+}
+
+pub struct MockTssSigner {
+	signing_key: schnorr_evm::SigningKey,
+}
+
+impl MockTssSigner {
+	pub fn new(shard: ShardId) -> Self {
+		let shard = shard + 1;
+		let mut key = [0; 32];
+		key[24..32].copy_from_slice(&shard.to_be_bytes());
+		Self::from_secret(key)
+	}
+
+	pub fn from_secret(secret: [u8; 32]) -> Self {
+		Self {
+			signing_key: schnorr_evm::SigningKey::from_bytes(secret).unwrap(),
+		}
+	}
+
+	pub fn public_key(&self) -> TssPublicKey {
+		self.signing_key.public().to_bytes().unwrap()
+	}
+
+	#[cfg(feature = "std")]
+	pub fn sign(&self, data: &[u8]) -> TssSignature {
+		self.signing_key.sign(data).to_bytes()
+	}
+
+	#[cfg(feature = "std")]
+	pub fn sign_gateway_message(
+		&self,
+		network: NetworkId,
+		gateway: Gateway,
+		batch: BatchId,
+		msg: &GatewayMessage,
+	) -> TssSignature {
+		let bytes = msg.encode(batch);
+		let hash = GmpParams { network, gateway }.hash(&bytes);
+		self.sign(&hash)
+	}
+
+	#[cfg(feature = "std")]
+	pub fn sign_gmp_events(&self, task: TaskId, events: &[GmpEvent]) -> TssSignature {
+		let bytes = encode_gmp_events(task, events);
+		self.sign(&bytes)
+	}
 }

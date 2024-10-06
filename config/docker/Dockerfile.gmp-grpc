@@ -1,0 +1,3 @@
+FROM scratch
+COPY gmp-grpc gmp-grpc
+ENTRYPOINT ["/gmp-grpc"]

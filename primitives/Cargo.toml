@@ -13,38 +13,29 @@ repository.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 futures = { workspace = true, optional = true }
-log.workspace = true
+hex = { workspace = true, optional = true }
 serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
-scale-decode.workspace = true
 scale-info.workspace = true
-
-alloy-primitives = { version = "0.8", default-features = false }
-alloy-sol-types = { version = "0.8", default-features = false }
+schnorr-evm = { version = "0.1.0", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 
 polkadot-sdk = { workspace = true, features = [
 	"frame-support",
-    "frame-system",
-
-    "sp-api",
-    "sp-application-crypto",
-    "sp-core",
-    "sp-io",
-    "sp-runtime",
-    "sp-std",
+	"sp-api",
+	"sp-core",
+	"sp-io",
+	"sp-runtime",
+	"sp-std",
 ]}
 
 [features]
 default = ["std"]
 std = [
 	"futures",
+	"hex",
 	"scale-codec/std",
 	"scale-info/std",
-
+	"schnorr-evm/std",
 	"polkadot-sdk/std",
 ]
-
-[dev-dependencies]
-hex.workspace = true
-

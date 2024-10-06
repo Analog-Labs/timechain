@@ -53,7 +53,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, ElectionsInterface, MemberEvents, MemberStorage, NetworkId, ShardsInterface,
+		AccountId, ElectionsInterface, MembersInterface, NetworkId, ShardsInterface,
 	};
 
 	pub trait WeightInfo {
@@ -81,9 +81,9 @@ pub mod pallet {
 		/// Ensured origin for calls changing config or electables
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// The interface for shard-related operations.
-		type Shards: ShardsInterface + MemberEvents;
+		type Shards: ShardsInterface;
 		///  The storage interface for member-related data.
-		type Members: MemberStorage;
+		type Members: MembersInterface;
 	}
 
 	/// Size of each new shard
@@ -108,7 +108,8 @@ pub mod pallet {
 
 	/// Electable shard members
 	#[pallet::storage]
-	pub type Electable<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+	pub type Electable<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -136,7 +137,7 @@ pub mod pallet {
 			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
 			for account in &self.electable {
-				Electable::<T>::insert(account, ());
+				Electable::<T>::insert(account.clone(), account);
 			}
 		}
 	}
@@ -210,13 +211,27 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			let _ = Electable::<T>::clear(u32::MAX, None);
 			for account in electable {
-				Electable::<T>::insert(account, ());
+				Electable::<T>::insert(account.clone(), account);
 			}
 			Ok(())
 		}
 	}
 
-	impl<T: Config> MemberEvents for Pallet<T> {
+	impl<T: Config> ElectionsInterface for Pallet<T> {
+		///  Handles the event when a shard goes offline.
+		/// # Flow
+		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
+		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
+			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
+		}
+
+		///  Retrieves the default shard size.
+		/// # Flow
+		///    1. Returns the value of [`ShardSize`] from storage.
+		fn default_shard_size() -> u16 {
+			ShardSize::<T>::get()
+		}
+
 		///  Handles the event when a member comes online.
 		/// # Flow
 		///    1. Checks if the member is not already a shard member.
@@ -245,23 +260,12 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ElectionsInterface for Pallet<T> {
-		///  Handles the event when a shard goes offline.
-		/// # Flow
-		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
-		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
-			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
-		}
-
-		///  Retrieves the default shard size.
-		/// # Flow
-		///    1. Returns the value of [`ShardSize`] from storage.
-		fn default_shard_size() -> u16 {
-			ShardSize::<T>::get()
-		}
-	}
-
 	impl<T: Config> Pallet<T> {
+		/// Return electable accounts.
+		pub fn get_electable() -> Vec<AccountId> {
+			Electable::<T>::iter().map(|(_, e)| e).collect()
+		}
+
 		///   Attempts to elect a new shard for a network.
 		/// # Flow
 		///    1. Calls `new_shard_members` to get a list of new shard members.

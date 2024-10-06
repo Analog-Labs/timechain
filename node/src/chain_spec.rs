@@ -12,7 +12,7 @@ use sc_service::{config::TelemetryEndpoints, ChainType};
 use sp_authority_discovery::AuthorityId as DiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::UncheckedInto, hex2array};
+use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 
@@ -47,7 +47,7 @@ const PER_NOMINATOR_STASH: Balance = 8 * PER_NOMINATION;
 const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
-const SUDO_SUPPLY: Balance = ANLOG * 50_000;
+const SUDO_SUPPLY: Balance = ANLOG * 50_000 + PER_CHRONICLE_STASH * 6;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
 
@@ -57,16 +57,6 @@ const MIN_VALIDATOR_COUNT: u32 = 1;
 /// Default telemetry server for all networks
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
-
-/// Additional development keys used for chronicles
-const THREE: [u8; 32] =
-	hex2array!("9026941b7aa2328a8c5ea4e25bb747a2bf92a066fae0cc3722faf58cf44d3502");
-const FOUR: [u8; 32] =
-	hex2array!("4017e17f10cc5a98731de9f020dbb37986f6e575789152d7fadae2b32eea6c13");
-const FIVE: [u8; 32] =
-	hex2array!("b0521e374b0586d6829dad320753c62cdc6ef5edbd37ffdd36da0ae97c521819");
-const SIX: [u8; 32] =
-	hex2array!("1880104772db7b947f3f8ccdcab3650d7179c44551d22dd0cca5dc852a140563");
 
 /// Node `ChainSpec` extensions.
 ///
@@ -130,22 +120,7 @@ impl Default for GenesisKeysConfig {
 				Alice.to_raw_public().unchecked_into(),
 				Alice.to_raw_public().unchecked_into(),
 			)],
-			chronicles: vec![
-				One.into(),
-				Two.into(),
-				THREE.into(),
-				FOUR.into(),
-				FIVE.into(),
-				SIX.into(),
-				// Additional development keys (see config/wallets)
-				hex!["78af33d076b81fddce1c051a72bb1a23fd32519a2ede7ba7a54b2c76d110c54d"].into(),
-				hex!["cee262950a61e921ac72217fd5578c122bfc91ba5c0580dbfbe42148cf35be2b"].into(),
-				hex!["a01b6ceec7fb1d32bace8ffcac21ffe6839d3a2ebe26d86923be9dd94c0c9a02"].into(),
-				hex!["1e31bbe09138bef48ffaca76214317eb0f7a8fd85959774e41d180f2ad9e741f"].into(),
-				hex!["1843caba7078a699217b23bcec8b57db996fc3d1804948e9ee159fc1dc9b8659"].into(),
-				hex!["72a170526bb41438d918a9827834c38aff8571bfe9203e38b7a6fd93ecf70d69"].into(),
-				hex!["862b57a754ebda4c4bbd5714b637becd83f868ff634df6c22d4a9a905596f911"].into(),
-			],
+			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
 			councils: vec![Bob.into(), Charlie.into(), Dave.into(), Eve.into(), Ferdie.into()],
@@ -397,15 +372,7 @@ impl GenesisKeysConfig {
 				"shardThreshold": shard_threshold,
 			},
 			"networks": {
-				"networks": [
-					("ethereum", "mainnet"),
-					("astar", "astar"),
-					("polygon", "mainnet"),
-					("ethereum", "dev"),
-					("ethereum", "goerli"),
-					("ethereum", "sepolia"),
-					("astar", "dev"),
-				],
+				"networks": [],
 			},
 			"session": {
 				"keys": authorities,

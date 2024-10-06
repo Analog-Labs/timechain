@@ -2,12 +2,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
-use async_trait::async_trait;
-#[cfg(feature = "std")]
-use futures::stream::BoxStream;
-use scale_info::prelude::vec::Vec;
+use frame_support::weights::Weight;
+use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
+use scale_info::prelude::{string::String, vec::Vec};
+use sp_core::crypto::Ss58Codec;
+use sp_runtime::{
+	generic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
+};
 
 // Export scoped ...
+#[cfg(feature = "std")]
+pub mod admin;
 pub mod currency;
 pub mod gmp;
 pub mod network;
@@ -21,15 +28,6 @@ pub use crate::network::*;
 pub use crate::shard::*;
 pub use crate::task::*;
 
-use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
-
-use frame_support::weights::Weight;
-use sp_runtime::{
-	generic,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
-};
-
 /// Re-exported substrate traits
 pub mod traits {
 	use polkadot_sdk::{sp_core, sp_runtime};
@@ -40,11 +38,6 @@ pub mod traits {
 
 /// Re-export key and hash types
 pub use sp_core::{ed25519, sr25519, H160, H256, H512};
-
-use polkadot_sdk::sp_application_crypto;
-/// Time key type identifier
-pub const TIME_KEY_TYPE: sp_application_crypto::KeyTypeId =
-	sp_application_crypto::KeyTypeId(*b"time");
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -87,19 +80,10 @@ pub type BlockId = generic::BlockId<Block>;
 /// General Public Key used across the protocol
 pub type PublicKey = MultiSigner;
 
-pub mod crypto {
-	use polkadot_sdk::{frame_system, sp_runtime};
+pub const SS_58_FORMAT: u16 = 12850;
 
-	use sp_runtime::app_crypto::{app_crypto, sr25519};
-	app_crypto!(sr25519, crate::TIME_KEY_TYPE);
-
-	pub struct SigAuthId;
-
-	impl frame_system::offchain::AppCrypto<crate::PublicKey, crate::Signature> for SigAuthId {
-		type RuntimeAppPublic = Public;
-		type GenericSignature = sr25519::Signature;
-		type GenericPublic = sr25519::Public;
-	}
+pub fn format_address(account: &AccountId) -> String {
+	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))
 }
 
 sp_api::decl_runtime_apis! {
@@ -111,6 +95,11 @@ sp_api::decl_runtime_apis! {
 
 	pub trait NetworksApi {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
+		fn get_gateway(network: NetworkId) -> Option<Gateway>;
+	}
+
+	pub trait ElectionsApi {
+		fn get_electable() -> Vec<AccountId>;
 	}
 
 	pub trait ShardsApi {
@@ -122,15 +111,13 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait TasksApi {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskExecution>;
-		fn get_task(task_id: TaskId) -> Option<TaskDescriptor>;
-		fn get_task_signature(task_id: TaskId) -> Option<TssSignature>;
-		fn get_task_signer(task_id: TaskId) -> Option<PublicKey>;
-		fn get_task_hash(task_id: TaskId) -> Option<[u8; 32]>;
-		fn get_task_phase(task_id: TaskId) -> TaskPhase;
-		fn get_task_result(task_id: TaskId) -> Option<TaskResult>;
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
+		fn get_task(task_id: TaskId) -> Option<Task>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_gateway(network: NetworkId) -> Option<[u8; 20]>;
+		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey>;
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>;
+		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
+		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -139,33 +126,34 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
-/// Expose unbond and transfer functionality to pay for (Un)RegisterShard task fees
-pub trait TransferStake {
-	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
+pub trait NetworksInterface {
+	fn gateway(network: NetworkId) -> Option<Address>;
+	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
+	fn batch_gas_limit(network: NetworkId) -> u128;
+	fn shard_task_limit(network: NetworkId) -> u32;
 }
 
-pub trait MemberEvents {
-	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
-}
-
-pub trait MemberStorage {
+pub trait MembersInterface {
 	fn member_stake(account: &AccountId) -> Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;
 	fn total_stake() -> Balance;
+	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
 }
 
 pub trait ElectionsInterface {
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 	fn default_shard_size() -> u16;
+	fn member_online(id: &AccountId, network: NetworkId);
+	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
 }
 
 pub trait ShardsInterface {
+	fn member_online(id: &AccountId, network: NetworkId);
+	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
-	fn matching_shard_online(network: NetworkId, size: u16) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
 	fn create_shard(
@@ -180,89 +168,5 @@ pub trait ShardsInterface {
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
-}
-
-#[cfg(feature = "std")]
-#[async_trait]
-pub trait Runtime: Clone + Send + Sync + 'static {
-	fn public_key(&self) -> &PublicKey;
-
-	fn account_id(&self) -> &AccountId;
-
-	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
-
-	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
-
-	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>>;
-
-	async fn get_member_peer_id(
-		&self,
-		block: BlockHash,
-		account: &AccountId,
-	) -> Result<Option<PeerId>>;
-
-	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
-
-	async fn get_min_stake(&self) -> Result<Balance>;
-
-	async fn get_shards(&self, block: BlockHash, account: &AccountId) -> Result<Vec<ShardId>>;
-
-	async fn get_shard_members(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<(AccountId, MemberStatus)>>;
-
-	async fn get_shard_threshold(&self, block: BlockHash, shard_id: ShardId) -> Result<u16>;
-
-	async fn get_shard_status(&self, block: BlockHash, shard_id: ShardId) -> Result<ShardStatus>;
-
-	async fn get_shard_commitment(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Option<Commitment>>;
-
-	async fn get_shard_tasks(
-		&self,
-		block: BlockHash,
-		shard_id: ShardId,
-	) -> Result<Vec<TaskExecution>>;
-
-	async fn get_task(&self, block: BlockHash, task_id: TaskId) -> Result<Option<TaskDescriptor>>;
-
-	async fn get_task_signature(&self, task_id: TaskId) -> Result<Option<TssSignature>>;
-
-	async fn get_task_signer(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
-
-	async fn get_task_hash(&self, task_id: TaskId) -> Result<Option<[u8; 32]>>;
-
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<[u8; 20]>>;
-
-	async fn submit_register_member(
-		&self,
-		network: NetworkId,
-		peer_id: PeerId,
-		stake_amount: u128,
-	) -> Result<()>;
-
-	async fn submit_unregister_member(&self) -> Result<()>;
-
-	async fn submit_heartbeat(&self) -> Result<()>;
-
-	async fn submit_commitment(
-		&self,
-		shard_id: ShardId,
-		commitment: Commitment,
-		proof_of_knowledge: ProofOfKnowledge,
-	) -> Result<()>;
-
-	async fn submit_online(&self, shard_id: ShardId) -> Result<()>;
-
-	async fn submit_task_signature(&self, task_id: TaskId, signature: TssSignature) -> Result<()>;
-
-	async fn submit_task_hash(&self, task_id: TaskId, hash: Result<[u8; 32], String>)
-		-> Result<()>;
-
-	async fn submit_task_result(&self, task_id: TaskId, status: TaskResult) -> Result<()>;
+	fn gateway_registered(network: NetworkId, block: u64);
 }

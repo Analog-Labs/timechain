@@ -1,8 +1,13 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use bip39::Mnemonic;
 use chronicle::ChronicleConfig;
 use clap::Parser;
-use std::{path::PathBuf, time::Duration};
-use tc_subxt::{MetadataVariant, SubxtClient, SubxtTxSubmitter};
+use futures::FutureExt;
+use std::{
+	path::{Path, PathBuf},
+	time::Duration,
+};
+use tc_subxt::{MetadataVariant, SubxtClient};
 use time_primitives::NetworkId;
 
 #[derive(Debug, Parser)]
@@ -12,7 +17,7 @@ pub struct ChronicleArgs {
 	pub network_id: NetworkId,
 	/// The secret to use for p2p networking.
 	#[clap(long)]
-	pub network_keyfile: Option<PathBuf>,
+	pub network_keyfile: PathBuf,
 	/// The port to bind to for p2p networking.
 	#[clap(long)]
 	pub network_port: Option<u16>,
@@ -22,12 +27,15 @@ pub struct ChronicleArgs {
 	/// key file for connector wallet
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
-	/// key file for connector wallet
-	#[clap(long)]
+	/// target min balance
+	#[clap(long, default_value_t = 0)]
 	pub target_min_balance: u128,
+	/// timechain min balance
+	#[clap(long, default_value_t = 0)]
+	pub timechain_min_balance: u128,
 	/// Metadata version to use to connect to timechain node.
 	#[clap(long)]
-	pub timechain_metadata: Option<MetadataVariant>,
+	pub timechain_metadata: MetadataVariant,
 	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
@@ -46,20 +54,27 @@ pub struct ChronicleArgs {
 }
 
 impl ChronicleArgs {
-	pub fn config(self) -> ChronicleConfig {
-		ChronicleConfig {
+	fn config(self, network_key: [u8; 32], target_mnemonic: String) -> Result<ChronicleConfig> {
+		Ok(ChronicleConfig {
 			network_id: self.network_id,
-			network_keyfile: self.network_keyfile,
+			network_key,
 			network_port: self.network_port,
+			timechain_min_balance: self.timechain_min_balance,
 			target_min_balance: self.target_min_balance,
-			timechain_metadata: self.timechain_metadata.unwrap_or_default(),
-			timechain_url: self.timechain_url,
-			timechain_keyfile: self.timechain_keyfile,
 			target_url: self.target_url,
-			target_keyfile: self.target_keyfile,
+			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
-		}
+			admin: true,
+		})
 	}
+}
+
+fn generate_key(path: &Path) -> Result<()> {
+	let mut seed = [0; 32];
+	getrandom::getrandom(&mut seed)?;
+	let mnemonic = Mnemonic::from_entropy(&seed)?;
+	std::fs::write(path, mnemonic.to_string())?;
+	Ok(())
 }
 
 #[tokio::main]
@@ -75,8 +90,32 @@ async fn main() -> Result<()> {
 	let args = ChronicleArgs::parse();
 
 	if !args.tss_keyshare_cache.exists() {
-		anyhow::bail!("tss keyshare cache doesn't exist");
+		std::fs::create_dir_all(&args.tss_keyshare_cache)?;
 	}
+
+	if !args.timechain_keyfile.exists() {
+		generate_key(&args.timechain_keyfile)?;
+	}
+
+	if !args.target_keyfile.exists() {
+		generate_key(&args.target_keyfile)?;
+	}
+
+	if !args.network_keyfile.exists() {
+		let mut secret = [0; 32];
+		getrandom::getrandom(&mut secret)?;
+		std::fs::write(&args.network_keyfile, secret)?;
+	}
+
+	let timechain_mnemonic = std::fs::read_to_string(&args.timechain_keyfile)
+		.context("failed to read timechain keyfile")?;
+	let target_mnemonic =
+		std::fs::read_to_string(&args.target_keyfile).context("failed to read target keyfile")?;
+	let network_key = std::fs::read(&args.network_keyfile)
+		.context("network keyfile doesn't exist")?
+		.try_into()
+		.map_err(|_| anyhow::anyhow!("invalid secret"))?;
+
 	// Setup Prometheus exporter if enabled
 	if args.prometheus_enabled {
 		let binding = format!("0.0.0.0:{}", args.prometheus_port).parse().unwrap();
@@ -85,25 +124,51 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let config = args.config();
-
-	let (network, network_requests) =
-		chronicle::create_iroh_network(config.network_config()).await?;
-	let tx_submitter = loop {
-		if let Ok(t) = SubxtTxSubmitter::try_new(&config.timechain_url).await {
-			break t;
+	loop {
+		if SubxtClient::get_client(&args.timechain_url).await.is_ok() {
+			break;
 		} else {
-			tracing::error!("Error connecting to {} retrying", &config.timechain_url);
+			tracing::error!("Error connecting to {} retrying", &args.timechain_url);
 			tokio::time::sleep(Duration::from_secs(5)).await;
 		}
+	}
+
+	let subxt =
+		SubxtClient::with_key(&args.timechain_url, args.timechain_metadata, &timechain_mnemonic)
+			.await?;
+
+	let chronicle = chronicle::run_chronicle::<gmp_grpc::Connector>(
+		args.config(network_key, target_mnemonic)?,
+		subxt,
+	);
+	let signal = shutdown_signal();
+
+	futures::select! {
+		_ = chronicle.fuse() => {}
+		_ = signal.fuse() => {}
 	};
 
-	let subxt = SubxtClient::with_keyfile(
-		&config.timechain_url,
-		config.timechain_metadata,
-		&config.timechain_keyfile,
-		tx_submitter,
-	)
-	.await?;
-	chronicle::run_chronicle(config, network, network_requests, subxt).await
+	std::process::exit(0);
+}
+
+async fn shutdown_signal() {
+	let ctrl_c = async {
+		tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+	};
+
+	#[cfg(unix)]
+	let terminate = async {
+		tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+			.expect("failed to install signal handler")
+			.recv()
+			.await;
+	};
+
+	#[cfg(not(unix))]
+	let terminate = std::future::pending::<()>();
+
+	tokio::select! {
+		_ = ctrl_c => {},
+		_ = terminate => {},
+	}
 }

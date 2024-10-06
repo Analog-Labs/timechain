@@ -40,8 +40,7 @@ pub mod pallet {
 	use polkadot_sdk::pallet_balances;
 
 	use time_primitives::{
-		AccountId, Balance, MemberEvents, MemberStorage, NetworkId, PeerId, PublicKey,
-		TransferStake,
+		AccountId, Balance, ElectionsInterface, MembersInterface, NetworkId, PeerId, PublicKey,
 	};
 
 	pub trait WeightInfo {
@@ -76,7 +75,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		type Elections: MemberEvents;
+		type Elections: ElectionsInterface;
 		/// Minimum stake to register member
 		#[pallet::constant]
 		type MinStake: Get<BalanceOf<Self>>;
@@ -320,30 +319,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> TransferStake for Pallet<T> {
-		/// Transfers a specified amount of stake from one account to another.
-		///
-		/// This function checks if the `from` account has sufficient stake before proceeding with the transfer.
-		/// It unreserves the specified amount from the `from` account, transfers it to the `to` account,
-		/// and updates the `from` account's remaining stake.
-		/// Returns [`Error::<T>::StakedBelowTransferAmount`] if the `from` account does not have enough stake.
-		fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult {
-			let total_stake = MemberStake::<T>::get(from);
-			let remaining_stake =
-				total_stake.checked_sub(amount).ok_or(Error::<T>::StakedBelowTransferAmount)?;
-			pallet_balances::Pallet::<T>::unreserve(from, amount);
-			pallet_balances::Pallet::<T>::transfer(
-				from,
-				to,
-				amount,
-				ExistenceRequirement::KeepAlive,
-			)?;
-			MemberStake::<T>::insert(from, remaining_stake);
-			Ok(())
-		}
-	}
-
-	impl<T: Config> MemberStorage for Pallet<T> {
+	impl<T: Config> MembersInterface for Pallet<T> {
 		/// Retrieves the stake of a specific member.
 		fn member_stake(account: &AccountId) -> BalanceOf<T> {
 			MemberStake::<T>::get(account)
@@ -371,6 +347,27 @@ pub mod pallet {
 				total = total.saturating_add(stake.1);
 			}
 			total
+		}
+
+		/// Transfers a specified amount of stake from one account to another.
+		///
+		/// This function checks if the `from` account has sufficient stake before proceeding with the transfer.
+		/// It unreserves the specified amount from the `from` account, transfers it to the `to` account,
+		/// and updates the `from` account's remaining stake.
+		/// Returns [`Error::<T>::StakedBelowTransferAmount`] if the `from` account does not have enough stake.
+		fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult {
+			let total_stake = MemberStake::<T>::get(from);
+			let remaining_stake =
+				total_stake.checked_sub(amount).ok_or(Error::<T>::StakedBelowTransferAmount)?;
+			pallet_balances::Pallet::<T>::unreserve(from, amount);
+			pallet_balances::Pallet::<T>::transfer(
+				from,
+				to,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
+			MemberStake::<T>::insert(from, remaining_stake);
+			Ok(())
 		}
 	}
 }

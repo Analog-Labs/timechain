@@ -4,6 +4,15 @@ use polkadot_sdk::frame_support::derive_impl;
 use polkadot_sdk::sp_core::{ConstU128, ConstU64};
 use polkadot_sdk::sp_runtime::{traits::IdentityLookup, BuildStorage};
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_io};
+use time_primitives::{NetworkId, ShardId, TasksInterface};
+
+pub struct MockTasks;
+
+impl TasksInterface for MockTasks {
+	fn shard_online(_shard_id: ShardId, _network: NetworkId) {}
+	fn shard_offline(_shard_id: ShardId, _network: NetworkId) {}
+	fn gateway_registered(_network: NetworkId, _block: u64) {}
+}
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u64;
@@ -42,6 +51,7 @@ impl pallet_networks::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
+	type Tasks = MockTasks;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -23,7 +23,7 @@ serde_json = { workspace = true, features = ["alloc", "arbitrary_precision"] }
 
 static_assertions = "1.1.0"
 
-primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
+primitive-types = { version = "0.13.1", default-features = false, features = ["codec", "scale-info"] }
 
 polkadot-sdk = { workspace = true, features = [
 	"frame-election-provider-support",

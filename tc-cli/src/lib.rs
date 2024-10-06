@@ -20,6 +20,7 @@ use time_primitives::{
 };
 
 mod config;
+mod gas_price_calculator;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -228,17 +229,16 @@ impl Tc {
 		for (network_id, network) in &self.config.networks {
 			let symbol = network.symbol.clone();
 			let token_url = format!("{}{}", base_url, symbol);
-			let response: Value = reqwest::Client::new()
+			let response = reqwest::Client::new()
 				.get(token_url)
 				.headers(header_map.clone())
 				.send()
 				.await?
-				.json()
+				.json::<TokenPriceData>()
 				.await?;
-			let data = response["data"][0].clone();
-			let usd_price =
-				data["quote"]["USD"]["price"].as_f64().expect("Unable to convert price");
-			let symbol = data["symbol"].as_str().expect("Unable to convert symbol");
+			let data = response.data[0].clone();
+			let usd_price = data.quote.usd.price;
+			let symbol = data.symbol;
 
 			wtr.write_record(&[network_id.to_string(), symbol.into(), usd_price.to_string()])?;
 		}
@@ -630,6 +630,7 @@ impl Tc {
 			batch_gas_limit: config.batch_gas_limit,
 			shard_task_limit: config.shard_task_limit,
 		};
+
 		let batch_size = self.runtime.network_batch_size(network).await?;
 		let batch_offset = self.runtime.network_batch_offset(network).await?;
 		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
@@ -668,6 +669,8 @@ impl Tc {
 				let route = Route {
 					network_id: dest,
 					gateway,
+					//TODO load values from csv file
+					relative_gas_price: (1, 1),
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};

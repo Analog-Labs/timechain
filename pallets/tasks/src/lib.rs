@@ -1187,6 +1187,10 @@ pub mod pallet {
 			TaskOutput::<T>::insert(task_id, result);
 			if let Some(shard_id) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard_id, task_id);
+			} else if let Some(task_index) = UATaskIndex::<T>::take(task_id) {
+				if let Some(task) = Tasks::<T>::get(task_id) {
+					Self::remove_unassigned_task(task.network, task_index, task_id);
+				}
 			}
 		}
 
@@ -1202,16 +1206,13 @@ pub mod pallet {
 		///     - Clear any stored task signature ([`TaskSignature::<T>::remove`]).
 		///     - Remove any associated task hash ([`TaskHash::<T>::remove`]).
 		///   5. Emit an event ([`Event::TaskResult`]) indicating the cancellation and its result.
-		fn cancel_task(task_id: TaskId, task_network: NetworkId) {
+		fn cancel_task(task_id: TaskId, _task_network: NetworkId) {
 			let result = TaskResult {
 				shard_id: 0,
 				payload: Payload::Error("task cancelled by sudo".into()),
 				signature: [0; 64],
 			};
 			Self::finish_task(task_id, result.clone());
-			if let Some(task_index) = UATaskIndex::<T>::take(task_id) {
-				Self::remove_unassigned_task(task_network, task_index, task_id);
-			}
 			TaskPhaseState::<T>::remove(task_id);
 			TaskSigner::<T>::remove(task_id);
 			TaskSignature::<T>::remove(task_id);

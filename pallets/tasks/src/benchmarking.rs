@@ -26,14 +26,14 @@ const SIGNATURE: TssSignature = [
 
 fn create_simple_task<T: Config + pallet_shards::Config>() {
 	const ETHEREUM: NetworkId = 0;
-	<T as Config>::Shards::create_shard(
+	let (shard_id, _) = <T as Config>::Shards::create_shard(
 		ETHEREUM,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
 	);
-	ShardState::<T>::insert(0, ShardStatus::Online);
-	ShardCommitment::<T>::insert(0, vec![PUBKEY]);
-	Pallet::<T>::shard_online(0, ETHEREUM);
+	ShardState::<T>::insert(shard_id, ShardStatus::Online);
+	ShardCommitment::<T>::insert(shard_id, vec![PUBKEY]);
+	Pallet::<T>::shard_online(shard_id, ETHEREUM);
 	Pallet::<T>::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 0..10 });
 }
 

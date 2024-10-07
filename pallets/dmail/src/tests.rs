@@ -5,13 +5,13 @@ use polkadot_sdk::{frame_support, frame_system};
 
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-
+use scale_codec::Encode;
 use time_primitives::{DmailMessage, DmailPath, DmailTo};
 
 #[test]
 fn test_dmail_event() {
-	let to: DmailTo = "Self".into();
-	let path: DmailPath = "//self".into();
+	let to: DmailTo = DmailTo::truncate_from("Self".encode());
+	let path: DmailPath = DmailPath::truncate_from("//self".encode());
 	let sender: AccountId = [1; 32].into();
 	let event = DmailMessage {
 		owner: sender.clone(),

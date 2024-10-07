@@ -133,7 +133,6 @@ fn transfer_to_pool_works() {
 		// Arrange
 		let timegraph_account = 1;
 		let user_account = 2;
-		let initial_reserved_balance = 1000;
 		let transfer_amount = 500;
 
 		// Set the timegraph account
@@ -204,6 +203,264 @@ fn transfer_to_pool_fails_with_insufficient_reserved_balance() {
 				transfer_amount + pallet_timegraph::Threshold::<Test>::get()
 			),
 			Error::<Test>::NotWithdrawalRequired
+		);
+	});
+}
+
+#[test]
+fn transfer_award_to_user_works() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		let user_account = 2;
+		let reward_pool_account = 3;
+		let initial_pool_balance = 1000;
+		let transfer_amount = 500;
+
+		// Set the timegraph and reward pool accounts
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+		pallet_timegraph::RewardPoolAccount::<Test>::set(reward_pool_account);
+
+		// Ensure the reward pool has enough balance
+		Balances::make_free_balance_be(&reward_pool_account, initial_pool_balance);
+
+		// Act
+		assert_ok!(Timegraph::transfer_award_to_user(
+			RawOrigin::Signed(timegraph_account).into(),
+			user_account,
+			transfer_amount
+		));
+
+		// Assert
+		assert_eq!(Balances::reserved_balance(&user_account), transfer_amount);
+		assert_eq!(
+			Balances::free_balance(&reward_pool_account),
+			initial_pool_balance - transfer_amount
+		);
+	});
+}
+
+#[test]
+fn transfer_award_to_user_fails_with_insufficient_pool_balance() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		let user_account = 2;
+		let reward_pool_account = 3;
+		let initial_pool_balance = 300;
+		let transfer_amount = 500;
+
+		// Set the timegraph and reward pool accounts
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+		pallet_timegraph::RewardPoolAccount::<Test>::set(reward_pool_account);
+
+		// Ensure the reward pool has insufficient balance
+		Balances::make_free_balance_be(&reward_pool_account, initial_pool_balance);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::transfer_award_to_user(
+				RawOrigin::Signed(timegraph_account).into(),
+				user_account,
+				transfer_amount
+			),
+			Error::<Test>::RewardPoolOutOfBalance
+		);
+	});
+}
+
+#[test]
+fn transfer_award_to_user_fails_when_transferring_to_reward_pool_account() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		let reward_pool_account = 3;
+		let transfer_amount = 500;
+
+		// Set the timegraph and reward pool accounts
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+		pallet_timegraph::RewardPoolAccount::<Test>::set(reward_pool_account);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::transfer_award_to_user(
+				RawOrigin::Signed(timegraph_account).into(),
+				reward_pool_account,
+				transfer_amount
+			),
+			Error::<Test>::RewardToSameAccount
+		);
+	});
+}
+
+#[test]
+fn set_timegraph_account_works() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let new_timegraph_account = 1;
+		let root_origin = RawOrigin::Root;
+
+		// Act
+		assert_ok!(Timegraph::set_timegraph_account(root_origin.into(), new_timegraph_account));
+
+		// Assert
+		assert_eq!(pallet_timegraph::TimegraphAccount::<Test>::get(), new_timegraph_account);
+	});
+}
+
+#[test]
+fn set_timegraph_account_fails_with_same_account() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let existing_timegraph_account = 1;
+		let root_origin = RawOrigin::Root;
+
+		// Set the initial timegraph account
+		pallet_timegraph::TimegraphAccount::<Test>::set(existing_timegraph_account);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::set_timegraph_account(root_origin.into(), existing_timegraph_account),
+			Error::<Test>::SameTimegraphAccount
+		);
+	});
+}
+
+#[test]
+fn set_timegraph_account_fails_with_non_root_origin() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let new_timegraph_account = 1;
+		let non_root_origin = RawOrigin::Signed(2); // Non-root account
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::set_timegraph_account(non_root_origin.into(), new_timegraph_account),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn set_reward_pool_account_works() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let new_reward_pool_account = 6;
+		let root_origin = RawOrigin::Root;
+
+		// Act
+		assert_ok!(Timegraph::set_reward_pool_account(root_origin.into(), new_reward_pool_account));
+
+		// Assert
+		assert_eq!(pallet_timegraph::RewardPoolAccount::<Test>::get(), new_reward_pool_account);
+	});
+}
+
+#[test]
+fn set_reward_pool_account_fails_with_same_account() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let existing_reward_pool_account = 1;
+		let root_origin = RawOrigin::Root;
+
+		// Set the initial reward pool account
+		pallet_timegraph::RewardPoolAccount::<Test>::set(existing_reward_pool_account);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::set_reward_pool_account(root_origin.into(), existing_reward_pool_account),
+			Error::<Test>::SameRewardPoolAccount
+		);
+	});
+}
+
+#[test]
+fn set_reward_pool_account_fails_with_non_root_origin() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let new_reward_pool_account = 1;
+		let non_root_origin = RawOrigin::Signed(2); // Non-root account
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::set_reward_pool_account(non_root_origin.into(), new_reward_pool_account),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn set_threshold_works() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let new_threshold = 2000;
+		let root_origin = RawOrigin::Root;
+
+		// Act
+		assert_ok!(Timegraph::set_threshold(root_origin.into(), new_threshold));
+
+		// Assert
+		assert_eq!(pallet_timegraph::Threshold::<Test>::get(), new_threshold);
+	});
+}
+
+#[test]
+fn set_threshold_fails_with_same_value() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let initial_threshold = 1000;
+		let root_origin = RawOrigin::Root;
+
+		// Set the initial threshold
+		pallet_timegraph::Threshold::<Test>::set(initial_threshold);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::set_threshold(root_origin.into(), initial_threshold),
+			Error::<Test>::SameThreshold
+		);
+	});
+}
+
+#[test]
+fn set_threshold_fails_with_non_root_origin() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let new_threshold = 2000;
+		let non_root_origin = RawOrigin::Signed(1);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::set_threshold(non_root_origin.into(), new_threshold),
+			sp_runtime::DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn ensure_timegraph_works_with_correct_origin() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+
+		// Act & Assert
+		assert_ok!(Timegraph::ensure_timegraph(RawOrigin::Signed(timegraph_account).into()));
+	});
+}
+
+#[test]
+fn ensure_timegraph_fails_with_incorrect_origin() {
+	new_test_ext().execute_with(|| {
+		// Arrange
+		let timegraph_account = 1;
+		let non_timegraph_account = 2;
+		pallet_timegraph::TimegraphAccount::<Test>::set(timegraph_account);
+
+		// Act & Assert
+		assert_noop!(
+			Timegraph::ensure_timegraph(RawOrigin::Signed(non_timegraph_account).into()),
+			Error::<Test>::SenderIsNotTimegraph
 		);
 	});
 }

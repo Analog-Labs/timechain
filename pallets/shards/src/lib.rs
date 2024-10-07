@@ -441,7 +441,7 @@ pub mod pallet {
 		///
 		/// # Flow
 		///   1. Retrieve and return the commitment from [`ShardCommitment`] storage.
-		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Vec<TssPublicKey>> {
+		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
 			ShardCommitment::<T>::get(shard_id)
 		}
 	}

@@ -13,7 +13,7 @@ use schnorr_evm::proof_of_knowledge::construct_proof_of_knowledge;
 use schnorr_evm::VerifyingKey;
 
 use time_primitives::{
-	AccountId, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+	AccountId, Commitment, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -88,7 +88,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(member.account_id.clone()).into(),
 			shard_id as _,
-			member.commitment(threshold),
+			Commitment::truncate_from(member.commitment(threshold)),
 			member.proof_of_knowledge(),
 		));
 		roll(1);
@@ -139,7 +139,7 @@ fn test_register_shard() {
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(member.account_id.clone()).into(),
 					shard_id as _,
-					member.commitment(threshold),
+					Commitment::truncate_from(member.commitment(threshold)),
 					member.proof_of_knowledge(),
 				));
 			}

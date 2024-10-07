@@ -10,7 +10,7 @@ use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address, BatchId, BlockHash, BlockNumber, ConnectorParams, Gateway, GatewayMessage,
 	GmpEvent, GmpMessage, IConnector, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
-	NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey, TssSignature,
+	NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 
 mod config;
@@ -297,9 +297,7 @@ pub struct Task {
 pub struct Batch {
 	pub batch: BatchId,
 	pub msg: GatewayMessage,
-	pub sign: TaskId,
-	pub sig: Option<TssSignature>,
-	pub submit: Option<TaskId>,
+	pub task: TaskId,
 }
 
 #[derive(Clone, Debug)]
@@ -325,7 +323,6 @@ pub struct MessageTrace {
 	pub src: SyncStatus,
 	pub dest: Option<SyncStatus>,
 	pub recv: Option<Task>,
-	pub sign: Option<Task>,
 	pub submit: Option<Task>,
 	pub exec: Option<Task>,
 }
@@ -497,9 +494,7 @@ impl Tc {
 		Ok(Batch {
 			batch,
 			msg: self.runtime.batch_message(batch).await?.context("invalid batch id")?,
-			sign: self.runtime.batch_sign_task(batch).await?.context("invalid batch id")?,
-			sig: self.runtime.batch_signature(batch).await?,
-			submit: self.runtime.batch_submission_task(batch).await?,
+			task: self.runtime.batch_task(batch).await?.context("invalid batch id")?,
 		})
 	}
 
@@ -520,15 +515,13 @@ impl Tc {
 		let msg = self.message(message).await?;
 		let src = self.sync_status(network).await?;
 		let recv = if let Some(recv) = msg.recv { Some(self.task(recv).await?) } else { None };
-		let (dest, sign, submit) = if let Some(batch) = msg.batch {
+		let (dest, submit) = if let Some(batch) = msg.batch {
 			let batch = self.batch(batch).await?;
-			let sign = self.task(batch.sign).await?;
-			let dest = self.sync_status(sign.network).await?;
-			let submit =
-				if let Some(submit) = batch.submit { Some(self.task(submit).await?) } else { None };
-			(Some(dest), Some(sign), submit)
+			let submit = self.task(batch.task).await?;
+			let dest = self.sync_status(submit.network).await?;
+			(Some(dest), Some(submit))
 		} else {
-			(None, None, None)
+			(None, None)
 		};
 		let exec = if let Some(exec) = msg.exec { Some(self.task(exec).await?) } else { None };
 		Ok(MessageTrace {
@@ -536,7 +529,6 @@ impl Tc {
 			src,
 			recv,
 			dest,
-			sign,
 			submit,
 			exec,
 		})

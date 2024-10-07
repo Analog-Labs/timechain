@@ -1478,10 +1478,6 @@ impl_runtime_apis! {
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
 			Tasks::get_batch_message(batch_id)
 		}
-
-		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature> {
-			Tasks::get_batch_signature(batch_id)
-		}
 	}
 
 	impl time_primitives::SubmitTransactionApi<Block> for Runtime {

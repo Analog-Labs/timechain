@@ -5,7 +5,7 @@ use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
 	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
-	ShardStatus, Task, TaskId, TaskResult, TssSignature,
+	ShardStatus, Task, TaskId, TaskResult,
 };
 
 #[async_trait]
@@ -45,8 +45,6 @@ pub trait Runtime: Clone + Send + Sync + 'static {
 	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
 
 	async fn get_batch_message(&self, batch_id: BatchId) -> Result<Option<GatewayMessage>>;
-
-	async fn get_batch_signature(&self, batch_id: BatchId) -> Result<Option<TssSignature>>;
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
 
@@ -145,10 +143,6 @@ impl Runtime for SubxtClient {
 
 	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
 		self.task_submitter(task_id).await
-	}
-
-	async fn get_batch_signature(&self, batch: BatchId) -> Result<Option<TssSignature>> {
-		self.batch_signature(batch).await
 	}
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>> {

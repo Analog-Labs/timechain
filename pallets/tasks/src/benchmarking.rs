@@ -43,7 +43,6 @@ benchmarks! {
 	submit_task_result {
 		NetworkGatewayAddress::<T>::insert(0, [0; 32]);
 		create_simple_task::<T>();
-		Pallet::<T>::assign_task(0, 0);
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: SIGNATURE };
 	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}

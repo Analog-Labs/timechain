@@ -69,7 +69,7 @@ pub fn get_commitment(member: [u8; 32]) -> Commitment {
 			panic!("Invalid member")
 		},
 	};
-	vec![commitment]
+	Commitment::truncate_from(vec![commitment])
 }
 pub fn get_proof_of_knowledge(member: [u8; 32]) -> ProofOfKnowledge {
 	match member {

@@ -41,7 +41,7 @@ impl NetworksInterface for MockNetworks {
 		5
 	}
 	fn batch_gas_limit(_network: NetworkId) -> u128 {
-		10_000
+		10
 	}
 	fn shard_task_limit(_network: NetworkId) -> u32 {
 		10

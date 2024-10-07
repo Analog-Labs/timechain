@@ -61,9 +61,8 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 	(task_id, events).encode()
 }
 
-// TODO: review if sensible
-const MAX_GMP_EVENTS: u32 = 10_000;
-const MAX_ERROR_LEN: u32 = 5_000;
+const MAX_GMP_EVENTS: u32 = 1_000;
+const MAX_ERROR_LEN: u32 = 500;
 /// Bounded vec alias for GMP events submitted in results
 pub type GmpEvents = BoundedVec<GmpEvent, ConstU32<MAX_GMP_EVENTS>>;
 /// Bounded vec alias for SubmitGatewayMessage error

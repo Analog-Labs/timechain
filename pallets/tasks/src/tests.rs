@@ -5,10 +5,11 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
 use polkadot_sdk::{frame_support, frame_system};
+use scale_codec::Encode;
 use time_primitives::{
-	traits::IdentifyAccount, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, MockTssSigner,
-	NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult,
-	TasksInterface, TssPublicKey, TssSignature,
+	traits::IdentifyAccount, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents, GmpMessage,
+	MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId,
+	TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -42,7 +43,7 @@ fn register_shard(shard: ShardId) {
 fn submit_gateway_events(shard: ShardId, task_id: TaskId, events: &[GmpEvent]) {
 	let signature = MockTssSigner::new(shard).sign_gmp_events(task_id, events);
 	let result = TaskResult::ReadGatewayEvents {
-		events: events.to_vec(),
+		events: GmpEvents::truncate_from(events.to_vec()),
 		signature,
 	};
 	assert_ok!(Tasks::submit_task_result(
@@ -56,7 +57,9 @@ fn submit_submission_error(account: PublicKey, task: TaskId, error: &str) {
 	assert_ok!(Tasks::submit_task_result(
 		RawOrigin::Signed(account.into_account()).into(),
 		task,
-		TaskResult::SubmitGatewayMessage { error: error.to_string() }
+		TaskResult::SubmitGatewayMessage {
+			error: ErrorMsg::truncate_from(error.encode())
+		}
 	));
 }
 
@@ -225,7 +228,10 @@ fn test_msg_execution_error_completes_submit_task() {
 		assert!(Tasks::get_task_result(1).is_none());
 		let account = Tasks::get_task_submitter(1).unwrap();
 		submit_submission_error(account, 1, "error message");
-		assert_eq!(Tasks::get_task_result(1), Some(Err("error message".to_string())));
+		assert_eq!(
+			Tasks::get_task_result(1),
+			Some(Err(ErrorMsg::truncate_from("error message".encode())))
+		);
 	})
 }
 

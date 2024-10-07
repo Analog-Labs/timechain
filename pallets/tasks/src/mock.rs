@@ -261,6 +261,7 @@ impl pallet_tasks::Config for Test {
 	type Shards = Shards;
 	type Networks = MockNetworks;
 	type MaxTasksPerBlock = ConstU32<3>;
+	type MaxBatchesPerBlock = ConstU32<4>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

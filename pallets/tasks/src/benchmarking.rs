@@ -59,8 +59,7 @@ benchmarks! {
 	} verify { }
 
 	prepare_batches {
-		// TODO: bound by MaxBatchesStartedPerBlock
-		let b in 1..1_000;
+		let b in 1..<T as Config>::MaxBatchesPerBlock::get();
 		for i in 0..b {
 			create_simple_task::<T>();
 		}

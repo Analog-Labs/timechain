@@ -108,7 +108,10 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Networks: NetworksInterface;
+		/// Maximum number of tasks scheduled per block in `on_initialize`
 		type MaxTasksPerBlock: Get<u32>;
+		/// Maximum number of batches satrted per block in `on_initialize`
+		type MaxBatchesPerBlock: Get<u32>;
 	}
 
 	/// Double map storage for unassigned tasks.
@@ -560,7 +563,6 @@ pub mod pallet {
 		}
 
 		pub(crate) fn prepare_batches() -> Weight {
-			// TODO: bound with Config constant max
 			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
@@ -568,9 +570,17 @@ pub mod pallet {
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
+						if num_batches_started == T::MaxBatchesPerBlock::get() {
+							return <T as Config>::WeightInfo::prepare_batches(
+								T::MaxBatchesPerBlock::get(),
+							);
+						}
 						Self::start_batch(network, msg);
 						num_batches_started = num_batches_started.saturating_plus_one();
 					}
+				}
+				if num_batches_started == T::MaxBatchesPerBlock::get() {
+					return <T as Config>::WeightInfo::prepare_batches(T::MaxBatchesPerBlock::get());
 				}
 				if let Some(msg) = batcher.take_batch() {
 					Self::start_batch(network, msg);

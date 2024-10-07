@@ -51,7 +51,6 @@ mod tests;
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
 	use crate::queue::*;
-	use scale_info::prelude::string::String;
 
 	use polkadot_sdk::{
 		frame_support, frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
@@ -68,8 +67,8 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, BatchBuilder, BatchId, GatewayMessage, GatewayOp, GmpEvent, MessageId,
-		NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
+		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
+		MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
 		TaskResult, TasksInterface, TssPublicKey, TssSignature,
 	};
 
@@ -194,7 +193,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type TaskOutput<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, Result<(), String>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TaskId, Result<(), ErrorMsg>, OptionQuery>;
 
 	#[pallet::storage]
 	pub type TaskNetwork<T: Config> =
@@ -245,7 +244,7 @@ pub mod pallet {
 		/// the record id that uniquely identify
 		TaskCreated(TaskId),
 		/// Task succeeded with optional error message
-		TaskResult(TaskId, Result<(), String>),
+		TaskResult(TaskId, Result<(), ErrorMsg>),
 		/// Set the maximum number of assigned tasks for all shards on the network
 		ShardTaskLimitSet(NetworkId, u32),
 		/// Set the network batch size
@@ -414,7 +413,7 @@ pub mod pallet {
 			task_id
 		}
 
-		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), String>) {
+		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {
 			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard, task_id);
@@ -614,7 +613,7 @@ pub mod pallet {
 
 		/// Retrieves the result of a given task.
 		/// Look up the `TaskResult` associated with the provided `task_id` in the storage.
-		pub fn get_task_result(task_id: TaskId) -> Option<Result<(), String>> {
+		pub fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>> {
 			TaskOutput::<T>::get(task_id)
 		}
 

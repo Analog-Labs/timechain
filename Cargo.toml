@@ -15,6 +15,7 @@ members = [
 	"gmp/grpc",
 	"gmp/rust",
 	"node",
+	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",
 	"pallets/members",
@@ -75,6 +76,7 @@ rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connecto
 time-primitives = { path = "primitives", default-features = false }
 
 # pallets in workspace (nostd by default)
+pallet-dmail = { path = "pallets/dmail", default-features = false }
 pallet-elections = { path = "pallets/elections", default-features = false }
 pallet-governance = { path = "pallets/governance", default-features = false }
 pallet-members = { path = "pallets/members", default-features = false }

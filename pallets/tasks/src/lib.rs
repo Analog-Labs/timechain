@@ -76,11 +76,15 @@ pub mod pallet {
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn submit_task_result() -> Weight;
+		fn prepare_batches(n: u32) -> Weight;
 		fn schedule_tasks(n: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn submit_task_result() -> Weight {
+			Weight::default()
+		}
+		fn prepare_batches(_: u32) -> Weight {
 			Weight::default()
 		}
 		fn schedule_tasks(_: u32) -> Weight {
@@ -283,7 +287,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::schedule_tasks()
+			Self::prepare_batches().saturating_add(Self::schedule_tasks())
 		}
 	}
 
@@ -497,8 +501,7 @@ pub mod pallet {
 		/// 	tasks_per_shard = min(tasks_per_shard, max_assignable_tasks)
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
-		fn schedule_tasks() -> Weight {
-			Self::prepare_batches();
+		pub(crate) fn schedule_tasks() -> Weight {
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
@@ -556,7 +559,9 @@ pub mod pallet {
 			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)
 		}
 
-		fn prepare_batches() {
+		pub(crate) fn prepare_batches() -> Weight {
+			// TODO: bound with Config constant max
+			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
@@ -564,12 +569,15 @@ pub mod pallet {
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
 						Self::start_batch(network, msg);
+						num_batches_started = num_batches_started.saturating_plus_one();
 					}
 				}
 				if let Some(msg) = batcher.take_batch() {
 					Self::start_batch(network, msg);
+					num_batches_started = num_batches_started.saturating_plus_one();
 				}
 			}
+			<T as Config>::WeightInfo::prepare_batches(num_batches_started)
 		}
 
 		fn start_batch(network: NetworkId, msg: GatewayMessage) {

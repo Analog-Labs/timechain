@@ -115,4 +115,16 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(13))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	fn prepare_batches(b: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3665`
+		//  Estimated: `9197`
+		// Minimum execution time: 76_194_000 picoseconds.
+		Weight::from_parts(143_303_681, 0)
+			.saturating_add(Weight::from_parts(0, 9197))
+			// Standard Error: 115
+			.saturating_add(Weight::from_parts(7_783, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(13))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }

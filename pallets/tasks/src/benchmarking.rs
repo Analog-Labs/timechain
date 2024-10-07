@@ -53,8 +53,19 @@ benchmarks! {
 		for i in 0..b {
 			create_simple_task::<T>();
 		}
+		Pallet::<T>::prepare_batches();
 	}: {
-		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		Pallet::<T>::schedule_tasks();
+	} verify { }
+
+	prepare_batches {
+		// TODO: bound by MaxBatchesStartedPerBlock
+		let b in 1..1_000;
+		for i in 0..b {
+			create_simple_task::<T>();
+		}
+	}: {
+		Pallet::<T>::prepare_batches();
 	} verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

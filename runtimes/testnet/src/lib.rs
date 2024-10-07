@@ -53,12 +53,12 @@ use sp_runtime::{
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, BlockNumberProvider, Hash as HashT, IdentityLookup,
-		NumberFor, OpaqueKeys, Saturating,
+		BlakeTwo256, Block as BlockT, BlockNumberProvider, Hash as HashT, IdentifyAccount,
+		IdentityLookup, NumberFor, OpaqueKeys, Saturating,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, Percent, RuntimeDebug,
-	SaturatedConversion,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, MultiSigner, Percent,
+	RuntimeDebug, SaturatedConversion,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -1008,10 +1008,19 @@ impl pallet_tasks::Config for Runtime {
 	type MaxTasksPerBlock = ConstU32<10_000>;
 }
 
+parameter_types! {
+ pub const InitialRewardPoolAccount: AccountId = AccountId::new([0_u8; 32]);
+ pub const InitialTimegraphAccount: AccountId = AccountId::new([0_u8; 32]);
+ pub const InitialThreshold: Balance = 1000;
+}
+
 impl pallet_timegraph::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::timegraph::WeightInfo<Runtime>;
 	type Currency = Balances;
+	type InitialRewardPoolAccount = InitialRewardPoolAccount;
+	type InitialTimegraphAccount = InitialTimegraphAccount;
+	type InitialThreshold = InitialThreshold;
 }
 
 impl pallet_networks::Config for Runtime {

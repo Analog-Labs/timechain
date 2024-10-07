@@ -152,7 +152,10 @@ fn transfer_to_pool_works() {
 		));
 
 		// Assert
-		assert_eq!(Balances::reserved_balance(&user_account), pallet_timegraph::Threshold::<Test>::get());
+		assert_eq!(
+			Balances::reserved_balance(&user_account),
+			pallet_timegraph::Threshold::<Test>::get()
+		);
 	});
 }
 

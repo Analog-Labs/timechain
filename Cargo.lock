@@ -7675,6 +7675,7 @@ name = "mainnet-runtime"
 version = "0.7.0"
 dependencies = [
  "log",
+ "pallet-dmail",
  "pallet-elections",
  "pallet-governance",
  "pallet-members",
@@ -9422,6 +9423,16 @@ dependencies = [
  "scale-info",
  "sp-io 38.0.0",
  "sp-runtime 39.0.0",
+]
+
+[[package]]
+name = "pallet-dmail"
+version = "0.7.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "time-primitives",
 ]
 
 [[package]]
@@ -18988,6 +18999,7 @@ name = "testnet-runtime"
 version = "0.7.0"
 dependencies = [
  "log",
+ "pallet-dmail",
  "pallet-elections",
  "pallet-members",
  "pallet-networks",

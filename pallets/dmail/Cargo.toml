@@ -1,8 +1,8 @@
 [package]
-name = "pallet-networks"
-description = "A pallet for tokenomics of timegraph."
+name = "pallet-dmail"
+description = "A pallet for dmail integration."
 publish = false
-readme = "pallets/networks/README.md"
+readme = "pallets/dmail/README.md"
 
 version.workspace = true
 authors.workspace = true
@@ -14,10 +14,7 @@ repository.workspace = true
 [dependencies]
 scale-codec.workspace = true
 scale-info.workspace = true
-simple-mermaid.workspace = true
-
 polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime" ]}
-
 time-primitives.workspace = true
 
 [dev-dependencies]

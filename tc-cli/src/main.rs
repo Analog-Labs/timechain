@@ -352,9 +352,7 @@ impl IntoRow for Task {
 #[derive(Tabled)]
 struct BatchEntry {
 	batch: BatchId,
-	sign: TaskId,
-	sig: String,
-	submit: String,
+	task: TaskId,
 }
 
 impl IntoRow for Batch {
@@ -363,9 +361,7 @@ impl IntoRow for Batch {
 	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(BatchEntry {
 			batch: self.batch,
-			sign: self.sign,
-			sig: self.sig.map(hex::encode).unwrap_or_default(),
-			submit: self.submit.map(|t| t.to_string()).unwrap_or_default(),
+			task: self.task,
 		})
 	}
 }
@@ -410,7 +406,6 @@ struct MessageTraceEntry {
 	src_sync: String,
 	dest_sync: String,
 	recv: String,
-	sign: String,
 	submit: String,
 	exec: String,
 }
@@ -441,7 +436,6 @@ impl IntoRow for MessageTrace {
 				"- / -".into()
 			},
 			recv: self.recv.map(task_to_string).unwrap_or_default(),
-			sign: self.sign.map(task_to_string).unwrap_or_default(),
 			submit: self.submit.map(task_to_string).unwrap_or_default(),
 			exec: self.exec.map(task_to_string).unwrap_or_default(),
 		})

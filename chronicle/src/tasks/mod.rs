@@ -106,26 +106,16 @@ impl TaskParams {
 				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
 				Some(TaskResult::ReadGatewayEvents { events, signature })
 			},
-			Task::SignGatewayMessage { batch_id } => {
+			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
 				let signature =
 					self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
-				Some(TaskResult::SignGatewayMessage { signature })
-			},
-			Task::SubmitGatewayMessage { batch_id } => {
-				let msg =
-					self.runtime.get_batch_message(batch_id).await?.context("missing message")?;
-				let sig = self
-					.runtime
-					.get_batch_signature(batch_id)
-					.await?
-					.context("missing signature")?;
 				let signer =
 					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?[0];
 				if let Err(error) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, sig).await
+					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
 					Some(TaskResult::SubmitGatewayMessage { error })
 				} else {

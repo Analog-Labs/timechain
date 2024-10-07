@@ -2,6 +2,7 @@
 
 // pub mod babe;
 pub mod balances;
+pub mod dmail;
 // pub mod grandpa;
 pub mod elections;
 pub mod members;

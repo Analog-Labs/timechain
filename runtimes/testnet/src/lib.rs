@@ -1021,6 +1021,11 @@ impl pallet_networks::Config for Runtime {
 	type Tasks = Tasks;
 }
 
+impl pallet_dmail::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::dmail::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 #[frame_support::runtime]
 mod runtime {
@@ -1131,6 +1136,11 @@ mod runtime {
 
 	#[runtime::pallet_index(37)]
 	pub type Networks = pallet_networks;
+
+	//mainnet contains pallet index 38 as governance
+
+	#[runtime::pallet_index(39)]
+	pub type Dmail = pallet_dmail;
 }
 
 /// The address format for describing accounts.
@@ -1166,6 +1176,7 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_elections, Elections]
+		[pallet_dmail, Dmail]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_grandpa, Grandpa]
@@ -1478,10 +1489,6 @@ impl_runtime_apis! {
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
 			Tasks::get_batch_message(batch_id)
 		}
-
-		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature> {
-			Tasks::get_batch_signature(batch_id)
-		}
 	}
 
 	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
@@ -1511,6 +1518,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_members, Members);
 			list_benchmark!(list, extra, pallet_timegraph, Timegraph);
 			list_benchmark!(list, extra, pallet_networks, Networks);
+			list_benchmark!(list, extra, pallet_dmail, Dmail);
 			list_benchmarks!(list, extra);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -1546,6 +1554,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_members, Members);
 			add_benchmark!(params, batches, pallet_timegraph, Timegraph);
 			add_benchmark!(params, batches, pallet_network, Networks);
+			add_benchmark!(params, batches, pallet_dmail, Dmail);
 			add_benchmarks!(params, batches);
 
 			Ok(batches)

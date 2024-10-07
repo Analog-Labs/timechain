@@ -9,7 +9,7 @@ use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
 	sr25519, AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
 	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult, TssSignature,
+	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -64,7 +64,6 @@ impl MockTask {
 
 pub struct MockBatch {
 	pub message: GatewayMessage,
-	pub signature: Option<TssSignature>,
 }
 
 type Map<K, V> = Arc<Mutex<HashMap<K, V>>>;
@@ -286,11 +285,6 @@ impl Runtime for Mock {
 	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
 		let tasks = self.tasks.lock().unwrap();
 		Ok(tasks.get(&task_id).unwrap().submitter.clone())
-	}
-
-	async fn get_batch_signature(&self, batch: BatchId) -> Result<Option<TssSignature>> {
-		let batches = self.batches.lock().unwrap();
-		Ok(batches.get(&batch).unwrap().signature)
 	}
 
 	async fn get_batch_message(&self, batch: BatchId) -> Result<Option<GatewayMessage>> {

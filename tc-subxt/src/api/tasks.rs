@@ -4,7 +4,6 @@ use anyhow::Result;
 use futures::channel::oneshot;
 use time_primitives::{
 	BatchId, GatewayMessage, MessageId, NetworkId, PublicKey, ShardId, Task, TaskId, TaskResult,
-	TssSignature,
 };
 
 impl SubxtClient {
@@ -87,23 +86,9 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn batch_signature(&self, batch: BatchId) -> Result<Option<TssSignature>> {
+	pub async fn batch_task(&self, batch: BatchId) -> Result<Option<TaskId>> {
 		metadata_scope!(self.metadata, {
-			let runtime_call = metadata::apis().tasks_api().get_batch_signature(batch);
-			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
-		})
-	}
-
-	pub async fn batch_sign_task(&self, batch: BatchId) -> Result<Option<TaskId>> {
-		metadata_scope!(self.metadata, {
-			let storage_query = metadata::storage().tasks().batch_sign_task_id(batch);
-			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
-		})
-	}
-
-	pub async fn batch_submission_task(&self, batch: BatchId) -> Result<Option<TaskId>> {
-		metadata_scope!(self.metadata, {
-			let storage_query = metadata::storage().tasks().batch_submission_task_id(batch);
+			let storage_query = metadata::storage().tasks().batch_task_id(batch);
 			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 		})
 	}

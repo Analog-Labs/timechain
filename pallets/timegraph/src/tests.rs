@@ -1,11 +1,11 @@
 use crate as pallet_timegraph;
 use crate::mock::*;
-use crate::{Error, Event};
+use crate::{Error};
 
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_runtime};
 
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use frame_system::{Origin, RawOrigin};
+use frame_system::{RawOrigin};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
@@ -23,8 +23,8 @@ fn deposit_works() {
 		assert_ok!(Timegraph::deposit(RawOrigin::Signed(user).into(), deposit_amount));
 
 		// Assert
-		assert_eq!(Balances::reserved_balance(&user), deposit_amount);
-		assert_eq!(Timegraph::next_deposit_sequence(&user), 1);
+		assert_eq!(Balances::reserved_balance(user), deposit_amount);
+		assert_eq!(Timegraph::next_deposit_sequence(user), 1);
 	});
 }
 
@@ -87,10 +87,10 @@ fn test_withdraw_success() {
 			RawOrigin::Signed(user).into(),
 			amount + pallet_timegraph::Threshold::<Test>::get(),
 		));
-		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(&user);
+		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(user);
 		assert_eq!(reserved, amount + pallet_timegraph::Threshold::<Test>::get(),);
 		assert_ok!(Timegraph::withdraw(origin.into(), amount));
-		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(&user);
+		let reserved = <Test as crate::pallet::Config>::Currency::reserved_balance(user);
 		assert_eq!(reserved, pallet_timegraph::Threshold::<Test>::get());
 	});
 }
@@ -152,7 +152,7 @@ fn transfer_to_pool_works() {
 
 		// Assert
 		assert_eq!(
-			Balances::reserved_balance(&user_account),
+			Balances::reserved_balance(user_account),
 			pallet_timegraph::Threshold::<Test>::get()
 		);
 	});
@@ -232,9 +232,9 @@ fn transfer_award_to_user_works() {
 		));
 
 		// Assert
-		assert_eq!(Balances::reserved_balance(&user_account), transfer_amount);
+		assert_eq!(Balances::reserved_balance(user_account), transfer_amount);
 		assert_eq!(
-			Balances::free_balance(&reward_pool_account),
+			Balances::free_balance(reward_pool_account),
 			initial_pool_balance - transfer_amount
 		);
 	});

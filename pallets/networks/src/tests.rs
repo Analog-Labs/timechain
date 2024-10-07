@@ -3,7 +3,8 @@ use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use polkadot_sdk::{frame_support, frame_system};
-use time_primitives::{Network, NetworkConfig};
+use scale_codec::Encode;
+use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -17,8 +18,8 @@ fn mock_network_config() -> NetworkConfig {
 fn mock_network() -> Network {
 	Network {
 		id: 42,
-		chain_name: "Ethereum".into(),
-		chain_network: "Mainnet".into(),
+		chain_name: ChainName::truncate_from("Ethereum".encode()),
+		chain_network: ChainNetwork::truncate_from("Mainnet".encode()),
 		gateway: [0; 32],
 		gateway_block: 99,
 		config: mock_network_config(),

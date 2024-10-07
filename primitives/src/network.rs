@@ -1,12 +1,15 @@
 use crate::Gateway;
+use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
-use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
+pub const CHAIN_NAME_LEN: u32 = 50;
+pub const CHAIN_NET_LEN: u32 = 50;
+
 pub type NetworkId = u16;
-pub type ChainName = String;
-pub type ChainNetwork = String;
+pub type ChainName = BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>;
+pub type ChainNetwork = BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>;
 
 #[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
 pub struct Network {

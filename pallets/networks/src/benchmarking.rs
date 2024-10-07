@@ -4,11 +4,11 @@ use crate::Pallet;
 use frame_system::RawOrigin;
 use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::frame_system;
+use scale_codec::Encode;
 use scale_info::prelude::string::String;
-use time_primitives::{Network, NetworkConfig};
-
-//TODO: choose & enforce MAX in code
-const MAX_LENGTH: u32 = 1000;
+use time_primitives::{
+	ChainName, ChainNetwork, Network, NetworkConfig, CHAIN_NAME_LEN, CHAIN_NET_LEN,
+};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -22,8 +22,8 @@ fn mock_network_config() -> NetworkConfig {
 fn mock_network(chain_name: String, chain_network: String) -> Network {
 	Network {
 		id: 42,
-		chain_name,
-		chain_network,
+		chain_name: ChainName::truncate_from(chain_name.as_str().encode()),
+		chain_network: ChainNetwork::truncate_from(chain_network.as_str().encode()),
 		gateway: [0; 32],
 		gateway_block: 99,
 		config: mock_network_config(),
@@ -32,8 +32,8 @@ fn mock_network(chain_name: String, chain_network: String) -> Network {
 
 benchmarks! {
 	register_network {
-		let a in 1..MAX_LENGTH;
-		let b in 1..MAX_LENGTH;
+		let a in 1..CHAIN_NAME_LEN;
+		let b in 1..CHAIN_NET_LEN;
 		let mut name = String::new();
 		let mut network = String::new();
 		for _ in 0..a {

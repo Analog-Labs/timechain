@@ -32,7 +32,6 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use frame_system::{limits::BlockWeights, EnsureRoot};
-use scale_info::prelude::string::String;
 
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_grandpa::{
@@ -73,8 +72,8 @@ pub use runtime_common::{
 	BABE_GENESIS_EPOCH_CONFIG,
 };
 pub use time_primitives::{
-	AccountId, Balance, BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, Gateway,
-	GatewayMessage, MemberStatus, MembersInterface, NetworkId, NetworksInterface, PeerId,
+	AccountId, Balance, BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, ErrorMsg,
+	Gateway, GatewayMessage, MemberStatus, MembersInterface, NetworkId, NetworksInterface, PeerId,
 	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId, TaskResult,
 	TssPublicKey, TssSignature, ANLOG,
 };
@@ -1482,7 +1481,7 @@ impl_runtime_apis! {
 			Tasks::get_task_submitter(task_id)
 		}
 
-		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>> {
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{
 			Tasks::get_task_result(task_id)
 		}
 

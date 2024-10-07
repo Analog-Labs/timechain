@@ -5,10 +5,19 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as Timegraph;
 
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core};
 
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
+
+use time_primitives::{AccountId, NetworkId, PublicKey};
+
+pub const ALICE: [u8; 32] = [1u8; 32];
+pub const ETHEREUM: NetworkId = 1;
+
+fn public_key() -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(ALICE))
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -36,13 +45,23 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_timegraph_account() {
+	fn transfer_to_pool() {
 		let caller: T::AccountId = whitelisted_caller();
-		let new_account: T::AccountId = T::AccountId::from([0u8; 32]);
+		let account: T::AccountId = account("name", 0, 0);
+		let amount: BalanceOf<T> = 5_000_000u32.into();
 		#[extrinsic_call]
 		// Example new account
-		withdraw(RawOrigin::Signed(caller), amount);
+		transfer_to_pool(RawOrigin::Signed(caller), account, amount);
 	}
+
+	// #[benchmark]
+	// fn set_timegraph_account() {
+	// 	let caller: T::AccountId = whitelisted_caller();
+	// 	let new_account: T::AccountId = T::AccountId::from([0u8; 32]);
+	// 	#[extrinsic_call]
+	// 	// Example new account
+	// 	withdraw(RawOrigin::Signed(caller), amount);
+	// }
 
 	// // Benchmark for the `set_reward_pool_account` extrinsic
 	// #[benchmark]

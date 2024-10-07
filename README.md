@@ -35,7 +35,7 @@ Follow the steps below to get started.
 2. Build the docker image with `./scripts/build_docker.sh`.
 3. Start the timechain validators, chronicles and chain rpc nodes using `docker compose up`.
 4. Deploy the timechain using `docker compose run tc-cli deploy`
-5. Send a gmp message from chain 0 to chain 1 `docker compose run smoke-test 0 1`
+5. Send a gmp message from chain 0 to chain 1 `docker compose run tc-cli smoke-test 0 1`
 
 below are some notes for specific OS'es:
 

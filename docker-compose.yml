@@ -39,6 +39,7 @@ services:
     - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
     - '--network-id=0'
+    - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
@@ -66,6 +67,7 @@ services:
     - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
     - '--network-id=1'
+    - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1

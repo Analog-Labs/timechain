@@ -12,9 +12,12 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
+	"gmp",
+	"gmp/evm",
 	"gmp/grpc",
 	"gmp/rust",
 	"node",
+	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",
 	"pallets/members",
@@ -66,15 +69,11 @@ polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.
 # specialized wasm builder
 substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", features = [ "metadata-hash" ] }
 
-# chain connectors
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors" }
-rosetta-core = { git = "https://github.com/analog-labs/chain-connectors" }
-rosetta-config-ethereum = { git = "https://github.com/analog-labs/chain-connectors" }
-
 # shared code between node and runtime (nostd by default)
 time-primitives = { path = "primitives", default-features = false }
 
 # pallets in workspace (nostd by default)
+pallet-dmail = { path = "pallets/dmail", default-features = false }
 pallet-elections = { path = "pallets/elections", default-features = false }
 pallet-governance = { path = "pallets/governance", default-features = false }
 pallet-members = { path = "pallets/members", default-features = false }
@@ -91,9 +90,7 @@ mainnet-runtime = { path = "runtimes/mainnet" }
 testnet-runtime = { path = "runtimes/testnet" }
 
 # shared libs in workspace
-gmp-evm = { path = "gmp/evm" }
-gmp-grpc = { path = "gmp/grpc" }
-gmp-rust = { path = "gmp/rust" }
+gmp = { path = "gmp" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
 

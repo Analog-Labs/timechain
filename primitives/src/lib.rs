@@ -16,6 +16,7 @@ use sp_runtime::{
 #[cfg(feature = "std")]
 pub mod admin;
 pub mod currency;
+pub mod dmail;
 pub mod gmp;
 pub mod network;
 pub mod shard;
@@ -23,6 +24,7 @@ pub mod task;
 
 // ... and unscoped
 pub use crate::currency::*;
+pub use crate::dmail::*;
 pub use crate::gmp::*;
 pub use crate::network::*;
 pub use crate::shard::*;
@@ -117,7 +119,6 @@ sp_api::decl_runtime_apis! {
 		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey>;
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>;
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
-		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature>;
 	}
 
 	pub trait SubmitTransactionApi{

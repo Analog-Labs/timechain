@@ -1323,6 +1323,11 @@ impl pallet_networks::Config for Runtime {
 	type Tasks = Tasks;
 }
 
+impl pallet_dmail::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::dmail::WeightInfo<Runtime>;
+}
+
 impl pallet_governance::Config for Runtime {
 	type SystemAdmin = SystemAdmin;
 	type StakingAdmin = StakingAdmin;
@@ -1477,6 +1482,9 @@ mod runtime {
 	#[runtime::pallet_index(38)]
 	pub type Governance = pallet_governance;
 
+	#[runtime::pallet_index(39)]
+	pub type Dmail = pallet_dmail;
+
 	// = Temp pallets =
 
 	// Pallet to control the initial launch
@@ -1531,6 +1539,7 @@ mod benches {
 		[pallet_collective, TechnicalCommittee]
 		[pallet_democracy, Democracy]
 		[pallet_elections, Elections]
+		[pallet_dmail, Dmail]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_grandpa, Grandpa]
@@ -1856,10 +1865,6 @@ impl_runtime_apis! {
 
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
 			Tasks::get_batch_message(batch_id)
-		}
-
-		fn get_batch_signature(batch_id: BatchId) -> Option<TssSignature> {
-			Tasks::get_batch_signature(batch_id)
 		}
 	}
 

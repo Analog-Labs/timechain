@@ -117,6 +117,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
+	"polkadot-sdk/sp-genesis-builder",
 
 	"pallet-elections/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",

@@ -3,6 +3,8 @@ use bip39::Mnemonic;
 use chronicle::ChronicleConfig;
 use clap::Parser;
 use futures::FutureExt;
+use gmp::Backend;
+use std::sync::Arc;
 use std::{
 	path::{Path, PathBuf},
 	time::Duration,
@@ -18,9 +20,6 @@ pub struct ChronicleArgs {
 	/// The secret to use for p2p networking.
 	#[clap(long)]
 	pub network_keyfile: PathBuf,
-	/// The port to bind to for p2p networking.
-	#[clap(long)]
-	pub network_port: Option<u16>,
 	/// The address of target chain rpc.
 	#[clap(long)]
 	pub target_url: String,
@@ -51,6 +50,9 @@ pub struct ChronicleArgs {
 	/// Location to cache tss keyshares.
 	#[clap(long, default_value = "/tmp")]
 	pub tss_keyshare_cache: PathBuf,
+	/// Gmp backend to use.
+	#[clap(long, default_value = "evm")]
+	pub backend: Backend,
 }
 
 impl ChronicleArgs {
@@ -58,13 +60,13 @@ impl ChronicleArgs {
 		Ok(ChronicleConfig {
 			network_id: self.network_id,
 			network_key,
-			network_port: self.network_port,
 			timechain_min_balance: self.timechain_min_balance,
 			target_min_balance: self.target_min_balance,
 			target_url: self.target_url,
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
 			admin: true,
+			backend: self.backend,
 		})
 	}
 }
@@ -137,10 +139,8 @@ async fn main() -> Result<()> {
 		SubxtClient::with_key(&args.timechain_url, args.timechain_metadata, &timechain_mnemonic)
 			.await?;
 
-	let chronicle = chronicle::run_chronicle::<gmp_grpc::Connector>(
-		args.config(network_key, target_mnemonic)?,
-		subxt,
-	);
+	let config = args.config(network_key, target_mnemonic)?;
+	let chronicle = chronicle::run_chronicle(config, Arc::new(subxt));
 	let signal = shutdown_signal();
 
 	futures::select! {

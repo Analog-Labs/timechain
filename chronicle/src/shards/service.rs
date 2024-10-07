@@ -11,6 +11,7 @@ use futures::{
 	stream::FuturesUnordered,
 	Future, FutureExt, Stream, StreamExt,
 };
+use std::sync::Arc;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
 	path::PathBuf,
@@ -18,30 +19,29 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, IConnector, ShardId, ShardStatus, TaskId, TssSignature,
-	TssSigningRequest,
+	BlockHash, BlockNumber, ShardId, ShardStatus, TaskId, TssSignature, TssSigningRequest,
 };
 use tokio::time::{sleep, Duration};
 use tracing::{event, span, Level, Span};
 
-pub struct TimeWorkerParams<S, C, Tx, Rx> {
-	pub substrate: S,
-	pub task_params: TaskParams<S, C>,
+pub struct TimeWorkerParams<Tx, Rx> {
+	pub substrate: Arc<dyn Runtime>,
+	pub task_params: TaskParams,
 	pub network: Tx,
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
 	pub net_request: Rx,
 	pub tss_keyshare_cache: PathBuf,
 }
 
-pub struct TimeWorker<S, C, Tx, Rx> {
-	substrate: S,
+pub struct TimeWorker<Tx, Rx> {
+	substrate: Arc<dyn Runtime>,
 	network: Tx,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	net_request: Rx,
 	block_height: u64,
-	task_params: TaskParams<S, C>,
+	task_params: TaskParams,
 	tss_states: HashMap<ShardId, Tss>,
-	executor_states: HashMap<ShardId, TaskExecutor<S, C>>,
+	executor_states: HashMap<ShardId, TaskExecutor>,
 	messages: BTreeMap<BlockNumber, Vec<(ShardId, PeerId, TssMessage)>>,
 	requests: BTreeMap<BlockNumber, Vec<(ShardId, TaskId, Vec<u8>)>>,
 	channels: HashMap<TaskId, oneshot::Sender<([u8; 32], TssSignature)>>,
@@ -52,14 +52,12 @@ pub struct TimeWorker<S, C, Tx, Rx> {
 	tss_keyshare_cache: PathBuf,
 }
 
-impl<S, C, Tx, Rx> TimeWorker<S, C, Tx, Rx>
+impl<Tx, Rx> TimeWorker<Tx, Rx>
 where
-	S: Runtime,
-	C: IConnector,
 	Tx: Network + Clone,
 	Rx: Stream<Item = (PeerId, Message)> + Send + Unpin,
 {
-	pub fn new(worker_params: TimeWorkerParams<S, C, Tx, Rx>) -> Self {
+	pub fn new(worker_params: TimeWorkerParams<Tx, Rx>) -> Self {
 		let TimeWorkerParams {
 			substrate,
 			task_params,

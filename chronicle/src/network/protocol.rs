@@ -50,9 +50,6 @@ impl TssEndpoint {
 
 		let mut builder = Endpoint::builder(PROTOCOL_NAME.as_bytes().to_vec());
 		builder.secret(config.secret);
-		if let Some(port) = config.bind_port {
-			builder.port(port);
-		}
 		builder.handler(handler);
 		builder.republish_interval(Duration::from_secs(60 * 5));
 		builder.publish_ttl(Duration::from_secs(60 * 5 * 4));

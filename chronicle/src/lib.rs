@@ -4,10 +4,12 @@ use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
 use anyhow::Result;
 use futures::channel::mpsc;
+use gmp::Backend;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use time_primitives::admin::Config;
-use time_primitives::{ConnectorParams, IConnector, NetworkId};
+use time_primitives::{ConnectorParams, NetworkId};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 
@@ -26,10 +28,8 @@ pub const TW_LOG: &str = "chronicle";
 pub struct ChronicleConfig {
 	/// Identifier for the network.
 	pub network_id: NetworkId,
-	/// Optional path to a network key file.
+	/// Network private key.
 	pub network_key: [u8; 32],
-	/// Optional network port number.
-	pub network_port: Option<u16>,
 	/// URL for the target.
 	pub target_url: String,
 	/// Path to a target key file.
@@ -42,6 +42,8 @@ pub struct ChronicleConfig {
 	pub timechain_min_balance: u128,
 	/// Enable admin interface.
 	pub admin: bool,
+	/// Backend
+	pub backend: Backend,
 }
 
 /// Runs the Chronicle application.
@@ -61,10 +63,7 @@ pub struct ChronicleConfig {
 /// # Returns
 ///
 /// * `Result<()>` - Returns an empty result on success, or an error on failure.
-pub async fn run_chronicle<C: IConnector>(
-	config: ChronicleConfig,
-	substrate: impl Runtime,
-) -> Result<()> {
+pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>) -> Result<()> {
 	// Initialize connector
 	let (chain, subchain) = loop {
 		let network = substrate.get_network(config.network_id).await?;
@@ -84,7 +83,7 @@ pub async fn run_chronicle<C: IConnector>(
 		mnemonic: config.target_mnemonic,
 	};
 	let connector = loop {
-		match C::new(connector_params.clone()).await {
+		match config.backend.connect(&connector_params).await {
 			Ok(connector) => break connector,
 			Err(error) => {
 				event!(
@@ -99,11 +98,8 @@ pub async fn run_chronicle<C: IConnector>(
 	};
 
 	// initialize networking
-	let (network, network_requests) = create_iroh_network(NetworkConfig {
-		secret: config.network_key,
-		bind_port: config.network_port,
-	})
-	.await?;
+	let (network, network_requests) =
+		create_iroh_network(NetworkConfig { secret: config.network_key }).await?;
 
 	// initialize wallets
 	let timechain_address = time_primitives::format_address(substrate.account_id());
@@ -169,19 +165,19 @@ mod tests {
 		tracing::info!("running chronicle ");
 		let mut network_key = [0; 32];
 		getrandom::getrandom(&mut network_key).unwrap();
-		run_chronicle::<gmp_rust::Connector>(
+		run_chronicle(
 			ChronicleConfig {
 				network_id,
 				network_key,
-				network_port: None,
 				target_url: "tempfile".to_string(),
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache: "/tmp".into(),
 				target_min_balance: 0,
 				timechain_min_balance: 0,
 				admin: false,
+				backend: Backend::Rust,
 			},
-			mock,
+			Arc::new(mock),
 		)
 		.await
 		.unwrap();

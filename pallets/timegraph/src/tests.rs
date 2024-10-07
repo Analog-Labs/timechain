@@ -1,11 +1,11 @@
 use crate as pallet_timegraph;
 use crate::mock::*;
-use crate::{Error};
+use crate::Error;
 
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_runtime};
 
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use frame_system::{RawOrigin};
+use frame_system::RawOrigin;
 use sp_runtime::traits::BadOrigin;
 
 #[test]

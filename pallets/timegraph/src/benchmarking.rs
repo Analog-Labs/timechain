@@ -13,7 +13,7 @@ use frame_system::RawOrigin;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use frame_support::traits::Currency;
+	use frame_support::traits::{Currency, ReservableCurrency};
 
 	#[benchmark]
 	fn deposit() {
@@ -31,6 +31,8 @@ mod benchmarks {
 		let amount: BalanceOf<T> = 5_000_000u32.into();
 		let amount_be: BalanceOf<T> = amount * 100u32.into();
 		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_be));
+		let _ = T::Currency::reserve(&caller, Threshold::<T>::get() + amount);
+
 		#[extrinsic_call]
 		withdraw(RawOrigin::Signed(caller), amount);
 	}
@@ -40,8 +42,8 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let account: T::AccountId = account("name", 0, 0);
 		let amount: BalanceOf<T> = 5_000_000u32.into();
+		let _ = T::Currency::reserve(&caller, Threshold::<T>::get() + amount);
 		#[extrinsic_call]
-		// Example new account
 		transfer_to_pool(RawOrigin::Signed(caller), account, amount);
 	}
 

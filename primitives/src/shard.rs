@@ -10,7 +10,6 @@ use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use serde::{Deserialize, Serialize};
 
 use scale_codec::{Decode, Encode};
-use scale_info::prelude::string::String;
 use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 
@@ -100,14 +99,6 @@ impl std::fmt::Display for MemberStatus {
 		};
 		f.write_str(status)
 	}
-}
-
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub enum SerializedMemberStatus {
-	Added,
-	Committed(Vec<String>),
-	Ready,
 }
 
 /// Track status of shard

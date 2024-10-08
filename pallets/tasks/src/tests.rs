@@ -7,9 +7,9 @@ use pallet_shards::{ShardCommitment, ShardState};
 use polkadot_sdk::{frame_support, frame_system};
 use scale_codec::Encode;
 use time_primitives::{
-	traits::IdentifyAccount, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents, GmpMessage,
-	MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId,
-	TaskResult, TasksInterface, TssPublicKey, TssSignature,
+	traits::IdentifyAccount, Commitment, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents,
+	GmpMessage, MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task,
+	TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -21,7 +21,7 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 	}
 	let shard_id = Shards::create_shard(network, members, t).0;
 	let pub_key = MockTssSigner::new(shard_id).public_key();
-	ShardCommitment::<Test>::insert(shard_id, vec![pub_key]);
+	ShardCommitment::<Test>::insert(shard_id, Commitment::truncate_from(vec![pub_key]));
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 	Tasks::shard_online(shard_id, network);
 	shard_id

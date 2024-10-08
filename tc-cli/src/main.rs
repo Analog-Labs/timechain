@@ -479,6 +479,7 @@ async fn main() -> Result<()> {
 		// read data
 		Command::FetchTokenPriceData => {
 			tc.fetch_token_prices().await?;
+			tc.calculate_relative_price()?;
 		},
 		Command::Networks => {
 			let networks = tc.networks().await?;

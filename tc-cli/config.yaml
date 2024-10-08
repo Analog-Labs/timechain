@@ -24,6 +24,7 @@ networks:
     batch_gas_limit: 10000
     shard_task_limit: 50
     symbol: "ETH"
+    token_decimals: 18
     route_gas_limit: 10000
     route_base_fee: 10000
   1:
@@ -38,6 +39,7 @@ networks:
     batch_gas_limit: 10000
     shard_task_limit: 50
     symbol: "ASTR"
+    token_decimals: 18
     route_gas_limit: 10000
     route_base_fee: 10000
 chronicles:

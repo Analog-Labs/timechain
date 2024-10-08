@@ -53,8 +53,8 @@ use sp_runtime::{
 	generic::{self, Era},
 	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, BlockNumberProvider, Hash as HashT, IdentifyAccount,
-		IdentityLookup, NumberFor, OpaqueKeys, Saturating,
+		BlakeTwo256, Block as BlockT, BlockNumberProvider, Hash as HashT, IdentityLookup,
+		NumberFor, OpaqueKeys, Saturating,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, Percent, RuntimeDebug,

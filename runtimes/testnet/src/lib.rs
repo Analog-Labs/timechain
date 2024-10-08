@@ -57,8 +57,8 @@ use sp_runtime::{
 		IdentityLookup, NumberFor, OpaqueKeys, Saturating,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, MultiSigner, Percent,
-	RuntimeDebug, SaturatedConversion,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, Percent, RuntimeDebug,
+	SaturatedConversion,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]

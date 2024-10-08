@@ -61,4 +61,27 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	fn transfer_to_pool() -> Weight {
+		Weight::default()
+	}
+
+	fn transfer_award_to_user() -> Weight {
+		Weight::default()
+	}
+
+	fn set_timegraph_account() -> Weight {
+		Weight::default()
+	}
+
+	fn set_reward_pool_account() -> Weight {
+		Weight::default()
+	}
+
+	fn set_threshold() -> Weight {
+		Weight::default()
+	}
+
+
+
 }

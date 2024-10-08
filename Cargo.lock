@@ -10368,6 +10368,7 @@ dependencies = [
  "polkadot-sdk",
  "scale-info",
  "simple-mermaid",
+ "time-primitives",
 ]
 
 [[package]]

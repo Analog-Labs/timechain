@@ -33,6 +33,9 @@ pub mod pallet {
 		fn withdraw() -> Weight;
 		fn transfer_to_pool() -> Weight;
 		fn transfer_award_to_user() -> Weight;
+		fn set_timegraph_account() -> Weight;
+		fn set_reward_pool_account() -> Weight;
+		fn set_threshold() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -49,6 +52,18 @@ pub mod pallet {
 		}
 
 		fn transfer_award_to_user() -> Weight {
+			Weight::default()
+		}
+
+		fn set_timegraph_account() -> Weight {
+			Weight::default()
+		}
+
+		fn set_reward_pool_account() -> Weight {
+			Weight::default()
+		}
+
+		fn set_threshold() -> Weight {
 			Weight::default()
 		}
 	}

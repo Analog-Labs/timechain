@@ -5,19 +5,10 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as Timegraph;
 
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system};
 
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-
-use time_primitives::{AccountId, NetworkId, PublicKey};
-
-pub const ALICE: [u8; 32] = [1u8; 32];
-pub const ETHEREUM: NetworkId = 1;
-
-fn public_key() -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(ALICE))
-}
 
 #[benchmarks]
 mod benchmarks {

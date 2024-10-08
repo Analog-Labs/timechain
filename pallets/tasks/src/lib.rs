@@ -110,7 +110,7 @@ pub mod pallet {
 		type Networks: NetworksInterface;
 		/// Maximum number of tasks scheduled per block in `on_initialize`
 		type MaxTasksPerBlock: Get<u32>;
-		/// Maximum number of batches satrted per block in `on_initialize`
+		/// Maximum number of batches started per block in `on_initialize`
 		type MaxBatchesPerBlock: Get<u32>;
 	}
 

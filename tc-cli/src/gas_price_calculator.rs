@@ -5,8 +5,8 @@ use num_rational::Ratio;
 use num_traits::Signed;
 use num_traits::{identities::Zero, pow};
 use serde::Deserialize;
+use time_primitives::NetworkId;
 const GWEI: u64 = 1_000_000_000;
-const AVG_GMP_GAS_COST: u64 = 88_000;
 
 #[derive(Clone, Deserialize)]
 pub struct TokenPriceData {
@@ -30,6 +30,13 @@ pub struct PriceInfo {
 	pub price: f64,
 }
 
+#[derive(Clone, Deserialize)]
+pub struct NetworkPrice {
+	pub network_id: NetworkId,
+	pub symbol: String,
+	pub usd_price: f64,
+}
+
 fn bigint_log10(n: &BigUint) -> f64 {
 	let n_str = n.to_string();
 	let num_digits = n_str.len();
@@ -49,8 +56,7 @@ fn to_fixed(n: Ratio<BigUint>, precision: Option<usize>) -> String {
 			} else {
 				let denominator = n.denom();
 				let log_value = bigint_log10(denominator);
-				let precision = log_value.ceil() as usize + 1;
-				precision
+				log_value.ceil() as usize + 1
 			}
 		},
 	};
@@ -104,127 +110,68 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 }
 
 impl Tc {
-	pub fn calculate_relative_price(&self) -> Result<()> {
-		//sepolia stuff
+	pub fn calculate_relative_price(
+		&self,
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		src_usd_price: f64,
+		dest_usd_price: f64,
+	) -> Result<(Ratio<BigUint>, Ratio<BigUint>)> {
+		let src_config = self.config.networks.get(&src_network).unwrap();
+		let src_margin: f64 = src_config.gmp_margin;
+		let src_decimals: u32 = src_config.token_decimals;
+		// TODO read from connector
+		let src_gas_fee: u64 = (1.4 * GWEI as f64) as _;
 
-		//TODO take as param
-		let sepolia_usd_price: f64 = 2663.240;
-		//TODO read from config
-		let sepolia_margin: f64 = 0.0;
-		//TODO read from config
-		let sepolia_decimals: u32 = 18;
-		//TODO read from connector
-		let sepolia_gas_fee: u64 = (1.4 * GWEI as f64) as u64;
+		let dest_config = self.config.networks.get(&dest_network).unwrap();
+		let dest_margin: f64 = dest_config.gmp_margin;
+		let dest_decimals: u32 = dest_config.token_decimals;
+		// TODO read from connector
+		let dest_gas_fee: u64 = 1715 * GWEI;
 
-		//shibuya stuff
-		let shibuya_usd_price: f64 = 0.072960;
-		let shibuya_margin: f64 = 0.0;
-		//TODO read from config
-		let shibuya_decimals: u32 = 18;
-		//TODO read from connector
-		let shibuya_gas_fee: u64 = 1715 * GWEI;
-
-		let sepolia_usd_price = Ratio::from_float(sepolia_usd_price).unwrap();
-		println!("shibuya usd_price: {:?}", sepolia_usd_price);
-		let sepolia_usd_price = convert_bigint_ratio_to_biguint(sepolia_usd_price)?;
-		let shibuya_usd_price = Ratio::from_float(shibuya_usd_price).unwrap();
-		let shibuya_usd_price = convert_bigint_ratio_to_biguint(shibuya_usd_price)?;
+		let src_usd_price = Ratio::from_float(src_usd_price).unwrap();
+		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
+		let dest_usd_price = Ratio::from_float(dest_usd_price).unwrap();
+		let dest_usd_price = convert_bigint_ratio_to_biguint(dest_usd_price)?;
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
-		let sepolia_margin = Ratio::from_float(sepolia_margin).unwrap();
-		let shibuya_margin = Ratio::from_float(shibuya_margin).unwrap();
+		let src_margin = Ratio::from_float(src_margin).unwrap();
+		let dest_margin = Ratio::from_float(dest_margin).unwrap();
 
-		// Compute Wei prices
-		let sepolia_wei_price = sepolia_usd_price.clone()
-			/ Ratio::from_integer(pow(BigUint::from(10u32), sepolia_decimals as usize));
-		let shibuya_wei_price = shibuya_usd_price.clone()
-			/ Ratio::from_integer(pow(BigUint::from(10u32), shibuya_decimals as usize));
-
-		// Compute Gas prices
-		let sepolia_gas_price =
-			sepolia_wei_price.clone() * Ratio::from_integer(BigUint::from(sepolia_gas_fee));
-		let shibuya_gas_price =
-			shibuya_wei_price.clone() * Ratio::from_integer(BigUint::from(shibuya_gas_fee));
-
-		// Sepolia to Shibuya relative gas price
-		let mut sepolia_to_shibuya = compute_src_wei_per_dst_gas_rate(
-			sepolia_usd_price.clone(),
-			sepolia_decimals,
-			shibuya_usd_price.clone(),
-			shibuya_decimals,
-			shibuya_gas_fee,
+		// src to dest relative gas price
+		let mut src_to_dest = compute_src_wei_per_dst_gas_rate(
+			src_usd_price.clone(),
+			src_decimals,
+			dest_usd_price.clone(),
+			dest_decimals,
+			dest_gas_fee,
 		);
 
-		// Shibuya to Sepolia relative gas price
-		let mut shibuya_to_sepolia = compute_src_wei_per_dst_gas_rate(
-			shibuya_usd_price.clone(),
-			shibuya_decimals,
-			sepolia_usd_price.clone(),
-			sepolia_decimals,
-			sepolia_gas_fee,
+		// dest to src relative gas price
+		let mut dest_to_src = compute_src_wei_per_dst_gas_rate(
+			dest_usd_price.clone(),
+			dest_decimals,
+			src_usd_price.clone(),
+			src_decimals,
+			src_gas_fee,
 		);
-
-		// Print relative gas prices
-		println!(" ---- Sepolia Summary ---- ");
-		println!("       price: ${}", to_fixed(sepolia_usd_price.clone(), None));
-		println!("     gas fee: {} gwei", sepolia_gas_fee);
-		println!("   gas price: ${}", to_fixed(sepolia_gas_price.clone(), None));
-
-		println!("\n ---- Shibuya Summary ---- ");
-		println!("       price: ${}", to_fixed(shibuya_usd_price.clone(), None));
-		println!("     gas fee: {} gwei", shibuya_gas_fee);
-		println!("   gas price: ${}", to_fixed(shibuya_gas_price.clone(), None));
 
 		// Add margin
-		sepolia_to_shibuya +=
-			sepolia_to_shibuya.clone() * convert_bigint_ratio_to_biguint(sepolia_margin.clone())?;
-		shibuya_to_sepolia +=
-			shibuya_to_sepolia.clone() * convert_bigint_ratio_to_biguint(shibuya_margin.clone())?;
+		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
+		dest_to_src += dest_to_src.clone() * convert_bigint_ratio_to_biguint(dest_margin.clone())?;
 
 		println!(
-			"\nSepolia to Shibuya relative gas price: {}",
-			to_fixed(sepolia_to_shibuya.clone(), None)
+			r#"src to dest relative gas price (rational): {}/{}
+src to dest relative gas price (decimal) : {}
+dest to src relative gas price (rational): {}/{}
+dest to src relative gas price (decimal) : {}"#,
+			src_to_dest.numer(),
+			src_to_dest.denom(),
+			to_fixed(src_to_dest.clone(), None),
+			dest_to_src.numer(),
+			dest_to_src.denom(),
+			to_fixed(dest_to_src.clone(), None)
 		);
-		println!(
-			"Shibuya to Sepolia relative gas price: {}",
-			to_fixed(shibuya_to_sepolia.clone(), None)
-		);
-
-		let avg_gmp_cost_ratio = Ratio::new(BigUint::from(AVG_GMP_GAS_COST), BigUint::from(1u32));
-		let sepolia_to_shibuya_gmp_cost = (avg_gmp_cost_ratio.clone() * sepolia_to_shibuya.clone())
-			/ Ratio::from_integer(pow(BigUint::from(10u32), sepolia_decimals as usize));
-		let shibuya_to_sepolia_gmp_cost = (avg_gmp_cost_ratio * shibuya_to_sepolia.clone())
-			/ Ratio::from_integer(pow(BigUint::from(10u32), sepolia_decimals as usize));
-
-		println!(
-			"Sending a msg from sep to shib cost in average: ${} ETH",
-			to_fixed(sepolia_to_shibuya_gmp_cost.clone(), None),
-		);
-		println!(
-			"Sending a msg from shib to sep cost in average: ${} ASTR",
-			to_fixed(shibuya_to_sepolia_gmp_cost.clone(), None),
-		);
-
-		println!(
-			"Sepolia to Shibuya relative gas price (rational): {}/{}",
-			sepolia_to_shibuya.numer(),
-			sepolia_to_shibuya.denom()
-		);
-		println!(
-			"Sepolia to Shibuya relative gas price (decimal): {}",
-			to_fixed(sepolia_to_shibuya, None)
-		);
-		println!("Average GMP fee: {} wei", to_fixed(sepolia_to_shibuya_gmp_cost, None));
-		println!(
-			"Shibuya to Sepolia relative gas price (rational): {}/{}",
-			shibuya_to_sepolia.numer(),
-			shibuya_to_sepolia.denom()
-		);
-		println!(
-			"Shibuya to Sepolia relative gas price (decimal): {}",
-			to_fixed(shibuya_to_sepolia, None)
-		);
-		println!("Average GMP fee: {} wei", to_fixed(shibuya_to_sepolia_gmp_cost, None));
-		Ok(())
+		Ok((src_to_dest, dest_to_src))
 	}
 }

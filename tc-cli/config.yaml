@@ -22,6 +22,7 @@ networks:
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
+    gmp_margin: 0.0
     shard_task_limit: 50
     symbol: "ETH"
     token_decimals: 18
@@ -37,6 +38,7 @@ networks:
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
+    gmp_margin: 0.0
     shard_task_limit: 50
     symbol: "ASTR"
     token_decimals: 18

@@ -1,6 +1,6 @@
 use crate::config::Config;
 use anyhow::{Context, Result};
-use csv::Writer;
+use csv::{Reader, Writer};
 use dotenv::dotenv;
 use futures::stream::{BoxStream, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
@@ -240,11 +240,22 @@ impl Tc {
 			let usd_price = data.quote.usd.price;
 			let symbol = data.symbol;
 
-			wtr.write_record(&[network_id.to_string(), symbol.into(), usd_price.to_string()])?;
+			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
 		}
 		wtr.flush()?;
 		println!("Saved in prices.csv");
 		Ok(())
+	}
+
+	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
+		let mut rdr = Reader::from_path("/etc/files/prices.csv")?;
+
+		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
+		for result in rdr.deserialize() {
+			let record: NetworkPrice = result?;
+			network_map.insert(record.network_id, (record.symbol, record.usd_price));
+		}
+		Ok(network_map)
 	}
 }
 

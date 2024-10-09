@@ -117,6 +117,10 @@ enum Command {
 		network: NetworkId,
 		admin: String,
 	},
+	SetRelativeGasPrice {
+		src_network: NetworkId,
+		dest_network: NetworkId,
+	},
 	RedeployGateway {
 		network: NetworkId,
 	},
@@ -479,7 +483,6 @@ async fn main() -> Result<()> {
 		// read data
 		Command::FetchTokenPriceData => {
 			tc.fetch_token_prices().await?;
-			tc.calculate_relative_price()?;
 		},
 		Command::Networks => {
 			let networks = tc.networks().await?;
@@ -547,6 +550,12 @@ async fn main() -> Result<()> {
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
 			tc.set_gateway_admin(network, admin).await?;
+		},
+		Command::SetRelativeGasPrice { src_network, dest_network } => {
+			let network_prices = tc.read_csv_token_prices()?;
+			let src_price = network_prices.get(&src_network).unwrap().1;
+			let dest_price = network_prices.get(&dest_network).unwrap().1;
+			tc.calculate_relative_price(src_network, dest_network, src_price, dest_price)?;
 		},
 		Command::RedeployGateway { network } => {
 			tc.redeploy_gateway(network).await?;

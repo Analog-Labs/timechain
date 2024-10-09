@@ -13997,6 +13997,7 @@ name = "runtime-common"
 version = "1.0.0"
 dependencies = [
  "polkadot-sdk",
+ "smallvec",
  "time-primitives",
 ]
 

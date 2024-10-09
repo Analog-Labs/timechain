@@ -3,6 +3,7 @@ use crate::TW_LOG;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream};
+use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	Address, BlockHash, BlockNumber, GmpParams, IConnector, NetworkId, ShardId, Task, TaskId,
@@ -11,28 +12,19 @@ use time_primitives::{
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level};
 
-pub struct TaskParams<R, C> {
+#[derive(Clone)]
+pub struct TaskParams {
 	tss: mpsc::Sender<TssSigningRequest>,
-	runtime: R,
-	connector: C,
+	runtime: Arc<dyn Runtime>,
+	connector: Arc<dyn IConnector>,
 }
 
-impl<R: Runtime, C: IConnector> Clone for TaskParams<R, C> {
-	fn clone(&self) -> Self {
-		Self {
-			tss: self.tss.clone(),
-			runtime: self.runtime.clone(),
-			connector: self.connector.clone(),
-		}
-	}
-}
-
-impl<R, C> TaskParams<R, C>
-where
-	R: Runtime,
-	C: IConnector,
-{
-	pub fn new(runtime: R, connector: C, tss: mpsc::Sender<TssSigningRequest>) -> Self {
+impl TaskParams {
+	pub fn new(
+		runtime: Arc<dyn Runtime>,
+		connector: Arc<dyn IConnector>,
+		tss: mpsc::Sender<TssSigningRequest>,
+	) -> Self {
 		Self { runtime, connector, tss }
 	}
 
@@ -114,26 +106,16 @@ where
 				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
 				Some(TaskResult::ReadGatewayEvents { events, signature })
 			},
-			Task::SignGatewayMessage { batch_id } => {
+			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
 				let signature =
 					self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
-				Some(TaskResult::SignGatewayMessage { signature })
-			},
-			Task::SubmitGatewayMessage { batch_id } => {
-				let msg =
-					self.runtime.get_batch_message(batch_id).await?.context("missing message")?;
-				let sig = self
-					.runtime
-					.get_batch_signature(batch_id)
-					.await?
-					.context("missing signature")?;
 				let signer =
 					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?[0];
 				if let Err(error) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, sig).await
+					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
 					Some(TaskResult::SubmitGatewayMessage { error })
 				} else {
@@ -157,17 +139,13 @@ where
 	}
 }
 
-pub struct TaskExecutor<R, C> {
-	params: TaskParams<R, C>,
+pub struct TaskExecutor {
+	params: TaskParams,
 	running_tasks: BTreeMap<TaskId, JoinHandle<()>>,
 }
 
-impl<R, C> TaskExecutor<R, C>
-where
-	R: Runtime,
-	C: IConnector,
-{
-	pub fn new(params: TaskParams<R, C>) -> Self {
+impl TaskExecutor {
+	pub fn new(params: TaskParams) -> Self {
 		Self {
 			params,
 			running_tasks: Default::default(),

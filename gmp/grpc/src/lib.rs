@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, NetworkId, Route, TssPublicKey, TssSignature,
+	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -50,6 +50,29 @@ pub struct Connector {
 	network: NetworkId,
 	address: Address,
 	client: Arc<Mutex<GmpClientT>>,
+}
+
+#[tonic::async_trait]
+impl IConnectorBuilder for Connector {
+	/// Creates a new connector.
+	async fn new(params: ConnectorParams) -> Result<Self>
+	where
+		Self: Sized,
+	{
+		let address = gmp_rust::mnemonic_to_address(params.mnemonic);
+		let channel = if params.url.starts_with("https") {
+			let tls_config = ClientTlsConfig::new().with_native_roots();
+			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect().await?
+		} else {
+			Channel::from_shared(params.url)?.connect().await?
+		};
+		let client = GmpClient::with_interceptor(channel, AddressInterceptor::new(address));
+		Ok(Self {
+			network: params.network_id,
+			address,
+			client: Arc::new(Mutex::new(client)),
+		})
+	}
 }
 
 #[tonic::async_trait]
@@ -107,32 +130,6 @@ impl IChain for Connector {
 
 #[tonic::async_trait]
 impl IConnector for Connector {
-	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>
-	where
-		Self: Sized,
-	{
-		let address = gmp_rust::mnemonic_to_address(params.mnemonic);
-		let channel = if params.url.starts_with("https") {
-			let tls_config = ClientTlsConfig::new().with_native_roots();
-			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect().await?
-		} else {
-			Channel::from_shared(params.url)?.connect().await?
-		};
-		let client = GmpClient::with_interceptor(channel, AddressInterceptor::new(address));
-		Ok(Self {
-			network: params.network_id,
-			address,
-			client: Arc::new(Mutex::new(client)),
-		})
-	}
-	/// Object-safe clone.
-	fn clone(&self) -> Self
-	where
-		Self: Sized,
-	{
-		Clone::clone(self)
-	}
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let request = Request::new(proto::ReadEventsRequest {

@@ -68,19 +68,23 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, BatchBuilder, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpParams,
-		MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
+		AccountId, Balance, BatchBuilder, BatchId, GatewayMessage, GatewayOp, GmpEvent, MessageId,
+		NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
 		TaskResult, TasksInterface, TssPublicKey, TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
 		fn submit_task_result() -> Weight;
+		fn prepare_batches(n: u32) -> Weight;
 		fn schedule_tasks(n: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn submit_task_result() -> Weight {
+			Weight::default()
+		}
+		fn prepare_batches(_: u32) -> Weight {
 			Weight::default()
 		}
 		fn schedule_tasks(_: u32) -> Weight {
@@ -104,7 +108,10 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Networks: NetworksInterface;
+		/// Maximum number of tasks scheduled per block in `on_initialize`
 		type MaxTasksPerBlock: Get<u32>;
+		/// Maximum number of batches started per block in `on_initialize`
+		type MaxBatchesPerBlock: Get<u32>;
 	}
 
 	/// Double map storage for unassigned tasks.
@@ -231,18 +238,8 @@ pub mod pallet {
 	pub type BatchMessage<T: Config> =
 		StorageMap<_, Blake2_128Concat, BatchId, GatewayMessage, OptionQuery>;
 
-	/// Map storage for batch signatures
 	#[pallet::storage]
-	pub type BatchSignature<T: Config> =
-		StorageMap<_, Blake2_128Concat, BatchId, TssSignature, OptionQuery>;
-
-	#[pallet::storage]
-	pub type BatchSignTaskId<T: Config> =
-		StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
-
-	#[pallet::storage]
-	pub type BatchSubmissionTaskId<T: Config> =
-		StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
+	pub type BatchTaskId<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
 
 	/// Map storage for task signers.
 	#[pallet::storage]
@@ -293,7 +290,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::schedule_tasks()
+			Self::prepare_batches().saturating_add(Self::schedule_tasks())
 		}
 	}
 
@@ -314,9 +311,8 @@ pub mod pallet {
 			}
 			let shard = TaskShard::<T>::get(task_id).ok_or(Error::<T>::UnassignedTask)?;
 			let network = T::Shards::shard_network(shard).ok_or(Error::<T>::UnknownShard)?;
-			let gateway = T::Networks::gateway(network).ok_or(Error::<T>::GatewayNotRegistered)?;
 			let reward = task.reward();
-			match (task, result) {
+			let result = match (task, result) {
 				(
 					Task::ReadGatewayEvents { blocks },
 					TaskResult::ReadGatewayEvents { events, signature },
@@ -349,47 +345,26 @@ pub mod pallet {
 								Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
 							},
 							GmpEvent::BatchExecuted(batch_id) => {
-								if let Some(task_id) = BatchSubmissionTaskId::<T>::get(batch_id) {
+								if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
 									Self::finish_task(network, task_id, Ok(()));
 								}
 							},
 						}
 					}
-					// complete task
-					Self::treasury_transfer_shard(shard, reward);
-					Self::finish_task(network, task_id, Ok(()));
-				},
-				(
-					Task::SignGatewayMessage { batch_id },
-					TaskResult::SignGatewayMessage { signature },
-				) => {
-					// verify signature
-					let msg = BatchMessage::<T>::get(batch_id).ok_or(Error::<T>::InvalidBatchId)?;
-					let payload = msg.encode(batch_id);
-					let params = GmpParams { network, gateway };
-					let bytes = params.hash(&payload);
-					Self::verify_signature(shard, &bytes, signature)?;
-					// store signature
-					BatchSignature::<T>::insert(batch_id, signature);
-					// start submission
-					let submission_task_id =
-						Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
-					BatchSubmissionTaskId::<T>::insert(batch_id, submission_task_id);
-					// complete task
-					Self::treasury_transfer_shard(shard, reward);
-					Self::finish_task(network, task_id, Ok(()));
+					Ok(())
 				},
 				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {
 					// verify signature
 					let expected_signer =
 						TaskSubmitter::<T>::get(task_id).map(|s| s.into_account());
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
-					// complete task
-					Self::treasury_transfer(signer, reward);
-					Self::finish_task(network, task_id, Err(error));
+					Err(error)
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};
+			// complete task
+			Self::treasury_transfer_shard(shard, reward);
+			Self::finish_task(network, task_id, result);
 			Ok(())
 		}
 	}
@@ -529,8 +504,7 @@ pub mod pallet {
 		/// 	tasks_per_shard = min(tasks_per_shard, max_assignable_tasks)
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
-		fn schedule_tasks() -> Weight {
-			Self::prepare_batches();
+		pub(crate) fn schedule_tasks() -> Weight {
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
@@ -588,20 +562,32 @@ pub mod pallet {
 			<T as Config>::WeightInfo::schedule_tasks(num_tasks_assigned)
 		}
 
-		fn prepare_batches() {
+		pub(crate) fn prepare_batches() -> Weight {
+			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
+						if num_batches_started == T::MaxBatchesPerBlock::get() {
+							return <T as Config>::WeightInfo::prepare_batches(
+								T::MaxBatchesPerBlock::get(),
+							);
+						}
 						Self::start_batch(network, msg);
+						num_batches_started = num_batches_started.saturating_plus_one();
 					}
+				}
+				if num_batches_started == T::MaxBatchesPerBlock::get() {
+					return <T as Config>::WeightInfo::prepare_batches(T::MaxBatchesPerBlock::get());
 				}
 				if let Some(msg) = batcher.take_batch() {
 					Self::start_batch(network, msg);
+					num_batches_started = num_batches_started.saturating_plus_one();
 				}
 			}
+			<T as Config>::WeightInfo::prepare_batches(num_batches_started)
 		}
 
 		fn start_batch(network: NetworkId, msg: GatewayMessage) {
@@ -614,8 +600,8 @@ pub mod pallet {
 				}
 			}
 			BatchMessage::<T>::insert(batch_id, msg);
-			let task_id = Self::create_task(network, Task::SignGatewayMessage { batch_id });
-			BatchSignTaskId::<T>::insert(batch_id, task_id);
+			let task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
+			BatchTaskId::<T>::insert(batch_id, task_id);
 		}
 	}
 
@@ -652,10 +638,6 @@ pub mod pallet {
 
 		pub fn get_batch_message(batch: BatchId) -> Option<GatewayMessage> {
 			BatchMessage::<T>::get(batch)
-		}
-
-		pub fn get_batch_signature(batch: BatchId) -> Option<TssSignature> {
-			BatchSignature::<T>::get(batch)
 		}
 	}
 

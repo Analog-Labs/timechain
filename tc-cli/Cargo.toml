@@ -12,8 +12,7 @@ repository.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 futures.workspace = true
-#gmp-evm.workspace = true
-gmp-grpc.workspace = true
+gmp.workspace = true
 hex.workspace = true
 reqwest = { version = "0.12.7", default-features = false, features = ["json", "rustls-tls-native-roots"] }
 serde = { workspace = true, features = ["derive"] }

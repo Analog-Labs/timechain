@@ -20,7 +20,6 @@ pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 #[derive(Default)]
 pub struct NetworkConfig {
 	pub secret: [u8; 32],
-	pub bind_port: Option<u16>,
 }
 
 #[derive(Deserialize, Serialize)]

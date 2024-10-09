@@ -26,14 +26,14 @@ const SIGNATURE: TssSignature = [
 
 fn create_simple_task<T: Config + pallet_shards::Config>() {
 	const ETHEREUM: NetworkId = 0;
-	<T as Config>::Shards::create_shard(
+	let (shard_id, _) = <T as Config>::Shards::create_shard(
 		ETHEREUM,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
 	);
-	ShardState::<T>::insert(0, ShardStatus::Online);
-	ShardCommitment::<T>::insert(0, vec![PUBKEY]);
-	Pallet::<T>::shard_online(0, ETHEREUM);
+	ShardState::<T>::insert(shard_id, ShardStatus::Online);
+	ShardCommitment::<T>::insert(shard_id, vec![PUBKEY]);
+	Pallet::<T>::shard_online(shard_id, ETHEREUM);
 	Pallet::<T>::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 0..10 });
 }
 
@@ -43,7 +43,6 @@ benchmarks! {
 	submit_task_result {
 		NetworkGatewayAddress::<T>::insert(0, [0; 32]);
 		create_simple_task::<T>();
-		Pallet::<T>::assign_task(0, 0);
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let result = TaskResult::ReadGatewayEvents { events: vec![], signature: SIGNATURE };
 	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
@@ -53,8 +52,18 @@ benchmarks! {
 		for i in 0..b {
 			create_simple_task::<T>();
 		}
+		Pallet::<T>::prepare_batches();
 	}: {
-		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		Pallet::<T>::schedule_tasks();
+	} verify { }
+
+	prepare_batches {
+		let b in 1..<T as Config>::MaxBatchesPerBlock::get();
+		for i in 0..b {
+			create_simple_task::<T>();
+		}
+	}: {
+		Pallet::<T>::prepare_batches();
 	} verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

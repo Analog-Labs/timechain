@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use gmp::Backend;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -42,13 +43,6 @@ pub struct GlobalConfig {
 	pub timechain_keyfile: PathBuf,
 	pub timechain_url: String,
 	pub target_keyfile: PathBuf,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Backend {
-	Grpc,
-	Evm,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

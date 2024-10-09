@@ -314,14 +314,6 @@ pub trait IChain: Send + Sync + 'static {
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
 pub trait IConnector: IChain {
-	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>
-	where
-		Self: Sized;
-	/// Object-safe clone.
-	fn clone(&self) -> Self
-	where
-		Self: Sized;
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
@@ -372,6 +364,13 @@ pub trait IConnectorAdmin: IConnector {
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+pub trait IConnectorBuilder: IConnectorAdmin + Sized {
+	/// Creates a new connector.
+	async fn new(params: ConnectorParams) -> Result<Self>;
 }
 
 #[cfg(test)]

@@ -11,7 +11,6 @@ pub type TaskId = u64;
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum Task {
 	ReadGatewayEvents { blocks: Range<u64> },
-	SignGatewayMessage { batch_id: BatchId },
 	SubmitGatewayMessage { batch_id: BatchId },
 }
 
@@ -23,9 +22,6 @@ impl std::fmt::Display for Task {
 				let start = blocks.start;
 				let end = blocks.end;
 				write!(f, "ReadGatewayEvents({start}..{end})")
-			},
-			Self::SignGatewayMessage { batch_id } => {
-				write!(f, "SignPayload({batch_id})")
 			},
 			Self::SubmitGatewayMessage { batch_id } => {
 				write!(f, "SubmitGatewayMessage({batch_id})")
@@ -69,10 +65,6 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 pub enum TaskResult {
 	ReadGatewayEvents {
 		events: Vec<GmpEvent>,
-		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
-		signature: TssSignature,
-	},
-	SignGatewayMessage {
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
 		signature: TssSignature,
 	},

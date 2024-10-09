@@ -28,9 +28,7 @@ default = [ "std" ]
 std = [
 	"scale-codec/std",
 	"scale-info/std",
-
 	"polkadot-sdk/std",
-
 	"time-primitives/std"
 ]
 runtime-benchmarks = [

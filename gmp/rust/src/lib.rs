@@ -16,7 +16,8 @@ use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	IChain, IConnector, IConnectorAdmin, NetworkId, Route, TssPublicKey, TssSignature,
+	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 
 const BLOCK_TIME: u64 = 1;
@@ -80,6 +81,45 @@ fn read_balance<T: ReadableTable<Address, u128>>(table: &T, addr: Address) -> Re
 
 fn read_admin<T: ReadableTable<Address, Address>>(table: &T, gateway: Address) -> Result<Address> {
 	Ok(table.get(gateway)?.context("invalid gateway")?.value())
+}
+
+#[async_trait::async_trait]
+impl IConnectorBuilder for Connector {
+	/// Creates a new connector.
+	async fn new(params: ConnectorParams) -> Result<Self>
+	where
+		Self: Sized,
+	{
+		if params.blockchain != "rust" {
+			anyhow::bail!("unsupported blockchain");
+		}
+		let address = mnemonic_to_address(params.mnemonic);
+		let (tmpfile, path) = if params.url == "tempfile" {
+			let file = NamedTempFile::new()?;
+			let path = file.path().to_owned();
+			(Some(Arc::new(file)), path)
+		} else {
+			(None, Path::new(&params.url).to_owned())
+		};
+		let db = Database::create(path)?;
+		let genesis = SystemTime::now(); //std::fs::metadata(&path)?.created()?;
+		let tx = db.begin_write()?;
+		tx.open_table(BALANCE)?;
+		tx.open_table(ADMIN)?;
+		tx.open_table(ROUTES)?;
+		tx.open_table(GATEWAY)?;
+		tx.open_multimap_table(EVENTS)?;
+		tx.open_multimap_table(SHARDS)?;
+		tx.open_multimap_table(TESTERS)?;
+		tx.commit()?;
+		Ok(Self {
+			network_id: params.network_id,
+			address,
+			db: Arc::new(db),
+			genesis,
+			_tmpfile: tmpfile,
+		})
+	}
 }
 
 #[async_trait::async_trait]
@@ -155,50 +195,6 @@ impl IChain for Connector {
 
 #[async_trait::async_trait]
 impl IConnector for Connector {
-	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>
-	where
-		Self: Sized,
-	{
-		if params.blockchain != "rust" {
-			anyhow::bail!("unsupported blockchain");
-		}
-		let address = mnemonic_to_address(params.mnemonic);
-		let (tmpfile, path) = if params.url == "tempfile" {
-			let file = NamedTempFile::new()?;
-			let path = file.path().to_owned();
-			(Some(Arc::new(file)), path)
-		} else {
-			(None, Path::new(&params.url).to_owned())
-		};
-		let db = Database::create(path)?;
-		let genesis = SystemTime::now(); //std::fs::metadata(&path)?.created()?;
-		let tx = db.begin_write()?;
-		tx.open_table(BALANCE)?;
-		tx.open_table(ADMIN)?;
-		tx.open_table(ROUTES)?;
-		tx.open_table(GATEWAY)?;
-		tx.open_multimap_table(EVENTS)?;
-		tx.open_multimap_table(SHARDS)?;
-		tx.open_multimap_table(TESTERS)?;
-		tx.commit()?;
-		Ok(Self {
-			network_id: params.network_id,
-			address,
-			db: Arc::new(db),
-			genesis,
-			_tmpfile: tmpfile,
-		})
-	}
-
-	/// Object-safe clone.
-	fn clone(&self) -> Self
-	where
-		Self: Sized,
-	{
-		Clone::clone(self)
-	}
-
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Address, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let tx = self.db.begin_read()?;

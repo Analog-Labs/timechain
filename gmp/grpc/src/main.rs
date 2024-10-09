@@ -7,7 +7,8 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use time_primitives::{
-	ConnectorParams, IChain, IConnector, IConnectorAdmin, NetworkId, TssPublicKey,
+	ConnectorParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId,
+	TssPublicKey,
 };
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};

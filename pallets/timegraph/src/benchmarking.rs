@@ -41,47 +41,58 @@ mod benchmarks {
 	fn transfer_to_pool() {
 		let caller: T::AccountId = whitelisted_caller();
 		let account: T::AccountId = account("name", 0, 0);
-		let amount: BalanceOf<T> = 5_000_000u32.into();
-		let _ = T::Currency::reserve(&caller, Threshold::<T>::get() + amount);
+		let amount: BalanceOf<T> = 5_000_000_u32.into();
+		T::Currency::resolve_creating(
+			&account,
+			T::Currency::issue(amount * 100u32.into() + Threshold::<T>::get()),
+		);
+		TimegraphAccount::<T>::set(caller.clone());
+		T::Currency::reserve(&account, Threshold::<T>::get() + amount);
+
 		#[extrinsic_call]
 		transfer_to_pool(RawOrigin::Signed(caller), account, amount);
 	}
 
-	// #[benchmark]
-	// fn set_timegraph_account() {
-	// 	let caller: T::AccountId = whitelisted_caller();
-	// 	let new_account: T::AccountId = T::AccountId::from([0u8; 32]);
-	// 	#[extrinsic_call]
-	// 	// Example new account
-	// 	withdraw(RawOrigin::Signed(caller), amount);
-	// }
+	#[benchmark]
+	fn transfer_award_to_user() {
+		let caller: T::AccountId = whitelisted_caller();
+		let account: T::AccountId = account("name", 0, 0);
+		let amount: BalanceOf<T> = 5_000_000_u32.into();
 
-	// // Benchmark for the `set_reward_pool_account` extrinsic
-	// #[benchmark]
-	// fn set_reward_pool_account() {
-	//     let caller: T::AccountId = whitelisted_caller();
-	//     let new_pool_account: T::AccountId = T::AccountId::from([1u8; 32]); // Example new pool account
-	// }: _(RawOrigin::Root, new_pool_account)
-	// verify {
-	//     // Verify that the new reward pool account is set correctly
-	//     assert_eq!(RewardPoolAccount::<T>::get(), new_pool_account);
-	// }
+		T::Currency::resolve_creating(&caller, T::Currency::issue(amount * 200u32.into()));
 
-	// // Benchmark for the `transfer_award_to_user` extrinsic
-	// #[benchmark]
-	// fn transfer_award_to_user() {
-	//     let caller: T::AccountId = whitelisted_caller();
-	//     let user_account: T::AccountId = T::AccountId::from([2u8; 32]); // Example user account
-	//     let amount: BalanceOf<T> = 100u32.into(); // Example transfer amount
+		T::Currency::resolve_creating(&account, T::Currency::issue(amount * 100u32.into()));
 
-	//     // Ensure the reward pool has enough balance
-	//     let reward_pool_account = RewardPoolAccount::<T>::get();
-	//     T::Currency::make_free_balance_be(&reward_pool_account, 1000u32.into());
-	// }: _(RawOrigin::Signed(caller), user_account, amount)
-	// verify {
-	//     // Verify that the user's balance is updated correctly
-	//     assert_eq!(T::Currency::free_balance(&user_account), amount);
-	// }
+		TimegraphAccount::<T>::set(caller.clone());
+		RewardPoolAccount::<T>::set(caller.clone());
+
+		#[extrinsic_call]
+		transfer_award_to_user(RawOrigin::Signed(caller), account, amount);
+	}
+
+	#[benchmark]
+	fn set_timegraph_account() {
+		let new_account: T::AccountId = account("name", 0, 0);
+		#[extrinsic_call]
+		// Example new account
+		set_timegraph_account(RawOrigin::Root, new_account);
+	}
+
+	#[benchmark]
+	fn set_reward_pool_account() {
+		let new_account: T::AccountId = account("name", 0, 0);
+
+		#[extrinsic_call]
+		set_reward_pool_account(RawOrigin::Root, new_account);
+	}
+
+	#[benchmark]
+	fn set_threshold() {
+		let amount: BalanceOf<T> = 5_000_000_u32.into();
+
+		#[extrinsic_call]
+		set_threshold(RawOrigin::Root, amount);
+	}
 
 	impl_benchmark_test_suite!(Timegraph, crate::mock::new_test_ext(), crate::mock::Test);
 }

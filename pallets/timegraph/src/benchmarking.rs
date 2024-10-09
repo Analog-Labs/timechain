@@ -47,7 +47,7 @@ mod benchmarks {
 			T::Currency::issue(amount * 100u32.into() + Threshold::<T>::get()),
 		);
 		TimegraphAccount::<T>::set(caller.clone());
-		T::Currency::reserve(&account, Threshold::<T>::get() + amount);
+		let _ = T::Currency::reserve(&account, Threshold::<T>::get() + amount);
 
 		#[extrinsic_call]
 		transfer_to_pool(RawOrigin::Signed(caller), account, amount);

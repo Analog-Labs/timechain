@@ -18,7 +18,6 @@ use time_primitives::{
 	Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId,
 	NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
-
 mod config;
 mod gas_price_calculator;
 
@@ -677,11 +676,28 @@ impl Tc {
 					continue;
 				}
 				let config = self.config.network(dest)?;
+				let network_prices = self.read_csv_token_prices()?;
+				let src_price = network_prices
+					.get(&src)
+					.ok_or(anyhow::anyhow!("Unable to get src network from csv"))?
+					.1;
+				let dest_price = network_prices
+					.get(&dest)
+					.ok_or(anyhow::anyhow!("Unable to get src network from csv"))?
+					.1;
+				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
+				let numerator = ratio
+					.numer()
+					.to_u128()
+					.ok_or(anyhow::anyhow!("Could not convert bigint to u128"))?;
+				let denominator = ratio
+					.denom()
+					.to_u128()
+					.ok_or(anyhow::anyhow!("Could not convert bigint to u128"))?;
 				let route = Route {
 					network_id: dest,
 					gateway,
-					//TODO load values from csv file
-					relative_gas_price: (1, 1),
+					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};

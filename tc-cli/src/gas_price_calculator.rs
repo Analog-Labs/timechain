@@ -6,7 +6,6 @@ use num_traits::Signed;
 use num_traits::{identities::Zero, pow};
 use serde::Deserialize;
 use time_primitives::NetworkId;
-const GWEI: u64 = 1_000_000_000;
 
 #[derive(Clone, Deserialize)]
 pub struct TokenPriceData {
@@ -83,7 +82,7 @@ fn compute_src_wei_per_dst_gas_rate(
 	src_decimals: u32,
 	dst_usd_price: Ratio<BigUint>,
 	dst_decimals: u32,
-	dst_gas_fee: u64,
+	dst_gas_fee: u128,
 ) -> Ratio<BigUint> {
 	let src_usd_per_wei =
 		src_usd_price / Ratio::from_integer(pow(BigUint::from(10u32), src_decimals as usize));
@@ -116,18 +115,14 @@ impl Tc {
 		dest_network: NetworkId,
 		src_usd_price: f64,
 		dest_usd_price: f64,
-	) -> Result<(Ratio<BigUint>, Ratio<BigUint>)> {
+	) -> Result<Ratio<BigUint>> {
 		let src_config = self.config.networks.get(&src_network).unwrap();
 		let src_margin: f64 = src_config.gmp_margin;
 		let src_decimals: u32 = src_config.token_decimals;
-		// TODO read from connector
-		let src_gas_fee: u64 = (1.4 * GWEI as f64) as _;
 
 		let dest_config = self.config.networks.get(&dest_network).unwrap();
-		let dest_margin: f64 = dest_config.gmp_margin;
 		let dest_decimals: u32 = dest_config.token_decimals;
-		// TODO read from connector
-		let dest_gas_fee: u64 = 1715 * GWEI;
+		let dest_gas_fee = dest_config.route_base_fee;
 
 		let src_usd_price = Ratio::from_float(src_usd_price).unwrap();
 		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
@@ -136,7 +131,6 @@ impl Tc {
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
 		let src_margin = Ratio::from_float(src_margin).unwrap();
-		let dest_margin = Ratio::from_float(dest_margin).unwrap();
 
 		// src to dest relative gas price
 		let mut src_to_dest = compute_src_wei_per_dst_gas_rate(
@@ -147,31 +141,16 @@ impl Tc {
 			dest_gas_fee,
 		);
 
-		// dest to src relative gas price
-		let mut dest_to_src = compute_src_wei_per_dst_gas_rate(
-			dest_usd_price.clone(),
-			dest_decimals,
-			src_usd_price.clone(),
-			src_decimals,
-			src_gas_fee,
-		);
-
 		// Add margin
 		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
-		dest_to_src += dest_to_src.clone() * convert_bigint_ratio_to_biguint(dest_margin.clone())?;
 
 		println!(
 			r#"src to dest relative gas price (rational): {}/{}
-src to dest relative gas price (decimal) : {}
-dest to src relative gas price (rational): {}/{}
-dest to src relative gas price (decimal) : {}"#,
+src to dest relative gas price (decimal) : {}"#,
 			src_to_dest.numer(),
 			src_to_dest.denom(),
 			to_fixed(src_to_dest.clone(), None),
-			dest_to_src.numer(),
-			dest_to_src.denom(),
-			to_fixed(dest_to_src.clone(), None)
 		);
-		Ok((src_to_dest, dest_to_src))
+		Ok(src_to_dest)
 	}
 }

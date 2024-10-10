@@ -1,7 +1,5 @@
 use crate::config::Config;
 use anyhow::{Context, Result};
-use csv::{Reader, Writer};
-use dotenv::dotenv;
 use futures::stream::{BoxStream, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
@@ -11,7 +9,6 @@ use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use std::{collections::hash_map::Entry, fs::File};
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, ConnectorParams,
@@ -211,50 +208,6 @@ impl Tc {
 			self.transfer(network, address, diff).await?;
 		}
 		Ok(())
-	}
-
-	pub async fn fetch_token_prices(&self) -> Result<()> {
-		dotenv().ok();
-		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
-		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");
-		let mut header_map = HeaderMap::new();
-		header_map.insert(
-			"X-CMC_PRO_API_KEY",
-			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
-		);
-		let file = File::create("/etc/files/prices.csv")?;
-		let mut wtr = Writer::from_writer(file);
-		wtr.write_record(["network_id", "symbol", "usd_price"])?;
-		for (network_id, network) in &self.config.networks {
-			let symbol = network.symbol.clone();
-			let token_url = format!("{}{}", base_url, symbol);
-			let response = reqwest::Client::new()
-				.get(token_url)
-				.headers(header_map.clone())
-				.send()
-				.await?
-				.json::<TokenPriceData>()
-				.await?;
-			let data = response.data[0].clone();
-			let usd_price = data.quote.usd.price;
-			let symbol = data.symbol;
-
-			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
-		}
-		wtr.flush()?;
-		println!("Saved in prices.csv");
-		Ok(())
-	}
-
-	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		let mut rdr = Reader::from_path("/etc/files/prices.csv")?;
-
-		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
-		for result in rdr.deserialize() {
-			let record: NetworkPrice = result?;
-			network_map.insert(record.network_id, (record.symbol, record.usd_price));
-		}
-		Ok(network_map)
 	}
 }
 
@@ -677,23 +630,11 @@ impl Tc {
 				}
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
-				let src_price = network_prices
-					.get(&src)
-					.ok_or(anyhow::anyhow!("Unable to get src network from csv"))?
-					.1;
-				let dest_price = network_prices
-					.get(&dest)
-					.ok_or(anyhow::anyhow!("Unable to get src network from csv"))?
-					.1;
+				let src_price = self.get_network_price(&network_prices, &src)?;
+				let dest_price = self.get_network_price(&network_prices, &dest)?;
 				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
-				let numerator = ratio
-					.numer()
-					.to_u128()
-					.ok_or(anyhow::anyhow!("Could not convert bigint to u128"))?;
-				let denominator = ratio
-					.denom()
-					.to_u128()
-					.ok_or(anyhow::anyhow!("Could not convert bigint to u128"))?;
+				let numerator = self.convert_bigint_to_u128(&ratio.numer())?;
+				let denominator = self.convert_bigint_to_u128(&ratio.denom())?;
 				let route = Route {
 					network_id: dest,
 					gateway,

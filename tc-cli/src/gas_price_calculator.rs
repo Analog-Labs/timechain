@@ -1,10 +1,16 @@
 use crate::Tc;
 use anyhow::Result;
+use csv::{Reader, Writer};
+use dotenv::dotenv;
 use num_bigint::{BigInt, BigUint};
 use num_rational::Ratio;
 use num_traits::Signed;
+use num_traits::ToPrimitive;
 use num_traits::{identities::Zero, pow};
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::fs::File;
 use time_primitives::NetworkId;
 
 #[derive(Clone, Deserialize)]
@@ -109,6 +115,67 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 }
 
 impl Tc {
+	pub async fn fetch_token_prices(&self) -> Result<()> {
+		dotenv().ok();
+		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
+		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");
+		let mut header_map = HeaderMap::new();
+		header_map.insert(
+			"X-CMC_PRO_API_KEY",
+			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
+		);
+		let file = File::create("/etc/files/prices.csv")?;
+		let mut wtr = Writer::from_writer(file);
+		wtr.write_record(["network_id", "symbol", "usd_price"])?;
+		for (network_id, network) in &self.config.networks {
+			let symbol = network.symbol.clone();
+			let token_url = format!("{}{}", base_url, symbol);
+			let response = reqwest::Client::new()
+				.get(token_url)
+				.headers(header_map.clone())
+				.send()
+				.await?
+				.json::<TokenPriceData>()
+				.await?;
+			let data = response.data[0].clone();
+			let usd_price = data.quote.usd.price;
+			let symbol = data.symbol;
+
+			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
+		}
+		wtr.flush()?;
+		println!("Saved in prices.csv");
+		Ok(())
+	}
+
+	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
+		let mut rdr = Reader::from_path("/etc/files/prices.csv")?;
+
+		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
+		for result in rdr.deserialize() {
+			let record: NetworkPrice = result?;
+			network_map.insert(record.network_id, (record.symbol, record.usd_price));
+		}
+		Ok(network_map)
+	}
+
+	pub fn get_network_price(
+		&self,
+		network_prices: &HashMap<NetworkId, (String, f64)>,
+		network_id: &NetworkId,
+	) -> Result<f64> {
+		network_prices
+			.get(network_id)
+			.map(|(_, price)| *price)
+			.ok_or_else(|| anyhow::anyhow!("Unable to get network {} from csv", network_id))
+	}
+
+	pub fn convert_bigint_to_u128(&self, value: &BigUint) -> Result<u128> {
+		value
+			.to_u128()
+			.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
+	}
+
 	pub fn calculate_relative_price(
 		&self,
 		src_network: NetworkId,

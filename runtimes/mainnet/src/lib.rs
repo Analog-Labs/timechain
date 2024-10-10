@@ -1298,7 +1298,8 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<10_000>;
+	type MaxTasksPerBlock = ConstU32<1_500>;
+	type MaxBatchesPerBlock = ConstU32<1_000>;
 }
 
 parameter_types! {
@@ -1979,6 +1980,7 @@ mod tests {
 	use super::*;
 	use frame_election_provider_support::NposSolution;
 	use frame_system::offchain::CreateSignedTransaction;
+	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
 
 	#[test]
@@ -2017,8 +2019,9 @@ mod tests {
 
 	#[test]
 	fn max_tasks_per_block() {
-		use pallet_tasks::WeightInfo;
-		let avg_on_initialize: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
+		// 50% of max on_initialize space for task scheduling conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
 				.all_lte(avg_on_initialize),
@@ -2044,6 +2047,39 @@ mod tests {
 		assert!(
 			max_tasks_per_block_configured <= num_tasks,
 			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
+		);
+	}
+
+	#[test]
+	fn max_batches_per_block() {
+		// 50% of max on_initialize space for starting batches conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
+				.all_lte(avg_on_initialize),
+			"BUG: Starting a single batch consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
+				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(2)),
+			"BUG: Starting 1 batch consumes more weight than starting 2"
+		);
+		let mut num_batches: u32 = 2;
+		while <Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(num_batches)
+			.all_lt(avg_on_initialize)
+		{
+			num_batches += 1;
+			if num_batches == 10_000_000 {
+				// 10_000_000 batches started; halting to break out of loop
+				break;
+			}
+		}
+		let max_batches_per_block_configured: u32 =
+			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
+		assert!(
+			max_batches_per_block_configured <= num_batches,
+			"MaxTasksPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
 		);
 	}
 }

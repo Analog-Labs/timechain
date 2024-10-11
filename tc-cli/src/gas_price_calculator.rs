@@ -32,7 +32,7 @@ pub struct Quote {
 
 #[derive(Clone, Deserialize)]
 pub struct PriceInfo {
-	pub price: f64,
+	pub price: Option<f64>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -130,18 +130,18 @@ impl Tc {
 		for (network_id, network) in &self.config.networks {
 			let symbol = network.symbol.clone();
 			let token_url = format!("{}{}", base_url, symbol);
-			let response = reqwest::Client::new()
-				.get(token_url)
-				.headers(header_map.clone())
-				.send()
-				.await?
-				.json::<TokenPriceData>()
-				.await?;
+			let response =
+				reqwest::Client::new().get(token_url).headers(header_map.clone()).send().await?;
+			let response = response.json::<TokenPriceData>().await?;
 			let data = response.data[0].clone();
-			let usd_price = data.quote.usd.price;
+			let usd_price = data
+				.quote
+				.usd
+				.price
+				.ok_or_else(|| anyhow::anyhow!("Couldnt fetch token price for {}", symbol))?;
 			let symbol = data.symbol;
 
-			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
+			wtr.write_record(&[network_id.to_string(), symbol.into(), usd_price.to_string()])?;
 		}
 		wtr.flush()?;
 		println!("Saved in prices.csv");

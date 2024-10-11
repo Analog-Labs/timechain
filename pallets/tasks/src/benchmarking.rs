@@ -32,7 +32,7 @@ fn create_simple_task<T: Config + pallet_shards::Config>() {
 		1,
 	);
 	ShardState::<T>::insert(shard_id, ShardStatus::Online);
-	ShardCommitment::<T>::insert(shard_id, vec![PUBKEY]);
+	ShardCommitment::<T>::insert(shard_id, Commitment::truncate_from(vec![PUBKEY]));
 	Pallet::<T>::shard_online(shard_id, ETHEREUM);
 	Pallet::<T>::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 0..10 });
 }

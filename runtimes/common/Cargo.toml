@@ -10,10 +10,12 @@ repository.workspace = true
 
 [dependencies]
 time-primitives.workspace = true
+smallvec = "1.8.0"
 
 polkadot-sdk = { workspace = true, features = [
 	"frame-system",
 	"frame-metadata-hash-extension",
+	"frame-support",
 	"pallet-balances",
 	"pallet-timestamp",
 	"pallet-staking",

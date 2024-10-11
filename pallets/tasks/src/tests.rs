@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::ShardRegistered;
+use crate::{BatchIdCounter, ShardRegistered};
 
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -260,6 +260,24 @@ fn test_max_tasks_per_block() {
 		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 0, 2]);
 		roll(1);
 		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 0, 2]);
+	})
+}
+
+#[test]
+fn test_max_batches_per_block() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		for _ in 0..10 {
+			let shard = create_shard(ETHEREUM, 3, 1);
+			register_shard(shard);
+			assert!(Tasks::is_shard_registered(shard));
+		}
+		roll(1);
+		// Max 4 batches per block
+		assert_eq!(BatchIdCounter::<Test>::get(), 4);
+		// Max 4 batches per block
+		roll(1);
+		assert_eq!(BatchIdCounter::<Test>::get(), 8);
 	})
 }
 

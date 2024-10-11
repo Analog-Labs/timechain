@@ -28,7 +28,6 @@ use frame_support::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		Imbalance,
 	},
-	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use frame_system::EnsureRootWithSuccess;
 use frame_system::{limits::BlockWeights, EnsureRoot};
@@ -64,13 +63,16 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+/// weightToFee implementation
+use runtime_common::fee::WeightToFee;
 pub use runtime_common::{
 	currency::*,
 	prod_or_dev,
 	time::*,
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight},
-	BABE_GENESIS_EPOCH_CONFIG,
+	BABE_GENESIS_EPOCH_CONFIG, MAXIMUM_BLOCK_WEIGHT,
 };
+
 pub use time_primitives::{
 	AccountId, Balance, BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, ErrorMsg,
 	Gateway, GatewayMessage, MemberStatus, MembersInterface, NetworkId, NetworksInterface, PeerId,
@@ -88,7 +90,7 @@ pub use frame_support::{
 		ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Currency, EnsureOrigin, InstanceFilter,
 		KeyOwnerProofSystem, OnUnbalanced, Randomness, StorageInfo,
 	},
-	weights::{constants::ParityDbWeight, ConstantMultiplier, IdentityFee, Weight, WeightToFee},
+	weights::{constants::ParityDbWeight, ConstantMultiplier, Weight},
 	PalletId, StorageValue,
 };
 #[cfg(any(feature = "std", test))]
@@ -120,9 +122,6 @@ pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
-const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
@@ -758,7 +757,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees<Self>>;
 	// multiplier to boost the priority of operational transactions
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 }
@@ -1004,7 +1003,8 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<10_000>;
+	type MaxTasksPerBlock = ConstU32<1_500>;
+	type MaxBatchesPerBlock = ConstU32<1_000>;
 }
 
 impl pallet_timegraph::Config for Runtime {
@@ -1582,7 +1582,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[cfg(feature = "development")]
+	#[cfg(any(feature = "development", feature = "runtime-benchmarks"))]
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
@@ -1602,6 +1602,7 @@ impl_runtime_apis! {
 mod multiplier_tests {
 	use super::*;
 	use frame_support::{dispatch::DispatchInfo, traits::OnFinalize};
+	use pallet_tasks::WeightInfo;
 	use separator::Separatable;
 	use sp_runtime::traits::Convert;
 
@@ -1683,8 +1684,9 @@ mod multiplier_tests {
 
 	#[test]
 	fn max_tasks_per_block() {
-		use pallet_tasks::WeightInfo;
-		let avg_on_initialize: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
+		// 50% of max on_initialize space for task scheduling conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
 				.all_lte(avg_on_initialize),
@@ -1710,6 +1712,39 @@ mod multiplier_tests {
 		assert!(
 			max_tasks_per_block_configured <= num_tasks,
 			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
+		);
+	}
+
+	#[test]
+	fn max_batches_per_block() {
+		// 50% of max on_initialize space for starting batches conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
+				.all_lte(avg_on_initialize),
+			"BUG: Starting a single batch consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
+				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(2)),
+			"BUG: Starting 1 batch consumes more weight than starting 2"
+		);
+		let mut num_batches: u32 = 2;
+		while <Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(num_batches)
+			.all_lt(avg_on_initialize)
+		{
+			num_batches += 1;
+			if num_batches == 10_000_000 {
+				// 10_000_000 batches started; halting to break out of loop
+				break;
+			}
+		}
+		let max_batches_per_block_configured: u32 =
+			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
+		assert!(
+			max_batches_per_block_configured <= num_batches,
+			"MaxTasksPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
 		);
 	}
 }

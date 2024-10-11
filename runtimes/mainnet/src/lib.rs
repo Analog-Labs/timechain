@@ -38,10 +38,8 @@ use frame_support::{
 		OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
-		constants::{
-			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
-		},
-		ConstantMultiplier, IdentityFee, Weight,
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
+		ConstantMultiplier, Weight,
 	},
 	PalletId,
 };
@@ -90,8 +88,10 @@ pub use time_primitives::{
 	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
 };
 
+/// weightToFee implementation
+use runtime_common::fee::WeightToFee;
 /// Constant values used within the runtime.
-use runtime_common::{currency::*, time::*, BABE_GENESIS_EPOCH_CONFIG};
+use runtime_common::{currency::*, time::*, BABE_GENESIS_EPOCH_CONFIG, MAXIMUM_BLOCK_WEIGHT};
 use sp_runtime::generic::Era;
 
 /// Benchmarked pallet weights
@@ -173,7 +173,7 @@ impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	}
 }
 
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 10 * MINUTES;
+pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * HOURS;
 pub const EPOCH_DURATION_IN_SLOTS: u64 = {
 	const SLOT_FILL_RATE: f64 = MILLISECS_PER_BLOCK as f64 / SLOT_DURATION as f64;
 
@@ -182,13 +182,10 @@ pub const EPOCH_DURATION_IN_SLOTS: u64 = {
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
-const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
-const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
@@ -227,10 +224,24 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 }
 
 parameter_types! {
-	pub const EnterDuration: BlockNumber = 4 * HOURS;
-	pub const EnterDepositAmount: Balance = 2_000_000 * ANLOG;
-	pub const ExtendDuration: BlockNumber = 2 * HOURS;
-	pub const ExtendDepositAmount: Balance = 1_000_000 * ANLOG;
+	/// This represents duration of the networks safe mode.
+	/// Safe mode is typically activated in response to potential threats or instabilities
+	/// to restrict certain network operations.
+	pub const EnterDuration: BlockNumber = 1 * DAYS;
+	/// The deposit amount required to initiate the safe mode entry process.
+	/// This ensures that only participants with a significant economic stake (2,000,000 ANLOG tokens)
+	/// can trigger safe mode, preventing frivolous or malicious activations.
+	pub const EnterDepositAmount: Balance = 5_000_000 * ANLOG;  // ~5.5% of overall supply
+	/// The safe mode duration (in blocks) can be to extended.
+	/// This represents an additional 2 hours before an extension can be applied,
+	/// ensuring that any continuation of safe mode is deliberate and considered.
+	pub const ExtendDuration: BlockNumber = 12 * HOURS;
+	/// This ensures that participants must provide a moderate economic stake (1,000,000 ANLOG tokens)
+	/// to request an extension of safe mode, making it a costly action to prolong the restricted state.
+	pub const ExtendDepositAmount: Balance = 2_000_000 * ANLOG;
+	/// The minimal duration a deposit will remain reserved after safe-mode is entered or extended,
+	/// unless ['Pallet::force_release_deposit'] is successfully called sooner, acts as a security buffer
+	/// to ensure stability and allow for safe recovery from critical events
 	pub const ReleaseDelay: u32 = 2 * DAYS;
 }
 
@@ -278,7 +289,8 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	/// Base deposit required for storing a multisig execution, covering the cost of a single storage item.
+	// One storage item; key size is 32; value is size 4+4(block number)+16(balance)+32(account ID) bytes = 56 bytes.
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
@@ -298,9 +310,10 @@ parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 33 bytes.
+	// 32 + proxy_type.encode().len() bytes of data.
 	pub const ProxyDepositFactor: Balance = deposit(0, 33);
-	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
-	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const AnnouncementDepositBase: Balance = deposit(1, 16);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -375,10 +388,20 @@ impl pallet_proxy::Config for Runtime {
 }
 
 parameter_types! {
-	// NOTE: Currently it is not possible to change the epoch duration after the chain has started.
-	//       Attempting to do so will brick block production.
+	/// An epoch is a unit of time used for key operations in the consensus mechanism, such as validator
+	/// rotations and randomness generation. Once set at genesis, this value cannot be changed without
+	/// breaking block production.
+	///
+	/// Note: Do not attempt to modify after chain launch, as it will cause serious issues with block production.
 	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
+	/// This defines the interval at which new blocks are produced in the blockchain. It impacts
+	/// the speed of transaction processing and finality, as well as the load on the network
+	/// and validators. The value is defined in milliseconds.
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+	/// This defines how long a misbehavior reports in the staking or consensus system
+	/// remains valid before it expires. It is based on the bonding
+	/// duration, sessions per era, and the epoch duration. The longer the bonding duration or
+	/// number of sessions per era, the longer reports remain valid.
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
@@ -399,14 +422,14 @@ impl pallet_babe::Config for Runtime {
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 parameter_types! {
-	// Minimum allowed account balance under which account will be reaped
-	pub const ExistentialDeposit: Balance = 1 * MILLIANLOG;
+	/// Minimum allowed account balance under which account will be reaped
+	pub const ExistentialDeposit: Balance = 1 * ANLOG;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
-	pub const ExistentialDeposit: Balance = 1_000_000;
+	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
 }
 
 parameter_types! {
@@ -433,11 +456,23 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 10 * MILLIANLOG;
+
+	/// Multiplier for operational fees, set to 5.
 	pub const OperationalFeeMultiplier: u8 = 5;
+
+	/// The target block fullness level, set to 25%.
+	/// This determines the block saturation level, and fees will adjust based on this value.
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+
+	/// Adjustment variable for fee calculation, set to 1/100,000.
+	/// This value influences how rapidly the fee multiplier changes.
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
+
+	/// Minimum fee multiplier, set to 1/1,000,000,000.
+	/// This represents the smallest possible fee multiplier to prevent fees from dropping too low.
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+
+	/// Maximum fee multiplier, set to the maximum possible value of the `Multiplier` type.
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
@@ -445,11 +480,25 @@ parameter_types! {
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
+	/// The event type that will be emitted for transaction payment events.
 	type RuntimeEvent = RuntimeEvent;
+
+	/// Specifies the currency adapter used for charging transaction fees.
+	/// The `CurrencyAdapter` is used to charge the fees and deal with any adjustments or redistribution of those fees.
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+
+	/// The multiplier applied to operational transaction fees.
+	/// Operational fees are used for transactions that are essential for the network's operation.
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-	type WeightToFee = IdentityFee<Balance>;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+
+	/// Defines how the weight of a transaction is converted to a fee.
+	type WeightToFee = WeightToFee;
+
+	/// Defines a constant multiplier for the length (in bytes) of a transaction, applied as an additional fee.
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
+
+	/// Defines how the fee multiplier is updated based on the block fullness.
+	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
 	type FeeMultiplierUpdate = TargetedFeeAdjustment<
 		Self,
 		TargetBlockFullness,
@@ -503,9 +552,9 @@ impl pallet_session::historical::Config for Runtime {
 
 pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
+		min_inflation: 0_020_000,
+		max_inflation: 0_080_000,
+		ideal_stake: 0_600_000,
 		falloff: 0_050_000,
 		max_piece_count: 40,
 		test_precision: 0_005_000,
@@ -513,14 +562,43 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	/// The number of session per era
+	/// The number of sessions that constitute an era. An era is the time period over which staking rewards
+	/// are distributed, and validator set changes can occur. The era duration is a function of the number of
+	/// sessions and the length of each session.
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+
+	/// The number of eras that a bonded stake must remain locked after the owner has requested to unbond.
+	/// This value represents 21 days, assuming each era is 24 hours long. This delay is intended to increase
+	/// network security by preventing stakers from immediately withdrawing funds after participating in staking.
+	pub const BondingDuration: sp_staking::EraIndex = 24 * 21;
+
+	/// The number of eras after a slashing event before the slashing is enacted. This delay allows participants
+	/// to challenge slashes or react to slashing events. It is set to 1/4 of the BondingDuration.
+	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7;
+
+	/// The reward curve used for staking payouts. This curve defines how rewards are distributed across validators
+	/// and nominators, typically favoring higher stakes but ensuring diminishing returns as stakes increase.
+	/// The curve is piecewise linear, allowing for different reward distribution models.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+
+	/// The maximum number of validators a nominator can nominate. This sets an upper limit on how many validators
+	/// can be supported by a single nominator. A higher number allows more decentralization but increases the
+	/// complexity of the staking system.
 	pub const MaxNominators: u32 = 64;
+
+	/// The maximum number of controllers that can be included in a deprecation batch when deprecated staking controllers
+	/// are being phased out. This helps manage the process of retiring controllers to prevent overwhelming the system
+	/// during upgrades.
 	pub const MaxControllersInDeprecationBatch: u32 = 5900;
+
+	/// The number of blocks before an off-chain worker repeats a task. Off-chain workers handle tasks that are performed
+	/// outside the main blockchain execution, such as fetching data or performing computation-heavy operations. This value
+	/// sets how frequently these tasks are repeated.
 	pub OffchainRepeat: BlockNumber = 5;
+
+	/// The number of eras that historical staking data is kept in storage. This depth determines how far back the system
+	/// keeps records of staking events and rewards for historical queries and audits. Older data beyond this depth will
+	/// be pruned to save storage.
 	pub HistoryDepth: u32 = 84;
 }
 
@@ -570,23 +648,47 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
-	// phase durations. 1/4 of the last session for each.
-	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	/// This phase determines the time window, in blocks, during which signed transactions (those that
+	/// are authorized by users with private keys, usually nominators or council members) can be submitted.
+	/// It is calculated as 1/3 of the total epoch duration, ensuring that signed
+	/// transactions are allowed for a quarter of the epoch.
+	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 3;
+	/// This phase determines the time window, in blocks, during which unsigned transactions (those
+	/// without authorization, usually by offchain workers) can be submitted. Like the signed phase,
+	/// it occupies 1/3 of the total epoch duration.
 	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 
-	// signed config
+	// Signed Config
+	/// This represents the fixed reward given to participants for submitting valid signed
+	/// transactions. It is set to 1 ANLOG token, meaning that any participant who successfully
+	/// submits a signed transaction will receive this base reward.
 	pub const SignedRewardBase: Balance = 1 * ANLOG;
+	/// This deposit ensures that users have economic stakes in the submission of valid signed
+	/// transactions. It is currently set to 1 ANLOG, meaning participants must lock 1 ANLOG as
 	pub const SignedFixedDeposit: Balance = 1 * ANLOG;
+	/// This percentage increase applies to deposits for multiple or repeated signed transactions.
+	/// It is set to 10%, meaning that each additional submission after the first will increase the
+	/// required deposit by 10%. This serves as a disincentive to spamming the system with repeated
+	/// submissions.
 	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
-	pub const SignedDepositByte: Balance = 10 * MILLIANLOG;
+	/// This deposit ensures that larger signed transactions incur higher costs, reflecting the
+	/// increased resource consumption they require. It is set to 10 milliANLOG per byte.
+	pub const SignedDepositByte: Balance = deposit(0, 1);
 
-	// miner configs
+	// Miner Configs
+	/// This priority level determines the order in which unsigned transactions are included
+	/// in blocks relative to other transactions.
 	pub const MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - 1u64;
+	/// The maximum weight (computational limit) allowed for miner operations in a block.
+	/// This ensures that the block has enough space left for miner operations while maintaining
+	/// a limit on overall block execution weight.
 	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
 		.get(DispatchClass::Normal)
 		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
 		.saturating_sub(BlockExecutionWeight::get());
-	// Solution can occupy 90% of normal block size
+	/// This value is set to 90% of the maximum allowed block length for normal transactions.
+	/// It ensures that miner solutions do not consume too much block space, leaving enough
+	/// room for other transactions.
 	pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
 		*RuntimeBlockLength::get()
 		.max
@@ -677,7 +779,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type Solution = NposSolution16;
 	type MaxVotesPerVoter =
 	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = MaxActiveValidators;
+	type MaxWinners = ConstU32<100>;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
@@ -715,7 +817,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
 	type ForceOrigin = EnsureRootOrHalfTechnical;
-	type MaxWinners = MaxActiveValidators;
+	type MaxWinners = ConstU32<100>;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
@@ -740,7 +842,7 @@ parameter_types! {
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 	/// TODO: Select good value
 	pub const StorageBaseDeposit: Balance = 1 * ANLOG;
-	pub const StorageByteDeposit: Balance = 10 * MILLIANLOG;
+	pub const StorageByteDeposit: Balance = deposit(0,1);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -990,11 +1092,11 @@ parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = 1 * ANLOG;
 	pub const SpendPeriod: BlockNumber = 1 * DAYS;
-	pub const Burn: Permill = Permill::from_percent(50);
+	pub const Burn: Permill = Permill::from_perthousand(1);
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
 	pub const TipReportDepositBase: Balance = 1 * ANLOG;
-	pub const DataDepositPerByte: Balance = 10 * MILLIANLOG;
+	pub const DataDepositPerByte: Balance = deposit(0,1);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;
@@ -1297,7 +1399,8 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<10_000>;
+	type MaxTasksPerBlock = ConstU32<1_500>;
+	type MaxBatchesPerBlock = ConstU32<1_000>;
 }
 
 impl pallet_timegraph::Config for Runtime {
@@ -1969,6 +2072,7 @@ mod tests {
 	use super::*;
 	use frame_election_provider_support::NposSolution;
 	use frame_system::offchain::CreateSignedTransaction;
+	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
 
 	#[test]
@@ -2007,8 +2111,9 @@ mod tests {
 
 	#[test]
 	fn max_tasks_per_block() {
-		use pallet_tasks::WeightInfo;
-		let avg_on_initialize: Weight = AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT;
+		// 50% of max on_initialize space for task scheduling conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
 				.all_lte(avg_on_initialize),
@@ -2034,6 +2139,39 @@ mod tests {
 		assert!(
 			max_tasks_per_block_configured <= num_tasks,
 			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
+		);
+	}
+
+	#[test]
+	fn max_batches_per_block() {
+		// 50% of max on_initialize space for starting batches conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
+				.all_lte(avg_on_initialize),
+			"BUG: Starting a single batch consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
+				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(2)),
+			"BUG: Starting 1 batch consumes more weight than starting 2"
+		);
+		let mut num_batches: u32 = 2;
+		while <Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(num_batches)
+			.all_lt(avg_on_initialize)
+		{
+			num_batches += 1;
+			if num_batches == 10_000_000 {
+				// 10_000_000 batches started; halting to break out of loop
+				break;
+			}
+		}
+		let max_batches_per_block_configured: u32 =
+			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
+		assert!(
+			max_batches_per_block_configured <= num_batches,
+			"MaxTasksPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
 		);
 	}
 }

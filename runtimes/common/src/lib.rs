@@ -20,6 +20,12 @@ pub use sp_runtime::BuildStorage;
 /// Weight matters.
 pub mod weights;
 
+use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+
+/// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
+pub const MAXIMUM_BLOCK_WEIGHT: Weight =
+	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
+
 /// Money matters.
 pub mod currency {
 	pub use time_primitives::currency::*;
@@ -27,7 +33,7 @@ pub mod currency {
 	pub const TOTAL_ISSUANCE: Balance = 90_570_710 * ANLOG;
 
 	pub const TRANSACTION_BYTE_FEE: Balance = MICROANLOG;
-	pub const STORAGE_BYTE_FEE: Balance = 300 * MILLIANLOG;
+	pub const STORAGE_BYTE_FEE: Balance = 300 * MILLIANLOG; // Change based on benchmarking
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		items as Balance * 750 * MILLIANLOG + (bytes as Balance) * STORAGE_BYTE_FEE
@@ -54,6 +60,58 @@ pub mod time {
 
 	/// TODO: 1 in 4 blocks (on average, not counting collisions) will be primary BABE blocks.
 	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+}
+
+/// Fee-Calculation.
+pub mod fee {
+	use super::frame_support;
+	use crate::weights::ExtrinsicBaseWeight;
+	use frame_support::weights::{
+		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+	};
+
+	use crate::currency::*;
+	pub use crate::sp_runtime::Perbill;
+	use smallvec::smallvec;
+
+	/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
+	/// node's balance type.
+	///
+	/// This should typically create a mapping between the following ranges:
+	///   - [0, `frame_system::MaximumBlockWeight`]
+	///   - [Balance::min, Balance::max]
+	///
+	/// Yet, it can be used for any other sort of change to weight-fee. Some examples being:
+	///   - Setting it to `0` will essentially disable the weight fee.
+	///   - Setting it to `1` will cause the literal `#[weight = x]` values to be charged.
+	pub struct WeightToFee;
+	/// By introducing a second-degree term, the fee will grow faster as the weight increases.
+	/// This can be useful for discouraging transactions that consume excessive resources.
+	/// While a first-degree polynomial gives a linear fee increase, adding a quadratic term
+	/// will make fees grow non-linearly, meaning larger weights result in disproportionately larger fees.
+	/// This change can help manage network congestion by making resource-heavy operations more expensive.
+	impl WeightToFeePolynomial for WeightToFee {
+		type Balance = Balance;
+		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+			// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
+			let p = super::currency::MILLIANLOG;
+			let q = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+			smallvec![
+				WeightToFeeCoefficient {
+					degree: 2,
+					negative: false,
+					coeff_frac: Perbill::from_rational((TOCK / MILLIANLOG) % q, q),
+					coeff_integer: (TOCK / MILLIANLOG) / q,
+				},
+				WeightToFeeCoefficient {
+					degree: 1,
+					negative: false,
+					coeff_frac: Perbill::from_rational(p % q, q),
+					coeff_integer: p / q,
+				}
+			]
+		}
+	}
 }
 
 /// Shared signing extensions
@@ -107,4 +165,33 @@ macro_rules! prod_or_dev {
 			$prod
 		}
 	};
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{
+		currency::*, fee::WeightToFee, frame_support::weights::WeightToFee as WeightToFeeT,
+		MAXIMUM_BLOCK_WEIGHT,
+	};
+	use crate::weights::ExtrinsicBaseWeight;
+
+	#[test]
+	// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
+	fn full_block_fee_is_correct() {
+		// A full block should cost between 5,000 and 10,000 MILLIANLOG.
+		let full_block = WeightToFee::weight_to_fee(&MAXIMUM_BLOCK_WEIGHT);
+		println!("FULL BLOCK Fee: {}", full_block);
+		assert!(full_block >= 5_000 * MILLIANLOG);
+		assert!(full_block <= 10_000 * MILLIANLOG);
+	}
+
+	#[test]
+	// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
+	fn extrinsic_base_fee_is_correct() {
+		// `ExtrinsicBaseWeight` should cost MICROANLOG
+		println!("Base: {}", ExtrinsicBaseWeight::get());
+		let x = WeightToFee::weight_to_fee(&ExtrinsicBaseWeight::get());
+		let y = MILLIANLOG;
+		assert!(x.max(y) - x.min(y) < MICROANLOG);
+	}
 }

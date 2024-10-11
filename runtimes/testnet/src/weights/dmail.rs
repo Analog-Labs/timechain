@@ -37,7 +37,7 @@ impl<T: frame_system::Config> pallet_dmail::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 64]`.
 	/// The range of component `a` is `[1, 64]`.
 	/// The range of component `b` is `[1, 64]`.
-	fn send_email(_a: u32, b: u32, ) -> Weight {
+	fn send_email(a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

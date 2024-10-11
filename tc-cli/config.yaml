@@ -44,22 +44,6 @@ networks:
     token_decimals: 18
     route_gas_limit: 10000
     route_base_fee: 1715000000000
-  2:
-    backend: "grpc"
-    blockchain: "rust"
-    network: "2"
-    url: "http://gmp-grpc-2:3000"
-    gateway_funds: 10000
-    chronicle_target_funds: 10000
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    gmp_margin: 0.0
-    shard_task_limit: 50
-    symbol: "TRX"
-    token_decimals: 6
-    route_gas_limit: 10000
-    route_base_fee: 1715000000
 chronicles:
 - http://chronicle-0:8080
 - http://chronicle-1:8080

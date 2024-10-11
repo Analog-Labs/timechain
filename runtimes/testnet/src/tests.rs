@@ -32,8 +32,8 @@ fn get_peer_id(random_num: [u8; 32]) -> [u8; 32] {
 fn network() -> Network {
 	Network {
 		id: ETHEREUM,
-		chain_name: "ethereum".into(),
-		chain_network: "dev".into(),
+		chain_name: ChainName::truncate_from("ethereum".encode()),
+		chain_network: ChainNetwork::truncate_from("dev".encode()),
 		gateway: [0u8; 32],
 		gateway_block: 0,
 		config: NetworkConfig {

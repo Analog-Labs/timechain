@@ -633,8 +633,8 @@ impl Tc {
 				let src_price = self.get_network_price(&network_prices, &src)?;
 				let dest_price = self.get_network_price(&network_prices, &dest)?;
 				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
-				let numerator = self.convert_bigint_to_u128(&ratio.numer())?;
-				let denominator = self.convert_bigint_to_u128(&ratio.denom())?;
+				let numerator = self.convert_bigint_to_u128(ratio.numer())?;
+				let denominator = self.convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
 					network_id: dest,
 					gateway,

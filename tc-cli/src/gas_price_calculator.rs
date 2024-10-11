@@ -116,6 +116,7 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 
 impl Tc {
 	pub async fn fetch_token_prices(&self) -> Result<()> {
+		println!("calling function");
 		dotenv().ok();
 		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
 		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");

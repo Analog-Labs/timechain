@@ -13,7 +13,7 @@ use scale_codec::{Decode, Encode};
 use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 
-/// Absolute upper bound for shard sizes
+/// Upper bound for shard sizes
 const MAX_SHARD_SIZE: u32 = 100;
 
 pub type TssPublicKey = [u8; 33];

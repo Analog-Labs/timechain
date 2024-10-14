@@ -141,7 +141,7 @@ impl Tc {
 				.ok_or_else(|| anyhow::anyhow!("Couldnt fetch token price for {}", symbol))?;
 			let symbol = data.symbol;
 
-			wtr.write_record(&[network_id.to_string(), symbol.into(), usd_price.to_string()])?;
+			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
 		}
 		wtr.flush()?;
 		println!("Saved in prices.csv");

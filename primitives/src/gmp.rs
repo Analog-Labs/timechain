@@ -176,7 +176,7 @@ impl Message {
 				.saturating_add(100_000)
 				.saturating_add(gateway_execute_cost)
 				.saturating_add(data_gas);
-			Some(gas_limit.min(29_900_000))
+			Some(gas_limit.min(10_000_000))
 		} else {
 			None
 		};

@@ -166,9 +166,17 @@ impl Message {
 			e: U256::from_be_slice(&signature[0..32]),
 			s: U256::from_be_slice(&signature[32..64]),
 		};
-		let gas_limit = if let Self::Gmp(GmpMessage { gasLimit, .. }) = &self {
-			let gas_limit = u64::try_from(*gasLimit).unwrap_or(u64::MAX).saturating_add(100_000);
-			Some(gas_limit.min(29_900_000))
+		let gas_limit = if let Self::Gmp(GmpMessage { gasLimit, data, .. }) = &self {
+			// 50 gas per payload bytes
+			let data_gas: u64 = (data.len() as u64).saturating_mul(50);
+			// Base Cost for executing a gateway message
+			let gateway_execute_cost = 100_000;
+			let gas_limit = u64::try_from(*gasLimit)
+				.unwrap_or(u64::MAX)
+				.saturating_add(100_000)
+				.saturating_add(gateway_execute_cost)
+				.saturating_add(data_gas);
+			Some(gas_limit.min(10_000_000))
 		} else {
 			None
 		};

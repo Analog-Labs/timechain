@@ -275,6 +275,22 @@ fn test_max_batches_per_block() {
 	})
 }
 
+#[test]
+fn test_read_event_task_assignment() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		let shard2 = create_shard(ETHEREUM, 3, 1);
+		register_shard(shard);
+		register_shard(shard2);
+		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 0 });
+		roll(1);
+		assert!(Tasks::get_shard_tasks(shard2).contains(&0));
+		// before `break` was added in #1165 the following assertion failed
+		assert!(!Tasks::get_shard_tasks(shard).contains(&0));
+	})
+}
+
 mod bench_helper {
 	use super::*;
 

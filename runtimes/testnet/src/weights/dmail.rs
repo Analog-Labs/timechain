@@ -41,12 +41,12 @@ impl<T: frame_system::Config> pallet_dmail::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_895_000 picoseconds.
-		Weight::from_parts(8_328_656, 0)
+		// Minimum execution time: 7_915_000 picoseconds.
+		Weight::from_parts(7_886_389, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 53
-			.saturating_add(Weight::from_parts(984, 0).saturating_mul(a.into()))
-			// Standard Error: 53
-			.saturating_add(Weight::from_parts(279, 0).saturating_mul(b.into()))
+			// Standard Error: 43
+			.saturating_add(Weight::from_parts(760, 0).saturating_mul(a.into()))
+			// Standard Error: 43
+			.saturating_add(Weight::from_parts(935, 0).saturating_mul(b.into()))
 	}
 }

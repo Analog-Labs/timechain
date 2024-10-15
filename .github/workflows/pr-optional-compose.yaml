@@ -23,6 +23,8 @@ jobs:
       - name: Build dev containers
         run: |
           ./scripts/build_docker.sh
+      - name: Initialize environment file
+        run: echo ${{ secrets.CMC_ENV_FILE }} > .env
       - name: Setup containers
         run: |
           docker compose up -d

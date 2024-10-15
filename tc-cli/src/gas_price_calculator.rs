@@ -42,6 +42,8 @@ pub struct NetworkPrice {
 	pub usd_price: f64,
 }
 
+const PRICES_CSV: &str = "/etc/files/prices.csv";
+
 fn bigint_log10(n: &BigUint) -> f64 {
 	let n_str = n.to_string();
 	let num_digits = n_str.len();
@@ -124,7 +126,7 @@ impl Tc {
 			"X-CMC_PRO_API_KEY",
 			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
 		);
-		let file = File::create("/etc/files/prices.csv")?;
+		let file = File::create(PRICES_CSV)?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
 		for (network_id, network) in &self.config.networks {
@@ -149,7 +151,7 @@ impl Tc {
 	}
 
 	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		let mut rdr = Reader::from_path("/etc/files/prices.csv")?;
+		let mut rdr = Reader::from_path(PRICES_CSV)?;
 
 		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
 		for result in rdr.deserialize() {

@@ -15,13 +15,10 @@ _Tell us what happened. In particular, be specific about any changes you made. I
 
 _What did you expect to happen after you followed the steps you described in the last section? What actually happened?_
 
-**Environment**
+**Logs**
 
-_Describe the environment in which you encountered this bug. Use the list below as a starting point and add additional information if you think it's relevant._
-
-- Operating system:
-- Template version/tag:
-- Rust version (run `rustup show`):
+_Provide any logs including task_ids, tc_cli output, etc; if
+applicable, provide screenshots to help illustrate the problem_
 
 **Steps to Reproduce**
 
@@ -31,12 +28,6 @@ _Replace the example steps below with actual steps to reproduce the bug you're r
 2. step 1
 3. step 2
 4. bug...
-
-
-**Logs, Errors or Screenshots**
-
-_Please provide the text of any logs or errors that you experienced; if
-applicable, provide screenshots to help illustrate the problem._
 
 **Additional Information**
 

@@ -13,6 +13,7 @@ services:
     - '--validator'
     - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
     ports:
       - 9944:9944
 

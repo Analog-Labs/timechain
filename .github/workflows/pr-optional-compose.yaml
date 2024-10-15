@@ -28,6 +28,9 @@ jobs:
       - name: Setup containers
         run: |
           docker compose up -d
+      - name: fetch prices
+        run: |
+          docker compose run --rm --remove-orphans tc-cli fetch-token-price-data
       - name: Smoke test
         run: |
           docker compose run --rm --remove-orphans tc-cli smoke-test 0 1

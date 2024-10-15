@@ -1,19 +1,19 @@
 use super::*;
 use crate::Pallet;
 
-use polkadot_sdk::{
-	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_std,
-};
-
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
+use polkadot_sdk::sp_runtime::BoundedVec;
+use polkadot_sdk::{
+	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_std,
+};
 
 use sp_std::vec;
 use sp_std::vec::Vec;
 
 use time_primitives::{
-	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardsInterface,
+	AccountId, NetworkId, ProofOfKnowledge, PublicKey, ShardsInterface, MAX_SHARD_SIZE,
 };
 
 pub const ALICE: [u8; 32] = [1u8; 32];
@@ -60,7 +60,7 @@ pub const CHARLIE_POK: ProofOfKnowledge = [
 	147, 134,
 ];
 
-pub fn get_commitment(member: [u8; 32]) -> Commitment {
+pub fn get_commitment(member: [u8; 32]) -> BoundedVec<PublicKey, ConstU32<MAX_SHARD_SIZE>> {
 	let commitment = match member {
 		ALICE => ALICE_COMMITMENT,
 		BOB => BOB_COMMITMENT,
@@ -69,7 +69,7 @@ pub fn get_commitment(member: [u8; 32]) -> Commitment {
 			panic!("Invalid member")
 		},
 	};
-	Commitment::truncate_from(vec![commitment])
+	BoundedVec::truncate_from(vec![commitment])
 }
 pub fn get_proof_of_knowledge(member: [u8; 32]) -> ProofOfKnowledge {
 	match member {

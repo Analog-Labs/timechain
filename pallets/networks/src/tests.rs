@@ -2,9 +2,10 @@ use crate::{self as pallet_networks};
 use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use polkadot_sdk::sp_runtime::BoundedVec;
 use polkadot_sdk::{frame_support, frame_system};
 use scale_codec::Encode;
-use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig};
+use time_primitives::{Network, NetworkConfig};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -18,8 +19,8 @@ fn mock_network_config() -> NetworkConfig {
 fn mock_network() -> Network {
 	Network {
 		id: 42,
-		chain_name: ChainName::truncate_from("Ethereum".encode()),
-		chain_network: ChainNetwork::truncate_from("Mainnet".encode()),
+		chain_name: BoundedVec::truncate_from("Ethereum".encode()),
+		chain_network: BoundedVec::truncate_from("Mainnet".encode()),
 		gateway: [0; 32],
 		gateway_block: 99,
 		config: mock_network_config(),

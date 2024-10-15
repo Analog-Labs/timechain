@@ -21,7 +21,7 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 	}
 	let shard_id = Shards::create_shard(network, members, t).0;
 	let pub_key = MockTssSigner::new(shard_id).public_key();
-	ShardCommitment::<Test>::insert(shard_id, Commitment::truncate_from(vec![pub_key]));
+	ShardCommitment::<Test>::insert(shard_id, BoundedVec::truncate_from(vec![pub_key]));
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 	Tasks::shard_online(shard_id, network);
 	shard_id
@@ -43,7 +43,7 @@ fn register_shard(shard: ShardId) {
 fn submit_gateway_events(shard: ShardId, task_id: TaskId, events: &[GmpEvent]) {
 	let signature = MockTssSigner::new(shard).sign_gmp_events(task_id, events);
 	let result = TaskResult::ReadGatewayEvents {
-		events: GmpEvents::truncate_from(events.to_vec()),
+		events: BoundedVec::truncate_from(events.to_vec()),
 		signature,
 	};
 	assert_ok!(Tasks::submit_task_result(
@@ -58,7 +58,7 @@ fn submit_submission_error(account: PublicKey, task: TaskId, error: &str) {
 		RawOrigin::Signed(account.into_account()).into(),
 		task,
 		TaskResult::SubmitGatewayMessage {
-			error: ErrorMsg::truncate_from(error.encode())
+			error: BoundedVec::truncate_from(error.encode())
 		}
 	));
 }
@@ -230,7 +230,7 @@ fn test_msg_execution_error_completes_submit_task() {
 		submit_submission_error(account, 1, "error message");
 		assert_eq!(
 			Tasks::get_task_result(1),
-			Some(Err(ErrorMsg::truncate_from("error message".encode())))
+			Some(Err(BoundedVec::truncate_from("error message".encode())))
 		);
 	})
 }

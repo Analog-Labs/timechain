@@ -86,9 +86,9 @@ pub mod pallet {
 	use schnorr_evm::VerifyingKey;
 
 	use time_primitives::{
-		AccountId, Balance, Commitment, ElectionsInterface, MemberStatus, MembersInterface,
-		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		AccountId, Balance, ElectionsInterface, MemberStatus, MembersInterface, NetworkId,
+		ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface, TasksInterface,
+		TssPublicKey,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.

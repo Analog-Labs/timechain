@@ -14,7 +14,7 @@ use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 
 /// Upper bound for shard sizes
-const MAX_SHARD_SIZE: u32 = 100;
+pub const MAX_SHARD_SIZE: u32 = 100;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
@@ -22,7 +22,6 @@ pub type TssHash = [u8; 32];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
-pub type Commitment = BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>;
 
 #[cfg(feature = "std")]
 pub mod serde_tss_public_key {
@@ -71,12 +70,12 @@ pub mod serde_tss_signature {
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum MemberStatus {
 	Added,
-	Committed(Commitment),
+	Committed(BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>),
 	Ready,
 }
 
 impl MemberStatus {
-	pub fn commitment(&self) -> Option<&Commitment> {
+	pub fn commitment(&self) -> Option<&BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>> {
 		if let Self::Committed(commitment) = self {
 			Some(commitment)
 		} else {
@@ -94,7 +93,7 @@ impl std::fmt::Display for MemberStatus {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		let status = match self {
 			Self::Added => "added",
-			Self::Committed(_) => "commited",
+			Self::Committed(_) => "committed",
 			Self::Ready => "ready",
 		};
 		f.write_str(status)
@@ -122,7 +121,7 @@ impl std::fmt::Display for ShardStatus {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		let status = match self {
 			Self::Created => "created",
-			Self::Committed => "commited",
+			Self::Committed => "committed",
 			Self::Online => "online",
 			Self::Offline => "offline",
 		};

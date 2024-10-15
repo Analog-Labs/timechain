@@ -1,13 +1,11 @@
 /// Integration tests
 use crate::*;
 
-//use polkadot_sdk::*;
-
 use frame_support::assert_ok;
 use frame_support::traits::{OnFinalize, OnInitialize, WhitelistedStorageKeys};
 use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
-// use pallet_tasks::TaskSigner;
+use polkadot_sdk::sp_runtime::BoundedVec;
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
@@ -32,8 +30,8 @@ fn get_peer_id(random_num: [u8; 32]) -> [u8; 32] {
 fn network() -> Network {
 	Network {
 		id: ETHEREUM,
-		chain_name: ChainName::truncate_from("ethereum".encode()),
-		chain_network: ChainNetwork::truncate_from("dev".encode()),
+		chain_name: BoundedVec::truncate_from("ethereum".encode()),
+		chain_network: BoundedVec::truncate_from("dev".encode()),
 		gateway: [0u8; 32],
 		gateway_block: 0,
 		config: NetworkConfig {

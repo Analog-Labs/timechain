@@ -3,7 +3,10 @@
 
 use anyhow::Result;
 use frame_support::weights::Weight;
-use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
+use polkadot_sdk::{
+	frame_support, sp_api, sp_core,
+	sp_runtime::{self, traits::ConstU32, BoundedVec},
+};
 use scale_info::prelude::{string::String, vec::Vec};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{
@@ -96,7 +99,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait NetworksApi {
-		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
+		fn get_network(network_id: NetworkId) -> Option<(BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>, BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>)>;
 		fn get_gateway(network: NetworkId) -> Option<Gateway>;
 	}
 
@@ -109,7 +112,7 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
 		fn get_shard_threshold(shard_id: ShardId) -> u16;
 		fn get_shard_status(shard_id: ShardId) -> ShardStatus;
-		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment>;
+		fn get_shard_commitment(shard_id: ShardId) -> Option<BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>>;
 	}
 
 	pub trait TasksApi {

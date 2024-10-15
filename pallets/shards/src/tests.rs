@@ -1,11 +1,11 @@
 use crate::mock::*;
 use crate::{Event, ShardMembers, ShardNetwork, ShardState};
 
-use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core};
-
 use frame_support::assert_ok;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
+use polkadot_sdk::sp_runtime::BoundedVec;
+use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core};
 
 use schnorr_evm::k256::elliptic_curve::PrimeField;
 use schnorr_evm::k256::{ProjectivePoint, Scalar};
@@ -88,7 +88,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(member.account_id.clone()).into(),
 			shard_id as _,
-			Commitment::truncate_from(member.commitment(threshold)),
+			BoundedVec::truncate_from(member.commitment(threshold)),
 			member.proof_of_knowledge(),
 		));
 		roll(1);
@@ -139,7 +139,7 @@ fn test_register_shard() {
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(member.account_id.clone()).into(),
 					shard_id as _,
-					Commitment::truncate_from(member.commitment(threshold)),
+					BoundedVec::truncate_from(member.commitment(threshold)),
 					member.proof_of_knowledge(),
 				));
 			}

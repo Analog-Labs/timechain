@@ -2,8 +2,9 @@ use crate::worker::Tx;
 use crate::{metadata_scope, SubxtClient};
 use anyhow::{anyhow, Result};
 use futures::channel::oneshot;
+use polkadot_sdk::sp_runtime::{traits::ConstU32, BoundedVec};
 use time_primitives::{
-	AccountId, Commitment, MemberStatus, NetworkId, ShardId, ShardStatus, TssPublicKey,
+	AccountId, MemberStatus, NetworkId, ShardId, ShardStatus, TssPublicKey, MAX_SHARD_SIZE,
 };
 
 impl SubxtClient {
@@ -77,7 +78,10 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>> {
+	pub async fn shard_commitment(
+		&self,
+		shard_id: ShardId,
+	) -> Result<Option<BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>>> {
 		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
 			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
@@ -91,7 +95,7 @@ impl SubxtClient {
 	pub async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
-		commitment: Commitment,
+		commitment: BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>,
 		proof_of_knowledge: [u8; 65],
 	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();

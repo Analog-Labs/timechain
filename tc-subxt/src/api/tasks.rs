@@ -2,8 +2,10 @@ use crate::worker::Tx;
 use crate::{metadata_scope, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
+use polkadot_sdk::sp_runtime::{traits::ConstU32, BoundedVec};
 use time_primitives::{
 	BatchId, GatewayMessage, MessageId, NetworkId, PublicKey, ShardId, Task, TaskId, TaskResult,
+	MAX_ERROR_LEN,
 };
 
 impl SubxtClient {
@@ -56,7 +58,10 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn task_output(&self, task_id: TaskId) -> Result<Option<Result<(), String>>> {
+	pub async fn task_output(
+		&self,
+		task_id: TaskId,
+	) -> Result<Option<Result<(), BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>>>> {
 		metadata_scope!(self.metadata, {
 			let storage_query = metadata::storage().tasks().task_output(task_id);
 			let output = self.client.storage().at_latest().await?.fetch(&storage_query).await?;

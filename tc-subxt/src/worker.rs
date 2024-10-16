@@ -4,31 +4,58 @@ use crate::{LegacyRpcMethods, OnlineClient, TxInBlock};
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, StreamExt};
+use polkadot_sdk::sp_runtime::{traits::ConstU32, BoundedVec};
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	traits::IdentifyAccount, AccountId, Commitment, Network, NetworkConfig, NetworkId, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
+	traits::IdentifyAccount, AccountId, Network, NetworkConfig, NetworkId, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult, TssPublicKey, MAX_SHARD_SIZE,
 };
 
 pub enum Tx {
 	// balances
-	Transfer { account: AccountId, balance: u128 },
+	Transfer {
+		account: AccountId,
+		balance: u128,
+	},
 	// networks
-	RegisterNetwork { network: Network },
-	SetNetworkConfig { network: NetworkId, config: NetworkConfig },
+	RegisterNetwork {
+		network: Network,
+	},
+	SetNetworkConfig {
+		network: NetworkId,
+		config: NetworkConfig,
+	},
 	// members
-	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
+	RegisterMember {
+		network: NetworkId,
+		peer_id: PeerId,
+		stake_amount: u128,
+	},
 	UnregisterMember,
 	Heartbeat,
 	// shards
-	SetShardConfig { shard_size: u16, shard_threshold: u16 },
-	SetElectable { accounts: Vec<AccountId> },
-	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
-	Ready { shard_id: ShardId },
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
+	SetElectable {
+		accounts: Vec<AccountId>,
+	},
+	Commitment {
+		shard_id: ShardId,
+		commitment: BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>,
+		proof_of_knowledge: ProofOfKnowledge,
+	},
+	Ready {
+		shard_id: ShardId,
+	},
 	// tasks
-	SubmitTaskResult { task_id: TaskId, result: TaskResult },
+	SubmitTaskResult {
+		task_id: TaskId,
+		result: TaskResult,
+	},
 }
 
 pub struct SubxtWorker {

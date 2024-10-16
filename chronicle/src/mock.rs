@@ -9,7 +9,7 @@ use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
 	sr25519, AccountId, Balance, BatchId, BlockHash, BlockNumber, Gateway, GatewayMessage,
 	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Task,
-	TaskId, TaskResult,
+	TaskId, TaskResult, TssPublicKey,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};

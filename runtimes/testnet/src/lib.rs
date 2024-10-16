@@ -55,8 +55,8 @@ use sp_runtime::{
 		NumberFor, OpaqueKeys, Saturating,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, FixedPointNumber, Percent, RuntimeDebug,
-	SaturatedConversion,
+	ApplyExtrinsicResult, BoundedVec, ExtrinsicInclusionMode, FixedPointNumber, Percent,
+	RuntimeDebug, SaturatedConversion,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -77,7 +77,7 @@ pub use time_primitives::{
 	AccountId, Balance, BatchId, BlockNumber, ChainNetwork, Gateway, GatewayMessage, MemberStatus,
 	MembersInterface, NetworkId, NetworksInterface, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Signature, Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
-	MAX_ERROR_LEN, MAX_ERROR_LEN, MAX_SHARD_SIZE,
+	MAX_ERROR_LEN, MAX_SHARD_SIZE,
 };
 
 // A few exports that help ease life for downstream crates.

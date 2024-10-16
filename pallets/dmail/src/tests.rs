@@ -6,7 +6,7 @@ use frame_system::RawOrigin;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use polkadot_sdk::{frame_support, frame_system};
 use scale_codec::Encode;
-use time_primitives::{DmailMessage, DmailPath, DmailTo};
+use time_primitives::DmailMessage;
 
 #[test]
 fn test_dmail_event() {

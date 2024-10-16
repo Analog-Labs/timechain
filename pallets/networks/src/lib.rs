@@ -36,8 +36,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, NetworksInterface,
-		TasksInterface,
+		Address, ChainNetwork, Network, NetworkConfig, NetworkId, NetworksInterface, TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -91,7 +90,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type NetworkName<T: Config> =
-		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
+		StorageMap<_, Twox64Concat, NetworkId, ChainNetwork, OptionQuery>;
 
 	/// Map storage for network gateways.
 	#[pallet::storage]
@@ -159,10 +158,7 @@ pub mod pallet {
 		fn insert_network(network: &Network) -> Result<(), Error<T>> {
 			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network.id, network.id);
-			NetworkName::<T>::insert(
-				network.id,
-				(network.chain_name.clone(), network.chain_network.clone()),
-			);
+			NetworkName::<T>::insert(network.id, network.name.clone());
 			NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
 			NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
 			T::Tasks::gateway_registered(network.id, network.gateway_block);
@@ -200,7 +196,7 @@ pub mod pallet {
 		///    3. Emit the [`Event::NetworkRegistered`] event with the new `NetworkId`.
 		///    4. Return `Ok(())` to indicate success.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::register_network(network.chain_name.len() as u32, network.chain_network.len() as u32))]
+		#[pallet::weight(T::WeightInfo::register_network(network.name.chain.len() as u32, network.name.net.len() as u32))]
 		pub fn register_network(origin: OriginFor<T>, network: Network) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Self::insert_network(&network)?;
@@ -234,7 +230,7 @@ pub mod pallet {
 		///  # Flow
 		///  1. Call [`Networks`] to fetch the network information.
 		///  2. Return the network information if it exists, otherwise return `None`.
-		pub fn get_network(network: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+		pub fn get_network(network: NetworkId) -> Option<ChainNetwork> {
 			NetworkName::<T>::get(network)
 		}
 	}

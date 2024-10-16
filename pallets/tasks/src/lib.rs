@@ -67,9 +67,9 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
-		TaskResult, TasksInterface, TssPublicKey, TssSignature,
+		AccountId, Balance, BatchBuilder, BatchId, GatewayMessage, GatewayOp, GmpEvent, MessageId,
+		NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
+		TaskResult, TasksInterface, TssPublicKey, TssSignature, MAX_ERROR_LEN,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -199,8 +199,13 @@ pub mod pallet {
 	pub type Tasks<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, Task, OptionQuery>;
 
 	#[pallet::storage]
-	pub type TaskOutput<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, Result<(), ErrorMsg>, OptionQuery>;
+	pub type TaskOutput<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		TaskId,
+		Result<(), BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	pub type TaskNetwork<T: Config> =
@@ -251,7 +256,7 @@ pub mod pallet {
 		/// the record id that uniquely identify
 		TaskCreated(TaskId),
 		/// Task succeeded with optional error message
-		TaskResult(TaskId, Result<(), ErrorMsg>),
+		TaskResult(TaskId, Result<(), BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>>),
 		/// Set the maximum number of assigned tasks for all shards on the network
 		ShardTaskLimitSet(NetworkId, u32),
 		/// Set the network batch size
@@ -420,7 +425,11 @@ pub mod pallet {
 			task_id
 		}
 
-		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {
+		fn finish_task(
+			network: NetworkId,
+			task_id: TaskId,
+			result: Result<(), BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>>,
+		) {
 			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard) = TaskShard::<T>::take(task_id) {
 				ShardTasks::<T>::remove(shard, task_id);
@@ -631,7 +640,9 @@ pub mod pallet {
 
 		/// Retrieves the result of a given task.
 		/// Look up the `TaskResult` associated with the provided `task_id` in the storage.
-		pub fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>> {
+		pub fn get_task_result(
+			task_id: TaskId,
+		) -> Option<Result<(), BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>>> {
 			TaskOutput::<T>::get(task_id)
 		}
 

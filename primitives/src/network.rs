@@ -9,10 +9,15 @@ pub const CHAIN_NET_LEN: u32 = 50;
 pub type NetworkId = u16;
 
 #[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
+pub struct ChainNetwork {
+	pub chain: BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>,
+	pub net: BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
 pub struct Network {
 	pub id: NetworkId,
-	pub chain_name: BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>,
-	pub chain_network: BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>,
+	pub name: ChainNetwork,
 	pub gateway: Gateway,
 	pub gateway_block: u64,
 	pub config: NetworkConfig,

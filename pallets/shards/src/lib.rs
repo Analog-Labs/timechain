@@ -79,7 +79,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{EnsureOrigin, ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
-	use sp_runtime::Saturating;
+	use sp_runtime::{traits::ConstU32, BoundedVec, Saturating};
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 
@@ -88,7 +88,7 @@ pub mod pallet {
 	use time_primitives::{
 		AccountId, Balance, ElectionsInterface, MemberStatus, MembersInterface, NetworkId,
 		ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface, TasksInterface,
-		TssPublicKey,
+		TssPublicKey, MAX_SHARD_SIZE,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -162,8 +162,13 @@ pub mod pallet {
 
 	/// Maps `ShardId` to `Commitment` indicating the commitment of each shard.
 	#[pallet::storage]
-	pub type ShardCommitment<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, Commitment, OptionQuery>;
+	pub type ShardCommitment<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ShardId,
+		BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>,
+		OptionQuery,
+	>;
 
 	/// Maps `AccountId` to `ShardId` indicating the shard a member is part of.
 	#[pallet::storage]
@@ -197,7 +202,7 @@ pub mod pallet {
 		/// New shard was created
 		ShardCreated(ShardId, NetworkId),
 		/// Shard commited
-		ShardCommitted(ShardId, Commitment),
+		ShardCommitted(ShardId, BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>),
 		/// Shard DKG timed out
 		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
@@ -244,7 +249,7 @@ pub mod pallet {
 		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
-			commitment: Commitment,
+			commitment: BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>,
 			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
@@ -441,7 +446,9 @@ pub mod pallet {
 		///
 		/// # Flow
 		///   1. Retrieve and return the commitment from [`ShardCommitment`] storage.
-		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
+		pub fn get_shard_commitment(
+			shard_id: ShardId,
+		) -> Option<BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>> {
 			ShardCommitment::<T>::get(shard_id)
 		}
 	}

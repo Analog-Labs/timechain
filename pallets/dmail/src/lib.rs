@@ -10,11 +10,12 @@ pub use pallet::*;
 
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
-	use polkadot_sdk::{frame_support, frame_system};
+	use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use time_primitives::{AccountId, DmailMessage, DmailPath, DmailTo};
+	use sp_runtime::{traits::ConstU32, BoundedVec};
+	use time_primitives::{AccountId, DmailMessage, DMAIL_PATH_LEN, DMAIL_TO_LEN};
 
 	pub trait WeightInfo {
 		fn send_email(to: u32, path: u32) -> Weight;
@@ -50,7 +51,11 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::send_email(to.len() as u32, path.len() as u32))]
-		pub fn send_email(origin: OriginFor<T>, to: DmailTo, path: DmailPath) -> DispatchResult {
+		pub fn send_email(
+			origin: OriginFor<T>,
+			to: BoundedVec<u8, ConstU32<DMAIL_TO_LEN>>,
+			path: BoundedVec<u8, ConstU32<DMAIL_PATH_LEN>>,
+		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			let message = DmailMessage { owner, to, path };
 			Self::deposit_event(Event::Message(message));

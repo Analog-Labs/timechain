@@ -4,12 +4,13 @@ use crate::{BatchIdCounter, ShardRegistered};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use polkadot_sdk::{frame_support, frame_system};
+use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
+use sp_runtime::BoundedVec;
 use time_primitives::{
-	traits::IdentifyAccount, Commitment, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents,
-	GmpMessage, MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task,
-	TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+	traits::IdentifyAccount, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, MockTssSigner,
+	NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult,
+	TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;

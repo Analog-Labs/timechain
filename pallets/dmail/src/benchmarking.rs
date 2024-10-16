@@ -8,7 +8,7 @@ use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::frame_system;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::Encode;
-use time_primitives::{DmailPath, DmailTo, DMAIL_PATH_LEN, DMAIL_TO_LEN};
+use time_primitives::{DMAIL_PATH_LEN, DMAIL_TO_LEN};
 
 benchmarks! {
 	send_email {

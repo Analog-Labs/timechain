@@ -1,6 +1,7 @@
 use crate::config::Config;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
+use polkadot_sdk::sp_runtime::BoundedVec;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -9,9 +10,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, BatchId, BlockHash, BlockNumber, ConnectorParams, Gateway, GatewayMessage,
-	GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId,
-	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainNetwork, ConnectorParams, Gateway,
+	GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
+	NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 
 mod config;
@@ -558,8 +559,10 @@ impl Tc {
 			self.runtime
 				.register_network(time_primitives::Network {
 					id: network,
-					chain_name: config.blockchain.clone(),
-					chain_network: config.network.clone(),
+					name: ChainNetwork {
+						chain: BoundedVec::truncate::from(config.blockchain.as_str().encode()),
+						net: BoundedVec::truncate::from(config.network.as_str().encode()),
+					},
 					gateway,
 					gateway_block: block,
 					config: NetworkConfig {

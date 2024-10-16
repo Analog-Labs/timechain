@@ -10,8 +10,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, Network, NetworkConfig, NetworkId, PublicKey, ShardStatus,
-	ShardsInterface, TasksInterface,
+	AccountId, ChainNetwork, ElectionsInterface, Network, NetworkConfig, NetworkId, PublicKey,
+	ShardStatus, ShardsInterface, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
@@ -30,8 +30,10 @@ fn get_peer_id(random_num: [u8; 32]) -> [u8; 32] {
 fn network() -> Network {
 	Network {
 		id: ETHEREUM,
-		chain_name: BoundedVec::truncate_from("ethereum".encode()),
-		chain_network: BoundedVec::truncate_from("dev".encode()),
+		name: ChainNetwork {
+			chain: BoundedVec::truncate_from("ethereum".encode()),
+			net: BoundedVec::truncate_from("dev".encode()),
+		},
 		gateway: [0u8; 32],
 		gateway_block: 0,
 		config: NetworkConfig {

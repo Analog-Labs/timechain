@@ -99,7 +99,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait NetworksApi {
-		fn get_network(network_id: NetworkId) -> Option<(BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>, BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>)>;
+		fn get_network(network_id: NetworkId) -> Option<ChainNetwork>;
 		fn get_gateway(network: NetworkId) -> Option<Gateway>;
 	}
 

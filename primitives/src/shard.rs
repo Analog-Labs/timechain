@@ -10,6 +10,7 @@ use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use serde::{Deserialize, Serialize};
 
 use scale_codec::{Decode, Encode};
+#[cfg(feature = "std")]
 use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 

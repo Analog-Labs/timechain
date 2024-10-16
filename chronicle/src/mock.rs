@@ -7,21 +7,21 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sr25519, AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
+	sr25519, AccountId, Balance, BatchId, BlockHash, BlockNumber, Gateway, GatewayMessage,
+	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Task,
+	TaskId, TaskResult,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MockNetwork {
-	pub chain_name: ChainName,
-	pub chain_network: ChainNetwork,
+	pub chain_name: String,
+	pub chain_network: String,
 }
 
 impl MockNetwork {
-	pub fn new(chain_name: ChainName, chain_network: ChainNetwork) -> Self {
+	pub fn new(chain_name: String, chain_network: String) -> Self {
 		Self { chain_name, chain_network }
 	}
 }
@@ -30,7 +30,7 @@ impl MockNetwork {
 pub struct MockShard {
 	pub members: Vec<(AccountId, MemberStatus)>,
 	pub threshold: u16,
-	pub commitments: Vec<Commitment>,
+	pub commitments: Vec<Vec<TssPublicKey>>,
 	pub online: usize,
 }
 
@@ -89,7 +89,7 @@ impl Mock {
 		mock
 	}
 
-	pub fn create_network(&self, chain_name: ChainName, chain_network: ChainNetwork) -> NetworkId {
+	pub fn create_network(&self, chain_name: String, chain_network: String) -> NetworkId {
 		let mock_network = MockNetwork::new(chain_name, chain_network);
 		let mut networks = self.networks.lock().unwrap();
 		if let Some(existing_id) =
@@ -186,7 +186,7 @@ impl Runtime for Mock {
 			.boxed()
 	}
 
-	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {
+	async fn get_network(&self, network: NetworkId) -> Result<Option<(String, String)>> {
 		Ok(self
 			.networks
 			.lock()
@@ -248,7 +248,7 @@ impl Runtime for Mock {
 		Ok(ShardStatus::Created)
 	}
 
-	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>> {
+	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Option<Vec<TssPublicKey>>> {
 		let shards = self.shards.lock().unwrap();
 		let Some(shard) = shards.get(&shard_id) else {
 			return Ok(None);
@@ -318,7 +318,7 @@ impl Runtime for Mock {
 	async fn submit_commitment(
 		&self,
 		shard_id: ShardId,
-		commitment: Commitment,
+		commitment: Vec<TssPublicKey>,
 		_proof_of_knowledge: ProofOfKnowledge,
 	) -> Result<()> {
 		let mut shards = self.shards.lock().unwrap();

@@ -73,7 +73,8 @@ use sp_runtime::{
 		Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber, Perbill, Percent, Permill, Perquintill, RuntimeDebug,
+	ApplyExtrinsicResult, BoundedVec, FixedPointNumber, Perbill, Percent, Permill, Perquintill,
+	RuntimeDebug,
 };
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
@@ -82,10 +83,10 @@ use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
 pub use time_primitives::{
-	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	ErrorMsg, Gateway, GatewayMessage, MemberStatus, MembersInterface, Moment, NetworkId,
-	NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
+	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainNetwork, Gateway, GatewayMessage,
+	MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface, Nonce, PeerId,
+	ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId, TaskResult,
+	TssPublicKey, TssSignature, ANLOG, MAX_ERROR_LEN, MAX_SHARD_SIZE,
 };
 
 /// weightToFee implementation
@@ -1898,7 +1899,7 @@ impl_runtime_apis! {
 	}
 
 	impl time_primitives::NetworksApi<Block> for Runtime {
-		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+		fn get_network(network_id: NetworkId) -> Option<ChainNetwork> {
 			Networks::get_network(network_id)
 		}
 
@@ -1930,7 +1931,7 @@ impl_runtime_apis! {
 			Shards::get_shard_status(shard_id)
 		}
 
-		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
+		fn get_shard_commitment(shard_id: ShardId) ->  Option<BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>> {
 			Shards::get_shard_commitment(shard_id)
 		}
 	}
@@ -1948,7 +1949,7 @@ impl_runtime_apis! {
 			Tasks::get_task_submitter(task_id)
 		}
 
-		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>>> {
 			Tasks::get_task_result(task_id)
 		}
 

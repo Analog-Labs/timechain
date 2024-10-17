@@ -1,17 +1,18 @@
 use crate::mock::*;
 use crate::Event;
 
-use polkadot_sdk::{frame_support, frame_system};
+use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use scale_codec::Encode;
+use sp_runtime::BoundedVec;
 use time_primitives::{DmailMessage, DmailPath, DmailTo};
 
 #[test]
 fn test_dmail_event() {
-	let to: DmailTo = DmailTo::truncate_from("Self".encode());
-	let path: DmailPath = DmailPath::truncate_from("//self".encode());
+	let to: DmailTo = DmailTo(BoundedVec::truncate_from("Self".encode()));
+	let path: DmailPath = DmailPath(BoundedVec::truncate_from("//self".encode()));
 	let sender: AccountId = [1; 32].into();
 	let event = DmailMessage {
 		owner: sender.clone(),

@@ -5,7 +5,8 @@ use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 use pallet_networks::NetworkGatewayAddress;
 use pallet_shards::{ShardCommitment, ShardState};
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_std};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_runtime, sp_std};
+use sp_runtime::BoundedVec;
 use sp_std::vec;
 use time_primitives::{
 	Commitment, GmpEvents, NetworkId, ShardStatus, ShardsInterface, Task, TaskResult,
@@ -32,7 +33,7 @@ fn create_simple_task<T: Config + pallet_shards::Config>() {
 		1,
 	);
 	ShardState::<T>::insert(shard_id, ShardStatus::Online);
-	ShardCommitment::<T>::insert(shard_id, Commitment::truncate_from(vec![PUBKEY]));
+	ShardCommitment::<T>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![PUBKEY])));
 	Pallet::<T>::shard_online(shard_id, ETHEREUM);
 	Pallet::<T>::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 0..10 });
 }
@@ -44,7 +45,7 @@ benchmarks! {
 		NetworkGatewayAddress::<T>::insert(0, [0; 32]);
 		create_simple_task::<T>();
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
-		let result = TaskResult::ReadGatewayEvents { events: GmpEvents::truncate_from(vec![]), signature: SIGNATURE };
+		let result = TaskResult::ReadGatewayEvents { events: GmpEvents(BoundedVec::truncate_from(vec![])), signature: SIGNATURE };
 	}: _(RawOrigin::Signed([0u8; 32].into()), 0, result) verify {}
 
 	schedule_tasks {

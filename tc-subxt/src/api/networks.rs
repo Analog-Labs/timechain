@@ -39,10 +39,11 @@ impl SubxtClient {
 		&self,
 		network: NetworkId,
 	) -> Result<Option<(ChainName, ChainNetwork)>> {
-		let data = metadata_scope!(self.metadata, {
+		let data: Option<(ChainName, ChainNetwork)> = metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().networks_api().get_network(network);
 			self.client.runtime_api().at_latest().await?.call(runtime_call).await?
-		});
+		})
+		.map(|(name, net)| ((*name).clone(), (*net).clone()));
 		Ok(data)
 	}
 

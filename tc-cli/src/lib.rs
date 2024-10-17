@@ -82,6 +82,11 @@ impl Tc {
 		self.runtime.finality_notification_stream()
 	}
 
+	pub async fn runtime_upgrade(&self, path: &Path) -> Result<()> {
+		let bytecode = std::fs::read(path)?;
+		self.runtime.set_code(bytecode).await
+	}
+
 	pub async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
 		let shard_id_counter = self.runtime.shard_id_counter().await?;
 		let mut shards = vec![];

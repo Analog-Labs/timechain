@@ -13,6 +13,8 @@ use time_primitives::{
 };
 
 pub enum Tx {
+	// system
+	SetCode { code: Vec<u8> },
 	// balances
 	Transfer { account: AccountId, balance: u128 },
 	// networks
@@ -88,6 +90,14 @@ impl SubxtWorker {
 		let (transaction, sender) = tx;
 		let tx = metadata_scope!(self.metadata, {
 			match transaction {
+				// system
+				Tx::SetCode { code } => {
+					let runtime_call = RuntimeCall::System(
+						metadata::runtime_types::frame_system::pallet::Call::set_code { code },
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
 				// balances
 				Tx::Transfer { account, balance } => {
 					let account = subxt::utils::Static(account);

@@ -289,7 +289,10 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			Self::prepare_batches().saturating_add(Self::schedule_tasks())
+			log::info!("on_initialize begin");
+			let weight = Self::prepare_batches().saturating_add(Self::schedule_tasks());
+			log::info!("on_initialize end");
+			weight
 		}
 	}
 

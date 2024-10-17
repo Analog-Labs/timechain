@@ -33,8 +33,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_timegraph`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Timegraph::NextDepositSequence` (r:1 w:1)
 	/// Proof: `Timegraph::NextDepositSequence` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn deposit() -> Weight {
@@ -47,10 +45,10 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// Storage: `Timegraph::Threshold` (r:1 w:0)
+	/// Proof: `Timegraph::Threshold` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Timegraph::NextWithdrawalSequence` (r:1 w:1)
 	/// Proof: `Timegraph::NextWithdrawalSequence` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn withdraw() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3`
@@ -59,6 +57,74 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(60_914_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
 			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Timegraph::TimegraphAccount` (r:1 w:0)
+	/// Proof: `Timegraph::TimegraphAccount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Timegraph::RewardPoolAccount` (r:1 w:0)
+	/// Proof: `Timegraph::RewardPoolAccount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn transfer_to_pool() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `272`
+		//  Estimated: `6196`
+		// Minimum execution time: 83_497_000 picoseconds.
+		Weight::from_parts(85_461_000, 0)
+			.saturating_add(Weight::from_parts(0, 6196))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	/// Storage: `Timegraph::TimegraphAccount` (r:1 w:0)
+	/// Proof: `Timegraph::TimegraphAccount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Timegraph::RewardPoolAccount` (r:1 w:0)
+	/// Proof: `Timegraph::RewardPoolAccount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn transfer_award_to_user() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `285`
+		//  Estimated: `3593`
+		// Minimum execution time: 80_771_000 picoseconds.
+		Weight::from_parts(83_026_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Timegraph::TimegraphAccount` (r:1 w:1)
+	/// Proof: `Timegraph::TimegraphAccount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn set_timegraph_account() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3`
+		//  Estimated: `1488`
+		// Minimum execution time: 9_267_000 picoseconds.
+		Weight::from_parts(9_719_000, 0)
+			.saturating_add(Weight::from_parts(0, 1488))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Timegraph::RewardPoolAccount` (r:1 w:1)
+	/// Proof: `Timegraph::RewardPoolAccount` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn set_reward_pool_account() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3`
+		//  Estimated: `1488`
+		// Minimum execution time: 9_137_000 picoseconds.
+		Weight::from_parts(9_798_000, 0)
+			.saturating_add(Weight::from_parts(0, 1488))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Timegraph::Threshold` (r:1 w:1)
+	/// Proof: `Timegraph::Threshold` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn set_threshold() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3`
+		//  Estimated: `1488`
+		// Minimum execution time: 9_106_000 picoseconds.
+		Weight::from_parts(9_578_000, 0)
+			.saturating_add(Weight::from_parts(0, 1488))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

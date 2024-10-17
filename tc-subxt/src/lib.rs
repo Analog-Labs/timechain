@@ -93,6 +93,13 @@ impl SubxtClient {
 		block_stream(f)
 	}
 
+	pub async fn set_code(&self, code: Vec<u8>) -> Result<()> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::SetCode { code }, tx))?;
+		rx.await?.wait_for_success().await?;
+		Ok(())
+	}
+
 	pub async fn transfer(&self, account: AccountId, balance: u128) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Transfer { account, balance }, tx))?;

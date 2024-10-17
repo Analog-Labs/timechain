@@ -6,32 +6,78 @@ use std::path::{Path, PathBuf};
 use tc_subxt::MetadataVariant;
 use time_primitives::NetworkId;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Config {
-	pub config: GlobalConfig,
-	pub contracts: HashMap<Backend, ContractsConfig>,
-	pub networks: HashMap<NetworkId, NetworkConfig>,
-	pub chronicles: Vec<String>,
+	path: PathBuf,
+	yaml: ConfigYaml,
 }
 
 impl Config {
 	pub fn from_file(path: &Path) -> Result<Self> {
-		let config = std::fs::read_to_string(path)?;
-		Ok(serde_yaml::from_str(&config)?)
+		let config = std::fs::read_to_string(path).context("failed to read config file")?;
+		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
+		Ok(Self {
+			path: path.parent().unwrap().to_path_buf(),
+			yaml,
+		})
+	}
+
+	fn relative_path(&self, other: &Path) -> PathBuf {
+		if other.is_absolute() {
+			return other.to_owned();
+		}
+		self.path.join(other)
+	}
+
+	pub fn timechain_mnemonic(&self) -> Result<String> {
+		let path = self.relative_path(&self.yaml.config.timechain_keyfile);
+		std::fs::read_to_string(path).context("failed to read timechain keyfile")
+	}
+
+	pub fn target_mnemonic(&self) -> Result<String> {
+		let path = self.relative_path(&self.yaml.config.target_keyfile);
+		std::fs::read_to_string(path).context("failed to read target keyfile")
+	}
+
+	pub fn global(&self) -> &GlobalConfig {
+		&self.yaml.config
+	}
+
+	pub fn chronicles(&self) -> &[String] {
+		&self.yaml.chronicles
 	}
 
 	pub fn contracts(&self, network: NetworkId) -> Result<Contracts> {
 		let network = self.network(network)?;
-		Ok(if let Some(contracts) = self.contracts.get(&network.backend) {
-			contracts.load()?
+		Ok(if let Some(contracts) = self.yaml.contracts.get(&network.backend) {
+			Contracts {
+				proxy: std::fs::read(self.relative_path(&contracts.proxy))
+					.context("failed to read proxy contract")?,
+				gateway: std::fs::read(self.relative_path(&contracts.gateway))
+					.context("failed to read gateway contract")?,
+				tester: std::fs::read(self.relative_path(&contracts.tester))
+					.context("failed to read tester contract")?,
+			}
 		} else {
 			Contracts::default()
 		})
 	}
 
-	pub fn network(&self, network: NetworkId) -> Result<&NetworkConfig> {
-		self.networks.get(&network).context("no network config")
+	pub fn networks(&self) -> &HashMap<NetworkId, NetworkConfig> {
+		&self.yaml.networks
 	}
+
+	pub fn network(&self, network: NetworkId) -> Result<&NetworkConfig> {
+		self.yaml.networks.get(&network).context("no network config")
+	}
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ConfigYaml {
+	config: GlobalConfig,
+	contracts: HashMap<Backend, ContractsConfig>,
+	networks: HashMap<NetworkId, NetworkConfig>,
+	chronicles: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,26 +86,16 @@ pub struct GlobalConfig {
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: u128,
 	pub metadata_variant: MetadataVariant,
-	pub timechain_keyfile: PathBuf,
+	timechain_keyfile: PathBuf,
 	pub timechain_url: String,
-	pub target_keyfile: PathBuf,
+	target_keyfile: PathBuf,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContractsConfig {
-	pub proxy: PathBuf,
-	pub gateway: PathBuf,
-	pub tester: PathBuf,
-}
-
-impl ContractsConfig {
-	fn load(&self) -> Result<Contracts> {
-		Ok(Contracts {
-			proxy: std::fs::read(&self.proxy)?,
-			gateway: std::fs::read(&self.gateway)?,
-			tester: std::fs::read(&self.tester)?,
-		})
-	}
+struct ContractsConfig {
+	proxy: PathBuf,
+	gateway: PathBuf,
+	tester: PathBuf,
 }
 
 #[derive(Default)]

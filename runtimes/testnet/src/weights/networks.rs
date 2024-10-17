@@ -70,6 +70,10 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 53_861_000 picoseconds.
 		Weight::from_parts(60_735_804, 0)
 			.saturating_add(Weight::from_parts(0, 3583))
+			// Standard Error: 87
+			.saturating_add(Weight::from_parts(574, 0).saturating_mul(a.into()))
+			// Standard Error: 87
+			.saturating_add(Weight::from_parts(797, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(13))
 	}

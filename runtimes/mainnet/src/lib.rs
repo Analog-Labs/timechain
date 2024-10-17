@@ -1404,10 +1404,19 @@ impl pallet_tasks::Config for Runtime {
 	type MaxBatchesPerBlock = ConstU32<1_000>;
 }
 
+parameter_types! {
+ pub const InitialRewardPoolAccount: AccountId = AccountId::new([0_u8; 32]);
+ pub const InitialTimegraphAccount: AccountId = AccountId::new([0_u8; 32]);
+ pub const InitialThreshold: Balance = 1000;
+}
+
 impl pallet_timegraph::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::timegraph::WeightInfo<Runtime>;
 	type Currency = Balances;
+	type InitialRewardPoolAccount = InitialRewardPoolAccount;
+	type InitialTimegraphAccount = InitialTimegraphAccount;
+	type InitialThreshold = InitialThreshold;
 }
 
 impl pallet_networks::Config for Runtime {

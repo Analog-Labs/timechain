@@ -149,6 +149,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		///  `on_initialize`: Handles periodic heartbeat checks and manages member online/offline statuses.
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			log::info!("on_initialize begin");
 			let mut weight = Weight::default();
 			if n % T::HeartbeatTimeout::get() == BlockNumberFor::<T>::default() {
 				for (member, _) in MemberOnline::<T>::iter() {
@@ -168,6 +169,7 @@ pub mod pallet {
 					T::DbWeight::get().writes(Heartbeat::<T>::drain().count() as u64),
 				);
 			}
+			log::info!("on_initialize end");
 			weight
 		}
 	}

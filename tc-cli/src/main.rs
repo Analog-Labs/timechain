@@ -105,6 +105,9 @@ enum Command {
 		message: String,
 	},
 	// management
+	RuntimeUpgrade {
+		path: PathBuf,
+	},
 	Deploy,
 	RegisterShards {
 		network: NetworkId,
@@ -527,6 +530,9 @@ async fn main() -> Result<()> {
 			print_table(&tc, vec![trace])?;
 		},
 		// management
+		Command::RuntimeUpgrade { path } => {
+			tc.runtime_upgrade(&path).await?;
+		},
 		Command::Deploy => {
 			tc.deploy().await?;
 		},

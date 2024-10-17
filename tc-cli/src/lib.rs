@@ -35,25 +35,25 @@ pub struct Tc {
 impl Tc {
 	pub async fn new(config: &Path) -> Result<Self> {
 		let config = Config::from_file(config)?;
-		while SubxtClient::get_client(&config.config.timechain_url).await.is_err() {
+		while SubxtClient::get_client(&config.global().timechain_url).await.is_err() {
 			tracing::info!("waiting for chain to start");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		let runtime = SubxtClient::with_key(
-			&config.config.timechain_url,
-			config.config.metadata_variant,
-			&std::fs::read_to_string(&config.config.timechain_keyfile)?,
+			&config.global().timechain_url,
+			config.global().metadata_variant,
+			&config.timechain_mnemonic()?,
 		)
 		.await?;
 		let mut connectors = HashMap::default();
-		for (id, network) in &config.networks {
+		for (id, network) in config.networks() {
 			let id = *id;
 			let params = ConnectorParams {
 				network_id: id,
 				blockchain: network.blockchain.clone(),
 				network: network.network.clone(),
 				url: network.url.clone(),
-				mnemonic: std::fs::read_to_string(&config.config.target_keyfile)?,
+				mnemonic: config.target_mnemonic()?,
 			};
 			let connector = network.backend.connect_admin(&params).await?;
 			connectors.insert(id, connector);
@@ -80,6 +80,11 @@ impl Tc {
 
 	pub fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		self.runtime.finality_notification_stream()
+	}
+
+	pub async fn runtime_upgrade(&self, path: &Path) -> Result<()> {
+		let bytecode = std::fs::read(path)?;
+		self.runtime.set_code(bytecode).await
 	}
 
 	pub async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
@@ -385,7 +390,7 @@ impl Tc {
 
 	pub async fn chronicles(&self) -> Result<Vec<Chronicle>> {
 		let mut chronicles = vec![];
-		for chronicle in &self.config.chronicles {
+		for chronicle in self.config.chronicles() {
 			let config = self.chronicle_config(chronicle).await?;
 			let status = self.chronicle_status(&config.account).await?;
 			let network = config.network;
@@ -528,17 +533,15 @@ impl Tc {
 
 impl Tc {
 	async fn set_shard_config(&self) -> Result<()> {
-		let set_shard_size = self.config.config.shard_size;
+		let set_shard_size = self.config.global().shard_size;
 		let shard_size = self.runtime.shard_size_config().await?;
-		let set_shard_threshold = self.config.config.shard_threshold;
+		let set_shard_threshold = self.config.global().shard_threshold;
 		let shard_threshold = self.runtime.shard_threshold_config().await?;
 		if shard_size == set_shard_size && shard_threshold == set_shard_threshold {
 			return Ok(());
 		}
 		tracing::info!("set_shard_config");
-		self.runtime
-			.set_shard_config(self.config.config.shard_size, self.config.config.shard_threshold)
-			.await?;
+		self.runtime.set_shard_config(set_shard_size, set_shard_threshold).await?;
 		Ok(())
 	}
 
@@ -693,12 +696,12 @@ impl Tc {
 			gateways.insert(network, gateway);
 		}
 		self.register_routes(gateways).await?;
-		let mut accounts = Vec::with_capacity(self.config.chronicles.len());
-		for chronicle in &self.config.chronicles {
+		let mut accounts = Vec::with_capacity(self.config.chronicles().len());
+		for chronicle in self.config.chronicles() {
 			let chronicle = self.wait_for_chronicle(chronicle).await?;
 			tracing::info!("funding chronicle timechain account");
 			let status = self.chronicle_status(&chronicle.account).await?;
-			let mut funds = self.config.config.chronicle_timechain_funds;
+			let mut funds = self.config.global().chronicle_timechain_funds;
 			if status == ChronicleStatus::Unregistered {
 				funds += self.runtime.min_stake().await?;
 			}

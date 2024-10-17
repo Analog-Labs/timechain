@@ -31,6 +31,7 @@ networks:
     # This is the base fee of evm chains. Connector have a method to fetch base fee:
     # https://github.com/Analog-Labs/chain-connectors/blob/master/chains/ethereum/server/src/utils.rs#L296
     # In short it queries the fee history for some past blocks 10/15 and takes median of it.
+    # TODO remove from here and fetch from connector when evm backend is functional
     route_base_fee: 1400000000
   1:
     backend: "grpc"

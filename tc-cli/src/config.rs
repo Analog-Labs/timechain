@@ -31,12 +31,12 @@ impl Config {
 
 	pub fn timechain_mnemonic(&self) -> Result<String> {
 		let path = self.relative_path(&self.yaml.config.timechain_keyfile);
-		std::fs::read_to_string(&path).context("failed to read timechain keyfile")
+		std::fs::read_to_string(path).context("failed to read timechain keyfile")
 	}
 
 	pub fn target_mnemonic(&self) -> Result<String> {
 		let path = self.relative_path(&self.yaml.config.target_keyfile);
-		std::fs::read_to_string(&path).context("failed to read target keyfile")
+		std::fs::read_to_string(path).context("failed to read target keyfile")
 	}
 
 	pub fn global(&self) -> &GlobalConfig {

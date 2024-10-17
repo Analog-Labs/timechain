@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
@@ -630,11 +631,11 @@ impl Tc {
 				}
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
-				let src_price = self.get_network_price(&network_prices, &src)?;
-				let dest_price = self.get_network_price(&network_prices, &dest)?;
+				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
+				let dest_price = get_network_price(&network_prices, &dest)?;
 				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
-				let numerator = self.convert_bigint_to_u128(ratio.numer())?;
-				let denominator = self.convert_bigint_to_u128(ratio.denom())?;
+				let numerator = convert_bigint_to_u128(ratio.numer())?;
+				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
 					network_id: dest,
 					gateway,

@@ -82,6 +82,7 @@ struct ConfigYaml {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GlobalConfig {
+	pub prices_path: PathBuf,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: u128,

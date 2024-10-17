@@ -42,8 +42,6 @@ pub struct NetworkPrice {
 	pub usd_price: f64,
 }
 
-const PRICES_CSV: &str = "/etc/files/prices.csv";
-
 fn bigint_log10(n: &BigUint) -> f64 {
 	let n_str = n.to_string();
 	let num_digits = n_str.len();
@@ -116,6 +114,22 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 	Ok(Ratio::new(numerator_biguint, denominator_biguint))
 }
 
+pub fn get_network_price(
+	network_prices: &HashMap<NetworkId, (String, f64)>,
+	network_id: &NetworkId,
+) -> Result<f64> {
+	network_prices
+		.get(network_id)
+		.map(|(_, price)| *price)
+		.ok_or_else(|| anyhow::anyhow!("Unable to get network {} from csv", network_id))
+}
+
+pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
+	value
+		.to_u128()
+		.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
+}
+
 impl Tc {
 	pub async fn fetch_token_prices(&self) -> Result<()> {
 		dotenv().ok();
@@ -126,7 +140,7 @@ impl Tc {
 			"X-CMC_PRO_API_KEY",
 			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
 		);
-		let file = File::create(PRICES_CSV)?;
+		let file = File::create(&self.config.config.prices_path)?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
 		for (network_id, network) in &self.config.networks {
@@ -146,12 +160,12 @@ impl Tc {
 			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
 		}
 		wtr.flush()?;
-		println!("Saved in prices.csv");
+		log::info!("Saved in prices.csv");
 		Ok(())
 	}
 
 	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		let mut rdr = Reader::from_path(PRICES_CSV)?;
+		let mut rdr = Reader::from_path(&self.config.config.prices_path)?;
 
 		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
 		for result in rdr.deserialize() {
@@ -159,23 +173,6 @@ impl Tc {
 			network_map.insert(record.network_id, (record.symbol, record.usd_price));
 		}
 		Ok(network_map)
-	}
-
-	pub fn get_network_price(
-		&self,
-		network_prices: &HashMap<NetworkId, (String, f64)>,
-		network_id: &NetworkId,
-	) -> Result<f64> {
-		network_prices
-			.get(network_id)
-			.map(|(_, price)| *price)
-			.ok_or_else(|| anyhow::anyhow!("Unable to get network {} from csv", network_id))
-	}
-
-	pub fn convert_bigint_to_u128(&self, value: &BigUint) -> Result<u128> {
-		value
-			.to_u128()
-			.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
 	}
 
 	pub fn calculate_relative_price(
@@ -213,7 +210,7 @@ impl Tc {
 		// Add margin
 		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
 
-		println!(
+		log::info!(
 			r#"src to dest relative gas price (rational): {}/{}
 src to dest relative gas price (decimal) : {}"#,
 			src_to_dest.numer(),

@@ -18944,6 +18944,7 @@ dependencies = [
  "futures",
  "gmp",
  "hex",
+ "log",
  "num-bigint",
  "num-rational",
  "num-traits",

@@ -6,6 +6,7 @@ config:
   timechain_keyfile: '/etc/timechain_admin'
   timechain_url: 'ws://validator:9944'
   target_keyfile: '/etc/target_admin'
+  prices_path: '/etc/config/prices.csv'
 contracts:
   evm:
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
@@ -27,6 +28,9 @@ networks:
     symbol: "ETH"
     token_decimals: 18
     route_gas_limit: 10000
+    # This is the base fee of evm chains. Connector have a method to fetch base fee:
+    # https://github.com/Analog-Labs/chain-connectors/blob/master/chains/ethereum/server/src/utils.rs#L296
+    # In short it queries the fee history for some past blocks 10/15 and takes median of it.
     route_base_fee: 1400000000
   1:
     backend: "grpc"

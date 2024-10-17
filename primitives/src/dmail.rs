@@ -6,8 +6,10 @@ use scale_info::TypeInfo;
 pub const DMAIL_TO_LEN: u32 = 64;
 pub const DMAIL_PATH_LEN: u32 = 64;
 
-pub type DmailTo = BoundedVec<u8, ConstU32<DMAIL_TO_LEN>>;
-pub type DmailPath = BoundedVec<u8, ConstU32<DMAIL_PATH_LEN>>;
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+pub struct DmailTo(pub BoundedVec<u8, ConstU32<DMAIL_TO_LEN>>);
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+pub struct DmailPath(pub BoundedVec<u8, ConstU32<DMAIL_PATH_LEN>>);
 
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct DmailMessage {

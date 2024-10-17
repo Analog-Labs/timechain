@@ -254,10 +254,10 @@ pub mod pallet {
 			);
 			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
 			ensure!(
-				commitment.len() == threshold as usize,
+				commitment.0.len() == threshold as usize,
 				Error::<T>::CommitmentLenNotEqualToThreshold
 			);
-			for c in &commitment {
+			for c in &commitment.0 {
 				ensure!(
 					VerifyingKey::from_bytes(*c).is_ok(),
 					Error::<T>::InvalidVerifyingKeyInCommitment
@@ -267,7 +267,7 @@ pub mod pallet {
 				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
 			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
 				&peer_id,
-				&commitment,
+				&commitment.0,
 				proof_of_knowledge,
 			)
 			.map_err(|_| Error::<T>::InvalidProofOfKnowledge)?;
@@ -277,7 +277,7 @@ pub mod pallet {
 					.filter_map(|(_, status)| status.commitment().cloned())
 					.reduce(|mut group_commitment, commitment| {
 						for (group_commitment, commitment) in
-							group_commitment.iter_mut().zip(commitment.iter())
+							group_commitment.0.iter_mut().zip(commitment.0.iter())
 						{
 							*group_commitment = VerifyingKey::new(
 								VerifyingKey::from_bytes(*group_commitment)
@@ -327,7 +327,7 @@ pub mod pallet {
 				.all(|(_, status)| status == MemberStatus::Ready)
 			{
 				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-				Self::deposit_event(Event::ShardOnline(shard_id, commitment[0]));
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment.0[0]));
 				T::Tasks::shard_online(shard_id, network);
 			}
 			Ok(())
@@ -612,7 +612,7 @@ pub mod pallet {
 		///   1. Retrieves the commitment [`Vec<TssPublicKey>`] associated with the `shard_id` from [`ShardCommitment`].
 		///   2. Returns the first element of the commitment [`TssPublicKey`] if it exists; otherwise, returns `None`.
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
-			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment[0])
+			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment.0[0])
 		}
 	}
 }

@@ -200,7 +200,7 @@ pub mod pallet {
 		///    3. Emit the [`Event::NetworkRegistered`] event with the new `NetworkId`.
 		///    4. Return `Ok(())` to indicate success.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::register_network(network.chain_name.len() as u32, network.chain_network.len() as u32))]
+		#[pallet::weight(T::WeightInfo::register_network(network.chain_name.0.len() as u32, network.chain_network.0.len() as u32))]
 		pub fn register_network(origin: OriginFor<T>, network: Network) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Self::insert_network(&network)?;

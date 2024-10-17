@@ -2,7 +2,7 @@ use crate::worker::Tx;
 use crate::{metadata_scope, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
-use time_primitives::{Gateway, Network, NetworkConfig, NetworkId};
+use time_primitives::{ChainName, ChainNetwork, Gateway, Network, NetworkConfig, NetworkId};
 
 impl SubxtClient {
 	pub async fn register_network(&self, network: Network) -> Result<()> {
@@ -35,7 +35,10 @@ impl SubxtClient {
 		Ok(networks)
 	}
 
-	pub async fn network_name(&self, network: NetworkId) -> Result<Option<(String, String)>> {
+	pub async fn network_name(
+		&self,
+		network: NetworkId,
+	) -> Result<Option<(ChainName, ChainNetwork)>> {
 		let data = metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().networks_api().get_network(network);
 			self.client.runtime_api().at_latest().await?.call(runtime_call).await?

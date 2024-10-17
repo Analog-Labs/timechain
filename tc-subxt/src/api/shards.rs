@@ -85,7 +85,7 @@ impl SubxtClient {
 	}
 
 	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<Option<TssPublicKey>> {
-		Ok(self.shard_commitment(shard_id).await?.map(|v| v[0]))
+		Ok(self.shard_commitment(shard_id).await?.map(|v| v.0[0]))
 	}
 
 	pub async fn submit_commitment(

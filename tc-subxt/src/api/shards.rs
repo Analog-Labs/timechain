@@ -81,10 +81,7 @@ impl SubxtClient {
 		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
 			let output = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			let output_converted = match output {
-				Some(static_commitment) => Some((*static_commitment).clone()),
-				None => None,
-			};
+			let output_converted = output.map(|static_commitment| (*static_commitment).clone());
 			Ok(output_converted)
 		})
 	}

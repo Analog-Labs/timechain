@@ -336,6 +336,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			log::info!("on_initialize begin");
 			let mut writes = 0;
 			let mut reads = 0;
 			// use DkgTimeout instead
@@ -355,6 +356,7 @@ pub mod pallet {
 					reads += 1;
 				}
 			});
+			log::info!("on_initialize end");
 			T::DbWeight::get().reads_writes(reads, writes)
 		}
 	}

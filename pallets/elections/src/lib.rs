@@ -157,6 +157,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			log::info!("on_initialize begin");
 			let mut weight = Weight::default();
 			for (network, _, _) in Unassigned::<T>::iter() {
 				weight = weight
@@ -164,6 +165,7 @@ pub mod pallet {
 					.saturating_add(T::DbWeight::get().reads(1))
 					.saturating_add(Self::try_elect_shard(network));
 			}
+			log::info!("on_initialize end");
 			weight
 		}
 	}

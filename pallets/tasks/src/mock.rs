@@ -9,7 +9,7 @@ use polkadot_sdk::{
 use frame_support::derive_impl;
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
-	OnFinalize, OnInitialize,
+	OnInitialize,
 };
 use frame_support::{pallet_prelude::Weight, PalletId};
 
@@ -323,7 +323,6 @@ pub fn roll(n: u64) {
 
 fn next_block() {
 	let mut now = System::block_number();
-	Tasks::on_finalize(now);
 	now += 1;
 	System::set_block_number(now);
 	Shards::on_initialize(now);

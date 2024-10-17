@@ -3,9 +3,10 @@ use crate::Pallet;
 
 use frame_system::RawOrigin;
 use polkadot_sdk::frame_benchmarking::benchmarks;
-use polkadot_sdk::frame_system;
+use polkadot_sdk::{frame_system, sp_runtime};
 use scale_codec::Encode;
 use scale_info::prelude::string::String;
+use sp_runtime::BoundedVec;
 use time_primitives::{
 	ChainName, ChainNetwork, Network, NetworkConfig, CHAIN_NAME_LEN, CHAIN_NET_LEN,
 };
@@ -22,8 +23,8 @@ fn mock_network_config() -> NetworkConfig {
 fn mock_network(chain_name: String, chain_network: String) -> Network {
 	Network {
 		id: 42,
-		chain_name: ChainName::truncate_from(chain_name.as_str().encode()),
-		chain_network: ChainNetwork::truncate_from(chain_network.as_str().encode()),
+		chain_name: ChainName(BoundedVec::truncate_from(chain_name.as_str().encode())),
+		chain_network: ChainNetwork(BoundedVec::truncate_from(chain_network.as_str().encode())),
 		gateway: [0; 32],
 		gateway_block: 99,
 		config: mock_network_config(),

@@ -320,7 +320,7 @@ pub mod pallet {
 					TaskResult::ReadGatewayEvents { events, signature },
 				) => {
 					// verify signature
-					let bytes = time_primitives::encode_gmp_events(task_id, &events);
+					let bytes = time_primitives::encode_gmp_events(task_id, &events.0);
 					Self::verify_signature(shard, &bytes, signature)?;
 					// start next batch
 					let start = blocks.end;
@@ -328,7 +328,7 @@ pub mod pallet {
 					let end = start + size;
 					Self::create_task(network, Task::ReadGatewayEvents { blocks: start..end });
 					// process events
-					for event in events {
+					for event in events.0 {
 						match event {
 							GmpEvent::ShardRegistered(pubkey) => {
 								ShardRegistered::<T>::insert(pubkey, ());

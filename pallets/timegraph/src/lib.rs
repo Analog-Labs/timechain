@@ -86,24 +86,6 @@ pub mod pallet {
 		type InitialRewardPoolAccount: Get<Self::AccountId>;
 	}
 
-	/// Default value from runtime configuration
-	#[pallet::type_value]
-	pub fn DefaultTimegraphAccount<T: Config>() -> T::AccountId {
-		T::InitialTimegraphAccount::get()
-	}
-
-	/// Default value from runtime configuration
-	#[pallet::type_value]
-	pub fn DefaultRewardPoolAccount<T: Config>() -> T::AccountId {
-		T::InitialRewardPoolAccount::get()
-	}
-
-	/// Default value from runtime configuration
-	#[pallet::type_value]
-	pub fn DefaultThreshold<T: Config>() -> BalanceOf<T> {
-		T::InitialThreshold::get()
-	}
-
 	///Stores the next deposit sequence number for each account.
 	#[pallet::storage]
 	#[pallet::getter(fn next_deposit_sequence)]
@@ -119,16 +101,16 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn timegraph_account)]
 	pub type TimegraphAccount<T: Config> =
-		StorageValue<_, T::AccountId, ValueQuery, DefaultTimegraphAccount<T>>;
+		StorageValue<_, T::AccountId, ValueQuery, T::InitialTimegraphAccount>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward_pool_account)]
 	pub type RewardPoolAccount<T: Config> =
-		StorageValue<_, T::AccountId, ValueQuery, DefaultRewardPoolAccount<T>>;
+		StorageValue<_, T::AccountId, ValueQuery, T::InitialRewardPoolAccount>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn threshold)]
-	pub type Threshold<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery, DefaultThreshold<T>>;
+	pub type Threshold<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery, T::InitialThreshold>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

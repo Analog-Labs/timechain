@@ -151,9 +151,11 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
+	use polkadot_sdk::sp_runtime::BoundedVec;
+	use scale_codec::Encode;
 	use std::time::Duration;
 	use time_primitives::traits::IdentifyAccount;
-	use time_primitives::{AccountId, ShardStatus, Task};
+	use time_primitives::{AccountId, ChainName, ChainNetwork, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
 	///
@@ -200,7 +202,10 @@ mod tests {
 		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
 		let mock = Mock::default().instance(42);
-		let network_id = mock.create_network("rust".into(), "rust".into());
+		let network_id = mock.create_network(
+			ChainName(BoundedVec::truncate_from("rust".encode())),
+			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
+		);
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {
 			let instance = mock.instance(id);

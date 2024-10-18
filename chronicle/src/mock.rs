@@ -2,6 +2,7 @@ use crate::runtime::Runtime;
 use anyhow::Result;
 use futures::stream::BoxStream;
 use futures::{stream, StreamExt};
+use polkadot_sdk::sp_runtime::BoundedVec;
 use schnorr_evm::k256::ProjectivePoint;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -117,7 +118,11 @@ impl Mock {
 		let mut shards = self.shards.lock().unwrap();
 		let shard = shards.get_mut(&shard_id).unwrap();
 		let public_key = VerifyingKey::new(ProjectivePoint::GENERATOR).to_bytes().unwrap();
-		shard.commitments = vec![vec![public_key; threshold as _]; shard.members.len()];
+		shard.commitments =
+			vec![
+				Commitment(BoundedVec::truncate_from(vec![public_key; threshold as _]));
+				shard.members.len()
+			];
 		shard.online = shard.members.len();
 		shard_id
 	}
@@ -260,11 +265,13 @@ impl Runtime for Mock {
 			.commitments
 			.iter()
 			.map(|commitment| {
-				VerifiableSecretSharingCommitment::deserialize(commitment.clone()).unwrap()
+				VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec()).unwrap()
 			})
 			.collect();
 		let commitments = commitments.iter().collect::<Vec<_>>();
-		Ok(Some(sum_commitments(&commitments).unwrap().serialize()))
+		Ok(Some(Commitment(BoundedVec::truncate_from(
+			sum_commitments(&commitments).unwrap().serialize(),
+		))))
 	}
 
 	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskId>> {

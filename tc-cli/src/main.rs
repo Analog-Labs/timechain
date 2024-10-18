@@ -12,6 +12,7 @@ use time_primitives::{
 	traits::IdentifyAccount, Address, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route,
 	ShardId, TaskId,
 };
+use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
 pub struct RelGasPrice {
@@ -448,9 +449,14 @@ impl IntoRow for MessageTrace {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	tracing_subscriber::fmt::init();
+	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
+	tracing_subscriber::fmt().with_env_filter(filter).init();
+	tracing::info!("main");
+	let now = std::time::SystemTime::now();
 	let args = Args::parse();
 	let tc = args.tc().await?;
+	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
+	let now = std::time::SystemTime::now();
 	match args.cmd {
 		// balances
 		Command::Faucet { network } => {
@@ -629,6 +635,7 @@ async fn main() -> Result<()> {
 			}
 		},
 	}
+	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
 	std::process::exit(0);
 }
 

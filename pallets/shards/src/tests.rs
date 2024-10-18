@@ -1,19 +1,19 @@
 use crate::mock::*;
 use crate::{Event, ShardMembers, ShardNetwork, ShardState};
 
-use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core};
+use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_runtime};
 
 use frame_support::assert_ok;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-
 use schnorr_evm::k256::elliptic_curve::PrimeField;
 use schnorr_evm::k256::{ProjectivePoint, Scalar};
 use schnorr_evm::proof_of_knowledge::construct_proof_of_knowledge;
 use schnorr_evm::VerifyingKey;
+use sp_runtime::BoundedVec;
 
 use time_primitives::{
-	AccountId, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+	AccountId, Commitment, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -88,7 +88,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 		assert_ok!(Shards::commit(
 			RawOrigin::Signed(member.account_id.clone()).into(),
 			shard_id as _,
-			member.commitment(threshold),
+			Commitment(BoundedVec::truncate_from(member.commitment(threshold))),
 			member.proof_of_knowledge(),
 		));
 		roll(1);
@@ -139,7 +139,7 @@ fn test_register_shard() {
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(member.account_id.clone()).into(),
 					shard_id as _,
-					member.commitment(threshold),
+					Commitment(BoundedVec::truncate_from(member.commitment(threshold))),
 					member.proof_of_knowledge(),
 				));
 			}

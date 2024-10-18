@@ -69,8 +69,8 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1380`
 		//  Estimated: `12270`
-		// Minimum execution time: 619_449_000 picoseconds.
-		Weight::from_parts(636_430_000, 0)
+		// Minimum execution time: 624_519_000 picoseconds.
+		Weight::from_parts(652_491_000, 0)
 			.saturating_add(Weight::from_parts(0, 12270))
 			.saturating_add(T::DbWeight::get().reads(19))
 			.saturating_add(T::DbWeight::get().writes(14))
@@ -99,11 +99,11 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1538 + b * (95 ±0)`
 		//  Estimated: `7370 + b * (2571 ±0)`
-		// Minimum execution time: 59_492_000 picoseconds.
-		Weight::from_parts(60_825_000, 0)
+		// Minimum execution time: 59_822_000 picoseconds.
+		Weight::from_parts(7_743_225, 0)
 			.saturating_add(Weight::from_parts(0, 7370))
-			// Standard Error: 16_006
-			.saturating_add(Weight::from_parts(10_373_801, 0).saturating_mul(b.into()))
+			// Standard Error: 12_643
+			.saturating_add(Weight::from_parts(10_623_107, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -123,11 +123,11 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `958`
 		//  Estimated: `6794 + b * (1 ±0)`
-		// Minimum execution time: 24_886_000 picoseconds.
-		Weight::from_parts(46_097_548, 0)
+		// Minimum execution time: 24_746_000 picoseconds.
+		Weight::from_parts(42_091_648, 0)
 			.saturating_add(Weight::from_parts(0, 6794))
-			// Standard Error: 327
-			.saturating_add(Weight::from_parts(10_346, 0).saturating_mul(b.into()))
+			// Standard Error: 325
+			.saturating_add(Weight::from_parts(13_552, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(b.into()))
 	}

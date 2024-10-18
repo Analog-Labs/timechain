@@ -80,12 +80,14 @@ impl SubxtClient {
 	pub async fn shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>> {
 		metadata_scope!(self.metadata, {
 			let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
-			Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+			let output = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+			let output_converted = output.map(|static_commitment| (*static_commitment).clone());
+			Ok(output_converted)
 		})
 	}
 
 	pub async fn shard_public_key(&self, shard_id: ShardId) -> Result<Option<TssPublicKey>> {
-		Ok(self.shard_commitment(shard_id).await?.map(|v| v[0]))
+		Ok(self.shard_commitment(shard_id).await?.map(|v| v.0[0]))
 	}
 
 	pub async fn submit_commitment(

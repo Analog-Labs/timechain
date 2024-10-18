@@ -49,7 +49,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::send_email(to.len() as u32, path.len() as u32))]
+		#[pallet::weight(T::WeightInfo::send_email(to.0.len() as u32, path.0.len() as u32))]
 		pub fn send_email(origin: OriginFor<T>, to: DmailTo, path: DmailPath) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			let message = DmailMessage { owner, to, path };

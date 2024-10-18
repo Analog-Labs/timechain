@@ -5,6 +5,7 @@ use crate::{
 };
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
+use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -12,13 +13,17 @@ use scale_codec::{Decode, Encode};
 use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 
+/// Upper bound for shard sizes
+const MAX_SHARD_SIZE: u32 = 100;
+
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];
 pub type TssHash = [u8; 32];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
-pub type Commitment = Vec<TssPublicKey>;
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+pub struct Commitment(pub BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>);
 
 #[cfg(feature = "std")]
 pub mod serde_tss_public_key {

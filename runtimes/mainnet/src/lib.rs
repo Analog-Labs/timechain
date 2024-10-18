@@ -58,7 +58,6 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 
-use scale_info::prelude::string::String;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -84,9 +83,9 @@ use static_assertions::const_assert;
 
 pub use time_primitives::{
 	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	Gateway, GatewayMessage, MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface,
-	Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId,
-	TaskResult, TssPublicKey, TssSignature, ANLOG,
+	ErrorMsg, Gateway, GatewayMessage, MemberStatus, MembersInterface, Moment, NetworkId,
+	NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
+	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
 };
 
 /// weightToFee implementation
@@ -1958,7 +1957,7 @@ impl_runtime_apis! {
 			Tasks::get_task_submitter(task_id)
 		}
 
-		fn get_task_result(task_id: TaskId) -> Option<Result<(), String>>{
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{
 			Tasks::get_task_result(task_id)
 		}
 

@@ -172,6 +172,7 @@ impl SubxtWorker {
 					commitment,
 					proof_of_knowledge,
 				} => {
+					let commitment = subxt::utils::Static(commitment);
 					let payload =
 						metadata::tx().shards().commit(shard_id, commitment, proof_of_knowledge);
 					self.create_signed_payload(&payload).await

@@ -33,20 +33,18 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_dmail`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_dmail::WeightInfo for WeightInfo<T> {
-	/// The range of component `a` is `[1, 1000]`.
-	/// The range of component `b` is `[1, 1000]`.
-	/// The range of component `a` is `[1, 1000]`.
-	/// The range of component `b` is `[1, 1000]`.
-	fn send_email(a: u32, b: u32, ) -> Weight {
+	/// The range of component `a` is `[1, 64]`.
+	/// The range of component `b` is `[1, 64]`.
+	/// The range of component `a` is `[1, 64]`.
+	/// The range of component `b` is `[1, 64]`.
+	fn send_email(_a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_055_000 picoseconds.
-		Weight::from_parts(8_869_443, 0)
+		// Minimum execution time: 7_164_000 picoseconds.
+		Weight::from_parts(8_515_330, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 36
-			.saturating_add(Weight::from_parts(835, 0).saturating_mul(a.into()))
-			// Standard Error: 36
-			.saturating_add(Weight::from_parts(750, 0).saturating_mul(b.into()))
+			// Standard Error: 861
+			.saturating_add(Weight::from_parts(3_398, 0).saturating_mul(b.into()))
 	}
 }

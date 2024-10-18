@@ -5,6 +5,7 @@ use crate::tasks::TaskParams;
 use anyhow::Result;
 use futures::channel::mpsc;
 use gmp::Backend;
+use scale_codec::Decode;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -75,10 +76,12 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 		};
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
+	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
+	let network = String::decode(&mut subchain.0.to_vec().as_slice()).unwrap_or_default();
 	let connector_params = ConnectorParams {
 		network_id: config.network_id,
-		blockchain: chain,
-		network: subchain,
+		blockchain,
+		network,
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
 	};
@@ -148,9 +151,11 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
+	use polkadot_sdk::sp_runtime::BoundedVec;
+	use scale_codec::Encode;
 	use std::time::Duration;
 	use time_primitives::traits::IdentifyAccount;
-	use time_primitives::{AccountId, ShardStatus, Task};
+	use time_primitives::{AccountId, ChainName, ChainNetwork, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
 	///
@@ -197,7 +202,10 @@ mod tests {
 		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
 		let mock = Mock::default().instance(42);
-		let network_id = mock.create_network("rust".into(), "rust".into());
+		let network_id = mock.create_network(
+			ChainName(BoundedVec::truncate_from("rust".encode())),
+			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
+		);
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {
 			let instance = mock.instance(id);

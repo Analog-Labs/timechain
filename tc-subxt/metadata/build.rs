@@ -6,16 +6,23 @@ fn substitute(path: &str, with: &str) -> String {
 
 fn derive(path: &Path, module: &str) -> String {
 	let simple_types = [
+		"time_primitives::dmail::DmailTo",
+		"time_primitives::dmail::DmailPath",
 		"time_primitives::gmp::GmpMessage",
 		"time_primitives::gmp::GatewayOp",
 		"time_primitives::gmp::GatewayMessage",
 		"time_primitives::gmp::GmpEvent",
+		"time_primitives::network::ChainName",
+		"time_primitives::network::ChainNetwork",
 		"time_primitives::network::Network",
 		"time_primitives::network::NetworkConfig",
+		"time_primitives::shard::Commitment",
 		"time_primitives::shard::MemberStatus",
 		"time_primitives::shard::ShardStatus",
 		"time_primitives::task::Task",
 		"time_primitives::task::TaskResult",
+		"time_primitives::task::GmpEvents",
+		"time_primitives::task::ErrorMsg",
 	];
 	let others = [
 		("sp_core::crypto::AccountId32", "time_primitives::AccountId"),

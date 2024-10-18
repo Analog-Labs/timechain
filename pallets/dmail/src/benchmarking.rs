@@ -3,21 +3,17 @@ use crate::Pallet;
 
 use scale_info::prelude::string::String;
 
-use polkadot_sdk::frame_benchmarking::benchmarks;
-use polkadot_sdk::frame_system;
-
 use frame_system::RawOrigin;
-use time_primitives::AccountId;
-
-//TODO: choose & enforce MAX in code
-const MAX_LENGTH: u32 = 1000;
-pub const ALICE: [u8; 32] = [1u8; 32];
+use polkadot_sdk::frame_benchmarking::benchmarks;
+use polkadot_sdk::{frame_system, sp_runtime};
+use scale_codec::Encode;
+use sp_runtime::BoundedVec;
+use time_primitives::{DmailPath, DmailTo, DMAIL_PATH_LEN, DMAIL_TO_LEN};
 
 benchmarks! {
 	send_email {
-		let a in 1..MAX_LENGTH;
-		let b in 1..MAX_LENGTH;
-		let caller: AccountId = ALICE.into();
+		let a in 1..DMAIL_TO_LEN;
+		let b in 1..DMAIL_PATH_LEN;
 
 		let mut to = String::new();
 		let mut path = String::new();
@@ -27,7 +23,9 @@ benchmarks! {
 		for _ in 0..b {
 			path.push('b');
 		}
-	}: _(RawOrigin::Signed(caller), to, path)
+		let to = DmailTo(BoundedVec::truncate_from(to.as_str().encode()));
+		let path = DmailPath(BoundedVec::truncate_from(path.as_str().encode()));
+	}: _(RawOrigin::Signed([0u8; 32].into()), to, path)
 	verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

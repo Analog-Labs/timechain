@@ -3,11 +3,13 @@ use crate::TW_LOG;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream};
+use polkadot_sdk::sp_runtime::BoundedVec;
+use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, GmpParams, IConnector, NetworkId, ShardId, Task, TaskId,
-	TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId,
+	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level};
@@ -104,7 +106,10 @@ impl TaskParams {
 				tracing::info!(target: TW_LOG, task_id, "read {} events", events.len(),);
 				let payload = time_primitives::encode_gmp_events(task_id, &events);
 				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
-				Some(TaskResult::ReadGatewayEvents { events, signature })
+				Some(TaskResult::ReadGatewayEvents {
+					events: GmpEvents(BoundedVec::truncate_from(events)),
+					signature,
+				})
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
@@ -113,11 +118,14 @@ impl TaskParams {
 				let signature =
 					self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
 				let signer =
-					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?[0];
-				if let Err(error) =
+					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
+						[0];
+				if let Err(e) =
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
-					Some(TaskResult::SubmitGatewayMessage { error })
+					Some(TaskResult::SubmitGatewayMessage {
+						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
+					})
 				} else {
 					None
 				}

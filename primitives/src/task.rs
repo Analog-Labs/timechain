@@ -1,7 +1,8 @@
 use crate::{BatchId, GmpEvent, TssSignature, ANLOG};
 use core::ops::Range;
+use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
-use scale_info::{prelude::string::String, prelude::vec::Vec, TypeInfo};
+use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -60,15 +61,26 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 	(task_id, events).encode()
 }
 
+const MAX_GMP_EVENTS: u32 = 1_000;
+const MAX_ERROR_LEN: u32 = 500;
+/// Bounded vec alias for GMP events submitted in results
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+pub struct GmpEvents(pub BoundedVec<GmpEvent, ConstU32<MAX_GMP_EVENTS>>);
+/// Bounded vec alias for SubmitGatewayMessage error
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+pub struct ErrorMsg(pub BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>);
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub enum TaskResult {
 	ReadGatewayEvents {
-		events: Vec<GmpEvent>,
+		events: GmpEvents,
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
 		signature: TssSignature,
 	},
 	SubmitGatewayMessage {
-		error: String,
+		error: ErrorMsg,
 	},
 }

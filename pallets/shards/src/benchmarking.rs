@@ -1,13 +1,13 @@
 use super::*;
 use crate::Pallet;
 
-use polkadot_sdk::{
-	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_std,
-};
-
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
+use polkadot_sdk::{
+	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_runtime, sp_std,
+};
+use sp_runtime::BoundedVec;
 
 use sp_std::vec;
 use sp_std::vec::Vec;
@@ -69,7 +69,7 @@ pub fn get_commitment(member: [u8; 32]) -> Commitment {
 			panic!("Invalid member")
 		},
 	};
-	vec![commitment]
+	Commitment(BoundedVec::truncate_from(vec![commitment]))
 }
 pub fn get_proof_of_knowledge(member: [u8; 32]) -> ProofOfKnowledge {
 	match member {

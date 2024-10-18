@@ -1,4 +1,5 @@
 use crate::Tc;
+use anyhow::Context;
 use anyhow::Result;
 use csv::{Reader, Writer};
 use dotenv::dotenv;
@@ -140,10 +141,10 @@ impl Tc {
 			"X-CMC_PRO_API_KEY",
 			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
 		);
-		let file = File::create(&self.config.config.prices_path)?;
+		let file = File::create(&self.config.global().prices_path)?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
-		for (network_id, network) in &self.config.networks {
+		for (network_id, network) in self.config.networks().iter() {
 			let symbol = network.symbol.clone();
 			let token_url = format!("{}{}", base_url, symbol);
 			let response =
@@ -165,7 +166,7 @@ impl Tc {
 	}
 
 	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		let mut rdr = Reader::from_path(&self.config.config.prices_path)?;
+		let mut rdr = Reader::from_path(&self.config.global().prices_path)?;
 
 		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
 		for result in rdr.deserialize() {
@@ -182,21 +183,23 @@ impl Tc {
 		src_usd_price: f64,
 		dest_usd_price: f64,
 	) -> Result<Ratio<BigUint>> {
-		let src_config = self.config.networks.get(&src_network).unwrap();
+		let src_config = self.config.network(src_network)?;
 		let src_margin: f64 = src_config.gmp_margin;
 		let src_decimals: u32 = src_config.token_decimals;
 
-		let dest_config = self.config.networks.get(&dest_network).unwrap();
+		let dest_config = self.config.network(dest_network)?;
 		let dest_decimals: u32 = dest_config.token_decimals;
 		let dest_gas_fee = dest_config.route_base_fee;
 
-		let src_usd_price = Ratio::from_float(src_usd_price).unwrap();
+		let src_usd_price =
+			Ratio::from_float(src_usd_price).context("Cannot convert float to ratio")?;
 		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
-		let dest_usd_price = Ratio::from_float(dest_usd_price).unwrap();
+		let dest_usd_price =
+			Ratio::from_float(dest_usd_price).context("Cannot convert float to ratio")?;
 		let dest_usd_price = convert_bigint_ratio_to_biguint(dest_usd_price)?;
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
-		let src_margin = Ratio::from_float(src_margin).unwrap();
+		let src_margin = Ratio::from_float(src_margin).context("Cannot convert float to ratio")?;
 
 		// src to dest relative gas price
 		let mut src_to_dest = compute_src_wei_per_dst_gas_rate(

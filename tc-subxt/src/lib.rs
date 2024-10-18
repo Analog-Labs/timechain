@@ -7,6 +7,7 @@ use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::backend::rpc::reconnecting_rpc_client::{Client, ExponentialBackoff};
+use subxt::backend::rpc::RpcClient;
 use subxt_signer::SecretUri;
 use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey};
 
@@ -33,8 +34,11 @@ pub struct SubxtClient {
 
 impl SubxtClient {
 	pub async fn new(url: &str, metadata: MetadataVariant, keypair: Keypair) -> Result<Self> {
-		let (rpc_client, client) = Self::get_client(url).await?;
-		let worker = SubxtWorker::new(rpc_client, client.clone(), metadata, keypair).await?;
+		let rpc = Self::get_client(url).await?;
+		let client = OnlineClient::from_rpc_client(rpc.clone())
+			.await
+			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))?;
+		let worker = SubxtWorker::new(rpc, client.clone(), metadata, keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
@@ -55,18 +59,14 @@ impl SubxtClient {
 		Self::new(url, metadata, keypair).await
 	}
 
-	pub async fn get_client(url: &str) -> Result<(LegacyRpcMethods, OnlineClient)> {
-		let rpc_client = Client::builder()
+	pub async fn get_client(url: &str) -> Result<RpcClient> {
+		let client = Client::builder()
 			.retry_policy(
 				ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)).take(3),
 			)
 			.build(url.to_string())
 			.await?;
-		let rpc = LegacyRpcMethods::new(rpc_client.clone().into());
-		let client = OnlineClient::from_rpc_client(rpc_client.clone())
-			.await
-			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))?;
-		Ok((rpc, client))
+		Ok(client.into())
 	}
 
 	pub fn public_key(&self) -> &PublicKey {

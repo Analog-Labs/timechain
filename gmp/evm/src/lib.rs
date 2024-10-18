@@ -274,6 +274,9 @@ impl IConnector for Connector {
 impl IConnectorAdmin for Connector {
 	/// Deploys the gateway contract.
 	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)> {
+		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		//Step2: load transaction from config
+		//Step3: send eth_rawTransaction
 		let admin = self.address();
 
 		// get deployer's nonce

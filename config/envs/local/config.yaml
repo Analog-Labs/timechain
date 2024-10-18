@@ -7,6 +7,7 @@ config:
   prices_path: 'prices.csv'
 contracts:
   evm:
+    factory: "/etc/deployer/factory.json"
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
     tester: "/etc/contracts/test_contract.sol/VotingContract.json"

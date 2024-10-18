@@ -11,6 +11,7 @@ use futures::{
 	stream::FuturesUnordered,
 	Future, FutureExt, Stream, StreamExt,
 };
+use polkadot_sdk::sp_runtime::BoundedVec;
 use std::sync::Arc;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -19,7 +20,8 @@ use std::{
 	task::Poll,
 };
 use time_primitives::{
-	BlockHash, BlockNumber, ShardId, ShardStatus, TaskId, TssSignature, TssSigningRequest,
+	BlockHash, BlockNumber, Commitment, ShardId, ShardStatus, TaskId, TssSignature,
+	TssSigningRequest,
 };
 use tokio::time::{sleep, Duration};
 use tracing::{event, span, Level, Span};
@@ -131,7 +133,8 @@ where
 
 			let commitment =
 				if let Some(commitment) = self.substrate.get_shard_commitment(shard_id).await? {
-					let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
+					let commitment =
+						VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
 					Some(commitment)
 				} else {
 					None
@@ -159,7 +162,7 @@ where
 				continue;
 			}
 			let commitment = self.substrate.get_shard_commitment(shard_id).await?.unwrap();
-			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment)?;
+			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block_number).await;
 		}
@@ -287,7 +290,7 @@ where
 					self.substrate
 						.submit_commitment(
 							shard_id,
-							commitment.serialize(),
+							Commitment(BoundedVec::truncate_from(commitment.serialize())),
 							proof_of_knowledge.serialize(),
 						)
 						.await

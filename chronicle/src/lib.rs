@@ -5,6 +5,7 @@ use crate::tasks::TaskParams;
 use anyhow::Result;
 use futures::channel::mpsc;
 use gmp::Backend;
+use scale_codec::Decode;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -75,10 +76,12 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 		};
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
+	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
+	let network = String::decode(&mut subchain.0.to_vec().as_slice()).unwrap_or_default();
 	let connector_params = ConnectorParams {
 		network_id: config.network_id,
-		blockchain: chain,
-		network: subchain,
+		blockchain,
+		network,
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
 	};

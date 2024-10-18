@@ -18915,6 +18915,8 @@ dependencies = [
  "futures",
  "gmp",
  "hex",
+ "parity-scale-codec",
+ "polkadot-sdk",
  "reqwest",
  "serde",
  "serde_yaml",

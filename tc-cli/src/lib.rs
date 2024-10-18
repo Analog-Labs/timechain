@@ -1,6 +1,8 @@
 use crate::config::Config;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
+use polkadot_sdk::sp_runtime::BoundedVec;
+use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -9,9 +11,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, BatchId, BlockHash, BlockNumber, ConnectorParams, Gateway, GatewayMessage,
-	GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId,
-	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, ConnectorParams,
+	Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId,
+	NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 
 mod config;
@@ -376,8 +378,10 @@ impl Tc {
 			let sync_status = self.sync_status(network).await?;
 			networks.push(Network {
 				network,
-				chain_name,
-				chain_network,
+				chain_name: String::decode(&mut chain_name.0.to_vec().as_slice())
+					.unwrap_or_default(),
+				chain_network: String::decode(&mut chain_network.0.to_vec().as_slice())
+					.unwrap_or_default(),
 				gateway,
 				gateway_balance,
 				admin,
@@ -425,7 +429,7 @@ impl Tc {
 				e.insert(self.registered_shards(network).await?);
 			}
 			let status = self.runtime.shard_status(shard).await?;
-			let key = self.runtime.shard_commitment(shard).await?.map(|c| c[0]);
+			let key = self.runtime.shard_commitment(shard).await?.map(|c| c.0[0]);
 			let size = self.runtime.shard_members(shard).await?.len() as u16;
 			let threshold = self.runtime.shard_threshold(shard).await?;
 			let mut registered = false;
@@ -480,7 +484,9 @@ impl Tc {
 			task,
 			network: self.runtime.task_network(task).await?.context("invalid task id")?,
 			descriptor: self.runtime.task(task).await?.context("invalid task id")?,
-			output: self.runtime.task_output(task).await?,
+			output: self.runtime.task_output(task).await?.map(|o| {
+				o.map_err(|e| String::decode(&mut e.0.to_vec().as_slice()).unwrap_or_default())
+			}),
 			shard: self.runtime.assigned_shard(task).await?,
 			submitter: self.runtime.task_submitter(task).await?,
 		})
@@ -561,8 +567,8 @@ impl Tc {
 			self.runtime
 				.register_network(time_primitives::Network {
 					id: network,
-					chain_name: config.blockchain.clone(),
-					chain_network: config.network.clone(),
+					chain_name: ChainName(BoundedVec::truncate_from(config.blockchain.encode())),
+					chain_network: ChainNetwork(BoundedVec::truncate_from(config.network.encode())),
 					gateway,
 					gateway_block: block,
 					config: NetworkConfig {

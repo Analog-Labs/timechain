@@ -20,6 +20,8 @@ serde_yaml = "0.9.34"
 surf = { version = "2.3.2", default-features = false, features = [ "h1-client-rustls" ] }
 tabled = "0.16.0"
 tc-subxt.workspace = true
+scale-codec.workspace = true
+polkadot-sdk = { workspace = true, features = ["sp-runtime"]}
 time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
 tracing.workspace = true

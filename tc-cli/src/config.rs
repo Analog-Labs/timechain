@@ -82,6 +82,7 @@ struct ConfigYaml {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GlobalConfig {
+	pub prices_path: PathBuf,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: u128,
@@ -116,14 +117,10 @@ pub struct NetworkConfig {
 	pub batch_size: u32,
 	pub batch_offset: u32,
 	pub batch_gas_limit: u128,
+	pub gmp_margin: f64,
 	pub shard_task_limit: u32,
+	pub symbol: String,
+	pub token_decimals: u32,
 	pub route_gas_limit: u64,
 	pub route_base_fee: u128,
-	pub route_gas_price: Ratio,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Ratio {
-	pub num: u128,
-	pub den: u128,
 }

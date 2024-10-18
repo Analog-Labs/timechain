@@ -83,5 +83,8 @@ services:
     - './config/wallets/target_admin:/etc/target_admin:ro'
     - './config/wallets/timechain_admin:/etc/timechain_admin:ro'
     - './analog-gmp/out:/etc/contracts:ro'
+    - './:/etc/config'
+    env_file:
+    - '.env'
     profiles:
     - never

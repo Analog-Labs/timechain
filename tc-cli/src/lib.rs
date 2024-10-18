@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
@@ -15,8 +16,8 @@ use time_primitives::{
 	Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId,
 	NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
-
 mod config;
+mod gas_price_calculator;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -593,6 +594,7 @@ impl Tc {
 			batch_gas_limit: config.batch_gas_limit,
 			shard_task_limit: config.shard_task_limit,
 		};
+
 		let batch_size = self.runtime.network_batch_size(network).await?;
 		let batch_offset = self.runtime.network_batch_offset(network).await?;
 		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
@@ -628,10 +630,16 @@ impl Tc {
 					continue;
 				}
 				let config = self.config.network(dest)?;
+				let network_prices = self.read_csv_token_prices()?;
+				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
+				let dest_price = get_network_price(&network_prices, &dest)?;
+				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
+				let numerator = convert_bigint_to_u128(ratio.numer())?;
+				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
 					network_id: dest,
 					gateway,
-					relative_gas_price: (config.route_gas_price.num, config.route_gas_price.den),
+					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};

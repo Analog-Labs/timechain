@@ -71,6 +71,7 @@ enum Command {
 		amount: String,
 	},
 	// read data
+	FetchTokenPriceData,
 	Networks,
 	Chronicles,
 	Shards,
@@ -476,6 +477,9 @@ async fn main() -> Result<()> {
 			tc.transfer(network, address, amount).await?;
 		},
 		// read data
+		Command::FetchTokenPriceData => {
+			tc.fetch_token_prices().await?;
+		},
 		Command::Networks => {
 			let networks = tc.networks().await?;
 			print_table(&tc, networks)?;

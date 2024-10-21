@@ -22,9 +22,7 @@ pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
 	fn member_online(_: &AccountId, _: NetworkId) {}
-	fn member_offline(_: &AccountId, _: NetworkId) -> Weight {
-		Weight::default()
-	}
+	fn member_offline(_: &AccountId, _: NetworkId) {}
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
 	fn default_shard_size() -> u16 {
 		0

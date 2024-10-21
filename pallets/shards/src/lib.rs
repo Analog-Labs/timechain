@@ -96,7 +96,6 @@ pub mod pallet {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
-		fn member_offline() -> Weight;
 		fn create_shard() -> Weight;
 		fn do_dkg_timeouts(b: u32) -> Weight;
 	}
@@ -111,10 +110,6 @@ pub mod pallet {
 		}
 
 		fn force_shard_offline() -> Weight {
-			Weight::default()
-		}
-
-		fn member_offline() -> Weight {
 			Weight::default()
 		}
 
@@ -493,16 +488,10 @@ pub mod pallet {
 		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
 		///     - Updates [`ShardState`] with the new new_status.
 		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
-		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
-			let Some(shard_id) = MemberShard::<T>::get(id) else {
-				return T::DbWeight::get().reads(1);
-			};
-			let Some(old_status) = ShardState::<T>::get(shard_id) else {
-				return T::DbWeight::get().reads(2);
-			};
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
-				return T::DbWeight::get().reads(3);
-			};
+		fn member_offline(id: &AccountId, _: NetworkId) {
+			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
 			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
 			members_online = members_online.saturating_less_one();
 			ShardMembersOnline::<T>::insert(shard_id, members_online);
@@ -526,7 +515,6 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
-			<T as Config>::WeightInfo::member_offline()
 		}
 
 		/// Checks if a specified shard is currently online.

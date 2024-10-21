@@ -147,12 +147,12 @@ pub trait ElectionsInterface {
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 	fn default_shard_size() -> u16;
 	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
+	fn member_offline(id: &AccountId, network: NetworkId);
 }
 
 pub trait ShardsInterface {
 	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
+	fn member_offline(id: &AccountId, network: NetworkId);
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;

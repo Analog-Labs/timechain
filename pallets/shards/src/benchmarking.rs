@@ -167,18 +167,6 @@ benchmarks! {
 		}
 	}
 
-	member_offline {
-		let member: AccountId = ALICE.into();
-		let shard: Vec<AccountId> = vec![member.clone(), BOB.into(), CHARLIE.into()];
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
-		let expected_online_count: u16 = shard.len().try_into().unwrap_or_default();
-		assert_eq!(ShardMembersOnline::<T>::get(SHARD_ID), expected_online_count);
-	}: {
-		Pallet::<T>::member_offline(&member, ETHEREUM);
-	} verify {
-		assert_eq!(ShardMembersOnline::<T>::get(SHARD_ID), expected_online_count - 1);
-	}
-
 	do_dkg_timeouts {
 		let b in 1..T::MaxTimeoutsPerBlock::get();
 		for i in 0..b {

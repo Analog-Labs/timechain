@@ -107,17 +107,6 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Shards::MemberShard` (r:1 w:0)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn member_offline() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `6`
-		//  Estimated: `3471`
-		// Minimum execution time: 3_547_000 picoseconds.
-		Weight::from_parts(3_787_000, 0)
-			.saturating_add(Weight::from_parts(0, 3471))
-			.saturating_add(T::DbWeight::get().reads(1))
-	}
-	/// Storage: `Shards::MemberShard` (r:1 w:0)
-	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn create_shard() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6`

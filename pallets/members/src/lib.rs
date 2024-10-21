@@ -293,7 +293,6 @@ pub mod pallet {
 		fn member_offline(member: &AccountId, network: NetworkId) {
 			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));
-			// TODO: remove return Weight in Elections::member_offline if not needed
 			T::Elections::member_offline(member, network);
 		}
 

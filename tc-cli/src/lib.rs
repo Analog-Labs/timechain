@@ -41,6 +41,7 @@ pub struct Tc {
 
 impl Tc {
 	pub async fn new(config: &Path) -> Result<Self> {
+		dotenv::from_path(config.parent().unwrap().join(".env")).ok();
 		let env = Mnemonics::from_env()?;
 		let config = Config::from_file(config)?;
 		while SubxtClient::get_client(&config.global().timechain_url).await.is_err() {

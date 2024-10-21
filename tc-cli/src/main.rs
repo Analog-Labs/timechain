@@ -456,7 +456,6 @@ async fn main() -> Result<()> {
 	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let args = Args::parse();
-	dotenv::dotenv().ok();
 	tracing::info!("main");
 	let now = std::time::SystemTime::now();
 	let tc = args.tc().await?;

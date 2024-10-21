@@ -58,11 +58,15 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
+		fn member_offline() -> Weight;
 		fn set_shard_config() -> Weight;
 		fn try_elect_shard(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
+		fn member_offline() -> Weight {
+			Weight::default()
+		}
 		fn set_shard_config() -> Weight {
 			Weight::default()
 		}
@@ -258,8 +262,7 @@ pub mod pallet {
 		///    3. Returns the weight of the operation.
 		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
 			Unassigned::<T>::remove(network, member);
-			T::DbWeight::get()
-				.writes(1)
+			T::WeightInfo::member_offline()
 				.saturating_add(T::Shards::member_offline(member, network))
 		}
 	}

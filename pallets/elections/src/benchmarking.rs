@@ -5,7 +5,7 @@ use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::frame_system;
 
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, NetworkId};
+use time_primitives::{AccountId, ElectionsInterface, NetworkId};
 
 const ETHEREUM: NetworkId = 0;
 
@@ -22,6 +22,16 @@ benchmarks! {
 	}: {
 		Pallet::<T>::try_elect_shard(ETHEREUM);
 	} verify { }
+
+	member_offline {
+		let member: AccountId = [0u8; 32].into();
+		Unassigned::<T>::insert(ETHEREUM, member.clone(), ());
+		assert!(Unassigned::<T>::get(ETHEREUM, member.clone()).is_some());
+	}: {
+		Pallet::<T>::member_offline(&member, ETHEREUM);
+	} verify {
+		assert!(Unassigned::<T>::get(ETHEREUM, member).is_none());
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

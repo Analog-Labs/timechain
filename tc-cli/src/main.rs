@@ -454,6 +454,7 @@ async fn main() -> Result<()> {
 	tracing::info!("main");
 	let now = std::time::SystemTime::now();
 	let args = Args::parse();
+	dotenv::dotenv().ok();
 	let tc = args.tc().await?;
 	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();

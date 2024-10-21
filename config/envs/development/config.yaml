@@ -3,9 +3,7 @@ config:
   shard_threshold: 1
   chronicle_timechain_funds: 1000000000000
   metadata_variant: testnet
-  timechain_keyfile: 'timechain_keyfile'
   timechain_url: 'wss://rpc.development-gmpv2.analog.one'
-  target_keyfile: 'target_keyfile'
 contracts:
   evm:
     proxy: "../../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"

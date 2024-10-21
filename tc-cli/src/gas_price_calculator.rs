@@ -1,8 +1,8 @@
+use crate::env::CoinMarketCap;
 use crate::Tc;
 use anyhow::Context;
 use anyhow::Result;
 use csv::{Reader, Writer};
-use dotenv::dotenv;
 use num_bigint::{BigInt, BigUint};
 use num_rational::Ratio;
 use num_traits::Signed;
@@ -133,20 +133,18 @@ pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 
 impl Tc {
 	pub async fn fetch_token_prices(&self) -> Result<()> {
-		dotenv().ok();
-		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
-		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");
+		let env = CoinMarketCap::from_env()?;
 		let mut header_map = HeaderMap::new();
 		header_map.insert(
 			"X-CMC_PRO_API_KEY",
-			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
+			HeaderValue::from_str(&env.token_api_key).expect("Failed to create header value"),
 		);
 		let file = File::create(&self.config.global().prices_path)?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
 		for (network_id, network) in self.config.networks().iter() {
 			let symbol = network.symbol.clone();
-			let token_url = format!("{}{}", base_url, symbol);
+			let token_url = format!("{}{}", env.token_price_url, symbol);
 			let response =
 				reqwest::Client::new().get(token_url).headers(header_map.clone()).send().await?;
 			let response = response.json::<TokenPriceData>().await?;

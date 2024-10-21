@@ -274,17 +274,15 @@ pub mod pallet {
 		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
 		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
 		pub(crate) fn try_elect_shard(network: NetworkId) -> Weight {
-			let (weight, num_unassigned) = match Self::new_shard_members(network) {
-				(Some(members), num_unassigned) => {
+			let num_unassigned = match Self::new_shard_members(network) {
+				(Some(members), n) => {
 					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-					(
-						T::Shards::create_shard(network, members, ShardThreshold::<T>::get()).1,
-						num_unassigned,
-					)
+					T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
+					n
 				},
-				(None, num_unassigned) => (Weight::default(), num_unassigned),
+				(None, n) => n,
 			};
-			weight.saturating_add(T::WeightInfo::try_elect_shard(num_unassigned))
+			T::WeightInfo::try_elect_shard(num_unassigned)
 		}
 
 		///  Determines the members for a new shard.

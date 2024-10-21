@@ -27,7 +27,7 @@ const SIGNATURE: TssSignature = [
 
 fn create_simple_task<T: Config + pallet_shards::Config>() {
 	const ETHEREUM: NetworkId = 0;
-	let (shard_id, _) = <T as Config>::Shards::create_shard(
+	let shard_id = <T as Config>::Shards::create_shard(
 		ETHEREUM,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,

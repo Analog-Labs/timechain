@@ -157,16 +157,6 @@ benchmarks! {
 	}: _(RawOrigin::Root, SHARD_ID)
 	verify { }
 
-	create_shard {
-		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
-	}: {
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
-	} verify {
-		for member in shard {
-			assert_eq!(MemberShard::<T>::get(member), Some(SHARD_ID));
-		}
-	}
-
 	do_dkg_timeouts {
 		let b in 1..T::MaxTimeoutsPerBlock::get();
 		for i in 0..b {

@@ -96,7 +96,6 @@ pub mod pallet {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
-		fn create_shard() -> Weight;
 		fn do_dkg_timeouts(b: u32) -> Weight;
 	}
 
@@ -110,10 +109,6 @@ pub mod pallet {
 		}
 
 		fn force_shard_offline() -> Weight {
-			Weight::default()
-		}
-
-		fn create_shard() -> Weight {
 			Weight::default()
 		}
 
@@ -560,11 +555,7 @@ pub mod pallet {
 		///   6. Inserts each member into ShardMembers and associates them with [`MemberStatus::Added`].
 		///   7. Registers each member in `MemberShard` with the `shard_id`.
 		///   8. Emits a [`Event::ShardCreated`] event with the `shard_id` and network.
-		fn create_shard(
-			network: NetworkId,
-			members: Vec<AccountId>,
-			threshold: u16,
-		) -> (ShardId, Weight) {
+		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> ShardId {
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id.saturating_plus_one());
 			<ShardNetwork<T>>::insert(shard_id, network);
@@ -577,7 +568,7 @@ pub mod pallet {
 			}
 			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			(shard_id, <T as Config>::WeightInfo::create_shard())
+			shard_id
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

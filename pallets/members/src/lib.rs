@@ -34,7 +34,10 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::IdentifyAccount;
+	use sp_runtime::{
+		traits::{IdentifyAccount, Zero},
+		Saturating,
+	};
 	use sp_std::vec;
 
 	use polkadot_sdk::pallet_balances;
@@ -47,6 +50,7 @@ pub mod pallet {
 		fn register_member() -> Weight;
 		fn send_heartbeat() -> Weight;
 		fn unregister_member() -> Weight;
+		fn do_heartbeat_timeouts(n: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -57,6 +61,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn unregister_member() -> Weight {
+			Weight::default()
+		}
+		fn do_heartbeat_timeouts(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -81,6 +88,8 @@ pub mod pallet {
 		type MinStake: Get<BalanceOf<Self>>;
 		#[pallet::constant]
 		type HeartbeatTimeout: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
+		type MaxTimeoutsPerBlock: Get<u32>;
 	}
 
 	/// Get network for member
@@ -147,30 +156,11 @@ pub mod pallet {
 	/// Implements hooks for pallet initialization and block processing.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		///  `on_initialize`: Handles periodic heartbeat checks and manages member online/offline statuses.
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let mut weight = Weight::default();
-			if n % T::HeartbeatTimeout::get() == BlockNumberFor::<T>::default() {
-				for (member, _) in MemberOnline::<T>::iter() {
-					if Heartbeat::<T>::take(&member).is_none() {
-						if let Some(network) = MemberNetwork::<T>::get(&member) {
-							weight = weight.saturating_add(Self::member_offline(&member, network));
-						} else {
-							weight = weight.saturating_add(T::DbWeight::get().reads(1));
-						}
-					} else {
-						weight = weight
-							.saturating_add(T::DbWeight::get().reads(1))
-							.saturating_add(T::DbWeight::get().writes(1));
-					}
-				}
-				weight = weight.saturating_add(
-					T::DbWeight::get().writes(Heartbeat::<T>::drain().count() as u64),
-				);
-			}
+			let weight_consumed = Self::do_heartbeat_timeouts(n);
 			log::info!("on_initialize end");
-			weight
+			weight_consumed
 		}
 	}
 
@@ -262,6 +252,26 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Handles periodic heartbeat checks and manages member online/offline statuses.
+		pub(crate) fn do_heartbeat_timeouts(n: BlockNumberFor<T>) -> Weight {
+			let mut num_timeouts = 0u32;
+			if (n % T::HeartbeatTimeout::get()).is_zero() {
+				for (member, _) in MemberOnline::<T>::iter() {
+					if Heartbeat::<T>::take(&member).is_none() {
+						if let Some(network) = MemberNetwork::<T>::get(&member) {
+							Self::member_offline(&member, network);
+							num_timeouts = num_timeouts.saturating_plus_one();
+							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+								return <T as Config>::WeightInfo::do_heartbeat_timeouts(
+									T::MaxTimeoutsPerBlock::get(),
+								);
+							}
+						}
+					}
+				}
+			}
+			<T as Config>::WeightInfo::do_heartbeat_timeouts(num_timeouts)
+		}
 		///  Marks a member as online.
 		/// # Flow
 		///	1. Receives `member` (account of the member) and `network` (NetworkId).
@@ -280,12 +290,11 @@ pub mod pallet {
 		///	2. Removes `member` from [`MemberOnline::<T>`] storage.
 		///	3. Emits [`Event::MemberOffline]`.
 		///	4. Calculates and returns weight adjustments using `T::DbWeight::get()` and `T::Elections::member_offline`.
-		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
+		fn member_offline(member: &AccountId, network: NetworkId) {
 			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));
-			T::DbWeight::get()
-				.writes(2)
-				.saturating_add(T::Elections::member_offline(member, network))
+			// TODO: remove return Weight in Elections::member_offline if not needed
+			T::Elections::member_offline(member, network);
 		}
 
 		/// Performs cleanup tasks when a member is deregistered.
@@ -301,7 +310,7 @@ pub mod pallet {
 			MemberPeerId::<T>::remove(member);
 			Heartbeat::<T>::remove(member);
 			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
-			let _ = Self::member_offline(member, network);
+			Self::member_offline(member, network);
 		}
 
 		/// Retrieves the heartbeat timeout value.

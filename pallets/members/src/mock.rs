@@ -5,7 +5,7 @@ use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io,
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
 use frame_support::weights::Weight;
-use sp_core::{ConstU128, ConstU64};
+use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
@@ -99,6 +99,7 @@ impl pallet_members::Config for Test {
 	type Elections = MockElections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 }
 
 /// To from `now` to block `n`.

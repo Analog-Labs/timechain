@@ -83,6 +83,7 @@ impl pallet_members::Config for Test {
 	type Elections = Elections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

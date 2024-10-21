@@ -59,7 +59,6 @@ impl Tc {
 		.await?;
 		let mut connectors = HashMap::default();
 		for (id, network) in config.networks() {
-			//TODO get network name here
 			let id = *id;
 			let params = ConnectorParams {
 				network_id: id,

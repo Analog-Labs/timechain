@@ -4,6 +4,7 @@ use crate::{LegacyRpcMethods, OnlineClient, TxInBlock};
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, StreamExt};
+use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::sr25519::Keypair;
@@ -34,8 +35,8 @@ pub enum Tx {
 }
 
 pub struct SubxtWorker {
+	rpc: RpcClient,
 	client: OnlineClient,
-	legacy_rpc: LegacyRpcMethods,
 	metadata: MetadataVariant,
 	keypair: Keypair,
 	nonce: u64,
@@ -43,13 +44,13 @@ pub struct SubxtWorker {
 
 impl SubxtWorker {
 	pub async fn new(
-		legacy_rpc: LegacyRpcMethods,
+		rpc: RpcClient,
 		client: OnlineClient,
 		metadata: MetadataVariant,
 		keypair: Keypair,
 	) -> Result<Self> {
 		let mut me = Self {
-			legacy_rpc,
+			rpc,
 			client,
 			metadata,
 			keypair,
@@ -82,7 +83,8 @@ impl SubxtWorker {
 
 	async fn resync_nonce(&mut self) -> Result<()> {
 		let account_id: subxt::utils::AccountId32 = self.keypair.public_key().into();
-		self.nonce = self.legacy_rpc.system_account_next_index(&account_id).await?;
+		let rpc = LegacyRpcMethods::new(self.rpc.clone());
+		self.nonce = rpc.system_account_next_index(&account_id).await?;
 		Ok(())
 	}
 

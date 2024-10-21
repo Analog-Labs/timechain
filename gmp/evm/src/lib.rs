@@ -17,8 +17,9 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
+	Address, BatchId, ConnectorParams, DeploymentConfig, Gateway, GatewayMessage, GmpEvent,
+	GmpMessage, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route,
+	TssPublicKey, TssSignature,
 };
 
 pub(crate) mod sol;
@@ -30,7 +31,7 @@ fn a_addr(address: Address) -> alloy_primitives::Address {
 
 fn t_addr(address: alloy_primitives::Address) -> Address {
 	let mut addr = [0; 32];
-	addr.copy_from_slice(&address.0 .0);
+	addr[..20].copy_from_slice(&address.0[..]);
 	addr
 }
 
@@ -122,7 +123,6 @@ impl IConnectorBuilder for Connector {
 			)
 			.await?,
 		);
-
 		let client = default_client(&params.url, None)
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
@@ -273,10 +273,26 @@ impl IConnector for Connector {
 #[async_trait]
 impl IConnectorAdmin for Connector {
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_gateway(
+		&self,
+		additional_params: &[u8],
+		proxy: &[u8],
+		gateway: &[u8],
+	) -> Result<(Address, u64)> {
+		// get config data in here
+		let deployer_config = DeploymentConfig::from_bytes(&additional_params)?;
+		let deployer_address = self.parse_address(&deployer_config.deployer)?;
 		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		println!("wallet balance :{:?}", self.balance(self.address()).await?);
+		println!("deployer balance :{:?}", self.balance(deployer_address).await?);
+		self.transfer(deployer_address, deployer_config.required_balance).await?;
+		println!("deployer balance :{:?}", self.balance(deployer_address).await?);
 		//Step2: load transaction from config
 		//Step3: send eth_rawTransaction
+		// self.transfer(self.parse_address(self));
+
+		println!("wallet balance :{:?}", self.balance(self.address()).await?);
+		println!("deployer balance :{:?}", self.balance(deployer_address).await?);
 		let admin = self.address();
 
 		// get deployer's nonce
@@ -284,25 +300,27 @@ impl IConnectorAdmin for Connector {
 
 		// compute the proxy address
 		let proxy_addr = a_addr(admin).create(nonce + 1);
-		let proxy_addr = t_addr(proxy_addr);
+		// let proxy_addr = t_addr(proxy_addr);
 
 		// deploy gateway
-		let call = sol::Gateway::constructorCall {
-			networkId: self.network_id,
-			proxy: a_addr(proxy_addr),
-		};
-		let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
+		// let call = sol::Gateway::constructorCall {
+		// 	networkId: self.network_id,
+		// 	proxy: a_addr(proxy_addr),
+		// };
+		// let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
 
-		// deploy the proxy contract
-		let call = sol::GatewayProxy::constructorCall {
-			implementation: a_addr(gateway_addr),
-		};
-		let (actual_addr, block_number) = self.deploy_contract(proxy, call).await?;
+		// // deploy the proxy contract
+		// let call = sol::GatewayProxy::constructorCall {
+		// 	implementation: a_addr(gateway_addr),
+		// };
+		// let (actual_addr, block_number) = self.deploy_contract(proxy, call).await?;
 
-		// Check if the proxy address match the expect address
-		if proxy_addr != actual_addr {
-			anyhow::bail!("Proxy address mismatch, expect {proxy_addr:?}, got {actual_addr:?}");
-		}
+		// // Check if the proxy address match the expect address
+		// if proxy_addr != actual_addr {
+		// 	anyhow::bail!("Proxy address mismatch, expect {proxy_addr:?}, got {actual_addr:?}");
+		// }
+		let actual_addr = todo!();
+		let block_number = todo!();
 		Ok((actual_addr, block_number))
 	}
 	/// Redeploys the gateway contract.

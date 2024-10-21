@@ -172,7 +172,12 @@ impl IConnector for Connector {
 #[tonic::async_trait]
 impl IConnectorAdmin for Connector {
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_gateway(
+		&self,
+		_additional_params: &[u8],
+		proxy: &[u8],
+		gateway: &[u8],
+	) -> Result<(Address, u64)> {
 		let request = Request::new(proto::DeployGatewayRequest {
 			proxy: proxy.to_vec(),
 			gateway: gateway.to_vec(),

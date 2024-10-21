@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tc_subxt::MetadataVariant;
-use time_primitives::NetworkId;
+use time_primitives::{DeploymentConfig, NetworkId};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -58,6 +58,16 @@ impl Config {
 		})
 	}
 
+	pub fn base_transactions(&self, network: NetworkId) -> Result<DeploymentConfig> {
+		let network = self.network(network)?;
+		Ok(self
+			.yaml
+			.base_transactions
+			.get(&network.backend)
+			.ok_or_else(|| anyhow::anyhow!("Base transactions node found"))?
+			.clone())
+	}
+
 	pub fn networks(&self) -> &HashMap<NetworkId, NetworkConfig> {
 		&self.yaml.networks
 	}
@@ -70,6 +80,7 @@ impl Config {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigYaml {
 	config: GlobalConfig,
+	base_transactions: HashMap<Backend, DeploymentConfig>,
 	contracts: HashMap<Backend, ContractsConfig>,
 	networks: HashMap<NetworkId, NetworkConfig>,
 	chronicles: Vec<String>,
@@ -88,7 +99,6 @@ pub struct GlobalConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ContractsConfig {
-	factory: PathBuf,
 	proxy: PathBuf,
 	gateway: PathBuf,
 	tester: PathBuf,

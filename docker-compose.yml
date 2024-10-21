@@ -36,11 +36,14 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=http://gmp-grpc-0:3000'
+    - '--target-url=ws://ethereum:8545'
+    # - '--target-url=http://gmp-grpc-0:3000'
     - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
-    - '--network-id=0'
-    - '--backend=grpc'
+    # - '--network-id=0'
+    - '--network-id=3'
+    - '--backend=evm'
+    # - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
@@ -64,14 +67,42 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=http://gmp-grpc-1:3000'
+    - '--target-url=ws://ethereum:8545'
+    # - '--target-url=http://gmp-grpc-1:3000'
     - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
-    - '--network-id=1'
-    - '--backend=grpc'
+    # - '--network-id=1'
+    - '--network-id=3'
+    # - '--backend=grpc'
+    - '--backend=evm'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+
+
+  ethereum:
+    image: 'ethereum/client-go:v1.13.14'
+    command:
+    - '--dev'
+    - '--dev.gaslimit=30000000'
+    - '--ipcdisable'
+    - '--dev.period=2'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
+    - '--ws'
+    - '--ws.addr=0.0.0.0'
+    - '--ws.port=8545'
+    - '--ws.origins=*'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
+    profiles:
+    - ethereum
+    - ethereum3
+    ports:
+    - 8545:8545
 
   tc-cli:
     image: 'analoglabs/tc-cli-development'

@@ -283,6 +283,7 @@ impl IConnector for Connector {
 impl IConnectorAdmin for Connector {
 	async fn deploy_gateway(
 		&self,
+		_additional_params: &[u8],
 		_gateway: &[u8],
 		_gateway_impl: &[u8],
 	) -> Result<(Address, u64)> {

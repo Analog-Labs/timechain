@@ -2,7 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
-use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
+use polkadot_sdk::{sp_api, sp_core, sp_runtime};
 use scale_info::prelude::{string::String, vec::Vec};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{

@@ -1,6 +1,7 @@
 use crate::mock::*;
+use crate::{ShardRegistered, ShardTasks};
 use frame_system::RawOrigin;
-use pallet_shards::ShardState;
+use pallet_shards::{ShardIdCounter, ShardState};
 use time_primitives::{
 	Function, NetworkId, ShardStatus, ShardsInterface, TaskDescriptorParams, TasksInterface,
 };
@@ -8,13 +9,15 @@ use time_primitives::{
 const ETHEREUM: NetworkId = 0;
 
 fn create_shard() {
+	let id = ShardIdCounter::<Test>::get();
 	Shards::create_shard(
 		ETHEREUM,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
 	);
 	ShardState::<Test>::insert(0, ShardStatus::Online);
-	Tasks::shard_online(0, ETHEREUM);
+	ShardRegistered::<Test>::insert(0, ());
+	Tasks::shard_online(id, ETHEREUM);
 }
 
 fn create_task() {
@@ -41,9 +44,13 @@ fn test_blocktime() {
 		for _ in 0..100 {
 			create_shard();
 		}
+		Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0).unwrap();
 		for _ in 0..10000 {
 			create_task();
 		}
 		roll(1);
+		for i in 0..10 {
+			assert_eq!(ShardTasks::<Test>::iter_prefix(i).count(), 10);
+		}
 	});
 }

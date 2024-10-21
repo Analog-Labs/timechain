@@ -4,7 +4,7 @@ use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_io,
 
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
-use sp_core::{ConstU128, ConstU64};
+use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
@@ -73,6 +73,7 @@ impl pallet_shards::Config for Test {
 	type Tasks = MockTasks;
 	type Members = Members;
 	type Elections = Elections;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
 }
 

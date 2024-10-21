@@ -994,6 +994,7 @@ impl pallet_shards::Config for Runtime {
 	type Members = Members;
 	type Elections = Elections;
 	type Tasks = Tasks;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU32<10>;
 }
 

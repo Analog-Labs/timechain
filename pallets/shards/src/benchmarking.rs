@@ -7,20 +7,20 @@ use frame_system::RawOrigin;
 use polkadot_sdk::{
 	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_runtime, sp_std,
 };
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, Saturating};
 
 use sp_std::vec;
 use sp_std::vec::Vec;
 
 use time_primitives::{
-	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardsInterface,
+	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardStatus, ShardsInterface,
 };
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const BOB: [u8; 32] = [2u8; 32];
 pub const CHARLIE: [u8; 32] = [3u8; 32];
 pub const ETHEREUM: NetworkId = 0;
-const SHARD_ID: ShardId = 0;
+const SHARD_ID: u64 = 0;
 
 fn public_key(acc: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
@@ -177,6 +177,20 @@ benchmarks! {
 		Pallet::<T>::member_offline(&member, ETHEREUM);
 	} verify {
 		assert_eq!(ShardMembersOnline::<T>::get(SHARD_ID), expected_online_count - 1);
+	}
+
+	do_dkg_timeouts {
+		let b in 1..T::MaxTimeoutsPerBlock::get();
+		for i in 0..b {
+			Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1);
+			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Created));
+		}
+	}: {
+		Pallet::<T>::do_dkg_timeouts(T::DkgTimeout::get().saturating_add(T::DkgTimeout::get()));
+	} verify {
+		for i in 0..b {
+			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Offline));
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

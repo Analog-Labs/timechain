@@ -15,7 +15,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "0"
-    url: "https://gmp-grpc-1.development-gmpv2.analog.one:443"
+    url: "https://gmp-grpc-1.development.analog.one:443"
     gateway_funds: 10000
     chronicle_target_funds: 100000
     batch_size: 64
@@ -31,7 +31,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "1"
-    url: "https://gmp-grpc-2.development-gmpv2.analog.one:443"
+    url: "https://gmp-grpc-2.development.analog.one:443"
     gateway_funds: 10000
     chronicle_target_funds: 100000
     batch_size: 64
@@ -44,9 +44,9 @@ networks:
     symbol: B
     token_decimals: 12
 chronicles:
-- https://chronicle-1.development-gmpv2.analog.one
-- https://chronicle-2.development-gmpv2.analog.one
-- https://chronicle-3.development-gmpv2.analog.one
-- https://chronicle-7.development-gmpv2.analog.one
-- https://chronicle-8.development-gmpv2.analog.one
-- https://chronicle-9.development-gmpv2.analog.one
+- https://chronicle-1.development.analog.one
+- https://chronicle-2.development.analog.one
+- https://chronicle-3.development.analog.one
+- https://chronicle-7.development.analog.one
+- https://chronicle-8.development.analog.one
+- https://chronicle-9.development.analog.one

@@ -140,6 +140,10 @@ enum Command {
 		dest: NetworkId,
 		num_messages: u16,
 	},
+	Log {
+		#[clap(subcommand)]
+		query: tc_cli::loki::Query,
+	},
 }
 
 trait IntoRow {
@@ -451,10 +455,10 @@ impl IntoRow for MessageTrace {
 async fn main() -> Result<()> {
 	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
-	tracing::info!("main");
-	let now = std::time::SystemTime::now();
 	let args = Args::parse();
 	dotenv::dotenv().ok();
+	tracing::info!("main");
+	let now = std::time::SystemTime::now();
 	let tc = args.tc().await?;
 	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
@@ -633,6 +637,11 @@ async fn main() -> Result<()> {
 				if msgs.is_empty() {
 					break;
 				}
+			}
+		},
+		Command::Log { query } => {
+			for log in tc_cli::loki::logs(query).await? {
+				println!("{log}");
 			}
 		},
 	}

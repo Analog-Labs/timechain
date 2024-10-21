@@ -4,6 +4,7 @@ config:
   chronicle_timechain_funds: 1000000000000
   metadata_variant: testnet
   timechain_url: 'wss://rpc.development-gmpv2.analog.one'
+  prices_path: 'prices.csv'
 contracts:
   evm:
     proxy: "../../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
@@ -23,9 +24,9 @@ networks:
     shard_task_limit: 50
     route_gas_limit: 10000
     route_base_fee: 10000
-    route_gas_price:
-      num: 10
-      den: 1
+    gmp_margin: 0.1
+    symbol: A
+    token_decimals: 12
   1:
     backend: "grpc"
     blockchain: "rust"
@@ -39,9 +40,9 @@ networks:
     shard_task_limit: 50
     route_gas_limit: 10000
     route_base_fee: 10000
-    route_gas_price:
-      num: 10
-      den: 1
+    gmp_margin: 0.1
+    symbol: B
+    token_decimals: 12
 chronicles:
 - https://chronicle-1.development-gmpv2.analog.one
 - https://chronicle-2.development-gmpv2.analog.one

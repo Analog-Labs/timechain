@@ -21,7 +21,7 @@ use time_primitives::{
 mod config;
 mod env;
 mod gas_price_calculator;
-mod loki;
+pub mod loki;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {

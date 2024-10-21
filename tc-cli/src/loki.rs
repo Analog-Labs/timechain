@@ -76,8 +76,7 @@ pub async fn logs(query: Query) -> Result<Vec<String>> {
 		.data
 		.result
 		.into_iter()
-		.map(|v| v.values)
-		.flatten()
+		.flat_map(|v| v.values)
 		.map(|(_, log)| log)
 		.collect())
 }

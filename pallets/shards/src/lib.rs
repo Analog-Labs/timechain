@@ -97,6 +97,7 @@ pub mod pallet {
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
 		fn member_offline() -> Weight;
+		fn create_shard() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -113,6 +114,10 @@ pub mod pallet {
 		}
 
 		fn member_offline() -> Weight {
+			Weight::default()
+		}
+
+		fn create_shard() -> Weight {
 			Weight::default()
 		}
 	}
@@ -561,29 +566,19 @@ pub mod pallet {
 			members: Vec<AccountId>,
 			threshold: u16,
 		) -> (ShardId, Weight) {
-			let (mut reads, mut writes) = (0, 0);
 			let shard_id = <ShardIdCounter<T>>::get();
-			<ShardIdCounter<T>>::put(shard_id + 1);
+			<ShardIdCounter<T>>::put(shard_id.saturating_plus_one());
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
 			<DkgTimeout<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
 			<ShardThreshold<T>>::insert(shard_id, threshold);
-			// ShardIdCounter, frame_system::Pallet::<T>::block_number()
-			reads = reads.saturating_add(2);
-			// ShardIdCounter, ShardNetwork, ShardState, DkgTimeout, ShardThreshold
-			writes = writes.saturating_add(5);
 			for member in &members {
 				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
 				MemberShard::<T>::insert(member, shard_id);
-				// ShardMembers, MemberShard
-				writes = writes.saturating_add(2);
 			}
 			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			// Event Emission
-			writes = writes.saturating_plus_one();
-			let weight = T::DbWeight::get().reads_writes(reads, writes);
-			(shard_id, weight)
+			(shard_id, <T as Config>::WeightInfo::create_shard())
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

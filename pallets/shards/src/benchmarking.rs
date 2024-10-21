@@ -13,13 +13,14 @@ use sp_std::vec;
 use sp_std::vec::Vec;
 
 use time_primitives::{
-	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardsInterface,
+	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardsInterface,
 };
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const BOB: [u8; 32] = [2u8; 32];
 pub const CHARLIE: [u8; 32] = [3u8; 32];
 pub const ETHEREUM: NetworkId = 0;
+const SHARD_ID: ShardId = 0;
 
 fn public_key(acc: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
@@ -111,7 +112,7 @@ benchmarks! {
 				)?;
 			}
 		}
-	}: _(RawOrigin::Signed(ALICE.into()), 0, get_commitment(ALICE),
+	}: _(RawOrigin::Signed(ALICE.into()), SHARD_ID, get_commitment(ALICE),
 	get_proof_of_knowledge(ALICE))
 	verify { }
 
@@ -143,25 +144,40 @@ benchmarks! {
 			if member != ALICE {
 				Pallet::<T>::ready(
 					RawOrigin::Signed(member.into()).into(),
-					0,
+					SHARD_ID,
 				)?;
 			}
 		}
-	}: _(RawOrigin::Signed(ALICE.into()), 0)
+	}: _(RawOrigin::Signed(ALICE.into()), SHARD_ID)
 	verify { }
 
 	force_shard_offline {
 		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
-	}: _(RawOrigin::Root, 0)
+	}: _(RawOrigin::Root, SHARD_ID)
 	verify { }
+
+	create_shard {
+		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
+	}: {
+		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
+	} verify {
+		for member in shard {
+			assert_eq!(MemberShard::<T>::get(member), Some(SHARD_ID));
+		}
+	}
 
 	member_offline {
 		let member: AccountId = ALICE.into();
-		Pallet::<T>::member_online(&member, ETHEREUM);
+		let shard: Vec<AccountId> = vec![member.clone(), BOB.into(), CHARLIE.into()];
+		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
+		let expected_online_count: u16 = shard.len().try_into().unwrap_or_default();
+		assert_eq!(ShardMembersOnline::<T>::get(SHARD_ID), expected_online_count);
 	}: {
 		Pallet::<T>::member_offline(&member, ETHEREUM);
-	} verify { }
+	} verify {
+		assert_eq!(ShardMembersOnline::<T>::get(SHARD_ID), expected_online_count - 1);
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

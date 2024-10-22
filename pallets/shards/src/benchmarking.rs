@@ -1,5 +1,5 @@
 use super::*;
-use crate::Pallet;
+use crate::{Config, Pallet};
 
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get};
@@ -158,7 +158,7 @@ benchmarks! {
 	verify { }
 
 	do_dkg_timeouts {
-		let b in 1..T::MaxTimeoutsPerBlock::get();
+		let b in 1..<T as Config>::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
 			Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1);
 			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Created));

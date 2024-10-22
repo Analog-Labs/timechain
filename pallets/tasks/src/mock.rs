@@ -11,7 +11,7 @@ use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnInitialize,
 };
-use frame_support::{pallet_prelude::Weight, PalletId};
+use frame_support::PalletId;
 
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{

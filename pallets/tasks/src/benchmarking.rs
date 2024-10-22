@@ -1,4 +1,4 @@
-use crate::{Call, Config, Pallet};
+use crate::{Call, Config, Pallet, TaskShard};
 use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
 use frame_support::traits::OnInitialize;
@@ -53,10 +53,15 @@ benchmarks! {
 		for i in 0..b {
 			create_simple_task::<T>();
 		}
-		Pallet::<T>::prepare_batches();
 	}: {
 		Pallet::<T>::schedule_tasks();
-	} verify { }
+	} verify {
+		// expect all tasks are assigned to shards
+		for i in 0..b {
+			let task_id: u64 = i.into();
+			assert!(TaskShard::<T>::get(task_id).is_some());
+		}
+	}
 
 	prepare_batches {
 		let b in 1..<T as Config>::MaxBatchesPerBlock::get();
@@ -65,7 +70,9 @@ benchmarks! {
 		}
 	}: {
 		Pallet::<T>::prepare_batches();
-	} verify { }
+	} verify {
+		// expect MaxBatchesPerBlock prepared TODO
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

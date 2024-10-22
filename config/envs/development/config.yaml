@@ -25,7 +25,7 @@ networks:
     route_gas_limit: 10000
     route_base_fee: 10000
     gmp_margin: 0.1
-    symbol: A
+    symbol: ETH
     token_decimals: 12
   1:
     backend: "grpc"
@@ -41,7 +41,7 @@ networks:
     route_gas_limit: 10000
     route_base_fee: 10000
     gmp_margin: 0.1
-    symbol: B
+    symbol: ASTR
     token_decimals: 12
 chronicles:
 - https://chronicle-1.development.analog.one

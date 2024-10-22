@@ -29,6 +29,10 @@ impl Config {
 		self.path.join(other)
 	}
 
+	pub fn prices(&self) -> PathBuf {
+		self.relative_path(&self.yaml.config.prices_path)
+	}
+
 	pub fn global(&self) -> &GlobalConfig {
 		&self.yaml.config
 	}
@@ -72,7 +76,7 @@ struct ConfigYaml {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GlobalConfig {
-	pub prices_path: PathBuf,
+	prices_path: PathBuf,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: u128,

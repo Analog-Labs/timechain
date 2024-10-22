@@ -1,6 +1,4 @@
-use crate::{
-	BatchIdCounter, Call, Config, NetworkShards, Pallet, TaskIdCounter, TaskOutput, TaskShard,
-};
+use crate::{BatchIdCounter, Call, Config, Pallet, TaskIdCounter, TaskOutput, TaskShard};
 use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
 use frame_support::traits::OnInitialize;
@@ -11,8 +9,8 @@ use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_runtime, 
 use sp_runtime::BoundedVec;
 use sp_std::vec;
 use time_primitives::{
-	Commitment, GatewayOp, GmpEvents, NetworkId, ShardStatus, ShardsInterface, Task, TaskId,
-	TaskResult, TssPublicKey, TssSignature,
+	Commitment, GmpEvents, NetworkId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult,
+	TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -28,16 +26,15 @@ const SIGNATURE: TssSignature = [
 	63, 100,
 ];
 
-fn create_shard<T: Config + pallet_shards::Config>() {
+fn create_shard<T: Config + pallet_shards::Config + pallet_networks::Config>() {
+	NetworkGatewayAddress::<T>::insert(ETHEREUM, [0; 32]);
 	let shard_id = <T as Config>::Shards::create_shard(
 		ETHEREUM,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
 	);
 	ShardCommitment::<T>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![PUBKEY])));
-	// Effects of calling shard_online when gateway setup
-	NetworkShards::<T>::insert(ETHEREUM, shard_id, ());
-	Pallet::<T>::ops_queue(ETHEREUM).push(GatewayOp::RegisterShard(PUBKEY));
+	Pallet::<T>::shard_online(shard_id, ETHEREUM);
 	ShardState::<T>::insert(shard_id, ShardStatus::Online);
 }
 
@@ -49,7 +46,6 @@ benchmarks! {
 	where_clause {  where T: pallet_shards::Config + pallet_networks::Config }
 
 	submit_task_result {
-		NetworkGatewayAddress::<T>::insert(0, [0; 32]);
 		create_shard::<T>();
 		let task_id = create_task::<T>();
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());

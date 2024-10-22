@@ -43,6 +43,8 @@
 mod benchmarking;
 pub use pallet::*;
 #[cfg(test)]
+mod blocktime;
+#[cfg(test)]
 mod mock;
 pub mod queue;
 #[cfg(test)]

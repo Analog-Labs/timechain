@@ -37,6 +37,7 @@ time-primitives = { path = "../../primitives", default-features = false }
 simple-mermaid.workspace = true
 
 [dev-dependencies]
+env_logger.workspace = true
 #polkadot-sdk = { workspace = true, features = [ "sp-io" ] }
 
 sp-io = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }

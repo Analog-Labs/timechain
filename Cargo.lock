@@ -10332,6 +10332,7 @@ dependencies = [
 name = "pallet-tasks"
 version = "0.6.1"
 dependencies = [
+ "env_logger 0.11.5",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

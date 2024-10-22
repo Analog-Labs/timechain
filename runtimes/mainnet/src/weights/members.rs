@@ -107,4 +107,20 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	/// Storage: `Members::MemberNetwork` (r:1 w:0)
+	/// Proof: `Members::MemberNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Members::MemberOnline` (r:1 w:0)
+	/// Proof: `Members::MemberOnline` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Members::Heartbeat` (r:0 w:1)
+	/// Proof: `Members::Heartbeat` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn do_heartbeat_timeouts(_: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `293`
+		//  Estimated: `3758`
+		// Minimum execution time: 22_822_000 picoseconds.
+		Weight::from_parts(24_736_000, 0)
+			.saturating_add(Weight::from_parts(0, 3758))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

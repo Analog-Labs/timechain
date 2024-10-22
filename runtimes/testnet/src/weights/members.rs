@@ -107,4 +107,14 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
+	fn do_heartbeat_timeouts(_: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `293`
+		//  Estimated: `3758`
+		// Minimum execution time: 22_822_000 picoseconds.
+		Weight::from_parts(24_736_000, 0)
+			.saturating_add(Weight::from_parts(0, 3758))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

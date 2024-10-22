@@ -29,14 +29,8 @@ impl Config {
 		self.path.join(other)
 	}
 
-	pub fn timechain_mnemonic(&self) -> Result<String> {
-		let path = self.relative_path(&self.yaml.config.timechain_keyfile);
-		std::fs::read_to_string(path).context("failed to read timechain keyfile")
-	}
-
-	pub fn target_mnemonic(&self) -> Result<String> {
-		let path = self.relative_path(&self.yaml.config.target_keyfile);
-		std::fs::read_to_string(path).context("failed to read target keyfile")
+	pub fn prices(&self) -> PathBuf {
+		self.relative_path(&self.yaml.config.prices_path)
 	}
 
 	pub fn global(&self) -> &GlobalConfig {
@@ -82,14 +76,12 @@ struct ConfigYaml {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GlobalConfig {
-	pub prices_path: PathBuf,
+	prices_path: PathBuf,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: u128,
 	pub metadata_variant: MetadataVariant,
-	timechain_keyfile: PathBuf,
 	pub timechain_url: String,
-	target_keyfile: PathBuf,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

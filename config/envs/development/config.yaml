@@ -3,9 +3,8 @@ config:
   shard_threshold: 1
   chronicle_timechain_funds: 1000000000000
   metadata_variant: testnet
-  timechain_keyfile: 'timechain_keyfile'
   timechain_url: 'wss://rpc.development-gmpv2.analog.one'
-  target_keyfile: 'target_keyfile'
+  prices_path: 'prices.csv'
 contracts:
   evm:
     proxy: "../../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
@@ -16,7 +15,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "0"
-    url: "https://gmp-grpc-1.development-gmpv2.analog.one:443"
+    url: "https://gmp-grpc-1.development.analog.one:443"
     gateway_funds: 10000
     chronicle_target_funds: 100000
     batch_size: 64
@@ -25,14 +24,14 @@ networks:
     shard_task_limit: 50
     route_gas_limit: 10000
     route_base_fee: 10000
-    route_gas_price:
-      num: 10
-      den: 1
+    gmp_margin: 0.1
+    symbol: ETH
+    token_decimals: 12
   1:
     backend: "grpc"
     blockchain: "rust"
     network: "1"
-    url: "https://gmp-grpc-2.development-gmpv2.analog.one:443"
+    url: "https://gmp-grpc-2.development.analog.one:443"
     gateway_funds: 10000
     chronicle_target_funds: 100000
     batch_size: 64
@@ -41,13 +40,13 @@ networks:
     shard_task_limit: 50
     route_gas_limit: 10000
     route_base_fee: 10000
-    route_gas_price:
-      num: 10
-      den: 1
+    gmp_margin: 0.1
+    symbol: ASTR
+    token_decimals: 12
 chronicles:
-- https://chronicle-1.development-gmpv2.analog.one
-- https://chronicle-2.development-gmpv2.analog.one
-- https://chronicle-3.development-gmpv2.analog.one
-- https://chronicle-7.development-gmpv2.analog.one
-- https://chronicle-8.development-gmpv2.analog.one
-- https://chronicle-9.development-gmpv2.analog.one
+- https://chronicle-1.development.analog.one
+- https://chronicle-2.development.analog.one
+- https://chronicle-3.development.analog.one
+- https://chronicle-7.development.analog.one
+- https://chronicle-8.development.analog.one
+- https://chronicle-9.development.analog.one

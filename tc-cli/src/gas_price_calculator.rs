@@ -1,8 +1,7 @@
+use crate::env::CoinMarketCap;
 use crate::Tc;
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use csv::{Reader, Writer};
-use dotenv::dotenv;
 use num_bigint::{BigInt, BigUint};
 use num_rational::Ratio;
 use num_traits::Signed;
@@ -133,22 +132,27 @@ pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 
 impl Tc {
 	pub async fn fetch_token_prices(&self) -> Result<()> {
-		dotenv().ok();
-		let base_url = std::env::var("TOKEN_PRICE_URL").expect("Couldnt find price url from env");
-		let api_key = std::env::var("TOKEN_API_KEY").expect("Couldnt find price url from env");
+		let env = CoinMarketCap::from_env()?;
 		let mut header_map = HeaderMap::new();
 		header_map.insert(
 			"X-CMC_PRO_API_KEY",
-			HeaderValue::from_str(&api_key).expect("Failed to create header value"),
+			HeaderValue::from_str(&env.token_api_key).expect("Failed to create header value"),
 		);
-		let file = File::create(&self.config.global().prices_path)?;
+		let price_path = self.config.prices();
+		let file = File::create(&price_path)
+			.with_context(|| format!("failed to create {}", price_path.display()))?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
 		for (network_id, network) in self.config.networks().iter() {
 			let symbol = network.symbol.clone();
-			let token_url = format!("{}{}", base_url, symbol);
-			let response =
-				reqwest::Client::new().get(token_url).headers(header_map.clone()).send().await?;
+			let token_url = format!("{}{}", env.token_price_url, symbol);
+			let client = reqwest::Client::new();
+			let request = client.get(token_url).headers(header_map.clone()).build()?;
+			log::info!("GET {}", request.url());
+			let response = client.execute(request).await?;
+			if response.status() != 200 {
+				anyhow::bail!("{}", response.status());
+			}
 			let response = response.json::<TokenPriceData>().await?;
 			let data = response.data[0].clone();
 			let usd_price = data
@@ -166,7 +170,9 @@ impl Tc {
 	}
 
 	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		let mut rdr = Reader::from_path(&self.config.global().prices_path)?;
+		let price_path = self.config.prices();
+		let mut rdr = Reader::from_path(&price_path)
+			.with_context(|| format!("failed to open {}", price_path.display()))?;
 
 		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
 		for result in rdr.deserialize() {

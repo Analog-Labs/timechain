@@ -8,5 +8,8 @@
 # Srtool artifacts
 runtime/target/srtool
 
+# secrets
+.env
+
 #Temp files
 prices.csv

@@ -80,7 +80,7 @@ services:
       RUST_BACKTRACE: 1
     volumes:
     - './config/envs/local/config.yaml:/etc/config.yaml:ro'
-    - './config/envs/local/prices.csv:/etc/prices.csv:ro'
+    - './config/envs/local/prices.csv:/etc/prices.csv'
     - './analog-gmp/out:/etc/contracts:ro'
     env_file:
     - './config/envs/local/.env'

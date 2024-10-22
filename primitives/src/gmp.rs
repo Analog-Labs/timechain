@@ -283,41 +283,6 @@ pub struct Route {
 }
 
 #[cfg(feature = "std")]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DeploymentConfig {
-	pub deployer: String,
-	pub required_balance: u128,
-	pub transaction_file: String,
-}
-
-#[cfg(feature = "std")]
-impl DeploymentConfig {
-	pub fn to_bytes(&self) -> Vec<u8> {
-		let mut bytes = Vec::new();
-		let deployer = self.deployer.strip_prefix("0x").unwrap_or(&self.deployer);
-		bytes.extend_from_slice(deployer.as_bytes());
-		bytes.extend_from_slice(&self.required_balance.to_be_bytes());
-		bytes.extend_from_slice(&self.transaction_file.as_bytes());
-		bytes
-	}
-
-	// evm specific conversion
-	pub fn from_bytes(bytes: &[u8]) -> Result<DeploymentConfig> {
-		if bytes.len() < 56 {
-			anyhow::bail!("Invalid bytes length");
-		}
-		let deployer = String::from_utf8(bytes[..40].to_vec())?;
-		let required_balance = u128::from_be_bytes(bytes[40..56].try_into().unwrap());
-		let transaction_file = String::from_utf8_lossy(&bytes[56..]);
-		Ok(Self {
-			deployer,
-			required_balance,
-			transaction_file: transaction_file.to_string(),
-		})
-	}
-}
-
-#[cfg(feature = "std")]
 #[async_trait::async_trait]
 pub trait IChain: Send + Sync + 'static {
 	/// Formats an address into a string.

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tc_subxt::MetadataVariant;
-use time_primitives::{DeploymentConfig, NetworkId};
+use time_primitives::NetworkId;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -52,20 +52,16 @@ impl Config {
 					.context("failed to read gateway contract")?,
 				tester: std::fs::read(self.relative_path(&contracts.tester))
 					.context("failed to read tester contract")?,
+				additional_params: contracts
+					.additional_params
+					.to_str()
+					.context("Failed to convert additional params")?
+					.as_bytes()
+					.to_vec(),
 			}
 		} else {
 			Contracts::default()
 		})
-	}
-
-	pub fn base_transactions(&self, network: NetworkId) -> Result<DeploymentConfig> {
-		let network = self.network(network)?;
-		Ok(self
-			.yaml
-			.base_transactions
-			.get(&network.backend)
-			.ok_or_else(|| anyhow::anyhow!("Base transactions node found"))?
-			.clone())
 	}
 
 	pub fn networks(&self) -> &HashMap<NetworkId, NetworkConfig> {
@@ -80,7 +76,6 @@ impl Config {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigYaml {
 	config: GlobalConfig,
-	base_transactions: HashMap<Backend, DeploymentConfig>,
 	contracts: HashMap<Backend, ContractsConfig>,
 	networks: HashMap<NetworkId, NetworkConfig>,
 	chronicles: Vec<String>,
@@ -99,6 +94,7 @@ pub struct GlobalConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ContractsConfig {
+	additional_params: PathBuf,
 	proxy: PathBuf,
 	gateway: PathBuf,
 	tester: PathBuf,
@@ -106,6 +102,7 @@ struct ContractsConfig {
 
 #[derive(Default)]
 pub struct Contracts {
+	pub additional_params: Vec<u8>,
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,

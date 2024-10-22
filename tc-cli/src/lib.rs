@@ -3,7 +3,6 @@ use crate::env::Mnemonics;
 use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
-use gmp::Backend;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -598,10 +597,9 @@ impl Tc {
 			gateway
 		} else {
 			tracing::info!("deploying gateway");
-			let base_transaction = self.config.base_transactions(network)?;
-			let bytes = base_transaction.to_bytes();
-			let (gateway, block) =
-				connector.deploy_gateway(&bytes, &contracts.proxy, &contracts.gateway).await?;
+			let (gateway, block) = connector
+				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
+				.await?;
 			tracing::info!("register_network {network}");
 			self.runtime
 				.register_network(time_primitives::Network {

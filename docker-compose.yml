@@ -36,14 +36,11 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum:8545'
-    # - '--target-url=http://gmp-grpc-0:3000'
+    - '--target-url=http://gmp-grpc-0:3000'
     - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
-    # - '--network-id=0'
-    - '--network-id=3'
-    - '--backend=evm'
-    # - '--backend=grpc'
+    - '--network-id=0'
+    - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
@@ -67,18 +64,32 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum:8545'
-    # - '--target-url=http://gmp-grpc-1:3000'
+    - '--target-url=http://gmp-grpc-1:3000'
     - '--timechain-min-balance=1000000000000'
     - '--target-min-balance=10000'
-    # - '--network-id=1'
-    - '--network-id=3'
-    # - '--backend=grpc'
-    - '--backend=evm'
+    - '--network-id=1'
+    - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
 
+  chronicle-2:
+    image: 'analoglabs/chronicle-development'
+    command:
+    - '--timechain-metadata=testnet'
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-min-balance=1000000000000'
+    - '--target-min-balance=10000'
+    - '--network-id=3'
+    - '--backend=evm'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
 
   ethereum:
     image: 'ethereum/client-go:v1.13.14'
@@ -87,6 +98,8 @@ services:
     - '--dev.gaslimit=30000000'
     - '--ipcdisable'
     - '--dev.period=2'
+    - '--rpc.txfeecap=0'
+    - '--rpc.allow-unprotected-txs=true'
     - '--http'
     - '--http.addr=0.0.0.0'
     - '--http.port=8545'

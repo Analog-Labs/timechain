@@ -79,6 +79,23 @@ alloy_sol_types::sol! {
 		function sendMessage(GmpMessage msg) payable;
 		event MessageReceived(GmpMessage msg);
 	}
+
+	interface IUniversalFactory {
+		/**
+		 * @dev Creates an contract at a deterministic address, the final address is derived from the
+		 * `salt` and `creationCode`, and is computed as follow:
+		 * ```solidity
+		 * return address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(factory), uint256(salt), keccak256(creationCode))))));
+		 * ```
+		 * The contract constructor can access the actual sender and other information by calling `context()`.
+		 *
+		 * @param salt Salt of the contract creation, this value affect the resulting address.
+		 * @param creationCode Creation code (constructor) of the contract to be deployed, this value affect the resulting address.
+		 * @return address of the created contract.
+		 */
+		function create2(bytes32 salt, bytes calldata creationCode) external payable returns (address);
+	}
+
 }
 
 fn u256(bytes: &[u8]) -> U256 {

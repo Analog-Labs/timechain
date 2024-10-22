@@ -1,7 +1,6 @@
 use alloy_primitives::{B256, U256};
 use alloy_sol_types::{SolCall, SolConstructor, SolEvent};
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
 use rosetta_client::{
@@ -13,13 +12,15 @@ use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
 	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 };
+use serde::Deserialize;
+use std::io::BufReader;
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::{fs::File, ops::Range};
 use time_primitives::{
-	Address, BatchId, ConnectorParams, DeploymentConfig, Gateway, GatewayMessage, GmpEvent,
-	GmpMessage, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
 };
 
 pub(crate) mod sol;
@@ -113,6 +114,7 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
+		println!("{:?}", params);
 		let wallet = Arc::new(
 			Wallet::new(
 				params.blockchain.parse()?,
@@ -279,20 +281,28 @@ impl IConnectorAdmin for Connector {
 		proxy: &[u8],
 		gateway: &[u8],
 	) -> Result<(Address, u64)> {
-		// get config data in here
-		let deployer_config = DeploymentConfig::from_bytes(&additional_params)?;
-		let deployer_address = self.parse_address(&deployer_config.deployer)?;
-		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		println!("wallet balance :{:?}", self.balance(self.address()).await?);
-		println!("deployer balance :{:?}", self.balance(deployer_address).await?);
-		self.transfer(deployer_address, deployer_config.required_balance).await?;
-		println!("deployer balance :{:?}", self.balance(deployer_address).await?);
-		//Step2: load transaction from config
-		//Step3: send eth_rawTransaction
-		// self.transfer(self.parse_address(self));
+		// load additional config
+		let additional_config_path = String::from_utf8(additional_params.to_vec())?;
+		println!("additional_path: {:?}", additional_config_path);
+		let file = File::open(additional_config_path)?;
+		let reader = BufReader::new(file);
+		let config: DeploymentConfig = serde_json::from_reader(reader)?;
+		let deployer_address = self.parse_address(&config.deployer)?;
 
-		println!("wallet balance :{:?}", self.balance(self.address()).await?);
-		println!("deployer balance :{:?}", self.balance(deployer_address).await?);
+		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		self.faucet().await?;
+		self.transfer(deployer_address, config.required_balance).await?;
+
+		//Step2: load transaction from config
+		let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
+
+		//Step3: send eth_rawTransaction
+		let tx_hash = self.eth_backend.send_raw_transaction(tx.into()).await?;
+		println!("deployed transactoin of gmp uf: {:?}", tx_hash);
+
+		// TODO
+		// deploy proxy using universal factory
+		// deploy gateway
 		let admin = self.address();
 
 		// get deployer's nonce
@@ -466,4 +476,11 @@ impl IConnectorAdmin for Connector {
 		self.evm_call(gateway, call, 0, None).await?;
 		Ok(())
 	}
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct DeploymentConfig {
+	pub deployer: String,
+	pub required_balance: u128,
+	pub raw_tx: String,
 }

@@ -5241,9 +5241,9 @@ dependencies = [
  "futures",
  "hex",
  "rosetta-client",
- "rosetta-ethereum-backend",
- "rosetta-server",
- "rosetta-server-ethereum",
+ "rosetta-ethereum-backend 0.1.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "serde",
  "serde_json",
  "time-primitives",
  "tokio",
@@ -5777,7 +5777,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite 0.2.14",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -5884,7 +5884,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.51.1",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -10756,7 +10756,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
- "rand 0.7.3",
+ "rand 0.8.5",
  "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
@@ -12704,7 +12704,7 @@ checksum = "22505a5c94da8e3b7c2996394d1c933236c4d743e81a410bcca4e6989fc066a4"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "log",
  "multimap 0.10.0",
  "once_cell",
@@ -12758,7 +12758,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 2.0.79",
@@ -13598,7 +13598,7 @@ dependencies = [
 [[package]]
 name = "rosetta-client"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13629,7 +13629,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-astar"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "rosetta-core",
@@ -13639,7 +13639,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-ethereum"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "const-hex",
@@ -13648,8 +13648,8 @@ dependencies = [
  "parity-scale-codec",
  "rosetta-config-astar",
  "rosetta-core",
- "rosetta-ethereum-backend",
- "rosetta-ethereum-types",
+ "rosetta-ethereum-backend 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "rosetta-ethereum-types 0.2.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
  "scale-info",
  "serde",
  "static_assertions",
@@ -13659,7 +13659,7 @@ dependencies = [
 [[package]]
 name = "rosetta-config-polkadot"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "rosetta-core",
@@ -13670,7 +13670,7 @@ dependencies = [
 [[package]]
 name = "rosetta-core"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13687,7 +13687,7 @@ dependencies = [
 [[package]]
 name = "rosetta-crypto"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "bech32",
@@ -13713,14 +13713,30 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-backend"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "async-trait",
  "auto_impl",
  "futures-core",
  "jsonrpsee-core 0.24.5",
  "parity-scale-codec",
- "rosetta-ethereum-types",
+ "rosetta-ethereum-types 0.2.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "scale-info",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "rosetta-ethereum-backend"
+version = "0.1.0"
+source = "git+https://github.com/analog-labs/chain-connectors#12bc70923e110f66be7e562b7581f7b39ac586d7"
+dependencies = [
+ "async-trait",
+ "auto_impl",
+ "futures-core",
+ "jsonrpsee-core 0.24.5",
+ "parity-scale-codec",
+ "rosetta-ethereum-types 0.2.0 (git+https://github.com/analog-labs/chain-connectors)",
  "scale-info",
  "serde",
  "serde_json",
@@ -13729,7 +13745,7 @@ dependencies = [
 [[package]]
 name = "rosetta-ethereum-types"
 version = "0.2.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "bytes",
  "const-hex",
@@ -13761,9 +13777,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-ethereum-types"
+version = "0.2.0"
+source = "git+https://github.com/analog-labs/chain-connectors#12bc70923e110f66be7e562b7581f7b39ac586d7"
+dependencies = [
+ "bytes",
+ "const-hex",
+ "derivative",
+ "ethbloom",
+ "fixed-hash",
+ "hash256-std-hasher",
+ "hex-literal",
+ "impl-num-traits",
+ "impl-rlp",
+ "impl-serde",
+ "libsecp256k1",
+ "num-rational",
+ "num-traits",
+ "parity-scale-codec",
+ "primitive-types 0.12.2",
+ "rlp",
+ "rlp-derive",
+ "scale-info",
+ "secp256k1 0.29.1",
+ "serde",
+ "serde_json",
+ "sha3",
+ "thiserror",
+ "trie-root",
+ "uint 0.9.5",
+ "void",
+]
+
+[[package]]
 name = "rosetta-server"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "futures-util",
+ "hex",
+ "jsonrpsee 0.24.5",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "subxt",
+ "tokio",
+ "tokio-retry",
+ "tokio-tungstenite 0.23.1",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "rosetta-server"
+version = "0.6.0"
+source = "git+https://github.com/analog-labs/chain-connectors#12bc70923e110f66be7e562b7581f7b39ac586d7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13786,7 +13858,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-astar"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13798,7 +13870,7 @@ dependencies = [
  "rosetta-config-astar",
  "rosetta-config-ethereum",
  "rosetta-core",
- "rosetta-server",
+ "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
  "rosetta-server-ethereum",
  "serde",
  "serde_json",
@@ -13810,7 +13882,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-ethereum"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13824,8 +13896,8 @@ dependencies = [
  "pin-project",
  "rosetta-config-ethereum",
  "rosetta-core",
- "rosetta-ethereum-backend",
- "rosetta-server",
+ "rosetta-ethereum-backend 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
  "rosetta-utils",
  "serde",
  "serde_json",
@@ -13839,7 +13911,7 @@ dependencies = [
 [[package]]
 name = "rosetta-server-polkadot"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13847,7 +13919,7 @@ dependencies = [
  "parity-scale-codec",
  "rosetta-config-polkadot",
  "rosetta-core",
- "rosetta-server",
+ "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
  "scale-info",
  "serde",
  "serde_json",
@@ -13860,7 +13932,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-ethereum"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "rosetta-config-ethereum",
@@ -13871,7 +13943,7 @@ dependencies = [
 [[package]]
 name = "rosetta-tx-polkadot"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "anyhow",
  "blake2-rfc",
@@ -13885,7 +13957,7 @@ dependencies = [
 [[package]]
 name = "rosetta-types"
 version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "serde",
  "serde_json",
@@ -13894,7 +13966,7 @@ dependencies = [
 [[package]]
 name = "rosetta-utils"
 version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#8f7395f57f2ffd5d00b9d7ce06f140db564052bc"
+source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
 dependencies = [
  "bytes",
  "futures-timer",
@@ -18977,7 +19049,6 @@ dependencies = [
  "futures",
  "hex",
  "parity-scale-codec",
- "polkadot-sdk",
  "scale-decode",
  "scale-info",
  "serde",
@@ -19056,7 +19127,6 @@ dependencies = [
 name = "testnet-runtime"
 version = "0.7.0"
 dependencies = [
- "env_logger 0.11.5",
  "log",
  "pallet-dmail",
  "pallet-elections",
@@ -19258,7 +19328,6 @@ dependencies = [
  "schnorr-evm",
  "serde",
  "sha3",
- "uint 0.10.0",
 ]
 
 [[package]]
@@ -20010,7 +20079,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -21058,6 +21127,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
+dependencies = [
+ "windows-targets 0.52.6",
 ]
 
 [[package]]

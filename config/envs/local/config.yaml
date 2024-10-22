@@ -7,19 +7,16 @@ config:
   prices_path: 'prices.csv'
 contracts:
   evm:
+    additional_params: "/etc/deployer/factory.json"
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
     tester: "/etc/contracts/test_contract.sol/VotingContract.json"
 networks:
-  3:
-    # backend: "grpc"
-    backend: "evm"
-    blockchain: "ethereum"
-    # blockchain: "rust"
-    # network: "0"
-    network: "dev"
-    url: "ws://ethereum:8545"
-    # url: "http://gmp-grpc-0:3000"
+  0:
+    backend: "grpc"
+    blockchain: "rust"
+    network: "0"
+    url: "http://gmp-grpc-0:3000"
     gateway_funds: 10000
     chronicle_target_funds: 10000
     batch_size: 64

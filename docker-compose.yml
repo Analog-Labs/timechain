@@ -79,12 +79,10 @@ services:
       RUST_LOG: 'tc_subxt=debug,tc_cli=debug'
       RUST_BACKTRACE: 1
     volumes:
-    - './tc-cli/config.yaml:/etc/config.yaml:ro'
-    - './config/wallets/target_admin:/etc/target_admin:ro'
-    - './config/wallets/timechain_admin:/etc/timechain_admin:ro'
+    - './config/envs/local/config.yaml:/etc/config.yaml:ro'
+    - './config/envs/local/prices.csv:/etc/prices.csv'
     - './analog-gmp/out:/etc/contracts:ro'
-    - './:/etc/config'
     env_file:
-    - '.env'
+    - './config/envs/local/.env'
     profiles:
     - never

@@ -3,10 +3,8 @@ config:
   shard_threshold: 1
   chronicle_timechain_funds: 1000000000000
   metadata_variant: testnet
-  timechain_keyfile: '/etc/timechain_admin'
   timechain_url: 'ws://validator:9944'
-  target_keyfile: '/etc/target_admin'
-  prices_path: '/etc/config/prices.csv'
+  prices_path: 'prices.csv'
 contracts:
   evm:
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"

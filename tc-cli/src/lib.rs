@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::env::Mnemonics;
 use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
@@ -16,8 +17,11 @@ use time_primitives::{
 	Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId,
 	NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
+
 mod config;
+mod env;
 mod gas_price_calculator;
+pub mod loki;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -37,6 +41,8 @@ pub struct Tc {
 
 impl Tc {
 	pub async fn new(config: &Path) -> Result<Self> {
+		dotenv::from_path(config.parent().unwrap().join(".env")).ok();
+		let env = Mnemonics::from_env()?;
 		let config = Config::from_file(config)?;
 		while SubxtClient::get_client(&config.global().timechain_url).await.is_err() {
 			tracing::info!("waiting for chain to start");
@@ -45,7 +51,7 @@ impl Tc {
 		let runtime = SubxtClient::with_key(
 			&config.global().timechain_url,
 			config.global().metadata_variant,
-			&config.timechain_mnemonic()?,
+			&env.timechain_mnemonic,
 		)
 		.await?;
 		let mut connectors = HashMap::default();
@@ -56,7 +62,7 @@ impl Tc {
 				blockchain: network.blockchain.clone(),
 				network: network.network.clone(),
 				url: network.url.clone(),
-				mnemonic: config.target_mnemonic()?,
+				mnemonic: env.target_mnemonic.clone(),
 			};
 			let connector = network.backend.connect_admin(&params).await?;
 			connectors.insert(id, connector);

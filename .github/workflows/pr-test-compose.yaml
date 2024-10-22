@@ -25,8 +25,11 @@ jobs:
           ./scripts/build_docker.sh
       - name: Initialize environment file
         run: |
-          cat << EOF > .env
-          ${{ secrets.CMC_ENV_FILE }}
+          cat << EOF > ./config/envs/local/.env
+          TIMECHAIN_MNEMONIC="${{ secrets.TIMECHAIN_MNEMONIC }}"
+          TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}"
+          TOKEN_PRICE_URL="${{ secrets.TOKEN_PRICE_URL }}"
+          TOKEN_API_KEY="${{ secrets.TOKEN_API_KEY }}"
           EOF
       - name: Setup containers
         run: |

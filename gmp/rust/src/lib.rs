@@ -70,6 +70,10 @@ pub fn parse_address(address: &str) -> Result<Address> {
 	Ok(addr)
 }
 
+pub fn currency() -> (u32, &'static str) {
+	(3, "TT")
+}
+
 fn block(genesis: SystemTime) -> u64 {
 	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
 	elapsed.as_secs() / BLOCK_TIME
@@ -142,6 +146,10 @@ impl IChain for Connector {
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address {
 		self.address
+	}
+
+	fn currency(&self) -> (u32, &str) {
+		currency()
 	}
 
 	async fn faucet(&self) -> Result<()> {

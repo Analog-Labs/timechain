@@ -143,8 +143,8 @@ impl Tc {
 			.with_context(|| format!("failed to create {}", price_path.display()))?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
-		for (network_id, network) in self.config.networks().iter() {
-			let symbol = network.symbol.clone();
+		for network_id in self.config.networks().keys() {
+			let symbol = self.currency(Some(*network_id))?.1;
 			let token_url = format!("{}{}", env.token_price_url, symbol);
 			let client = reqwest::Client::new();
 			let request = client.get(token_url).headers(header_map.clone()).build()?;
@@ -191,10 +191,10 @@ impl Tc {
 	) -> Result<Ratio<BigUint>> {
 		let src_config = self.config.network(src_network)?;
 		let src_margin: f64 = src_config.gmp_margin;
-		let src_decimals: u32 = src_config.token_decimals;
+		let src_decimals = self.currency(Some(src_network))?.0;
 
 		let dest_config = self.config.network(dest_network)?;
-		let dest_decimals: u32 = dest_config.token_decimals;
+		let dest_decimals = self.currency(Some(dest_network))?.0;
 		let dest_gas_fee = dest_config.route_base_fee;
 
 		let src_usd_price =

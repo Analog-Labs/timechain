@@ -1,4 +1,6 @@
-use crate::{BatchIdCounter, Call, Config, Pallet, TaskIdCounter, TaskOutput, TaskShard};
+use crate::{
+	BatchIdCounter, Call, Config, Pallet, ShardRegistered, TaskIdCounter, TaskOutput, TaskShard,
+};
 use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
 use frame_support::traits::OnInitialize;
@@ -6,7 +8,7 @@ use frame_system::RawOrigin;
 use pallet_networks::NetworkGatewayAddress;
 use pallet_shards::{ShardCommitment, ShardState};
 use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_runtime, sp_std};
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
 	Commitment, GmpEvents, NetworkId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult,
@@ -26,28 +28,29 @@ const SIGNATURE: TssSignature = [
 	63, 100,
 ];
 
-fn create_shard<T: Config + pallet_shards::Config + pallet_networks::Config>() {
-	NetworkGatewayAddress::<T>::insert(ETHEREUM, [0; 32]);
+fn create_shard<T: Config + pallet_shards::Config + pallet_networks::Config>(network: NetworkId) {
+	NetworkGatewayAddress::<T>::insert(network, [0; 32]);
 	let shard_id = <T as Config>::Shards::create_shard(
-		ETHEREUM,
+		network,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
 	);
 	ShardCommitment::<T>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![PUBKEY])));
-	Pallet::<T>::shard_online(shard_id, ETHEREUM);
+	ShardRegistered::<T>::insert(PUBKEY, ());
+	Pallet::<T>::shard_online(shard_id, network);
 	ShardState::<T>::insert(shard_id, ShardStatus::Online);
 }
 
-fn create_task<T: Config>() -> TaskId {
-	Pallet::<T>::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 0..10 })
+fn create_task<T: Config>(network: NetworkId) -> TaskId {
+	Pallet::<T>::create_task(network, Task::ReadGatewayEvents { blocks: 0..10 })
 }
 
 benchmarks! {
 	where_clause {  where T: pallet_shards::Config + pallet_networks::Config }
 
 	submit_task_result {
-		create_shard::<T>();
-		let task_id = create_task::<T>();
+		create_shard::<T>(ETHEREUM);
+		let task_id = create_task::<T>(ETHEREUM);
 		Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 		assert!(TaskShard::<T>::get(task_id).is_some());
 	}: _(
@@ -61,25 +64,35 @@ benchmarks! {
 
 	schedule_tasks {
 		let b in 1..<T as Config>::MaxTasksPerBlock::get();
+		// reset storage from previous runs
+		TaskIdCounter::<T>::take();
 		for i in 0..b {
-			create_shard::<T>();
-			create_task::<T>();
+			let network: NetworkId = i.try_into().unwrap_or_default();
+			create_shard::<T>(network);
+			TaskShard::<T>::take(create_task::<T>(network));
 		}
 		assert_eq!(TaskIdCounter::<T>::get(), b as u64);
 	}: {
 		Pallet::<T>::schedule_tasks();
 	} verify {
-		for i in 2..b {
+		let mut unassigned = Vec::<u64>::new();
+		for i in 0..b {
 			let task_id: u64 = i.into();
-			assert!(TaskShard::<T>::get(task_id).is_some());
+			if TaskShard::<T>::get(task_id).is_none() {
+				unassigned.push(task_id);
+			}
 		}
+		assert_eq!(Vec::<u64>::new(), unassigned);
 	}
 
 	prepare_batches {
 		let b in 1..<T as Config>::MaxBatchesPerBlock::get();
+		// reset storage from previous runs
+		BatchIdCounter::<T>::take();
 		for i in 0..b {
-			create_shard::<T>();
-			create_task::<T>();
+			let network: NetworkId = i.try_into().unwrap_or_default();
+			create_shard::<T>(network);
+			create_task::<T>(network);
 		}
 		assert_eq!(BatchIdCounter::<T>::get(), 0u64);
 	}: {

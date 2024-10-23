@@ -289,13 +289,17 @@ pub trait IChain: Send + Sync + 'static {
 	fn format_address(&self, address: Address) -> String;
 	/// Parses an address from a string.
 	fn parse_address(&self, address: &str) -> Result<Address>;
+	/// Returns the currency decimals and symobl.
+	fn currency(&self) -> (u32, &str);
 	/// Formats a balance into a string.
 	fn format_balance(&self, balance: u128) -> String {
-		balance.to_string()
+		let (decimals, symbol) = self.currency();
+		crate::balance::BalanceFormatter::new(decimals, symbol).format(balance)
 	}
 	/// Parses a balance from a string.
 	fn parse_balance(&self, balance: &str) -> Result<u128> {
-		balance.parse().map_err(|_| anyhow::anyhow!("expected unsigned integer"))
+		let (decimals, symbol) = self.currency();
+		crate::balance::BalanceFormatter::new(decimals, symbol).parse(balance)
 	}
 	/// Network identifier.
 	fn network_id(&self) -> NetworkId;

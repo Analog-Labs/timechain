@@ -13,9 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, ConnectorParams,
-	Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId,
-	NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	balance::BalanceFormatter, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName,
+	ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin,
+	MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus,
+	TaskId, TssPublicKey,
 };
 
 mod config;
@@ -148,11 +149,19 @@ impl Tc {
 		}
 	}
 
+	pub fn currency(&self, network: Option<NetworkId>) -> Result<(u32, &str)> {
+		if let Some(network) = network {
+			Ok(self.connector(network)?.currency())
+		} else {
+			Ok((12, "ANLG"))
+		}
+	}
+
 	pub fn parse_balance(&self, network: Option<NetworkId>, balance: &str) -> Result<u128> {
 		if let Some(network) = network {
 			self.connector(network)?.parse_balance(balance)
 		} else {
-			Ok(balance.parse()?)
+			BalanceFormatter::new(12, "ANLG").parse(balance)
 		}
 	}
 
@@ -160,7 +169,7 @@ impl Tc {
 		if let Some(network) = network {
 			Ok(self.connector(network)?.format_balance(balance))
 		} else {
-			Ok(balance.to_string())
+			Ok(BalanceFormatter::new(12, "ANLG").format(balance))
 		}
 	}
 
@@ -712,7 +721,8 @@ impl Tc {
 				self.faucet(network).await?;
 			}
 			tracing::info!("funding gateway");
-			self.fund(Some(network), gateway, config.gateway_funds).await?;
+			let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
+			self.fund(Some(network), gateway, gateway_funds).await?;
 			gateways.insert(network, gateway);
 		}
 		self.register_routes(gateways).await?;
@@ -721,14 +731,17 @@ impl Tc {
 			let chronicle = self.wait_for_chronicle(chronicle).await?;
 			tracing::info!("funding chronicle timechain account");
 			let status = self.chronicle_status(&chronicle.account).await?;
-			let mut funds = self.config.global().chronicle_timechain_funds;
+			let mut funds =
+				self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
 			if status == ChronicleStatus::Unregistered {
 				funds += self.runtime.min_stake().await?;
 			}
 			self.fund(None, chronicle.account.clone().into(), funds).await?;
 			let config = self.config.network(chronicle.network)?;
 			tracing::info!("funding chronicle target account");
-			self.fund(Some(chronicle.network), chronicle.address, config.chronicle_target_funds)
+			let chronicle_target_funds =
+				self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
+			self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
 				.await?;
 			accounts.push(chronicle.account);
 		}

@@ -1,7 +1,7 @@
 config:
   shard_size: 1
   shard_threshold: 1
-  chronicle_timechain_funds: 1000000000000
+  chronicle_timechain_funds: 1.
   metadata_variant: testnet
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
@@ -23,8 +23,6 @@ networks:
     batch_gas_limit: 10000
     gmp_margin: 0.0
     shard_task_limit: 50
-    symbol: "ETH"
-    token_decimals: 18
     route_gas_limit: 10000
     # This is the base fee of evm chains. Connector have a method to fetch base fee:
     # https://github.com/Analog-Labs/chain-connectors/blob/master/chains/ethereum/server/src/utils.rs#L296
@@ -43,8 +41,6 @@ networks:
     batch_gas_limit: 10000
     gmp_margin: 0.0
     shard_task_limit: 50
-    symbol: "ASTR"
-    token_decimals: 18
     route_gas_limit: 10000
     route_base_fee: 1715000000000
 chronicles:

@@ -24,6 +24,7 @@ const BLOCK_TIME: u64 = 1;
 const FINALIZATION_TIME: u64 = 2;
 const FAUCET: u128 = 1_000_000_000;
 
+const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
 const ADMIN: TableDefinition<Address, Address> = TableDefinition::new("admin");
 const EVENTS: MultimapTableDefinition<(Address, u64), Bincode<GmpEvent>> =
@@ -106,8 +107,18 @@ impl IConnectorBuilder for Connector {
 			(None, Path::new(&params.url).to_owned())
 		};
 		let db = Database::create(path)?;
-		let genesis = SystemTime::now(); //std::fs::metadata(&path)?.created()?;
 		let tx = db.begin_write()?;
+		let genesis = {
+			let mut blocks = tx.open_table(BLOCKS)?;
+			let timestamp = blocks.get(0)?.map(|t| t.value());
+			if let Some(timestamp) = timestamp {
+				SystemTime::UNIX_EPOCH + Duration::from_secs(timestamp)
+			} else {
+				let genesis = SystemTime::now();
+				blocks.insert(0, genesis.duration_since(SystemTime::UNIX_EPOCH)?.as_secs())?;
+				genesis
+			}
+		};
 		tx.open_table(BALANCE)?;
 		tx.open_table(ADMIN)?;
 		tx.open_table(ROUTES)?;

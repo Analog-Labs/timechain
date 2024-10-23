@@ -13,6 +13,7 @@ use rosetta_server_ethereum::utils::{
 	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 };
 use serde::Deserialize;
+use sha3::Keccak256;
 use std::io::BufReader;
 use std::ops::Range;
 use std::pin::Pin;
@@ -95,15 +96,76 @@ impl Connector {
 		abi: &[u8],
 		constructor: impl SolConstructor,
 	) -> Result<(Address, u64)> {
-		let json_abi: serde_json::Value = serde_json::from_slice(abi)?;
-		let mut contract =
-			hex::decode(json_abi["bytecode"]["object"].as_str().unwrap().replace("0x", ""))?;
+		let mut contract = get_contract_from_slice(abi)?;
 		contract.extend(constructor.abi_encode());
 		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
 		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
 		let address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
 		Ok((t_addr(address.0.into()), block_number))
+	}
+
+	///
+	/// init_code == contract_bytecode + contractor_code
+	async fn deploy_contract_with_factory(
+		&self,
+		factory_address: [u8; 20],
+		init_code: &[u8],
+	) -> Result<(Address, u64)> {
+		let tx_hash = self
+			.wallet
+			.eth_send_call(factory_address, init_code.to_vec(), 0, None, None)
+			.await?
+			.tx_hash();
+		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash.into()).await?.unwrap();
+		println!("tx_receipt: {:?}", tx_receipt);
+		// let address = tx_receipt.contract_address.unwrap();
+		// let block_number = tx_receipt.block_number.unwrap();
+		// Ok((t_addr(address.0.into()), block_number))
+		todo!()
+	}
+
+	async fn compute_proxy_address(
+		&self,
+		factory_address: [u8; 20],
+		salt: [u8; 32],
+		contract_bytes: Vec<u8>,
+	) -> Result<[u8; 20]> {
+		use sha3::Digest;
+		// let address = keccak256(0xff + 0x0000000000001C4Bf962dF86e38F0c10c7972C6E + 256bit salt + keccak256(contract_initcode))[12..32];
+
+		let mut hasher = sha3::Keccak256::new();
+		hasher.update(contract_bytes);
+		let contract_code_hash = hasher.finalize();
+
+		let mut hasher = Keccak256::new();
+		hasher.update([0xff]);
+		hasher.update(&factory_address);
+		hasher.update(salt);
+		hasher.update(contract_code_hash);
+
+		let final_hash = hasher.finalize();
+		let mut final_address = [0u8; 20];
+		final_address.copy_from_slice(&final_hash[12..32]);
+
+		Ok(final_address)
+	}
+
+	async fn deploy_factory(&self, config: &DeploymentConfig) -> Result<()> {
+		let deployer_address = self.parse_address(&config.deployer)?;
+
+		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		self.faucet().await?;
+		self.transfer(deployer_address, config.required_balance).await?;
+
+		//Step2: load transaction from config
+		let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
+
+		//Step3: send eth_rawTransaction
+		let tx_hash = self.eth_backend.send_raw_transaction(tx.into()).await?;
+
+		tracing::info!("Deployed factory with hash: {:?}", tx_hash);
+		Ok(())
 	}
 }
 
@@ -283,40 +345,65 @@ impl IConnectorAdmin for Connector {
 	) -> Result<(Address, u64)> {
 		// load additional config
 		let additional_config_path = String::from_utf8(additional_params.to_vec())?;
-		println!("additional_path: {:?}", additional_config_path);
 		let file = File::open(additional_config_path)?;
 		let reader = BufReader::new(file);
+
+		// check if uf already deployed
 		let config: DeploymentConfig = serde_json::from_reader(reader)?;
-		let deployer_address = self.parse_address(&config.deployer)?;
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let is_factory_deployed = self
+			.eth_backend
+			.get_code(factory_address.into(), rosetta_ethereum_types::AtBlock::Latest)
+			.await?;
 
-		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		self.faucet().await?;
-		self.transfer(deployer_address, config.required_balance).await?;
-
-		//Step2: load transaction from config
-		let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
-
-		//Step3: send eth_rawTransaction
-		let tx_hash = self.eth_backend.send_raw_transaction(tx.into()).await?;
-		println!("deployed transactoin of gmp uf: {:?}", tx_hash);
+		if is_factory_deployed.is_empty() {
+			println!("Factory is not deployed");
+			self.deploy_factory(&config).await?;
+		} else {
+			println!("Factory is deployed: {:?}", is_factory_deployed.len());
+		}
 
 		// TODO
+		let mut proxy_bytecode = get_contract_from_slice(proxy)?;
+
+		//proxy constructor
+		let proxy_constructor = sol::GatewayProxy::constructorCall {
+			implementation: factory_address.into(),
+		};
+
+		let proxy_bytecode =
+			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
+
 		// deploy proxy using universal factory
+		let computed_proxy_address = self
+			.compute_proxy_address(factory_address, [0; 32], proxy_bytecode.clone())
+			.await?;
+		println!("computed_proxy_address: {:?}", hex::encode(computed_proxy_address));
+
+		let result = self.deploy_contract_with_factory(factory_address, &proxy_bytecode).await?;
+		println!("result of deployment: {:?}", result);
+
+		// let gateway_bytecode = get_contract_from_slice(proxy)?;
+
+		// let computed_gateway_address =
+		// 	self.compute_proxy_address(factory_address, [0; 32], proxy.to_vec()).await?;
+
+		// let gateway_contstructor = sol::Gateway::constructorCall {
+		// 	networkId: self.network_id,
+		// 	proxy: a_addr([0u8; 32]),
+		// };
+
 		// deploy gateway
-		let admin = self.address();
+		// let admin = self.address();
 
 		// get deployer's nonce
-		let nonce = self.nonce(admin).await?;
+		// let nonce = self.nonce(admin).await?;
 
 		// compute the proxy address
-		let proxy_addr = a_addr(admin).create(nonce + 1);
+		// let proxy_addr = a_addr(admin).create(nonce + 1);
 		// let proxy_addr = t_addr(proxy_addr);
 
 		// deploy gateway
-		// let call = sol::Gateway::constructorCall {
-		// 	networkId: self.network_id,
-		// 	proxy: a_addr(proxy_addr),
-		// };
 		// let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
 
 		// // deploy the proxy contract
@@ -478,9 +565,32 @@ impl IConnectorAdmin for Connector {
 	}
 }
 
+fn get_contract_from_slice(slice: &[u8]) -> Result<Vec<u8>> {
+	let contract_abi: Contract = serde_json::from_slice(slice)?;
+	hex::decode(contract_abi.bytecode.object.replace("0x", ""))
+		.with_context(|| "Failed to get contract bytecode")
+}
+
+fn extend_bytes_with_constructor(bytecode: Vec<u8>, constructor: impl SolConstructor) -> Vec<u8> {
+	let mut bytecode = bytecode.clone();
+	bytecode.extend(constructor.abi_encode());
+	bytecode
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct DeploymentConfig {
 	pub deployer: String,
 	pub required_balance: u128,
 	pub raw_tx: String,
+	pub factory_address: String,
+}
+
+#[derive(Deserialize)]
+struct Contract {
+	bytecode: Bytecode,
+}
+
+#[derive(Deserialize)]
+struct Bytecode {
+	object: String,
 }

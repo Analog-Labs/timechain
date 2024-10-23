@@ -5241,10 +5241,13 @@ dependencies = [
  "futures",
  "hex",
  "rosetta-client",
- "rosetta-ethereum-backend 0.1.0 (git+https://github.com/analog-labs/chain-connectors)",
- "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-ethereum-backend",
+ "rosetta-ethereum-types",
+ "rosetta-server",
+ "rosetta-server-ethereum",
  "serde",
  "serde_json",
+ "sha3",
  "time-primitives",
  "tokio",
  "tracing",
@@ -13648,8 +13651,8 @@ dependencies = [
  "parity-scale-codec",
  "rosetta-config-astar",
  "rosetta-core",
- "rosetta-ethereum-backend 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
- "rosetta-ethereum-types 0.2.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "rosetta-ethereum-backend",
+ "rosetta-ethereum-types",
  "scale-info",
  "serde",
  "static_assertions",
@@ -13720,23 +13723,7 @@ dependencies = [
  "futures-core",
  "jsonrpsee-core 0.24.5",
  "parity-scale-codec",
- "rosetta-ethereum-types 0.2.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
- "scale-info",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "rosetta-ethereum-backend"
-version = "0.1.0"
-source = "git+https://github.com/analog-labs/chain-connectors#12bc70923e110f66be7e562b7581f7b39ac586d7"
-dependencies = [
- "async-trait",
- "auto_impl",
- "futures-core",
- "jsonrpsee-core 0.24.5",
- "parity-scale-codec",
- "rosetta-ethereum-types 0.2.0 (git+https://github.com/analog-labs/chain-connectors)",
+ "rosetta-ethereum-types",
  "scale-info",
  "serde",
  "serde_json",
@@ -13777,65 +13764,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "rosetta-ethereum-types"
-version = "0.2.0"
-source = "git+https://github.com/analog-labs/chain-connectors#12bc70923e110f66be7e562b7581f7b39ac586d7"
-dependencies = [
- "bytes",
- "const-hex",
- "derivative",
- "ethbloom",
- "fixed-hash",
- "hash256-std-hasher",
- "hex-literal",
- "impl-num-traits",
- "impl-rlp",
- "impl-serde",
- "libsecp256k1",
- "num-rational",
- "num-traits",
- "parity-scale-codec",
- "primitive-types 0.12.2",
- "rlp",
- "rlp-derive",
- "scale-info",
- "secp256k1 0.29.1",
- "serde",
- "serde_json",
- "sha3",
- "thiserror",
- "trie-root",
- "uint 0.9.5",
- "void",
-]
-
-[[package]]
 name = "rosetta-server"
 version = "0.6.0"
 source = "git+https://github.com/analog-labs/chain-connectors?branch=gmp-api#882ecfdc23f59a091f94ac2a2cc51d57da5e86b4"
-dependencies = [
- "anyhow",
- "async-trait",
- "futures",
- "futures-timer",
- "futures-util",
- "hex",
- "jsonrpsee 0.24.5",
- "pin-project",
- "serde",
- "serde_json",
- "subxt",
- "tokio",
- "tokio-retry",
- "tokio-tungstenite 0.23.1",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "rosetta-server"
-version = "0.6.0"
-source = "git+https://github.com/analog-labs/chain-connectors#12bc70923e110f66be7e562b7581f7b39ac586d7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13870,7 +13801,7 @@ dependencies = [
  "rosetta-config-astar",
  "rosetta-config-ethereum",
  "rosetta-core",
- "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "rosetta-server",
  "rosetta-server-ethereum",
  "serde",
  "serde_json",
@@ -13896,8 +13827,8 @@ dependencies = [
  "pin-project",
  "rosetta-config-ethereum",
  "rosetta-core",
- "rosetta-ethereum-backend 0.1.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
- "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "rosetta-ethereum-backend",
+ "rosetta-server",
  "rosetta-utils",
  "serde",
  "serde_json",
@@ -13919,7 +13850,7 @@ dependencies = [
  "parity-scale-codec",
  "rosetta-config-polkadot",
  "rosetta-core",
- "rosetta-server 0.6.0 (git+https://github.com/analog-labs/chain-connectors?branch=gmp-api)",
+ "rosetta-server",
  "scale-info",
  "serde",
  "serde_json",
@@ -19049,6 +18980,7 @@ dependencies = [
  "futures",
  "hex",
  "parity-scale-codec",
+ "polkadot-sdk",
  "scale-decode",
  "scale-info",
  "serde",
@@ -19127,6 +19059,7 @@ dependencies = [
 name = "testnet-runtime"
 version = "0.7.0"
 dependencies = [
+ "env_logger 0.11.5",
  "log",
  "pallet-dmail",
  "pallet-elections",
@@ -19328,6 +19261,7 @@ dependencies = [
  "schnorr-evm",
  "serde",
  "sha3",
+ "uint 0.10.0",
 ]
 
 [[package]]

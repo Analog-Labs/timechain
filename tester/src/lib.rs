@@ -132,7 +132,7 @@ impl Tester {
 				return;
 			},
 		};
-		if let Err(err) = self.wallet.faucet(balance).await {
+		if let Err(err) = self.wallet.faucet(balance, None).await {
 			println!("Error occured while funding wallet {:?}", err);
 		}
 	}

@@ -4,7 +4,7 @@ use polkadot_sdk::*;
 
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-
+use pallet_members::MemberOnline;
 use time_primitives::{ElectionsInterface, NetworkId};
 
 const ETHEREUM: NetworkId = 0;
@@ -25,12 +25,15 @@ fn shard_size_new_members_online_creates_shard() {
 	let c: AccountId = [3u8; 32].into();
 	new_test_ext().execute_with(|| {
 		Elections::member_online(&a, ETHEREUM);
+		MemberOnline::<Test>::insert(&a, ());
 		roll(1);
 		assert!(Unassigned::<Test>::get(ETHEREUM, &a).is_some());
 		Elections::member_online(&b, ETHEREUM);
+		MemberOnline::<Test>::insert(&b, ());
 		roll(1);
 		assert!(Unassigned::<Test>::get(ETHEREUM, &b).is_some());
 		Elections::member_online(&c, ETHEREUM);
+		MemberOnline::<Test>::insert(&c, ());
 		roll(1);
 		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(0, ETHEREUM).into());
 		for member in [a, b, c] {
@@ -58,8 +61,11 @@ fn shard_offline_automatically_creates_new_shard() {
 	let c: AccountId = [3u8; 32].into();
 	new_test_ext().execute_with(|| {
 		Elections::member_online(&a, ETHEREUM);
+		MemberOnline::<Test>::insert(&a, ());
 		Elections::member_online(&b, ETHEREUM);
+		MemberOnline::<Test>::insert(&b, ());
 		Elections::member_online(&c, ETHEREUM);
+		MemberOnline::<Test>::insert(&c, ());
 		roll(1);
 		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(0, ETHEREUM).into());
 		Elections::shard_offline(ETHEREUM, [a, b, c].to_vec());

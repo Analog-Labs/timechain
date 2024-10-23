@@ -49,7 +49,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller))
 	verify { }
 
-	do_heartbeat_timeouts {
+	timeout_heartbeats {
 		let b in 1..T::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
 			let raw = [i as u8; 32];
@@ -63,7 +63,7 @@ benchmarks! {
 			assert!(Heartbeat::<T>::take(&caller).is_some());
 		}
 	}: {
-		Pallet::<T>::do_heartbeat_timeouts(0u32.into());
+		Pallet::<T>::timeout_heartbeats(0u32.into());
 	} verify {
 		for i in 0..b {
 			let caller: AccountId = [i as u8; 32].into();

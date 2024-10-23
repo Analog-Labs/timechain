@@ -157,14 +157,14 @@ benchmarks! {
 	}: _(RawOrigin::Root, SHARD_ID)
 	verify { }
 
-	do_dkg_timeouts {
+	timeout_dkgs {
 		let b in 1..<T as Config>::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
 			Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1);
 			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Created));
 		}
 	}: {
-		Pallet::<T>::do_dkg_timeouts(T::DkgTimeout::get().saturating_add(T::DkgTimeout::get()));
+		Pallet::<T>::timeout_dkgs(T::DkgTimeout::get().saturating_add(T::DkgTimeout::get()));
 	} verify {
 		for i in 0..b {
 			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Offline));

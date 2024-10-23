@@ -107,7 +107,7 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Shards::MemberShard` (r:1 w:0)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn do_dkg_timeouts(_: u32) -> Weight {
+	fn timeout_dkgs(_: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6`
 		//  Estimated: `3471`

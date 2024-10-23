@@ -96,7 +96,7 @@ pub mod pallet {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
-		fn do_dkg_timeouts(b: u32) -> Weight;
+		fn timeout_dkgs(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -112,7 +112,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn do_dkg_timeouts(_: u32) -> Weight {
+		fn timeout_dkgs(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -351,7 +351,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let weight_consumed = Self::do_dkg_timeouts(n);
+			let weight_consumed = Self::timeout_dkgs(n);
 			log::info!("on_initialize end");
 			weight_consumed
 		}
@@ -386,7 +386,7 @@ pub mod pallet {
 		///   2. Check if the DKG process of any shard has timed out.
 		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardKeyGenTimedOut`] event.
 		///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
-		pub(crate) fn do_dkg_timeouts(n: BlockNumberFor<T>) -> Weight {
+		pub(crate) fn timeout_dkgs(n: BlockNumberFor<T>) -> Weight {
 			let mut num_timeouts = 0u32;
 			for (shard_id, created_block) in DkgTimeout::<T>::iter() {
 				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
@@ -398,7 +398,7 @@ pub mod pallet {
 							Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
 							num_timeouts = num_timeouts.saturating_plus_one();
 							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-								return <T as Config>::WeightInfo::do_dkg_timeouts(
+								return <T as Config>::WeightInfo::timeout_dkgs(
 									T::MaxTimeoutsPerBlock::get(),
 								);
 							}
@@ -406,7 +406,7 @@ pub mod pallet {
 					}
 				}
 			}
-			<T as Config>::WeightInfo::do_dkg_timeouts(num_timeouts)
+			<T as Config>::WeightInfo::timeout_dkgs(num_timeouts)
 		}
 		/// Fetches all shards associated with a given account.
 		/// # Flow

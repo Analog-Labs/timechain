@@ -50,7 +50,7 @@ pub mod pallet {
 		fn register_member() -> Weight;
 		fn send_heartbeat() -> Weight;
 		fn unregister_member() -> Weight;
-		fn do_heartbeat_timeouts(n: u32) -> Weight;
+		fn timeout_heartbeats(n: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -63,7 +63,7 @@ pub mod pallet {
 		fn unregister_member() -> Weight {
 			Weight::default()
 		}
-		fn do_heartbeat_timeouts(_: u32) -> Weight {
+		fn timeout_heartbeats(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -158,7 +158,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let weight_consumed = Self::do_heartbeat_timeouts(n);
+			let weight_consumed = Self::timeout_heartbeats(n);
 			log::info!("on_initialize end");
 			weight_consumed
 		}
@@ -253,7 +253,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
-		pub(crate) fn do_heartbeat_timeouts(n: BlockNumberFor<T>) -> Weight {
+		pub(crate) fn timeout_heartbeats(n: BlockNumberFor<T>) -> Weight {
 			let mut num_timeouts = 0u32;
 			if (n % T::HeartbeatTimeout::get()).is_zero() {
 				for (member, _) in MemberOnline::<T>::iter() {
@@ -262,7 +262,7 @@ pub mod pallet {
 							Self::member_offline(&member, network);
 							num_timeouts = num_timeouts.saturating_plus_one();
 							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-								return <T as Config>::WeightInfo::do_heartbeat_timeouts(
+								return <T as Config>::WeightInfo::timeout_heartbeats(
 									T::MaxTimeoutsPerBlock::get(),
 								);
 							}
@@ -270,7 +270,7 @@ pub mod pallet {
 					}
 				}
 			}
-			<T as Config>::WeightInfo::do_heartbeat_timeouts(num_timeouts)
+			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)
 		}
 		///  Marks a member as online.
 		/// # Flow

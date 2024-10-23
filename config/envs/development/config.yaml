@@ -3,7 +3,7 @@ config:
   shard_threshold: 1
   chronicle_timechain_funds: 1.
   metadata_variant: testnet
-  timechain_url: 'wss://rpc.development-gmpv2.analog.one'
+  timechain_url: 'wss://rpc.development.analog.one'
   prices_path: 'prices.csv'
 contracts:
   evm:

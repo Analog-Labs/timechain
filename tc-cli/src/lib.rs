@@ -13,9 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, ConnectorParams,
-	Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin, MemberStatus, MessageId,
-	NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	balance::BalanceFormatter, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName,
+	ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin,
+	MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus,
+	TaskId, TssPublicKey,
 };
 
 mod config;
@@ -160,7 +161,7 @@ impl Tc {
 		if let Some(network) = network {
 			self.connector(network)?.parse_balance(balance)
 		} else {
-			Ok(balance.parse()?)
+			BalanceFormatter::new(12, "ANLG").parse(balance)
 		}
 	}
 
@@ -168,7 +169,7 @@ impl Tc {
 		if let Some(network) = network {
 			Ok(self.connector(network)?.format_balance(balance))
 		} else {
-			Ok(balance.to_string())
+			Ok(BalanceFormatter::new(12, "ANLG").format(balance))
 		}
 	}
 

@@ -15,6 +15,8 @@ use sp_runtime::{
 // Export scoped ...
 #[cfg(feature = "std")]
 pub mod admin;
+#[cfg(feature = "std")]
+pub mod balance;
 pub mod currency;
 pub mod dmail;
 pub mod gmp;

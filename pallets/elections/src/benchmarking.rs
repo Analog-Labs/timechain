@@ -19,14 +19,15 @@ benchmarks! {
 		for i in 0..b {
 			Unassigned::<T>::insert(ETHEREUM, Into::<AccountId>::into([i as u8; 32]), ());
 		}
-		let before_assigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
+		let pre_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
 	}: {
 		Pallet::<T>::try_elect_shard(ETHEREUM);
 	} verify {
-		let after_assigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
+		let post_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
+		// ShardSize # of unassigned were elected to a shard
 		assert_eq!(
-			after_assigned_count,
-			before_assigned_count - ShardSize::<T>::get(),
+			pre_unassigned_count - post_unassigned_count,
+			ShardSize::<T>::get(),
 		);
 	}
 

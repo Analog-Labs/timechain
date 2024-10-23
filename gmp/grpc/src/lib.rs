@@ -85,6 +85,9 @@ impl IChain for Connector {
 	fn parse_address(&self, address: &str) -> Result<Address> {
 		gmp_rust::parse_address(address)
 	}
+	fn currency(&self) -> (u32, &str) {
+		gmp_rust::currency()
+	}
 	/// Network identifier.
 	fn network_id(&self) -> NetworkId {
 		self.network

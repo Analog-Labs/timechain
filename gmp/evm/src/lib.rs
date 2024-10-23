@@ -141,6 +141,9 @@ impl IChain for Connector {
 	fn address(&self) -> Address {
 		self.parse_address(&self.wallet.account().address).unwrap()
 	}
+	fn currency(&self) -> (u32, &str) {
+		(18, "ETH")
+	}
 	/// Uses a faucet to fund the account when possible.
 	async fn faucet(&self) -> Result<()> {
 		let balance = match self.network_id() {

@@ -14,7 +14,8 @@ pub struct Config {
 
 impl Config {
 	pub fn from_file(path: &Path) -> Result<Self> {
-		let config = std::fs::read_to_string(path).context("failed to read config file")?;
+		let config = std::fs::read_to_string(path)
+			.with_context(|| format!("failed to read config file {}", path.display()))?;
 		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
 		Ok(Self {
 			path: path.parent().unwrap().to_path_buf(),
@@ -79,7 +80,7 @@ pub struct GlobalConfig {
 	prices_path: PathBuf,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub chronicle_timechain_funds: u128,
+	pub chronicle_timechain_funds: String,
 	pub metadata_variant: MetadataVariant,
 	pub timechain_url: String,
 }
@@ -104,15 +105,25 @@ pub struct NetworkConfig {
 	pub blockchain: String,
 	pub network: String,
 	pub url: String,
-	pub gateway_funds: u128,
-	pub chronicle_target_funds: u128,
+	pub gateway_funds: String,
+	pub chronicle_target_funds: String,
 	pub batch_size: u32,
 	pub batch_offset: u32,
 	pub batch_gas_limit: u128,
 	pub gmp_margin: f64,
 	pub shard_task_limit: u32,
-	pub symbol: String,
-	pub token_decimals: u32,
 	pub route_gas_limit: u64,
 	pub route_base_fee: u128,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn make_sure_envs_parse() {
+		let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../config/envs");
+		Config::from_file(&root.join("local/config.yaml")).unwrap();
+		Config::from_file(&root.join("development/config.yaml")).unwrap();
+	}
 }

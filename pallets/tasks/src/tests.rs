@@ -82,8 +82,8 @@ fn test_read_events_starts_when_gateway_is_registered() {
 	new_test_ext().execute_with(|| {
 		assert!(Tasks::get_task(0).is_none());
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
-		assert!(Tasks::get_task(1).is_none());
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert!(Tasks::get_task(2).is_none());
 	})
 }
 
@@ -91,10 +91,10 @@ fn test_read_events_starts_when_gateway_is_registered() {
 fn test_read_events_is_assigned_when_shard_is_online() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard_id = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard_id), vec![0]);
+		assert_eq!(Tasks::get_shard_tasks(shard_id), vec![1]);
 	})
 }
 
@@ -102,12 +102,12 @@ fn test_read_events_is_assigned_when_shard_is_online() {
 fn test_read_events_completes_starts_next_read_events() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
-		submit_gateway_events(shard, 0, &[]);
-		assert_eq!(Tasks::get_task(2), Some(Task::ReadGatewayEvents { blocks: 47..52 }));
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
+		submit_gateway_events(shard, 1, &[]);
+		assert_eq!(Tasks::get_task(3), Some(Task::ReadGatewayEvents { blocks: 47..52 }));
 	})
 }
 
@@ -117,7 +117,7 @@ fn test_shard_online_registers_shard() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(1), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		assert_eq!(
 			Tasks::get_batch_message(0),
 			Some(GatewayMessage {
@@ -131,12 +131,12 @@ fn test_shard_online_registers_shard() {
 fn test_shard_offline_unregisters_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
 		shard_offline(ETHEREUM, shard);
 		roll(1);
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
+		assert_eq!(Tasks::get_task(3), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
 		assert_eq!(
 			Tasks::get_batch_message(1),
 			Some(GatewayMessage {
@@ -150,14 +150,14 @@ fn test_shard_offline_unregisters_shard() {
 fn test_recv_msg_sends_msg() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
-		let msg = mock_gmp_msg(0);
-		submit_gateway_events(shard, 0, &[GmpEvent::MessageReceived(msg.clone())]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
+		let msg = mock_gmp_msg(1);
+		submit_gateway_events(shard, 1, &[GmpEvent::MessageReceived(msg.clone())]);
 		roll(1);
-		assert_eq!(Tasks::get_task(3), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
+		assert_eq!(Tasks::get_task(4), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
 		assert_eq!(
 			Tasks::get_batch_message(1),
 			Some(GatewayMessage {
@@ -173,7 +173,7 @@ fn test_shard_offline_unassigns_tasks() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
 		shard_offline(ETHEREUM, shard);
 		roll(1);
 		assert!(Tasks::get_shard_tasks(shard).is_empty());
@@ -184,21 +184,21 @@ fn test_shard_offline_unassigns_tasks() {
 fn test_shard_registered_event_registers_or_unregisters_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(0), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![0]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
 		assert!(!Tasks::is_shard_registered(shard));
 		submit_gateway_events(
 			shard,
-			0,
+			1,
 			&[GmpEvent::ShardRegistered(MockTssSigner::new(shard).public_key())],
 		);
 		assert!(Tasks::is_shard_registered(shard));
 		roll(1);
 		submit_gateway_events(
 			shard,
-			2,
+			3,
 			&[GmpEvent::ShardUnregistered(MockTssSigner::new(shard).public_key())],
 		);
 		assert!(!Tasks::is_shard_registered(shard));
@@ -211,10 +211,10 @@ fn test_msg_execution_event_completes_submit_task() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(1), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
-		Tasks::assign_task(shard, 1);
-		submit_gateway_events(shard, 0, &[GmpEvent::BatchExecuted(0)]);
-		assert_eq!(Tasks::get_task_result(1), Some(Ok(())));
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 2);
+		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0)]);
+		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
 	})
 }
 
@@ -224,13 +224,13 @@ fn test_msg_execution_error_completes_submit_task() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(1), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
-		Tasks::assign_task(shard, 1);
-		assert!(Tasks::get_task_result(1).is_none());
-		let account = Tasks::get_task_submitter(1).unwrap();
-		submit_submission_error(account, 1, "error message");
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 2);
+		assert!(Tasks::get_task_result(2).is_none());
+		let account = Tasks::get_task_submitter(2).unwrap();
+		submit_submission_error(account, 2, "error message");
 		assert_eq!(
-			Tasks::get_task_result(1),
+			Tasks::get_task_result(2),
 			Some(Err(ErrorMsg(BoundedVec::truncate_from("error message".encode()))))
 		);
 	})
@@ -244,7 +244,7 @@ fn test_tasks_are_assigned_to_registered_shards() {
 		register_shard(shard);
 		assert!(Tasks::is_shard_registered(shard));
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 0]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 2]);
 	})
 }
 
@@ -258,9 +258,9 @@ fn test_max_tasks_per_block() {
 		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 0 });
 		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 1 });
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 0, 2]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 2]);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 0, 2]);
+		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 4, 2]);
 	})
 }
 
@@ -292,9 +292,9 @@ fn test_read_event_task_assignment() {
 		register_shard(shard2);
 		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 0 });
 		roll(1);
-		assert!(Tasks::get_shard_tasks(shard2).contains(&0));
+		assert!(Tasks::get_shard_tasks(shard2).contains(&1));
 		// before `break` was added in #1165 the following assertion failed
-		assert!(!Tasks::get_shard_tasks(shard).contains(&0));
+		assert!(!Tasks::get_shard_tasks(shard).contains(&1));
 	})
 }
 

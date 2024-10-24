@@ -1401,8 +1401,8 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<500>;
-	type MaxBatchesPerBlock = ConstU32<1_000>;
+	type MaxTasksPerBlock = ConstU32<50>;
+	type MaxBatchesPerBlock = ConstU32<10>;
 }
 
 parameter_types! {
@@ -2182,7 +2182,7 @@ mod tests {
 			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
 		assert!(
 			max_batches_per_block_configured <= num_batches,
-			"MaxTasksPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
+			"MaxBatchesPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
 		);
 	}
 }

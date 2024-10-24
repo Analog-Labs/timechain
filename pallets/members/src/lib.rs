@@ -289,7 +289,6 @@ pub mod pallet {
 		///	1. Receives `member` (account of the member) and `network` (NetworkId).
 		///	2. Removes `member` from [`MemberOnline::<T>`] storage.
 		///	3. Emits [`Event::MemberOffline]`.
-		///	4. Calculates and returns weight adjustments using `T::DbWeight::get()` and `T::Elections::member_offline`.
 		fn member_offline(member: &AccountId, network: NetworkId) {
 			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));

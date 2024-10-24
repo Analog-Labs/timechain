@@ -303,7 +303,7 @@ mod bench_helper {
 
 	fn valid_pk_task_result() -> (TssPublicKey, TssSignature) {
 		let signer = MockTssSigner::new(SHARD_ID);
-		const TASK_ID: TaskId = 0;
+		const TASK_ID: TaskId = 1;
 		const SHARD_ID: ShardId = 0;
 		let signature = signer.sign_gmp_events(TASK_ID, &[]);
 		(signer.public_key(), signature)

@@ -16,7 +16,7 @@ log.workspace = true
 scale-codec = { workspace = true, features = [ "max-encoded-len" ] }
 scale-info.workspace = true
 
-polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "pallet-balances", "pallet-treasury", "sp-core", "sp-runtime", "sp-std" ] }
+polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "pallet-balances", "pallet-treasury", "sp-core", "sp-runtime", "sp-std", "sp-core" ] }
 
 pallet-elections.workspace = true
 pallet-networks.workspace = true

@@ -5,14 +5,15 @@ use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
+use pallet_members::MemberPublicKey;
 use pallet_networks::NetworkGatewayAddress;
 use pallet_shards::{ShardCommitment, ShardState};
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_runtime, sp_std};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_runtime, sp_std};
 use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
-	Commitment, GmpEvents, NetworkId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult,
-	TasksInterface, TssPublicKey, TssSignature,
+	AccountId, Commitment, GmpEvents, NetworkId, PublicKey, ShardStatus, ShardsInterface, Task,
+	TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -28,13 +29,22 @@ const SIGNATURE: TssSignature = [
 	63, 100,
 ];
 
-fn create_shard<T: Config + pallet_shards::Config + pallet_networks::Config>(network: NetworkId) {
+fn create_shard<
+	T: Config + pallet_shards::Config + pallet_networks::Config + pallet_members::Config,
+>(
+	network: NetworkId,
+) {
 	NetworkGatewayAddress::<T>::insert(network, [0; 32]);
 	let shard_id = <T as Config>::Shards::create_shard(
 		network,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
 	);
+	for m in [[0u8; 32], [1u8; 32], [2u8; 32]] {
+		let pk = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(m));
+		let acc: AccountId = m.into();
+		MemberPublicKey::<T>::insert(acc, pk);
+	}
 	ShardCommitment::<T>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![PUBKEY])));
 	ShardRegistered::<T>::insert(PUBKEY, ());
 	Pallet::<T>::shard_online(shard_id, network);
@@ -46,7 +56,7 @@ fn create_task<T: Config>(network: NetworkId) -> TaskId {
 }
 
 benchmarks! {
-	where_clause {  where T: pallet_shards::Config + pallet_networks::Config }
+	where_clause {  where T: pallet_shards::Config + pallet_networks::Config + pallet_members::Config }
 
 	submit_task_result {
 		create_shard::<T>(ETHEREUM);

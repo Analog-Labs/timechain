@@ -408,19 +408,17 @@ pub mod pallet {
 			if TaskOutput::<T>::take(task).is_none() {
 				return Err(Error::<T>::CannotRemoveTask.into());
 			}
-			if let Some(task) = Tasks::<T>::take(task) {
-				if let Task::SubmitGatewayMessage { batch_id } = task {
-					if let Some(msg) = BatchMessage::<T>::take(batch_id) {
-						for op in msg.ops {
-							if let GatewayOp::SendMessage(msg) = op {
-								let message = msg.message_id();
-								MessageReceivedTaskId::<T>::remove(message);
-								MessageBatchId::<T>::remove(message);
-							}
+			if let Some(Task::SubmitGatewayMessage { batch_id }) = Tasks::<T>::take(task) {
+				if let Some(msg) = BatchMessage::<T>::take(batch_id) {
+					for op in msg.ops {
+						if let GatewayOp::SendMessage(msg) = op {
+							let message = msg.message_id();
+							MessageReceivedTaskId::<T>::remove(message);
+							MessageBatchId::<T>::remove(message);
 						}
 					}
-					BatchTaskId::<T>::remove(batch_id);
 				}
+				BatchTaskId::<T>::remove(batch_id);
 			}
 			TaskNetwork::<T>::remove(task);
 			TaskSubmitter::<T>::remove(task);

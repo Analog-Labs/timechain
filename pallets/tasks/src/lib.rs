@@ -68,8 +68,8 @@ pub mod pallet {
 
 	use time_primitives::{
 		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
-		TaskResult, TasksInterface, TssPublicKey, TssSignature,
+		GmpEvents, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface,
+		Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -77,6 +77,7 @@ pub mod pallet {
 		fn submit_task_result() -> Weight;
 		fn prepare_batches(n: u32) -> Weight;
 		fn schedule_tasks(n: u32) -> Weight;
+		fn submit_gmp_events() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -87,6 +88,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn schedule_tasks(_: u32) -> Weight {
+			Weight::default()
+		}
+		fn submit_gmp_events() -> Weight {
 			Weight::default()
 		}
 	}
@@ -328,31 +332,7 @@ pub mod pallet {
 					let end = start + size;
 					Self::create_task(network, Task::ReadGatewayEvents { blocks: start..end });
 					// process events
-					for event in events.0 {
-						match event {
-							GmpEvent::ShardRegistered(pubkey) => {
-								ShardRegistered::<T>::insert(pubkey, ());
-							},
-							GmpEvent::ShardUnregistered(pubkey) => {
-								ShardRegistered::<T>::remove(pubkey);
-							},
-							GmpEvent::MessageReceived(msg) => {
-								let msg_id = msg.message_id();
-								Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
-								MessageReceivedTaskId::<T>::insert(msg_id, task_id);
-								Self::deposit_event(Event::<T>::MessageReceived(msg_id));
-							},
-							GmpEvent::MessageExecuted(msg_id) => {
-								MessageExecutedTaskId::<T>::insert(msg_id, task_id);
-								Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
-							},
-							GmpEvent::BatchExecuted(batch_id) => {
-								if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
-									Self::finish_task(network, task_id, Ok(()));
-								}
-							},
-						}
-					}
+					Self::process_events(network, task_id, events);
 					Ok(())
 				},
 				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {
@@ -369,9 +349,49 @@ pub mod pallet {
 			Self::finish_task(network, task_id, result);
 			Ok(())
 		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_gmp_events())]
+		pub fn submit_gmp_events(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			events: GmpEvents,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::process_events(network, 0, events);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn process_events(network: NetworkId, task_id: TaskId, events: GmpEvents) {
+			for event in events.0 {
+				match event {
+					GmpEvent::ShardRegistered(pubkey) => {
+						ShardRegistered::<T>::insert(pubkey, ());
+					},
+					GmpEvent::ShardUnregistered(pubkey) => {
+						ShardRegistered::<T>::remove(pubkey);
+					},
+					GmpEvent::MessageReceived(msg) => {
+						let msg_id = msg.message_id();
+						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
+						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+					},
+					GmpEvent::MessageExecuted(msg_id) => {
+						MessageExecutedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
+					},
+					GmpEvent::BatchExecuted(batch_id) => {
+						if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
+							Self::finish_task(network, task_id, Ok(()));
+						}
+					},
+				}
+			}
+		}
+
 		/// Validate a TSS (Threshold Signature Scheme) signature for data associated with a specific shard.
 		///
 		/// # Flow
@@ -408,11 +428,11 @@ pub mod pallet {
 		}
 
 		pub(crate) fn create_task(network: NetworkId, task: Task) -> TaskId {
-			let task_id = TaskIdCounter::<T>::get();
+			let task_id = TaskIdCounter::<T>::get().saturating_plus_one();
 			let needs_registration = task.needs_registration();
 			Tasks::<T>::insert(task_id, task);
 			TaskNetwork::<T>::insert(task_id, network);
-			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
+			TaskIdCounter::<T>::put(task_id);
 			if !needs_registration {
 				ReadEventsTask::<T>::insert(network, task_id);
 			} else {

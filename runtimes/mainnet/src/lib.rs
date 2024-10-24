@@ -2248,7 +2248,7 @@ mod tests {
 			<Runtime as pallet_members::Config>::MaxTimeoutsPerBlock::get();
 		assert!(
 			max_timeouts_per_block <= num_timeouts,
-			"MaxHeartbeatTimeoutsPerBlock {max_timeouts_per_block} > max number of DKG timeouts per block tested = {num_timeouts}"
+			"MaxHeartbeatTimeoutsPerBlock {max_timeouts_per_block} > max number of Heartbeat timeouts per block tested = {num_timeouts}"
 		);
 	}
 }

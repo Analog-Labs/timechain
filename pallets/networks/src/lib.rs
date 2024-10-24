@@ -43,6 +43,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn register_network(name: u32, network: u32) -> Weight;
 		fn set_network_config() -> Weight;
+		fn remove_network() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -51,6 +52,10 @@ pub mod pallet {
 		}
 
 		fn set_network_config() -> Weight {
+			Weight::default()
+		}
+
+		fn remove_network() -> Weight {
 			Weight::default()
 		}
 	}
@@ -224,6 +229,20 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Self::insert_network_config(network, config)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_network())]
+		pub fn remove_network(origin: OriginFor<T>, network: NetworkId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Networks::<T>::remove(network);
+			NetworkName::<T>::remove(network);
+			NetworkGatewayAddress::<T>::remove(network);
+			NetworkGatewayBlock::<T>::remove(network);
+			NetworkBatchSize::<T>::remove(network);
+			NetworkBatchGasLimit::<T>::remove(network);
+			NetworkShardTaskLimit::<T>::remove(network);
 			Ok(())
 		}
 	}

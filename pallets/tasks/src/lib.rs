@@ -303,6 +303,8 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Invalid batch id
 		InvalidBatchId,
+		/// Cannot remove task
+		CannotRemoveTask,
 	}
 
 	#[pallet::hooks]
@@ -343,7 +345,10 @@ pub mod pallet {
 					Self::verify_signature(shard, &bytes, signature)?;
 					// start next batch
 					Self::set_sync_height(network, blocks.end);
-					Self::read_gateway_events(network);
+					// network wasn't stopped
+					if ReadEventsTask::<T>::get(network).is_some() {
+						Self::read_gateway_events(network);
+					}
 					// process events
 					Self::process_events(network, task_id, events);
 					Ok(())
@@ -384,6 +389,41 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			SyncHeight::<T>::insert(network, block);
+			Ok(())
+		}
+
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::stop_network())]
+		pub fn stop_network(origin: OriginFor<T>, network: NetworkId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ReadEventsTask::<T>::remove(network);
+			Ok(())
+		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_task())]
+		pub fn remove_task(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			// only remove completed tasks, otherwise can cause mayhem
+			if TaskOutput::<T>::take(task).is_none() {
+				return Err(Error::<T>::CannotRemoveTask.into());
+			}
+			if let Some(task) = Tasks::<T>::take(task) {
+				if let Task::SubmitGatewayMessage { batch_id } = task {
+					if let Some(msg) = BatchMessage::<T>::take(batch_id) {
+						for op in msg.ops {
+							if let GatewayOp::SendMessage(msg) = op {
+								let message = msg.message_id();
+								MessageReceivedTaskId::<T>::remove(message);
+								MessageBatchId::<T>::remove(message);
+							}
+						}
+					}
+					BatchTaskId::<T>::remove(batch_id);
+				}
+			}
+			TaskNetwork::<T>::remove(task);
+			TaskSubmitter::<T>::remove(task);
 			Ok(())
 		}
 	}

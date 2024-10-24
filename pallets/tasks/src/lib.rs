@@ -78,6 +78,7 @@ pub mod pallet {
 		fn prepare_batches(n: u32) -> Weight;
 		fn schedule_tasks(n: u32) -> Weight;
 		fn submit_gmp_events() -> Weight;
+		fn sync_chain() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -91,6 +92,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn submit_gmp_events() -> Weight {
+			Weight::default()
+		}
+		fn sync_chain() -> Weight {
 			Weight::default()
 		}
 	}
@@ -220,6 +224,9 @@ pub mod pallet {
 	pub type ReadEventsTask<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
+	#[pallet::storage]
+	pub type SyncHeight<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
+
 	/// Map storage for message tasks.
 	#[pallet::storage]
 	pub type MessageReceivedTaskId<T: Config> =
@@ -327,10 +334,8 @@ pub mod pallet {
 					let bytes = time_primitives::encode_gmp_events(task_id, &events.0);
 					Self::verify_signature(shard, &bytes, signature)?;
 					// start next batch
-					let start = blocks.end;
-					let size = T::Networks::next_batch_size(network, start) as u64;
-					let end = start + size;
-					Self::create_task(network, Task::ReadGatewayEvents { blocks: start..end });
+					Self::set_sync_height(network, blocks.end);
+					Self::read_gateway_events(network);
 					// process events
 					Self::process_events(network, task_id, events);
 					Ok(())
@@ -359,6 +364,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::process_events(network, 0, events);
+			Ok(())
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::sync_chain())]
+		pub fn sync_chain(origin: OriginFor<T>, network: NetworkId, block: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			SyncHeight::<T>::insert(network, block);
 			Ok(())
 		}
 	}
@@ -457,6 +470,20 @@ pub mod pallet {
 				);
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
+		}
+
+		fn set_sync_height(network: NetworkId, block: u64) {
+			let curr = SyncHeight::<T>::get(network);
+			if curr < block {
+				SyncHeight::<T>::insert(network, block);
+			}
+		}
+
+		fn read_gateway_events(network: NetworkId) -> TaskId {
+			let block = SyncHeight::<T>::get(network);
+			let size = T::Networks::next_batch_size(network, block) as u64;
+			let end = block + size;
+			Self::create_task(network, Task::ReadGatewayEvents { blocks: block..end })
 		}
 
 		/// Non-prioritized tasks which are assigned only after
@@ -689,9 +716,8 @@ pub mod pallet {
 		}
 
 		fn gateway_registered(network: NetworkId, block: u64) {
-			let size = T::Networks::next_batch_size(network, block) as u64;
-			let end = block + size;
-			Self::create_task(network, Task::ReadGatewayEvents { blocks: block..end });
+			SyncHeight::<T>::insert(network, block);
+			Self::read_gateway_events(network);
 		}
 	}
 }

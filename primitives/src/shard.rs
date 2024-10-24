@@ -14,7 +14,7 @@ use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 
 /// Upper bound for shard sizes
-const MAX_SHARD_SIZE: u32 = 100;
+pub const MAX_SHARD_SIZE: u32 = 100;
 
 pub type TssPublicKey = [u8; 33];
 pub type TssSignature = [u8; 64];

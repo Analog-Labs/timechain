@@ -22,13 +22,16 @@ use std::{fs::File, ops::Range};
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
+	H160,
 };
+
+type AlloyAddress = alloy_primitives::Address;
 
 pub(crate) mod sol;
 
-fn a_addr(address: Address) -> alloy_primitives::Address {
+fn a_addr(address: Address) -> AlloyAddress {
 	let address: [u8; 20] = address[..20].try_into().unwrap();
-	alloy_primitives::Address::from(address)
+	AlloyAddress::from(address)
 }
 
 fn t_addr(address: alloy_primitives::Address) -> Address {
@@ -45,6 +48,7 @@ pub struct Connector {
 }
 
 impl Connector {
+	#[allow(dead_code)]
 	async fn nonce(&self, address: Address) -> Result<u64> {
 		let address: [u8; 20] = address[..20].try_into().unwrap();
 		self.wallet
@@ -110,45 +114,35 @@ impl Connector {
 	async fn deploy_contract_with_factory(
 		&self,
 		factory_address: [u8; 20],
-		init_code: &[u8],
-	) -> Result<(Address, u64)> {
-		let tx_hash = self
+		call: Vec<u8>,
+	) -> Result<(AlloyAddress, u64)> {
+		let result = self
 			.wallet
-			.eth_send_call(factory_address, init_code.to_vec(), 0, None, None)
-			.await?
-			.tx_hash();
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash.into()).await?.unwrap();
-		println!("tx_receipt: {:?}", tx_receipt);
-		// let address = tx_receipt.contract_address.unwrap();
-		// let block_number = tx_receipt.block_number.unwrap();
-		// Ok((t_addr(address.0.into()), block_number))
-		todo!()
-	}
-
-	async fn compute_proxy_address(
-		&self,
-		factory_address: [u8; 20],
-		salt: [u8; 32],
-		contract_bytes: Vec<u8>,
-	) -> Result<[u8; 20]> {
-		use sha3::Digest;
-		// let address = keccak256(0xff + 0x0000000000001C4Bf962dF86e38F0c10c7972C6E + 256bit salt + keccak256(contract_initcode))[12..32];
-
-		let mut hasher = sha3::Keccak256::new();
-		hasher.update(contract_bytes);
-		let contract_code_hash = hasher.finalize();
-
-		let mut hasher = Keccak256::new();
-		hasher.update([0xff]);
-		hasher.update(&factory_address);
-		hasher.update(salt);
-		hasher.update(contract_code_hash);
-
-		let final_hash = hasher.finalize();
-		let mut final_address = [0u8; 20];
-		final_address.copy_from_slice(&final_hash[12..32]);
-
-		Ok(final_address)
+			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
+			.await?;
+		let SubmitResult::Executed { result, receipt, .. } = result else {
+			anyhow::bail!("tx timed out");
+		};
+		match result {
+			CallResult::Success(_) => {
+				let log = receipt
+					.logs
+					.iter()
+					.find(|log| log.address.as_bytes() == factory_address)
+					.with_context(|| "Log with factory address not found")?;
+				let topic = log
+					.topics
+					.first()
+					.with_context(|| "Unable to find topics in tx receipt")?
+					.as_bytes();
+				let contract_address = AlloyAddress::from_slice(&topic[12..]);
+				Ok((contract_address, receipt.block_number.unwrap()))
+			},
+			CallResult::Revert(reason) => {
+				anyhow::bail!("Deployment reverted: {:?}", hex::encode(reason))
+			},
+			CallResult::Error => anyhow::bail!("Failed to deploy contract"),
+		}
 	}
 
 	async fn deploy_factory(&self, config: &DeploymentConfig) -> Result<()> {
@@ -176,7 +170,6 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		println!("{:?}", params);
 		let wallet = Arc::new(
 			Wallet::new(
 				params.blockchain.parse()?,
@@ -207,7 +200,7 @@ impl IChain for Connector {
 	}
 	/// Parses an address from a string.
 	fn parse_address(&self, address: &str) -> Result<Address> {
-		let address: alloy_primitives::Address = address.parse()?;
+		let address: AlloyAddress = address.parse()?;
 		Ok(t_addr(address))
 	}
 	/// Network identifier.
@@ -357,68 +350,67 @@ impl IConnectorAdmin for Connector {
 			.await?;
 
 		if is_factory_deployed.is_empty() {
-			println!("Factory is not deployed");
+			tracing::info!("Factory is not deployed");
 			self.deploy_factory(&config).await?;
 		} else {
-			println!("Factory is deployed: {:?}", is_factory_deployed.len());
+			tracing::info!("Factory is deployed: {:?}", is_factory_deployed.len());
 		}
 
-		// TODO
-		let mut proxy_bytecode = get_contract_from_slice(proxy)?;
+		let deployment_salt = [0u8; 32];
+
+		let sender = a_addr(self.address()).0 .0;
+		let computed_proxy_address =
+			compute_create3_address(factory_address, sender, deployment_salt).await?;
+
+		// gateway deployment
+		let gateway_bytecode = get_contract_from_slice(gateway)?;
+		let gateway_contstructor = sol::Gateway::constructorCall {
+			networkId: self.network_id,
+			proxy: computed_proxy_address.into(),
+		};
+		let gateway_init_code =
+			extend_bytes_with_constructor(gateway_bytecode, gateway_contstructor);
+
+		//deploy using universal factory
+		let gateway_create_call = sol::IUniversalFactory::create2Call {
+			salt: deployment_salt.into(),
+			creationCode: gateway_init_code.into(),
+		}
+		.abi_encode();
+
+		// deploy_gateway with universal factory
+		let (gateway_address, _) =
+			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
+		tracing::info!("gateway deployed at: {:?}", gateway_address);
 
 		//proxy constructor
 		let proxy_constructor = sol::GatewayProxy::constructorCall {
-			implementation: factory_address.into(),
+			implementation: gateway_address,
+			initializer: vec![].into(),
 		};
 
+		let proxy_bytecode = get_contract_from_slice(proxy)?;
 		let proxy_bytecode =
 			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
 
-		// deploy proxy using universal factory
-		let computed_proxy_address = self
-			.compute_proxy_address(factory_address, [0; 32], proxy_bytecode.clone())
-			.await?;
-		println!("computed_proxy_address: {:?}", hex::encode(computed_proxy_address));
+		// dploy proxy using universal factory
+		let proxy_init_call = sol::IUniversalFactory::create3Call {
+			salt: deployment_salt.into(),
+			creationCode: proxy_bytecode.into(),
+		}
+		.abi_encode();
 
-		let result = self.deploy_contract_with_factory(factory_address, &proxy_bytecode).await?;
-		println!("result of deployment: {:?}", result);
+		let (proxy_address, block_number) =
+			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
+		if proxy_address != computed_proxy_address {
+			anyhow::bail!(
+				"Unable to compute proxy address: expected: {:?}, got {:?}",
+				AlloyAddress::from_slice(&computed_proxy_address),
+				proxy_address
+			);
+		}
 
-		// let gateway_bytecode = get_contract_from_slice(proxy)?;
-
-		// let computed_gateway_address =
-		// 	self.compute_proxy_address(factory_address, [0; 32], proxy.to_vec()).await?;
-
-		// let gateway_contstructor = sol::Gateway::constructorCall {
-		// 	networkId: self.network_id,
-		// 	proxy: a_addr([0u8; 32]),
-		// };
-
-		// deploy gateway
-		// let admin = self.address();
-
-		// get deployer's nonce
-		// let nonce = self.nonce(admin).await?;
-
-		// compute the proxy address
-		// let proxy_addr = a_addr(admin).create(nonce + 1);
-		// let proxy_addr = t_addr(proxy_addr);
-
-		// deploy gateway
-		// let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
-
-		// // deploy the proxy contract
-		// let call = sol::GatewayProxy::constructorCall {
-		// 	implementation: a_addr(gateway_addr),
-		// };
-		// let (actual_addr, block_number) = self.deploy_contract(proxy, call).await?;
-
-		// // Check if the proxy address match the expect address
-		// if proxy_addr != actual_addr {
-		// 	anyhow::bail!("Proxy address mismatch, expect {proxy_addr:?}, got {actual_addr:?}");
-		// }
-		let actual_addr = todo!();
-		let block_number = todo!();
-		Ok((actual_addr, block_number))
+		Ok((t_addr(proxy_address), block_number))
 	}
 	/// Redeploys the gateway contract.
 	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()> {
@@ -563,6 +555,45 @@ impl IConnectorAdmin for Connector {
 		self.evm_call(gateway, call, 0, None).await?;
 		Ok(())
 	}
+}
+
+async fn compute_create3_address(
+	factory_address: [u8; 20],
+	sender: [u8; 20],
+	salt: [u8; 32],
+) -> Result<[u8; 20]> {
+	///
+	// solidity
+	// salt = keccak256(abi.encodePacked(msg.sender, salt));
+	// bytes32 proxyHash = 0x0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6;
+	// address proxy = address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(factory), uint256(salt), proxyHash)))));
+	// return address(uint160(uint256(keccak256(abi.encodePacked(uint16(0xd694), proxy, uint8(1))))));
+	///
+	use sha3::Digest;
+	let proxy_hash =
+		hex::decode("0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6")?;
+
+	let mut hasher = Keccak256::new();
+	hasher.update(sender);
+	hasher.update(salt);
+	let salt_hashed = hasher.finalize();
+
+	let mut hasher = Keccak256::new();
+	hasher.update([0xff]);
+	hasher.update(factory_address);
+	hasher.update(salt_hashed.as_slice());
+	hasher.update(&proxy_hash);
+	let proxy_hashed = hasher.finalize();
+
+	let proxy_address = H160::from_slice(&proxy_hashed[12..]);
+
+	let mut hasher = Keccak256::new();
+	hasher.update(&0xd694u16.to_be_bytes());
+	hasher.update(proxy_address.as_bytes());
+	hasher.update([1]);
+	let final_hashed = hasher.finalize();
+
+	Ok(AlloyAddress::from_slice(&final_hashed[12..]).0 .0)
 }
 
 fn get_contract_from_slice(slice: &[u8]) -> Result<Vec<u8>> {

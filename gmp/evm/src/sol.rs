@@ -35,12 +35,25 @@ alloy_sol_types::sol! {
 		uint128 baseFee;
 	}
 
+	// #[derive(Debug, Default, PartialEq, Eq)]
+	// struct TssKey {
+	// 	uint8 yParity;
+	// 	uint256 xCoord;
+	// }
+
+	// #[derive(Debug, PartialEq, Eq)]
+	// struct Network {
+	// 	uint16 id;
+	// 	address gateway;
+	// }
+
 	contract GatewayProxy {
-		constructor(address implementation) payable;
+		constructor(address implementation,bytes memory initializer) payable;
 	}
 
 	contract Gateway {
 		constructor(uint16 networkId, address proxy) payable;
+		// function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
 		function admin() external view returns (address);
@@ -94,6 +107,22 @@ alloy_sol_types::sol! {
 		 * @return address of the created contract.
 		 */
 		function create2(bytes32 salt, bytes calldata creationCode) external payable returns (address);
+
+		/**
+		 * Creates an contract at a deterministic address, the final address is derived exclusively from the `salt` field:
+		 * ```solidity
+		 * salt = keccak256(abi.encodePacked(msg.sender, salt));
+		 * bytes32 proxyHash = 0x0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6;
+		 * address proxy = address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(factory), uint256(salt), proxyHash)))));
+		 * return address(uint160(uint256(keccak256(abi.encodePacked(uint16(0xd694), proxy, uint8(1))))));
+		 * ```
+		 * The contract constructor can access the actual sender and other informations by calling `context()`.
+		 *
+		 * @param salt Salt of the contract creation, resulting address will be derivated from this value only.
+		 * @param creationCode Creation code (constructor) of the contract to be deployed, this value doesn't affect the resulting address.
+		 * @return address of the created contract.
+		 */
+		function create3(bytes32 salt, bytes calldata creationCode) external payable returns (address);
 	}
 
 }

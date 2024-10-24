@@ -78,7 +78,9 @@ pub mod pallet {
 		fn prepare_batches(n: u32) -> Weight;
 		fn schedule_tasks(n: u32) -> Weight;
 		fn submit_gmp_events() -> Weight;
-		fn sync_chain() -> Weight;
+		fn sync_network() -> Weight;
+		fn stop_network() -> Weight;
+		fn remove_task() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -94,7 +96,13 @@ pub mod pallet {
 		fn submit_gmp_events() -> Weight {
 			Weight::default()
 		}
-		fn sync_chain() -> Weight {
+		fn sync_network() -> Weight {
+			Weight::default()
+		}
+		fn stop_network() -> Weight {
+			Weight::default()
+		}
+		fn remove_task() -> Weight {
 			Weight::default()
 		}
 	}
@@ -222,7 +230,7 @@ pub mod pallet {
 	///  Map storage for received tasks.
 	#[pallet::storage]
 	pub type ReadEventsTask<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, TaskId, OptionQuery>;
 
 	#[pallet::storage]
 	pub type SyncHeight<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
@@ -362,15 +370,19 @@ pub mod pallet {
 			network: NetworkId,
 			events: GmpEvents,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::process_events(network, 0, events);
 			Ok(())
 		}
 
 		#[pallet::call_index(11)]
-		#[pallet::weight(<T as Config>::WeightInfo::sync_chain())]
-		pub fn sync_chain(origin: OriginFor<T>, network: NetworkId, block: u64) -> DispatchResult {
-			ensure_root(origin)?;
+		#[pallet::weight(<T as Config>::WeightInfo::sync_network())]
+		pub fn sync_network(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			block: u64,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
 			SyncHeight::<T>::insert(network, block);
 			Ok(())
 		}

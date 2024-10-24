@@ -89,7 +89,6 @@ pub struct GlobalConfig {
 	pub chronicle_timechain_funds: String,
 	pub metadata_variant: MetadataVariant,
 	pub timechain_url: String,
-	pub factory_deployer: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

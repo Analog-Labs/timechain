@@ -1758,4 +1758,70 @@ mod multiplier_tests {
 			"MaxBatchesPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
 		);
 	}
+
+	#[test]
+	fn max_dkg_timeouts_per_block() {
+		// 20% of max on_initialize space for dkg timeouts conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(20) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		assert!(
+			<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(1)
+				.all_lte(avg_on_initialize),
+			"BUG: One DKG timeout consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(1)
+				.all_lte(<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(2)),
+			"BUG: 1 DKG timeout consumes more weight than 2 DKG timeouts"
+		);
+		let mut num_timeouts: u32 = 2;
+		while <Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(num_timeouts)
+			.all_lt(avg_on_initialize)
+		{
+			num_timeouts += 1;
+			if num_timeouts == 10_000_000 {
+				// 10_000_000 timeouts; halting to break out of loop
+				break;
+			}
+		}
+		let max_timeouts_per_block: u32 =
+			<Runtime as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
+		assert!(
+			max_timeouts_per_block <= num_timeouts,
+			"MaxDKGTimeoutsPerBlock {max_timeouts_per_block} > max number of DKG timeouts per block tested = {num_timeouts}"
+		);
+	}
+
+	#[test]
+	fn max_heartbeat_timeouts_per_block() {
+		// 20% of max on_initialize space for dkg timeouts conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(20) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		assert!(
+			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
+				.all_lte(avg_on_initialize),
+			"BUG: One Heartbeat timeout consumes more weight than available in on-initialize"
+		);
+		assert!(
+			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
+				.all_lte(<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(2)),
+			"BUG: 1 Heartbeat timeout consumes more weight than 2 Heartbeat timeouts"
+		);
+		let mut num_timeouts: u32 = 2;
+		while <Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(num_timeouts)
+			.all_lt(avg_on_initialize)
+		{
+			num_timeouts += 1;
+			if num_timeouts == 10_000_000 {
+				// 10_000_000 timeouts; halting to break out of loop
+				break;
+			}
+		}
+		let max_timeouts_per_block: u32 =
+			<Runtime as pallet_members::Config>::MaxTimeoutsPerBlock::get();
+		assert!(
+			max_timeouts_per_block <= num_timeouts,
+			"MaxHeartbeatTimeoutsPerBlock {max_timeouts_per_block} > max number of DKG timeouts per block tested = {num_timeouts}"
+		);
+	}
 }

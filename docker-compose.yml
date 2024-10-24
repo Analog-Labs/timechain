@@ -127,7 +127,6 @@ services:
     - './config/envs/local/prices.csv:/etc/prices.csv'
     - './analog-gmp/out:/etc/contracts:ro'
     - './gmp/evm/factory/factory.json:/etc/deployer/factory.json:ro'
-    - './:/etc/config'
     env_file:
     - './config/envs/local/.env'
     profiles:

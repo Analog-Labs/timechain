@@ -162,6 +162,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		ShardSizeAboveMax,
 		ThresholdLargerThanSize,
 	}
 
@@ -200,6 +201,7 @@ pub mod pallet {
 			shard_threshold: u16,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(MAX_SHARD_SIZE >= shard_size.into(), Error::<T>::ShardSizeAboveMax);
 			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);

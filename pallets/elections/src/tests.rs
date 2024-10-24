@@ -87,5 +87,9 @@ fn set_shard_config_works() {
 			Elections::set_shard_config(RawOrigin::Root.into(), 1, 2),
 			Error::<Test>::ThresholdLargerThanSize
 		);
+		assert_noop!(
+			Elections::set_shard_config(RawOrigin::Root.into(), 101, 1),
+			Error::<Test>::ShardSizeAboveMax
+		);
 	});
 }

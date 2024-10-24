@@ -977,6 +977,7 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 }
 
 impl pallet_elections::Config for Runtime {
@@ -994,6 +995,7 @@ impl pallet_shards::Config for Runtime {
 	type Members = Members;
 	type Elections = Elections;
 	type Tasks = Tasks;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU32<10>;
 }
 
@@ -1003,8 +1005,8 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<500>;
-	type MaxBatchesPerBlock = ConstU32<1_000>;
+	type MaxTasksPerBlock = ConstU32<50>;
+	type MaxBatchesPerBlock = ConstU32<10>;
 }
 
 parameter_types! {
@@ -1753,7 +1755,7 @@ mod multiplier_tests {
 			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
 		assert!(
 			max_batches_per_block_configured <= num_batches,
-			"MaxTasksPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
+			"MaxBatchesPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
 		);
 	}
 }

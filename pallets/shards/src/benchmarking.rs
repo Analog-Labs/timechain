@@ -1,5 +1,5 @@
 use super::*;
-use crate::Pallet;
+use crate::{Config, Pallet};
 
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get};
@@ -7,19 +7,20 @@ use frame_system::RawOrigin;
 use polkadot_sdk::{
 	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_runtime, sp_std,
 };
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, Saturating};
 
 use sp_std::vec;
 use sp_std::vec::Vec;
 
 use time_primitives::{
-	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardsInterface,
+	AccountId, Commitment, NetworkId, ProofOfKnowledge, PublicKey, ShardStatus, ShardsInterface,
 };
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const BOB: [u8; 32] = [2u8; 32];
 pub const CHARLIE: [u8; 32] = [3u8; 32];
 pub const ETHEREUM: NetworkId = 0;
+const SHARD_ID: u64 = 0;
 
 fn public_key(acc: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
@@ -111,7 +112,7 @@ benchmarks! {
 				)?;
 			}
 		}
-	}: _(RawOrigin::Signed(ALICE.into()), 0, get_commitment(ALICE),
+	}: _(RawOrigin::Signed(ALICE.into()), SHARD_ID, get_commitment(ALICE),
 	get_proof_of_knowledge(ALICE))
 	verify { }
 
@@ -143,25 +144,32 @@ benchmarks! {
 			if member != ALICE {
 				Pallet::<T>::ready(
 					RawOrigin::Signed(member.into()).into(),
-					0,
+					SHARD_ID,
 				)?;
 			}
 		}
-	}: _(RawOrigin::Signed(ALICE.into()), 0)
+	}: _(RawOrigin::Signed(ALICE.into()), SHARD_ID)
 	verify { }
 
 	force_shard_offline {
 		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
 		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
-	}: _(RawOrigin::Root, 0)
+	}: _(RawOrigin::Root, SHARD_ID)
 	verify { }
 
-	member_offline {
-		let member: AccountId = ALICE.into();
-		Pallet::<T>::member_online(&member, ETHEREUM);
+	timeout_dkgs {
+		let b in 1..<T as Config>::MaxTimeoutsPerBlock::get();
+		for i in 0..b {
+			Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1);
+			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Created));
+		}
 	}: {
-		Pallet::<T>::member_offline(&member, ETHEREUM);
-	} verify { }
+		Pallet::<T>::timeout_dkgs(T::DkgTimeout::get().saturating_add(T::DkgTimeout::get()));
+	} verify {
+		for i in 0..b {
+			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Offline));
+		}
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

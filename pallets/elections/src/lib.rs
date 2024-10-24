@@ -45,10 +45,11 @@ mod tests;
 
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
-	use polkadot_sdk::{frame_support, frame_system, sp_std};
+	use polkadot_sdk::{frame_support, frame_system, sp_runtime, sp_std};
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 
@@ -58,10 +59,14 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn set_shard_config() -> Weight;
+		fn try_elect_shard(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn set_shard_config() -> Weight {
+			Weight::default()
+		}
+		fn try_elect_shard(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -159,12 +164,9 @@ pub mod pallet {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
 			let mut weight = Weight::default();
-			for (network, _, _) in Unassigned::<T>::iter() {
-				weight = weight
-					// 1 Read of Unassigned per Loop
-					.saturating_add(T::DbWeight::get().reads(1))
-					.saturating_add(Self::try_elect_shard(network));
-			}
+			Unassigned::<T>::iter().map(|(n, _, _)| n).for_each(|network| {
+				weight = weight.saturating_add(Self::try_elect_shard(network));
+			});
 			log::info!("on_initialize end");
 			weight
 		}
@@ -254,11 +256,9 @@ pub mod pallet {
 		///    1. Removes the member from the [`Unassigned`] storage for the given network.
 		///    2. Notifies the `Shards` interface about the member going offline.
 		///    3. Returns the weight of the operation.
-		fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
+		fn member_offline(member: &AccountId, network: NetworkId) {
 			Unassigned::<T>::remove(network, member);
-			T::DbWeight::get()
-				.writes(1)
-				.saturating_add(T::Shards::member_offline(member, network))
+			T::Shards::member_offline(member, network);
 		}
 	}
 
@@ -273,18 +273,16 @@ pub mod pallet {
 		///    1. Calls `new_shard_members` to get a list of new shard members.
 		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
 		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
-		fn try_elect_shard(network: NetworkId) -> Weight {
-			match Self::new_shard_members(network) {
-				(Some(members), r) => {
+		pub(crate) fn try_elect_shard(network: NetworkId) -> Weight {
+			let num_unassigned = match Self::new_shard_members(network) {
+				(Some(members), n) => {
 					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-					let weight = T::DbWeight::get()
-						.reads_writes(r, members.len().try_into().unwrap_or_default());
-					T::Shards::create_shard(network, members, ShardThreshold::<T>::get())
-						.1
-						.saturating_add(weight)
+					T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
+					n
 				},
-				(None, r) => T::DbWeight::get().reads(r),
-			}
+				(None, n) => n,
+			};
+			T::WeightInfo::try_elect_shard(num_unassigned)
 		}
 
 		///  Determines the members for a new shard.
@@ -294,21 +292,21 @@ pub mod pallet {
 		///    3. Returns `None` if there are not enough members to form a shard.
 		///    4. If there are just enough members, returns the list of members.
 		///    5. If there are more members than needed, sorts them by their stake and selects the top members to form the shard.
-		fn new_shard_members(network: NetworkId) -> (Option<Vec<AccountId>>, u64) {
-			let mut reads: u64 = 0;
-			let shard_members_len = ShardSize::<T>::get() as usize;
+		fn new_shard_members(network: NetworkId) -> (Option<Vec<AccountId>>, u32) {
+			let mut num_unassigned: u32 = 0;
 			let mut members = Vec::new();
 			for (m, _) in Unassigned::<T>::iter_prefix(network) {
 				if T::Members::is_member_online(&m) {
 					members.push(m);
 				}
-				reads = reads.saturating_add(2);
+				num_unassigned = num_unassigned.saturating_plus_one();
 			}
+			let shard_members_len = ShardSize::<T>::get() as usize;
 			if members.len() < shard_members_len {
-				return (None, reads);
+				return (None, num_unassigned);
 			}
 			if members.len() == shard_members_len {
-				return (Some(members), reads);
+				return (Some(members), num_unassigned);
 			}
 			// else members.len() > shard_members_len:
 			members.sort_unstable_by(|a, b| {
@@ -318,7 +316,7 @@ pub mod pallet {
 					.then_with(|| a.cmp(b))
 					.reverse()
 			});
-			(Some(members.into_iter().take(shard_members_len).collect()), reads)
+			(Some(members.into_iter().take(shard_members_len).collect()), num_unassigned)
 		}
 	}
 }

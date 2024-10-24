@@ -4,40 +4,17 @@ use polkadot_sdk::*;
 
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
-use sp_core::{ConstU128, ConstU64};
+use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature,
+	BuildStorage, MultiSignature,
 };
-use time_primitives::{MembersInterface, NetworkId, PeerId, PublicKey, ShardId, TasksInterface};
+use time_primitives::{NetworkId, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
-
-pub struct MockMembers;
-
-impl MembersInterface for MockMembers {
-	fn member_stake(_: &AccountId) -> u128 {
-		0u128
-	}
-	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
-		None
-	}
-	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
-		None
-	}
-	fn is_member_online(_: &AccountId) -> bool {
-		true
-	}
-	fn total_stake() -> u128 {
-		0u128
-	}
-	fn transfer_stake(_: &AccountId, _: &AccountId, _: u128) -> DispatchResult {
-		Ok(())
-	}
-}
 
 pub struct MockTasks;
 
@@ -54,6 +31,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Elections: pallet_elections::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Members: pallet_members,
 	}
 );
 
@@ -85,7 +63,7 @@ impl pallet_elections::Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Shards = Shards;
-	type Members = MockMembers;
+	type Members = Members;
 }
 
 impl pallet_shards::Config for Test {
@@ -93,9 +71,19 @@ impl pallet_shards::Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Tasks = MockTasks;
-	type Members = MockMembers;
+	type Members = Members;
 	type Elections = Elections;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
+}
+
+impl pallet_members::Config for Test {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Elections = Elections;
+	type MinStake = ConstU128<5>;
+	type HeartbeatTimeout = ConstU64<10>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

@@ -2,8 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use anyhow::Result;
-use frame_support::weights::Weight;
-use polkadot_sdk::{frame_support, sp_api, sp_core, sp_runtime};
+use polkadot_sdk::{sp_api, sp_core, sp_runtime};
 use scale_info::prelude::{string::String, vec::Vec};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{
@@ -149,21 +148,17 @@ pub trait ElectionsInterface {
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 	fn default_shard_size() -> u16;
 	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
+	fn member_offline(id: &AccountId, network: NetworkId);
 }
 
 pub trait ShardsInterface {
 	fn member_online(id: &AccountId, network: NetworkId);
-	fn member_offline(id: &AccountId, network: NetworkId) -> Weight;
+	fn member_offline(id: &AccountId, network: NetworkId);
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
 	fn shard_network(shard_id: ShardId) -> Option<NetworkId>;
-	fn create_shard(
-		network: NetworkId,
-		members: Vec<AccountId>,
-		threshold: u16,
-	) -> (ShardId, Weight);
+	fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> ShardId;
 	fn next_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }

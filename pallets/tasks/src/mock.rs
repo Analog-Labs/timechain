@@ -11,7 +11,7 @@ use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnInitialize,
 };
-use frame_support::{pallet_prelude::Weight, PalletId};
+use frame_support::PalletId;
 
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
@@ -81,7 +81,7 @@ impl ElectionsInterface for MockElections {
 	fn member_online(member: &AccountId, network: NetworkId) {
 		Shards::member_online(member, network)
 	}
-	fn member_offline(member: &AccountId, network: NetworkId) -> Weight {
+	fn member_offline(member: &AccountId, network: NetworkId) {
 		Shards::member_offline(member, network)
 	}
 }
@@ -227,6 +227,7 @@ impl pallet_members::Config for Test {
 	type Elections = MockElections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 }
 
 impl pallet_elections::Config for Test {
@@ -244,6 +245,7 @@ impl pallet_shards::Config for Test {
 	type Tasks = Tasks;
 	type Members = MockMembers;
 	type Elections = Elections;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
 }
 

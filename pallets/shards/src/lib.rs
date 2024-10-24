@@ -96,7 +96,7 @@ pub mod pallet {
 		fn commit() -> Weight;
 		fn ready() -> Weight;
 		fn force_shard_offline() -> Weight;
-		fn member_offline() -> Weight;
+		fn timeout_dkgs(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -112,7 +112,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn member_offline() -> Weight {
+		fn timeout_dkgs(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -133,6 +133,8 @@ pub mod pallet {
 		type Elections: ElectionsInterface;
 		type Members: MembersInterface;
 		type Tasks: TasksInterface;
+		#[pallet::constant]
+		type MaxTimeoutsPerBlock: Get<u32>;
 		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
@@ -345,37 +347,13 @@ pub mod pallet {
 		}
 	}
 
-	/// Checks for DKG timeouts and handles shard state transitions accordingly.
-	/// # Flow
-	///   1. Iterate over the [`DkgTimeout`] storage.
-	///   2. Check if the DKG process of any shard has timed out.
-	///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardKeyGenTimedOut`] event.
-	///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let mut writes = 0;
-			let mut reads = 0;
-			// use DkgTimeout instead
-			DkgTimeout::<T>::iter().for_each(|(shard_id, created_block)| {
-				reads += 1;
-				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-					if let Some(status) = ShardState::<T>::get(shard_id) {
-						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
-							DkgTimeout::<T>::remove(shard_id);
-							writes += 1;
-						} else {
-							Self::remove_shard_offline(shard_id);
-							Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
-							writes += 5;
-						}
-					}
-					reads += 1;
-				}
-			});
+			let weight_consumed = Self::timeout_dkgs(n);
 			log::info!("on_initialize end");
-			T::DbWeight::get().reads_writes(reads, writes)
+			weight_consumed
 		}
 	}
 
@@ -401,6 +379,34 @@ pub mod pallet {
 				.collect::<Vec<_>>();
 			T::Elections::shard_offline(network, members);
 			Self::deposit_event(Event::ShardOffline(shard_id));
+		}
+		/// Checks for DKG timeouts and handles shard state transitions accordingly.
+		/// # Flow
+		///   1. Iterate over the [`DkgTimeout`] storage.
+		///   2. Check if the DKG process of any shard has timed out.
+		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardKeyGenTimedOut`] event.
+		///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
+		pub(crate) fn timeout_dkgs(n: BlockNumberFor<T>) -> Weight {
+			let mut num_timeouts = 0u32;
+			for (shard_id, created_block) in DkgTimeout::<T>::iter() {
+				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+					if let Some(status) = ShardState::<T>::get(shard_id) {
+						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
+							DkgTimeout::<T>::remove(shard_id);
+						} else {
+							Self::remove_shard_offline(shard_id);
+							Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+							num_timeouts = num_timeouts.saturating_plus_one();
+							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+								return <T as Config>::WeightInfo::timeout_dkgs(
+									T::MaxTimeoutsPerBlock::get(),
+								);
+							}
+						}
+					}
+				}
+			}
+			<T as Config>::WeightInfo::timeout_dkgs(num_timeouts)
 		}
 		/// Fetches all shards associated with a given account.
 		/// # Flow
@@ -477,16 +483,10 @@ pub mod pallet {
 		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
 		///     - Updates [`ShardState`] with the new new_status.
 		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
-		fn member_offline(id: &AccountId, _: NetworkId) -> Weight {
-			let Some(shard_id) = MemberShard::<T>::get(id) else {
-				return T::DbWeight::get().reads(1);
-			};
-			let Some(old_status) = ShardState::<T>::get(shard_id) else {
-				return T::DbWeight::get().reads(2);
-			};
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
-				return T::DbWeight::get().reads(3);
-			};
+		fn member_offline(id: &AccountId, _: NetworkId) {
+			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
+			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
+			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
 			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
 			members_online = members_online.saturating_less_one();
 			ShardMembersOnline::<T>::insert(shard_id, members_online);
@@ -510,7 +510,6 @@ pub mod pallet {
 			} else if !matches!(new_status, ShardStatus::Offline) {
 				ShardState::<T>::insert(shard_id, new_status);
 			}
-			<T as Config>::WeightInfo::member_offline()
 		}
 
 		/// Checks if a specified shard is currently online.
@@ -556,34 +555,20 @@ pub mod pallet {
 		///   6. Inserts each member into ShardMembers and associates them with [`MemberStatus::Added`].
 		///   7. Registers each member in `MemberShard` with the `shard_id`.
 		///   8. Emits a [`Event::ShardCreated`] event with the `shard_id` and network.
-		fn create_shard(
-			network: NetworkId,
-			members: Vec<AccountId>,
-			threshold: u16,
-		) -> (ShardId, Weight) {
-			let (mut reads, mut writes) = (0, 0);
+		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> ShardId {
 			let shard_id = <ShardIdCounter<T>>::get();
-			<ShardIdCounter<T>>::put(shard_id + 1);
+			<ShardIdCounter<T>>::put(shard_id.saturating_plus_one());
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
 			<DkgTimeout<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
 			<ShardThreshold<T>>::insert(shard_id, threshold);
-			// ShardIdCounter, frame_system::Pallet::<T>::block_number()
-			reads = reads.saturating_add(2);
-			// ShardIdCounter, ShardNetwork, ShardState, DkgTimeout, ShardThreshold
-			writes = writes.saturating_add(5);
 			for member in &members {
 				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
 				MemberShard::<T>::insert(member, shard_id);
-				// ShardMembers, MemberShard
-				writes = writes.saturating_add(2);
 			}
 			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			// Event Emission
-			writes = writes.saturating_plus_one();
-			let weight = T::DbWeight::get().reads_writes(reads, writes);
-			(shard_id, weight)
+			shard_id
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

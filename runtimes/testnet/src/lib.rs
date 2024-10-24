@@ -1613,6 +1613,8 @@ impl_runtime_apis! {
 mod multiplier_tests {
 	use super::*;
 	use frame_support::{dispatch::DispatchInfo, traits::OnFinalize};
+	use pallet_members::WeightInfo;
+	use pallet_shards::WeightInfo;
 	use pallet_tasks::WeightInfo;
 	use separator::Separatable;
 	use sp_runtime::traits::Convert;

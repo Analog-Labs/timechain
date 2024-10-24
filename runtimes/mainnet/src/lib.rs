@@ -2083,6 +2083,8 @@ mod tests {
 	use super::*;
 	use frame_election_provider_support::NposSolution;
 	use frame_system::offchain::CreateSignedTransaction;
+	use pallet_members::WeightInfo;
+	use pallet_shards::WeightInfo;
 	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
 

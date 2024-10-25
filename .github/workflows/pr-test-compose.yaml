@@ -33,7 +33,7 @@ jobs:
           EOF
       - name: Setup containers
         run: |
-          docker compose up --profile ethereum -d
+          docker compose --profile ethereum up -d
       - name: fetch prices
         run: |
           docker compose run --rm --remove-orphans tc-cli fetch-token-price-data

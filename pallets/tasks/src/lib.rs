@@ -532,7 +532,7 @@ pub mod pallet {
 		fn read_gateway_events(network: NetworkId) -> TaskId {
 			let block = SyncHeight::<T>::get(network);
 			let size = T::Networks::next_batch_size(network, block) as u64;
-			let end = block + size;
+			let end = block.saturating_add(size);
 			Self::create_task(network, Task::ReadGatewayEvents { blocks: block..end })
 		}
 

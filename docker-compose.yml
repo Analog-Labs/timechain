@@ -113,7 +113,6 @@ services:
     - '--ws.api=eth,debug,admin,txpool,web3,net'
     profiles:
     - ethereum
-    - ethereum3
     ports:
     - 8545:8545
 

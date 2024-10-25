@@ -343,9 +343,12 @@ pub mod pallet {
 					// verify signature
 					let bytes = time_primitives::encode_gmp_events(task_id, &events.0);
 					Self::verify_signature(shard, &bytes, signature)?;
-					// start next batch
-					Self::set_sync_height(network, blocks.end);
-					// network wasn't stopped
+					// update sync height if the network wasn't manually synced
+					let curr = SyncHeight::<T>::get(network);
+					if curr == blocks.start {
+						SyncHeight::<T>::insert(network, blocks.end);
+					}
+					// start next batch if network wasn't stopped
 					if ReadEventsTask::<T>::get(network).is_some() {
 						Self::read_gateway_events(network);
 					}
@@ -520,13 +523,6 @@ pub mod pallet {
 				);
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
-		}
-
-		fn set_sync_height(network: NetworkId, block: u64) {
-			let curr = SyncHeight::<T>::get(network);
-			if curr < block {
-				SyncHeight::<T>::insert(network, block);
-			}
 		}
 
 		fn read_gateway_events(network: NetworkId) -> TaskId {

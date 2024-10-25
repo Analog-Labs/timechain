@@ -52,12 +52,8 @@ impl Config {
 					.context("failed to read gateway contract")?,
 				tester: std::fs::read(self.relative_path(&contracts.tester))
 					.context("failed to read tester contract")?,
-				additional_params: contracts
-					.additional_params
-					.to_str()
-					.context("Failed to convert additional params")?
-					.as_bytes()
-					.to_vec(),
+				additional_params: std::fs::read(self.relative_path(&contracts.additional_params))
+					.context("Failed to convert additional params")?,
 			}
 		} else {
 			Contracts::default()

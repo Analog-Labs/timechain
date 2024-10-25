@@ -18,7 +18,6 @@ use std::io::BufReader;
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::{fs::File, ops::Range};
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
@@ -336,13 +335,8 @@ impl IConnectorAdmin for Connector {
 		proxy: &[u8],
 		gateway: &[u8],
 	) -> Result<(Address, u64)> {
-		// load additional config
-		let additional_config_path = String::from_utf8(additional_params.to_vec())?;
-		let file = File::open(additional_config_path)?;
-		let reader = BufReader::new(file);
-
 		// check if uf already deployed
-		let config: DeploymentConfig = serde_json::from_reader(reader)?;
+		let config: DeploymentConfig = serde_json::from_slice(&additional_params)?;
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let is_factory_deployed = self
 			.eth_backend

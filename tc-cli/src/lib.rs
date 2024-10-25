@@ -756,7 +756,7 @@ impl Tc {
 }
 
 impl Tc {
-	pub async fn deploy(&self) -> Result<()> {
+	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
 		for network in self.connectors.keys().copied() {

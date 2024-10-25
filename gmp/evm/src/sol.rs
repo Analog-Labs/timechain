@@ -35,25 +35,12 @@ alloy_sol_types::sol! {
 		uint128 baseFee;
 	}
 
-	// #[derive(Debug, Default, PartialEq, Eq)]
-	// struct TssKey {
-	// 	uint8 yParity;
-	// 	uint256 xCoord;
-	// }
-
-	// #[derive(Debug, PartialEq, Eq)]
-	// struct Network {
-	// 	uint16 id;
-	// 	address gateway;
-	// }
-
 	contract GatewayProxy {
 		constructor(address implementation,bytes memory initializer) payable;
 	}
 
 	contract Gateway {
 		constructor(uint16 networkId, address proxy) payable;
-		// function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
 		function admin() external view returns (address);

@@ -97,4 +97,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+
+	fn remove_network() -> Weight {
+		Weight::default()
+	}
 }

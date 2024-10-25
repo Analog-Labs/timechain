@@ -68,8 +68,8 @@ pub mod pallet {
 
 	use time_primitives::{
 		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface, Task, TaskId,
-		TaskResult, TasksInterface, TssPublicKey, TssSignature,
+		GmpEvents, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface,
+		Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -77,6 +77,10 @@ pub mod pallet {
 		fn submit_task_result() -> Weight;
 		fn prepare_batches(n: u32) -> Weight;
 		fn schedule_tasks(n: u32) -> Weight;
+		fn submit_gmp_events() -> Weight;
+		fn sync_network() -> Weight;
+		fn stop_network() -> Weight;
+		fn remove_task() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -87,6 +91,18 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn schedule_tasks(_: u32) -> Weight {
+			Weight::default()
+		}
+		fn submit_gmp_events() -> Weight {
+			Weight::default()
+		}
+		fn sync_network() -> Weight {
+			Weight::default()
+		}
+		fn stop_network() -> Weight {
+			Weight::default()
+		}
+		fn remove_task() -> Weight {
 			Weight::default()
 		}
 	}
@@ -214,7 +230,10 @@ pub mod pallet {
 	///  Map storage for received tasks.
 	#[pallet::storage]
 	pub type ReadEventsTask<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, TaskId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type SyncHeight<T: Config> = StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
 
 	/// Map storage for message tasks.
 	#[pallet::storage]
@@ -284,6 +303,8 @@ pub mod pallet {
 		GatewayNotRegistered,
 		/// Invalid batch id
 		InvalidBatchId,
+		/// Cannot remove task
+		CannotRemoveTask,
 	}
 
 	#[pallet::hooks]
@@ -322,37 +343,17 @@ pub mod pallet {
 					// verify signature
 					let bytes = time_primitives::encode_gmp_events(task_id, &events.0);
 					Self::verify_signature(shard, &bytes, signature)?;
-					// start next batch
-					let start = blocks.end;
-					let size = T::Networks::next_batch_size(network, start) as u64;
-					let end = start + size;
-					Self::create_task(network, Task::ReadGatewayEvents { blocks: start..end });
-					// process events
-					for event in events.0 {
-						match event {
-							GmpEvent::ShardRegistered(pubkey) => {
-								ShardRegistered::<T>::insert(pubkey, ());
-							},
-							GmpEvent::ShardUnregistered(pubkey) => {
-								ShardRegistered::<T>::remove(pubkey);
-							},
-							GmpEvent::MessageReceived(msg) => {
-								let msg_id = msg.message_id();
-								Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
-								MessageReceivedTaskId::<T>::insert(msg_id, task_id);
-								Self::deposit_event(Event::<T>::MessageReceived(msg_id));
-							},
-							GmpEvent::MessageExecuted(msg_id) => {
-								MessageExecutedTaskId::<T>::insert(msg_id, task_id);
-								Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
-							},
-							GmpEvent::BatchExecuted(batch_id) => {
-								if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
-									Self::finish_task(network, task_id, Ok(()));
-								}
-							},
-						}
+					// update sync height if the network wasn't manually synced
+					let curr = SyncHeight::<T>::get(network);
+					if curr == blocks.start {
+						SyncHeight::<T>::insert(network, blocks.end);
 					}
+					// start next batch if network wasn't stopped
+					if ReadEventsTask::<T>::get(network).is_some() {
+						Self::read_gateway_events(network);
+					}
+					// process events
+					Self::process_events(network, task_id, events);
 					Ok(())
 				},
 				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {
@@ -369,9 +370,94 @@ pub mod pallet {
 			Self::finish_task(network, task_id, result);
 			Ok(())
 		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::submit_gmp_events())]
+		pub fn submit_gmp_events(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			events: GmpEvents,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::process_events(network, 0, events);
+			Ok(())
+		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::sync_network())]
+		pub fn sync_network(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			block: u64,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			SyncHeight::<T>::insert(network, block);
+			Ok(())
+		}
+
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::stop_network())]
+		pub fn stop_network(origin: OriginFor<T>, network: NetworkId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ReadEventsTask::<T>::remove(network);
+			Ok(())
+		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_task())]
+		pub fn remove_task(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			// only remove completed tasks, otherwise can cause mayhem
+			if TaskOutput::<T>::take(task).is_none() {
+				return Err(Error::<T>::CannotRemoveTask.into());
+			}
+			if let Some(Task::SubmitGatewayMessage { batch_id }) = Tasks::<T>::take(task) {
+				if let Some(msg) = BatchMessage::<T>::take(batch_id) {
+					for op in msg.ops {
+						if let GatewayOp::SendMessage(msg) = op {
+							let message = msg.message_id();
+							MessageReceivedTaskId::<T>::remove(message);
+							MessageBatchId::<T>::remove(message);
+						}
+					}
+				}
+				BatchTaskId::<T>::remove(batch_id);
+			}
+			TaskNetwork::<T>::remove(task);
+			TaskSubmitter::<T>::remove(task);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn process_events(network: NetworkId, task_id: TaskId, events: GmpEvents) {
+			for event in events.0 {
+				match event {
+					GmpEvent::ShardRegistered(pubkey) => {
+						ShardRegistered::<T>::insert(pubkey, ());
+					},
+					GmpEvent::ShardUnregistered(pubkey) => {
+						ShardRegistered::<T>::remove(pubkey);
+					},
+					GmpEvent::MessageReceived(msg) => {
+						let msg_id = msg.message_id();
+						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
+						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+					},
+					GmpEvent::MessageExecuted(msg_id) => {
+						MessageExecutedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
+					},
+					GmpEvent::BatchExecuted(batch_id) => {
+						if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
+							Self::finish_task(network, task_id, Ok(()));
+						}
+					},
+				}
+			}
+		}
+
 		/// Validate a TSS (Threshold Signature Scheme) signature for data associated with a specific shard.
 		///
 		/// # Flow
@@ -408,11 +494,11 @@ pub mod pallet {
 		}
 
 		pub(crate) fn create_task(network: NetworkId, task: Task) -> TaskId {
-			let task_id = TaskIdCounter::<T>::get();
+			let task_id = TaskIdCounter::<T>::get().saturating_plus_one();
 			let needs_registration = task.needs_registration();
 			Tasks::<T>::insert(task_id, task);
 			TaskNetwork::<T>::insert(task_id, network);
-			TaskIdCounter::<T>::put(task_id.saturating_plus_one());
+			TaskIdCounter::<T>::put(task_id);
 			if !needs_registration {
 				ReadEventsTask::<T>::insert(network, task_id);
 			} else {
@@ -437,6 +523,13 @@ pub mod pallet {
 				);
 			}
 			Self::deposit_event(Event::TaskResult(task_id, result));
+		}
+
+		fn read_gateway_events(network: NetworkId) -> TaskId {
+			let block = SyncHeight::<T>::get(network);
+			let size = T::Networks::next_batch_size(network, block) as u64;
+			let end = block.saturating_add(size);
+			Self::create_task(network, Task::ReadGatewayEvents { blocks: block..end })
 		}
 
 		/// Non-prioritized tasks which are assigned only after
@@ -669,9 +762,8 @@ pub mod pallet {
 		}
 
 		fn gateway_registered(network: NetworkId, block: u64) {
-			let size = T::Networks::next_batch_size(network, block) as u64;
-			let end = block + size;
-			Self::create_task(network, Task::ReadGatewayEvents { blocks: block..end });
+			SyncHeight::<T>::insert(network, block);
+			Self::read_gateway_events(network);
 		}
 	}
 }

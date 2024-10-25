@@ -565,7 +565,7 @@ mod tests {
 		assert_eq!(chain.balance(chain.address()).await?, 0);
 		chain.faucet().await?;
 		assert_eq!(chain.balance(chain.address()).await?, FAUCET);
-		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref()).await?;
+		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref(), "".as_ref()).await?;
 		chain.transfer(gateway, 10_000).await?;
 		assert_eq!(chain.balance(gateway).await?, 10_000);
 		chain.set_shards(gateway, &[shard.public_key()]).await?;

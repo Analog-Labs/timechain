@@ -760,16 +760,18 @@ impl Tc {
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
 		for network in self.connectors.keys().copied() {
-			let config = self.config.network(network)?;
-			let gateway = self.register_network(network).await?;
-			if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-				tracing::info!("admin target balance is 0, using faucet");
-				self.faucet(network).await?;
+			if !networks.is_empty() && networks.contains(&network) {
+				let config = self.config.network(network)?;
+				let gateway = self.register_network(network).await?;
+				if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
+					tracing::info!("admin target balance is 0, using faucet");
+					self.faucet(network).await?;
+				}
+				tracing::info!("funding gateway");
+				let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
+				self.fund(Some(network), gateway, gateway_funds).await?;
+				gateways.insert(network, gateway);
 			}
-			tracing::info!("funding gateway");
-			let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
-			self.fund(Some(network), gateway, gateway_funds).await?;
-			gateways.insert(network, gateway);
 		}
 		self.register_routes(gateways).await?;
 		for chronicle in self.config.chronicles() {

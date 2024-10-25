@@ -336,7 +336,7 @@ impl IConnectorAdmin for Connector {
 		gateway: &[u8],
 	) -> Result<(Address, u64)> {
 		// check if uf already deployed
-		let config: DeploymentConfig = serde_json::from_slice(&additional_params)?;
+		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let is_factory_deployed = self
 			.eth_backend
@@ -556,13 +556,11 @@ async fn compute_create3_address(
 	sender: [u8; 20],
 	salt: [u8; 32],
 ) -> Result<[u8; 20]> {
-	///
-	// solidity
+	// solidity code
 	// salt = keccak256(abi.encodePacked(msg.sender, salt));
 	// bytes32 proxyHash = 0x0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6;
 	// address proxy = address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(factory), uint256(salt), proxyHash)))));
 	// return address(uint160(uint256(keccak256(abi.encodePacked(uint16(0xd694), proxy, uint8(1))))));
-	///
 	use sha3::Digest;
 	let proxy_hash =
 		hex::decode("0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6")?;
@@ -582,7 +580,7 @@ async fn compute_create3_address(
 	let proxy_address = H160::from_slice(&proxy_hashed[12..]);
 
 	let mut hasher = Keccak256::new();
-	hasher.update(&0xd694u16.to_be_bytes());
+	hasher.update(0xd694u16.to_be_bytes());
 	hasher.update(proxy_address.as_bytes());
 	hasher.update([1]);
 	let final_hashed = hasher.finalize();

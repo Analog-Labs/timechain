@@ -598,7 +598,7 @@ async fn real_main() -> Result<()> {
 			tc.runtime_upgrade(&path).await?;
 		},
 		Command::Deploy => {
-			tc.deploy(vec![]).await.unwrap();
+			tc.deploy(vec![]).await?;
 		},
 		Command::UnregisterMember { member } => {
 			let member = tc.parse_address(None, &member)?;

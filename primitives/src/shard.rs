@@ -31,6 +31,7 @@ pub mod serde_tss_public_key {
 	use serde::de::Error;
 	use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+	#[allow(clippy::missing_errors_doc)]
 	pub fn serialize<S>(t: &TssPublicKey, ser: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -38,6 +39,7 @@ pub mod serde_tss_public_key {
 		t[..].serialize(ser)
 	}
 
+	#[allow(clippy::missing_errors_doc)]
 	pub fn deserialize<'de, D>(de: D) -> Result<TssPublicKey, D::Error>
 	where
 		D: Deserializer<'de>,
@@ -53,6 +55,7 @@ pub mod serde_tss_signature {
 	use serde::de::Error;
 	use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+	#[allow(clippy::missing_errors_doc)]
 	pub fn serialize<S>(t: &TssSignature, ser: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -60,6 +63,7 @@ pub mod serde_tss_signature {
 		t[..].serialize(ser)
 	}
 
+	#[allow(clippy::missing_errors_doc)]
 	pub fn deserialize<'de, D>(de: D) -> Result<TssSignature, D::Error>
 	where
 		D: Deserializer<'de>,
@@ -77,7 +81,8 @@ pub enum MemberStatus {
 }
 
 impl MemberStatus {
-	pub fn commitment(&self) -> Option<&Commitment> {
+	#[must_use]
+	pub const fn commitment(&self) -> Option<&Commitment> {
 		if let Self::Committed(commitment) = self {
 			Some(commitment)
 		} else {
@@ -85,7 +90,8 @@ impl MemberStatus {
 		}
 	}
 
-	pub fn is_committed(&self) -> bool {
+	#[must_use]
+	pub const fn is_committed(&self) -> bool {
 		self.commitment().is_some()
 	}
 }
@@ -104,7 +110,7 @@ impl std::fmt::Display for MemberStatus {
 
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq, Eq)]
 pub enum ShardStatus {
 	Created,
 	Committed,
@@ -140,7 +146,7 @@ pub struct TssSigningRequest {
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }
 
-#[allow(clippy::result_unit_err)]
+#[allow(clippy::result_unit_err, clippy::missing_errors_doc)]
 pub fn verify_signature(
 	public_key: TssPublicKey,
 	data: &[u8],
@@ -157,6 +163,7 @@ pub struct MockTssSigner {
 }
 
 impl MockTssSigner {
+	#[must_use]
 	pub fn new(shard: ShardId) -> Self {
 		let shard = shard + 1;
 		let mut key = [0; 32];
@@ -164,22 +171,28 @@ impl MockTssSigner {
 		Self::from_secret(key)
 	}
 
+	#[must_use]
+	#[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
 	pub fn from_secret(secret: [u8; 32]) -> Self {
 		Self {
 			signing_key: schnorr_evm::SigningKey::from_bytes(secret).unwrap(),
 		}
 	}
 
+	#[must_use]
+	#[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
 	pub fn public_key(&self) -> TssPublicKey {
 		self.signing_key.public().to_bytes().unwrap()
 	}
 
 	#[cfg(feature = "std")]
+	#[must_use]
 	pub fn sign(&self, data: &[u8]) -> TssSignature {
 		self.signing_key.sign(data).to_bytes()
 	}
 
 	#[cfg(feature = "std")]
+	#[must_use]
 	pub fn sign_gateway_message(
 		&self,
 		network: NetworkId,
@@ -193,6 +206,7 @@ impl MockTssSigner {
 	}
 
 	#[cfg(feature = "std")]
+	#[must_use]
 	pub fn sign_gmp_events(&self, task: TaskId, events: &[GmpEvent]) -> TssSignature {
 		let bytes = encode_gmp_events(task, events);
 		self.sign(&bytes)

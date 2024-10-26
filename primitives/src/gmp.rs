@@ -12,17 +12,19 @@ pub type BatchId = u64;
 
 const GMP_VERSION: &str = "Analog GMP v2";
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub struct GmpParams {
 	pub network: NetworkId,
 	pub gateway: Gateway,
 }
 
 impl GmpParams {
-	pub fn new(network: NetworkId, gateway: Gateway) -> Self {
+	#[must_use]
+	pub const fn new(network: NetworkId, gateway: Gateway) -> Self {
 		Self { network, gateway }
 	}
 
+	#[must_use]
 	pub fn hash(&self, payload: &[u8]) -> Hash {
 		use sha3::Digest;
 		let mut hasher = sha3::Keccak256::new();
@@ -50,6 +52,7 @@ pub struct GmpMessage {
 impl GmpMessage {
 	const HEADER_LEN: usize = 113;
 
+	#[must_use]
 	pub fn encoded_len(&self) -> usize {
 		Self::HEADER_LEN + self.bytes.len()
 	}
@@ -64,6 +67,7 @@ impl GmpMessage {
 		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
 		hdr[77..93].copy_from_slice(&self.gas_limit.to_be_bytes());
 		hdr[93..109].copy_from_slice(&self.gas_cost.to_be_bytes());
+		#[allow(clippy::cast_possible_truncation)]
 		hdr[109..113].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
 		hdr
 	}
@@ -73,6 +77,7 @@ impl GmpMessage {
 		buf.extend_from_slice(&self.bytes);
 	}
 
+	#[must_use]
 	pub fn message_id(&self) -> MessageId {
 		use sha3::Digest;
 		let mut hasher = sha3::Keccak256::new();
@@ -90,7 +95,7 @@ impl std::fmt::Display for GmpMessage {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub enum GatewayOp {
 	SendMessage(GmpMessage),
 	RegisterShard(
@@ -104,6 +109,7 @@ pub enum GatewayOp {
 }
 
 impl GatewayOp {
+	#[must_use]
 	pub fn encoded_len(&self) -> usize {
 		1 + match self {
 			Self::SendMessage(msg) => msg.encoded_len(),
@@ -128,7 +134,8 @@ impl GatewayOp {
 		}
 	}
 
-	pub fn gas(&self) -> u128 {
+	#[must_use]
+	pub const fn gas(&self) -> u128 {
 		match self {
 			Self::SendMessage(msg) => msg.gas_cost,
 			_ => 10_000,
@@ -154,20 +161,23 @@ impl std::fmt::Display for GatewayOp {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub struct GatewayMessage {
 	pub ops: Vec<GatewayOp>,
 }
 
 impl GatewayMessage {
-	pub fn new(ops: Vec<GatewayOp>) -> Self {
+	#[must_use]
+	pub const fn new(ops: Vec<GatewayOp>) -> Self {
 		Self { ops }
 	}
 
+	#[must_use]
 	pub fn encode(&self, batch_id: BatchId) -> Vec<u8> {
 		let mut buf = Vec::new();
 		buf.push(0); // struct version
 		buf.extend_from_slice(&batch_id.to_be_bytes());
+		#[allow(clippy::cast_possible_truncation)]
 		buf.extend_from_slice(&(self.ops.len() as u32).to_be_bytes());
 		for op in &self.ops {
 			op.encode_to(&mut buf);
@@ -183,11 +193,12 @@ pub struct BatchBuilder {
 }
 
 impl BatchBuilder {
-	pub fn new(batch_gas_limit: u128) -> Self {
+	#[must_use]
+	pub const fn new(batch_gas_limit: u128) -> Self {
 		Self {
 			batch_gas_limit,
 			gas: 0,
-			ops: Default::default(),
+			ops: Vec::<GatewayOp>::new(),
 		}
 	}
 
@@ -245,7 +256,7 @@ impl std::fmt::Display for GmpEvent {
 				writeln!(f, "message_executed {}", hex::encode(msg))
 			},
 			Self::BatchExecuted(batch) => {
-				writeln!(f, "batch_executed {}", batch)
+				writeln!(f, "batch_executed {batch}")
 			},
 		}
 	}
@@ -284,6 +295,7 @@ pub struct Route {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
+#[allow(clippy::missing_errors_doc)]
 pub trait IChain: Send + Sync + 'static {
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String;

@@ -85,6 +85,7 @@ pub type PublicKey = MultiSigner;
 
 pub const SS_58_FORMAT: u16 = 12850;
 
+#[must_use]
 pub fn format_address(account: &AccountId) -> String {
 	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))
 }
@@ -141,6 +142,7 @@ pub trait MembersInterface {
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_online(account: &AccountId) -> bool;
 	fn total_stake() -> Balance;
+	#[allow(clippy::missing_errors_doc)]
 	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
 }
 

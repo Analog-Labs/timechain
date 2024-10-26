@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub type TaskId = u64;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub enum Task {
 	ReadGatewayEvents { blocks: Range<u64> },
 	SubmitGatewayMessage { batch_id: BatchId },
@@ -32,23 +32,29 @@ impl std::fmt::Display for Task {
 }
 
 impl Task {
+	#[must_use]
+	#[allow(clippy::cast_possible_truncation)]
 	pub fn get_input_length(&self) -> u32 {
 		self.encoded_size() as _
 	}
 
-	pub fn reward(&self) -> u128 {
+	#[must_use]
+	pub const fn reward(&self) -> u128 {
 		2 * ANLOG
 	}
 
-	pub fn needs_registration(&self) -> bool {
+	#[must_use]
+	pub const fn needs_registration(&self) -> bool {
 		!matches!(self, Self::ReadGatewayEvents { .. })
 	}
 
-	pub fn needs_signer(&self) -> bool {
+	#[must_use]
+	pub const fn needs_signer(&self) -> bool {
 		matches!(self, Self::SubmitGatewayMessage { .. })
 	}
 
-	pub fn start_block(&self) -> u64 {
+	#[must_use]
+	pub const fn start_block(&self) -> u64 {
 		if let Self::ReadGatewayEvents { blocks } = self {
 			blocks.end
 		} else {
@@ -57,6 +63,7 @@ impl Task {
 	}
 }
 
+#[must_use]
 pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 	(task_id, events).encode()
 }
@@ -67,13 +74,13 @@ const MAX_ERROR_LEN: u32 = 500;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct GmpEvents(pub BoundedVec<GmpEvent, ConstU32<MAX_GMP_EVENTS>>);
-/// Bounded vec alias for SubmitGatewayMessage error
+/// Bounded vec alias for `SubmitGatewayMessage` error
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct ErrorMsg(pub BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>);
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
 pub enum TaskResult {
 	ReadGatewayEvents {
 		events: GmpEvents,

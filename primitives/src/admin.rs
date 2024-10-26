@@ -10,7 +10,8 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn new(network: NetworkId, account: String, address: String, peer_id: String) -> Self {
+	#[must_use]
+	pub const fn new(network: NetworkId, account: String, address: String, peer_id: String) -> Self {
 		Self {
 			network,
 			account,

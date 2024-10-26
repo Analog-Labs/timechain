@@ -59,6 +59,7 @@ fn testnet(wbuild: &Path) -> String {
 	derive(&testnet, "testnet")
 }
 
+#[allow(clippy::unwrap_used)]
 fn main() {
 	let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
 	let wbuild = out_dir.parent().unwrap().parent().unwrap().parent().unwrap().join("wbuild");

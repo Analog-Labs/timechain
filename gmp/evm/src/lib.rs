@@ -45,7 +45,7 @@ impl Connector {
 			.await
 	}
 
-	async fn evm_call<T: SolCall>(
+	async fn evm_call<T: SolCall + Send>(
 		&self,
 		contract: Address,
 		call: T,
@@ -68,7 +68,7 @@ impl Connector {
 		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash.into()))
 	}
 
-	async fn evm_view<T: SolCall>(
+	async fn evm_view<T: SolCall + Send>(
 		&self,
 		contract: Address,
 		call: T,
@@ -81,10 +81,10 @@ impl Connector {
 		Ok(T::abi_decode_returns(&result, true)?)
 	}
 
-	async fn deploy_contract(
+	async fn deploy_contract<C: SolConstructor + Send>(
 		&self,
 		abi: &[u8],
-		constructor: impl SolConstructor,
+		constructor: C,
 	) -> Result<(Address, u64)> {
 		let json_abi: serde_json::Value = serde_json::from_slice(abi)?;
 		let mut contract =

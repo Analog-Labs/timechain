@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use time_primitives::admin::Config;
-use time_primitives::{ConnectorParams, NetworkId};
+use time_primitives::{ConnectorParams, NetworkId, IChain};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 

@@ -34,13 +34,15 @@ use core::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_grandpa::WeightInfo for WeightInfo<T> {
 	/// The range of component `x` is `[0, 1]`.
-	fn check_equivocation_proof(_x: u32, ) -> Weight {
+	fn report_equivocation(x: u32, _: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 88_606_000 picoseconds.
-		Weight::from_parts(89_774_720, 0)
+		// Minimum execution time: 88_196_000 picoseconds.
+		Weight::from_parts(90_458_320, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 538_882
+			.saturating_add(Weight::from_parts(148_379, 0).saturating_mul(x.into()))
 	}
 	/// Storage: `Grandpa::Stalled` (r:0 w:1)
 	/// Proof: `Grandpa::Stalled` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)

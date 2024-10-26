@@ -34,14 +34,23 @@ use core::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_babe::WeightInfo for WeightInfo<T> {
 	/// The range of component `x` is `[0, 1]`.
-	fn check_equivocation_proof(x: u32, ) -> Weight {
+	fn report_equivocation(x: u32, _: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 105_919_000 picoseconds.
-		Weight::from_parts(109_796_232, 0)
+		// Minimum execution time: 88_196_000 picoseconds.
+		Weight::from_parts(90_458_320, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 409_833
-			.saturating_add(Weight::from_parts(182_567, 0).saturating_mul(x.into()))
+			// Standard Error: 538_882
+			.saturating_add(Weight::from_parts(148_379, 0).saturating_mul(x.into()))
+	}
+	fn plan_config_change() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_798_000 picoseconds.
+		Weight::from_parts(4_047_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

@@ -1373,7 +1373,7 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
-	type MaxTasksPerBlock = ConstU32<50>;
+	type MaxTimeoutsPerBlock = ConstU32<50>;
 }
 
 impl pallet_elections::Config for Runtime {

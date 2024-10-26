@@ -5,7 +5,7 @@ use polkadot_sdk::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use pallet_members::MemberOnline;
-use time_primitives::{ElectionsInterface, NetworkId};
+use time_primitives::{ElectionsInterface, NetworkId, MAX_SHARD_SIZE};
 
 const ETHEREUM: NetworkId = 0;
 
@@ -86,6 +86,12 @@ fn set_shard_config_works() {
 		assert_noop!(
 			Elections::set_shard_config(RawOrigin::Root.into(), 1, 2),
 			Error::<Test>::ThresholdLargerThanSize
+		);
+		let max_shard_size_plus_one: u16 =
+			1u16.saturating_add(MAX_SHARD_SIZE.try_into().unwrap_or_default());
+		assert_noop!(
+			Elections::set_shard_config(RawOrigin::Root.into(), max_shard_size_plus_one, 1),
+			Error::<Test>::ShardSizeAboveMax
 		);
 	});
 }

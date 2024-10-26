@@ -158,4 +158,20 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(b.into())))
 			.saturating_add(Weight::from_parts(0, 5124).saturating_mul(b.into()))
 	}
+
+	fn submit_gmp_events() -> Weight {
+		Weight::default()
+	}
+
+	fn stop_network() -> Weight {
+		Weight::default()
+	}
+
+	fn sync_network() -> Weight {
+		Weight::default()
+	}
+
+	fn remove_task() -> Weight {
+		Weight::default()
+	}
 }

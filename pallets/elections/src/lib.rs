@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, ElectionsInterface, MembersInterface, NetworkId, ShardsInterface,
+		AccountId, ElectionsInterface, MembersInterface, NetworkId, ShardsInterface, MAX_SHARD_SIZE,
 	};
 
 	pub trait WeightInfo {
@@ -139,6 +139,12 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			assert!(
+				MAX_SHARD_SIZE >= self.shard_size.into(),
+				"Attempted to set ShardSize {} > MaxShardSize {} which bounds commitment length",
+				self.shard_size,
+				MAX_SHARD_SIZE
+			);
 			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
 			for account in &self.electable {
@@ -156,6 +162,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		ShardSizeAboveMax,
 		ThresholdLargerThanSize,
 	}
 
@@ -194,6 +201,7 @@ pub mod pallet {
 			shard_threshold: u16,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(MAX_SHARD_SIZE >= shard_size.into(), Error::<T>::ShardSizeAboveMax);
 			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);

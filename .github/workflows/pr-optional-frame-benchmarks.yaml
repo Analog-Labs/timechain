@@ -46,12 +46,18 @@ jobs:
         run: ./timechain-node benchmark pallet --chain dev --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./weights/${{ matrix.pallet }}.rs
       - name: Run runtime benchmarks for pallets prefixed with frame
         run: ./timechain-node benchmark pallet --chain dev --pallet frame_${{ matrix.frame }} --extrinsic '*' --output ./weights/${{ matrix.frame }}.rs
-      - name: Upload weights
+      - name: Upload pallet weights
         uses: actions/upload-artifact@v4
         with:
           name: weights-${{ matrix.chain }}-${{ matrix.pallet }}
           if-no-files-found: error
           path: weights/${{ matrix.pallet }}.rs
+      - name: Upload frame weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: weights-${{ matrix.chain }}-${{ matrix.frame }}
+          if-no-files-found: error
+          path: weights/${{ matrix.frame }}.rs
   update-weights:
     needs: [run-benchmark]
     runs-on: [self-hosted, benchmark]

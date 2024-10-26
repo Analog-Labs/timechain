@@ -9,7 +9,9 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+async-trait.workspace = true
 anyhow.workspace = true
+futures.workspace = true
 gmp-evm = { path = "evm" }
 gmp-grpc = { path = "grpc" }
 gmp-rust = { path = "rust" }

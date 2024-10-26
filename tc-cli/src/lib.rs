@@ -15,9 +15,10 @@ use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName,
 	ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin,
-	MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus,
-	TaskId, TssPublicKey,
+	MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus, IChain,
+	TaskId, TssPublicKey, IConnector,
 };
+use gmp::TypedConnector;
 
 mod config;
 mod env;
@@ -37,7 +38,7 @@ async fn sleep_or_abort(duration: Duration) -> Result<()> {
 pub struct Tc {
 	config: Config,
 	runtime: SubxtClient,
-	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
+	connectors: HashMap<NetworkId, Arc<TypedConnector>>,
 }
 
 impl Tc {
@@ -71,14 +72,14 @@ impl Tc {
 		Ok(Self { config, runtime, connectors })
 	}
 
-	fn connector(&self, network: NetworkId) -> Result<&dyn IConnectorAdmin> {
+	fn connector(&self, network: NetworkId) -> Result<&TypedConnector> {
 		Ok(&**self
 			.connectors
 			.get(&network)
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	async fn gateway(&self, network: NetworkId) -> Result<(&TypedConnector, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime

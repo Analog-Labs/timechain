@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
+	Address, Address2, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
 	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
@@ -46,10 +46,12 @@ pub struct Connector {
 }
 
 impl Connector {
-	pub fn with_mnemonic(&self, mnemonic: String) -> Self {
+	#[must_use]
+	pub fn with_mnemonic(&self, mnemonic: &str) -> Self {
 		self.with_address(mnemonic_to_address(mnemonic))
 	}
 
+	#[must_use]
 	pub fn with_address(&self, address: Address) -> Self {
 		let mut clone = Clone::clone(self);
 		clone.address = address;
@@ -57,31 +59,36 @@ impl Connector {
 	}
 }
 
-pub fn mnemonic_to_address(mnemonic: String) -> Address {
+#[must_use]
+pub fn mnemonic_to_address(mnemonic: &str) -> Address {
 	*blake3::hash(mnemonic.as_bytes()).as_bytes()
 }
 
+#[must_use]
 pub fn format_address(address: Address) -> String {
 	hex::encode(address)
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub fn parse_address(address: &str) -> Result<Address> {
 	let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
 	let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
 	Ok(addr)
 }
 
-pub fn currency() -> (u32, &'static str) {
+#[must_use]
+pub const fn currency() -> (u32, &'static str) {
 	(3, "TT")
 }
 
+#[allow(clippy::unwrap_used)]
 fn block(genesis: SystemTime) -> u64 {
 	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
 	elapsed.as_secs() / BLOCK_TIME
 }
 
 fn read_balance<T: ReadableTable<Address, u128>>(table: &T, addr: Address) -> Result<u128> {
-	Ok(if let Some(value) = table.get(addr)? { value.value() } else { 0 })
+	Ok((table.get(addr)?).map_or(0, |value| value.value()))
 }
 
 fn read_admin<T: ReadableTable<Address, Address>>(table: &T, gateway: Address) -> Result<Address> {
@@ -98,7 +105,7 @@ impl IConnectorBuilder for Connector {
 		if params.blockchain != "rust" {
 			anyhow::bail!("unsupported blockchain");
 		}
-		let address = mnemonic_to_address(params.mnemonic);
+		let address = mnemonic_to_address(&params.mnemonic);
 		let (tmpfile, path) = if params.url == "tempfile" {
 			let file = NamedTempFile::new()?;
 			let path = file.path().to_owned();
@@ -139,6 +146,8 @@ impl IConnectorBuilder for Connector {
 
 #[async_trait::async_trait]
 impl IChain for Connector {
+	type Address = Address2<32>;
+	
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {
 		format_address(address)
@@ -241,7 +250,7 @@ impl IConnector for Connector {
 		let bytes = msg.encode(batch);
 		let hash = GmpParams::new(self.network_id(), gateway).hash(&bytes);
 		time_primitives::verify_signature(signer, &hash, sig)
-			.map_err(|_| "invalid signature".to_string())?;
+			.map_err(|()| "invalid signature".to_string())?;
 		(|| {
 			let tx = self.db.begin_write()?;
 			{
@@ -287,6 +296,7 @@ impl IConnectorAdmin for Connector {
 		_gateway_impl: &[u8],
 	) -> Result<(Address, u64)> {
 		let mut gateway = [0; 32];
+		#[allow(clippy::unwrap_used)]
 		getrandom::getrandom(&mut gateway).unwrap();
 		let block = block(self.genesis);
 		let tx = self.db.begin_write()?;
@@ -330,6 +340,7 @@ impl IConnectorAdmin for Connector {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(SHARDS)?;
 		let values = t.get(gateway)?;
+		#[allow(clippy::cast_possible_truncation)]
 		let mut shards = Vec::with_capacity(values.len() as _);
 		for value in values {
 			let shard = value?.value();
@@ -385,9 +396,7 @@ impl IConnectorAdmin for Connector {
 		{
 			let mut t = tx.open_table(ROUTES)?;
 			let mut route = t
-				.remove((gateway, new_route.network_id))?
-				.map(|g| g.value())
-				.unwrap_or(new_route.clone());
+				.remove((gateway, new_route.network_id))?.map_or_else(|| new_route.clone(), |g| g.value());
 			if new_route.gateway != [0; 32] {
 				route.gateway = new_route.gateway;
 			}
@@ -408,6 +417,7 @@ impl IConnectorAdmin for Connector {
 
 	async fn deploy_test(&self, gateway: Address, _path: &[u8]) -> Result<(Address, u64)> {
 		let mut tester = [0; 32];
+		#[allow(clippy::unwrap_used)]
 		getrandom::getrandom(&mut tester).unwrap();
 		let block = block(self.genesis);
 		let tx = self.db.begin_write()?;
@@ -483,14 +493,15 @@ where
 	where
 		Self: 'a,
 	{
+		#[allow(clippy::unwrap_used)]
 		bincode::deserialize(data).unwrap()
 	}
 
 	fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
 	where
-		Self: 'a,
 		Self: 'b,
 	{
+		#[allow(clippy::unwrap_used)]
 		bincode::serialize(value).unwrap()
 	}
 
@@ -524,7 +535,7 @@ mod tests {
 		.await
 	}
 
-	fn gmp_msg(src: Address, dest: Address) -> GmpMessage {
+	const fn gmp_msg(src: Address, dest: Address) -> GmpMessage {
 		GmpMessage {
 			src_network: 0,
 			dest_network: 0,
@@ -538,6 +549,7 @@ mod tests {
 	}
 
 	#[tokio::test]
+	#[allow(clippy::unwrap_used)]
 	async fn smoke_test() -> Result<()> {
 		let network = 0;
 		let chain = connector(network, 0).await?;

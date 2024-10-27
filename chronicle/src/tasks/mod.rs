@@ -9,22 +9,23 @@ use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
+	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest, IChain,
 };
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level};
+use gmp::TypedConnector;
 
 #[derive(Clone)]
 pub struct TaskParams {
 	tss: mpsc::Sender<TssSigningRequest>,
 	runtime: Arc<dyn Runtime>,
-	connector: Arc<dyn IConnector>,
+	connector: Arc<TypedConnector>,
 }
 
 impl TaskParams {
 	pub fn new(
 		runtime: Arc<dyn Runtime>,
-		connector: Arc<dyn IConnector>,
+		connector: Arc<TypedConnector>,
 		tss: mpsc::Sender<TssSigningRequest>,
 	) -> Self {
 		Self { runtime, connector, tss }

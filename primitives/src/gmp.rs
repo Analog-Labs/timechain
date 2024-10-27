@@ -4,6 +4,49 @@ use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Address2<const N: usize>(pub [u8; N]);
+
+impl <const N: usize> core::fmt::Display for Address2<N> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.write_str("0x")?;
+		for c in self.0.iter().copied() {
+			f.write_char(char::from_digit(u32::from(c) / 16, 16).unwrap_or('0'))?;
+			f.write_char(char::from_digit(u32::from(c) % 16, 16).unwrap_or('0'))?;
+		}
+		Ok(())
+	}
+}
+
+impl <const N: usize> core::str::FromStr for Address2<N> {
+	type Err = &'static str;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		use core::iter::Iterator;
+		let s = s.strip_prefix("0x").unwrap_or(s);
+		if s.len() != N * 2 {
+			return Err("invalid address length");
+		}
+		let mut address = [0; N];
+		let mut chars = s.chars();
+		let mut i = 0;
+		while let Some(d0) = chars.next() {
+			let d1 = chars.next().ok_or("invalid character")?;
+			let d0 = d0.to_digit(16).ok_or("invalid character")?;
+			let d1 = d1.to_digit(16).ok_or("invalid character")?;
+			address[i] = u8::try_from(d0.wrapping_shl(4).wrapping_add(d1)).map_err(|_| "invalid character")?;
+			i += 1;
+		}
+		Ok(Self(address))
+	}
+}
+
+impl <const N: usize> core::convert::AsRef<[u8]> for Address2<N> {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
 pub type Address = [u8; 32];
 pub type Gateway = Address;
 pub type MessageId = [u8; 32];
@@ -268,6 +311,7 @@ use crate::TssSignature;
 use anyhow::Result;
 #[cfg(feature = "std")]
 use futures::Stream;
+use core::fmt::Write;
 #[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
@@ -297,6 +341,8 @@ pub struct Route {
 #[async_trait::async_trait]
 #[allow(clippy::missing_errors_doc)]
 pub trait IChain: Send + Sync + 'static {
+	type Address: Send + Sync + Sized + Eq + PartialEq + Copy + AsRef<[u8]> + std::fmt::Display + std::string::ToString + std::str::FromStr + 'static;
+
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String;
 	/// Parses an address from a string.

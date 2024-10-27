@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	Address, Address2, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
@@ -59,7 +59,7 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		let address = gmp_rust::mnemonic_to_address(params.mnemonic);
+		let address = gmp_rust::mnemonic_to_address(&params.mnemonic);
 		let channel = if params.url.starts_with("https") {
 			let tls_config = ClientTlsConfig::new().with_native_roots();
 			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect().await?
@@ -77,6 +77,8 @@ impl IConnectorBuilder for Connector {
 
 #[tonic::async_trait]
 impl IChain for Connector {
+	type Address = Address2<32>;
+
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {
 		gmp_rust::format_address(address)

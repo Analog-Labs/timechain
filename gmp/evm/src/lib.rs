@@ -124,6 +124,8 @@ impl IConnectorBuilder for Connector {
 
 #[async_trait]
 impl IChain for Connector {
+	type Address = alloy_primitives::Address;
+
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {
 		a_addr(address).to_string()

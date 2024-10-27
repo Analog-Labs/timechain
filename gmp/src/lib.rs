@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use time_primitives::{ConnectorParams, TssPublicKey, TssSignature, GatewayMessage, BatchId, IChain, Route, NetworkId, Address, IConnector, IConnectorAdmin, IConnectorBuilder, GmpMessage, Gateway, GmpEvent};
+use time_primitives::{ConnectorParams, TssPublicKey, TssSignature, GatewayMessage, BatchId, IChain, Route, NetworkId, Address, Address2, IConnector, IConnectorAdmin, IConnectorBuilder, GmpMessage, Gateway, GmpEvent};
 use std::{pin::Pin, ops::Range};
 use futures::Stream;
 
@@ -31,24 +31,17 @@ impl std::str::FromStr for Backend {
 	}
 }
 
+#[derive(Clone)]
 pub enum TypedConnector {
 	Evm(gmp_evm::Connector),
 	Grpc(gmp_grpc::Connector),
 	Rust(gmp_rust::Connector),
 }
 
-impl Clone for TypedConnector {
-	fn clone(&self) -> Self {
-		match self {
-			Self::Evm(connector) => Self::Evm(connector.clone()),
-			Self::Grpc(connector) => Self::Grpc(connector.clone()),
-			Self::Rust(connector) => Self::Rust(connector.clone()),
-		}
-	}
-}
-
 #[async_trait::async_trait]
 impl IChain for TypedConnector {
+	type Address = Address2<32>;
+
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {
 		match self {

@@ -1,42 +1,52 @@
 use crate::{NetworkId, TssPublicKey};
-use scale_codec::{Decode, Encode};
+use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use polkadot_sdk::{
+	frame_support::dispatch::Parameter,
+	sp_runtime::traits::{Member, MaybeDisplay, MaybeFromStr, MaybeSerializeDeserialize, MaybeHash},
+};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(feature = "std"), derive(Debug))]
+#[cfg_attr(feature = "std", derive(std::hash::Hash))]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct Address2<const N: usize>(pub [u8; N]);
 
+#[cfg(feature = "std")]
 impl <const N: usize> core::fmt::Display for Address2<N> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		f.write_str("0x")?;
-		for c in self.0.iter().copied() {
-			f.write_char(char::from_digit(u32::from(c) / 16, 16).unwrap_or('0'))?;
-			f.write_char(char::from_digit(u32::from(c) % 16, 16).unwrap_or('0'))?;
+		if N <= 128 {
+			let mut bytes = [0u8; 128];
+			hex::encode_to_slice(self.0, &mut bytes).map_err(|_| core::fmt::Error)?;
+			let s = core::str::from_utf8(&bytes[0..N * 2]).map_err(|_| core::fmt::Error)?;
+			f.write_str(s)
+		} else {
+			let mut bytes = vec![0u8; N*2];
+			hex::encode_to_slice(self.0, &mut bytes).map_err(|_| core::fmt::Error)?;
+			let s = core::str::from_utf8(&bytes).map_err(|_| core::fmt::Error)?;
+			f.write_str(s)
 		}
-		Ok(())
 	}
 }
 
-impl <const N: usize> core::str::FromStr for Address2<N> {
-	type Err = &'static str;
+#[cfg(feature = "std")]
+impl <const N: usize> std::fmt::Debug for Address2<N> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.write_str("Address2(")?;
+		core::fmt::Display::fmt(self, f)?;
+		f.write_str(")")
+	}
+}
+
+#[cfg(feature = "std")]
+impl <const N: usize> std::str::FromStr for Address2<N> {
+	type Err = hex::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		use core::iter::Iterator;
-		let s = s.strip_prefix("0x").unwrap_or(s);
-		if s.len() != N * 2 {
-			return Err("invalid address length");
-		}
+		let s = s.strip_suffix("0x").unwrap_or(s);
 		let mut address = [0; N];
-		let mut chars = s.chars();
-		let mut i = 0;
-		while let Some(d0) = chars.next() {
-			let d1 = chars.next().ok_or("invalid character")?;
-			let d0 = d0.to_digit(16).ok_or("invalid character")?;
-			let d1 = d1.to_digit(16).ok_or("invalid character")?;
-			address[i] = u8::try_from(d0.wrapping_shl(4).wrapping_add(d1)).map_err(|_| "invalid character")?;
-			i += 1;
-		}
+		hex::decode_to_slice(s, &mut address)?;
 		Ok(Self(address))
 	}
 }
@@ -44,6 +54,29 @@ impl <const N: usize> core::str::FromStr for Address2<N> {
 impl <const N: usize> core::convert::AsRef<[u8]> for Address2<N> {
 	fn as_ref(&self) -> &[u8] {
 		&self.0
+	}
+}
+
+
+#[cfg(feature = "std")]
+impl <const N: usize> serde::Serialize for Address2<N> {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		hex::serde::serialize(self.0, serializer)
+	}
+}
+
+#[cfg(feature = "std")]
+impl <'de, const N: usize> serde::Deserialize<'de> for Address2<N> {
+	fn deserialize<D>(deserializer: D) -> core::prelude::v1::Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de> {
+		let s = <String as serde::Deserialize>::deserialize::<D>(deserializer)?;
+		let mut address = [0; N];
+		hex::decode_to_slice(s, &mut address).map_err(serde::de::Error::custom)?;
+		Ok(Self(address))
 	}
 }
 
@@ -311,7 +344,6 @@ use crate::TssSignature;
 use anyhow::Result;
 #[cfg(feature = "std")]
 use futures::Stream;
-use core::fmt::Write;
 #[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
@@ -341,7 +373,7 @@ pub struct Route {
 #[async_trait::async_trait]
 #[allow(clippy::missing_errors_doc)]
 pub trait IChain: Send + Sync + 'static {
-	type Address: Send + Sync + Sized + Eq + PartialEq + Copy + AsRef<[u8]> + std::fmt::Display + std::string::ToString + std::str::FromStr + 'static;
+	type Address: Parameter + Member + MaxEncodedLen + MaybeDisplay + MaybeFromStr + MaybeSerializeDeserialize + MaybeHash + std::cmp::Ord + AsRef<[u8]> + std::string::ToString;
 
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String;

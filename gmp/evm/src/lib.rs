@@ -11,7 +11,7 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	Address, Address2, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
 };
 
@@ -124,7 +124,7 @@ impl IConnectorBuilder for Connector {
 
 #[async_trait]
 impl IChain for Connector {
-	type Address = alloy_primitives::Address;
+	type Address = Address2<20>;
 
 	/// Formats an address into a string.
 	fn format_address(&self, address: Address) -> String {

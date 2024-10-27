@@ -26,7 +26,7 @@ jobs:
           name: runtime-benchmarks
           if-no-files-found: error
           path: target/release/timechain-node
-  run-pallet-benchmarks:
+  run-benchmarks:
     needs: [build-benchmark]
     runs-on: [self-hosted, benchmark]
     strategy:
@@ -49,29 +49,6 @@ jobs:
           name: weights-${{ matrix.chain }}-${{ matrix.pallet }}
           if-no-files-found: error
           path: weights/${{ matrix.pallet }}.rs
-  run-frame-benchmarks:
-    needs: [build-benchmark]
-    runs-on: [self-hosted, benchmark]
-    strategy:
-      fail-fast: false
-      matrix:
-        chain: [staging, development]
-        frame: [system]
-    steps:
-      - name: Download runtime benchmarks
-        uses: actions/download-artifact@v4
-        with:
-          name: runtime-benchmarks
-      - name: Prepare runtime benchmarks
-        run: chmod +x timechain-node && mkdir -p weights
-      - name: Run runtime benchmarks for pallets prefixed with frame
-        run: ./timechain-node benchmark pallet --chain dev --pallet frame_${{ matrix.frame }} --extrinsic '*' --output ./weights/${{ matrix.frame }}.rs
-      - name: Upload weights
-        uses: actions/upload-artifact@v4
-        with:
-          name: weights-${{ matrix.chain }}-${{ matrix.frame }}
-          if-no-files-found: error
-          path: weights/${{ matrix.frame }}.rs
   update-weights:
     needs: [run-benchmark]
     runs-on: [self-hosted, benchmark]

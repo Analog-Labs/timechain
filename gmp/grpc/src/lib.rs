@@ -270,4 +270,10 @@ impl IConnectorAdmin for Connector {
 		let response = self.client.lock().await.recv_messages(request).await?.into_inner();
 		Ok(response.messages)
 	}
+	/// Calculate transaction base fee for a chain.
+	async fn transaction_base_fee(&self) -> Result<u128> {
+		let request = Request::new(proto::TransactionBaseFeeRequest {});
+		let response = self.client.lock().await.transaction_base_fee(request).await?.into_inner();
+		Ok(response.base_fee)
+	}
 }

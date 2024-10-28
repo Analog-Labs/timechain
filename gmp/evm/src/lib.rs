@@ -1,11 +1,17 @@
 use alloy_primitives::{B256, U256};
 use alloy_sol_types::{SolCall, SolConstructor, SolEvent};
+use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::Stream;
 use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
 	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
+};
+use rosetta_ethereum_backend::jsonrpsee::Adapter;
+use rosetta_server::ws::{default_client, DefaultClient};
+use rosetta_server_ethereum::utils::{
+	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 };
 use std::ops::Range;
 use std::pin::Pin;
@@ -32,6 +38,7 @@ fn t_addr(address: alloy_primitives::Address) -> Address {
 pub struct Connector {
 	network_id: NetworkId,
 	wallet: Arc<Wallet>,
+	backend: Adapter<DefaultClient>,
 }
 
 impl Connector {
@@ -115,9 +122,15 @@ impl IConnectorBuilder for Connector {
 			)
 			.await?,
 		);
+
+		let client = default_client(&params.url, None)
+			.await
+			.with_context(|| "Cannot get ws client for url: {url}")?;
+		let adapter = Adapter(client);
 		Ok(Self {
 			network_id: params.network_id,
 			wallet,
+			backend: adapter,
 		})
 	}
 }
@@ -396,5 +409,15 @@ impl IConnectorAdmin for Connector {
 			msgs.push(log.msg.clone().inbound(self.network_id));
 		}
 		Ok(msgs)
+	}
+	/// Calculate transaction base fee for a chain.
+	async fn transaction_base_fee(&self) -> Result<u128> {
+		let fee_estimator = if self.wallet.config().blockchain == "polygon" {
+			self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
+		} else {
+			self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
+		};
+		Ok(u128::try_from(fee_estimator.0)
+			.map_err(|_| anyhow::anyhow!("Failed to convert value from U256 to u128"))?)
 	}
 }

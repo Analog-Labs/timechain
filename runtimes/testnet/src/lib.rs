@@ -1831,9 +1831,9 @@ mod multiplier_tests {
 
 	#[test]
 	fn max_elections_per_block() {
-		// 10% of max on_initialize space for shard elections conservatively
+		// 50% of max on_initialize space for shard elections conservatively
 		let avg_on_initialize: Weight =
-			Perbill::from_percent(10) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		const NUM_UNASSIGNED: u32 = 10;
 		let try_elect_shard: Weight =
 			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shard(NUM_UNASSIGNED);

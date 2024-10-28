@@ -64,6 +64,7 @@ impl pallet_elections::Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type Members = Members;
 	type Shards = Shards;
+	type MaxElectionsPerBlock = ConstU32<10>;
 }
 
 impl pallet_shards::Config for Test {

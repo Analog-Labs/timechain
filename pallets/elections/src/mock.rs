@@ -64,6 +64,7 @@ impl pallet_elections::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
+	type MaxElectionsPerBlock = ConstU32<10>;
 }
 
 impl pallet_shards::Config for Test {

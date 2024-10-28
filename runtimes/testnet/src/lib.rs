@@ -986,6 +986,7 @@ impl pallet_elections::Config for Runtime {
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
+	type MaxElectionsPerBlock = ConstU32<100>;
 }
 
 impl pallet_shards::Config for Runtime {
@@ -1613,6 +1614,7 @@ impl_runtime_apis! {
 mod multiplier_tests {
 	use super::*;
 	use frame_support::{dispatch::DispatchInfo, traits::OnFinalize};
+	use pallet_elections::WeightInfo as W4;
 	use pallet_members::WeightInfo as W2;
 	use pallet_shards::WeightInfo as W3;
 	use pallet_tasks::WeightInfo;
@@ -1824,6 +1826,40 @@ mod multiplier_tests {
 		assert!(
 			max_timeouts_per_block <= num_timeouts,
 			"MaxHeartbeatTimeoutsPerBlock {max_timeouts_per_block} > max number of Heartbeat timeouts per block tested = {num_timeouts}"
+		);
+	}
+
+	#[test]
+	fn max_elections_per_block() {
+		// 10% of max on_initialize space for shard elections conservatively
+		let avg_on_initialize: Weight =
+			Perbill::from_percent(10) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+		const NUM_UNASSIGNED: u32 = 100;
+		let try_elect_shard: Weight =
+			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shard(NUM_UNASSIGNED);
+		assert!(
+			try_elect_shard.all_lte(avg_on_initialize),
+			"BUG: One shard election consumes more weight than available in on-initialize"
+		);
+		let mut try_elect_shards = try_elect_shard.saturating_add(try_elect_shard);
+		assert!(
+			try_elect_shard.all_lte(try_elect_shards),
+			"BUG: 1 shard election consumes more weight than 2 shard elections"
+		);
+		let mut num_elections: u32 = 2;
+		while try_elect_shards.all_lt(avg_on_initialize) {
+			try_elect_shards = try_elect_shards.saturating_add(try_elect_shard);
+			num_elections += 1;
+			if num_elections == 10_000_000 {
+				// 10_000_000 elections; halting to break out of loop
+				break;
+			}
+		}
+		let max_elections_per_block: u32 =
+			<Runtime as pallet_elections::Config>::MaxElectionsPerBlock::get();
+		assert!(
+			max_elections_per_block <= num_elections,
+			"MaxElectionsPerBlock {max_elections_per_block} > max number of Elections per block tested = {num_elections}"
 		);
 	}
 }

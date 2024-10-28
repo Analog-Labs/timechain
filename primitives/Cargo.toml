@@ -23,6 +23,7 @@ sha3 = { version = "0.10", default-features = false }
 polkadot-sdk = { workspace = true, features = [
 	"frame-support",
 	"sp-api",
+	"sp-arithmetic",
 	"sp-core",
 	"sp-io",
 	"sp-runtime",

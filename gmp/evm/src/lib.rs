@@ -16,6 +16,7 @@ use time_primitives::{
 };
 
 pub(crate) mod sol;
+pub(crate) mod config;
 
 fn a_addr(address: Address) -> alloy_primitives::Address {
 	let address: [u8; 20] = address[..20].try_into().unwrap();

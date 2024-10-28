@@ -20,3 +20,15 @@ serde_json = "1.0.127"
 time-primitives = { workspace = true, default-features = true }
 tokio.workspace = true
 tracing.workspace = true
+polkadot-sdk = { workspace = true, features = [
+	"frame-support",
+	"sp-api",
+	"sp-arithmetic",
+	"sp-core",
+	"sp-io",
+	"sp-runtime",
+	"sp-std",
+]}
+serde = { workspace = true, features = [ "alloc" ] }
+scale-codec.workspace = true
+scale-info.workspace = true

@@ -1,4 +1,4 @@
-mod config;
+pub mod config;
 mod backend;
 
 use crate::{NetworkId, TssPublicKey};
@@ -10,7 +10,6 @@ use polkadot_sdk::{
 	frame_support::dispatch::Parameter,
 	sp_runtime::traits::{Member, MaybeDisplay, MaybeFromStr, MaybeSerializeDeserialize, MaybeHash},
 };
-
 
 #[cfg_attr(not(feature = "std"), derive(Debug))]
 #[cfg_attr(feature = "std", derive(std::hash::Hash))]
@@ -117,7 +116,7 @@ impl GmpParams {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
@@ -175,7 +174,7 @@ impl std::fmt::Display for GmpMessage {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq)]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq, Eq, Hash)]
 pub enum GatewayOp {
 	SendMessage(GmpMessage),
 	RegisterShard(

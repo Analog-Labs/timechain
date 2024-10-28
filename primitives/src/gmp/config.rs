@@ -6,29 +6,35 @@ use polkadot_sdk::{
     sp_arithmetic::{
         FixedPointOperand,
         FixedPointNumber,
-        traits::{AtLeast32BitUnsigned, Saturating, Bounded, CheckedSub}
+        traits::{AtLeast32BitUnsigned, AtLeast32Bit, Saturating, Bounded, CheckedSub}
     },
 };
 use scale_codec::{MaxEncodedLen, Codec, Encode, Decode};
 use scale_info::TypeInfo;
 use crate::{GatewayMessage, GmpMessage, GatewayOp, NetworkId};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 #[repr(transparent)]
+// #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TssPublicKey(pub [u8; 33]);
 
 #[repr(transparent)]
+// #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TssSignature(pub [u8; 64]);
 
 #[repr(transparent)]
+// #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct TssSigHash(pub [u8; 32]);
 
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Location {
-    origin: Option<NetworkId>,
-    destination: NetworkId,
+    pub origin: Option<NetworkId>,
+    pub destination: NetworkId,
 }
 
 pub trait PayloadT<CTX> {
@@ -58,21 +64,18 @@ pub trait HeaderT: Send + Sync + Clone + Eq + Debug + Codec + TypeInfo + 'static
     /// Header hash type
 	type Hash: HashOutput;
 
-    /// Hashing algorithm
-	type Hashing: HashT<Output = Self::Hash>;
-
     /// Returns the hash of the header.
-	fn hash(&self) -> Self::Hash {
-		<Self::Hashing as HashT>::hash_of(self)
-	}
+	fn hash(&self) -> Self::Hash;
 
     /// Returns a reference to the parent hash.
-	fn parent_hash(&self) -> &Self::Hash;
+	fn parent_hash(&self) -> Self::Hash;
+
 	/// Sets the parent hash.
 	fn set_parent_hash(&mut self, hash: Self::Hash);
 
     /// Returns a reference to the header number.
-	fn number(&self) -> &Self::Number;
+	fn number(&self) -> Self::Number;
+
     /// Sets the header number.
 	fn set_number(&mut self, number: Self::Number);
 }
@@ -83,13 +86,13 @@ pub trait Config: Send + Sync + 'static {
     const DECIMALS: u8;
 
     /// Message context type.
-    type Context: Parameter + Member + Codec + Eq + TypeInfo + MaybeDisplay + MaybeSerializeDeserialize + 'static;
+    type Context: Parameter + Member + Codec + Eq + TypeInfo + 'static;
 
     /// Message payload unsigned.
-    type Payload: PayloadT<Self::Context> + Parameter + Member + Hash + MaybeSerializeDeserialize + 'static;
+    type Payload: PayloadT<Self::Context> + Parameter + Member + Hash + 'static;
 
     /// Message signed.
-    type Message: MessageT<Self::Context, Self::Payload, Self::Hash> + Parameter + Member + Hash + MaybeSerializeDeserialize + 'static;
+    type Message: MessageT<Self::Context, Self::Payload, Self::Hash> + Parameter + Member + Hash + 'static;
 
     /// A type that fulfills the abstract idea of what a block number is.
 	// Constraints come from the associated Number type of `sp_runtime::traits::Header`
@@ -107,7 +110,7 @@ pub trait Config: Send + Sync + 'static {
         + MaxEncodedLen;
 
     /// The type used to identify an account in the chain.
-    type Address: Parameter + Member + MaxEncodedLen + MaybeDisplay + MaybeFromStr + MaybeSerializeDeserialize + Ord + Debug + Clone;
+    type Address: Parameter + Member + MaxEncodedLen + MaybeDisplay + MaybeFromStr + Ord + Debug + Clone;
     
     /// Balance of an account in native tokens.
 	///
@@ -115,13 +118,13 @@ pub trait Config: Send + Sync + 'static {
 	/// to pay for transaction fees.
     type Balance: Parameter
         + Member
-        + AtLeast32BitUnsigned
-        + FixedPointOperand
-        + Saturating
+        // + AtLeast32Bit
+        // + AtLeast32BitUnsigned
+        // + FixedPointOperand
+        // + Saturating
         + MaxEncodedLen
         + MaybeDisplay
         + MaybeFromStr
-        + MaybeSerializeDeserialize
         + TryFrom<U256>
         + Copy;
     
@@ -138,8 +141,6 @@ pub trait Config: Send + Sync + 'static {
 	type Header: Parameter
         + HeaderT<Number = Self::BlockNumber, Hash = Self::Hash>
         + MaybeSerializeDeserialize;
-    
-    type GmpMessage: Parameter + Member;
 }
 
 /// Context used to parse and build GMP messages.

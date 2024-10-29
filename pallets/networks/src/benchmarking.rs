@@ -8,8 +8,10 @@ use scale_codec::Encode;
 use scale_info::prelude::string::String;
 use sp_runtime::BoundedVec;
 use time_primitives::{
-	ChainName, ChainNetwork, Network, NetworkConfig, CHAIN_NAME_LEN, CHAIN_NET_LEN,
+	ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, CHAIN_NAME_LEN, CHAIN_NET_LEN,
 };
+
+const NETWORK: NetworkId = 42;
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -22,7 +24,7 @@ fn mock_network_config() -> NetworkConfig {
 
 fn mock_network(chain_name: String, chain_network: String) -> Network {
 	Network {
-		id: 42,
+		id: NETWORK,
 		chain_name: ChainName(BoundedVec::truncate_from(chain_name.as_str().encode())),
 		chain_network: ChainNetwork(BoundedVec::truncate_from(chain_network.as_str().encode())),
 		gateway: [0; 32],
@@ -48,7 +50,13 @@ benchmarks! {
 
 	set_network_config {
 		Pallet::<T>::register_network(RawOrigin::Root.into(), mock_network("Ethereum".into(), "Mainnet".into())).unwrap();
-	}: _(RawOrigin::Root, 42, mock_network_config())
+	}: _(RawOrigin::Root, NETWORK, mock_network_config())
+	verify {}
+
+	remove_network {
+		Pallet::<T>::register_network(RawOrigin::Root.into(), mock_network("Ethereum".into(), "Mainnet".into())).unwrap();
+	}: _(RawOrigin::Root, NETWORK)
+	verify {}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

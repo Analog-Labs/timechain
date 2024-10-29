@@ -31,6 +31,7 @@ fn main() {
 		.method(method("estimate_message_cost", "EstimateMessageCost").build())
 		.method(method("send_message", "SendMessage").build())
 		.method(method("recv_messages", "RecvMessages").build())
+		.method(method("transaction_base_fee", "TransactionBaseFee").build())
 		.build();
 	Builder::new().compile(&[service]);
 }

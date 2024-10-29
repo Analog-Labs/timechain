@@ -368,6 +368,8 @@ pub trait IConnectorAdmin: IConnector {
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
+	/// Calculate transaction base fee for a chain.
+	async fn transaction_base_fee(&self) -> Result<u128>;
 }
 
 #[cfg(feature = "std")]

@@ -508,6 +508,15 @@ impl Tc {
 		})
 	}
 
+	pub async fn transaction_base_fee(&self, network: NetworkId) -> Result<u128> {
+		let connector = self
+			.connectors
+			.get(&network)
+			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
+		let base_fee = connector.transaction_base_fee().await?;
+		Ok(base_fee)
+	}
+
 	pub async fn batch(&self, batch: BatchId) -> Result<Batch> {
 		Ok(Batch {
 			batch,

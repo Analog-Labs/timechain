@@ -186,3 +186,11 @@ pub struct RecvMessagesRequest {
 pub struct RecvMessagesResponse {
 	pub messages: Vec<GmpMessage>,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct TransactionBaseFeeRequest {}
+
+#[derive(Serialize, Deserialize)]
+pub struct TransactionBaseFeeResponse {
+	pub base_fee: u128,
+}

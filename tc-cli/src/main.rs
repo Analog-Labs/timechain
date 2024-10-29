@@ -96,6 +96,9 @@ enum Command {
 	Task {
 		task: TaskId,
 	},
+	TransactionBaseFee {
+		network: NetworkId,
+	},
 	Batch {
 		batch: BatchId,
 	},
@@ -531,6 +534,10 @@ async fn real_main() -> Result<()> {
 		Command::Task { task } => {
 			let task = tc.task(task).await?;
 			print_table(&tc, vec![task])?;
+		},
+		Command::TransactionBaseFee { network } => {
+			let base_fee = tc.transaction_base_fee(network).await?;
+			println!("Transaction base fee for network: {} is : {}", network, base_fee);
 		},
 		Command::Batch { batch } => {
 			let mut batch = tc.batch(batch).await?;

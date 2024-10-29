@@ -263,6 +263,17 @@ impl Gmp for ConnectorWrapper {
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::RecvMessagesResponse { messages }))
 	}
+	async fn transaction_base_fee(
+		&self,
+		request: Request<proto::TransactionBaseFeeRequest>,
+	) -> GmpResult<proto::TransactionBaseFeeResponse> {
+		let (connector, _) = self.connector(request)?;
+		let base_fee = connector
+			.transaction_base_fee()
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::TransactionBaseFeeResponse { base_fee }))
+	}
 }
 
 #[derive(Parser)]

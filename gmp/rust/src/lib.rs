@@ -458,6 +458,10 @@ impl IConnectorAdmin for Connector {
 		}
 		Ok(msgs)
 	}
+	/// Calculate transaction base fee for a chain.
+	async fn transaction_base_fee(&self) -> Result<u128> {
+		Ok(0)
+	}
 }
 
 #[derive(Debug)]

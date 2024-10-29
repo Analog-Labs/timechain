@@ -2089,7 +2089,7 @@ mod tests {
 	use pallet_shards::WeightInfo as W3;
 	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
-	use time_primitives::bounds::ON_INITIALIZE_BOUNDS;
+	use time_primitives::ON_INITIALIZE_BOUNDS;
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {

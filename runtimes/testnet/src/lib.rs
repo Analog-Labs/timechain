@@ -977,7 +977,7 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
-	type MaxTimeoutsPerBlock = ConstU32<50>;
+	type MaxTimeoutsPerBlock = ConstU32<25>;
 }
 
 impl pallet_elections::Config for Runtime {
@@ -986,7 +986,7 @@ impl pallet_elections::Config for Runtime {
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
-	type MaxElectionsPerBlock = ConstU32<10>;
+	type MaxElectionsPerBlock = ConstU32<5>;
 }
 
 impl pallet_shards::Config for Runtime {
@@ -996,7 +996,7 @@ impl pallet_shards::Config for Runtime {
 	type Members = Members;
 	type Elections = Elections;
 	type Tasks = Tasks;
-	type MaxTimeoutsPerBlock = ConstU32<15>;
+	type MaxTimeoutsPerBlock = ConstU32<5>;
 	type DkgTimeout = ConstU32<10>;
 }
 

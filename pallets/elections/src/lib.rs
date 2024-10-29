@@ -89,6 +89,9 @@ pub mod pallet {
 		type Shards: ShardsInterface;
 		///  The storage interface for member-related data.
 		type Members: MembersInterface;
+		/// Maximum number of shard elections per block
+		#[pallet::constant]
+		type MaxElectionsPerBlock: Get<u32>;
 	}
 
 	/// Size of each new shard
@@ -170,10 +173,14 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let mut weight = Weight::default();
-			Unassigned::<T>::iter().map(|(n, _, _)| n).for_each(|network| {
+			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
+			for (network, _, _) in Unassigned::<T>::iter() {
 				weight = weight.saturating_add(Self::try_elect_shard(network));
-			});
+				num_elections = num_elections.saturating_plus_one();
+				if num_elections == T::MaxElectionsPerBlock::get() {
+					break;
+				}
+			}
 			log::info!("on_initialize end");
 			weight
 		}

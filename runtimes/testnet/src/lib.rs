@@ -1620,7 +1620,7 @@ mod multiplier_tests {
 	use pallet_tasks::WeightInfo;
 	use separator::Separatable;
 	use sp_runtime::traits::Convert;
-	use time_primitives::ON_INITIALIZE_BOUNDS;
+	use time_primitives::bounds::ON_INITIALIZE_BOUNDS;
 
 	fn run_with_system_weight<F>(w: Weight, mut assertions: F)
 	where

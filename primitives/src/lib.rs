@@ -26,8 +26,6 @@ pub mod shard;
 pub mod task;
 
 // ... and unscoped
-#[cfg(test)]
-pub use crate::bounds::*;
 pub use crate::currency::*;
 pub use crate::dmail::*;
 pub use crate::gmp::*;

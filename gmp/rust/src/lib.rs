@@ -462,6 +462,11 @@ impl IConnectorAdmin for Connector {
 	async fn transaction_base_fee(&self) -> Result<u128> {
 		Ok(0)
 	}
+
+	/// Returns gas limit of latest block.
+	async fn block_gas_limit(&self) -> Result<u64> {
+		Ok(0)
+	}
 }
 
 #[derive(Debug)]

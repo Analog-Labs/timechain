@@ -274,6 +274,18 @@ impl Gmp for ConnectorWrapper {
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::TransactionBaseFeeResponse { base_fee }))
 	}
+
+	async fn block_gas_limit(
+		&self,
+		request: Request<proto::BlockGasLimitRequest>,
+	) -> GmpResult<proto::BlockGasLimitResponse> {
+		let (connector, _) = self.connector(request)?;
+		let gas_limit = connector
+			.block_gas_limit()
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::BlockGasLimitResponse { gas_limit }))
+	}
 }
 
 #[derive(Parser)]

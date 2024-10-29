@@ -370,6 +370,8 @@ pub trait IConnectorAdmin: IConnector {
 		-> Result<Vec<GmpMessage>>;
 	/// Calculate transaction base fee for a chain.
 	async fn transaction_base_fee(&self) -> Result<u128>;
+	/// Calculate returns the latest block gas_limit for a chain.
+	async fn block_gas_limit(&self) -> Result<u64>;
 }
 
 #[cfg(feature = "std")]

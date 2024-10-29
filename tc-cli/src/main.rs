@@ -452,7 +452,16 @@ impl IntoRow for MessageTrace {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
+	if let Err(err) = real_main().await {
+		println!("{err}");
+		std::process::exit(1);
+	} else {
+		std::process::exit(0);
+	}
+}
+
+async fn real_main() -> Result<()> {
 	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let args = Args::parse();
@@ -645,7 +654,7 @@ async fn main() -> Result<()> {
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
-	std::process::exit(0);
+	Ok(())
 }
 
 async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {

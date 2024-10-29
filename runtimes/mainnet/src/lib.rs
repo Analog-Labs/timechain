@@ -2089,6 +2089,7 @@ mod tests {
 	use pallet_shards::WeightInfo as W3;
 	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
+	use time_primitives::ON_INITIALIZE_BOUNDS;
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {
@@ -2126,9 +2127,8 @@ mod tests {
 
 	#[test]
 	fn max_tasks_per_block() {
-		// 50% of max on_initialize space for task scheduling conservatively
 		let avg_on_initialize: Weight =
-			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			ON_INITIALIZE_BOUNDS.tasks * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
 				.all_lte(avg_on_initialize),
@@ -2159,9 +2159,8 @@ mod tests {
 
 	#[test]
 	fn max_batches_per_block() {
-		// 50% of max on_initialize space for starting batches conservatively
 		let avg_on_initialize: Weight =
-			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			ON_INITIALIZE_BOUNDS.batches * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
 				.all_lte(avg_on_initialize),
@@ -2192,9 +2191,8 @@ mod tests {
 
 	#[test]
 	fn max_dkg_timeouts_per_block() {
-		// 20% of max on_initialize space for dkg timeouts conservatively
 		let avg_on_initialize: Weight =
-			Perbill::from_percent(20) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			ON_INITIALIZE_BOUNDS.dkgs * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(1)
 				.all_lte(avg_on_initialize),
@@ -2225,9 +2223,8 @@ mod tests {
 
 	#[test]
 	fn max_heartbeat_timeouts_per_block() {
-		// 20% of max on_initialize space for dkg timeouts conservatively
 		let avg_on_initialize: Weight =
-			Perbill::from_percent(20) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			ON_INITIALIZE_BOUNDS.heartbeats * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		assert!(
 			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
 				.all_lte(avg_on_initialize),
@@ -2258,9 +2255,8 @@ mod tests {
 
 	#[test]
 	fn max_elections_per_block() {
-		// 50% of max on_initialize space for shard elections conservatively
 		let avg_on_initialize: Weight =
-			Perbill::from_percent(50) * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			ON_INITIALIZE_BOUNDS.elections * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
 		const NUM_UNASSIGNED: u32 = 10;
 		let try_elect_shard: Weight =
 			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shard(NUM_UNASSIGNED);

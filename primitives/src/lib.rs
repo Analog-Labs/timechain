@@ -16,6 +16,8 @@ use sp_runtime::{
 pub mod admin;
 #[cfg(feature = "std")]
 pub mod balance;
+#[cfg(test)]
+pub mod bounds;
 pub mod currency;
 pub mod dmail;
 pub mod gmp;
@@ -24,6 +26,8 @@ pub mod shard;
 pub mod task;
 
 // ... and unscoped
+#[cfg(test)]
+pub use crate::bounds::*;
 pub use crate::currency::*;
 pub use crate::dmail::*;
 pub use crate::gmp::*;

@@ -1,4 +1,4 @@
-use polkadot_sdk::sp_runtime::{Perbill, Saturating};
+use polkadot_sdk::sp_runtime::Perbill;
 
 #[derive(Debug)]
 pub struct Bounds {
@@ -19,6 +19,7 @@ pub const ON_INITIALIZE_BOUNDS: Bounds = Bounds {
 
 #[test]
 fn validate_on_initialize_bounds() {
+	use polkadot_sdk::sp_runtime::Saturating;
 	assert_eq!(
 		ON_INITIALIZE_BOUNDS
 			.tasks

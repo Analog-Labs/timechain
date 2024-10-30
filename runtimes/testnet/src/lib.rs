@@ -355,7 +355,7 @@ impl pallet_babe::Config for Runtime {
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
-	type WeightInfo = weights::pallet_babe::WeightInfo<Runtime>;
+	type WeightInfo = (); //weights::pallet_babe::WeightInfo<Runtime>; CI commits incorrect weights
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 }
@@ -367,7 +367,7 @@ parameter_types! {
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-	type WeightInfo = weights::pallet_grandpa::WeightInfo<Runtime>;
+	type WeightInfo = (); //weights::pallet_grandpa::WeightInfo<Runtime>; CI commits incorrect weights
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;

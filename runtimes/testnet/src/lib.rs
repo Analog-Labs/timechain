@@ -323,7 +323,7 @@ impl frame_system::Config for Runtime {
 	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
 	/// Weight information for the extrinsics of this pallet.
-	type SystemWeightInfo = weights::system::WeightInfo<Runtime>;
+	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	/// This is used as an identifier of the chain.
 	type SS58Prefix = SS58Prefix;
 	/// The maximum number of consumers allowed on a single account.
@@ -355,7 +355,7 @@ impl pallet_babe::Config for Runtime {
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
-	type WeightInfo = (); //weights::babe::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_babe::WeightInfo<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 }
@@ -367,7 +367,7 @@ parameter_types! {
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-	type WeightInfo = (); //weights::grandpa::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_grandpa::WeightInfo<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominations;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
@@ -645,7 +645,7 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Babe;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
-	type WeightInfo = weights::timestamp::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -674,7 +674,7 @@ impl pallet_balances::Config for Runtime {
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
 	type AccountStore = System;
-	type WeightInfo = weights::balances::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();

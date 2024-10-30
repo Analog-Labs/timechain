@@ -1,5 +1,6 @@
 use crate::{
-	BatchIdCounter, Call, Config, Pallet, ShardRegistered, TaskIdCounter, TaskOutput, TaskShard,
+	BatchIdCounter, Call, Config, Pallet, ReadEventsTask, ShardRegistered, TaskIdCounter,
+	TaskOutput, TaskShard,
 };
 use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
@@ -12,8 +13,8 @@ use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_
 use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, Commitment, GmpEvents, NetworkId, PublicKey, ShardStatus, ShardsInterface, Task,
-	TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+	AccountId, Commitment, ErrorMsg, GmpEvents, NetworkId, PublicKey, ShardStatus, ShardsInterface,
+	Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -110,6 +111,21 @@ benchmarks! {
 	} verify {
 		assert_eq!(BatchIdCounter::<T>::get(), b as u64);
 	}
+
+	submit_gmp_events {
+	}: _(RawOrigin::Root, ETHEREUM, GmpEvents(BoundedVec::truncate_from(vec![])))
+	verify { }
+
+	sync_network {}: _(RawOrigin::Root, ETHEREUM, 100u64) verify { }
+
+	stop_network {
+		ReadEventsTask::<T>::insert(ETHEREUM, 1);
+	}: _(RawOrigin::Root, ETHEREUM) verify { }
+
+	remove_task {
+		let task_id = create_task::<T>(ETHEREUM);
+		TaskOutput::<T>::insert(task_id, Ok::<(), ErrorMsg>(()));
+	}: _(RawOrigin::Root, task_id) verify { }
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

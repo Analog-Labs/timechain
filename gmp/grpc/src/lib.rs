@@ -276,4 +276,11 @@ impl IConnectorAdmin for Connector {
 		let response = self.client.lock().await.transaction_base_fee(request).await?.into_inner();
 		Ok(response.base_fee)
 	}
+
+	/// Returns gas limit of latest block.
+	async fn block_gas_limit(&self) -> Result<u64> {
+		let request = Request::new(proto::BlockGasLimitRequest {});
+		let response = self.client.lock().await.block_gas_limit(request).await?.into_inner();
+		Ok(response.gas_limit)
+	}
 }

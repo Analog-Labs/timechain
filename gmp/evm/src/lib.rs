@@ -8,7 +8,7 @@ use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
 	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
 };
-use rosetta_ethereum_backend::jsonrpsee::Adapter;
+use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
 	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
@@ -419,5 +419,15 @@ impl IConnectorAdmin for Connector {
 		};
 		Ok(u128::try_from(fee_estimator.0)
 			.map_err(|_| anyhow::anyhow!("Failed to convert value from U256 to u128"))?)
+	}
+
+	/// Returns gas limit of latest block.
+	async fn block_gas_limit(&self) -> Result<u64> {
+		let block = self
+			.backend
+			.block(AtBlock::Latest)
+			.await?
+			.with_context(|| "Cannot find latest block")?;
+		Ok(block.header.gas_limit)
 	}
 }

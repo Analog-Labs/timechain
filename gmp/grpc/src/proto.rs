@@ -194,3 +194,11 @@ pub struct TransactionBaseFeeRequest {}
 pub struct TransactionBaseFeeResponse {
 	pub base_fee: u128,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct BlockGasLimitRequest {}
+
+#[derive(Serialize, Deserialize)]
+pub struct BlockGasLimitResponse {
+	pub gas_limit: u64,
+}

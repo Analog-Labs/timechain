@@ -517,6 +517,15 @@ impl Tc {
 		Ok(base_fee)
 	}
 
+	pub async fn block_gas_limit(&self, network: NetworkId) -> Result<u64> {
+		let connector = self
+			.connectors
+			.get(&network)
+			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
+		let gas_limit = connector.block_gas_limit().await?;
+		Ok(gas_limit)
+	}
+
 	pub async fn batch(&self, batch: BatchId) -> Result<Batch> {
 		Ok(Batch {
 			batch,
@@ -582,7 +591,6 @@ impl Tc {
 		let contracts = self.config.contracts(network)?;
 		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
 			self.set_network_config(network).await?;
-			self.redeploy_gateway(network).await?;
 			gateway
 		} else {
 			tracing::info!("deploying gateway");
@@ -785,10 +793,8 @@ impl Tc {
 	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
-		if connector.gateway_needs_redeployment(gateway, &contracts.gateway).await? {
-			tracing::info!("redeploying gateway");
-			connector.redeploy_gateway(gateway, &contracts.gateway).await?;
-		}
+		tracing::info!("redeploying gateway");
+		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
 		Ok(())
 	}
 

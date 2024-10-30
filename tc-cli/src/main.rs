@@ -102,6 +102,9 @@ enum Command {
 	Batch {
 		batch: BatchId,
 	},
+	BlockGasLimit {
+		network: NetworkId,
+	},
 	Message {
 		message: String,
 	},
@@ -544,6 +547,11 @@ async fn real_main() -> Result<()> {
 			let ops = std::mem::take(&mut batch.msg.ops);
 			print_table(&tc, vec![batch])?;
 			print_table(&tc, ops)?;
+		},
+
+		Command::BlockGasLimit { network } => {
+			let base_fee = tc.block_gas_limit(network).await?;
+			println!("Gas limit for block: {} is : {}", network, base_fee);
 		},
 		Command::Message { message } => {
 			let message = hex::decode(message)?

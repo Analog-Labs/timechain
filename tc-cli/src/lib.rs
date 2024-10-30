@@ -591,7 +591,6 @@ impl Tc {
 		let contracts = self.config.contracts(network)?;
 		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
 			self.set_network_config(network).await?;
-			self.redeploy_gateway(network).await?;
 			gateway
 		} else {
 			tracing::info!("deploying gateway");
@@ -794,10 +793,8 @@ impl Tc {
 	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
-		if connector.gateway_needs_redeployment(gateway, &contracts.gateway).await? {
-			tracing::info!("redeploying gateway");
-			connector.redeploy_gateway(gateway, &contracts.gateway).await?;
-		}
+		tracing::info!("redeploying gateway");
+		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
 		Ok(())
 	}
 

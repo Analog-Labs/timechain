@@ -1296,6 +1296,7 @@ pub mod pallet {
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: usize) -> Weight {
+			log::info!("scheduling {capacity} tasks on {shard_id}");
 			let mut reads = 0;
 			let shard_size = T::Shards::shard_members(shard_id).len() as u16;
 			let is_registered = ShardRegistered::<T>::get(shard_id).is_some();
@@ -1323,6 +1324,7 @@ pub mod pallet {
 			for (index, task) in tasks {
 				weight = weight.saturating_add(Self::assign_task(network, shard_id, index, task));
 			}
+			log::info!("scheduled {capacity} tasks on {shard_id}");
 			weight
 		}
 
@@ -1340,6 +1342,7 @@ pub mod pallet {
 			task_index: TaskIndex,
 			task_id: TaskId,
 		) -> Weight {
+			log::info!("assigning task {shard_id} {task_id}");
 			let (mut reads, mut writes) = (0, 0);
 			if let Some(old_shard_id) = TaskShard::<T>::get(task_id) {
 				ShardTasks::<T>::remove(old_shard_id, task_id);
@@ -1350,6 +1353,7 @@ pub mod pallet {
 			ShardTasks::<T>::insert(shard_id, task_id, ());
 			TaskShard::<T>::insert(task_id, shard_id);
 			Self::start_phase(shard_id, task_id, TaskPhaseState::<T>::get(task_id));
+			log::info!("assigned task {shard_id} {task_id}");
 			// writes: remove_unassigned_task, ShardTasks, TaskShard, start_phase
 			writes = writes.saturating_add(4);
 			// reads: TaskShard, TaskPhaseState

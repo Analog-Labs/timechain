@@ -38,18 +38,18 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_314_000 picoseconds.
-		Weight::from_parts(29_070_669, 0)
+		// Minimum execution time: 7_704_000 picoseconds.
+		Weight::from_parts(41_129_926, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 51_329
-			.saturating_add(Weight::from_parts(4_492_064, 0).saturating_mul(c.into()))
+			// Standard Error: 51_942
+			.saturating_add(Weight::from_parts(4_715_303, 0).saturating_mul(c.into()))
 	}
 	fn as_derivative() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_857_000 picoseconds.
-		Weight::from_parts(10_339_000, 0)
+		// Minimum execution time: 6_552_000 picoseconds.
+		Weight::from_parts(7_344_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// The range of component `c` is `[0, 1000]`.
@@ -57,18 +57,18 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_842_000 picoseconds.
-		Weight::from_parts(7_153_000, 0)
+		// Minimum execution time: 7_133_000 picoseconds.
+		Weight::from_parts(92_592_954, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 28_932
-			.saturating_add(Weight::from_parts(4_770_210, 0).saturating_mul(c.into()))
+			// Standard Error: 39_294
+			.saturating_add(Weight::from_parts(4_771_439, 0).saturating_mul(c.into()))
 	}
 	fn dispatch_as() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 9_237_000 picoseconds.
-		Weight::from_parts(9_838_000, 0)
+		// Minimum execution time: 10_350_000 picoseconds.
+		Weight::from_parts(12_063_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// The range of component `c` is `[0, 1000]`.
@@ -76,10 +76,10 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_792_000 picoseconds.
-		Weight::from_parts(24_622_331, 0)
+		// Minimum execution time: 7_655_000 picoseconds.
+		Weight::from_parts(8_485_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 40_401
-			.saturating_add(Weight::from_parts(4_278_975, 0).saturating_mul(c.into()))
+			// Standard Error: 20_208
+			.saturating_add(Weight::from_parts(4_547_944, 0).saturating_mul(c.into()))
 	}
 }

@@ -130,6 +130,13 @@ enum Command {
 	DeployTester {
 		network: NetworkId,
 	},
+	RemoveTask {
+		task_id: TaskId,
+	},
+	CompleteBatch {
+		network_id: NetworkId,
+		batch_id: BatchId,
+	},
 	SendMessage {
 		network: NetworkId,
 		tester: String,
@@ -588,6 +595,10 @@ async fn real_main() -> Result<()> {
 			let (address, block) = tc.deploy_tester(network).await?;
 			let address = tc.format_address(Some(network), address)?;
 			println!("{address} {block}");
+		},
+		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
+		Command::CompleteBatch { network_id, batch_id } => {
+			tc.complete_batch(network_id, batch_id).await?
 		},
 		Command::SendMessage {
 			network,

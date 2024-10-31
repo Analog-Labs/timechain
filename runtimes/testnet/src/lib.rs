@@ -1203,6 +1203,7 @@ mod benches {
 		[pallet_timegraph, Timegraph]
 		[pallet_timestamp, Timestamp]
 		[pallet_utility, Utility]
+		[pallet_proxy, Proxy]
 	);
 }
 

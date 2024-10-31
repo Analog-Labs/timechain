@@ -33,9 +33,9 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration,
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU128, ConstU16, ConstU32, Contains, Currency, EitherOfDiverse,
-		EqualPrivilegeOnly, Imbalance, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		OnUnbalanced, WithdrawReasons,
+		ConstU128, ConstU16, ConstU32, Contains, Currency, EitherOfDiverse, EqualPrivilegeOnly,
+		Imbalance, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, OnUnbalanced,
+		WithdrawReasons,
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},

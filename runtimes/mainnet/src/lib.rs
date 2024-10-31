@@ -411,7 +411,7 @@ impl pallet_babe::Config for Runtime {
 	type ExpectedBlockTime = ExpectedBlockTime;
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
 	type DisabledValidators = Session;
-	type WeightInfo = (); //weights::pallet_babe::WeightInfo<Runtime>; CI commits incorrect weights
+	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 	type KeyOwnerProof =
@@ -1274,7 +1274,7 @@ parameter_types! {
 
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = (); //weights::pallet_grandpa::WeightInfo<Runtime>; CI commits incorrect weights
+	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;

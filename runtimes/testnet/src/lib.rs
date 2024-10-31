@@ -1192,6 +1192,7 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_grandpa, Grandpa]
 		[pallet_im_online, ImOnline]
+		[pallet_multisig, Multisig]
 		[pallet_members, Members]
 		[pallet_networks, Networks]
 		[pallet_offences, OffencesBench::<Runtime>]

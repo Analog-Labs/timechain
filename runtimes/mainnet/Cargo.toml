@@ -135,6 +135,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
 	"polkadot-sdk/pallet-proxy",
+	"polkadot-sdk/pallet-multisig",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
@@ -143,13 +144,11 @@ runtime-benchmarks = [
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timegraph/runtime-benchmarks",
-
 	"runtime-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"polkadot-sdk/frame-try-runtime",
-
 	"pallet-elections/try-runtime",
 	"pallet-governance/try-runtime",
 	"pallet-members/try-runtime",

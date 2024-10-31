@@ -134,7 +134,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
-	"polkadot-sdk/pallet-proxy-benchmarking",
+	"polkadot-sdk/pallet-proxy",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",

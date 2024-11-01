@@ -1,0 +1,105 @@
+# Chronicle deployment workflow
+#
+# HOW IT WORKS:
+# 1. Retrieves all deployments with the label `app=chronicle` within the timechain namespace.
+# 2. Iterates through each deployment found:
+#    a. Sets the new image for the deployment using `kubectl set image`.
+#    b. Waits for the deployment rollout to complete within the specified timeout.
+#    c. If the rollout is successful, confirms the deployment; if it fails, performs rollback.
+# 3. If rollback succeeds after a failure, it exits with an error; otherwise a manual intervention is needed.
+
+name: Chronicle Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Chronicle image tag (sha8 commit)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment for deployment (K8s cluster)"
+        required: true
+        type: choice
+        options:
+          - development
+          - integration
+
+env:
+  # NOTE: chronicle-dev image is hardcoded (works for current envs now)
+  CHRONICLE_IMAGE: analoglabs/chronicle-dev
+
+jobs:
+  deploy:
+    name: Deploy to cluster
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: GKE Setup
+      uses: ./.github/actions/gke-common
+      with:
+        cluster: ${{ github.event.inputs.environment }}
+        key-file: ${{ secrets.GCP_SA_KEY }}
+        project-id: ${{ secrets.GCP_PROJECT_ID }}
+        region: us-east1
+
+    - name: Check chronicle image
+      id: check-image
+      run: |
+        TAG=${{ github.event.inputs.version }}
+        IMAGE="$CHRONICLE_IMAGE:${TAG:0:8}"
+        
+        echo "Checking if the image $IMAGE exists..."
+        if ! docker pull "$IMAGE" &>/dev/null; then
+            echo "Error: Image $IMAGE does not exist or is behind a private repo."
+            exit 1
+        fi
+        echo "Image $IMAGE exists. Proceeding with deployment..."
+        echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+    - name: Rollout chronicles
+      run: |
+        # Target namespace
+        NAMESPACE="timechain"
+
+        # Time limit for a single chronicle rollout
+        TIMEOUT="60"
+
+        IMAGE=${{ steps.check-image.outputs.IMAGE }}
+
+        CHRONICLES=$(kubectl get deployment -l app=chronicle -n $NAMESPACE --no-headers -o=jsonpath="{.items[*].metadata.name}")
+
+        # Update chronicle per chronicle
+        # NOTE: if a chronicle image update fails it will rollout the one who failed and stop the rollout
+        for ch in $CHRONICLES; do
+            echo "Deploying $IMAGE for $ch..."
+
+            #kubectl -n $NAMESPACE set image deployment/$ch chronicle=$IMAGE
+
+            echo "Waiting for the deployment to complete..."
+            kubectl -n $NAMESPACE rollout status deployment/$ch --timeout=${TIMEOUT}s
+
+            # TODO: health check would be perfect
+
+            if [ $? -eq 0 ]; then
+                echo "Deployment succeeded for $ch! Running image."
+            else
+                echo "Deployment failed. Rolling back to the previous version..."
+
+                kubectl -n $NAMESPACE rollout undo deployment/$ch
+
+                if [ $? -eq 0 ]; then
+                    echo "Rollback successful!"
+                else
+                    echo "FATAL: Rollback failed! Please check the deployment manually!"
+                fi
+                exit 1
+            fi
+        done
+
+        echo "Successfully updated all chronicles!"
+        exit 0
+
+    

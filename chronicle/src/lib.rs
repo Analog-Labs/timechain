@@ -108,7 +108,8 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 	let timechain_address = time_primitives::format_address(substrate.account_id());
 	let target_address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
-	let min_stake = substrate.get_min_stake().await?;
+	let is_registered = substrate.is_registered().await?;
+	let min_stake = if is_registered { 0 } else { substrate.get_min_stake().await? };
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
 	event!(target: TW_LOG, Level::INFO, "peer id: {}", peer_id);

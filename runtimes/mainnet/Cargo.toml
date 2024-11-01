@@ -41,7 +41,6 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-bounties",
 	"pallet-child-bounties",
 	"pallet-collective",
-	"pallet-democracy",
 	"pallet-election-provider-multi-phase",
 	"pallet-grandpa",
 	"pallet-identity",

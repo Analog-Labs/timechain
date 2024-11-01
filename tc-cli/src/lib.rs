@@ -12,6 +12,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
+use time_primitives::GmpEvents;
 use time_primitives::{
 	balance::BalanceFormatter, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName,
 	ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin,
@@ -826,5 +827,15 @@ impl Tc {
 		let connector = self.connector(network)?;
 		connector.send_message(tester, msg).await?;
 		Ok(id)
+	}
+
+	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {
+		self.runtime.remove_task(task_id).await
+	}
+
+	pub async fn complete_batch(&self, network_id: NetworkId, batch_id: BatchId) -> Result<()> {
+		let gmp_event = GmpEvent::BatchExecuted(batch_id);
+		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
+		self.runtime.submit_gmp_events(network_id, events).await
 	}
 }

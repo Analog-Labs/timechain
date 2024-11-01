@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chain: [staging, development]
+        chain: [staging]
         pallet: [pallet_treasury] #[frame_system, pallet_balances, pallet_timestamp,pallet_im_online, pallet_utility, pallet_bags_list, pallet_proxy, pallet_multisig]
     steps:
       - name: Download runtime benchmarks

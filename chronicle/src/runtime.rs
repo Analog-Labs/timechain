@@ -20,6 +20,10 @@ pub trait Runtime: Send + Sync + 'static {
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
+	async fn is_registered(&self) -> Result<bool> {
+		Ok(true)
+	}
+
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>>;
 
 	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>>;
@@ -91,6 +95,10 @@ impl Runtime for SubxtClient {
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		self.finality_notification_stream()
+	}
+
+	async fn is_registered(&self) -> Result<bool> {
+		Ok(self.member_network(self.account_id()).await?.is_some())
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {

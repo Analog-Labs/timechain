@@ -1205,6 +1205,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_utility, Utility]
 		[pallet_proxy, Proxy]
+		[pallet_treasury, Treasury]
 	);
 }
 

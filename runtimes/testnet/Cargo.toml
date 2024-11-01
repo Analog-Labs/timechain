@@ -120,6 +120,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/sp-genesis-builder",
 	"polkadot-sdk/pallet-proxy",
 	"polkadot-sdk/pallet-multisig",
+	"polkadot-sdk/pallet-treasury",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
 	"pallet-networks/runtime-benchmarks",

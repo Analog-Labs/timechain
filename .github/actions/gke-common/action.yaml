@@ -1,0 +1,41 @@
+name: "GKE init"
+description: "Initializes the local env for deployment on GKE (Google Kubernetes Engine)"
+
+inputs:
+  key-file:
+    description: "GCP Service Account JSON keyfile"
+    required: true
+  project-id:
+    description: "GCP Project ID"
+    required: true
+  cluster:
+    description: "Name of cluster"
+    required: true
+  region:
+    description: "GCP Region"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: 'Set up Cloud SDK'
+      uses: 'google-github-actions/setup-gcloud@v2'
+      with:
+        version: 'latest'
+    - name: Authenticate to Google Cloud
+      shell: bash
+      env:
+        GCP_SA_KEY: ${{ inputs.key-file }}
+      run: |
+        echo "${GCP_SA_KEY}" > ${HOME}/gcp-key.json
+        gcloud config set disable_prompts true
+        gcloud auth activate-service-account --key-file=${HOME}/gcp-key.json
+        gcloud config set project ${{ inputs.project-id }}
+        gcloud components install gke-gcloud-auth-plugin
+        gcloud components install kubectl
+    - name: 'Print GCP info'
+      shell: bash
+      run: 'gcloud info'
+    - name: 'Kubeconfig setup'
+      shell: bash
+      run: 'gcloud container clusters get-credentials ${{ inputs.cluster }} --region ${{ inputs.region }}'

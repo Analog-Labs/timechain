@@ -9,8 +9,8 @@ use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	traits::IdentifyAccount, AccountId, Commitment, Network, NetworkConfig, NetworkId, PeerId,
-	ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
+	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
+	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
 pub enum Tx {
@@ -32,6 +32,8 @@ pub enum Tx {
 	Ready { shard_id: ShardId },
 	// tasks
 	SubmitTaskResult { task_id: TaskId, result: TaskResult },
+	SubmitGmpEvents { network: NetworkId, gmp_events: GmpEvents },
+	RemoveTask { task_id: TaskId },
 }
 
 pub struct SubxtWorker {
@@ -187,6 +189,25 @@ impl SubxtWorker {
 				Tx::SubmitTaskResult { task_id, result } => {
 					let result = subxt::utils::Static(result);
 					let payload = metadata::tx().tasks().submit_task_result(task_id, result);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::SubmitGmpEvents { network, gmp_events } => {
+					let runtime_call = RuntimeCall::Tasks(
+						metadata::runtime_types::pallet_tasks::pallet::Call::submit_gmp_events {
+							network,
+							events: subxt::utils::Static(gmp_events),
+						},
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::RemoveTask { task_id } => {
+					let runtime_call = RuntimeCall::Tasks(
+						metadata::runtime_types::pallet_tasks::pallet::Call::remove_task {
+							task: task_id,
+						},
+					);
+					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
 			}

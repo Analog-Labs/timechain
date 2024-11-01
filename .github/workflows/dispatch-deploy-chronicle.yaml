@@ -76,7 +76,7 @@ jobs:
         for ch in $CHRONICLES; do
             echo "Deploying $IMAGE for $ch..."
 
-            #kubectl -n $NAMESPACE set image deployment/$ch chronicle=$IMAGE
+            kubectl -n $NAMESPACE set image deployment/$ch chronicle=$IMAGE
 
             echo "Waiting for the deployment to complete..."
             kubectl -n $NAMESPACE rollout status deployment/$ch --timeout=${TIMEOUT}s

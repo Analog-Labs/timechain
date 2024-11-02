@@ -1,0 +1,83 @@
+# Triggered via !ci-frame-benchmark tag
+name: Update runtime weights for frame pallets
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, reopened, synchronize]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-benchmark:
+    runs-on: [self-hosted, benchmark]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-frame-benchmark') }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build runtime benchmarks
+        uses: ./.github/actions/cargo-command
+        with:
+          package: timechain-node
+          feature: runtime-benchmarks,development
+      - name: Upload runtime benchmarks
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-benchmarks
+          if-no-files-found: error
+          path: target/release/timechain-node
+  run-benchmark:
+    needs: [build-benchmark]
+    runs-on: [self-hosted, benchmark]
+    strategy:
+      fail-fast: false
+      matrix:
+        chain: [staging, development]
+        pallet: [frame_system, pallet_balances, pallet_timestamp,pallet_im_online, pallet_utility, pallet_bags_list, pallet_proxy, pallet_multisig]
+    steps:
+      - name: Download runtime benchmarks
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-benchmarks
+      - name: Prepare runtime benchmarks
+        run: chmod +x timechain-node && mkdir -p weights
+      - name: Create empty files
+        run: touch ./weights/${{ matrix.pallet }}.rs
+      - name: Run runtime benchmarks for pallets
+        run: ./timechain-node benchmark pallet --chain dev --pallet ${{ matrix.pallet }} --extrinsic '*' --output ./weights/${{ matrix.pallet }}.rs
+      - name: Upload weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: weights-${{ matrix.chain }}-${{ matrix.pallet }}
+          if-no-files-found: error
+          path: weights/${{ matrix.pallet }}.rs
+  update-weights:
+    needs: [run-benchmark]
+    runs-on: [self-hosted, benchmark]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: recursive
+      - name: Download mainnet weights
+        uses: actions/download-artifact@v4
+        with:
+          path: runtimes/mainnet/src/weights
+          pattern: weights-staging-*
+          merge-multiple: true
+      - name: Download testnet weights
+        uses: actions/download-artifact@v4
+        with:
+          path: runtimes/testnet/src/weights
+          pattern: weights-development-*
+          merge-multiple: true
+      - name: Commit updated weights
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "github@analog.one"
+          git config user.name "Weights Update Bot"
+          git add .
+          git commit -am "runtimes: update pallet weights"
+          git push

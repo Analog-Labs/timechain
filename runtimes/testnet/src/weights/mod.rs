@@ -1,14 +1,17 @@
 //! A list of the different weight modules for our runtime.
 
-// pub mod babe;
-pub mod balances;
 pub mod dmail;
-// pub mod grandpa;
 pub mod elections;
+pub mod frame_system;
 pub mod members;
 pub mod networks;
+pub mod pallet_bags_list;
+pub mod pallet_balances;
+pub mod pallet_im_online;
+pub mod pallet_multisig;
+pub mod pallet_proxy;
+pub mod pallet_timestamp;
+pub mod pallet_utility;
 pub mod shards;
-pub mod system;
 pub mod tasks;
 pub mod timegraph;
-pub mod timestamp;

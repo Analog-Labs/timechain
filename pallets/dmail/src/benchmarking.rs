@@ -10,8 +10,8 @@ use time_primitives::{DmailPath, DmailTo, DMAIL_PATH_LEN, DMAIL_TO_LEN};
 
 benchmarks! {
 	send_email {
-		let to = DmailTo(BoundedVec::truncate_from(vec!['a' as u8; DMAIL_TO_LEN.try_into().unwrap_or_default()]));
-		let path = DmailPath(BoundedVec::truncate_from(vec!['b' as u8; DMAIL_PATH_LEN.try_into().unwrap_or_default()]));
+		let to = DmailTo(BoundedVec::truncate_from(vec![0u8; DMAIL_TO_LEN.try_into().unwrap_or_default()]));
+		let path = DmailPath(BoundedVec::truncate_from(vec![ 0u8; DMAIL_PATH_LEN.try_into().unwrap_or_default()]));
 	}: _(RawOrigin::Signed([0u8; 32].into()), to, path)
 	verify {}
 

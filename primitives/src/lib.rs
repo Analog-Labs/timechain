@@ -141,9 +141,11 @@ pub trait MembersInterface {
 	fn member_stake(account: &AccountId) -> Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
+	fn is_member_registered(account: &AccountId) -> bool;
 	fn is_member_online(account: &AccountId) -> bool;
 	fn total_stake() -> Balance;
 	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
+	fn unstake_member(account: &AccountId);
 }
 
 pub trait ElectionsInterface {

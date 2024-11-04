@@ -114,7 +114,14 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 	if config.admin {
 		admin::start(
 			8080,
-			Config::new(config.network_id, timechain_address, target_address, peer_id),
+			Config {
+				network: config.network_id,
+				account: timechain_address,
+				public_key: substrate.public_key().clone(),
+				address: target_address,
+				peer_id,
+				peer_id_hex: hex::encode(network.peer_id()),
+			},
 		);
 	}
 	let timechain_min_balance = config.timechain_min_balance;

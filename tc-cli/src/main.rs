@@ -117,6 +117,9 @@ enum Command {
 		path: PathBuf,
 	},
 	Deploy,
+	UnregisterMember {
+		member: String,
+	},
 	RegisterShards {
 		network: NetworkId,
 	},
@@ -263,15 +266,23 @@ impl IntoRow for Shard {
 struct MemberEntry {
 	account: String,
 	status: String,
+	staker: String,
+	stake: String,
 }
 
 impl IntoRow for Member {
 	type Row = MemberEntry;
 
-	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
 		Ok(MemberEntry {
 			account: self.account.to_string(),
 			status: self.status.to_string(),
+			staker: self
+				.staker
+				.map(|staker| tc.format_address(None, staker.into()))
+				.transpose()?
+				.unwrap_or_default(),
+			stake: tc.format_balance(None, self.stake)?,
 		})
 	}
 }
@@ -580,6 +591,10 @@ async fn real_main() -> Result<()> {
 		},
 		Command::Deploy => {
 			tc.deploy().await?;
+		},
+		Command::UnregisterMember { member } => {
+			let member = tc.parse_address(None, &member)?;
+			tc.unregister_member(member.into()).await?;
 		},
 		Command::RegisterShards { network } => {
 			tc.register_shards(network).await?;

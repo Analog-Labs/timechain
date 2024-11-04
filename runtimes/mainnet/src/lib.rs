@@ -1044,6 +1044,17 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TreasuryBenchmarkHelper;
+impl pallet_treasury::ArgumentsFactory<(), AccountId> for TreasuryBenchmarkHelper {
+	fn create_asset_kind(_seed: u32) -> () {
+		()
+	}
+	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
+		seed.into()
+	}
+}
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
@@ -1066,7 +1077,7 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = SpendPayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
+	type BenchmarkHelper = TreasuryBenchmarkHelper;
 }
 
 parameter_types! {

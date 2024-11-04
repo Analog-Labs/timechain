@@ -945,6 +945,17 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TreasuryBenchmarkHelper;
+impl pallet_treasury::ArgumentsFactory<(), AccountId> for TreasuryBenchmarkHelper {
+	fn create_asset_kind(_seed: u32) -> () {
+		()
+	}
+	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
+		seed.into()
+	}
+}
+
 impl pallet_treasury::Config for Runtime {
 	type Currency = Balances;
 	type RejectOrigin = frame_system::EnsureRoot<AccountId>;
@@ -964,7 +975,7 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
+	type BenchmarkHelper = TreasuryBenchmarkHelper;
 }
 
 parameter_types! {

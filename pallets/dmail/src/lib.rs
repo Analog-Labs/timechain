@@ -17,11 +17,11 @@ pub mod pallet {
 	use time_primitives::{AccountId, DmailMessage, DmailPath, DmailTo};
 
 	pub trait WeightInfo {
-		fn send_email(to: u32, path: u32) -> Weight;
+		fn send_email() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn send_email(_to: u32, _path: u32) -> Weight {
+		fn send_email() -> Weight {
 			Weight::default()
 		}
 	}
@@ -49,7 +49,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::send_email(to.0.len() as u32, path.0.len() as u32))]
+		#[pallet::weight(T::WeightInfo::send_email())]
 		pub fn send_email(origin: OriginFor<T>, to: DmailTo, path: DmailPath) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			let message = DmailMessage { owner, to, path };

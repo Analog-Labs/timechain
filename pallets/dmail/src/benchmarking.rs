@@ -1,30 +1,17 @@
 use super::*;
 use crate::Pallet;
 
-use scale_info::prelude::string::String;
-
 use frame_system::RawOrigin;
 use polkadot_sdk::frame_benchmarking::benchmarks;
-use polkadot_sdk::{frame_system, sp_runtime};
-use scale_codec::Encode;
+use polkadot_sdk::{frame_system, sp_runtime, sp_std};
 use sp_runtime::BoundedVec;
+use sp_std::vec;
 use time_primitives::{DmailPath, DmailTo, DMAIL_PATH_LEN, DMAIL_TO_LEN};
 
 benchmarks! {
 	send_email {
-		let a in 1..DMAIL_TO_LEN;
-		let b in 1..DMAIL_PATH_LEN;
-
-		let mut to = String::new();
-		let mut path = String::new();
-		for _ in 0..a {
-			to.push('a');
-		}
-		for _ in 0..b {
-			path.push('b');
-		}
-		let to = DmailTo(BoundedVec::truncate_from(to.as_str().encode()));
-		let path = DmailPath(BoundedVec::truncate_from(path.as_str().encode()));
+		let to = DmailTo(BoundedVec::truncate_from(vec!['a' as u8; DMAIL_TO_LEN.try_into().unwrap_or_default()]));
+		let path = DmailPath(BoundedVec::truncate_from(vec!['b' as u8; DMAIL_PATH_LEN.try_into().unwrap_or_default()]));
 	}: _(RawOrigin::Signed([0u8; 32].into()), to, path)
 	verify {}
 

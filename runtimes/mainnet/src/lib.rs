@@ -1309,7 +1309,9 @@ type ChronicleAdmin = TechnicalMember;
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
+	type AdminOrigin = ChronicleAdmin;
 	type Elections = Elections;
+	type Shards = Shards;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
 	type MaxTimeoutsPerBlock = ConstU32<25>;
@@ -1851,12 +1853,6 @@ impl_runtime_apis! {
 
 		fn get_gateway(network: NetworkId) -> Option<Gateway> {
 			Networks::gateway(network)
-		}
-	}
-
-	impl time_primitives::ElectionsApi<Block> for Runtime {
-		fn get_electable() -> Vec<AccountId> {
-			Elections::get_electable()
 		}
 	}
 

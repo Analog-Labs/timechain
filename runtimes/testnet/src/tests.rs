@@ -215,8 +215,8 @@ fn register_unregister_kills_task() {
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(1).unwrap(), 0);
 		// member unregisters
-		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(),));
-		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(),));
+		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(), a.clone()));
+		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(), b.clone()));
 		roll(1);
 		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0), Some(ShardStatus::Offline));
 		Tasks::shard_offline(0, ETHEREUM);

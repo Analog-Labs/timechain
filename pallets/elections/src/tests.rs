@@ -54,16 +54,30 @@ fn member_offline_removes_unassigned() {
 	});
 }
 
+fn register_member(pubkey: [u8; 32], stake: u128) {
+	let staker = pubkey.into();
+	assert_ok!(Members::register_member(
+		RawOrigin::Signed(staker).into(),
+		ETHEREUM,
+		pubkey_from_bytes(pubkey),
+		pubkey,
+		stake,
+	));
+}
+
 #[test]
 fn shard_offline_automatically_creates_new_shard() {
 	let a: AccountId = [1u8; 32].into();
 	let b: AccountId = [2u8; 32].into();
 	let c: AccountId = [3u8; 32].into();
 	new_test_ext().execute_with(|| {
+		register_member([1u8; 32], 5);
 		Elections::member_online(&a, ETHEREUM);
 		MemberOnline::<Test>::insert(&a, ());
+		register_member([2u8; 32], 5);
 		Elections::member_online(&b, ETHEREUM);
 		MemberOnline::<Test>::insert(&b, ());
+		register_member([3u8; 32], 5);
 		Elections::member_online(&c, ETHEREUM);
 		MemberOnline::<Test>::insert(&c, ());
 		roll(1);

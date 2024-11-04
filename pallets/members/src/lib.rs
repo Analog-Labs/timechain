@@ -163,6 +163,10 @@ pub mod pallet {
 		StakedBelowTransferAmount,
 		/// Member not registered.
 		NotRegistered,
+		/// Not staker.
+		NotStaker,
+		/// Already registered
+		StillStaked,
 	}
 
 	/// Implements hooks for pallet initialization and block processing.
@@ -203,7 +207,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let staker = ensure_signed(origin)?;
 			let member = public_key.clone().into_account();
-			ensure!(MemberStake::<T>::get(&member) == 0, "member already staked");
+			ensure!(MemberStake::<T>::get(&member) == 0, Error::<T>::StillStaked);
 			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
 			pallet_balances::Pallet::<T>::reserve(&staker, bond)?;
 			MemberStake::<T>::insert(&member, bond);
@@ -256,8 +260,9 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
 		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
-			ensure_signed(origin)?;
-			ensure!(MemberRegistered::<T>::take(&member).is_some(), "member not registered");
+			let staker = ensure_signed(origin)?;
+			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
+			ensure!(MemberStaker::<T>::get(&member) == Some(staker), Error::<T>::NotStaker);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Self::unstake_member(&member);
 			Self::deposit_event(Event::UnRegisteredMember(member, network));

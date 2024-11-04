@@ -23,7 +23,6 @@ use time_primitives::{
 	BlockHash, BlockNumber, Commitment, ShardId, ShardStatus, TaskId, TssSignature,
 	TssSigningRequest,
 };
-use tokio::time::{sleep, Duration};
 use tracing::{event, span, Level, Span};
 
 pub struct TimeWorkerParams<Tx, Rx> {
@@ -352,28 +351,6 @@ where
 			Level::DEBUG,
 			"starting tss",
 		);
-		let min_stake = self.substrate.get_min_stake().await.unwrap();
-		while let Err(e) = self
-			.substrate
-			.submit_register_member(self.task_params.network(), self.network.peer_id(), min_stake)
-			.await
-		{
-			event!(
-				target: TW_LOG,
-				parent: span,
-				Level::ERROR,
-				"Error while submitting member: {:?}, retrying again in 10 secs",
-				e
-			);
-			sleep(Duration::from_secs(10)).await;
-		}
-		event!(
-			target: TW_LOG,
-			parent: span,
-			Level::INFO,
-			"Registered Member successfully",
-		);
-
 		let heartbeat_period = self.substrate.get_heartbeat_timeout().await.unwrap();
 
 		// add a future that never resolves to keep outgoing requests alive

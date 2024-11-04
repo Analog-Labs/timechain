@@ -50,6 +50,8 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-treasury",
 	"pallet-utility",
 
+	"polkadot-runtime-common",
+
 	"sp-api",
 	"sp-arithmetic",
 	"sp-authority-discovery",

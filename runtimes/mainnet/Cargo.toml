@@ -66,6 +66,8 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-vesting",
 	"pallet-safe-mode",
 
+	"polkadot-runtime-common",
+
  	"sp-api",
 	"sp-block-builder",
 	"sp-authority-discovery",

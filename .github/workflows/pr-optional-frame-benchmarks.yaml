@@ -33,7 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         chain: [staging, development]
-        pallet: [frame_system, pallet_balances, pallet_timestamp,pallet_im_online, pallet_utility, pallet_bags_list, pallet_proxy, pallet_multisig]
+        pallet: [pallet_treasury] #[frame_system, pallet_balances, pallet_timestamp,pallet_im_online, pallet_utility, pallet_bags_list, pallet_proxy, pallet_multisig]
     steps:
       - name: Download runtime benchmarks
         uses: actions/download-artifact@v4

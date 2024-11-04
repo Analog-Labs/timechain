@@ -2,7 +2,7 @@ use crate::worker::Tx;
 use crate::{metadata_scope, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
-use time_primitives::{AccountId, Balance, BlockNumber, NetworkId, PeerId};
+use time_primitives::{AccountId, Balance, BlockNumber, NetworkId, PeerId, PublicKey};
 
 impl SubxtClient {
 	pub async fn member_network(&self, account: &AccountId) -> Result<Option<NetworkId>> {
@@ -36,6 +36,21 @@ impl SubxtClient {
 		})
 	}
 
+	pub async fn member_staker(&self, account: &AccountId) -> Result<Option<AccountId>> {
+		metadata_scope!(self.metadata, {
+			let account = subxt::utils::Static(account.clone());
+			let storage_query = metadata::storage().members().member_staker(&account);
+			Ok(self
+				.client
+				.storage()
+				.at_latest()
+				.await?
+				.fetch(&storage_query)
+				.await?
+				.map(|s| s.0))
+		})
+	}
+
 	pub async fn member_online(&self, account: &AccountId) -> Result<bool> {
 		metadata_scope!(self.metadata, {
 			let account = subxt::utils::Static(account.clone());
@@ -44,10 +59,10 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn member_electable(&self, account: &AccountId) -> Result<bool> {
+	pub async fn member_registered(&self, account: &AccountId) -> Result<bool> {
 		metadata_scope!(self.metadata, {
 			let account = subxt::utils::Static(account.clone());
-			let storage_query = metadata::storage().elections().electable(account);
+			let storage_query = metadata::storage().members().member_registered(account);
 			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
 		})
 	}
@@ -69,19 +84,27 @@ impl SubxtClient {
 	pub async fn register_member(
 		&self,
 		network: NetworkId,
+		public_key: PublicKey,
 		peer_id: PeerId,
 		stake_amount: u128,
 	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::RegisterMember { network, peer_id, stake_amount }, tx))?;
+		self.tx.unbounded_send((
+			Tx::RegisterMember {
+				network,
+				public_key,
+				peer_id,
+				stake_amount,
+			},
+			tx,
+		))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
 
-	pub async fn unregister_member(&self) -> Result<()> {
+	pub async fn unregister_member(&self, member: AccountId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::UnregisterMember, tx))?;
+		self.tx.unbounded_send((Tx::UnregisterMember { member }, tx))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
 	}
@@ -89,21 +112,6 @@ impl SubxtClient {
 	pub async fn submit_heartbeat(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
-		rx.await?.wait_for_success().await?;
-		Ok(())
-	}
-
-	pub async fn electable_members(&self) -> Result<Vec<AccountId>> {
-		metadata_scope!(self.metadata, {
-			let runtime_call = metadata::apis().elections_api().get_electable();
-			let members = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
-			Ok(members.into_iter().map(|m| m.0).collect())
-		})
-	}
-
-	pub async fn set_electable_members(&self, accounts: Vec<AccountId>) -> Result<()> {
-		let (tx, rx) = oneshot::channel();
-		self.tx.unbounded_send((Tx::SetElectable { accounts }, tx))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
 	}

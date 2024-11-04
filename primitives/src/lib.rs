@@ -103,10 +103,6 @@ sp_api::decl_runtime_apis! {
 		fn get_gateway(network: NetworkId) -> Option<Gateway>;
 	}
 
-	pub trait ElectionsApi {
-		fn get_electable() -> Vec<AccountId>;
-	}
-
 	pub trait ShardsApi {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;

@@ -83,8 +83,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
-		/// Ensured origin for calls changing config or electables
-		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = AccountId>;
 		type Shards: ShardsInterface;
 		type Elections: ElectionsInterface;
 		/// Minimum stake to register member
@@ -154,17 +152,17 @@ pub mod pallet {
 		UnRegisteredMember(AccountId, NetworkId),
 	}
 
-	#[pallet::error]
 	///  Define possible errors that can occur during pallet operations.
-	/// [`Error::InvalidPublicKey`], [`Error::NotMember`],
-	/// [`Error::BondBelowMinStake`], [`Error::StakedBelowTransferAmount`]: Errors
-	/// related to invalid public keys, existing memberships, non-membership, insufficient
-	/// bond for membership, and insufficient stake for transfer.
+	#[pallet::error]
 	pub enum Error<T> {
-		InvalidPublicKey,
+		/// Not a member.
 		NotMember,
+		/// Bond below min stake.
 		BondBelowMinStake,
+		/// Staked below transfer amount.
 		StakedBelowTransferAmount,
+		/// Member not registered.
+		NotRegistered,
 	}
 
 	/// Implements hooks for pallet initialization and block processing.
@@ -199,14 +197,13 @@ pub mod pallet {
 		pub fn register_member(
 			origin: OriginFor<T>,
 			network: NetworkId,
-			member: AccountId,
 			public_key: PublicKey,
 			peer_id: PeerId,
 			bond: BalanceOf<T>,
 		) -> DispatchResult {
-			let staker = T::AdminOrigin::ensure_origin(origin)?;
+			let staker = ensure_signed(origin)?;
+			let member = public_key.clone().into_account();
 			ensure!(MemberStake::<T>::get(&member) == 0, "member already staked");
-			ensure!(member == public_key.clone().into_account(), Error::<T>::InvalidPublicKey);
 			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
 			pallet_balances::Pallet::<T>::reserve(&staker, bond)?;
 			MemberStake::<T>::insert(&member, bond);
@@ -234,7 +231,7 @@ pub mod pallet {
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			if MemberRegistered::<T>::get(&member).is_none() {
-				return Ok(());
+				return Err(Error::<T>::NotRegistered.into());
 			}
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
@@ -259,7 +256,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
 		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
+			ensure_signed(origin)?;
 			ensure!(MemberRegistered::<T>::take(&member).is_some(), "member not registered");
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Self::unstake_member(&member);

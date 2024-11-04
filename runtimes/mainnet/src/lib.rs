@@ -1309,7 +1309,6 @@ type ChronicleAdmin = TechnicalMember;
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::members::WeightInfo<Runtime>;
-	type AdminOrigin = ChronicleAdmin;
 	type Elections = Elections;
 	type Shards = Shards;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;

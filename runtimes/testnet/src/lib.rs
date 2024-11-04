@@ -945,8 +945,8 @@ impl BlockNumberProvider for SubstrateBlockNumberProvider {
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
 pub struct TreasuryBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_treasury::ArgumentsFactory<(), AccountId> for TreasuryBenchmarkHelper {
 	fn create_asset_kind(_seed: u32) -> () {
 		()

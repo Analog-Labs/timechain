@@ -1044,8 +1044,8 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
-#[cfg(feature = "runtime-benchmarks")]
 pub struct TreasuryBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_treasury::ArgumentsFactory<(), AccountId> for TreasuryBenchmarkHelper {
 	fn create_asset_kind(_seed: u32) -> () {
 		()

@@ -20,9 +20,7 @@ pub trait Runtime: Send + Sync + 'static {
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
-	async fn is_registered(&self) -> Result<bool> {
-		Ok(true)
-	}
+	async fn is_registered(&self) -> Result<bool>;
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>>;
 

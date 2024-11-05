@@ -1,9 +1,11 @@
+use crate::admin::AdminMsg;
 use crate::network::{create_iroh_network, NetworkConfig};
 use crate::runtime::Runtime;
 use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
 use anyhow::Result;
 use futures::channel::mpsc;
+use futures::SinkExt;
 use gmp::Backend;
 use scale_codec::Decode;
 use std::path::PathBuf;
@@ -14,7 +16,7 @@ use time_primitives::{ConnectorParams, NetworkId};
 use tokio::time::sleep;
 use tracing::{event, span, Level};
 
-mod admin;
+pub mod admin;
 #[cfg(test)]
 mod mock;
 mod network;
@@ -41,8 +43,6 @@ pub struct ChronicleConfig {
 	pub target_min_balance: u128,
 	/// Timechain min balance.
 	pub timechain_min_balance: u128,
-	/// Enable admin interface.
-	pub admin: bool,
 	/// Backend
 	pub backend: Backend,
 }
@@ -64,7 +64,11 @@ pub struct ChronicleConfig {
 /// # Returns
 ///
 /// * `Result<()>` - Returns an empty result on success, or an error on failure.
-pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>) -> Result<()> {
+pub async fn run_chronicle(
+	config: ChronicleConfig,
+	substrate: Arc<dyn Runtime>,
+	mut admin: mpsc::Sender<AdminMsg>,
+) -> Result<()> {
 	// Initialize connector
 	let (chain, subchain) = loop {
 		let network = substrate.get_network(config.network_id).await?;
@@ -111,19 +115,16 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
 	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
 	event!(target: TW_LOG, Level::INFO, "peer id: {}", peer_id);
-	if config.admin {
-		admin::start(
-			8080,
-			Config {
-				network: config.network_id,
-				account: timechain_address,
-				public_key: substrate.public_key().clone(),
-				address: target_address,
-				peer_id,
-				peer_id_hex: hex::encode(network.peer_id()),
-			},
-		);
-	}
+	admin
+		.send(AdminMsg::SetConfig(Config {
+			network: config.network_id,
+			account: timechain_address,
+			public_key: substrate.public_key().clone(),
+			address: target_address,
+			peer_id,
+			peer_id_hex: hex::encode(network.peer_id()),
+		}))
+		.await?;
 	let timechain_min_balance = config.timechain_min_balance;
 	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
 		tracing::warn!(target: TW_LOG, "timechain balance is below {timechain_min_balance}");
@@ -161,6 +162,7 @@ pub async fn run_chronicle(config: ChronicleConfig, substrate: Arc<dyn Runtime>)
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
+	use futures::StreamExt;
 	use polkadot_sdk::sp_runtime::BoundedVec;
 	use scale_codec::Encode;
 	use std::time::Duration;
@@ -180,7 +182,8 @@ mod tests {
 		tracing::info!("running chronicle ");
 		let mut network_key = [0; 32];
 		getrandom::getrandom(&mut network_key).unwrap();
-		run_chronicle(
+		let (tx, mut rx) = mpsc::channel(1);
+		let handle = tokio::task::spawn(run_chronicle(
 			ChronicleConfig {
 				network_id,
 				network_key,
@@ -189,13 +192,22 @@ mod tests {
 				tss_keyshare_cache: "/tmp".into(),
 				target_min_balance: 0,
 				timechain_min_balance: 0,
-				admin: false,
 				backend: Backend::Rust,
 			},
-			Arc::new(mock),
-		)
-		.await
-		.unwrap();
+			Arc::new(mock.clone()),
+			tx,
+		));
+		let msg = rx.next().await.unwrap();
+		let AdminMsg::SetConfig(config) = msg;
+		tracing::info!("received chronicle config");
+		mock.register_member(
+			network_id,
+			config.public_key,
+			hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
+			0,
+		);
+		tracing::info!("registered chronicle");
+		handle.await.unwrap().unwrap();
 	}
 
 	/// Smoke test for the Chronicle application.

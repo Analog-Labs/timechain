@@ -155,16 +155,15 @@ impl Mock {
 		tasks.get(&task_id).cloned()
 	}
 
-	#[allow(unused)]
-	pub async fn submit_register_member(
+	pub fn register_member(
 		&self,
 		network: NetworkId,
+		public_key: PublicKey,
 		peer_id: PeerId,
 		_stake_amount: u128,
-	) -> Result<()> {
+	) {
 		let mut members = self.members.lock().unwrap();
-		members.entry(network).or_default().push((self.public_key().clone(), peer_id));
-		Ok(())
+		members.entry(network).or_default().push((public_key, peer_id));
 	}
 }
 
@@ -201,6 +200,10 @@ impl Runtime for Mock {
 				e
 			})
 			.boxed()
+	}
+
+	async fn is_registered(&self) -> Result<bool> {
+		Ok(true)
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {

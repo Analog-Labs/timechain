@@ -352,6 +352,7 @@ where
 			"starting tss",
 		);
 		let heartbeat_period = self.substrate.get_heartbeat_timeout().await.unwrap();
+		let mut heartbeat = 0;
 
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
@@ -365,7 +366,7 @@ where
 		loop {
 			futures::select! {
 				notification = block_notifications.next().fuse() => {
-					let Some((_block_hash, block_number)) = notification else {
+					let Some((_block_hash, _block_number)) = notification else {
 						event!(
 							target: TW_LOG,
 							parent: span,
@@ -374,7 +375,7 @@ where
 						);
 						continue;
 					};
-					if block_number % heartbeat_period == 0 {
+					if heartbeat % heartbeat_period == 0 {
 						if send_heartbeat {
 							event!(
 								target: TW_LOG,
@@ -408,6 +409,7 @@ where
 							}
 						}
 					}
+					heartbeat += 1;
 				},
 				notification = finality_notifications.next().fuse() => {
 					let Some((block_hash, block_number)) = notification else {

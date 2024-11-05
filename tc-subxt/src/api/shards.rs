@@ -116,6 +116,13 @@ impl SubxtClient {
 		Ok(())
 	}
 
+	pub async fn force_shard_offline(&self, shard_id: ShardId) -> Result<()> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::ForceShardOffline { shard_id }, tx))?;
+		rx.await?.wait_for_success().await?;
+		Ok(())
+	}
+
 	pub async fn set_shard_config(&self, shard_size: u16, shard_threshold: u16) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx

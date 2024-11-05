@@ -100,7 +100,7 @@ jobs:
         # NOTE: environment follows folder structure
         docker run -i --rm \
           -v ./config/envs/$ENV/config.yaml:/etc/config.yaml \
-          -v development-runtime.wasm:/etc/development-runtime.wasm \
+          -v ./development-runtime.wasm:/etc/development-runtime.wasm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \
           -e TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}" \
           analoglabs/tc-cli:latest \

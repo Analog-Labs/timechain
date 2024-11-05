@@ -86,7 +86,9 @@ jobs:
     - name: Extract runtime
       run: |
         # The artifact is also named development-runtime
-        unzip development-runtime.zip
+        # unzip development-runtime.zip
+        ls -la
+        find runtime/* -type f -name "*.wasm"
         WASM_PATH=$(find runtime/* -type f -name "*.wasm")
         docker run -it --rm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \

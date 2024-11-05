@@ -28,7 +28,7 @@ pub enum Tx {
 		network: Network,
 	},
 	ForceShardOffline {
-		shard_id: ShardId, 
+		shard_id: ShardId,
 	},
 	SetNetworkConfig {
 		network: NetworkId,
@@ -159,7 +159,7 @@ impl SubxtWorker {
 				Tx::ForceShardOffline { shard_id } => {
 					let runtime_call = RuntimeCall::Shards(
 						metadata::runtime_types::pallet_shards::pallet::Call::force_shard_offline {
-							shard_id
+							shard_id,
 						},
 					);
 					let payload = sudo(runtime_call);

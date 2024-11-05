@@ -85,12 +85,15 @@ jobs:
         name: development-runtime
     - name: Extract runtime
       run: |
-        # The artifact is also named development-runtime
-        # unzip development-runtime.zip
         ls -la
-        find runtime/* -type f -name "*.wasm"
-        WASM_PATH=$(find runtime/* -type f -name "*.wasm")
+        find runtimes/* -type f -name "*.wasm"
+        WASM_PATH=$(find runtimes/* -type f -name "*.wasm")
+        
+        cp $WASM_PATH development-runtime.wasm
+
         docker run -it --rm \
+          -v ./config/envs/local/config.yaml:/etc/config.yaml \
+          -v development-runtime.wasm:/etc/development-runtime.wasm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \
           analoglabs/tc-cli:latest \
-          --config config/envs/development/config.yaml runtime-upgrade $WASM_PATH
+          --config /etc/config.yaml runtime-upgrade /etc/development-runtime.wasm

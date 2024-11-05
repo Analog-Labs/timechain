@@ -352,7 +352,6 @@ where
 			"starting tss",
 		);
 		let heartbeat_period = self.substrate.get_heartbeat_timeout().await.unwrap();
-		let mut heartbeat = 0;
 
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
@@ -362,11 +361,11 @@ where
 		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		event!(target: TW_LOG, parent: span, Level::INFO, "Started chronicle loop");
-		let mut send_heartbeat = false;
+		let mut send_heartbeat = true;
 		loop {
 			futures::select! {
 				notification = block_notifications.next().fuse() => {
-					let Some((_block_hash, _block_number)) = notification else {
+					let Some((_block_hash, block_number)) = notification else {
 						event!(
 							target: TW_LOG,
 							parent: span,
@@ -375,7 +374,7 @@ where
 						);
 						continue;
 					};
-					if heartbeat % heartbeat_period == 0 {
+					if block_number % heartbeat_period == 0 {
 						if send_heartbeat {
 							event!(
 								target: TW_LOG,
@@ -409,7 +408,6 @@ where
 							}
 						}
 					}
-					heartbeat += 1;
 				},
 				notification = finality_notifications.next().fuse() => {
 					let Some((block_hash, block_number)) = notification else {

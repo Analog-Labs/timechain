@@ -124,9 +124,9 @@ fn shard_not_stuck_in_committed_state() {
 		}
 		// put shard in a committed state
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Committed);
-		// then put all the members online
+		// then put all the members offline
 		for i in first_shard {
-			Shards::member_online(&i, ETHEREUM);
+			Shards::member_offline(&i, ETHEREUM);
 		}
 		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0).unwrap(), ShardStatus::Offline);
 	});
@@ -181,6 +181,7 @@ fn elections_chooses_top_members_by_stake() {
 
 #[test]
 fn register_unregister_kills_task() {
+	env_logger::try_init().ok();
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();
 	let c: AccountId = C.into();
@@ -217,17 +218,21 @@ fn register_unregister_kills_task() {
 		// verify shard 0 created for Network Ethereum
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Online);
+		assert!(Members::is_member_online(&a));
+		assert!(Members::is_member_online(&b));
+		assert!(Members::is_member_online(&c));
 		Tasks::shard_online(0, ETHEREUM);
 		roll(1);
 		// verify task assigned to shard 0
 		assert_eq!(Tasks::task_shard(1).unwrap(), 0);
+		roll(300);
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(), a.clone()));
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(), b.clone()));
-		roll(600);
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
+		roll(300);
 		assert!(!Members::is_member_online(&a));
 		assert!(!Members::is_member_online(&b));
-		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		assert!(Members::is_member_online(&c));
 
 		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0), Some(ShardStatus::Offline));

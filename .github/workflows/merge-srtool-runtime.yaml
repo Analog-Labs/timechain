@@ -72,6 +72,7 @@ jobs:
     name: Runtime upgrade
     # Only running when manually triggered
     if: github.event_name == 'workflow_dispatch'
+    needs: [ "build-runtime" ]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout

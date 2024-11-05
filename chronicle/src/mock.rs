@@ -154,6 +154,17 @@ impl Mock {
 		let tasks = self.tasks.lock().unwrap();
 		tasks.get(&task_id).cloned()
 	}
+
+	pub fn register_member(
+		&self,
+		network: NetworkId,
+		public_key: PublicKey,
+		peer_id: PeerId,
+		_stake_amount: u128,
+	) {
+		let mut members = self.members.lock().unwrap();
+		members.entry(network).or_default().push((public_key, peer_id));
+	}
 }
 
 #[async_trait::async_trait]
@@ -189,6 +200,10 @@ impl Runtime for Mock {
 				e
 			})
 			.boxed()
+	}
+
+	async fn is_registered(&self) -> Result<bool> {
+		Ok(true)
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {
@@ -301,21 +316,6 @@ impl Runtime for Mock {
 
 	async fn get_gateway(&self, _network: NetworkId) -> Result<Option<Gateway>> {
 		Ok(Some([0; 32]))
-	}
-
-	async fn submit_register_member(
-		&self,
-		network: NetworkId,
-		peer_id: PeerId,
-		_stake_amount: u128,
-	) -> Result<()> {
-		let mut members = self.members.lock().unwrap();
-		members.entry(network).or_default().push((self.public_key().clone(), peer_id));
-		Ok(())
-	}
-
-	async fn submit_unregister_member(&self) -> Result<()> {
-		Ok(())
 	}
 
 	async fn submit_heartbeat(&self) -> Result<()> {

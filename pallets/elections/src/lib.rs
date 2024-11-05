@@ -114,18 +114,12 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Electable shard members
-	#[pallet::storage]
-	pub type Electable<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, AccountId, OptionQuery>;
-
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		#[serde(skip)]
 		pub _p: PhantomData<T>,
 		pub shard_size: u16,
 		pub shard_threshold: u16,
-		pub electable: Vec<AccountId>,
 	}
 
 	impl<T> Default for GenesisConfig<T> {
@@ -134,7 +128,6 @@ pub mod pallet {
 				_p: PhantomData,
 				shard_size: 3,
 				shard_threshold: 2,
-				electable: vec![],
 			}
 		}
 	}
@@ -150,9 +143,6 @@ pub mod pallet {
 			);
 			ShardSize::<T>::put(self.shard_size);
 			ShardThreshold::<T>::put(self.shard_threshold);
-			for account in &self.electable {
-				Electable::<T>::insert(account.clone(), account);
-			}
 		}
 	}
 
@@ -218,22 +208,6 @@ pub mod pallet {
 			}
 			Ok(())
 		}
-
-		///  Sets the electable members who can be assigned to shards.
-		/// # Flow
-		///    1. Ensures the caller is the root.
-		///    2. Clears the existing electable members list from the [`Electable`] storage.
-		///    3. Inserts the new electable members into the [`Electable`] storage.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_shard_config())]
-		pub fn set_electable(origin: OriginFor<T>, electable: Vec<AccountId>) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			let _ = Electable::<T>::clear(u32::MAX, None);
-			for account in electable {
-				Electable::<T>::insert(account.clone(), account);
-			}
-			Ok(())
-		}
 	}
 
 	impl<T: Config> ElectionsInterface for Pallet<T> {
@@ -241,7 +215,13 @@ pub mod pallet {
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
 		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
-			members.into_iter().for_each(|m| Unassigned::<T>::insert(network, m, ()));
+			for member in members {
+				if !T::Members::is_member_registered(&member) {
+					T::Members::unstake_member(&member);
+				} else if T::Members::is_member_online(&member) {
+					Unassigned::<T>::insert(network, member, ());
+				}
+			}
 		}
 
 		///  Retrieves the default shard size.
@@ -258,10 +238,7 @@ pub mod pallet {
 		///    3. Inserts the member into the [`Unassigned`] storage for the given network.
 		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
-			if !T::Shards::is_shard_member(member)
-				&& (Electable::<T>::iter().next().is_none()
-					|| Electable::<T>::get(member).is_some())
-			{
+			if !T::Shards::is_shard_member(member) {
 				Unassigned::<T>::insert(network, member, ());
 			}
 			T::Shards::member_online(member, network);
@@ -278,11 +255,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Return electable accounts.
-		pub fn get_electable() -> Vec<AccountId> {
-			Electable::<T>::iter().map(|(_, e)| e).collect()
-		}
-
 		///   Attempts to elect a new shard for a network.
 		/// # Flow
 		///    1. Calls `new_shard_members` to get a list of new shard members.

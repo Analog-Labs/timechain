@@ -1,5 +1,6 @@
 name: Build runtime artifacts
 on:
+  workflow_dispatch:
   push:
     branches:
       - "ci/runtime/**"
@@ -67,3 +68,26 @@ jobs:
           path: |
             ${{ steps.srtool_build.outputs.wasm_compressed }}
             timechain-srtool-digest.json
+  upgrade-runtime:
+    name: Runtime upgrade
+    # Only running when manually triggered
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download runtime benchmarks
+      uses: actions/download-artifact@v4
+      with:
+        # NOTE: the assumption is that it will only deploy on development envs
+        # Later we can add an input to specify what the target should be
+        name: development-runtime
+    - name: Extract runtime
+      run: |
+        # The artifact is also named development-runtime
+        unzip development-runtime.zip
+        WASM_PATH=$(find runtime/* -type f -name "*.wasm")
+        docker run -it --rm \
+          -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \
+          analoglabs/tc-cli:latest \
+          --config config/envs/development/config.yaml runtime-upgrade $WASM_PATH

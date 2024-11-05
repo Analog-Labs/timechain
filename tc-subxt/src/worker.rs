@@ -15,25 +15,58 @@ use time_primitives::{
 
 pub enum Tx {
 	// system
-	SetCode { code: Vec<u8> },
+	SetCode {
+		code: Vec<u8>,
+	},
 	// balances
-	Transfer { account: AccountId, balance: u128 },
+	Transfer {
+		account: AccountId,
+		balance: u128,
+	},
 	// networks
-	RegisterNetwork { network: Network },
-	SetNetworkConfig { network: NetworkId, config: NetworkConfig },
+	RegisterNetwork {
+		network: Network,
+	},
+	SetNetworkConfig {
+		network: NetworkId,
+		config: NetworkConfig,
+	},
 	// members
-	RegisterMember { network: NetworkId, peer_id: PeerId, stake_amount: u128 },
-	UnregisterMember,
+	RegisterMember {
+		network: NetworkId,
+		public_key: PublicKey,
+		peer_id: PeerId,
+		stake_amount: u128,
+	},
+	UnregisterMember {
+		member: AccountId,
+	},
 	Heartbeat,
 	// shards
-	SetShardConfig { shard_size: u16, shard_threshold: u16 },
-	SetElectable { accounts: Vec<AccountId> },
-	Commitment { shard_id: ShardId, commitment: Commitment, proof_of_knowledge: ProofOfKnowledge },
-	Ready { shard_id: ShardId },
+	SetShardConfig {
+		shard_size: u16,
+		shard_threshold: u16,
+	},
+	Commitment {
+		shard_id: ShardId,
+		commitment: Commitment,
+		proof_of_knowledge: ProofOfKnowledge,
+	},
+	Ready {
+		shard_id: ShardId,
+	},
 	// tasks
-	SubmitTaskResult { task_id: TaskId, result: TaskResult },
-	SubmitGmpEvents { network: NetworkId, gmp_events: GmpEvents },
-	RemoveTask { task_id: TaskId },
+	SubmitTaskResult {
+		task_id: TaskId,
+		result: TaskResult,
+	},
+	SubmitGmpEvents {
+		network: NetworkId,
+		gmp_events: GmpEvents,
+	},
+	RemoveTask {
+		task_id: TaskId,
+	},
 }
 
 pub struct SubxtWorker {
@@ -132,8 +165,13 @@ impl SubxtWorker {
 					self.create_signed_payload(&payload).await
 				},
 				// members
-				Tx::RegisterMember { network, peer_id, stake_amount } => {
-					let public_key = subxt::utils::Static(self.public_key());
+				Tx::RegisterMember {
+					network,
+					public_key,
+					peer_id,
+					stake_amount,
+				} => {
+					let public_key = subxt::utils::Static(public_key);
 					let payload = metadata::tx().members().register_member(
 						network,
 						public_key,
@@ -142,8 +180,9 @@ impl SubxtWorker {
 					);
 					self.create_signed_payload(&payload).await
 				},
-				Tx::UnregisterMember => {
-					let payload = metadata::tx().members().unregister_member();
+				Tx::UnregisterMember { member } => {
+					let member = subxt::utils::Static(member);
+					let payload = metadata::tx().members().unregister_member(member);
 					self.create_signed_payload(&payload).await
 				},
 				Tx::Heartbeat => {
@@ -156,16 +195,6 @@ impl SubxtWorker {
 						metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
 							shard_size,
 							shard_threshold,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::SetElectable { accounts } => {
-					let electable = accounts.into_iter().map(subxt::utils::Static).collect();
-					let runtime_call = RuntimeCall::Elections(
-						metadata::runtime_types::pallet_elections::pallet::Call::set_electable {
-							electable,
 						},
 					);
 					let payload = sudo(runtime_call);

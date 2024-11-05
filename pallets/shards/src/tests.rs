@@ -81,6 +81,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 			member.peer_id,
 			<Test as pallet_members::Config>::MinStake::get(),
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(member.account_id.clone()).into()));
 		roll(1);
 	}
 	roll(1);

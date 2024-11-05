@@ -14,10 +14,10 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::GmpEvents;
 use time_primitives::{
-	balance::BalanceFormatter, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName,
-	ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IConnectorAdmin,
-	MemberStatus, MessageId, NetworkConfig, NetworkId, PublicKey, Route, ShardId, ShardStatus,
-	TaskId, TssPublicKey,
+	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address, BatchId, BlockHash,
+	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
+	GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
+	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 
 mod config;
@@ -255,7 +255,9 @@ pub struct Chronicle {
 struct ChronicleConfig {
 	network: NetworkId,
 	account: AccountId,
-	peer_id: String,
+	public_key: PublicKey,
+	peer_id: PeerId,
+	peer_id_str: String,
 	address: Address,
 }
 
@@ -263,7 +265,6 @@ struct ChronicleConfig {
 pub enum ChronicleStatus {
 	Unregistered,
 	Registered,
-	Electable,
 	Online,
 }
 
@@ -272,7 +273,6 @@ impl std::fmt::Display for ChronicleStatus {
 		let status = match self {
 			Self::Unregistered => "unregistered",
 			Self::Registered => "registered",
-			Self::Electable => "electable",
 			Self::Online => "online",
 		};
 		f.write_str(status)
@@ -295,6 +295,7 @@ pub struct Shard {
 pub struct Member {
 	pub account: AccountId,
 	pub status: MemberStatus,
+	pub staker: Option<AccountId>,
 	pub stake: u128,
 }
 
@@ -421,7 +422,7 @@ impl Tc {
 				address: chronicle.clone(),
 				network,
 				account: config.account,
-				peer_id: config.peer_id,
+				peer_id: config.peer_id_str,
 				status,
 				balance,
 				target_address: config.address,
@@ -470,8 +471,9 @@ impl Tc {
 		let shard_members = self.runtime.shard_members(shard).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
+			let staker = self.runtime.member_staker(&account).await?;
 			let stake = self.runtime.member_stake(&account).await?;
-			members.push(Member { account, status, stake })
+			members.push(Member { account, status, staker, stake })
 		}
 		Ok(members)
 	}
@@ -644,16 +646,6 @@ impl Tc {
 		Ok(())
 	}
 
-	async fn set_electable(&self, accounts: Vec<AccountId>) -> Result<()> {
-		let members = self.runtime.electable_members().await?;
-		if same(&members, &accounts) {
-			return Ok(());
-		}
-		tracing::info!("set_electable_members");
-		self.runtime.set_electable_members(accounts).await?;
-		Ok(())
-	}
-
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
 		for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
@@ -693,19 +685,20 @@ impl Tc {
 			network: config.network,
 			account: self.parse_address(None, &config.account)?.into(),
 			address: self.parse_address(Some(config.network), &config.address)?,
-			peer_id: config.peer_id,
+			public_key: config.public_key,
+			peer_id: hex::decode(&config.peer_id_hex)?
+				.try_into()
+				.map_err(|_| anyhow::anyhow!("chronicle returned invalid peer id"))?,
+			peer_id_str: config.peer_id,
 		})
 	}
 
 	async fn chronicle_status(&self, account: &AccountId) -> Result<ChronicleStatus> {
-		if self.runtime.member_network(account).await?.is_none() {
+		if !self.runtime.member_registered(account).await? {
 			return Ok(ChronicleStatus::Unregistered);
 		}
-		if !self.runtime.member_electable(account).await? {
-			return Ok(ChronicleStatus::Registered);
-		}
 		if !self.runtime.member_online(account).await? {
-			return Ok(ChronicleStatus::Electable);
+			return Ok(ChronicleStatus::Registered);
 		}
 		Ok(ChronicleStatus::Online)
 	}
@@ -724,6 +717,31 @@ impl Tc {
 			}
 		}
 		anyhow::bail!("failed to connect to chronicle");
+	}
+
+	pub async fn register_member(
+		&self,
+		network: NetworkId,
+		public_key: PublicKey,
+		peer_id: PeerId,
+	) -> Result<()> {
+		let member = public_key.clone().into_account();
+		if self.runtime.member_stake(&member).await? > 0 {
+			return Ok(());
+		}
+		tracing::info!("register_member {}", self.format_address(None, member.clone().into())?);
+		let min_stake = self.runtime.min_stake().await?;
+		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
+		Ok(())
+	}
+
+	pub async fn unregister_member(&self, member: AccountId) -> Result<()> {
+		if !self.runtime.member_registered(&member).await? {
+			return Ok(());
+		}
+		tracing::info!("unregister_member {}", self.format_address(None, member.clone().into())?);
+		self.runtime.unregister_member(member).await?;
+		Ok(())
 	}
 }
 
@@ -744,16 +762,11 @@ impl Tc {
 			gateways.insert(network, gateway);
 		}
 		self.register_routes(gateways).await?;
-		let mut accounts = Vec::with_capacity(self.config.chronicles().len());
 		for chronicle in self.config.chronicles() {
 			let chronicle = self.wait_for_chronicle(chronicle).await?;
 			tracing::info!("funding chronicle timechain account");
-			let status = self.chronicle_status(&chronicle.account).await?;
-			let mut funds =
+			let funds =
 				self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
-			if status == ChronicleStatus::Unregistered {
-				funds += self.runtime.min_stake().await?;
-			}
 			self.fund(None, chronicle.account.clone().into(), funds).await?;
 			let config = self.config.network(chronicle.network)?;
 			tracing::info!("funding chronicle target account");
@@ -761,9 +774,9 @@ impl Tc {
 				self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
 			self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
 				.await?;
-			accounts.push(chronicle.account);
+			self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
+				.await?;
 		}
-		self.set_electable(accounts).await?;
 		Ok(())
 	}
 

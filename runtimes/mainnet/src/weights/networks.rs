@@ -65,15 +65,17 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 50]`.
 	/// The range of component `a` is `[1, 50]`.
 	/// The range of component `b` is `[1, 50]`.
-	fn register_network(_a: u32, b: u32, ) -> Weight {
+	fn register_network(a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `118`
 		//  Estimated: `3583`
-		// Minimum execution time: 57_226_000 picoseconds.
-		Weight::from_parts(62_422_635, 0)
+		// Minimum execution time: 57_388_000 picoseconds.
+		Weight::from_parts(56_500_299, 0)
 			.saturating_add(Weight::from_parts(0, 3583))
-			// Standard Error: 15_261
-			.saturating_add(Weight::from_parts(61_553, 0).saturating_mul(b.into()))
+			// Standard Error: 16_799
+			.saturating_add(Weight::from_parts(183_553, 0).saturating_mul(a.into()))
+			// Standard Error: 16_799
+			.saturating_add(Weight::from_parts(163_837, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(14))
 	}
@@ -91,8 +93,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `277`
 		//  Estimated: `3742`
-		// Minimum execution time: 21_130_000 picoseconds.
-		Weight::from_parts(22_212_000, 0)
+		// Minimum execution time: 22_222_000 picoseconds.
+		Weight::from_parts(29_205_000, 0)
 			.saturating_add(Weight::from_parts(0, 3742))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -115,8 +117,8 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 15_579_000 picoseconds.
-		Weight::from_parts(16_630_000, 0)
+		// Minimum execution time: 15_799_000 picoseconds.
+		Weight::from_parts(16_862_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}

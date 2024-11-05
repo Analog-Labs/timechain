@@ -37,12 +37,14 @@ impl<T: frame_system::Config> pallet_dmail::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 64]`.
 	/// The range of component `a` is `[1, 64]`.
 	/// The range of component `b` is `[1, 64]`.
-	fn send_email(_a: u32, _b: u32, ) -> Weight {
+	fn send_email(_a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_214_000 picoseconds.
-		Weight::from_parts(8_990_619, 0)
+		// Minimum execution time: 7_443_000 picoseconds.
+		Weight::from_parts(10_014_642, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 1_586
+			.saturating_add(Weight::from_parts(8_827, 0).saturating_mul(b.into()))
 	}
 }

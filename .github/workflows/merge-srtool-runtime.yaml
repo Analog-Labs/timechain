@@ -88,10 +88,10 @@ jobs:
         ls -la
         find runtimes/* -type f -name "*.wasm"
         WASM_PATH=$(find runtimes/* -type f -name "*.wasm")
-        
+
         cp $WASM_PATH development-runtime.wasm
 
-        docker run -it --rm \
+        docker run -i --rm \
           -v ./config/envs/local/config.yaml:/etc/config.yaml \
           -v development-runtime.wasm:/etc/development-runtime.wasm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \

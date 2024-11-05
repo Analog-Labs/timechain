@@ -103,10 +103,6 @@ sp_api::decl_runtime_apis! {
 		fn get_gateway(network: NetworkId) -> Option<Gateway>;
 	}
 
-	pub trait ElectionsApi {
-		fn get_electable() -> Vec<AccountId>;
-	}
-
 	pub trait ShardsApi {
 		fn get_shards(account: &AccountId) -> Vec<ShardId>;
 		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
@@ -141,9 +137,11 @@ pub trait MembersInterface {
 	fn member_stake(account: &AccountId) -> Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
+	fn is_member_registered(account: &AccountId) -> bool;
 	fn is_member_online(account: &AccountId) -> bool;
 	fn total_stake() -> Balance;
 	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
+	fn unstake_member(account: &AccountId);
 }
 
 pub trait ElectionsInterface {

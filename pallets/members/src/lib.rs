@@ -44,6 +44,7 @@ pub mod pallet {
 
 	use time_primitives::{
 		AccountId, Balance, ElectionsInterface, MembersInterface, NetworkId, PeerId, PublicKey,
+		ShardsInterface,
 	};
 
 	pub trait WeightInfo {
@@ -82,6 +83,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type Shards: ShardsInterface;
 		type Elections: ElectionsInterface;
 		/// Minimum stake to register member
 		#[pallet::constant]
@@ -120,6 +122,16 @@ pub mod pallet {
 	pub type MemberStake<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, BalanceOf<T>, ValueQuery>;
 
+	/// Get account that staked.
+	#[pallet::storage]
+	pub type MemberStaker<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, AccountId, OptionQuery>;
+
+	/// Get if member is electable.
+	#[pallet::storage]
+	pub type MemberRegistered<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
 	/// Define events emitted by the pallet.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -140,17 +152,21 @@ pub mod pallet {
 		UnRegisteredMember(AccountId, NetworkId),
 	}
 
-	#[pallet::error]
 	///  Define possible errors that can occur during pallet operations.
-	/// [`Error::InvalidPublicKey`], [`Error::NotMember`],
-	/// [`Error::BondBelowMinStake`], [`Error::StakedBelowTransferAmount`]: Errors
-	/// related to invalid public keys, existing memberships, non-membership, insufficient
-	/// bond for membership, and insufficient stake for transfer.
+	#[pallet::error]
 	pub enum Error<T> {
-		InvalidPublicKey,
+		/// Not a member.
 		NotMember,
+		/// Bond below min stake.
 		BondBelowMinStake,
+		/// Staked below transfer amount.
 		StakedBelowTransferAmount,
+		/// Member not registered.
+		NotRegistered,
+		/// Not staker.
+		NotStaker,
+		/// Already registered
+		StillStaked,
 	}
 
 	/// Implements hooks for pallet initialization and block processing.
@@ -189,21 +205,18 @@ pub mod pallet {
 			peer_id: PeerId,
 			bond: BalanceOf<T>,
 		) -> DispatchResult {
-			let member = ensure_signed(origin)?;
-			ensure!(member == public_key.clone().into_account(), Error::<T>::InvalidPublicKey);
-			if let Some(old_network) = MemberNetwork::<T>::get(&member) {
-				// unregister before re-registering
-				Self::unregister_member_from_network(&member, old_network);
-			}
+			let staker = ensure_signed(origin)?;
+			let member = public_key.clone().into_account();
+			ensure!(MemberStake::<T>::get(&member) == 0, Error::<T>::StillStaked);
 			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
-			pallet_balances::Pallet::<T>::reserve(&member, bond)?;
+			pallet_balances::Pallet::<T>::reserve(&staker, bond)?;
 			MemberStake::<T>::insert(&member, bond);
+			MemberStaker::<T>::insert(&member, staker);
 			MemberNetwork::<T>::insert(&member, network);
 			MemberPublicKey::<T>::insert(&member, public_key);
 			MemberPeerId::<T>::insert(&member, peer_id);
-			Heartbeat::<T>::insert(&member, ());
+			MemberRegistered::<T>::insert(&member, ());
 			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
-			Self::member_online(&member, network);
 			Ok(())
 		}
 
@@ -221,6 +234,7 @@ pub mod pallet {
 		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
+			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
@@ -243,10 +257,14 @@ pub mod pallet {
 		///	9. Returns `Ok(())` if successful.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
-		pub fn unregister_member(origin: OriginFor<T>) -> DispatchResult {
-			let member = ensure_signed(origin)?;
-			let network = MemberNetwork::<T>::take(&member).ok_or(Error::<T>::NotMember)?;
-			Self::unregister_member_from_network(&member, network);
+		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
+			let staker = ensure_signed(origin)?;
+			ensure!(MemberRegistered::<T>::get(&member).is_some(), Error::<T>::NotRegistered);
+			ensure!(MemberStaker::<T>::get(&member) == Some(staker), Error::<T>::NotStaker);
+			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
+			MemberRegistered::<T>::remove(&member);
+			Self::unstake_member(&member);
+			Self::deposit_event(Event::UnRegisteredMember(member, network));
 			Ok(())
 		}
 	}
@@ -295,22 +313,6 @@ pub mod pallet {
 			T::Elections::member_offline(member, network);
 		}
 
-		/// Performs cleanup tasks when a member is deregistered.
-		/// # Flow
-		///	1. Receives `member` (account of the member) and `network` (NetworkId).
-		///	2. Unreserves the member's stake using [`pallet_balances::Pallet::<T>::unreserve`].
-		///	3. Removes `member` from [`MemberPublicKey::<T>`], [`MemberPeerId::<T>`], [`Heartbeat::<T>`].
-		///	4. Emits [`Event::UnRegisteredMember`].
-		///	5. Calls `Self::member_offline` to mark the member as offline and calculate weight adjustments.
-		fn unregister_member_from_network(member: &AccountId, network: NetworkId) {
-			pallet_balances::Pallet::<T>::unreserve(member, MemberStake::<T>::take(member));
-			MemberPublicKey::<T>::remove(member);
-			MemberPeerId::<T>::remove(member);
-			Heartbeat::<T>::remove(member);
-			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
-			Self::member_offline(member, network);
-		}
-
 		/// Retrieves the heartbeat timeout value.
 		///
 		/// This function fetches the timeout duration for heartbeats from the associated configuration.
@@ -349,6 +351,10 @@ pub mod pallet {
 			MemberOnline::<T>::get(account).is_some()
 		}
 
+		fn is_member_registered(account: &AccountId) -> bool {
+			MemberRegistered::<T>::get(account).is_some()
+		}
+
 		/// Retrieves the total stake of all members.
 		fn total_stake() -> u128 {
 			let mut total: u128 = 0;
@@ -377,6 +383,22 @@ pub mod pallet {
 			)?;
 			MemberStake::<T>::insert(from, remaining_stake);
 			Ok(())
+		}
+
+		fn unstake_member(member: &AccountId) {
+			if T::Shards::is_shard_member(member) {
+				return;
+			}
+			if Self::is_member_registered(member) {
+				return;
+			}
+			if let Some(staker) = MemberStaker::<T>::take(member) {
+				let stake = MemberStake::<T>::take(member);
+				pallet_balances::Pallet::<T>::unreserve(&staker, stake);
+			}
+			MemberNetwork::<T>::remove(member);
+			MemberPeerId::<T>::remove(member);
+			MemberPublicKey::<T>::remove(member);
 		}
 	}
 }

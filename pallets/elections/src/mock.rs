@@ -9,7 +9,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{NetworkId, ShardId, TasksInterface};
+use time_primitives::{NetworkId, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -82,6 +82,7 @@ impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = Elections;
+	type Shards = Shards;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<100>;
@@ -121,7 +122,11 @@ impl frame_system::offchain::SigningTypes for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
+		balances: vec![
+			(acc_pub(1).into(), 10_000_000_000),
+			(acc_pub(2).into(), 20_000_000_000),
+			(acc_pub(3).into(), 20_000_000_000),
+		],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
@@ -148,4 +153,8 @@ fn next_block() {
 	now += 1;
 	System::set_block_number(now);
 	Elections::on_initialize(now);
+}
+
+pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }

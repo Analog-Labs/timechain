@@ -234,9 +234,7 @@ pub mod pallet {
 		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			if MemberRegistered::<T>::get(&member).is_none() {
-				return Err(Error::<T>::NotRegistered.into());
-			}
+			ensure!(MemberRegistered::<T>::get(&member).is_some(), Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));

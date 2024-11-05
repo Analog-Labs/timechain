@@ -1,6 +1,13 @@
 name: Build runtime artifacts
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target timechain environment"
+        required: true
+        type: choice
+        options:
+          - development
   push:
     branches:
       - "ci/runtime/**"
@@ -72,6 +79,7 @@ jobs:
     name: Runtime upgrade
     # Only running when manually triggered
     if: github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.environment }}
     needs: [ "build-runtime" ]
     runs-on: ubuntu-latest
     steps:
@@ -85,14 +93,13 @@ jobs:
         name: development-runtime
     - name: Extract runtime
       run: |
-        ls -la
-        find runtimes/* -type f -name "*.wasm"
+        ENV="${{ github.event.inputs.environment }}"
         WASM_PATH=$(find runtimes/* -type f -name "*.wasm")
-
         cp $WASM_PATH development-runtime.wasm
 
+        # NOTE: environment follows folder structure
         docker run -i --rm \
-          -v ./config/envs/local/config.yaml:/etc/config.yaml \
+          -v ./config/envs/$ENV/config.yaml:/etc/config.yaml \
           -v development-runtime.wasm:/etc/development-runtime.wasm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \
           -e TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}" \

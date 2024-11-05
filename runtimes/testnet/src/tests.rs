@@ -2,7 +2,7 @@
 use crate::*;
 
 use frame_support::assert_ok;
-use frame_support::traits::{OnFinalize, OnInitialize, WhitelistedStorageKeys};
+use frame_support::traits::{OnInitialize, WhitelistedStorageKeys};
 use frame_system::RawOrigin;
 use pallet_shards::ShardMembers;
 use sp_core::hexdisplay::HexDisplay;
@@ -77,10 +77,11 @@ fn new_test_ext() -> sp_io::TestExternalities {
 fn roll(n: u32) {
 	for _ in 0..n {
 		let now = System::block_number();
-		Tasks::on_finalize(now);
 		System::set_block_number(now + 1);
-		Tasks::on_initialize(now + 1);
+		Members::on_initialize(now + 1);
 		Elections::on_initialize(now + 1);
+		Shards::on_initialize(now + 1);
+		Tasks::on_initialize(now + 1);
 	}
 }
 
@@ -100,6 +101,7 @@ fn shard_not_stuck_in_committed_state() {
 			get_peer_id(A),
 			90_000 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
@@ -107,6 +109,7 @@ fn shard_not_stuck_in_committed_state() {
 			get_peer_id(B),
 			90_000 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(b.clone()).into()));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
 			ETHEREUM,
@@ -114,6 +117,7 @@ fn shard_not_stuck_in_committed_state() {
 			get_peer_id(C),
 			90_000 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(1);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
 			assert!(first_shard.contains(&m));
@@ -191,6 +195,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(A),
 			90_000 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(b.clone()).into(),
 			ETHEREUM,
@@ -198,6 +203,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(B),
 			90_000 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(b.clone()).into()));
 		roll(1);
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(c.clone()).into(),
@@ -206,6 +212,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(C),
 			90_000 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(1);
 		// verify shard 0 created for Network Ethereum
 		assert_eq!(Shards::shard_network(0), Some(ETHEREUM));
@@ -217,7 +224,12 @@ fn register_unregister_kills_task() {
 		// member unregisters
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(), a.clone()));
 		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(), b.clone()));
-		roll(1);
+		roll(600);
+		assert!(!Members::is_member_online(&a));
+		assert!(!Members::is_member_online(&b));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
+		assert!(Members::is_member_online(&c));
+
 		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0), Some(ShardStatus::Offline));
 		Tasks::shard_offline(0, ETHEREUM);
 		roll(1);
@@ -233,6 +245,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(D),
 			90_001 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(d.clone()).into()));
 		// new member
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(e.clone()).into(),
@@ -241,6 +254,7 @@ fn register_unregister_kills_task() {
 			get_peer_id(E),
 			90_002 * ANLOG,
 		));
+		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(e.clone()).into()));
 		roll(1);
 		// verify shard 1 created for Network Ethereum
 		assert_eq!(Shards::shard_network(1), Some(ETHEREUM));

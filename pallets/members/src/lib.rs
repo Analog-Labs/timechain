@@ -234,7 +234,7 @@ pub mod pallet {
 		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			ensure!(MemberRegistered::<T>::get(&member).is_some(), Error::<T>::NotRegistered);
+			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
@@ -259,9 +259,10 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
 		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
 			let staker = ensure_signed(origin)?;
-			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
+			ensure!(MemberRegistered::<T>::get(&member).is_some(), Error::<T>::NotRegistered);
 			ensure!(MemberStaker::<T>::get(&member) == Some(staker), Error::<T>::NotStaker);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
+			MemberRegistered::<T>::remove(&member);
 			Self::unstake_member(&member);
 			Self::deposit_event(Event::UnRegisteredMember(member, network));
 			Ok(())

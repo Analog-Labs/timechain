@@ -81,6 +81,7 @@ services:
     volumes:
     - './config/envs/local/config.yaml:/etc/config.yaml:ro'
     - './config/envs/local/prices.csv:/etc/prices.csv'
+    - './target/release/wbuild/testnet-runtime/target/wasm32-unknown-unknown/release/testnet_runtime.wasm:/upgrade.wasm'
     - './analog-gmp/out:/etc/contracts:ro'
     env_file:
     - './config/envs/local/.env'

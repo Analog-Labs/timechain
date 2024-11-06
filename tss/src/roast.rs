@@ -187,7 +187,7 @@ impl RoastCoordinator {
 			return None;
 		}
 		let session_id = self.session_id;
-		self.session_id += 1;
+		self.session_id = session_id.wrapping_add(1);
 		let mut commitments = std::mem::take(&mut self.commitments);
 		while commitments.len() > self.threshold as _ {
 			let (peer, commitment) = commitments.pop_last().unwrap();

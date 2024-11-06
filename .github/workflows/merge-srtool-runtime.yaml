@@ -1,4 +1,15 @@
-name: Build runtime artifacts
+# Runtime WASM build & upgrade
+#
+# Triggers:
+# 1. branch with 'ci/runtime' prefix
+#    This trigger only does the srtool build without deployment.
+#    The WASM blobs are attached in the build artifacts.
+# 2. manual trigger (workflow_dispatch)
+#    This trigger both builds and does a runtime upgrade on the selected
+#    environment.
+#    **NOTE**: there are no additional checks if the runtime can be applied
+
+name: Runtime build/upgrade
 on:
   workflow_dispatch:
     inputs:

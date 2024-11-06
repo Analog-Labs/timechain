@@ -10,7 +10,9 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 
-use time_primitives::{ElectionsInterface, NetworkId};
+use time_primitives::{
+	ElectionsInterface, NetworkId, PublicKey, ShardId, ShardsInterface, TssPublicKey,
+};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -25,6 +27,38 @@ impl ElectionsInterface for MockElections {
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
 	fn default_shard_size() -> u16 {
 		0
+	}
+}
+
+pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
+	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
+}
+
+pub struct MockShards;
+
+impl ShardsInterface for MockShards {
+	fn member_online(_id: &AccountId, _network: NetworkId) {}
+	fn member_offline(_id: &AccountId, _network: NetworkId) {}
+	fn is_shard_online(_shard_id: ShardId) -> bool {
+		false
+	}
+	fn is_shard_member(_account: &AccountId) -> bool {
+		false
+	}
+	fn shard_members(_shard_id: ShardId) -> Vec<AccountId> {
+		vec![]
+	}
+	fn shard_network(_shard_id: ShardId) -> Option<NetworkId> {
+		None
+	}
+	fn create_shard(_network: NetworkId, _members: Vec<AccountId>, _threshold: u16) -> ShardId {
+		0
+	}
+	fn next_signer(_shard_id: ShardId) -> PublicKey {
+		pubkey_from_bytes([0; 32])
+	}
+	fn tss_public_key(_shard_id: ShardId) -> Option<TssPublicKey> {
+		None
 	}
 }
 
@@ -94,6 +128,7 @@ impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = MockElections;
+	type Shards = MockShards;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<100>;

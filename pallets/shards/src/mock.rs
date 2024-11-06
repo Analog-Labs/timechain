@@ -81,6 +81,7 @@ impl pallet_shards::Config for Test {
 impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
+	type Shards = Shards;
 	type Elections = Elections;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
@@ -137,7 +138,11 @@ fn next_block() {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
+		balances: vec![
+			(acc_pub(1).into(), 10_000_000_000),
+			(acc_pub(2).into(), 20_000_000_000),
+			(acc_pub(3).into(), 20_000_000_000),
+		],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

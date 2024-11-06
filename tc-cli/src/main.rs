@@ -117,6 +117,9 @@ enum Command {
 		path: PathBuf,
 	},
 	Deploy,
+	UnregisterMember {
+		member: String,
+	},
 	RegisterShards {
 		network: NetworkId,
 	},
@@ -156,6 +159,9 @@ enum Command {
 	Log {
 		#[clap(subcommand)]
 		query: tc_cli::loki::Query,
+	},
+	ForceShardOffline {
+		shard_id: ShardId,
 	},
 }
 
@@ -263,15 +269,23 @@ impl IntoRow for Shard {
 struct MemberEntry {
 	account: String,
 	status: String,
+	staker: String,
+	stake: String,
 }
 
 impl IntoRow for Member {
 	type Row = MemberEntry;
 
-	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
 		Ok(MemberEntry {
 			account: self.account.to_string(),
 			status: self.status.to_string(),
+			staker: self
+				.staker
+				.map(|staker| tc.format_address(None, staker.into()))
+				.transpose()?
+				.unwrap_or_default(),
+			stake: tc.format_balance(None, self.stake)?,
 		})
 	}
 }
@@ -581,6 +595,10 @@ async fn real_main() -> Result<()> {
 		Command::Deploy => {
 			tc.deploy().await?;
 		},
+		Command::UnregisterMember { member } => {
+			let member = tc.parse_address(None, &member)?;
+			tc.unregister_member(member.into()).await?;
+		},
 		Command::RegisterShards { network } => {
 			tc.register_shards(network).await?;
 		},
@@ -677,6 +695,9 @@ async fn real_main() -> Result<()> {
 			for log in tc_cli::loki::logs(query).await? {
 				println!("{log}");
 			}
+		},
+		Command::ForceShardOffline { shard_id } => {
+			tc.force_shard_offline(shard_id).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

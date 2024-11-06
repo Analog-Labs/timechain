@@ -1,21 +1,12 @@
-use crate::NetworkId;
+use crate::{NetworkId, PublicKey};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
 	pub network: NetworkId,
 	pub account: String,
+	pub public_key: PublicKey,
 	pub address: String,
 	pub peer_id: String,
-}
-
-impl Config {
-	pub fn new(network: NetworkId, account: String, address: String, peer_id: String) -> Self {
-		Self {
-			network,
-			account,
-			address,
-			peer_id,
-		}
-	}
+	pub peer_id_hex: String,
 }

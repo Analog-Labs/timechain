@@ -69,6 +69,10 @@ impl MembersInterface for MockMembers {
 	fn transfer_stake(_: &AccountId, _: &AccountId, _: Balance) -> DispatchResult {
 		Ok(())
 	}
+	fn unstake_member(_account: &AccountId) {}
+	fn is_member_registered(_account: &AccountId) -> bool {
+		true
+	}
 }
 
 pub struct MockElections;
@@ -225,6 +229,7 @@ impl pallet_members::Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = MockElections;
+	type Shards = Shards;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<100>;

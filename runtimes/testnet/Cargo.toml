@@ -88,6 +88,7 @@ runtime-common.workspace = true
 time-primitives.workspace = true
 
 [dev-dependencies]
+env_logger.workspace = true
 separator = "0.4.1"
 
 [build-dependencies]

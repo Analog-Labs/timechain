@@ -1,6 +1,24 @@
-name: Build runtime artifacts
+# Runtime WASM build & upgrade
+#
+# Triggers:
+# 1. branch with 'ci/runtime' prefix
+#    This trigger only does the srtool build without deployment.
+#    The WASM blobs are attached in the build artifacts.
+# 2. manual trigger (workflow_dispatch)
+#    This trigger both builds and does a runtime upgrade on the selected
+#    environment.
+#    **NOTE**: there are no additional checks if the runtime can be applied
+
+name: Runtime build/upgrade
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target timechain environment"
+        required: true
+        type: choice
+        options:
+          - development
   push:
     branches:
       - "ci/runtime/**"
@@ -52,7 +70,7 @@ jobs:
           BUILD_OPTS: --features ${{ matrix.features }}
         with:
           image: analoglabs/srtool
-          tag: 1.75.0
+          tag: 1.79.0
           chain: ${{ matrix.chain }}
           runtime_dir: runtimes/${{ matrix.chain }}
       - name: Srtool summary
@@ -72,6 +90,8 @@ jobs:
     name: Runtime upgrade
     # Only running when manually triggered
     if: github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.environment }}
+    needs: [ "build-runtime" ]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -84,10 +104,15 @@ jobs:
         name: development-runtime
     - name: Extract runtime
       run: |
-        # The artifact is also named development-runtime
-        unzip development-runtime.zip
-        WASM_PATH=$(find runtime/* -type f -name "*.wasm")
-        docker run -it --rm \
+        ENV="${{ github.event.inputs.environment }}"
+        WASM_PATH=$(find runtimes/* -type f -name "*.wasm")
+        cp $WASM_PATH development-runtime.wasm
+
+        # NOTE: environment follows folder structure
+        docker run -i --rm \
+          -v ./config/envs/$ENV/config.yaml:/etc/config.yaml \
+          -v ./development-runtime.wasm:/etc/development-runtime.wasm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.SUDO_MNEMONIC }}" \
+          -e TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}" \
           analoglabs/tc-cli:latest \
-          --config config/envs/development/config.yaml runtime-upgrade $WASM_PATH
+          --config /etc/config.yaml runtime-upgrade /etc/development-runtime.wasm

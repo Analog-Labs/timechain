@@ -27,6 +27,9 @@ pub enum Tx {
 	RegisterNetwork {
 		network: Network,
 	},
+	ForceShardOffline {
+		shard_id: ShardId,
+	},
 	SetNetworkConfig {
 		network: NetworkId,
 		config: NetworkConfig,
@@ -148,6 +151,15 @@ impl SubxtWorker {
 					let runtime_call = RuntimeCall::Networks(
 						metadata::runtime_types::pallet_networks::pallet::Call::register_network {
 							network,
+						},
+					);
+					let payload = sudo(runtime_call);
+					self.create_signed_payload(&payload).await
+				},
+				Tx::ForceShardOffline { shard_id } => {
+					let runtime_call = RuntimeCall::Shards(
+						metadata::runtime_types::pallet_shards::pallet::Call::force_shard_offline {
+							shard_id,
 						},
 					);
 					let payload = sudo(runtime_call);

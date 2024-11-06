@@ -743,6 +743,15 @@ impl Tc {
 		self.runtime.unregister_member(member).await?;
 		Ok(())
 	}
+
+	pub async fn force_shard_offline(&self, shard: ShardId) -> Result<()> {
+		if matches!(self.runtime.shard_status(shard).await?, ShardStatus::Offline) {
+			return Ok(());
+		}
+		tracing::info!("force_shard_offline {}", shard);
+		self.runtime.force_shard_offline(shard).await?;
+		Ok(())
+	}
 }
 
 impl Tc {

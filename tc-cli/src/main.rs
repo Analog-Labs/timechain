@@ -160,6 +160,9 @@ enum Command {
 		#[clap(subcommand)]
 		query: tc_cli::loki::Query,
 	},
+	ForceShardOffline {
+		shard_id: ShardId,
+	},
 }
 
 trait IntoRow {
@@ -692,6 +695,9 @@ async fn real_main() -> Result<()> {
 			for log in tc_cli::loki::logs(query).await? {
 				println!("{log}");
 			}
+		},
+		Command::ForceShardOffline { shard_id } => {
+			tc.force_shard_offline(shard_id).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

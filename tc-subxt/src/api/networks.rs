@@ -8,7 +8,8 @@ impl SubxtClient {
 	pub async fn register_network(&self, network: Network) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::RegisterNetwork { network }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
@@ -19,7 +20,8 @@ impl SubxtClient {
 	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SetNetworkConfig { network, config }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 

@@ -105,14 +105,16 @@ impl SubxtClient {
 			},
 			tx,
 		))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
 	pub async fn submit_online(&self, shard_id: ShardId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Ready { shard_id }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
@@ -127,7 +129,8 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx
 			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 

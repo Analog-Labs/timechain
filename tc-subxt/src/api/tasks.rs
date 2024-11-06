@@ -73,21 +73,24 @@ impl SubxtClient {
 	pub async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitTaskResult { task_id, result }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
 	pub async fn submit_gmp_events(&self, network: NetworkId, gmp_events: GmpEvents) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitGmpEvents { network, gmp_events }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::RemoveTask { task_id }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 

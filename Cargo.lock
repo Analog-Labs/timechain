@@ -18977,6 +18977,7 @@ dependencies = [
  "futures",
  "hex",
  "parity-scale-codec",
+ "polkadot-sdk",
  "scale-decode",
  "scale-info",
  "serde",

@@ -15,6 +15,9 @@ async-trait.workspace = true
 clap.workspace = true
 futures.workspace = true
 hex.workspace = true
+polkadot-sdk = { workspace = true, features = [
+	"sp-runtime",
+]}
 serde = { workspace = true, features = ["derive"] }
 tokio.workspace = true
 tracing.workspace = true

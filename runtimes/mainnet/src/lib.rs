@@ -1044,14 +1044,17 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
-pub struct TreasuryBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_treasury::ArgumentsFactory<(), AccountId> for TreasuryBenchmarkHelper {
-	fn create_asset_kind(_seed: u32) -> () {
-		()
-	}
-	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
-		seed.into()
+mod treasury_bench {
+	use super::AccountId;
+	pub struct BenchmarkHelper;
+	impl pallet_treasury::ArgumentsFactory<(), AccountId> for BenchmarkHelper {
+		fn create_asset_kind(_seed: u32) -> () {
+			()
+		}
+		fn create_beneficiary(seed: [u8; 32]) -> AccountId {
+			AccountId::from(seed)
+		}
 	}
 }
 
@@ -1069,6 +1072,9 @@ impl pallet_treasury::Config for Runtime {
 	type SpendFunds = Bounties;
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
 	type MaxApprovals = MaxApprovals;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<Balance>; // Disabled, no spending
+	#[cfg(feature = "runtime-benchmarks")]
 	type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
 	type AssetKind = ();
 	type Beneficiary = AccountId;
@@ -1077,7 +1083,7 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = SpendPayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = TreasuryBenchmarkHelper;
+	type BenchmarkHelper = treasury_bench::BenchmarkHelper;
 }
 
 parameter_types! {

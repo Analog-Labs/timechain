@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use bip39::Mnemonic;
 use chronicle::ChronicleConfig;
 use clap::Parser;
+use futures::channel::mpsc;
 use futures::FutureExt;
 use gmp::Backend;
 use std::sync::Arc;
@@ -65,7 +66,6 @@ impl ChronicleArgs {
 			target_url: self.target_url,
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
-			admin: true,
 			backend: self.backend,
 		})
 	}
@@ -140,12 +140,16 @@ async fn main() -> Result<()> {
 			.await?;
 
 	let config = args.config(network_key, target_mnemonic)?;
-	let chronicle = chronicle::run_chronicle(config, Arc::new(subxt));
+
+	let (tx, rx) = mpsc::channel(1);
+	let admin = chronicle::admin::listen(8080, rx);
+	let chronicle = chronicle::run_chronicle(config, Arc::new(subxt), tx);
 	let signal = shutdown_signal();
 
 	futures::select! {
 		_ = chronicle.fuse() => {}
 		_ = signal.fuse() => {}
+		_ = admin.fuse() => {}
 	};
 
 	std::process::exit(0);

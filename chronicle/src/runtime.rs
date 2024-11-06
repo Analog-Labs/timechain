@@ -20,9 +20,7 @@ pub trait Runtime: Send + Sync + 'static {
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
-	async fn is_registered(&self) -> Result<bool> {
-		Ok(true)
-	}
+	async fn is_registered(&self) -> Result<bool>;
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>>;
 
@@ -51,15 +49,6 @@ pub trait Runtime: Send + Sync + 'static {
 	async fn get_batch_message(&self, batch_id: BatchId) -> Result<Option<GatewayMessage>>;
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
-
-	async fn submit_register_member(
-		&self,
-		network: NetworkId,
-		peer_id: PeerId,
-		stake_amount: u128,
-	) -> Result<()>;
-
-	async fn submit_unregister_member(&self) -> Result<()>;
 
 	async fn submit_heartbeat(&self) -> Result<()>;
 
@@ -98,7 +87,7 @@ impl Runtime for SubxtClient {
 	}
 
 	async fn is_registered(&self) -> Result<bool> {
-		Ok(self.member_network(self.account_id()).await?.is_some())
+		Ok(self.member_registered(self.account_id()).await?)
 	}
 
 	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {
@@ -155,19 +144,6 @@ impl Runtime for SubxtClient {
 
 	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>> {
 		self.network_gateway(network).await
-	}
-
-	async fn submit_register_member(
-		&self,
-		network: NetworkId,
-		peer_id: PeerId,
-		stake_amount: u128,
-	) -> Result<()> {
-		self.register_member(network, peer_id, stake_amount).await
-	}
-
-	async fn submit_unregister_member(&self) -> Result<()> {
-		self.unregister_member().await
 	}
 
 	async fn submit_heartbeat(&self) -> Result<()> {

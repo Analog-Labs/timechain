@@ -6,7 +6,7 @@ use polkadot_sdk::*;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, NetworkId, PublicKey};
+use time_primitives::{traits::IdentifyAccount, AccountId, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
@@ -46,7 +46,7 @@ benchmarks! {
 			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 		);
 		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(caller))
+	}: _(RawOrigin::Signed(caller), public_key().into_account())
 	verify { }
 
 	timeout_heartbeats {
@@ -59,6 +59,7 @@ benchmarks! {
 				pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 			);
 			Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
+			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
 			assert!(MemberOnline::<T>::get(&caller).is_some());
 			assert!(Heartbeat::<T>::take(&caller).is_some());
 		}

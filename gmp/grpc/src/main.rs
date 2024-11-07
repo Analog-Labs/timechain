@@ -291,9 +291,9 @@ impl Gmp for ConnectorWrapper {
 		&self,
 		request: Request<proto::WithdrawFundsRequest>,
 	) -> GmpResult<proto::WithdrawFundsResponse> {
-		let (connector, _) = self.connector(request)?;
+		let (connector, msg) = self.connector(request)?;
 		connector
-			.block_gas_limit()
+			.withdraw_funds(msg.gateway, msg.amount, msg.address, msg.additional_data)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::WithdrawFundsResponse {}))

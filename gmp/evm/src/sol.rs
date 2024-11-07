@@ -29,8 +29,8 @@ alloy_sol_types::sol! {
 	struct Route {
 		uint16 networkId;
 		bytes32 gateway;
-		uint128 relativeGasPriceNumerator;
-		uint128 relativeGasPriceDenominator;
+		uint256 relativeGasPriceNumerator;
+		uint256 relativeGasPriceDenominator;
 		uint64 gasLimit;
 		uint128 baseFee;
 	}

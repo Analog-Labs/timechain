@@ -254,6 +254,10 @@ impl SubxtWorker {
 					let payload = sudo(runtime_call);
 					self.create_signed_payload(&payload).await
 				},
+				Tx::Withdraw { amount } => {
+					let payload = metadata::tx().timegraph().withdraw(amount);
+					self.create_signed_payload(&payload).await
+				},
 			}
 		});
 

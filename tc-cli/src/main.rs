@@ -702,6 +702,9 @@ async fn real_main() -> Result<()> {
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id).await?;
 		},
+		Command::Withdraw { amount } => {
+			tc.withdraw(amount).await?;
+		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
 	Ok(())

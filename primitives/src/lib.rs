@@ -91,6 +91,10 @@ pub fn format_address(account: &AccountId) -> String {
 	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))
 }
 
+uint::construct_uint! {
+	pub struct U256(4);
+}
+
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;

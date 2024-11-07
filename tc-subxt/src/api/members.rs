@@ -98,21 +98,24 @@ impl SubxtClient {
 			},
 			tx,
 		))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
 	pub async fn unregister_member(&self, member: AccountId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::UnregisterMember { member }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
 	pub async fn submit_heartbeat(&self) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Heartbeat, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 }

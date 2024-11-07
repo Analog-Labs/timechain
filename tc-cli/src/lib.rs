@@ -752,6 +752,15 @@ impl Tc {
 		self.runtime.force_shard_offline(shard).await?;
 		Ok(())
 	}
+
+	pub async fn withdraw(&self, amount: Balance) -> Result<()> {
+		if balance == 0u128 {
+			return Ok(());
+		}
+		tracing::info!("withdraw {}", amount);
+		self.runtime.withdraw(amount).await?;
+		Ok(())
+	}
 }
 
 impl Tc {

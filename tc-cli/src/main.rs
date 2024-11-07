@@ -9,8 +9,8 @@ use tc_cli::{
 	Batch, Chronicle, ChronicleStatus, Member, Message, MessageTrace, Network, Shard, Task, Tc,
 };
 use time_primitives::{
-	traits::IdentifyAccount, Address, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId, Route,
-	ShardId, TaskId,
+	traits::IdentifyAccount, Address, Balance, BatchId, GatewayOp, GmpEvent, GmpMessage, NetworkId,
+	Route, ShardId, TaskId,
 };
 use tracing_subscriber::filter::EnvFilter;
 
@@ -162,6 +162,9 @@ enum Command {
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
+	},
+	Withdraw {
+		amount: Balance,
 	},
 }
 

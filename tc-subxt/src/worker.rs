@@ -9,8 +9,8 @@ use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
-	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
+	traits::IdentifyAccount, AccountId, Balance, Commitment, GmpEvents, Network, NetworkConfig,
+	NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
 pub enum Tx {
@@ -69,6 +69,9 @@ pub enum Tx {
 	},
 	RemoveTask {
 		task_id: TaskId,
+	},
+	Withdraw {
+		amount: Balance,
 	},
 }
 

@@ -430,4 +430,20 @@ impl IConnectorAdmin for Connector {
 			.with_context(|| "Cannot find latest block")?;
 		Ok(block.header.gas_limit)
 	}
+	/// Withdraw gateway funds.
+	async fn withdraw_funds(
+		&self,
+		gateway: Address,
+		amount: u128,
+		receipient: Address,
+		additional_data: Vec<u8>,
+	) -> Result<()> {
+		let call = sol::Gateway::withdrawCall {
+			amount: U256::from(amount),
+			recipient: a_addr(receipient),
+			data: additional_data.into(),
+		};
+		self.evm_call(gateway, call, 0, None).await?;
+		Ok(())
+	}
 }

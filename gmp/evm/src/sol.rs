@@ -50,6 +50,7 @@ alloy_sol_types::sol! {
 		function routes() external view returns (Route[]);
 		function setRoute(Route memory route) external;
 		function estimateMessageCost(uint16 networkid, uint256 messageSize, uint256 gasLimit) external view returns (uint256);
+		function withdraw(uint256 amount, address recipient, bytes calldata data) external returns (bytes memory output);
 
 		event ShardRegistered(TssPublicKey key);
 

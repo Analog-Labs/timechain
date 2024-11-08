@@ -355,6 +355,11 @@ impl IConnectorAdmin for Connector {
 		let computed_proxy_address =
 			compute_create3_address(factory_address, sender, deployment_salt).await?;
 
+		let is_proxy_deployed = self
+			.backend
+			.get_code(computed_proxy_address.into(), rosetta_ethereum_types::AtBlock::Latest)
+			.await?;
+
 		// gateway deployment
 		let gateway_bytecode = get_contract_from_slice(gateway)?;
 		let gateway_contstructor = sol::Gateway::constructorCall {
@@ -375,6 +380,11 @@ impl IConnectorAdmin for Connector {
 		let (gateway_address, _) =
 			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
 		tracing::info!("gateway deployed at: {:?}", gateway_address);
+
+		if !is_proxy_deployed.is_empty() {
+			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
+			return Ok((t_addr(computed_proxy_address.into()), 0));
+		}
 
 		//proxy constructor
 		let proxy_constructor = sol::GatewayProxy::constructorCall {

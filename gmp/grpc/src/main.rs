@@ -122,7 +122,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::DeployGatewayResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let (address, block) = connector
-			.deploy_gateway(&msg.proxy, &msg.gateway)
+			.deploy_gateway(&[], &msg.proxy, &msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::DeployGatewayResponse { address, block }))

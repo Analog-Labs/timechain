@@ -36,7 +36,7 @@ alloy_sol_types::sol! {
 	}
 
 	contract GatewayProxy {
-		constructor(address implementation) payable;
+		constructor(address implementation,bytes memory initializer) payable;
 	}
 
 	contract Gateway {
@@ -79,6 +79,13 @@ alloy_sol_types::sol! {
 		function sendMessage(GmpMessage msg) payable;
 		event MessageReceived(GmpMessage msg);
 	}
+
+	// reference: https://github.com/Analog-Labs/universal-factory/blob/main/src/IUniversalFactory.sol
+	interface IUniversalFactory {
+		function create2(bytes32 salt, bytes calldata creationCode) external payable returns (address);
+		function create3(bytes32 salt, bytes calldata creationCode) external payable returns (address);
+	}
+
 }
 
 fn u256(bytes: &[u8]) -> U256 {

@@ -335,7 +335,12 @@ pub trait IConnector: IChain {
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IConnector {
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address, u64)>;
+	async fn deploy_gateway(
+		&self,
+		additional_params: &[u8],
+		proxy: &[u8],
+		gateway: &[u8],
+	) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
 	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()>;
 	/// Returns the gateway admin.

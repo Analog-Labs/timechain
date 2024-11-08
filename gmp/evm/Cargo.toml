@@ -19,6 +19,9 @@ rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", bran
 rosetta-server = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }
 rosetta-server-ethereum = { git = "https://github.com/analog-labs/chain-connectors", branch  = "gmp-api" }
 rosetta-ethereum-backend = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }
+rosetta-ethereum-types = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }
+sha3 = { version = "0.10", default-features = false }
+serde.workspace = true
 serde_json = "1.0.127"
 time-primitives = { workspace = true, default-features = true }
 tokio.workspace = true

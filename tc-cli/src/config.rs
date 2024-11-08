@@ -52,6 +52,8 @@ impl Config {
 					.context("failed to read gateway contract")?,
 				tester: std::fs::read(self.relative_path(&contracts.tester))
 					.context("failed to read tester contract")?,
+				additional_params: std::fs::read(self.relative_path(&contracts.additional_params))
+					.context("Failed to convert additional params")?,
 			}
 		} else {
 			Contracts::default()
@@ -87,6 +89,7 @@ pub struct GlobalConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ContractsConfig {
+	additional_params: PathBuf,
 	proxy: PathBuf,
 	gateway: PathBuf,
 	tester: PathBuf,
@@ -94,6 +97,7 @@ struct ContractsConfig {
 
 #[derive(Default)]
 pub struct Contracts {
+	pub additional_params: Vec<u8>,
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,

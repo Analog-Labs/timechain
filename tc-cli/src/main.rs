@@ -155,7 +155,6 @@ enum Command {
 		network: NetworkId,
 		amount: u128,
 		address: String,
-		data: String,
 	},
 	Benchmark {
 		src: NetworkId,
@@ -705,8 +704,8 @@ async fn real_main() -> Result<()> {
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id).await?;
 		},
-		Command::WithdrawFunds { network, amount, address, data } => {
-			tc.withdraw_funds(network, amount, address, data).await?;
+		Command::WithdrawFunds { network, amount, address } => {
+			tc.withdraw_funds(network, amount, address).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

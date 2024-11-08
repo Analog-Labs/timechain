@@ -208,7 +208,6 @@ pub struct WithdrawFundsRequest {
 	pub gateway: Address,
 	pub amount: u128,
 	pub address: Address,
-	pub additional_data: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]

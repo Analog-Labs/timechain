@@ -436,12 +436,11 @@ impl IConnectorAdmin for Connector {
 		gateway: Address,
 		amount: u128,
 		receipient: Address,
-		additional_data: Vec<u8>,
 	) -> Result<()> {
 		let call = sol::Gateway::withdrawCall {
 			amount: U256::from(amount),
 			recipient: a_addr(receipient),
-			data: additional_data.into(),
+			data: vec![].into(),
 		};
 		self.evm_call(gateway, call, 0, None).await?;
 		Ok(())

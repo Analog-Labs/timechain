@@ -369,13 +369,7 @@ pub trait IConnectorAdmin: IConnector {
 	/// Calculate returns the latest block gas_limit for a chain.
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(
-		&self,
-		gateway: Address,
-		amount: u128,
-		address: Address,
-		additional_data: Vec<u8>,
-	) -> Result<()>;
+	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()>;
 }
 
 #[cfg(feature = "std")]

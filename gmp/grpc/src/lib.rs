@@ -285,19 +285,8 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(
-		&self,
-		gateway: Address,
-		amount: u128,
-		address: Address,
-		additional_data: Vec<u8>,
-	) -> Result<()> {
-		let request = Request::new(proto::WithdrawFundsRequest {
-			gateway,
-			amount,
-			address,
-			additional_data,
-		});
+	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()> {
+		let request = Request::new(proto::WithdrawFundsRequest { gateway, amount, address });
 		self.client.lock().await.withdraw_funds(request).await?.into_inner();
 		Ok(())
 	}

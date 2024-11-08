@@ -474,7 +474,6 @@ impl IConnectorAdmin for Connector {
 		_gateway: Address,
 		_amount: u128,
 		_address: Address,
-		_additional_data: Vec<u8>,
 	) -> Result<()> {
 		Ok(())
 	}

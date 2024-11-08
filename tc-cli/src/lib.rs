@@ -866,11 +866,9 @@ impl Tc {
 		network: NetworkId,
 		amount: u128,
 		address: String,
-		data: String,
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
-		let data = hex::decode(data)?;
 		let address = self.parse_address(Some(network), &address)?;
-		connector.withdraw_funds(gateway, amount, address, data).await
+		connector.withdraw_funds(gateway, amount, address).await
 	}
 }

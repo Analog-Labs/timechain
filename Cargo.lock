@@ -19258,6 +19258,7 @@ dependencies = [
  "schnorr-evm",
  "serde",
  "sha3",
+ "uint 0.10.0",
 ]
 
 [[package]]

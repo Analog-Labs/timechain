@@ -14,7 +14,6 @@ use rosetta_server_ethereum::utils::{
 };
 use serde::Deserialize;
 use sha3::Keccak256;
-use std::io::BufReader;
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -155,7 +154,7 @@ impl Connector {
 		let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
 
 		//Step3: send eth_rawTransaction
-		let tx_hash = self.eth_backend.send_raw_transaction(tx.into()).await?;
+		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
 		tracing::info!("Deployed factory with hash: {:?}", tx_hash);
 		Ok(())
@@ -339,7 +338,7 @@ impl IConnectorAdmin for Connector {
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let is_factory_deployed = self
-			.eth_backend
+			.backend
 			.get_code(factory_address.into(), rosetta_ethereum_types::AtBlock::Latest)
 			.await?;
 

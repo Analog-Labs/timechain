@@ -33,6 +33,7 @@ fn main() {
 		.method(method("recv_messages", "RecvMessages").build())
 		.method(method("transaction_base_fee", "TransactionBaseFee").build())
 		.method(method("block_gas_limit", "BlockGasLimit").build())
+		.method(method("withdraw_funds", "WithdrawFunds").build())
 		.build();
 	Builder::new().compile(&[service]);
 }

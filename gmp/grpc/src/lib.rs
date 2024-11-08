@@ -283,4 +283,11 @@ impl IConnectorAdmin for Connector {
 		let response = self.client.lock().await.block_gas_limit(request).await?.into_inner();
 		Ok(response.gas_limit)
 	}
+
+	/// Withdraw gateway funds.
+	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()> {
+		let request = Request::new(proto::WithdrawFundsRequest { gateway, amount, address });
+		self.client.lock().await.withdraw_funds(request).await?.into_inner();
+		Ok(())
+	}
 }

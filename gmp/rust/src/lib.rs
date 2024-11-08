@@ -467,6 +467,16 @@ impl IConnectorAdmin for Connector {
 	async fn block_gas_limit(&self) -> Result<u64> {
 		Ok(0)
 	}
+
+	/// Withdraw gateway funds.
+	async fn withdraw_funds(
+		&self,
+		_gateway: Address,
+		_amount: u128,
+		_address: Address,
+	) -> Result<()> {
+		Ok(())
+	}
 }
 
 #[derive(Debug)]

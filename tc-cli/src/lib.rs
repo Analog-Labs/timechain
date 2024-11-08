@@ -860,4 +860,15 @@ impl Tc {
 		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
 		self.runtime.submit_gmp_events(network_id, events).await
 	}
+
+	pub async fn withdraw_funds(
+		&self,
+		network: NetworkId,
+		amount: u128,
+		address: String,
+	) -> Result<()> {
+		let (connector, gateway) = self.gateway(network).await?;
+		let address = self.parse_address(Some(network), &address)?;
+		connector.withdraw_funds(gateway, amount, address).await
+	}
 }

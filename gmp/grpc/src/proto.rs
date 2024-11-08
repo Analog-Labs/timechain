@@ -202,3 +202,13 @@ pub struct BlockGasLimitRequest {}
 pub struct BlockGasLimitResponse {
 	pub gas_limit: u64,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct WithdrawFundsRequest {
+	pub gateway: Address,
+	pub amount: u128,
+	pub address: Address,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WithdrawFundsResponse {}

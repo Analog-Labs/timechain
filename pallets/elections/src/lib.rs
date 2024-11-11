@@ -172,10 +172,10 @@ pub mod pallet {
 					break;
 				}
 				if networks.contains(&network) {
-					// already tried to elect shards for this network in this block
 					continue;
+				} else {
+					networks.push(network);
 				}
-				networks.push(network);
 				let mut num_unassigned: u32 = 0;
 				let mut unassigned_and_online = Vec::new();
 				for (m, _) in Unassigned::<T>::iter_prefix(network) {
@@ -203,14 +203,13 @@ pub mod pallet {
 						.then_with(|| a.cmp(b))
 						.reverse()
 				});
-				let num_new_shards = unassigned_and_online.len() / shard_size;
 				let num_new_shards = sp_std::cmp::min(
-					num_new_shards,
+					unassigned_and_online.len().saturating_div(shard_size),
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections) as usize,
 				);
 				for _ in 0..num_new_shards {
 					let next_shard: Vec<AccountId> =
-						unassigned_and_online.iter().take(shard_size).cloned().collect();
+						unassigned_and_online.drain(..shard_size).collect();
 					next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
 					T::Shards::create_shard(network, next_shard, shard_threshold);
 					num_elections = num_elections.saturating_plus_one();

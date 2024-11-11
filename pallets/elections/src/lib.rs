@@ -163,12 +163,58 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
+			let (shard_size, shard_threshold) =
+				(ShardSize::<T>::get() as usize, ShardThreshold::<T>::get());
+			let (mut weight, mut num_elections, mut networks) =
+				(Weight::default(), 0u32, Vec::<NetworkId>::new());
 			for (network, _, _) in Unassigned::<T>::iter() {
-				weight = weight.saturating_add(Self::try_elect_shard(network));
-				num_elections = num_elections.saturating_plus_one();
 				if num_elections == T::MaxElectionsPerBlock::get() {
 					break;
+				}
+				if networks.contains(&network) {
+					// already tried to elect shards for this network in this block
+					continue;
+				}
+				networks.push(network);
+				let mut num_unassigned: u32 = 0;
+				let mut unassigned_and_online = Vec::new();
+				for (m, _) in Unassigned::<T>::iter_prefix(network) {
+					if T::Members::is_member_online(&m) {
+						unassigned_and_online.push(m);
+					}
+					num_unassigned = num_unassigned.saturating_plus_one();
+				}
+				if unassigned_and_online.len() < shard_size {
+					weight = weight.saturating_add(T::WeightInfo::try_elect_shard(num_unassigned));
+					continue;
+				}
+				if unassigned_and_online.len() == shard_size {
+					unassigned_and_online.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+					T::Shards::create_shard(network, unassigned_and_online, shard_threshold);
+					num_elections = num_elections.saturating_plus_one();
+					weight = weight.saturating_add(T::WeightInfo::try_elect_shard(num_unassigned));
+					continue;
+				}
+				// else unassigned_and_online.len() > shard_members_len:
+				unassigned_and_online.sort_unstable_by(|a, b| {
+					T::Members::member_stake(a)
+						.cmp(&T::Members::member_stake(b))
+						// sort by AccountId iff amounts are equal to uphold determinism
+						.then_with(|| a.cmp(b))
+						.reverse()
+				});
+				let num_new_shards = unassigned_and_online.len() / shard_size;
+				let num_new_shards = sp_std::cmp::min(
+					num_new_shards,
+					T::MaxElectionsPerBlock::get().saturating_sub(num_elections) as usize,
+				);
+				for _ in 0..num_new_shards {
+					let next_shard: Vec<AccountId> =
+						unassigned_and_online.iter().take(shard_size).cloned().collect();
+					next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+					T::Shards::create_shard(network, next_shard, shard_threshold);
+					num_elections = num_elections.saturating_plus_one();
+					weight = weight.saturating_add(T::WeightInfo::try_elect_shard(num_unassigned));
 				}
 			}
 			log::info!("on_initialize end");

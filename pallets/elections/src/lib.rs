@@ -176,8 +176,7 @@ pub mod pallet {
 				} else {
 					networks.push(network);
 				}
-				let mut num_unassigned: u32 = 0;
-				let mut unassigned_and_online = Vec::new();
+				let (mut unassigned_and_online, mut num_unassigned) = (Vec::new(), 0);
 				for (m, _) in Unassigned::<T>::iter_prefix(network) {
 					if T::Members::is_member_online(&m) {
 						unassigned_and_online.push(m);
@@ -185,24 +184,19 @@ pub mod pallet {
 					num_unassigned = num_unassigned.saturating_plus_one();
 				}
 				if unassigned_and_online.len() < shard_size {
-					weight = weight.saturating_add(T::WeightInfo::try_elect_shard(num_unassigned));
-					continue;
-				}
-				if unassigned_and_online.len() == shard_size {
-					unassigned_and_online.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-					T::Shards::create_shard(network, unassigned_and_online, shard_threshold);
 					num_elections = num_elections.saturating_plus_one();
 					weight = weight.saturating_add(T::WeightInfo::try_elect_shard(num_unassigned));
 					continue;
 				}
-				// else unassigned_and_online.len() > shard_members_len:
-				unassigned_and_online.sort_unstable_by(|a, b| {
-					T::Members::member_stake(a)
-						.cmp(&T::Members::member_stake(b))
-						// sort by AccountId iff amounts are equal to uphold determinism
-						.then_with(|| a.cmp(b))
-						.reverse()
-				});
+				if unassigned_and_online.len() > shard_size {
+					unassigned_and_online.sort_unstable_by(|a, b| {
+						T::Members::member_stake(a)
+							.cmp(&T::Members::member_stake(b))
+							// sort by AccountId iff amounts are equal to uphold determinism
+							.then_with(|| a.cmp(b))
+							.reverse()
+					});
+				}
 				let num_new_shards = sp_std::cmp::min(
 					unassigned_and_online.len().saturating_div(shard_size),
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections) as usize,

@@ -74,7 +74,6 @@ impl State {
 		let mut total_tasks = 0;
 		let mut failed_tasks = 0;
 
-		// Sum total tasks and failed tasks from the records within the last 5 minutes
 		for record in task_records.iter() {
 			total_tasks += record.total_tasks;
 			failed_tasks += record.tasks_failed;

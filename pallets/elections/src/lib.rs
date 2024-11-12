@@ -171,29 +171,15 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let (mut weight, mut num_elections, mut networks) =
-				(Weight::default(), 0u32, Vec::<NetworkId>::new());
-			for (network, _, _) in Unassigned::<T>::iter() {
-				// TODO: just iterate over T::Networks::get_networks() instead of this crap
-				if networks.contains(&network) {
-					// Already elected max shards for this network => skip to next
-					continue;
-				} else {
-					networks.push(network);
-					networks.sort();
-				}
-				// Elect as many new shards as possible for the network
-				let (weight_consumed, shards_elected) = Self::try_elect_shards(
+			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
+			for network in T::Networks::get_networks() {
+				let (wt, elected) = Self::try_elect_shards(
 					network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
 				);
-				weight = weight.saturating_add(weight_consumed);
-				num_elections = num_elections.saturating_add(shards_elected);
+				weight = weight.saturating_add(wt);
+				num_elections = num_elections.saturating_add(elected);
 				if num_elections >= T::MaxElectionsPerBlock::get() {
-					break;
-				}
-				if networks == T::Networks::get_networks() {
-					// Max shards have been elected to each network respectively
 					break;
 				}
 			}
@@ -229,7 +215,7 @@ pub mod pallet {
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
 			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
-			for (network, _, _) in Unassigned::<T>::iter() {
+			for network in T::Networks::get_networks() {
 				Self::try_elect_shards(network, T::MaxElectionsPerBlock::get());
 			}
 			Ok(())
@@ -281,6 +267,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns (Weight Consumed, # of Shards Elected)
 		fn try_elect_shards(network: NetworkId, max_elections: u32) -> (Weight, u32) {
 			let (mut members, mut unassigned_count) = (Vec::new(), 0u32);
@@ -294,6 +281,7 @@ pub mod pallet {
 				(ShardSize::<T>::get(), ShardThreshold::<T>::get(), members.len() as u32);
 			if members_size < shard_size.into() {
 				// 2 reads per unassigned member, 0 writes, 0 shards elected
+				// TODO: separate benchmark for this branch
 				return (T::DbWeight::get().reads(unassigned_count.saturating_mul(2).into()), 0u32);
 			}
 			if members_size > shard_size.into() {

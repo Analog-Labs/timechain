@@ -64,6 +64,7 @@ impl pallet_elections::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
+	// TODO: configure pallet_networks for this and all other mocks
 	type Networks = Networks;
 	type MaxElectionsPerBlock = ConstU32<10>;
 }

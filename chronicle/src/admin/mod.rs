@@ -140,7 +140,7 @@ async fn health(req: Request<State>) -> tide::Result {
 		if total_tasks > 0 { (failed_tasks as f64 / total_tasks as f64) * 100.0 } else { 0.0 };
 
 	let response_body = json!({
-		"last_ping_time_in_secs": ping_time,
+		"external_node_ping_in_secs": ping_time,
 		"failed_tasks_percentage": failed_percentage,
 	});
 

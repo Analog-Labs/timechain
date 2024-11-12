@@ -168,10 +168,17 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
 			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
-			for network in T::Networks::get_networks() {
+			// TODO: better to store a counter in storage and go in order
+			let networks = T::Networks::get_networks();
+			let networks: Vec<NetworkId> = if n % 2u32.into() == 0u32.into() {
+				networks.into_iter().collect()
+			} else {
+				networks.into_iter().rev().collect()
+			};
+			for network in networks {
 				let (wt, elected) = Self::try_elect_shards(
 					network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),

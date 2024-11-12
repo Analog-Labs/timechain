@@ -61,7 +61,6 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn set_shard_config() -> Weight;
 		fn try_elect_shard(b: u32) -> Weight;
-		// TODO: benchmarking
 		fn try_elect_shards(a: u32, b: u32) -> Weight;
 	}
 
@@ -277,11 +276,9 @@ pub mod pallet {
 				}
 				unassigned_count = unassigned_count.saturating_plus_one();
 			}
-			let (shard_size, shard_threshold, members_size) =
-				(ShardSize::<T>::get(), ShardThreshold::<T>::get(), members.len() as u32);
+			let (shard_size, members_size) = (ShardSize::<T>::get(), members.len() as u32);
 			if members_size < shard_size.into() {
 				// 2 reads per unassigned member, 0 writes, 0 shards elected
-				// TODO: separate benchmark for this branch
 				return (T::DbWeight::get().reads(unassigned_count.saturating_mul(2).into()), 0u32);
 			}
 			if members_size > shard_size.into() {
@@ -298,7 +295,7 @@ pub mod pallet {
 			for _ in 0..num_new_shards {
 				let next_shard: Vec<AccountId> = members.drain(..(shard_size as usize)).collect();
 				next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-				T::Shards::create_shard(network, next_shard, shard_threshold);
+				T::Shards::create_shard(network, next_shard, ShardThreshold::<T>::get());
 			}
 			(T::WeightInfo::try_elect_shards(unassigned_count, num_new_shards), num_new_shards)
 		}

@@ -44,6 +44,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+    ports: 
+      - "8080:8080"
 
   gmp-grpc-1:
     image: 'analoglabs/gmp-grpc-development'
@@ -72,6 +74,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+    ports: 
+      - "8081:8080"
 
   chronicle-2:
     image: 'analoglabs/chronicle-development'
@@ -90,6 +94,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+    ports: 
+      - "8082:8080"
 
   ethereum:
     image: 'ethereum/client-go:v1.14.11'

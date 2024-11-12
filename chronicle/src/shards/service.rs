@@ -1,10 +1,12 @@
 use super::tss::{Tss, TssAction, VerifiableSecretSharingCommitment};
+use crate::admin::AdminMsg;
 use crate::network::{Message, Network, PeerId, TssMessage};
 use crate::runtime::Runtime;
 use crate::tasks::{TaskExecutor, TaskParams};
 use crate::TW_LOG;
 use anyhow::Result;
 use futures::future::join_all;
+use futures::SinkExt;
 use futures::{
 	channel::{mpsc, oneshot},
 	future::poll_fn,
@@ -32,6 +34,7 @@ pub struct TimeWorkerParams<Tx, Rx> {
 	pub tss_request: mpsc::Receiver<TssSigningRequest>,
 	pub net_request: Rx,
 	pub tss_keyshare_cache: PathBuf,
+	pub admin_request: mpsc::Sender<AdminMsg>,
 }
 
 pub struct TimeWorker<Tx, Rx> {
@@ -51,6 +54,7 @@ pub struct TimeWorker<Tx, Rx> {
 		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,
 	>,
 	tss_keyshare_cache: PathBuf,
+	admin_request: mpsc::Sender<AdminMsg>,
 }
 
 impl<Tx, Rx> TimeWorker<Tx, Rx>
@@ -66,6 +70,7 @@ where
 			tss_request,
 			net_request,
 			tss_keyshare_cache,
+			admin_request,
 		} = worker_params;
 		Self {
 			substrate,
@@ -81,6 +86,7 @@ where
 			channels: Default::default(),
 			outgoing_requests: Default::default(),
 			tss_keyshare_cache,
+			admin_request,
 		}
 	}
 
@@ -148,6 +154,9 @@ where
 					&self.tss_keyshare_cache,
 				)?,
 			);
+			if let Err(e) = self.admin_request.send(AdminMsg::JoinedShard(shard_id)).await {
+				tracing::error!("Admin request failed: {:?}", e);
+			};
 			self.poll_actions(&span, shard_id, block_number).await;
 		}
 		for shard_id in shards.iter().copied() {
@@ -209,11 +218,13 @@ where
 				shard_id,
 				"running task executor"
 			);
-			let (start_sessions, complete_sessions) = match executor
+			let (start_sessions, complete_sessions, failed_tasks) = match executor
 				.process_tasks(block, block_number, shard_id, self.block_height)
 				.await
 			{
-				Ok((start_sessions, complete_sessions)) => (start_sessions, complete_sessions),
+				Ok((start_sessions, complete_sessions, failed_tasks)) => {
+					(start_sessions, complete_sessions, failed_tasks)
+				},
 				Err(error) => {
 					event!(
 						target: TW_LOG,
@@ -226,6 +237,14 @@ where
 					continue;
 				},
 			};
+			if let Err(e) = self
+				.admin_request
+				.send(AdminMsg::FailedTasks(start_sessions.len() as u64, failed_tasks))
+				.await
+			{
+				tracing::error!("Admin request failed: {:?}", e);
+			}
+
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
 			};
@@ -487,6 +506,9 @@ where
 				data = block_stream.next() => {
 					if let Some(index) = data {
 						self.block_height = index;
+						if let Err(e) = self.admin_request.send(AdminMsg::TargetBlockReceived).await {
+							tracing::error!("Admin request error: {:?}", e);
+						};
 					}
 				}
 			}

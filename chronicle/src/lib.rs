@@ -153,6 +153,7 @@ pub async fn run_chronicle(
 		tss_request: tss_rx,
 		net_request: network_requests,
 		tss_keyshare_cache: config.tss_keyshare_cache,
+		admin_request: admin.clone(),
 	});
 	time_worker.run(&span).await;
 	Ok(())
@@ -198,7 +199,9 @@ mod tests {
 			tx,
 		));
 		let msg = rx.next().await.unwrap();
-		let AdminMsg::SetConfig(config) = msg;
+		let AdminMsg::SetConfig(config) = msg else {
+			panic!("Wrong msg");
+		};
 		tracing::info!("received chronicle config");
 		mock.register_member(
 			network_id,

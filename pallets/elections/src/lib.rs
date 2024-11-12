@@ -302,56 +302,5 @@ pub mod pallet {
 			}
 			(T::WeightInfo::try_elect_shards(unassigned_count, num_new_shards), num_new_shards)
 		}
-
-		///   Attempts to elect a new shard for a network.
-		/// # Flow
-		///    1. Calls `new_shard_members` to get a list of new shard members.
-		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
-		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
-		pub(crate) fn try_elect_shard(network: NetworkId) -> Weight {
-			let num_unassigned = match Self::new_shard_members(network) {
-				(Some(members), n) => {
-					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-					T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
-					n
-				},
-				(None, n) => n,
-			};
-			T::WeightInfo::try_elect_shard(num_unassigned)
-		}
-
-		///  Determines the members for a new shard.
-		/// # Flow
-		///    1. Retrieves the required shard size.
-		///    2. Collects unassigned members for the given network who are online.
-		///    3. Returns `None` if there are not enough members to form a shard.
-		///    4. If there are just enough members, returns the list of members.
-		///    5. If there are more members than needed, sorts them by their stake and selects the top members to form the shard.
-		fn new_shard_members(network: NetworkId) -> (Option<Vec<AccountId>>, u32) {
-			let mut num_unassigned: u32 = 0;
-			let mut members = Vec::new();
-			for (m, _) in Unassigned::<T>::iter_prefix(network) {
-				if T::Members::is_member_online(&m) {
-					members.push(m);
-				}
-				num_unassigned = num_unassigned.saturating_plus_one();
-			}
-			let shard_members_len = ShardSize::<T>::get() as usize;
-			if members.len() < shard_members_len {
-				return (None, num_unassigned);
-			}
-			if members.len() == shard_members_len {
-				return (Some(members), num_unassigned);
-			}
-			// else members.len() > shard_members_len:
-			members.sort_unstable_by(|a, b| {
-				T::Members::member_stake(a)
-					.cmp(&T::Members::member_stake(b))
-					// sort by AccountId iff amounts are equal to uphold determinism
-					.then_with(|| a.cmp(b))
-					.reverse()
-			});
-			(Some(members.into_iter().take(shard_members_len).collect()), num_unassigned)
-		}
 	}
 }

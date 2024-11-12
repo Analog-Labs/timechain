@@ -101,6 +101,10 @@ pub mod pallet {
 		type MaxElectionsPerBlock: Get<u32>;
 	}
 
+	/// Counter for electing shards per network in order over multiple blocks
+	#[pallet::storage]
+	pub type NetworkCounter<T: Config> = StorageValue<_, u32, ValueQuery>;
+
 	/// Size of each new shard
 	#[pallet::storage]
 	pub type ShardSize<T: Config> = StorageValue<_, u16, ValueQuery>;
@@ -168,27 +172,32 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
 			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
-			// TODO: better to store a counter in storage and go in order
 			let networks = T::Networks::get_networks();
-			let networks: Vec<NetworkId> = if n % 2u32.into() == 0u32.into() {
-				networks.into_iter().collect()
-			} else {
-				networks.into_iter().rev().collect()
-			};
-			for network in networks {
+			let net_counter0 = NetworkCounter::<T>::get();
+			let (mut net_counter, mut all_nets_elected) = (net_counter0, false);
+			while num_elections < T::MaxElectionsPerBlock::get() {
+				let Some(next_network) = networks.get(net_counter as usize) else {
+					net_counter = 0;
+					break;
+				};
 				let (wt, elected) = Self::try_elect_shards(
-					network,
+					*next_network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
 				);
 				weight = weight.saturating_add(wt);
 				num_elections = num_elections.saturating_add(elected);
-				if num_elections >= T::MaxElectionsPerBlock::get() {
+				net_counter = (net_counter + 1) % networks.len() as u32;
+				if net_counter == net_counter0 {
+					all_nets_elected = true;
 					break;
 				}
 			}
+			if !all_nets_elected {
+				NetworkCounter::<T>::put(net_counter);
+			} // else counter starts where it left off => no write required
 			log::info!("on_initialize end");
 			weight
 		}

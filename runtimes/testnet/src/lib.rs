@@ -987,6 +987,7 @@ impl pallet_elections::Config for Runtime {
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
+	type Networks = Networks;
 	type MaxElectionsPerBlock = ConstU32<5>;
 }
 

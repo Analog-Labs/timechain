@@ -284,7 +284,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns (Weight Consumed, # of Shards Elected)
-		fn try_elect_shards(network: NetworkId, max_elections: u32) -> (Weight, u32) {
+		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> (Weight, u32) {
 			let (mut members, mut unassigned_count) = (Vec::new(), 0u32);
 			for (m, _) in Unassigned::<T>::iter_prefix(network) {
 				if T::Members::is_member_online(&m) {

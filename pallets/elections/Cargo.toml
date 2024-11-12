@@ -21,6 +21,7 @@ scale-info.workspace = true
 serde.workspace = true
 simple-mermaid.workspace = true
 pallet-members.workspace = true
+pallet-networks.workspace = true
 polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime", "sp-std" ] }
 
 time-primitives.workspace = true
@@ -42,7 +43,7 @@ std = [
 	"serde/std",
 	"pallet-members/std",
 	"polkadot-sdk/std",
-
+	"pallet-networks/std",
 	"time-primitives/std",
 ]
 runtime-benchmarks = [

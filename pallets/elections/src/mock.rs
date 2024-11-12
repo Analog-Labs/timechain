@@ -9,7 +9,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{NetworkId, PublicKey, ShardId, TasksInterface};
+use time_primitives::{Address, NetworkId, NetworksInterface, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -22,6 +22,26 @@ impl TasksInterface for MockTasks {
 	fn shard_online(_: ShardId, _: NetworkId) {}
 	fn shard_offline(_: ShardId, _: NetworkId) {}
 	fn gateway_registered(_: NetworkId, _: u64) {}
+}
+
+pub struct MockNetworks;
+
+impl NetworksInterface for MockNetworks {
+	fn gateway(_network: NetworkId) -> Option<Address> {
+		Some([0; 32])
+	}
+	fn get_networks() -> Vec<NetworkId> {
+		vec![0]
+	}
+	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
+		5
+	}
+	fn batch_gas_limit(_network: NetworkId) -> u128 {
+		10
+	}
+	fn shard_task_limit(_network: NetworkId) -> u32 {
+		10
+	}
 }
 
 frame_support::construct_runtime!(
@@ -64,8 +84,7 @@ impl pallet_elections::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
-	// TODO: configure pallet_networks for this and all other mocks
-	type Networks = Networks;
+	type Networks = MockNetworks;
 	type MaxElectionsPerBlock = ConstU32<10>;
 }
 

@@ -37,6 +37,9 @@ impl NetworksInterface for MockNetworks {
 	fn gateway(_network: NetworkId) -> Option<Address> {
 		Some([0; 32])
 	}
+	fn get_networks() -> Vec<NetworkId> {
+		vec![0]
+	}
 	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
 		5
 	}
@@ -97,7 +100,6 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
-		Networks: pallet_networks,
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
@@ -241,6 +243,7 @@ impl pallet_elections::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
+	type Networks = MockNetworks;
 	type MaxElectionsPerBlock = ConstU32<10>;
 }
 
@@ -253,13 +256,6 @@ impl pallet_shards::Config for Test {
 	type Elections = Elections;
 	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
-}
-
-impl pallet_networks::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
-	type WeightInfo = ();
-	type Tasks = Tasks;
 }
 
 impl pallet_tasks::Config for Test {

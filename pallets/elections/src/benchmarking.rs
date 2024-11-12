@@ -6,12 +6,16 @@ use polkadot_sdk::{frame_system, sp_runtime};
 
 use frame_system::RawOrigin;
 use pallet_members::{MemberOnline, MemberStake};
-use sp_runtime::Vec;
-use time_primitives::{AccountId, NetworkId};
+use pallet_networks::NetworkName;
+use sp_runtime::{BoundedVec, Vec};
+use time_primitives::{
+	AccountId, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, CHAIN_NAME_LEN,
+	CHAIN_NET_LEN,
+};
 const ETHEREUM: NetworkId = 0;
 
 benchmarks! {
-	where_clause { where T: pallet_members::Config }
+	where_clause { where T: pallet_members::Config + pallet_networks::Config }
 
 	set_shard_config {
 	}: _(RawOrigin::Root, 3, 1)
@@ -22,17 +26,22 @@ benchmarks! {
 		let b in (ShardSize::<T>::get().into())..256;
 		let max_stake: u128 = 1_000_000_000;
 		let mut shard: Vec<AccountId> = Vec::new();
+		let network_name = (
+			ChainName(BoundedVec::truncate_from("ETHEREUM".as_str().encode())),
+			ChainNetwork(BoundedVec::truncate_from("SEPOLIA".as_str().encode())),
+		);
+		NetworkName::<T>::insert(ETHEREUM, network_name);
 		// TODO REFACTOR
-		// for i in 0..b {
-		// 	let member = Into::<AccountId>::into([i as u8; 32]);
-		// 	Unassigned::<T>::insert(ETHEREUM, member.clone(), ());
-		// 	MemberOnline::<T>::insert(member.clone(), ());
-		// 	let member_stake: u128 = max_stake - Into::<u128>::into(i);
-		// 	MemberStake::<T>::insert(member.clone(), member_stake);
-		// 	if (shard.len() as u16) < ShardSize::<T>::get() {
-		// 		shard.push(member);
-		// 	}
-		// }
+		for i in 0..b {
+			let member = Into::<AccountId>::into([i as u8; 32]);
+			Unassigned::<T>::insert(ETHEREUM, member.clone(), ());
+			MemberOnline::<T>::insert(member.clone(), ());
+			let member_stake: u128 = max_stake - Into::<u128>::into(i);
+			MemberStake::<T>::insert(member.clone(), member_stake);
+			if (shard.len() as u16) < ShardSize::<T>::get() {
+				shard.push(member);
+			}
+		}
 		let pre_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
 	}: {
 		Pallet::<T>::try_elect_shards(ETHEREUM, T::MaxElectionsPerBlock::get());

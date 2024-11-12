@@ -296,8 +296,7 @@ pub mod pallet {
 			if members_size < shard_size.into() {
 				// 2 reads per unassigned member, 0 writes, 0 shards elected
 				return (T::DbWeight::get().reads(unassigned_count.saturating_mul(2).into()), 0u32);
-			}
-			if members_size > shard_size.into() {
+			} else if members_size > shard_size.into() {
 				members.sort_unstable_by(|a, b| {
 					T::Members::member_stake(a)
 						.cmp(&T::Members::member_stake(b))
@@ -305,7 +304,7 @@ pub mod pallet {
 						.then_with(|| a.cmp(b))
 						.reverse()
 				});
-			}
+			} // else equal => num_new_shards == 1
 			let num_new_shards =
 				sp_std::cmp::min(members_size.saturating_div(shard_size.into()), max_elections);
 			for _ in 0..num_new_shards {

@@ -1,17 +1,14 @@
 use super::*;
 use crate::Pallet;
 
-use polkadot_sdk::frame_benchmarking::benchmarks;
-use polkadot_sdk::{frame_system, sp_runtime};
-
 use frame_system::RawOrigin;
 use pallet_members::{MemberOnline, MemberStake};
 use pallet_networks::NetworkName;
+use polkadot_sdk::frame_benchmarking::benchmarks;
+use polkadot_sdk::{frame_system, sp_runtime};
+use scale_codec::Encode;
 use sp_runtime::{BoundedVec, Vec};
-use time_primitives::{
-	AccountId, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, CHAIN_NAME_LEN,
-	CHAIN_NET_LEN,
-};
+use time_primitives::{AccountId, ChainName, ChainNetwork, NetworkId};
 const ETHEREUM: NetworkId = 0;
 
 benchmarks! {
@@ -31,15 +28,20 @@ benchmarks! {
 		NetworkName::<T>::insert(ETHEREUM, net_name);
 		// Register enough members for `b` new shards
 		let mut all_new_shard_members = Vec::new();
+		let account = |x, y| -> AccountId {
+			let mut acc = [0u8; 32];
+			acc[..16].copy_from_slice(&[x as u8; 16]);
+			acc[16..].copy_from_slice(&[y as u8; 16]);
+			Into::<AccountId>::into(acc)
+		};
 		for i in 0..b {
 			for j in 0..ShardSize::<T>::get() {
-				// TODO: convert i + j into AccountId
-				let member = Into::<AccountId>::into([i as u8; 32]);
-				all_new_shard_members.push(member);
+				let member = account(i, j);
 				Unassigned::<T>::insert(ETHEREUM, member.clone(), ());
 				MemberOnline::<T>::insert(member.clone(), ());
-				let member_stake: u128 = 1_000_000_000 - i.into() - j.into();
+				let member_stake: u128 = 1_000_000_000 - <u32 as Into<u128>>::into(i) -  <u16 as Into<u128>>::into(j);
 				MemberStake::<T>::insert(member.clone(), member_stake);
+				all_new_shard_members.push(member);
 			}
 		}
 		let pre_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
@@ -48,14 +50,14 @@ benchmarks! {
 	} verify {
 		let post_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
 		// ShardSize # of unassigned were elected to a shard
-		// assert_eq!(
-		// 	pre_unassigned_count - post_unassigned_count,
-		// 	(b as u16).saturating_mul(ShardSize::<T>::get()),
-		// );
+		assert_eq!(
+			pre_unassigned_count - post_unassigned_count,
+			(b as u16).saturating_mul(ShardSize::<T>::get()),
+		);
 		// New shard members were removed from Unassigned
-		// for m in all_new_shard_members {
-		// 	assert!(Unassigned::<T>::get(ETHEREUM, m).is_none());
-		// }
+		for m in all_new_shard_members {
+			assert!(Unassigned::<T>::get(ETHEREUM, m).is_none());
+		}
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

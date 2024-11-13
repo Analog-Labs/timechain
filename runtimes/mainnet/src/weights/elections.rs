@@ -77,7 +77,7 @@ impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
 	/// Proof: `Shards::ShardState` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `b` is `[3, 256]`.
 	/// The range of component `b` is `[3, 256]`.
-	fn try_elect_shard(b: u32, ) -> Weight {
+	fn try_elect_shards(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `184 + b * (178 ±0)`
 		//  Estimated: `3651 + b * (2653 ±0)`

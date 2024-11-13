@@ -52,6 +52,7 @@ frame_support::construct_runtime!(
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Elections: pallet_elections::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Members: pallet_members,
+		Networks: pallet_networks,
 	}
 );
 
@@ -107,6 +108,13 @@ impl pallet_members::Config for Test {
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<100>;
+}
+
+impl pallet_networks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Tasks = MockTasks;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

@@ -45,11 +45,10 @@ mod tests;
 
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
-	use polkadot_sdk::{frame_support, frame_system, sp_runtime, sp_std};
+	use polkadot_sdk::{frame_support, frame_system, sp_std};
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 
@@ -60,18 +59,14 @@ pub mod pallet {
 
 	pub trait WeightInfo {
 		fn set_shard_config() -> Weight;
-		fn try_elect_shard(b: u32) -> Weight;
-		fn try_elect_shards(a: u32, b: u32) -> Weight;
+		fn try_elect_shards(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn set_shard_config() -> Weight {
 			Weight::default()
 		}
-		fn try_elect_shard(_: u32) -> Weight {
-			Weight::default()
-		}
-		fn try_elect_shards(_: u32, _: u32) -> Weight {
+		fn try_elect_shards(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -183,11 +178,11 @@ pub mod pallet {
 					net_counter = 0;
 					break;
 				};
-				let (wt, elected) = Self::try_elect_shards(
+				let elected = Self::try_elect_shards(
 					*next_network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
 				);
-				weight = weight.saturating_add(wt);
+				weight = weight.saturating_add(T::WeightInfo::try_elect_shards(elected));
 				num_elections = num_elections.saturating_add(elected);
 				net_counter = (net_counter + 1) % networks.len() as u32;
 				if net_counter == net_counter0 {
@@ -284,19 +279,20 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns (Weight Consumed, # of Shards Elected)
-		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> (Weight, u32) {
-			let (mut members, mut unassigned_count) = (Vec::new(), 0u32);
+		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
+			let mut members = Vec::new();
+			// additional optimization would be storing this separately in order of member stake
 			for (m, _) in Unassigned::<T>::iter_prefix(network) {
 				if T::Members::is_member_online(&m) {
 					members.push(m);
 				}
-				unassigned_count = unassigned_count.saturating_plus_one();
 			}
-			let (shard_size, members_size) = (ShardSize::<T>::get(), members.len() as u32);
+			let members_size = members.len() as u32;
+			let shard_size = ShardSize::<T>::get();
 			if members_size < shard_size.into() {
-				// 2 reads per unassigned member, 0 writes, 0 shards elected
-				return (T::DbWeight::get().reads(unassigned_count.saturating_mul(2).into()), 0u32);
-			} else if members_size > shard_size.into() {
+				return 0u32;
+			}
+			if members_size > shard_size.into() {
 				members.sort_unstable_by(|a, b| {
 					T::Members::member_stake(a)
 						.cmp(&T::Members::member_stake(b))
@@ -304,7 +300,7 @@ pub mod pallet {
 						.then_with(|| a.cmp(b))
 						.reverse()
 				});
-			} // else equal => num_new_shards == 1
+			}
 			let num_new_shards =
 				sp_std::cmp::min(members_size.saturating_div(shard_size.into()), max_elections);
 			for _ in 0..num_new_shards {
@@ -312,7 +308,7 @@ pub mod pallet {
 				next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
 				T::Shards::create_shard(network, next_shard, ShardThreshold::<T>::get());
 			}
-			(T::WeightInfo::try_elect_shards(unassigned_count, num_new_shards), num_new_shards)
+			num_new_shards
 		}
 	}
 }

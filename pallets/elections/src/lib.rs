@@ -278,7 +278,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Elects as many as `max_elections` number of new shards for `networks`
-		/// Returns (Weight Consumed, # of Shards Elected)
+		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
 			let mut members = Vec::new();
 			// additional optimization would be storing this separately in order of member stake

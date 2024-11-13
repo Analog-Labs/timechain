@@ -103,6 +103,7 @@ frame_support::construct_runtime!(
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
+		Networks: pallet_networks,
 	}
 );
 
@@ -256,6 +257,13 @@ impl pallet_shards::Config for Test {
 	type Elections = Elections;
 	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
+}
+
+impl pallet_networks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Tasks = Tasks;
 }
 
 impl pallet_tasks::Config for Test {

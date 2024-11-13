@@ -25,10 +25,10 @@ benchmarks! {
 		let b in 1..100;
 		// Insert network
 		let net_name = (
-			ChainName(BoundedVec::truncate_from("ETHEREUM".as_str().encode())),
-			ChainNetwork(BoundedVec::truncate_from("SEPOLIA".as_str().encode())),
+			ChainName(BoundedVec::truncate_from("ETHEREUM".encode())),
+			ChainNetwork(BoundedVec::truncate_from("SEPOLIA".encode())),
 		);
-		NetworkName::<T>::insert(ETHEREUM, network_name);
+		NetworkName::<T>::insert(ETHEREUM, net_name);
 		// Register enough members for `b` new shards
 		let mut all_new_shard_members = Vec::new();
 		for i in 0..b {

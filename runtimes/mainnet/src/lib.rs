@@ -1323,7 +1323,7 @@ impl pallet_elections::Config for Runtime {
 	type Members = Members;
 	type Shards = Shards;
 	type Networks = Networks;
-	type MaxElectionsPerBlock = ConstU32<150>;
+	type MaxElectionsPerBlock = ConstU32<10>;
 }
 
 impl pallet_shards::Config for Runtime {
@@ -2215,9 +2215,5 @@ mod tests {
 			max_elections_per_block <= num_elections,
 			"MaxElectionsPerBlock {max_elections_per_block} > max number of Elections per block tested = {num_elections}"
 		);
-		// assert!(
-		// 	max_elections_per_block > num_elections,
-		// 	"RESET IT: MaxElectionsPerBlock {max_elections_per_block} < max number of Elections per block tested = {num_elections}"
-		// );
 	}
 }

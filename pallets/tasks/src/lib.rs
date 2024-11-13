@@ -454,6 +454,8 @@ pub mod pallet {
 							Self::finish_task(network, task_id, Ok(()));
 						}
 					},
+					//TODO
+					GmpEvent::Cctp(_) => todo!(),
 				}
 			}
 		}

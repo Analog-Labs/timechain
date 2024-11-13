@@ -1,4 +1,4 @@
-use crate::{BatchId, GmpEvent, TssSignature, ANLOG};
+use crate::{BatchId, GmpEvent, Hash, TssSignature, ANLOG};
 use core::ops::Range;
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -13,6 +13,7 @@ pub type TaskId = u64;
 pub enum Task {
 	ReadGatewayEvents { blocks: Range<u64> },
 	SubmitGatewayMessage { batch_id: BatchId },
+	Cctp { hash: Hash },
 }
 
 #[cfg(feature = "std")]
@@ -26,6 +27,9 @@ impl std::fmt::Display for Task {
 			},
 			Self::SubmitGatewayMessage { batch_id } => {
 				write!(f, "SubmitGatewayMessage({batch_id})")
+			},
+			Self::Cctp { hash } => {
+				write!(f, "Cctp({hash:?})")
 			},
 		}
 	}

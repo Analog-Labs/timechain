@@ -130,6 +130,8 @@ impl TaskParams {
 					None
 				}
 			},
+			//TODO
+			Task::Cctp { hash } => todo!(),
 		};
 		if let Some(result) = result {
 			tracing::debug!(task_id = task_id, shard_id = shard_id, "submitting task result",);

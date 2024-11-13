@@ -8,6 +8,7 @@ pub type Address = [u8; 32];
 pub type Gateway = Address;
 pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
+pub type Attestation = [u8; 32];
 pub type BatchId = u64;
 
 const GMP_VERSION: &str = "Analog GMP v2";
@@ -101,6 +102,7 @@ pub enum GatewayOp {
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
 		TssPublicKey,
 	),
+	Cctp(Hash, Attestation),
 }
 
 impl GatewayOp {
@@ -125,6 +127,11 @@ impl GatewayOp {
 				buf.push(2);
 				buf.extend_from_slice(pubkey);
 			},
+			Self::Cctp(hash, attestation) => {
+				buf.push(3);
+				buf.extend_from_slice(hash);
+				buf.extend_from_slice(attestation);
+			},
 		}
 	}
 
@@ -148,6 +155,14 @@ impl std::fmt::Display for GatewayOp {
 			},
 			Self::UnregisterShard(key) => {
 				writeln!(f, "unregister_shard {}", hex::encode(key))
+			},
+			Self::Cctp(hash, attestation) => {
+				writeln!(
+					f,
+					"cctp_hash: {}, cctp_attestation {}",
+					hex::encode(hash),
+					hex::encode(attestation)
+				)
 			},
 		}
 	}
@@ -226,6 +241,7 @@ pub enum GmpEvent {
 	MessageReceived(GmpMessage),
 	MessageExecuted(MessageId),
 	BatchExecuted(BatchId),
+	Cctp(Hash),
 }
 
 #[cfg(feature = "std")]
@@ -246,6 +262,9 @@ impl std::fmt::Display for GmpEvent {
 			},
 			Self::BatchExecuted(batch) => {
 				writeln!(f, "batch_executed {}", batch)
+			},
+			Self::Cctp(hash) => {
+				writeln!(f, "cctp {:?}", hash)
 			},
 		}
 	}

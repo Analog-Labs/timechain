@@ -1,4 +1,4 @@
-use crate::{BatchId, GmpEvent, Hash, TssSignature, ANLOG};
+use crate::{Attestation, BatchId, GmpEvent, Hash, TssSignature, ANLOG};
 use core::ops::Range;
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -86,5 +86,8 @@ pub enum TaskResult {
 	},
 	SubmitGatewayMessage {
 		error: ErrorMsg,
+	},
+	CctpResult {
+		attestation: Attestation,
 	},
 }

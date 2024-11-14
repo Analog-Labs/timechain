@@ -454,8 +454,9 @@ pub mod pallet {
 							Self::finish_task(network, task_id, Ok(()));
 						}
 					},
-					//TODO
-					GmpEvent::Cctp(_) => todo!(),
+					GmpEvent::Cctp(_) => {
+						//TODO create a new task for task type Cctp
+					},
 				}
 			}
 		}

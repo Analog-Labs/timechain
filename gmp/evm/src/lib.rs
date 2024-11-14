@@ -258,6 +258,7 @@ impl IConnector for Connector {
 					sol::Gateway::MessageReceived::SIGNATURE_HASH.0.into(),
 					sol::Gateway::MessageExecuted::SIGNATURE_HASH.0.into(),
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH.0.into(),
+					sol::Gateway::Cctp::SIGNATURE_HASH.0.into(),
 				],
 				block: FilterBlockOption::Range {
 					from_block: Some(blocks.start.into()),
@@ -298,6 +299,11 @@ impl IConnector for Connector {
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::BatchExecuted::decode_log(&log, true)?;
 						events.push(GmpEvent::BatchExecuted(log.batch));
+						break;
+					},
+					sol::Gateway::Cctp::SIGNATURE_HASH => {
+						let log = sol::Gateway::Cctp::decode_log(&log, true)?;
+						events.push(GmpEvent::Cctp(log.hash.into()));
 						break;
 					},
 					_ => {},

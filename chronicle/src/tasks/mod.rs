@@ -130,8 +130,11 @@ impl TaskParams {
 					None
 				}
 			},
-			//TODO
-			Task::Cctp { hash } => todo!(),
+			Task::Cctp { hash } => {
+				// TODO fetch the attestation for the hash and submit it.
+				let attesation = [0u8; 32];
+				Some(TaskResult::CctpResult { attestation })
+			},
 		};
 		if let Some(result) = result {
 			tracing::debug!(task_id = task_id, shard_id = shard_id, "submitting task result",);

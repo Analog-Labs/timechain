@@ -364,7 +364,7 @@ pub mod pallet {
 					Err(error)
 				},
 				(Task::Cctp { hash }, TaskResult::Cctp { attestation }) => {
-					let GatewayOp = GatewayOp::Cctp(hash, attestation);
+					let _gateway_op = GatewayOp::Cctp(hash, attestation);
 					// TODO add gateway op in the batch
 					Ok(())
 				},

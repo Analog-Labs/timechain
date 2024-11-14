@@ -201,7 +201,7 @@ mod tests {
 
 		tokio::spawn(async move {
 			while let Some(msg) = rx.next().await {
-				if AdminMsg::SetConfig(config) = msg {
+				if let AdminMsg::SetConfig(config) = msg {
 					tracing::info!("received chronicle config");
 					mock.register_member(
 						network_id,

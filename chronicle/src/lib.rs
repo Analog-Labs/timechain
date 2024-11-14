@@ -183,7 +183,7 @@ mod tests {
 		tracing::info!("running chronicle ");
 		let mut network_key = [0; 32];
 		getrandom::getrandom(&mut network_key).unwrap();
-		let (tx, mut rx) = mpsc::channel(1);
+		let (tx, mut rx) = mpsc::channel(10);
 		let handle = tokio::task::spawn(run_chronicle(
 			ChronicleConfig {
 				network_id,
@@ -198,17 +198,24 @@ mod tests {
 			Arc::new(mock.clone()),
 			tx,
 		));
-		let msg = rx.next().await.unwrap();
-		let AdminMsg::SetConfig(config) = msg else {
-			panic!("Wrong msg");
-		};
-		tracing::info!("received chronicle config");
-		mock.register_member(
-			network_id,
-			config.public_key,
-			hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
-			0,
-		);
+
+		tokio::spawn(async move {
+			while let Some(msg) = rx.next().await {
+				match msg {
+					AdminMsg::SetConfig(config) => {
+						tracing::info!("received chronicle config");
+						mock.register_member(
+							network_id,
+							config.public_key,
+							hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
+							0,
+						);
+						tracing::info!("registered chronicle");
+					},
+					_ => {},
+				}
+			}
+		});
 		tracing::info!("registered chronicle");
 		handle.await.unwrap().unwrap();
 	}

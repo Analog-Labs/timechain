@@ -87,7 +87,7 @@ pub enum TaskResult {
 	SubmitGatewayMessage {
 		error: ErrorMsg,
 	},
-	CctpResult {
+	Cctp {
 		attestation: Attestation,
 	},
 }

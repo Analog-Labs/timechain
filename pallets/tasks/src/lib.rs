@@ -363,6 +363,11 @@ pub mod pallet {
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
 					Err(error)
 				},
+				(Task::Cctp { hash }, TaskResult::Cctp { attestation }) => {
+					let GatewayOp = GatewayOp::Cctp(hash, attestation);
+					// TODO add gateway op in the batch
+					Ok(())
+				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};
 			// complete task
@@ -454,8 +459,8 @@ pub mod pallet {
 							Self::finish_task(network, task_id, Ok(()));
 						}
 					},
-					GmpEvent::Cctp(_) => {
-						//TODO create a new task for task type Cctp
+					GmpEvent::Cctp(hash) => {
+						Self::create_task(network, Task::Cctp { hash });
 					},
 				}
 			}

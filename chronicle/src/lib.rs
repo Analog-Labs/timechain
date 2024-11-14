@@ -201,18 +201,15 @@ mod tests {
 
 		tokio::spawn(async move {
 			while let Some(msg) = rx.next().await {
-				match msg {
-					AdminMsg::SetConfig(config) => {
-						tracing::info!("received chronicle config");
-						mock.register_member(
-							network_id,
-							config.public_key,
-							hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
-							0,
-						);
-						tracing::info!("registered chronicle");
-					},
-					_ => {},
+				if AdminMsg::SetConfig(config) = msg {
+					tracing::info!("received chronicle config");
+					mock.register_member(
+						network_id,
+						config.public_key,
+						hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
+						0,
+					);
+					tracing::info!("registered chronicle");
 				}
 			}
 		});

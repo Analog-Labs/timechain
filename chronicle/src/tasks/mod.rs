@@ -132,7 +132,7 @@ impl TaskParams {
 			},
 			Task::Cctp { hash } => {
 				// TODO fetch the attestation for the hash and submit it.
-				let attesation = [0u8; 32];
+				let attestation = [0u8; 32];
 				Some(TaskResult::CctpResult { attestation })
 			},
 		};

@@ -153,8 +153,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
 			(acc_pub(1).into(), 10_000_000_000),
-			(acc_pub(2).into(), 20_000_000_000),
-			(acc_pub(3).into(), 20_000_000_000),
+			(acc_pub(2).into(), 10_000_000_000),
+			(acc_pub(3).into(), 10_000_000_000),
+			(acc_pub(4).into(), 10_000_000_000),
+			(acc_pub(5).into(), 10_000_000_000),
+			(acc_pub(6).into(), 10_000_000_000),
+			(acc_pub(7).into(), 10_000_000_000),
+			(acc_pub(8).into(), 10_000_000_000),
 		],
 	}
 	.assimilate_storage(&mut storage)

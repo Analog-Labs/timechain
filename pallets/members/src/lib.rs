@@ -166,7 +166,7 @@ pub mod pallet {
 		StillStaked,
 	}
 
-	/// Periodically checks and enforces member timeouts due no heartbeat.
+	/// Periodically checks and enforces member timeouts.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {

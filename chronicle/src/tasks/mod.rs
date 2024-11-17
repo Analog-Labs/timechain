@@ -4,9 +4,7 @@ use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream};
 use polkadot_sdk::sp_runtime::BoundedVec;
-use reqwest::Client;
 use scale_codec::Encode;
-use sha3::Digest;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{

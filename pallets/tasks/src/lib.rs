@@ -363,9 +363,15 @@ pub mod pallet {
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
 					Err(error)
 				},
-				(Task::Cctp { hash }, TaskResult::Cctp { attestation }) => {
-					let _gateway_op = GatewayOp::Cctp(hash, attestation);
-					// TODO add gateway op in the batch
+				(Task::Cctp { msg, .. }, TaskResult::Cctp { attestation }) => {
+					// Note: assumes the payload already contains the paramter for burn hash
+					let mut msg = msg.clone();
+					msg.bytes.extend_from_slice(&attestation);
+
+					let msg_id = msg.message_id();
+					Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
+					MessageReceivedTaskId::<T>::insert(msg_id, task_id);
+					Self::deposit_event(Event::<T>::MessageReceived(msg_id));
 					Ok(())
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
@@ -459,8 +465,8 @@ pub mod pallet {
 							Self::finish_task(network, task_id, Ok(()));
 						}
 					},
-					GmpEvent::Cctp(hash) => {
-						Self::create_task(network, Task::Cctp { hash });
+					GmpEvent::Cctp(hash, msg) => {
+						Self::create_task(network, Task::Cctp { hash, msg });
 					},
 				}
 			}

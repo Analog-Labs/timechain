@@ -2298,6 +2298,7 @@ dependencies = [
  "peernet",
  "polkadot-sdk",
  "prometheus_exporter",
+ "reqwest",
  "schnorr-evm",
  "serde",
  "serde_json",

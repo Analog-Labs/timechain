@@ -32,6 +32,7 @@ bip39 = "2.0.0"
 getrandom = "0.2.15"
 peernet = "0.4.0"
 prometheus_exporter = { version = "0.8.5", default-features = false, features = ["logging"] }
+reqwest = { version = "0.12.7", default-features = false, features = ["json", "rustls-tls-native-roots"] }
 schnorr-evm = { version = "0.1.0" }
 sha3 = { version = "0.10" }
 tide = { version = "0.16.0", default-features = false, features = ["h1-server"] }

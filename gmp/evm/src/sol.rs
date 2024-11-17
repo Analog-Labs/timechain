@@ -56,12 +56,12 @@ alloy_sol_types::sol! {
 
 		event ShardUnregistered(TssPublicKey key);
 
-		event Cctp(bytes32 hash);
-
 		event MessageReceived(
 			bytes32 indexed id,
 			GmpMessage msg
 		);
+
+		event Cctp(bytes hash, GmpMessage msg);
 
 		event MessageExecuted(
 			bytes32 indexed id,

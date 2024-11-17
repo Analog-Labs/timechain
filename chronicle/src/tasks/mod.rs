@@ -4,7 +4,9 @@ use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream};
 use polkadot_sdk::sp_runtime::BoundedVec;
+use reqwest::Client;
 use scale_codec::Encode;
+use sha3::Digest;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
@@ -130,9 +132,34 @@ impl TaskParams {
 					None
 				}
 			},
-			Task::Cctp { .. } => {
-				// TODO fetch the attestation for the hash and submit it.
-				let attestation = [0u8; 32];
+			Task::Cctp { hash, .. } => {
+				// CCTP attestation procedure.
+				// Ref: https://github.com/circlefin/evm-cctp-contracts/blob/d1c24577fb627b08483dc42e4d8a37a810b369f7/docs/index.js#L71
+
+				let msg_hash: [u8; 32] = sha3::Keccak256::digest(&hash).into();
+				let url = format!(
+					"https://iris-api-sandbox.circle.com/attestations/0x{}",
+					hex::encode(msg_hash)
+				);
+
+				let client = Client::new();
+				let mut attestation_response = serde_json::json!({ "status": "pending" });
+
+				while attestation_response["status"] != "complete" {
+					let response = client.get(&url).send().await?;
+					attestation_response = response.json::<serde_json::Value>().await?;
+
+					if attestation_response["status"] != "complete" {
+						tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
+					}
+				}
+
+				let signature = attestation_response["attestaion"]
+					.as_str()
+					.ok_or_else(|| anyhow::anyhow!("Could not parse attesation response"))?;
+				let signature = signature.strip_prefix("0x").unwrap_or(signature);
+
+				let attestation = hex::decode(signature)?;
 				Some(TaskResult::Cctp { attestation })
 			},
 		};

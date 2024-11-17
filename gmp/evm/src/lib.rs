@@ -303,7 +303,10 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::Cctp::SIGNATURE_HASH => {
 						let log = sol::Gateway::Cctp::decode_log(&log, true)?;
-						events.push(GmpEvent::Cctp(log.hash.into()));
+						events.push(GmpEvent::Cctp(
+							log.hash.clone().into(),
+							log.msg.clone().outbound(self.network_id),
+						));
 						break;
 					},
 					_ => {},

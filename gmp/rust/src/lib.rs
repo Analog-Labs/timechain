@@ -268,9 +268,6 @@ impl IConnector for Connector {
 								GmpEvent::MessageExecuted(msg.message_id()),
 							)?;
 						},
-						GatewayOp::Cctp(hash, _) => {
-							events.insert((gateway, block), GmpEvent::Cctp(*hash))?;
-						},
 					}
 				}
 				events.insert((gateway, block), GmpEvent::BatchExecuted(batch))?;

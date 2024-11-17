@@ -3,6 +3,7 @@ use alloy_sol_types::{SolCall, SolConstructor, SolEvent};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
+use reqwest::Client;
 use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
 	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
@@ -13,6 +14,7 @@ use rosetta_server_ethereum::utils::{
 	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 };
 use serde::Deserialize;
+use sha3::Digest;
 use sha3::Keccak256;
 use std::ops::Range;
 use std::pin::Pin;
@@ -331,6 +333,34 @@ impl IConnector for Connector {
 		};
 		self.evm_call(gateway, call, 0, None).await.map_err(|err| err.to_string())?;
 		Ok(())
+	}
+
+	// submits cctp attestation request
+	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
+		// CCTP attestation procedure.
+		// Ref: https://github.com/circlefin/evm-cctp-contracts/blob/d1c24577fb627b08483dc42e4d8a37a810b369f7/docs/index.js#L71
+		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&src_burn).into();
+		let url = format!("{}/0x{}", url, hex::encode(burn_hash));
+
+		let client = Client::new();
+		let mut attestation_response = serde_json::json!({ "status": "pending" });
+
+		while attestation_response["status"] != "complete" {
+			let response = client.get(&url).send().await?;
+			attestation_response = response.json::<serde_json::Value>().await?;
+
+			if attestation_response["status"] != "complete" {
+				tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
+			}
+		}
+
+		let signature = attestation_response["attestaion"]
+			.as_str()
+			.ok_or_else(|| anyhow::anyhow!("Could not parse attesation response"))?;
+		let signature = signature.strip_prefix("0x").unwrap_or(signature);
+
+		let attestation = hex::decode(signature)?;
+		Ok(attestation)
 	}
 }
 

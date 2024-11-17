@@ -277,6 +277,11 @@ impl IConnector for Connector {
 		})()
 		.map_err(|err: anyhow::Error| err.to_string())
 	}
+
+	// submits cctp attestation request
+	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
+		todo!()
+	}
 }
 
 #[async_trait::async_trait]

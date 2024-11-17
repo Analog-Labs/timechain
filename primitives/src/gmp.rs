@@ -335,6 +335,8 @@ pub trait IConnector: IChain {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String>;
+	// submits cctp attestation request
+	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>>;
 }
 
 #[cfg(feature = "std")]

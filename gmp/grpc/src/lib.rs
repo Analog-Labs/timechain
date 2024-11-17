@@ -167,6 +167,11 @@ impl IConnector for Connector {
 			.map_err(|err| err.to_string())?;
 		Ok(())
 	}
+
+	// submits cctp attestation request
+	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
+		todo!()
+	}
 }
 
 #[tonic::async_trait]

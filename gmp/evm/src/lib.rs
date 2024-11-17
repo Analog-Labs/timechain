@@ -337,6 +337,8 @@ impl IConnector for Connector {
 
 	// submits cctp attestation request
 	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
+		// TODO improve below code better for error handing
+
 		// CCTP attestation procedure.
 		// Ref: https://github.com/circlefin/evm-cctp-contracts/blob/d1c24577fb627b08483dc42e4d8a37a810b369f7/docs/index.js#L71
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&src_burn).into();

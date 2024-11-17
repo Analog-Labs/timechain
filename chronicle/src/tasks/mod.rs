@@ -133,7 +133,7 @@ impl TaskParams {
 				}
 			},
 			Task::Cctp { hash, .. } => {
-				//TODO discuss the import of this link
+				// TODO discuss the import of this link
 				let url = "https://iris-api-sandbox.circle.com/attestations";
 				let attestation = self.connector.attest_cctp(url, hash).await?;
 				Some(TaskResult::Cctp { attestation })

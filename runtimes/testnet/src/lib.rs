@@ -987,7 +987,8 @@ impl pallet_elections::Config for Runtime {
 	type WeightInfo = weights::elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;
-	type MaxElectionsPerBlock = ConstU32<5>;
+	type Networks = Networks;
+	type MaxElectionsPerBlock = ConstU32<10>;
 }
 
 impl pallet_shards::Config for Runtime {
@@ -1828,21 +1829,21 @@ mod multiplier_tests {
 	fn max_elections_per_block() {
 		let avg_on_initialize: Weight =
 			ON_INITIALIZE_BOUNDS.elections * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		const NUM_UNASSIGNED: u32 = 10;
 		let try_elect_shard: Weight =
-			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shard(NUM_UNASSIGNED);
+			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(1);
 		assert!(
 			try_elect_shard.all_lte(avg_on_initialize),
 			"BUG: One shard election consumes more weight than available in on-initialize"
 		);
-		let mut try_elect_shards = try_elect_shard.saturating_add(try_elect_shard);
 		assert!(
-			try_elect_shard.all_lte(try_elect_shards),
+			try_elect_shard
+				.all_lte(<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(2)),
 			"BUG: 1 shard election consumes more weight than 2 shard elections"
 		);
-		let mut num_elections: u32 = 2;
-		while try_elect_shards.all_lt(avg_on_initialize) {
-			try_elect_shards = try_elect_shards.saturating_add(try_elect_shard);
+		let mut num_elections: u32 = 3;
+		while <Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(num_elections)
+			.all_lt(avg_on_initialize)
+		{
 			num_elections += 1;
 			if num_elections == 10_000_000 {
 				// 10_000_000 elections; halting to break out of loop

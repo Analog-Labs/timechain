@@ -364,7 +364,7 @@ pub mod pallet {
 					Err(error)
 				},
 				(Task::Cctp { msg, .. }, TaskResult::Cctp { attestation, error }) => {
-					if attestation.is_empty() {
+					if !error.0.is_empty() {
 						Err(error)
 					} else {
 						// Note: assumes the payload already contains the paramter for burn hash

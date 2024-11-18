@@ -281,7 +281,6 @@ pub mod pallet {
 					.then_with(|| a.cmp(b))
 					.reverse()
 			});
-			println!("New Unassigned: {:?}", members.clone());
 			Unassigned::<T>::insert(network, members);
 		}
 		fn remove_unassigned(network: NetworkId, member: &AccountId) {
@@ -300,7 +299,6 @@ pub mod pallet {
 				max_elections,
 			)
 			.saturating_mul(shard_size.into());
-			println!("N len is {:?}", num_elected);
 			let new = old.drain(..(num_elected as usize)).collect();
 			Unassigned::<T>::insert(network, old);
 			new
@@ -310,20 +308,14 @@ pub mod pallet {
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
 			let shard_size = ShardSize::<T>::get();
 			let mut members = Self::take_top_n_by_stake(network, max_elections, shard_size);
-			// let members_size = members.len() as u32;
-			// TODO: verify that this early return is no longer needed
-			// if members_size < shard_size.into() {
-			// 	return 0u32;
-			// }
-			//let num_elections = members_size.saturating_div(shard_size.into());
 			let shard_threshold = ShardThreshold::<T>::get();
-			println!("MEMBERS FOR NEW SHARDS: {:?}", members);
+			let mut num_elections = 0u32;
 			while members.len() > 0 {
 				let next_shard: Vec<AccountId> = members.drain(..(shard_size as usize)).collect();
-				println!("NEW SHARD TO BE CREATED: {:?}", next_shard);
 				T::Shards::create_shard(network, next_shard, shard_threshold);
+				num_elections += 1;
 			}
-			0u32 // TODO: return num_elections for benchmarking
+			num_elections
 		}
 	}
 }

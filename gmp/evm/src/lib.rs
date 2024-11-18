@@ -348,10 +348,13 @@ impl IConnector for Connector {
 		let client = Client::new();
 
 		for attempt in 1..MAX_RETRIES {
-			let response = client.get(&url).send().await.map_err(|err| err.to_string())?;
-			if response.status() == reqwest::StatusCode::NOT_FOUND {
-				return Err("Cctp attestation not found".to_string());
-			}
+			let response = client
+				.get(&url)
+				.send()
+				.await
+				.map_err(|err| err.to_string())?
+				.error_for_status()
+				.map_err(|err| err.to_string())?;
 
 			let attestation_response: AttestationResponse =
 				response.json().await.map_err(|err| err.to_string())?;

@@ -37,26 +37,27 @@ benchmarks! {
 		for i in 0..b {
 			for j in 0..ShardSize::<T>::get() {
 				let member = account(i, j);
-				Unassigned::<T>::insert(ETHEREUM, member.clone(), ());
+				Pallet::<T>::insert_unassigned(ETHEREUM, &member);
 				MemberOnline::<T>::insert(member.clone(), ());
 				let member_stake: u128 = 1_000_000_000 - <u32 as Into<u128>>::into(i) -  <u16 as Into<u128>>::into(j);
 				MemberStake::<T>::insert(member.clone(), member_stake);
 				all_new_shard_members.push(member);
 			}
 		}
-		let pre_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
+		let pre_unassigned_count: u16 = Unassigned::<T>::get(ETHEREUM).len() as u16;
 	}: {
 		Pallet::<T>::try_elect_shards(ETHEREUM, b);
 	} verify {
-		let post_unassigned_count: u16 = Unassigned::<T>::iter().count().try_into().unwrap_or_default();
+		let post_unassigned_count: u16 = Unassigned::<T>::get(ETHEREUM).len() as u16;
 		// ShardSize # of unassigned were elected to a shard
 		assert_eq!(
 			pre_unassigned_count - post_unassigned_count,
 			(b as u16).saturating_mul(ShardSize::<T>::get()),
 		);
+		let unassigned = Unassigned::<T>::get(ETHEREUM);
 		// New shard members were removed from Unassigned
 		for m in all_new_shard_members {
-			assert!(Unassigned::<T>::get(ETHEREUM, m).is_none());
+			assert!(!unassigned.contains(&m));
 		}
 	}
 

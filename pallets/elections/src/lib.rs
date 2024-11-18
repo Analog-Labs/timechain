@@ -108,17 +108,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ShardThreshold<T: Config> = StorageValue<_, u16, ValueQuery>;
 
-	/// Unassigned members per network
+	// Unassigned online members per network sorted by stake and then AccountId
 	#[pallet::storage]
-	pub type Unassigned<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		NetworkId,
-		Blake2_128Concat,
-		AccountId,
-		(),
-		OptionQuery,
-	>;
+	pub type Unassigned<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, Vec<AccountId>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -241,7 +234,7 @@ pub mod pallet {
 				if !T::Members::is_member_registered(&member) {
 					T::Members::unstake_member(&member);
 				} else if T::Members::is_member_online(&member) {
-					Unassigned::<T>::insert(network, member, ());
+					Self::insert_unassigned(network, &member);
 				}
 			}
 		}
@@ -261,7 +254,7 @@ pub mod pallet {
 		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
 			if !T::Shards::is_shard_member(member) {
-				Unassigned::<T>::insert(network, member, ());
+				Self::insert_unassigned(network, member);
 			}
 			T::Shards::member_online(member, network);
 		}
@@ -271,44 +264,55 @@ pub mod pallet {
 		///    2. Notifies the `Shards` interface about the member going offline.
 		///    3. Returns the weight of the operation.
 		fn member_offline(member: &AccountId, network: NetworkId) {
-			Unassigned::<T>::remove(network, member);
+			Self::remove_unassigned(network, member);
 			T::Shards::member_offline(member, network);
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub(crate) fn insert_unassigned(network: NetworkId, member: &AccountId) {
+			let member = member.clone();
+			let mut members = Unassigned::<T>::get(network);
+			members.push(member);
+			members.sort_by(|a, b| {
+				T::Members::member_stake(a)
+					.cmp(&T::Members::member_stake(b))
+					// sort by AccountId iff amounts are equal to uphold determinism
+					.then_with(|| a.cmp(b))
+					.reverse()
+			});
+			Unassigned::<T>::insert(network, members);
+		}
+		fn remove_unassigned(network: NetworkId, member: &AccountId) {
+			Unassigned::<T>::mutate(network, |members| {
+				members.retain(|m| m != member);
+			});
+		}
+		fn take_top_n_by_stake(network: NetworkId, n: u32) -> Vec<AccountId> {
+			let mut old = Unassigned::<T>::get(network);
+			// TODO: need to only take as many as max_shards_created
+			let new_shard_members = old.drain(..(n as usize)).collect();
+			Unassigned::<T>::insert(network, old);
+			new
+		}
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
-			let mut members = Vec::new();
-			// additional optimization would be storing this separately in order of member stake
-			for (m, _) in Unassigned::<T>::iter_prefix(network) {
-				if T::Members::is_member_online(&m) {
-					members.push(m);
-				}
-			}
-			let members_size = members.len() as u32;
 			let shard_size = ShardSize::<T>::get();
-			if members_size < shard_size.into() {
-				return 0u32;
-			}
-			if members_size > shard_size.into() {
-				members.sort_unstable_by(|a, b| {
-					T::Members::member_stake(a)
-						.cmp(&T::Members::member_stake(b))
-						// sort by AccountId iff amounts are equal to uphold determinism
-						.then_with(|| a.cmp(b))
-						.reverse()
-				});
-			}
-			let num_new_shards =
-				sp_std::cmp::min(members_size.saturating_div(shard_size.into()), max_elections);
-			for _ in 0..num_new_shards {
+			let mut members =
+				Self::take_top_n_by_stake(network, max_elections.saturating_mul(shard_size.into()));
+			let members_size = members.len() as u32;
+			// TODO: verify that this early return is no longer needed
+			// if members_size < shard_size.into() {
+			// 	return 0u32;
+			// }
+			let num_elections = members_size.saturating_div(shard_size.into());
+			let shard_threshold = ShardThreshold::<T>::get();
+			for _ in 0..num_elections {
 				let next_shard: Vec<AccountId> = members.drain(..(shard_size as usize)).collect();
-				next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-				T::Shards::create_shard(network, next_shard, ShardThreshold::<T>::get());
+				T::Shards::create_shard(network, next_shard, shard_threshold);
 			}
-			num_new_shards
+			num_elections
 		}
 	}
 }

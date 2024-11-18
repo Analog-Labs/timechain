@@ -212,3 +212,14 @@ pub struct WithdrawFundsRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct WithdrawFundsResponse {}
+
+#[derive(Serialize, Deserialize)]
+pub struct AttestCctpRequest {
+	pub url: String,
+	pub burn_hash: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AttestCctpResponse {
+	pub attestation: Vec<u8>,
+}

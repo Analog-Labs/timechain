@@ -298,6 +298,18 @@ impl Gmp for ConnectorWrapper {
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::WithdrawFundsResponse {}))
 	}
+
+	async fn attest_cctp(
+		&self,
+		request: Request<proto::AttestCctpRequest>,
+	) -> GmpResult<proto::AttestCctpResponse> {
+		let (connector, msg) = self.connector(request)?;
+		let attestation = connector
+			.attest_cctp(&msg.url, msg.burn_hash)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::AttestCctpResponse { attestation }))
+	}
 }
 
 #[derive(Parser)]

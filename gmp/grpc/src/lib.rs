@@ -170,7 +170,12 @@ impl IConnector for Connector {
 
 	// submits cctp attestation request
 	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
-		todo!()
+		let request = Request::new(proto::AttestCctpRequest {
+			url: url.into(),
+			burn_hash: src_burn,
+		});
+		let response = self.client.lock().await.attest_cctp(request).await?.into_inner();
+		Ok(response.attestation)
 	}
 }
 

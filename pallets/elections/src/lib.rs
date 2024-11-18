@@ -310,7 +310,7 @@ pub mod pallet {
 			let mut members = Self::take_top_n_by_stake(network, max_elections, shard_size);
 			let shard_threshold = ShardThreshold::<T>::get();
 			let mut num_elections = 0u32;
-			while members.len() > 0 {
+			while !members.is_empty() {
 				let next_shard: Vec<AccountId> = members.drain(..(shard_size as usize)).collect();
 				T::Shards::create_shard(network, next_shard, shard_threshold);
 				num_elections += 1;

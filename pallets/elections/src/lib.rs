@@ -230,14 +230,15 @@ pub mod pallet {
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
 		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
+			let mut batch = Vec::new();
 			for member in members {
 				if !T::Members::is_member_registered(&member) {
 					T::Members::unstake_member(&member);
 				} else if T::Members::is_member_online(&member) {
-					// additional optimization is batch insertion here
-					Self::insert_unassigned(network, &member);
+					batch.push(member.clone());
 				}
 			}
+			Self::batch_insert_unassigned(network, batch);
 		}
 
 		///  Retrieves the default shard size.
@@ -282,6 +283,18 @@ pub mod pallet {
 					.reverse()
 			});
 			Unassigned::<T>::insert(network, members);
+		}
+		fn batch_insert_unassigned(network: NetworkId, members: Vec<AccountId>) {
+			let mut unassigned = Unassigned::<T>::get(network);
+			unassigned.extend(members);
+			unassigned.sort_by(|a, b| {
+				T::Members::member_stake(a)
+					.cmp(&T::Members::member_stake(b))
+					// sort by AccountId iff amounts are equal to uphold determinism
+					.then_with(|| a.cmp(b))
+					.reverse()
+			});
+			Unassigned::<T>::insert(network, unassigned);
 		}
 		fn remove_unassigned(network: NetworkId, member: &AccountId) {
 			Unassigned::<T>::mutate(network, |members| {

@@ -133,8 +133,16 @@ impl TaskParams {
 			Task::Cctp { hash, .. } => {
 				// TODO discuss the import of this link
 				let url = "https://iris-api-sandbox.circle.com/attestations";
-				let attestation = self.connector.attest_cctp(url, hash).await?;
-				Some(TaskResult::Cctp { attestation })
+				match self.connector.attest_cctp(url, hash).await {
+					Ok(attestation) => Some(TaskResult::Cctp {
+						attestation,
+						error: ErrorMsg(BoundedVec::new()),
+					}),
+					Err(e) => Some(TaskResult::Cctp {
+						attestation: vec![],
+						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
+					}),
+				}
 			},
 		};
 		if let Some(result) = result {

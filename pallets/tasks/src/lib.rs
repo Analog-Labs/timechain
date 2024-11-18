@@ -363,16 +363,20 @@ pub mod pallet {
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
 					Err(error)
 				},
-				(Task::Cctp { msg, .. }, TaskResult::Cctp { attestation }) => {
-					// Note: assumes the payload already contains the paramter for burn hash
-					let mut msg = msg.clone();
-					msg.bytes.extend_from_slice(&attestation);
+				(Task::Cctp { msg, .. }, TaskResult::Cctp { attestation, error }) => {
+					if attestation.is_empty() {
+						Err(error)
+					} else {
+						// Note: assumes the payload already contains the paramter for burn hash
+						let mut msg = msg.clone();
+						msg.bytes.extend_from_slice(&attestation);
 
-					let msg_id = msg.message_id();
-					Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
-					MessageReceivedTaskId::<T>::insert(msg_id, task_id);
-					Self::deposit_event(Event::<T>::MessageReceived(msg_id));
-					Ok(())
+						let msg_id = msg.message_id();
+						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
+						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+						Ok(())
+					}
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};

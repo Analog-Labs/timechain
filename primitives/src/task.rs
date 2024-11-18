@@ -89,5 +89,6 @@ pub enum TaskResult {
 	},
 	Cctp {
 		attestation: CctpAttestation,
+		error: ErrorMsg,
 	},
 }

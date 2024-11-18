@@ -336,33 +336,37 @@ impl IConnector for Connector {
 	}
 
 	// submits cctp attestation request
-	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
-		// TODO improve below code better for error handing
-
+	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>, String> {
 		// CCTP attestation procedure.
 		// Ref: https://github.com/circlefin/evm-cctp-contracts/blob/d1c24577fb627b08483dc42e4d8a37a810b369f7/docs/index.js#L71
+
+		const MAX_RETRIES: usize = 10;
+		const RETRY_DELAY_SECS: u64 = 6;
+
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&src_burn).into();
 		let url = format!("{}/0x{}", url, hex::encode(burn_hash));
-
 		let client = Client::new();
-		let mut attestation_response = serde_json::json!({ "status": "pending" });
 
-		while attestation_response["status"] != "complete" {
-			let response = client.get(&url).send().await?;
-			attestation_response = response.json::<serde_json::Value>().await?;
+		for attempt in 1..MAX_RETRIES {
+			let response = client.get(&url).send().await.map_err(|err| err.to_string())?;
 
-			if attestation_response["status"] != "complete" {
-				tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
+			let attestation_response: AttestationResponse =
+				response.json().await.map_err(|err| err.to_string())?;
+			if attestation_response.status == "complete" {
+				let signature = attestation_response.attestation.clone().ok_or_else(|| {
+					format!("Could not get attesation from response: {:?}", attestation_response)
+				})?;
+				let signature = signature.strip_prefix("0x").unwrap_or(&signature);
+				let attestation = hex::decode(signature).map_err(|err| err.to_string())?;
+				return Ok(attestation);
 			}
+			tracing::info!(
+	            "Attempt {attempt}/{MAX_RETRIES}: Attestation still pending. Retrying in {RETRY_DELAY_SECS}s..."
+	        );
+			tokio::time::sleep(tokio::time::Duration::from_secs(RETRY_DELAY_SECS)).await;
 		}
 
-		let signature = attestation_response["attestaion"]
-			.as_str()
-			.ok_or_else(|| anyhow::anyhow!("Could not parse attesation response"))?;
-		let signature = signature.strip_prefix("0x").unwrap_or(signature);
-
-		let attestation = hex::decode(signature)?;
-		Ok(attestation)
+		Err("Could not get attestation out of max retries".to_string())
 	}
 }
 
@@ -666,4 +670,10 @@ struct Contract {
 #[derive(Deserialize)]
 struct Bytecode {
 	object: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct AttestationResponse {
+	status: String,
+	attestation: Option<String>,
 }

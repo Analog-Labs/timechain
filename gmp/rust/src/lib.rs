@@ -279,8 +279,8 @@ impl IConnector for Connector {
 	}
 
 	// submits cctp attestation request
-	async fn attest_cctp(&self, url: &str, src_burn: Vec<u8>) -> Result<Vec<u8>> {
-		todo!()
+	async fn attest_cctp(&self, _url: &str, _src_burn: Vec<u8>) -> Result<Vec<u8>, String> {
+		Ok(vec![])
 	}
 }
 

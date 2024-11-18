@@ -37,8 +37,8 @@ benchmarks! {
 		for i in 0..b {
 			for j in 0..ShardSize::<T>::get() {
 				let member = account(i, j);
-				Pallet::<T>::insert_unassigned(ETHEREUM, &member);
 				MemberOnline::<T>::insert(member.clone(), ());
+				Pallet::<T>::insert_unassigned(ETHEREUM, &member);
 				let member_stake: u128 = 1_000_000_000 - <u32 as Into<u128>>::into(i) -  <u16 as Into<u128>>::into(j);
 				MemberStake::<T>::insert(member.clone(), member_stake);
 				all_new_shard_members.push(member);

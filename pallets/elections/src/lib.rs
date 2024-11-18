@@ -254,7 +254,7 @@ pub mod pallet {
 		///    3. Inserts the member into the [`Unassigned`] storage for the given network.
 		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
-			if !T::Shards::is_shard_member(member) && T::Members::is_member_online(&member) {
+			if !T::Shards::is_shard_member(member) {
 				Self::insert_unassigned(network, member);
 			}
 			T::Shards::member_online(member, network);

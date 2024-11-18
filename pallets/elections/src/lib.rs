@@ -108,7 +108,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ShardThreshold<T: Config> = StorageValue<_, u16, ValueQuery>;
 
-	// Unassigned online members per network sorted by stake and then AccountId
+	/// Unassigned online members per network sorted by stake and then AccountId
 	#[pallet::storage]
 	pub type Unassigned<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, Vec<AccountId>, ValueQuery>;

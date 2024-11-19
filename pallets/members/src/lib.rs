@@ -113,9 +113,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
-	/// Get whether member submitted heartbeat within last peiod
+	/// Get whether member submitted heartbeat within last period
 	#[pallet::storage]
 	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
+	// TODO: double map NetworkId, BlockNumber => Vec<AccountId>
+	// where BlockNumber key is the timed out block
+	#[pallet::storage]
+	pub type TimedOut<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), ValueQuery>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -174,9 +179,13 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let weight_consumed = Self::timeout_heartbeats(n);
+			let weight = if (n % T::HeartbeatTimeout::get()).is_zero() {
+				Self::timeout_heartbeats()
+			} else {
+				Weight::default()
+			};
 			log::info!("on_initialize end");
-			weight_consumed
+			weight
 		}
 	}
 
@@ -271,19 +280,18 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
-		pub(crate) fn timeout_heartbeats(n: BlockNumberFor<T>) -> Weight {
+		pub(crate) fn timeout_heartbeats() -> Weight {
 			let mut num_timeouts = 0u32;
-			if (n % T::HeartbeatTimeout::get()).is_zero() {
-				for (member, _) in MemberOnline::<T>::iter() {
-					if Heartbeat::<T>::take(&member).is_none() {
-						if let Some(network) = MemberNetwork::<T>::get(&member) {
-							Self::member_offline(&member, network);
-							num_timeouts = num_timeouts.saturating_plus_one();
-							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-								return <T as Config>::WeightInfo::timeout_heartbeats(
-									T::MaxTimeoutsPerBlock::get(),
-								);
-							}
+			// TODO: iterate over all members that timed out this block
+			for (member, _) in MemberOnline::<T>::iter() {
+				if Heartbeat::<T>::take(&member).is_none() {
+					if let Some(network) = MemberNetwork::<T>::get(&member) {
+						Self::member_offline(&member, network);
+						num_timeouts = num_timeouts.saturating_plus_one();
+						if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+							return <T as Config>::WeightInfo::timeout_heartbeats(
+								T::MaxTimeoutsPerBlock::get(),
+							);
 						}
 					}
 				}

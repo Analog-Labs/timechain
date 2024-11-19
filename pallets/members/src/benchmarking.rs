@@ -64,7 +64,7 @@ benchmarks! {
 			assert!(Heartbeat::<T>::take(&caller).is_some());
 		}
 	}: {
-		Pallet::<T>::timeout_heartbeats(0u32.into());
+		Pallet::<T>::timeout_heartbeats();
 	} verify {
 		for i in 0..b {
 			let caller: AccountId = [i as u8; 32].into();

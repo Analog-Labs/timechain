@@ -284,6 +284,9 @@ pub mod pallet {
 					};
 					Self::member_offline(&member, network);
 					num_timeouts += 1u32;
+					if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+						break;
+					}
 				}
 				break;
 			}

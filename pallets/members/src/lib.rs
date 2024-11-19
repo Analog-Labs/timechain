@@ -117,10 +117,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
-	// TODO: double map NetworkId, BlockNumber => Vec<AccountId>
-	// where BlockNumber key is the timed out block
+	/// Set of members that have not submitted a heartbeat within last period
 	#[pallet::storage]
-	pub type TimedOut<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), ValueQuery>;
+	pub type TimedOut<T: Config> = StorageValue<_, Vec<AccountId>, ValueQuery>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -246,6 +245,7 @@ pub mod pallet {
 			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
+			TimedOut::<T>::mutate(|members| members.retain(|m| *m != member));
 			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
@@ -282,20 +282,19 @@ pub mod pallet {
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
 		pub(crate) fn timeout_heartbeats() -> Weight {
 			let mut num_timeouts = 0u32;
-			// TODO: iterate over all members that timed out this block
-			for (member, _) in MemberOnline::<T>::iter() {
-				if Heartbeat::<T>::take(&member).is_none() {
-					if let Some(network) = MemberNetwork::<T>::get(&member) {
-						Self::member_offline(&member, network);
-						num_timeouts = num_timeouts.saturating_plus_one();
-						if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-							return <T as Config>::WeightInfo::timeout_heartbeats(
-								T::MaxTimeoutsPerBlock::get(),
-							);
-						}
-					}
+			// Set offline members that failed to submit heartbeat in last `HeartbeatTimeout` # of blocks
+			for member in TimedOut::<T>::take() {
+				let Some(network) = MemberNetwork::<T>::get(&member) else { continue };
+				Self::member_offline(&member, network);
+				num_timeouts = num_timeouts.saturating_plus_one();
+				if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+					break;
 				}
 			}
+			// Reset `TimedOut` storage for timeouts in `HeartbeatTimeout` # of blocks
+			let online_members: Vec<AccountId> = Heartbeat::<T>::drain().map(|(m, _)| m).collect();
+			TimedOut::<T>::put(online_members);
+			// Return weight consumed
 			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)
 		}
 		///  Marks a member as online.

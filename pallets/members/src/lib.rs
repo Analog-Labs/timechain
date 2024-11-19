@@ -282,8 +282,13 @@ pub mod pallet {
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
 		pub(crate) fn timeout_heartbeats() -> Weight {
 			let mut num_timeouts = 0u32;
+			let mut next_timed_out = Vec::new();
 			// Set offline members that failed to submit heartbeat in last `HeartbeatTimeout` # of blocks
 			for member in TimedOut::<T>::take() {
+				if num_timeouts >= T::MaxTimeoutsPerBlock::get() {
+					next_timed_out.push(member);
+					continue;
+				} // else num_timeouts < T::MaxTimeoutsPerBlock:
 				let Some(network) = MemberNetwork::<T>::get(&member) else { continue };
 				Self::member_offline(&member, network);
 				num_timeouts = num_timeouts.saturating_plus_one();
@@ -291,9 +296,10 @@ pub mod pallet {
 					break;
 				}
 			}
-			// Reset `TimedOut` storage for timeouts in `HeartbeatTimeout` # of blocks
-			let online_members: Vec<AccountId> = Heartbeat::<T>::drain().map(|(m, _)| m).collect();
-			TimedOut::<T>::put(online_members);
+			// Prepare `TimedOut` storage for next timeout in `HeartbeatTimeout` # of blocks
+			next_timed_out
+				.extend(Heartbeat::<T>::drain().map(|(m, _)| m).collect::<Vec<AccountId>>());
+			TimedOut::<T>::put(next_timed_out);
 			// Return weight consumed
 			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)
 		}

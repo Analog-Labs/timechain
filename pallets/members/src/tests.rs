@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{Error, Event, Heartbeat, MemberNetwork, MemberOnline, MemberPeerId, MemberStake};
+use crate::{Error, Event, MemberNetwork, MemberPeerId, MemberStake, Pallet};
 
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 
@@ -91,8 +91,7 @@ fn send_heartbeat_works() {
 		assert_ok!(send_heartbeat(A));
 		assert_ok!(send_heartbeat(A));
 		System::assert_last_event(Event::<Test>::HeartbeatReceived(a.clone()).into());
-		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert!(Heartbeat::<Test>::get(&a).is_some());
+		assert!(Pallet::<Test>::is_member_online(&a));
 	});
 }
 
@@ -103,9 +102,9 @@ fn no_heartbeat_sets_member_offline_after_timeout() {
 		assert_ok!(register_member(a.clone(), A, 5));
 		assert_ok!(send_heartbeat(A));
 		roll_to(10);
-		assert!(MemberOnline::<Test>::get(&a).is_some());
+		assert!(Pallet::<Test>::is_member_online(&a));
 		roll_to(20);
-		assert!(MemberOnline::<Test>::get(&a).is_none());
+		assert!(!Pallet::<Test>::is_member_online(&a));
 	});
 }
 
@@ -115,10 +114,9 @@ fn send_heartbeat_sets_member_back_online_after_timeout() {
 		let a: AccountId = A.into();
 		assert_ok!(register_member(a.clone(), A, 5));
 		roll_to(20);
-		assert!(MemberOnline::<Test>::get(&a).is_none());
+		assert!(!Pallet::<Test>::is_member_online(&a));
 		assert_ok!(send_heartbeat(A));
-		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert!(Heartbeat::<Test>::get(&a).is_some());
+		assert!(Pallet::<Test>::is_member_online(&a));
 	});
 }
 
@@ -159,6 +157,5 @@ fn unregister_member_works() {
 		assert_eq!(Balances::free_balance(&a), 10000000000);
 		assert_eq!(MemberPeerId::<Test>::get(&a), None);
 		assert_eq!(MemberNetwork::<Test>::get(&a), None);
-		assert!(Heartbeat::<Test>::get(&a).is_none());
 	});
 }

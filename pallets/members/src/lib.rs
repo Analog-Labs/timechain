@@ -34,7 +34,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{IdentifyAccount, Saturating, Zero};
+	use sp_runtime::traits::{IdentifyAccount, Saturating};
 	use sp_std::vec;
 
 	use polkadot_sdk::pallet_balances;
@@ -106,17 +106,17 @@ pub mod pallet {
 	pub type MemberPublicKey<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, PublicKey, OptionQuery>;
 
-	/// Get status of member
+	/// Get the last submitted heartbeat
 	#[pallet::storage]
-	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
-
-	/// Index to fairly iterate over `MemberOnline` in `on_initialize`
-	#[pallet::storage]
-	pub type TimeoutIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-	/// Get whether member submitted heartbeat within last peiod
-	#[pallet::storage]
-	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+	pub type Heartbeat<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		NetworkId,
+		Blake2_128Concat,
+		AccountId,
+		BlockNumberFor<T>,
+		ValueQuery,
+	>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -173,12 +173,8 @@ pub mod pallet {
 	/// Periodically checks and enforces member timeouts.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			if !(n % T::HeartbeatTimeout::get()).is_zero() {
-				log::info!("on_initialize end");
-				return Weight::default();
-			}
 			let weight_consumed = Self::timeout_heartbeats();
 			log::info!("on_initialize end");
 			weight_consumed
@@ -241,11 +237,11 @@ pub mod pallet {
 			let member = ensure_signed(origin)?;
 			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(&member, ());
-			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
+			Heartbeat::<T>::insert(network, &member, frame_system::Pallet::<T>::block_number());
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
+			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
 
@@ -275,40 +271,19 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Times out all heartbeats to manage member online/offline statuses.
 		pub(crate) fn timeout_heartbeats() -> Weight {
-			// additional optimization is caching this in storage so that not all of these storage items have to be read here
-			let members_offline = MemberOnline::<T>::iter()
-				.filter_map(|(m, _)| {
-					if Heartbeat::<T>::take(&m).is_none() {
-						if let Some(network) = MemberNetwork::<T>::get(&m) {
-							Some((m, network))
-						} else {
-							None
-						}
-					} else {
-						None
-					}
-				})
-				.collect::<Vec<(AccountId, NetworkId)>>();
-			let mut timeout_index = sp_std::cmp::min(
-				TimeoutIndex::<T>::get(),
-				(members_offline.len() as u32).saturating_less_one(),
-			);
 			let mut num_timeouts = 0u32;
-			while num_timeouts < T::MaxTimeoutsPerBlock::get() {
-				let Some((member, network)) = members_offline.get(timeout_index as usize) else {
-					timeout_index = 0;
-					break;
-				};
-				Self::member_offline(&member, *network);
-				num_timeouts += 1u32;
-				timeout_index = (timeout_index + 1) % members_offline.len() as u32;
-				if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-					break;
+			for (network, member, block) in Heartbeat::<T>::iter() {
+				if frame_system::Pallet::<T>::block_number().saturating_sub(block)
+					>= T::HeartbeatTimeout::get()
+				{
+					Self::member_offline(&member, network);
+					num_timeouts += 1;
+					if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+						return <T as Config>::WeightInfo::timeout_heartbeats(num_timeouts);
+					}
 				}
 			}
-			TimeoutIndex::<T>::put(timeout_index);
 			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)
 		}
 		///  Marks a member as online.
@@ -318,7 +293,6 @@ pub mod pallet {
 		///	3. Emits [`Event::MemberOnline`].
 		///	4. Calls `Elections::member_online` to notify the election system of the member's online status.
 		fn member_online(member: &AccountId, network: NetworkId) {
-			MemberOnline::<T>::insert(member.clone(), ());
 			Self::deposit_event(Event::MemberOnline(member.clone()));
 			T::Elections::member_online(member, network);
 		}
@@ -326,10 +300,8 @@ pub mod pallet {
 		///  Marks a member as offline.
 		/// # Flow
 		///	1. Receives `member` (account of the member) and `network` (NetworkId).
-		///	2. Removes `member` from [`MemberOnline::<T>`] storage.
-		///	3. Emits [`Event::MemberOffline]`.
+		///	2. Emits [`Event::MemberOffline]`.
 		fn member_offline(member: &AccountId, network: NetworkId) {
-			MemberOnline::<T>::remove(member);
 			Self::deposit_event(Event::MemberOffline(member.clone()));
 			T::Elections::member_offline(member, network);
 		}
@@ -369,7 +341,10 @@ pub mod pallet {
 
 		/// Checks if a specific member is online.
 		fn is_member_online(account: &AccountId) -> bool {
-			MemberOnline::<T>::get(account).is_some()
+			let Some(network) = MemberNetwork::<T>::get(account) else { return false };
+			frame_system::Pallet::<T>::block_number()
+				.saturating_sub(Heartbeat::<T>::get(network, account))
+				< T::HeartbeatTimeout::get()
 		}
 
 		fn is_member_registered(account: &AccountId) -> bool {

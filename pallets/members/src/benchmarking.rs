@@ -1,12 +1,12 @@
 use super::*;
-use crate::Pallet;
+use crate::{Config, Pallet};
 
 use polkadot_sdk::*;
 
 use frame_benchmarking::benchmarks;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-use time_primitives::{traits::IdentifyAccount, AccountId, NetworkId, PublicKey};
+use time_primitives::{traits::IdentifyAccount, AccountId, MembersInterface, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
@@ -60,15 +60,15 @@ benchmarks! {
 			);
 			Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
 			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
-			assert!(MemberOnline::<T>::get(&caller).is_some());
-			assert!(Heartbeat::<T>::take(&caller).is_some());
+			assert!(Pallet::<T>::is_member_online(&caller));
 		}
+		frame_system::Pallet::<T>::set_block_number(T::HeartbeatTimeout::get() + T::HeartbeatTimeout::get());
 	}: {
 		Pallet::<T>::timeout_heartbeats();
 	} verify {
 		for i in 0..b {
 			let caller: AccountId = [i as u8; 32].into();
-			assert!(MemberOnline::<T>::get(&caller).is_none());
+			assert!(!Pallet::<T>::is_member_online(&caller));
 		}
 	}
 

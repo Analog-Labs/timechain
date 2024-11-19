@@ -34,7 +34,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{IdentifyAccount, Zero};
+	use sp_runtime::traits::{IdentifyAccount, Saturating, Zero};
 	use sp_std::vec;
 
 	use polkadot_sdk::pallet_balances;
@@ -109,6 +109,10 @@ pub mod pallet {
 	/// Get status of member
 	#[pallet::storage]
 	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
+	/// Index to fairly iterate over `MemberOnline` in `on_initialize`
+	#[pallet::storage]
+	pub type TimeoutIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Get whether member submitted heartbeat within last peiod
 	#[pallet::storage]
@@ -273,23 +277,38 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Times out all heartbeats to manage member online/offline statuses.
 		pub(crate) fn timeout_heartbeats() -> Weight {
+			// additional optimization is caching this in storage so that not all of these storage items have to be read here
+			let members_offline = MemberOnline::<T>::iter()
+				.filter_map(|(m, _)| {
+					if Heartbeat::<T>::take(&m).is_none() {
+						if let Some(network) = MemberNetwork::<T>::get(&m) {
+							Some((m, network))
+						} else {
+							None
+						}
+					} else {
+						None
+					}
+				})
+				.collect::<Vec<(AccountId, NetworkId)>>();
+			let mut timeout_index = sp_std::cmp::min(
+				TimeoutIndex::<T>::get(),
+				(members_offline.len() as u32).saturating_less_one(),
+			);
 			let mut num_timeouts = 0u32;
 			while num_timeouts < T::MaxTimeoutsPerBlock::get() {
-				for (member, _) in MemberOnline::<T>::iter() {
-					if Heartbeat::<T>::take(&member).is_some() {
-						continue;
-					}
-					let Some(network) = MemberNetwork::<T>::get(&member) else {
-						continue;
-					};
-					Self::member_offline(&member, network);
-					num_timeouts += 1u32;
-					if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-						break;
-					}
+				let Some((member, network)) = members_offline.get(timeout_index as usize) else {
+					timeout_index = 0;
+					break;
+				};
+				Self::member_offline(&member, *network);
+				num_timeouts += 1u32;
+				timeout_index = (timeout_index + 1) % members_offline.len() as u32;
+				if num_timeouts == T::MaxTimeoutsPerBlock::get() {
+					break;
 				}
-				break;
 			}
+			TimeoutIndex::<T>::put(timeout_index);
 			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)
 		}
 		///  Marks a member as online.

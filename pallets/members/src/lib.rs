@@ -291,10 +291,7 @@ pub mod pallet {
 				} // else num_timeouts < T::MaxTimeoutsPerBlock:
 				let Some(network) = MemberNetwork::<T>::get(&member) else { continue };
 				Self::member_offline(&member, network);
-				num_timeouts = num_timeouts.saturating_plus_one();
-				if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-					break;
-				}
+				num_timeouts += 1;
 			}
 			// Prepare `TimedOut` storage for next timeout in `HeartbeatTimeout` # of blocks
 			next_timed_out

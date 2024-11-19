@@ -8,7 +8,7 @@ use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::{frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::{BoundedVec, Vec};
-use time_primitives::{AccountId, ChainName, ChainNetwork, NetworkId};
+use time_primitives::{AccountId, ChainName, ChainNetwork, ElectionsInterface, NetworkId};
 const ETHEREUM: NetworkId = 0;
 
 benchmarks! {
@@ -38,7 +38,7 @@ benchmarks! {
 			for j in 0..ShardSize::<T>::get() {
 				let member = account(i, j);
 				MemberOnline::<T>::insert(member.clone(), ());
-				Pallet::<T>::insert_unassigned(ETHEREUM, &member);
+				Pallet::<T>::member_online(&member, ETHEREUM);
 				let member_stake: u128 = 1_000_000_000 - <u32 as Into<u128>>::into(i) -  <u16 as Into<u128>>::into(j);
 				MemberStake::<T>::insert(member.clone(), member_stake);
 				all_new_shard_members.push(member);

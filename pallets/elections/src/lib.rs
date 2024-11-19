@@ -45,28 +45,28 @@ mod tests;
 
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
-	use polkadot_sdk::{frame_support, frame_system, sp_runtime, sp_std};
+	use polkadot_sdk::{frame_support, frame_system, sp_std};
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::Saturating;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, ElectionsInterface, MembersInterface, NetworkId, ShardsInterface, MAX_SHARD_SIZE,
+		AccountId, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface,
+		ShardsInterface, MAX_SHARD_SIZE,
 	};
 
 	pub trait WeightInfo {
 		fn set_shard_config() -> Weight;
-		fn try_elect_shard(b: u32) -> Weight;
+		fn try_elect_shards(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
 		fn set_shard_config() -> Weight {
 			Weight::default()
 		}
-		fn try_elect_shard(_: u32) -> Weight {
+		fn try_elect_shards(_: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -89,10 +89,16 @@ pub mod pallet {
 		type Shards: ShardsInterface;
 		///  The storage interface for member-related data.
 		type Members: MembersInterface;
+		/// The networks interface for getting all networks
+		type Networks: NetworksInterface;
 		/// Maximum number of shard elections per block
 		#[pallet::constant]
 		type MaxElectionsPerBlock: Get<u32>;
 	}
+
+	/// Counter for electing shards per network in order over multiple blocks
+	#[pallet::storage]
+	pub type NetworkCounter<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Size of each new shard
 	#[pallet::storage]
@@ -164,13 +170,29 @@ pub mod pallet {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
 			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
-			for (network, _, _) in Unassigned::<T>::iter() {
-				weight = weight.saturating_add(Self::try_elect_shard(network));
-				num_elections = num_elections.saturating_plus_one();
-				if num_elections == T::MaxElectionsPerBlock::get() {
+			let networks = T::Networks::get_networks();
+			let net_counter0 = NetworkCounter::<T>::get();
+			let (mut net_counter, mut all_nets_elected) = (net_counter0, false);
+			while num_elections < T::MaxElectionsPerBlock::get() {
+				let Some(next_network) = networks.get(net_counter as usize) else {
+					net_counter = 0;
+					break;
+				};
+				let elected = Self::try_elect_shards(
+					*next_network,
+					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
+				);
+				weight = weight.saturating_add(T::WeightInfo::try_elect_shards(elected));
+				num_elections = num_elections.saturating_add(elected);
+				net_counter = (net_counter + 1) % networks.len() as u32;
+				if net_counter == net_counter0 {
+					all_nets_elected = true;
 					break;
 				}
 			}
+			if !all_nets_elected {
+				NetworkCounter::<T>::put(net_counter);
+			} // else counter starts where it left off => no write required
 			log::info!("on_initialize end");
 			weight
 		}
@@ -203,8 +225,8 @@ pub mod pallet {
 			ShardSize::<T>::put(shard_size);
 			ShardThreshold::<T>::put(shard_threshold);
 			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
-			for (network, _, _) in Unassigned::<T>::iter() {
-				Self::try_elect_shard(network);
+			for network in T::Networks::get_networks() {
+				Self::try_elect_shards(network, T::MaxElectionsPerBlock::get());
 			}
 			Ok(())
 		}
@@ -255,55 +277,38 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		///   Attempts to elect a new shard for a network.
-		/// # Flow
-		///    1. Calls `new_shard_members` to get a list of new shard members.
-		///    2. If a new shard can be formed, removes the selected members from [`Unassigned`] storage.
-		///    3. Creates a new shard using the `Shards` interface with the selected members and current shard threshold.
-		pub(crate) fn try_elect_shard(network: NetworkId) -> Weight {
-			let num_unassigned = match Self::new_shard_members(network) {
-				(Some(members), n) => {
-					members.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-					T::Shards::create_shard(network, members, ShardThreshold::<T>::get());
-					n
-				},
-				(None, n) => n,
-			};
-			T::WeightInfo::try_elect_shard(num_unassigned)
-		}
-
-		///  Determines the members for a new shard.
-		/// # Flow
-		///    1. Retrieves the required shard size.
-		///    2. Collects unassigned members for the given network who are online.
-		///    3. Returns `None` if there are not enough members to form a shard.
-		///    4. If there are just enough members, returns the list of members.
-		///    5. If there are more members than needed, sorts them by their stake and selects the top members to form the shard.
-		fn new_shard_members(network: NetworkId) -> (Option<Vec<AccountId>>, u32) {
-			let mut num_unassigned: u32 = 0;
+		/// Elects as many as `max_elections` number of new shards for `networks`
+		/// Returns # of Shards Elected
+		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
 			let mut members = Vec::new();
+			// additional optimization would be storing this separately in order of member stake
 			for (m, _) in Unassigned::<T>::iter_prefix(network) {
 				if T::Members::is_member_online(&m) {
 					members.push(m);
 				}
-				num_unassigned = num_unassigned.saturating_plus_one();
 			}
-			let shard_members_len = ShardSize::<T>::get() as usize;
-			if members.len() < shard_members_len {
-				return (None, num_unassigned);
+			let members_size = members.len() as u32;
+			let shard_size = ShardSize::<T>::get();
+			if members_size < shard_size.into() {
+				return 0u32;
 			}
-			if members.len() == shard_members_len {
-				return (Some(members), num_unassigned);
+			if members_size > shard_size.into() {
+				members.sort_unstable_by(|a, b| {
+					T::Members::member_stake(a)
+						.cmp(&T::Members::member_stake(b))
+						// sort by AccountId iff amounts are equal to uphold determinism
+						.then_with(|| a.cmp(b))
+						.reverse()
+				});
 			}
-			// else members.len() > shard_members_len:
-			members.sort_unstable_by(|a, b| {
-				T::Members::member_stake(a)
-					.cmp(&T::Members::member_stake(b))
-					// sort by AccountId iff amounts are equal to uphold determinism
-					.then_with(|| a.cmp(b))
-					.reverse()
-			});
-			(Some(members.into_iter().take(shard_members_len).collect()), num_unassigned)
+			let num_new_shards =
+				sp_std::cmp::min(members_size.saturating_div(shard_size.into()), max_elections);
+			for _ in 0..num_new_shards {
+				let next_shard: Vec<AccountId> = members.drain(..(shard_size as usize)).collect();
+				next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
+				T::Shards::create_shard(network, next_shard, ShardThreshold::<T>::get());
+			}
+			num_new_shards
 		}
 	}
 }

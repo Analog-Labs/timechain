@@ -259,6 +259,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> NetworksInterface for Pallet<T> {
+		fn get_networks() -> Vec<NetworkId> {
+			NetworkName::<T>::iter().map(|(n, _)| n).collect()
+		}
+
 		fn gateway(network: NetworkId) -> Option<Address> {
 			NetworkGatewayAddress::<T>::get(network)
 		}

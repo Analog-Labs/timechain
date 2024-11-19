@@ -94,6 +94,7 @@ fn shard_not_stuck_in_committed_state() {
 	let first_shard = [c.clone(), b.clone(), a.clone()].to_vec();
 	//let second_shard = [d.clone(), c.clone(), b.clone()].to_vec();
 	new_test_ext().execute_with(|| {
+		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network(),));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,

@@ -131,6 +131,7 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait NetworksInterface {
+	fn get_networks() -> Vec<NetworkId>;
 	fn gateway(network: NetworkId) -> Option<Address>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
 	fn batch_gas_limit(network: NetworkId) -> u128;

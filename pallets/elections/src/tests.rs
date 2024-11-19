@@ -39,7 +39,10 @@ fn shard_size_new_members_online_creates_shard() {
 		for member in [a, b, c] {
 			assert!(Unassigned::<Test>::get(ETHEREUM, member).is_none());
 		}
-		assert_eq!(pallet_shards::ShardThreshold::<Test>::get(0), Some(2));
+		assert_eq!(
+			pallet_shards::ShardThreshold::<Test>::get(0),
+			Some(ShardThreshold::<Test>::get())
+		);
 	});
 }
 
@@ -85,6 +88,85 @@ fn shard_offline_automatically_creates_new_shard() {
 		Elections::shard_offline(ETHEREUM, [a, b, c].to_vec());
 		roll(1);
 		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(1, ETHEREUM).into());
+	});
+}
+
+#[test]
+fn member_selection_in_order_of_member_stake() {
+	let a: AccountId = [1u8; 32].into();
+	let b: AccountId = [2u8; 32].into();
+	let c: AccountId = [3u8; 32].into();
+	let d: AccountId = [4u8; 32].into();
+	new_test_ext().execute_with(|| {
+		register_member([1u8; 32], 8);
+		Elections::member_online(&a, ETHEREUM);
+		MemberOnline::<Test>::insert(&a, ());
+		register_member([2u8; 32], 7);
+		Elections::member_online(&b, ETHEREUM);
+		MemberOnline::<Test>::insert(&b, ());
+		register_member([3u8; 32], 6);
+		Elections::member_online(&c, ETHEREUM);
+		MemberOnline::<Test>::insert(&c, ());
+		// expect lowest balance = 5 to be unassigned
+		register_member([4u8; 32], 5);
+		Elections::member_online(&d, ETHEREUM);
+		MemberOnline::<Test>::insert(&d, ());
+		roll(1);
+		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(0, ETHEREUM).into());
+		for member in [a, b, c] {
+			// highest 3/4 balances are assigned to shard election
+			assert!(Unassigned::<Test>::get(ETHEREUM, member).is_none());
+		}
+		// lowest balance = 5 is unassigned after shard election
+		assert!(Unassigned::<Test>::get(ETHEREUM, d).is_some());
+	});
+}
+
+#[test]
+fn shard_selection_in_order_of_member_stake() {
+	let a: AccountId = [1u8; 32].into();
+	let b: AccountId = [2u8; 32].into();
+	let c: AccountId = [3u8; 32].into();
+	let d: AccountId = [4u8; 32].into();
+	let e: AccountId = [5u8; 32].into();
+	let f: AccountId = [6u8; 32].into();
+	let g: AccountId = [7u8; 32].into();
+	let h: AccountId = [8u8; 32].into();
+	new_test_ext().execute_with(|| {
+		register_member([1u8; 32], 11);
+		Elections::member_online(&a, ETHEREUM);
+		MemberOnline::<Test>::insert(&a, ());
+		register_member([2u8; 32], 10);
+		Elections::member_online(&b, ETHEREUM);
+		MemberOnline::<Test>::insert(&b, ());
+		register_member([3u8; 32], 9);
+		Elections::member_online(&c, ETHEREUM);
+		MemberOnline::<Test>::insert(&c, ());
+		register_member([4u8; 32], 8);
+		Elections::member_online(&d, ETHEREUM);
+		MemberOnline::<Test>::insert(&d, ());
+		register_member([5u8; 32], 7);
+		Elections::member_online(&e, ETHEREUM);
+		MemberOnline::<Test>::insert(&e, ());
+		register_member([6u8; 32], 6);
+		Elections::member_online(&f, ETHEREUM);
+		MemberOnline::<Test>::insert(&f, ());
+		register_member([7u8; 32], 5);
+		Elections::member_online(&g, ETHEREUM);
+		MemberOnline::<Test>::insert(&g, ());
+		register_member([8u8; 32], 5);
+		Elections::member_online(&h, ETHEREUM);
+		MemberOnline::<Test>::insert(&h, ());
+		roll(1);
+		System::assert_last_event(pallet_shards::Event::<Test>::ShardCreated(1, ETHEREUM).into());
+		for member in [a, b, c, d, e, f] {
+			// highest 6/8 balances are assigned to shard election
+			assert!(Unassigned::<Test>::get(ETHEREUM, member).is_none());
+		}
+		for member in [g, h] {
+			// lowest 2/8 balances are unassigned
+			assert!(Unassigned::<Test>::get(ETHEREUM, member).is_some());
+		}
 	});
 }
 

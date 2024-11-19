@@ -9514,6 +9514,7 @@ dependencies = [
  "lazy_static",
  "log",
  "pallet-members",
+ "pallet-networks",
  "pallet-shards",
  "parity-scale-codec",
  "polkadot-sdk",

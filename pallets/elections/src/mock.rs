@@ -9,7 +9,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{NetworkId, PublicKey, ShardId, TasksInterface};
+use time_primitives::{Address, NetworkId, NetworksInterface, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -24,6 +24,26 @@ impl TasksInterface for MockTasks {
 	fn gateway_registered(_: NetworkId, _: u64) {}
 }
 
+pub struct MockNetworks;
+
+impl NetworksInterface for MockNetworks {
+	fn gateway(_network: NetworkId) -> Option<Address> {
+		Some([0; 32])
+	}
+	fn get_networks() -> Vec<NetworkId> {
+		vec![0]
+	}
+	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
+		5
+	}
+	fn batch_gas_limit(_network: NetworkId) -> u128 {
+		10
+	}
+	fn shard_task_limit(_network: NetworkId) -> u32 {
+		10
+	}
+}
+
 frame_support::construct_runtime!(
 	pub struct Test
 	{
@@ -32,6 +52,7 @@ frame_support::construct_runtime!(
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Elections: pallet_elections::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Members: pallet_members,
+		Networks: pallet_networks,
 	}
 );
 
@@ -64,6 +85,7 @@ impl pallet_elections::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Members = Members;
+	type Networks = MockNetworks;
 	type MaxElectionsPerBlock = ConstU32<10>;
 }
 
@@ -86,6 +108,13 @@ impl pallet_members::Config for Test {
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<100>;
+}
+
+impl pallet_networks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Tasks = MockTasks;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
@@ -124,8 +153,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
 			(acc_pub(1).into(), 10_000_000_000),
-			(acc_pub(2).into(), 20_000_000_000),
-			(acc_pub(3).into(), 20_000_000_000),
+			(acc_pub(2).into(), 10_000_000_000),
+			(acc_pub(3).into(), 10_000_000_000),
+			(acc_pub(4).into(), 10_000_000_000),
+			(acc_pub(5).into(), 10_000_000_000),
+			(acc_pub(6).into(), 10_000_000_000),
+			(acc_pub(7).into(), 10_000_000_000),
+			(acc_pub(8).into(), 10_000_000_000),
 		],
 	}
 	.assimilate_storage(&mut storage)

@@ -1713,6 +1713,7 @@ fn cancel_task_empties_gmp_tasks() {
 
 		ShardState::<Test>::insert(0, ShardStatus::Online);
 		Tasks::shard_online(0, ETHEREUM);
+
 		// not a SendMessage Tasks should not be cancelled
 		for _ in 0..2 {
 			assert_ok!(Tasks::create_task(
@@ -1720,6 +1721,19 @@ fn cancel_task_empties_gmp_tasks() {
 				mock_task(ETHEREUM, 3)
 			));
 		}
+		// SendMessage Tasks should be cancelled
+		for _ in 0..3 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_sign_task(ETHEREUM)
+			));
+		}
+		assert_ok!(Tasks::register_gateway(RawOrigin::Root.into(), 0, [0u8; 20], 0),);
+		roll(1);
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 6);
+		assert_ok!(Tasks::sudo_cancel_gmp_tasks(RawOrigin::Root.into(), 6));
+		assert_eq!(ShardTasks::<Test>::iter_prefix(0).count(), 3);
+
 		// SendMessage Tasks should be cancelled
 		for _ in 0..3 {
 			assert_ok!(Tasks::create_task(

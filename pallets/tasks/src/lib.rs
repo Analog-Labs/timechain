@@ -779,6 +779,11 @@ pub mod pallet {
 					if cancelled >= max {
 						return Ok(());
 					}
+					if let Some(task) = Tasks::<T>::get(task_id) {
+						if !matches!(task.function, Function::SendMessage { .. }) {
+							continue;
+						}
+					}
 					Self::cancel_task(task_id, network);
 					cancelled = cancelled.saturating_plus_one();
 				}

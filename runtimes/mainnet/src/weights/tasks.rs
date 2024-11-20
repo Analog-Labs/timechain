@@ -330,6 +330,21 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((8_u64).saturating_mul(b.into())))
 			.saturating_add(Weight::from_parts(0, 2718).saturating_mul(b.into()))
 	}
+
+	fn sudo_cancel_gmp_tasks(b: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `724 + b * (247 ±0)`
+		//  Estimated: `4197 + b * (2718 ±0)`
+		// Minimum execution time: 75_642_000 picoseconds.
+		Weight::from_parts(37_898_953, 0)
+			.saturating_add(Weight::from_parts(0, 4197))
+			// Standard Error: 116_280
+			.saturating_add(Weight::from_parts(43_025_180, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(b.into())))
+			.saturating_add(T::DbWeight::get().writes((8_u64).saturating_mul(b.into())))
+			.saturating_add(Weight::from_parts(0, 2718).saturating_mul(b.into()))
+	}
 	/// Storage: `Tasks::TaskShard` (r:11 w:10)
 	/// Proof: `Tasks::TaskShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::Tasks` (r:10 w:0)

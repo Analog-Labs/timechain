@@ -1703,6 +1703,38 @@ fn cancel_task_empties_unassigned_queue() {
 }
 
 #[test]
+fn cancel_task_empties_gmp_tasks() {
+	new_test_ext().execute_with(|| {
+		Shards::create_shard(
+			ETHEREUM,
+			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			1,
+		);
+
+		ShardState::<Test>::insert(0, ShardStatus::Online);
+		Tasks::shard_online(0, ETHEREUM);
+		// not a SendMessage Tasks should not be cancelled
+		for _ in 0..2 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_task(ETHEREUM, 3)
+			));
+		}
+		// SendMessage Tasks should be cancelled
+		for _ in 0..3 {
+			assert_ok!(Tasks::create_task(
+				RawOrigin::Signed([0; 32].into()).into(),
+				mock_sign_task(ETHEREUM)
+			));
+		}
+		ShardState::<Test>::insert(0, ShardStatus::Offline);
+		Tasks::shard_offline(0, ETHEREUM);
+		assert_ok!(Tasks::sudo_cancel_gmp_tasks(RawOrigin::Root.into(), 6));
+		assert_eq!(UnassignedTasks::<Test>::iter().collect::<Vec<_>>().len(), 2);
+	});
+}
+
+#[test]
 fn set_shard_task_limit_successfully_limits_task_assignment() {
 	new_test_ext().execute_with(|| {
 		Shards::create_shard(

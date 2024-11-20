@@ -242,6 +242,14 @@ benchmarks! {
 		}
 	}: _(RawOrigin::Root, b) verify {}
 
+	sudo_cancel_gmp_tasks {
+		// TODO: replace upper bound with PALLET_MAXIMUM
+		let b in 1..10;
+		for i in 0..b {
+			let _ = create_simple_task::<T>()?;
+		}
+	}: _(RawOrigin::Root, b) verify {}
+
 	reset_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..10;

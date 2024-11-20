@@ -241,12 +241,12 @@ pub mod pallet {
 			let member = ensure_signed(origin)?;
 			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(&member, ());
-			TimedOut::<T>::mutate(|members| members.retain(|m| *m != member));
-			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
+			Heartbeat::<T>::insert(&member, ());
+			TimedOut::<T>::mutate(|members| members.retain(|m| *m != member));
+			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
 
@@ -291,8 +291,7 @@ pub mod pallet {
 				num_timeouts += 1;
 			}
 			// Prepare `TimedOut` storage for next timeout in `HeartbeatTimeout` # of blocks
-			next_timed_out
-				.extend(Heartbeat::<T>::drain().map(|(m, _)| m).collect::<Vec<AccountId>>());
+			next_timed_out.extend(Heartbeat::<T>::drain().map(|(m, _)| m));
 			TimedOut::<T>::put(next_timed_out);
 			// Return weight consumed
 			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)

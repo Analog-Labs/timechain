@@ -295,14 +295,12 @@ pub mod pallet {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
-			let shard_size = ShardSize::<T>::get();
+			let shard_size: u32 = ShardSize::<T>::get().into();
 			let shard_threshold = ShardThreshold::<T>::get();
 			let mut unassigned = Unassigned::<T>::get(network);
-			let num_elected = sp_std::cmp::min(
-				(unassigned.len() as u32).saturating_div(shard_size.into()),
-				max_elections,
-			)
-			.saturating_mul(shard_size.into());
+			let num_elected =
+				sp_std::cmp::min((unassigned.len() as u32) / shard_size, max_elections)
+					* shard_size;
 			let mut members = Vec::with_capacity(num_elected as usize);
 			members.extend(unassigned.drain(..(num_elected as usize)));
 			Unassigned::<T>::insert(network, unassigned);

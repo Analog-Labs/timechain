@@ -39,8 +39,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3`
 		//  Estimated: `3468`
-		// Minimum execution time: 33_884_000 picoseconds.
-		Weight::from_parts(36_709_000, 0)
+		// Minimum execution time: 31_919_000 picoseconds.
+		Weight::from_parts(34_335_000, 0)
 			.saturating_add(Weight::from_parts(0, 3468))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -53,8 +53,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3`
 		//  Estimated: `3468`
-		// Minimum execution time: 33_873_000 picoseconds.
-		Weight::from_parts(39_252_000, 0)
+		// Minimum execution time: 32_751_000 picoseconds.
+		Weight::from_parts(37_119_000, 0)
 			.saturating_add(Weight::from_parts(0, 3468))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -69,8 +69,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `272`
 		//  Estimated: `6196`
-		// Minimum execution time: 88_806_000 picoseconds.
-		Weight::from_parts(93_876_000, 0)
+		// Minimum execution time: 80_211_000 picoseconds.
+		Weight::from_parts(86_010_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -85,8 +85,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `285`
 		//  Estimated: `3593`
-		// Minimum execution time: 83_116_000 picoseconds.
-		Weight::from_parts(88_536_000, 0)
+		// Minimum execution time: 78_637_000 picoseconds.
+		Weight::from_parts(85_019_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -97,8 +97,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3`
 		//  Estimated: `1488`
-		// Minimum execution time: 9_788_000 picoseconds.
-		Weight::from_parts(13_496_000, 0)
+		// Minimum execution time: 9_618_000 picoseconds.
+		Weight::from_parts(10_841_000, 0)
 			.saturating_add(Weight::from_parts(0, 1488))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -109,8 +109,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3`
 		//  Estimated: `1488`
-		// Minimum execution time: 9_908_000 picoseconds.
-		Weight::from_parts(10_800_000, 0)
+		// Minimum execution time: 9_508_000 picoseconds.
+		Weight::from_parts(10_409_000, 0)
 			.saturating_add(Weight::from_parts(0, 1488))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -121,8 +121,8 @@ impl<T: frame_system::Config> pallet_timegraph::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `3`
 		//  Estimated: `1488`
-		// Minimum execution time: 9_378_000 picoseconds.
-		Weight::from_parts(12_403_000, 0)
+		// Minimum execution time: 9_157_000 picoseconds.
+		Weight::from_parts(10_139_000, 0)
 			.saturating_add(Weight::from_parts(0, 1488))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))

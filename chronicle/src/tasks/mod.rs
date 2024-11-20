@@ -11,6 +11,7 @@ use time_primitives::{
 	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId,
 	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{event, span, Level};
 
@@ -166,7 +167,7 @@ impl TaskExecutor {
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
-	) -> Result<(Vec<TaskId>, Vec<TaskId>)> {
+	) -> Result<(Vec<TaskId>, Vec<TaskId>, u64)> {
 		let span = span!(
 			target: TW_LOG,
 			Level::DEBUG,
@@ -184,7 +185,9 @@ impl TaskExecutor {
 		let mut start_sessions = vec![];
 		let tasks = self.params.runtime.get_shard_tasks(shard_id).await?;
 
+		let failed_tasks: Arc<Mutex<u64>> = Default::default();
 		for task_id in tasks.iter().copied() {
+			let total_failed = failed_tasks.clone();
 			if self.running_tasks.contains_key(&task_id) {
 				continue;
 			}
@@ -206,6 +209,7 @@ impl TaskExecutor {
 						tracing::info!(task_id, target_block_height, "Task completed");
 					},
 					Err(error) => {
+						*total_failed.lock().await += 1;
 						tracing::error!(task_id, target_block_height, ?error, "Task failed");
 					},
 				};
@@ -233,6 +237,7 @@ impl TaskExecutor {
 				false
 			}
 		});
-		Ok((start_sessions, completed_sessions))
+		let failed_tasks = *failed_tasks.lock().await;
+		Ok((start_sessions, completed_sessions, failed_tasks))
 	}
 }

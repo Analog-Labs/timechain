@@ -40,7 +40,7 @@ alloy_sol_types::sol! {
 	}
 
 	contract Gateway {
-		constructor(uint16 networkId, address proxy) payable;
+		constructor(address proxy) payable;
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
 		function admin() external view returns (address);
@@ -75,7 +75,7 @@ alloy_sol_types::sol! {
 	}
 
 	#[derive(Debug, Default, PartialEq, Eq)]
-	struct ContextData {
+	struct ProxyContext {
 		uint8 v;
 		bytes32 r;
 		bytes32 s;
@@ -83,9 +83,14 @@ alloy_sol_types::sol! {
 	}
 
 	#[derive(Debug, Default, PartialEq, Eq)]
-	struct ContextDigest {
+	struct ProxyDigest {
 		address proxy;
 		address implementation;
+	}
+
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct GatewayContext {
+		uint16 networkId;
 	}
 
 	contract GmpTester {
@@ -96,7 +101,7 @@ alloy_sol_types::sol! {
 
 	// reference: https://github.com/Analog-Labs/universal-factory/blob/main/src/IUniversalFactory.sol
 	interface IUniversalFactory {
-		function create2(bytes32 salt, bytes calldata creationCode) external payable returns (address);
+		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments) external payable returns (address);
 		function create3(bytes32 salt, bytes calldata creationCode, bytes calldata arguments) external payable returns (address);
 	}
 

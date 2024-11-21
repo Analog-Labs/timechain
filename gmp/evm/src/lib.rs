@@ -24,7 +24,7 @@ use time_primitives::{
 	TssSignature, H160,
 };
 
-use crate::sol::{ContextData, ContextDigest};
+use crate::sol::{GatewayContext, ProxyContext, ProxyDigest};
 
 type AlloyAddress = alloy_primitives::Address;
 
@@ -121,11 +121,13 @@ impl Connector {
 			.wallet
 			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
 			.await?;
-		let SubmitResult::Executed { result, receipt, .. } = result else {
+		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
 			anyhow::bail!("tx timed out");
 		};
+		tracing::info!("deploying with tx_hash: {:?}", tx_hash);
 		match result {
-			CallResult::Success(_) => {
+			CallResult::Success(val) => {
+				tracing::info!("deployment call sucess with : {:?}", hex::encode(val));
 				let log = receipt
 					.logs
 					.iter()
@@ -365,21 +367,26 @@ impl IConnectorAdmin for Connector {
 
 		// gateway deployment
 		let gateway_bytecode = get_contract_from_slice(gateway)?;
-		let gateway_contstructor = sol::Gateway::constructorCall {
-			networkId: self.network_id,
+
+		let gateway_constructor = sol::Gateway::constructorCall {
 			proxy: computed_proxy_address.into(),
 		};
+
 		let gateway_init_code =
-			extend_bytes_with_constructor(gateway_bytecode, gateway_contstructor);
+			extend_bytes_with_constructor(gateway_bytecode, gateway_constructor);
+
+		let gateway_context = GatewayContext { networkId: self.network_id }.abi_encode();
 
 		//deploy using universal factory
 		let gateway_create_call = sol::IUniversalFactory::create2Call {
 			salt: deployment_salt.into(),
 			creationCode: gateway_init_code.into(),
+			arguments: gateway_context.into(),
 		}
 		.abi_encode();
 
 		// deploy_gateway with universal factory
+		tracing::info!("Deploying gateway ...");
 		let (gateway_address, _) =
 			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
 		tracing::info!("gateway deployed at: {:?}", gateway_address);
@@ -400,7 +407,7 @@ impl IConnectorAdmin for Connector {
 			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
 		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
 		let proxy_admin_sk = proxy_admin_sk.secret_key();
-		let digest = ContextDigest {
+		let digest = ProxyDigest {
 			proxy: computed_proxy_address.into(),
 			implementation: gateway_address,
 		}
@@ -408,7 +415,7 @@ impl IConnectorAdmin for Connector {
 		let payload: [u8; 32] = Keccak256::digest(digest).into();
 		let signature = proxy_admin_sk.sign_prehashed(&payload)?;
 		let (r, s, v) = extract_signature_bytes(signature.to_bytes())?;
-		let arguments = ContextData {
+		let arguments = ProxyContext {
 			v,
 			r: r.into(),
 			s: s.into(),
@@ -432,6 +439,7 @@ impl IConnectorAdmin for Connector {
 		}
 		.abi_encode();
 
+		tracing::info!("Deploying proxy ...");
 		let (proxy_address, block_number) =
 			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
 		if proxy_address != computed_proxy_address {
@@ -442,19 +450,21 @@ impl IConnectorAdmin for Connector {
 			);
 		}
 
+		tracing::info!("proxy_address: {:?}", proxy_address);
+
 		Ok((t_addr(proxy_address), block_number))
 	}
 	/// Redeploys the gateway contract.
 	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()> {
-		let call = sol::Gateway::constructorCall {
-			networkId: self.network_id,
-			proxy: a_addr(proxy),
-		};
-		let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
-		let call = sol::Gateway::upgradeCall {
-			newImplementation: a_addr(gateway_addr),
-		};
-		self.evm_call(proxy, call, 0, None).await?;
+		// let call = sol::Gateway::constructorCall {
+		// 	networkId: self.network_id,
+		// 	proxy: a_addr(proxy),
+		// };
+		// let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
+		// let call = sol::Gateway::upgradeCall {
+		// 	newImplementation: a_addr(gateway_addr),
+		// };
+		// self.evm_call(proxy, call, 0, None).await?;
 		Ok(())
 	}
 	/// Returns the gateway admin.

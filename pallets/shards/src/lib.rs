@@ -250,55 +250,7 @@ pub mod pallet {
 			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			ensure!(
-				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
-				Error::<T>::UnexpectedCommit
-			);
-			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
-			ensure!(
-				commitment.0.len() == threshold as usize,
-				Error::<T>::CommitmentLenNotEqualToThreshold
-			);
-			for c in &commitment.0 {
-				ensure!(
-					VerifyingKey::from_bytes(*c).is_ok(),
-					Error::<T>::InvalidVerifyingKeyInCommitment
-				);
-			}
-			let peer_id =
-				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
-			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
-				&peer_id,
-				&commitment.0,
-				proof_of_knowledge,
-			)
-			.map_err(|_| Error::<T>::InvalidProofOfKnowledge)?;
-			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
-			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
-				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
-					.filter_map(|(_, status)| status.commitment().cloned())
-					.reduce(|mut group_commitment, commitment| {
-						for (group_commitment, commitment) in
-							group_commitment.0.iter_mut().zip(commitment.0.iter())
-						{
-							*group_commitment = VerifyingKey::new(
-								VerifyingKey::from_bytes(*group_commitment)
-									.expect("GroupCommitment output is invalid")
-									.to_element() + VerifyingKey::from_bytes(*commitment)
-									.expect("Commitment is invalid")
-									.to_element(),
-							)
-							.to_bytes()
-							.expect("Group commitment construction failed");
-						}
-						group_commitment
-					})
-					.ok_or(Error::<T>::InvalidCommitment)?;
-				ShardCommitment::<T>::insert(shard_id, commitment.clone());
-				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
-				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
-			}
-			Ok(())
+			Self::execute_commit(member, shard_id, commitment, proof_of_knowledge)
 		}
 
 		#[pallet::call_index(1)]
@@ -311,55 +263,7 @@ pub mod pallet {
 			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(
-				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
-				Error::<T>::UnexpectedCommit
-			);
-			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
-			ensure!(
-				commitment.0.len() == threshold as usize,
-				Error::<T>::CommitmentLenNotEqualToThreshold
-			);
-			for c in &commitment.0 {
-				ensure!(
-					VerifyingKey::from_bytes(*c).is_ok(),
-					Error::<T>::InvalidVerifyingKeyInCommitment
-				);
-			}
-			let peer_id =
-				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
-			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
-				&peer_id,
-				&commitment.0,
-				proof_of_knowledge,
-			)
-			.map_err(|_| Error::<T>::InvalidProofOfKnowledge)?;
-			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
-			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
-				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
-					.filter_map(|(_, status)| status.commitment().cloned())
-					.reduce(|mut group_commitment, commitment| {
-						for (group_commitment, commitment) in
-							group_commitment.0.iter_mut().zip(commitment.0.iter())
-						{
-							*group_commitment = VerifyingKey::new(
-								VerifyingKey::from_bytes(*group_commitment)
-									.expect("GroupCommitment output is invalid")
-									.to_element() + VerifyingKey::from_bytes(*commitment)
-									.expect("Commitment is invalid")
-									.to_element(),
-							)
-							.to_bytes()
-							.expect("Group commitment construction failed");
-						}
-						group_commitment
-					})
-					.ok_or(Error::<T>::InvalidCommitment)?;
-				ShardCommitment::<T>::insert(shard_id, commitment.clone());
-				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
-				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
-			}
-			Ok(())
+			Self::execute_commit(member, shard_id, commitment, proof_of_knowledge)
 		}
 
 		/// Marks a shard as ready when a member indicates readiness after commitment.
@@ -374,26 +278,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::ready())]
 		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			ensure!(
-				matches!(
-					ShardMembers::<T>::get(shard_id, &member),
-					Some(MemberStatus::Committed(_))
-				),
-				Error::<T>::UnexpectedReady,
-			);
-			let network =
-				ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardNetwork)?;
-			let commitment =
-				ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardCommitment)?;
-			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
-			if ShardMembers::<T>::iter_prefix(shard_id)
-				.all(|(_, status)| status == MemberStatus::Ready)
-			{
-				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-				Self::deposit_event(Event::ShardOnline(shard_id, commitment.0[0]));
-				T::Tasks::shard_online(shard_id, network);
-			}
-			Ok(())
+			Self::execute_ready(member, shard_id)
 		}
 
 		#[pallet::call_index(3)]
@@ -404,26 +289,7 @@ pub mod pallet {
 			shard_id: ShardId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(
-				matches!(
-					ShardMembers::<T>::get(shard_id, &member),
-					Some(MemberStatus::Committed(_))
-				),
-				Error::<T>::UnexpectedReady,
-			);
-			let network =
-				ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardNetwork)?;
-			let commitment =
-				ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardCommitment)?;
-			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
-			if ShardMembers::<T>::iter_prefix(shard_id)
-				.all(|(_, status)| status == MemberStatus::Ready)
-			{
-				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
-				Self::deposit_event(Event::ShardOnline(shard_id, commitment.0[0]));
-				T::Tasks::shard_online(shard_id, network);
-			}
-			Ok(())
+			Self::execute_ready(member, shard_id)
 		}
 		/// Forces a shard to go offline, used primarily by the root.
 		/// # Flow
@@ -449,6 +315,84 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn execute_commit(
+			member: AccountId,
+			shard_id: ShardId,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> DispatchResult {
+			ensure!(
+				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
+				Error::<T>::UnexpectedCommit
+			);
+			let threshold = ShardThreshold::<T>::get(shard_id).unwrap_or_default();
+			ensure!(
+				commitment.0.len() == threshold as usize,
+				Error::<T>::CommitmentLenNotEqualToThreshold
+			);
+			for c in &commitment.0 {
+				ensure!(
+					VerifyingKey::from_bytes(*c).is_ok(),
+					Error::<T>::InvalidVerifyingKeyInCommitment
+				);
+			}
+			let peer_id =
+				T::Members::member_peer_id(&member).ok_or(Error::<T>::MemberPeerIdNotFound)?;
+			schnorr_evm::proof_of_knowledge::verify_proof_of_knowledge(
+				&peer_id,
+				&commitment.0,
+				proof_of_knowledge,
+			)
+			.map_err(|_| Error::<T>::InvalidProofOfKnowledge)?;
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Committed(commitment));
+			if ShardMembers::<T>::iter_prefix(shard_id).all(|(_, status)| status.is_committed()) {
+				let commitment = ShardMembers::<T>::iter_prefix(shard_id)
+					.filter_map(|(_, status)| status.commitment().cloned())
+					.reduce(|mut group_commitment, commitment| {
+						for (group_commitment, commitment) in
+							group_commitment.0.iter_mut().zip(commitment.0.iter())
+						{
+							*group_commitment = VerifyingKey::new(
+								VerifyingKey::from_bytes(*group_commitment)
+									.expect("GroupCommitment output is invalid")
+									.to_element() + VerifyingKey::from_bytes(*commitment)
+									.expect("Commitment is invalid")
+									.to_element(),
+							)
+							.to_bytes()
+							.expect("Group commitment construction failed");
+						}
+						group_commitment
+					})
+					.ok_or(Error::<T>::InvalidCommitment)?;
+				ShardCommitment::<T>::insert(shard_id, commitment.clone());
+				ShardState::<T>::insert(shard_id, ShardStatus::Committed);
+				Self::deposit_event(Event::ShardCommitted(shard_id, commitment))
+			}
+			Ok(())
+		}
+		fn execute_ready(member: AccountId, shard_id: ShardId) -> DispatchResult {
+			ensure!(
+				matches!(
+					ShardMembers::<T>::get(shard_id, &member),
+					Some(MemberStatus::Committed(_))
+				),
+				Error::<T>::UnexpectedReady,
+			);
+			let network =
+				ShardNetwork::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardNetwork)?;
+			let commitment =
+				ShardCommitment::<T>::get(shard_id).ok_or(Error::<T>::UnknownShardCommitment)?;
+			ShardMembers::<T>::insert(shard_id, member, MemberStatus::Ready);
+			if ShardMembers::<T>::iter_prefix(shard_id)
+				.all(|(_, status)| status == MemberStatus::Ready)
+			{
+				<ShardState<T>>::insert(shard_id, ShardStatus::Online);
+				Self::deposit_event(Event::ShardOnline(shard_id, commitment.0[0]));
+				T::Tasks::shard_online(shard_id, network);
+			}
+			Ok(())
+		}
 		/// Handles the internal logic for removing a shard and setting its state to offline.
 		/// Set shard status to offline and keep shard public key if already submitted
 		/// # Flow

@@ -122,7 +122,7 @@ services:
   tc-cli:
     image: 'analoglabs/tc-cli-develop'
     environment:
-      RUST_LOG: 'tc_subxt=debug,tc_cli=debug'
+      RUST_LOG: 'tc_subxt=debug,tc_cli=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
     volumes:
     - './config/envs/local/config.yaml:/etc/config.yaml:ro'

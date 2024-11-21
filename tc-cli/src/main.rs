@@ -119,7 +119,9 @@ enum Command {
 	RuntimeUpgrade {
 		path: PathBuf,
 	},
-	Deploy,
+	Deploy {
+		networks: Vec<u16>,
+	},
 	UnregisterMember {
 		member: String,
 	},
@@ -621,8 +623,8 @@ async fn real_main() -> Result<()> {
 		Command::RuntimeUpgrade { path } => {
 			tc.runtime_upgrade(&path).await?;
 		},
-		Command::Deploy => {
-			tc.deploy(None).await?;
+		Command::Deploy { networks } => {
+			tc.deploy(networks).await?;
 		},
 		Command::UnregisterMember { member } => {
 			let member = tc.parse_address(None, &member)?;

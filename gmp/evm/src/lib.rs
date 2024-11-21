@@ -8,7 +8,6 @@ use rosetta_client::{
 	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
 };
 use rosetta_crypto::bip32::DerivedSecretKey;
-use rosetta_crypto::Signature::EcdsaRecoverableSecp256k1;
 use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
@@ -396,8 +395,11 @@ impl IConnectorAdmin for Connector {
 			"",
 			rosetta_crypto::Algorithm::EcdsaRecoverableSecp256k1,
 		)?;
+		let proxy_admin_pk = proxy_admin_sk
+			.public_key()
+			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
+		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
 		let proxy_admin_sk = proxy_admin_sk.secret_key();
-		// Step 1: get the public key from admin secret key
 		let digest = ContextDigest {
 			proxy: computed_proxy_address.into(),
 			implementation: gateway_address,
@@ -414,7 +416,9 @@ impl IConnectorAdmin for Connector {
 		}
 		.abi_encode();
 
-		let proxy_constructor = sol::GatewayProxy::constructorCall { admin: todo!() };
+		let proxy_constructor = sol::GatewayProxy::constructorCall {
+			admin: proxy_admin_address.into(),
+		};
 
 		let proxy_bytecode = get_contract_from_slice(proxy)?;
 		let proxy_bytecode =

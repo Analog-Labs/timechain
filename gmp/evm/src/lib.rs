@@ -405,13 +405,11 @@ impl IConnectorAdmin for Connector {
 		.abi_encode();
 		let payload: [u8; 32] = Keccak256::digest(digest).into();
 		let signature = proxy_admin_sk.sign_prehashed(&payload)?;
-		let EcdsaRecoverableSecp256k1(a, v) = signature else {
-			anyhow::bail!("Wrong signature type");
-		};
+		let (r, s, v) = extract_signature_bytes(signature.to_bytes())?;
 		let arguments = ContextData {
-			v: todo!(),
-			r: todo!(),
-			s: todo!(),
+			v,
+			r: r.into(),
+			s: s.into(),
 			implementation: gateway_address,
 		}
 		.abi_encode();
@@ -635,6 +633,17 @@ fn extend_bytes_with_constructor(bytecode: Vec<u8>, constructor: impl SolConstru
 	let mut bytecode = bytecode.clone();
 	bytecode.extend(constructor.abi_encode());
 	bytecode
+}
+
+pub fn extract_signature_bytes(sig: Vec<u8>) -> Result<([u8; 32], [u8; 32], u8)> {
+	if sig.len() != 65 {
+		anyhow::bail!("Invalid signature length");
+	}
+
+	let r: [u8; 32] = sig[0..32].try_into()?;
+	let s: [u8; 32] = sig[32..64].try_into()?;
+	let v = sig[64];
+	Ok((r, s, v))
 }
 
 #[derive(Clone, Debug, Deserialize)]

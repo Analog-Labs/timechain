@@ -1,5 +1,5 @@
 use alloy_primitives::{B256, U256};
-use alloy_sol_types::{SolCall, SolConstructor, SolEvent};
+use alloy_sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
@@ -7,13 +7,15 @@ use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
 	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
 };
+use rosetta_crypto::bip32::DerivedSecretKey;
+use rosetta_crypto::Signature::EcdsaRecoverableSecp256k1;
 use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
 	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 };
 use serde::Deserialize;
-use sha3::Keccak256;
+use sha3::{Digest, Keccak256};
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -22,6 +24,8 @@ use time_primitives::{
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature, H160,
 };
+
+use crate::sol::{ContextData, ContextDigest};
 
 type AlloyAddress = alloy_primitives::Address;
 
@@ -144,9 +148,9 @@ impl Connector {
 	}
 
 	async fn deploy_factory(&self, config: &DeploymentConfig) -> Result<()> {
-		let deployer_address = self.parse_address(&config.deployer)?;
+		let deployer_address = self.parse_address(&config.factory_deployer)?;
 
-		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
 		self.faucet().await?;
 		self.transfer(deployer_address, config.required_balance).await?;
 
@@ -387,10 +391,32 @@ impl IConnectorAdmin for Connector {
 		}
 
 		//proxy constructor
-		let proxy_constructor = sol::GatewayProxy::constructorCall {
+		let proxy_admin_sk = DerivedSecretKey::new(
+			&config.proxy_admin_sk.parse()?,
+			"",
+			rosetta_crypto::Algorithm::EcdsaRecoverableSecp256k1,
+		)?;
+		let proxy_admin_sk = proxy_admin_sk.secret_key();
+		// Step 1: get the public key from admin secret key
+		let digest = ContextDigest {
+			proxy: computed_proxy_address.into(),
 			implementation: gateway_address,
-			initializer: vec![].into(),
+		}
+		.abi_encode();
+		let payload: [u8; 32] = Keccak256::digest(digest).into();
+		let signature = proxy_admin_sk.sign_prehashed(&payload)?;
+		let EcdsaRecoverableSecp256k1(a, v) = signature else {
+			anyhow::bail!("Wrong signature type");
 		};
+		let arguments = ContextData {
+			v: todo!(),
+			r: todo!(),
+			s: todo!(),
+			implementation: gateway_address,
+		}
+		.abi_encode();
+
+		let proxy_constructor = sol::GatewayProxy::constructorCall { admin: todo!() };
 
 		let proxy_bytecode = get_contract_from_slice(proxy)?;
 		let proxy_bytecode =
@@ -400,6 +426,7 @@ impl IConnectorAdmin for Connector {
 		let proxy_init_call = sol::IUniversalFactory::create3Call {
 			salt: deployment_salt.into(),
 			creationCode: proxy_bytecode.into(),
+			arguments: arguments.into(),
 		}
 		.abi_encode();
 
@@ -612,10 +639,11 @@ fn extend_bytes_with_constructor(bytecode: Vec<u8>, constructor: impl SolConstru
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct DeploymentConfig {
-	pub deployer: String,
+	pub factory_deployer: String,
 	pub required_balance: u128,
 	pub raw_tx: String,
 	pub factory_address: String,
+	pub proxy_admin_sk: String,
 }
 
 #[derive(Deserialize)]

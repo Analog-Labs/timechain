@@ -63,7 +63,7 @@ fi
 # Build docker image
 cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
-#forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
+forge build --root analog-gmp
 
 mkdir -p target/docker
 

@@ -125,14 +125,14 @@ fn send_heartbeat_sets_member_back_online_after_timeout() {
 #[test]
 fn cannot_send_heartbeat_if_not_registered() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(send_heartbeat(A), Error::<Test>::NotRegistered);
+		assert_noop!(send_heartbeat(A), Error::<Test>::BondBelowMinStake);
 	});
 }
 
 #[test]
 fn cannot_unregister_if_not_registered() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(unregister_member(A.into(), A), Error::<Test>::NotRegistered);
+		assert_noop!(unregister_member(A.into(), A), Error::<Test>::NotStaker);
 	});
 }
 
@@ -142,7 +142,7 @@ fn cannot_unregister_twice() {
 		let a: AccountId = A.into();
 		assert_ok!(register_member(a.clone(), A, 5));
 		assert_ok!(unregister_member(a.clone(), A));
-		assert_noop!(unregister_member(a, A), Error::<Test>::NotRegistered);
+		assert_noop!(unregister_member(a, A), Error::<Test>::NotStaker);
 	});
 }
 

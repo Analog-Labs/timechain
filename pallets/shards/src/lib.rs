@@ -250,6 +250,77 @@ pub mod pallet {
 			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
+			Self::execute_commit(member, shard_id, commitment, proof_of_knowledge)
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::commit())]
+		pub fn sudo_commit(
+			origin: OriginFor<T>,
+			member: AccountId,
+			shard_id: ShardId,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::execute_commit(member, shard_id, commitment, proof_of_knowledge)
+		}
+
+		/// Marks a shard as ready when a member indicates readiness after commitment.
+		///
+		/// # Flow
+		///   1. Ensure the origin is a signed transaction and the sender has committed.
+		///   2. Retrieve the network and commitment of the shard.
+		///   3. Update the status of the shard to `Ready`.
+		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
+		///   5. Notify the task scheduler that the shard is online.
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::ready())]
+		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			let member = ensure_signed(origin)?;
+			Self::execute_ready(member, shard_id)
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::ready())]
+		pub fn sudo_ready(
+			origin: OriginFor<T>,
+			member: AccountId,
+			shard_id: ShardId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::execute_ready(member, shard_id)
+		}
+		/// Forces a shard to go offline, used primarily by the root.
+		/// # Flow
+		///   1. Ensure the origin is the root.
+		///   2. Call the internal `remove_shard_offline` function to handle the shard offline process.
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
+		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::remove_shard_offline(shard_id);
+			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			log::info!("on_initialize begin");
+			let weight_consumed = Self::timeout_dkgs(n);
+			log::info!("on_initialize end");
+			weight_consumed
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn execute_commit(
+			member: AccountId,
+			shard_id: ShardId,
+			commitment: Commitment,
+			proof_of_knowledge: ProofOfKnowledge,
+		) -> DispatchResult {
 			ensure!(
 				ShardMembers::<T>::get(shard_id, &member) == Some(MemberStatus::Added),
 				Error::<T>::UnexpectedCommit
@@ -300,19 +371,7 @@ pub mod pallet {
 			}
 			Ok(())
 		}
-
-		/// Marks a shard as ready when a member indicates readiness after commitment.
-		///
-		/// # Flow
-		///   1. Ensure the origin is a signed transaction and the sender has committed.
-		///   2. Retrieve the network and commitment of the shard.
-		///   3. Update the status of the shard to `Ready`.
-		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
-		///   5. Notify the task scheduler that the shard is online.
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::ready())]
-		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			let member = ensure_signed(origin)?;
+		fn execute_ready(member: AccountId, shard_id: ShardId) -> DispatchResult {
 			ensure!(
 				matches!(
 					ShardMembers::<T>::get(shard_id, &member),
@@ -334,30 +393,6 @@ pub mod pallet {
 			}
 			Ok(())
 		}
-		/// Forces a shard to go offline, used primarily by the root.
-		/// # Flow
-		///   1. Ensure the origin is the root.
-		///   2. Call the internal `remove_shard_offline` function to handle the shard offline process.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
-		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			Self::remove_shard_offline(shard_id);
-			Ok(())
-		}
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			log::info!("on_initialize begin");
-			let weight_consumed = Self::timeout_dkgs(n);
-			log::info!("on_initialize end");
-			weight_consumed
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
 		/// Handles the internal logic for removing a shard and setting its state to offline.
 		/// Set shard status to offline and keep shard public key if already submitted
 		/// # Flow

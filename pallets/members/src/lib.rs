@@ -206,18 +206,21 @@ pub mod pallet {
 			bond: BalanceOf<T>,
 		) -> DispatchResult {
 			let staker = ensure_signed(origin)?;
-			let member = public_key.clone().into_account();
-			ensure!(MemberStake::<T>::get(&member) == 0, Error::<T>::StillStaked);
-			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
-			pallet_balances::Pallet::<T>::reserve(&staker, bond)?;
-			MemberStake::<T>::insert(&member, bond);
-			MemberStaker::<T>::insert(&member, staker);
-			MemberNetwork::<T>::insert(&member, network);
-			MemberPublicKey::<T>::insert(&member, public_key);
-			MemberPeerId::<T>::insert(&member, peer_id);
-			MemberRegistered::<T>::insert(&member, ());
-			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
-			Ok(())
+			Self::execute_register_member(staker, network, public_key, peer_id, bond)
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::register_member())]
+		pub fn sudo_register_member(
+			origin: OriginFor<T>,
+			staker: AccountId,
+			network: NetworkId,
+			public_key: PublicKey,
+			peer_id: PeerId,
+			bond: BalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::execute_register_member(staker, network, public_key, peer_id, bond)
 		}
 
 		/// `send_heartbeat`: Updates the last heartbeat time for a member.
@@ -230,18 +233,18 @@ pub mod pallet {
 		///	6. Calls `Self::is_member_online` to check if the member is already online.
 		///		1. If not online, calls `Self::member_online` to mark them as online.
 		///	7. Returns `Ok(())` if successful.
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
-			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(&member, ());
-			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
-			if !Self::is_member_online(&member) {
-				Self::member_online(&member, network);
-			}
-			Ok(())
+			Self::execute_send_heartbeat(member)
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
+		pub fn sudo_send_heartbeat(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::execute_send_heartbeat(member)
 		}
 
 		///  - `unregister_member`: Unregisters a member from the network.
@@ -255,10 +258,57 @@ pub mod pallet {
 		///	7. Emits [`Event::UnRegisteredMember`].
 		///	8. Calls `Self::member_offline` to mark the member as offline and calculate weight adjustments.
 		///	9. Returns `Ok(())` if successful.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
 		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
 			let staker = ensure_signed(origin)?;
+			Self::execute_unregister_member(staker, member)
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
+		pub fn sudo_unregister_member(
+			origin: OriginFor<T>,
+			staker: AccountId,
+			member: AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::execute_unregister_member(staker, member)
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn execute_register_member(
+			staker: AccountId,
+			network: NetworkId,
+			public_key: PublicKey,
+			peer_id: PeerId,
+			bond: BalanceOf<T>,
+		) -> DispatchResult {
+			let member = public_key.clone().into_account();
+			ensure!(MemberStake::<T>::get(&member) == 0, Error::<T>::StillStaked);
+			ensure!(bond >= T::MinStake::get(), Error::<T>::BondBelowMinStake);
+			pallet_balances::Pallet::<T>::reserve(&staker, bond)?;
+			MemberStake::<T>::insert(&member, bond);
+			MemberStaker::<T>::insert(&member, staker);
+			MemberNetwork::<T>::insert(&member, network);
+			MemberPublicKey::<T>::insert(&member, public_key);
+			MemberPeerId::<T>::insert(&member, peer_id);
+			MemberRegistered::<T>::insert(&member, ());
+			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
+			Ok(())
+		}
+		fn execute_send_heartbeat(member: AccountId) -> DispatchResult {
+			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
+			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
+			Heartbeat::<T>::insert(&member, ());
+			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
+			if !Self::is_member_online(&member) {
+				Self::member_online(&member, network);
+			}
+			Ok(())
+		}
+		fn execute_unregister_member(staker: AccountId, member: AccountId) -> DispatchResult {
 			ensure!(MemberRegistered::<T>::get(&member).is_some(), Error::<T>::NotRegistered);
 			ensure!(MemberStaker::<T>::get(&member) == Some(staker), Error::<T>::NotStaker);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
@@ -267,9 +317,6 @@ pub mod pallet {
 			Self::deposit_event(Event::UnRegisteredMember(member, network));
 			Ok(())
 		}
-	}
-
-	impl<T: Config> Pallet<T> {
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
 		pub(crate) fn timeout_heartbeats(n: BlockNumberFor<T>) -> Weight {
 			let mut num_timeouts = 0u32;

@@ -7,7 +7,7 @@ use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
 	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
 };
-use rosetta_crypto::bip32::DerivedSecretKey;
+use rosetta_crypto::{bip32::DerivedSecretKey, SecretKey};
 use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
@@ -124,15 +124,13 @@ impl Connector {
 		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
 			anyhow::bail!("tx timed out");
 		};
-		tracing::info!("deploying with tx_hash: {:?}", tx_hash);
 		match result {
-			CallResult::Success(val) => {
-				tracing::info!("deployment call sucess with : {:?}", hex::encode(val));
+			CallResult::Success(_) => {
 				let log = receipt
 					.logs
 					.iter()
 					.find(|log| log.address.as_bytes() == factory_address)
-					.with_context(|| "Log with factory address not found")?;
+					.with_context(|| format!("Log with factory address not found: {}", tx_hash))?;
 				let topic = log
 					.topics
 					.first()
@@ -142,7 +140,7 @@ impl Connector {
 				Ok((contract_address, receipt.block_number.unwrap()))
 			},
 			CallResult::Revert(reason) => {
-				anyhow::bail!("Deployment reverted: {:?}", hex::encode(reason))
+				anyhow::bail!("Deployment reverted: {tx_hash:?}: {:?}", hex::encode(reason))
 			},
 			CallResult::Error => anyhow::bail!("Failed to deploy contract"),
 		}
@@ -163,6 +161,137 @@ impl Connector {
 
 		tracing::info!("Deployed factory with hash: {:?}", tx_hash);
 		Ok(())
+	}
+
+	async fn deploy_gateway(
+		&self,
+		config: &DeploymentConfig,
+		proxy_addr: [u8; 20],
+		gateway: &[u8],
+	) -> Result<AlloyAddress> {
+		let gateway_bytecode = get_contract_from_slice(gateway)?;
+
+		let gateway_constructor = sol::Gateway::constructorCall { proxy: proxy_addr.into() };
+
+		let gateway_context = GatewayContext { networkId: self.network_id }.abi_encode();
+
+		let gateway_init_code =
+			extend_bytes_with_constructor(gateway_bytecode, gateway_constructor);
+
+		// deploy using universal factory
+		let gateway_create_call = sol::IUniversalFactory::create2Call {
+			salt: config.deployment_salt.into(),
+			creationCode: gateway_init_code.into(),
+			arguments: gateway_context.into(),
+		}
+		.abi_encode();
+
+		tracing::info!("Deploying gateway ...");
+
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let (gateway_address, _) =
+			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
+		tracing::info!("gateway deployed at: {:?}", gateway_address);
+		Ok(gateway_address)
+	}
+
+	fn compute_proxy_address(
+		&self,
+		config: &DeploymentConfig,
+		admin: AlloyAddress,
+		proxy: &[u8],
+	) -> Result<[u8; 20]> {
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
+		let proxy_bytecode = get_contract_from_slice(proxy)?;
+
+		// proxy CreationCode
+		let proxy_bytecode =
+			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
+
+		let computed_proxy_address = compute_create2_address(
+			factory_address,
+			config.deployment_salt,
+			proxy_bytecode.clone(),
+		)?;
+
+		Ok(computed_proxy_address)
+	}
+
+	fn get_proxy_admin_creds(&self, config: &DeploymentConfig) -> Result<(SecretKey, [u8; 20])> {
+		let proxy_admin_sk = DerivedSecretKey::new(
+			&config.proxy_admin_sk.parse()?,
+			"",
+			rosetta_crypto::Algorithm::EcdsaRecoverableSecp256k1,
+		)?;
+
+		let proxy_admin_pk = proxy_admin_sk
+			.public_key()
+			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
+
+		tracing::info!("Proxy admin address: {:?}", proxy_admin_pk);
+		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
+		let proxy_admin_sk = proxy_admin_sk.secret_key();
+		Ok((proxy_admin_sk.clone(), proxy_admin_address))
+	}
+
+	async fn deploy_proxy(
+		&self,
+		config: &DeploymentConfig,
+		proxy_addr: AlloyAddress,
+		gateway_address: AlloyAddress,
+		proxy_bytes: &[u8],
+		admin_sk: SecretKey,
+		admin: AlloyAddress,
+	) -> Result<(AlloyAddress, u64)> {
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let deployment_salt = config.deployment_salt;
+
+		// constructor params
+		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
+		let proxy_bytecode = get_contract_from_slice(proxy_bytes)?;
+		let proxy_bytecode =
+			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
+
+		// computing signature for security purpose
+		let digest = ProxyDigest {
+			proxy: proxy_addr,
+			implementation: gateway_address,
+		}
+		.abi_encode();
+		let payload: [u8; 32] = Keccak256::digest(digest).into();
+		let signature = admin_sk.sign_prehashed(&payload)?;
+		let (v, r, s) = extract_signature_bytes(signature.to_bytes())?;
+		let arguments = ProxyContext {
+			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
+			v: v + 27,
+			r: r.into(),
+			s: s.into(),
+			implementation: gateway_address,
+		}
+		.abi_encode();
+
+		// Proxy creation
+		let proxy_init_call = sol::IUniversalFactory::create2Call {
+			salt: deployment_salt.into(),
+			creationCode: proxy_bytecode.into(),
+			arguments: arguments.into(),
+		}
+		.abi_encode();
+
+		tracing::info!("Deploying proxy ...");
+		let (proxy_address, block) =
+			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
+
+		if proxy_address != proxy_addr {
+			anyhow::bail!(
+				"Unable to compute proxy address: expected: {:?}, got {:?}",
+				proxy_addr,
+				proxy_address
+			);
+		}
+		tracing::info!("Proxy deployed at: {}", proxy_address);
+		Ok((proxy_address, block))
 	}
 }
 
@@ -354,108 +483,41 @@ impl IConnectorAdmin for Connector {
 			tracing::info!("Factory is deployed: {:?}", is_factory_deployed.len());
 		}
 
-		let deployment_salt = [0u8; 32];
+		// proxy address computation
+		let (admin_sk, admin) = self.get_proxy_admin_creds(&config)?;
+		let proxy_addr = self.compute_proxy_address(&config, admin.into(), proxy)?;
 
-		let sender = a_addr(self.address()).0 .0;
-		let computed_proxy_address =
-			compute_create3_address(factory_address, sender, deployment_salt).await?;
-
+		// check if proxy is deployed
 		let is_proxy_deployed = self
 			.backend
-			.get_code(computed_proxy_address.into(), rosetta_ethereum_types::AtBlock::Latest)
+			.get_code(proxy_addr.into(), rosetta_ethereum_types::AtBlock::Latest)
 			.await?;
-
-		// gateway deployment
-		let gateway_bytecode = get_contract_from_slice(gateway)?;
-
-		let gateway_constructor = sol::Gateway::constructorCall {
-			proxy: computed_proxy_address.into(),
-		};
-
-		let gateway_init_code =
-			extend_bytes_with_constructor(gateway_bytecode, gateway_constructor);
-
-		let gateway_context = GatewayContext { networkId: self.network_id }.abi_encode();
-
-		//deploy using universal factory
-		let gateway_create_call = sol::IUniversalFactory::create2Call {
-			salt: deployment_salt.into(),
-			creationCode: gateway_init_code.into(),
-			arguments: gateway_context.into(),
-		}
-		.abi_encode();
-
-		// deploy_gateway with universal factory
-		tracing::info!("Deploying gateway ...");
-		let (gateway_address, _) =
-			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
-		tracing::info!("gateway deployed at: {:?}", gateway_address);
 
 		if !is_proxy_deployed.is_empty() {
 			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
-			return Ok((t_addr(computed_proxy_address.into()), 0));
+			return Ok((t_addr(proxy_addr.into()), 0));
 		}
 
-		//proxy constructor
-		let proxy_admin_sk = DerivedSecretKey::new(
-			&config.proxy_admin_sk.parse()?,
-			"",
-			rosetta_crypto::Algorithm::EcdsaRecoverableSecp256k1,
-		)?;
-		let proxy_admin_pk = proxy_admin_sk
-			.public_key()
-			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
-		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
-		let proxy_admin_sk = proxy_admin_sk.secret_key();
-		let digest = ProxyDigest {
-			proxy: computed_proxy_address.into(),
-			implementation: gateway_address,
-		}
-		.abi_encode();
-		let payload: [u8; 32] = Keccak256::digest(digest).into();
-		let signature = proxy_admin_sk.sign_prehashed(&payload)?;
-		let (r, s, v) = extract_signature_bytes(signature.to_bytes())?;
-		let arguments = ProxyContext {
-			v,
-			r: r.into(),
-			s: s.into(),
-			implementation: gateway_address,
-		}
-		.abi_encode();
+		// gateway deployment
+		let gateway_address = self.deploy_gateway(&config, proxy_addr, gateway).await?;
 
-		let proxy_constructor = sol::GatewayProxy::constructorCall {
-			admin: proxy_admin_address.into(),
-		};
+		// compute proxy arguments
+		let (proxy_address, block) = self
+			.deploy_proxy(
+				&config,
+				proxy_addr.into(),
+				gateway_address.into(),
+				proxy,
+				admin_sk,
+				admin.into(),
+			)
+			.await?;
 
-		let proxy_bytecode = get_contract_from_slice(proxy)?;
-		let proxy_bytecode =
-			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
-
-		// dploy proxy using universal factory
-		let proxy_init_call = sol::IUniversalFactory::create3Call {
-			salt: deployment_salt.into(),
-			creationCode: proxy_bytecode.into(),
-			arguments: arguments.into(),
-		}
-		.abi_encode();
-
-		tracing::info!("Deploying proxy ...");
-		let (proxy_address, block_number) =
-			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
-		if proxy_address != computed_proxy_address {
-			anyhow::bail!(
-				"Unable to compute proxy address: expected: {:?}, got {:?}",
-				AlloyAddress::from_slice(&computed_proxy_address),
-				proxy_address
-			);
-		}
-
-		tracing::info!("proxy_address: {:?}", proxy_address);
-
-		Ok((t_addr(proxy_address), block_number))
+		Ok((t_addr(proxy_address), block))
 	}
+
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()> {
+	async fn redeploy_gateway(&self, _proxy: Address, _gateway: &[u8]) -> Result<()> {
 		// let call = sol::Gateway::constructorCall {
 		// 	networkId: self.network_id,
 		// 	proxy: a_addr(proxy),
@@ -600,41 +662,26 @@ impl IConnectorAdmin for Connector {
 	}
 }
 
-async fn compute_create3_address(
+fn compute_create2_address(
 	factory_address: [u8; 20],
-	sender: [u8; 20],
 	salt: [u8; 32],
+	init_code: Vec<u8>,
 ) -> Result<[u8; 20]> {
-	// solidity code
-	// salt = keccak256(abi.encodePacked(msg.sender, salt));
-	// bytes32 proxyHash = 0x0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6;
-	// address proxy = address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(factory), uint256(salt), proxyHash)))));
-	// return address(uint160(uint256(keccak256(abi.encodePacked(uint16(0xd694), proxy, uint8(1))))));
+	// solidity
+	// bytes32 create2hash = keccak256(abi.encodePacked(uint8(0xff), address(factory), salt, initcodeHash));
+	// return address(uint160(uint256(create2hash)));
+	//
 	use sha3::Digest;
-	let proxy_hash =
-		hex::decode("0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6")?;
-
-	let mut hasher = Keccak256::new();
-	hasher.update(sender);
-	hasher.update(salt);
-	let salt_hashed = hasher.finalize();
-
+	let init_code_hash: [u8; 32] = Keccak256::digest(&init_code).into();
 	let mut hasher = Keccak256::new();
 	hasher.update([0xff]);
 	hasher.update(factory_address);
-	hasher.update(salt_hashed.as_slice());
-	hasher.update(&proxy_hash);
+	hasher.update(&salt);
+	hasher.update(&init_code_hash);
+
 	let proxy_hashed = hasher.finalize();
 
-	let proxy_address = H160::from_slice(&proxy_hashed[12..]);
-
-	let mut hasher = Keccak256::new();
-	hasher.update(0xd694u16.to_be_bytes());
-	hasher.update(proxy_address.as_bytes());
-	hasher.update([1]);
-	let final_hashed = hasher.finalize();
-
-	Ok(AlloyAddress::from_slice(&final_hashed[12..]).0 .0)
+	Ok(AlloyAddress::from_slice(&proxy_hashed[12..]).0 .0)
 }
 
 fn get_contract_from_slice(slice: &[u8]) -> Result<Vec<u8>> {
@@ -649,7 +696,7 @@ fn extend_bytes_with_constructor(bytecode: Vec<u8>, constructor: impl SolConstru
 	bytecode
 }
 
-pub fn extract_signature_bytes(sig: Vec<u8>) -> Result<([u8; 32], [u8; 32], u8)> {
+pub fn extract_signature_bytes(sig: Vec<u8>) -> Result<(u8, [u8; 32], [u8; 32])> {
 	if sig.len() != 65 {
 		anyhow::bail!("Invalid signature length");
 	}
@@ -657,7 +704,7 @@ pub fn extract_signature_bytes(sig: Vec<u8>) -> Result<([u8; 32], [u8; 32], u8)>
 	let r: [u8; 32] = sig[0..32].try_into()?;
 	let s: [u8; 32] = sig[32..64].try_into()?;
 	let v = sig[64];
-	Ok((r, s, v))
+	Ok((v, r, s))
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -666,6 +713,7 @@ pub struct DeploymentConfig {
 	pub required_balance: u128,
 	pub raw_tx: String,
 	pub factory_address: String,
+	pub deployment_salt: [u8; 32],
 	pub proxy_admin_sk: String,
 }
 

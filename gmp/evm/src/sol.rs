@@ -102,7 +102,6 @@ alloy_sol_types::sol! {
 	// reference: https://github.com/Analog-Labs/universal-factory/blob/main/src/IUniversalFactory.sol
 	interface IUniversalFactory {
 		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments) external payable returns (address);
-		function create3(bytes32 salt, bytes calldata creationCode, bytes calldata arguments) external payable returns (address);
 	}
 
 }

@@ -35,12 +35,26 @@ alloy_sol_types::sol! {
 		uint128 baseFee;
 	}
 
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct TssKey {
+		uint8 yParity;
+		uint256 xCoord;
+	}
+
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct Network {
+		uint16 id;
+		address gateway;
+	}
+
 	contract GatewayProxy {
 		constructor(address admin) payable;
 	}
 
 	contract Gateway {
 		constructor(address proxy) payable;
+		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
+		function deposit() external payable {}
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
 		function admin() external view returns (address);
@@ -102,6 +116,10 @@ alloy_sol_types::sol! {
 	// reference: https://github.com/Analog-Labs/universal-factory/blob/main/src/IUniversalFactory.sol
 	interface IUniversalFactory {
 		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments) external payable returns (address);
+		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments, bytes calldata callback)
+		external
+		payable
+		returns (address);
 	}
 
 }

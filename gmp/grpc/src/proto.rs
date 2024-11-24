@@ -214,3 +214,12 @@ pub struct WithdrawFundsRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct WithdrawFundsResponse {}
+
+#[derive(Serialize, Deserialize)]
+pub struct DepositRequest {
+	pub gateway: Address,
+	pub amount: u128,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DepositResponse {}

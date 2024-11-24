@@ -296,4 +296,10 @@ impl IConnectorAdmin for Connector {
 		self.client.lock().await.withdraw_funds(request).await?.into_inner();
 		Ok(())
 	}
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
+		let request = Request::new(proto::DepositRequest { gateway, amount });
+		self.client.lock().await.deposit(request).await?;
+		Ok(())
+	}
 }

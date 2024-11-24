@@ -15,6 +15,7 @@ use rosetta_server_ethereum::utils::{
 };
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
+use sol::{Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -179,7 +180,7 @@ impl Connector {
 			extend_bytes_with_constructor(gateway_bytecode, gateway_constructor);
 
 		// deploy using universal factory
-		let gateway_create_call = sol::IUniversalFactory::create2Call {
+		let gateway_create_call = sol::IUniversalFactory::create2_0Call {
 			salt: config.deployment_salt.into(),
 			creationCode: gateway_init_code.into(),
 			arguments: gateway_context.into(),
@@ -271,11 +272,14 @@ impl Connector {
 		}
 		.abi_encode();
 
+		let initializer = self.get_initializer(admin).await?;
+
 		// Proxy creation
-		let proxy_init_call = sol::IUniversalFactory::create2Call {
+		let proxy_init_call = sol::IUniversalFactory::create2_1Call {
 			salt: deployment_salt.into(),
 			creationCode: proxy_bytecode.into(),
 			arguments: arguments.into(),
+			callback: initializer.into(),
 		}
 		.abi_encode();
 
@@ -292,6 +296,13 @@ impl Connector {
 		}
 		tracing::info!("Proxy deployed at: {}", proxy_address);
 		Ok((proxy_address, block))
+	}
+
+	async fn get_initializer(&self, admin: AlloyAddress) -> Result<Vec<u8>> {
+		let keys: Vec<TssKey> = vec![];
+		let networks: Vec<Network> = vec![];
+		let initializer = sol::Gateway::initializeCall { admin, keys, networks }.abi_encode();
+		Ok(initializer)
 	}
 }
 
@@ -658,6 +669,12 @@ impl IConnectorAdmin for Connector {
 			data: vec![].into(),
 		};
 		self.evm_call(gateway, call, 0, None).await?;
+		Ok(())
+	}
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
+		let call = sol::Gateway::depositCall {};
+		self.evm_call(gateway, call, amount, None).await?;
 		Ok(())
 	}
 }

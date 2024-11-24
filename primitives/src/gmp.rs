@@ -375,6 +375,8 @@ pub trait IConnectorAdmin: IConnector {
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
 	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()>;
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()>;
 }
 
 #[cfg(feature = "std")]

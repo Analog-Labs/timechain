@@ -517,7 +517,7 @@ impl IConnectorAdmin for Connector {
 			.deploy_proxy(
 				&config,
 				proxy_addr.into(),
-				gateway_address.into(),
+				gateway_address,
 				proxy,
 				admin_sk,
 				admin.into(),
@@ -689,12 +689,12 @@ fn compute_create2_address(
 	// return address(uint160(uint256(create2hash)));
 	//
 	use sha3::Digest;
-	let init_code_hash: [u8; 32] = Keccak256::digest(&init_code).into();
+	let init_code_hash: [u8; 32] = Keccak256::digest(init_code).into();
 	let mut hasher = Keccak256::new();
 	hasher.update([0xff]);
 	hasher.update(factory_address);
-	hasher.update(&salt);
-	hasher.update(&init_code_hash);
+	hasher.update(salt);
+	hasher.update(init_code_hash);
 
 	let proxy_hashed = hasher.finalize();
 

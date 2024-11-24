@@ -218,7 +218,26 @@ impl Tc {
 		let balance = self.balance(network, address).await?;
 		let diff = min_balance.saturating_sub(balance);
 		if diff > 0 {
-			self.transfer(network, address, diff).await?;
+			self.deposit(network, address, diff).await?;
+		}
+		Ok(())
+	}
+
+	pub async fn deposit(
+		&self,
+		network: Option<NetworkId>,
+		address: Address,
+		balance: u128,
+	) -> Result<()> {
+		tracing::info!(
+			"transfering {} to {}",
+			self.format_balance(network, balance)?,
+			self.format_address(network, address)?,
+		);
+		if let Some(network) = network {
+			self.connector(network)?.deposit_funds(address, balance).await?;
+		} else {
+			self.runtime.transfer(address.into(), balance).await?;
 		}
 		Ok(())
 	}
@@ -817,6 +836,7 @@ impl Tc {
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
 		}
+		tracing::info!("Registering Routes");
 		self.register_routes(gateways).await?;
 		for chronicle in self.config.chronicles() {
 			self.deploy_chronicle(chronicle).await?;

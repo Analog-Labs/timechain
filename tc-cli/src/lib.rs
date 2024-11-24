@@ -872,7 +872,9 @@ impl Tc {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
 		tracing::info!("redeploying gateway");
-		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
+		connector
+			.redeploy_gateway(&contracts.additional_params, gateway, &contracts.gateway)
+			.await?;
 		Ok(())
 	}
 

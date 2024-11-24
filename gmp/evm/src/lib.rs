@@ -528,16 +528,18 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, _proxy: Address, _gateway: &[u8]) -> Result<()> {
-		// let call = sol::Gateway::constructorCall {
-		// 	networkId: self.network_id,
-		// 	proxy: a_addr(proxy),
-		// };
-		// let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
-		// let call = sol::Gateway::upgradeCall {
-		// 	newImplementation: a_addr(gateway_addr),
-		// };
-		// self.evm_call(proxy, call, 0, None).await?;
+	async fn redeploy_gateway(
+		&self,
+		additional_params: &[u8],
+		proxy: Address,
+		gateway: &[u8],
+	) -> Result<()> {
+		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+		let gateway_addr = self.deploy_gateway(&config, a_addr(proxy).into(), gateway).await?;
+		let call = sol::Gateway::upgradeCall {
+			newImplementation: gateway_addr,
+		};
+		self.evm_call(proxy, call, 0, None).await?;
 		Ok(())
 	}
 	/// Returns the gateway admin.

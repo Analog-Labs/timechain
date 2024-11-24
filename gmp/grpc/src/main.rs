@@ -135,7 +135,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::RedeployGatewayResponse> {
 		let (connector, msg) = self.connector(request)?;
 		connector
-			.redeploy_gateway(msg.proxy, &msg.gateway)
+			.redeploy_gateway(&[], msg.proxy, &msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::RedeployGatewayResponse {}))

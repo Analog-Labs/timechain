@@ -301,7 +301,12 @@ impl IConnectorAdmin for Connector {
 		Ok((gateway, block))
 	}
 
-	async fn redeploy_gateway(&self, gateway: Address, _gateway_impl: &[u8]) -> Result<()> {
+	async fn redeploy_gateway(
+		&self,
+		_additional_params: &[u8],
+		gateway: Address,
+		_gateway_impl: &[u8],
+	) -> Result<()> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ADMIN)?;
 		let admin = read_admin(&t, gateway)?;

@@ -272,7 +272,7 @@ impl Connector {
 		}
 		.abi_encode();
 
-		let initializer = self.get_initializer(admin).await?;
+		let initializer = self.get_initializer(admin)?;
 
 		// Proxy creation
 		let proxy_init_call = sol::IUniversalFactory::create2_1Call {
@@ -298,7 +298,7 @@ impl Connector {
 		Ok((proxy_address, block))
 	}
 
-	async fn get_initializer(&self, admin: AlloyAddress) -> Result<Vec<u8>> {
+	fn get_initializer(&self, admin: AlloyAddress) -> Result<Vec<u8>> {
 		let keys: Vec<TssKey> = vec![];
 		let networks: Vec<Network> = vec![];
 		let initializer = sol::Gateway::initializeCall { admin, keys, networks }.abi_encode();

@@ -117,9 +117,9 @@ alloy_sol_types::sol! {
 	interface IUniversalFactory {
 		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments) external payable returns (address);
 		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments, bytes calldata callback)
-		external
-		payable
-		returns (address);
+			external
+			payable
+			returns (address);
 	}
 
 }

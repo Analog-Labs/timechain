@@ -295,24 +295,26 @@ pub mod pallet {
 			MemberPublicKey::<T>::insert(&member, public_key);
 			MemberPeerId::<T>::insert(&member, peer_id);
 			MemberRegistered::<T>::insert(&member, ());
-			Self::deposit_event(Event::RegisteredMember(member.clone(), network, peer_id));
+			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
 			Ok(())
 		}
 		fn execute_send_heartbeat(member: AccountId) -> DispatchResult {
-			ensure!(MemberStake::<T>::get(&member) > 0, Error::<T>::NotRegistered);
+			ensure!(
+				MemberStake::<T>::get(&member) >= T::MinStake::get(),
+				Error::<T>::BondBelowMinStake
+			);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			Heartbeat::<T>::insert(&member, ());
-			Self::deposit_event(Event::HeartbeatReceived(member.clone()));
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
+			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
 		fn execute_unregister_member(staker: AccountId, member: AccountId) -> DispatchResult {
-			ensure!(MemberRegistered::<T>::get(&member).is_some(), Error::<T>::NotRegistered);
 			ensure!(MemberStaker::<T>::get(&member) == Some(staker), Error::<T>::NotStaker);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			MemberRegistered::<T>::remove(&member);
+			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
 			Self::unstake_member(&member);
 			Self::deposit_event(Event::UnRegisteredMember(member, network));
 			Ok(())

@@ -34,11 +34,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{
-		traits::{IdentifyAccount, Zero},
-		Saturating,
-	};
-	use sp_std::vec;
+	use sp_runtime::traits::{IdentifyAccount, Zero};
+	use sp_std::vec::Vec;
 
 	use polkadot_sdk::pallet_balances;
 
@@ -113,9 +110,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
-	/// Get whether member submitted heartbeat within last peiod
+	/// Get whether member submitted heartbeat within last period
 	#[pallet::storage]
 	pub type Heartbeat<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
+	/// Set of members that have not submitted a heartbeat within last period
+	#[pallet::storage]
+	pub type TimedOut<T: Config> = StorageValue<_, Vec<AccountId>, ValueQuery>;
 
 	/// Get stake for member
 	#[pallet::storage]
@@ -174,9 +175,13 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let weight_consumed = Self::timeout_heartbeats(n);
+			let weight = if (n % T::HeartbeatTimeout::get()).is_zero() {
+				Self::timeout_heartbeats()
+			} else {
+				Weight::default()
+			};
 			log::info!("on_initialize end");
-			weight_consumed
+			weight
 		}
 	}
 
@@ -304,10 +309,11 @@ pub mod pallet {
 				Error::<T>::BondBelowMinStake
 			);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			Heartbeat::<T>::insert(&member, ());
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
+			Heartbeat::<T>::insert(&member, ());
+			TimedOut::<T>::mutate(|members| members.retain(|m| *m != member));
 			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
@@ -320,23 +326,34 @@ pub mod pallet {
 			Ok(())
 		}
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
-		pub(crate) fn timeout_heartbeats(n: BlockNumberFor<T>) -> Weight {
+		pub(crate) fn timeout_heartbeats() -> Weight {
+			let timed_out_members = TimedOut::<T>::take();
+			let heartbeats = Heartbeat::<T>::drain();
+			let mut next_timed_out =
+				Vec::with_capacity(timed_out_members.len() + heartbeats.size_hint().0);
 			let mut num_timeouts = 0u32;
-			if (n % T::HeartbeatTimeout::get()).is_zero() {
-				for (member, _) in MemberOnline::<T>::iter() {
-					if Heartbeat::<T>::take(&member).is_none() {
-						if let Some(network) = MemberNetwork::<T>::get(&member) {
-							Self::member_offline(&member, network);
-							num_timeouts = num_timeouts.saturating_plus_one();
-							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-								return <T as Config>::WeightInfo::timeout_heartbeats(
-									T::MaxTimeoutsPerBlock::get(),
-								);
-							}
-						}
-					}
+
+			for member in timed_out_members.into_iter() {
+				if num_timeouts >= T::MaxTimeoutsPerBlock::get() {
+					next_timed_out.push(member);
+					continue;
+				}
+
+				if let Some(network) = MemberNetwork::<T>::get(&member) {
+					Self::member_offline(&member, network);
+					num_timeouts += 1;
+				} else {
+					next_timed_out.push(member);
 				}
 			}
+
+			// Extend with Heartbeat members
+			next_timed_out.extend(heartbeats.map(|(m, _)| m));
+
+			// Update storage
+			TimedOut::<T>::put(next_timed_out);
+
+			// Return weight consumed
 			<T as Config>::WeightInfo::timeout_heartbeats(num_timeouts)
 		}
 		///  Marks a member as online.

@@ -69,8 +69,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `591`
 		//  Estimated: `11481`
-		// Minimum execution time: 61_496_000 picoseconds.
-		Weight::from_parts(65_313_000, 0)
+		// Minimum execution time: 60_302_000 picoseconds.
+		Weight::from_parts(63_078_000, 0)
 			.saturating_add(Weight::from_parts(0, 11481))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -151,14 +151,14 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 5]`.
 	fn timeout_dkgs(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `318 + b * (283 ±0)`
-		//  Estimated: `8733 + b * (10184 ±0)`
-		// Minimum execution time: 123_491_000 picoseconds.
-		Weight::from_parts(29_396_316, 0)
-			.saturating_add(Weight::from_parts(0, 8733))
-			// Standard Error: 644_338
-			.saturating_add(Weight::from_parts(114_176_542, 0).saturating_mul(b.into()))
-			.saturating_add(T::DbWeight::get().reads(8))
+		//  Measured:  `195 + b * (283 ±0)`
+		//  Estimated: `8610 + b * (10184 ±0)`
+		// Minimum execution time: 118_293_000 picoseconds.
+		Weight::from_parts(15_695_084, 0)
+			.saturating_add(Weight::from_parts(0, 8610))
+			// Standard Error: 321_948
+			.saturating_add(Weight::from_parts(109_711_170, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(13))
 			.saturating_add(T::DbWeight::get().writes((8_u64).saturating_mul(b.into())))

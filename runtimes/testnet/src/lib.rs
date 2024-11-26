@@ -978,7 +978,7 @@ impl pallet_members::Config for Runtime {
 	type Shards = Shards;
 	type MinStake = ConstU128<{ 90_000 * ANLOG }>;
 	type HeartbeatTimeout = ConstU32<300>;
-	type MaxTimeoutsPerBlock = ConstU32<25>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
 }
 
 impl pallet_elections::Config for Runtime {

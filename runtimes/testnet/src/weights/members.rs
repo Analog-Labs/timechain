@@ -51,8 +51,8 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `3593`
-		// Minimum execution time: 46_628_000 picoseconds.
-		Weight::from_parts(72_406_000, 0)
+		// Minimum execution time: 47_960_000 picoseconds.
+		Weight::from_parts(71_313_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(7))
@@ -65,19 +65,21 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 	/// Proof: `Members::MemberOnline` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::MemberShard` (r:1 w:0)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Elections::Unassigned` (r:1 w:1)
+	/// Storage: `Members::TimedOut` (r:1 w:1)
+	/// Proof: `Members::TimedOut` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Elections::Unassigned` (r:0 w:1)
 	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::Heartbeat` (r:0 w:1)
 	/// Proof: `Members::Heartbeat` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn send_heartbeat() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `500`
-		//  Estimated: `3965`
-		// Minimum execution time: 43_491_000 picoseconds.
-		Weight::from_parts(63_279_000, 0)
-			.saturating_add(Weight::from_parts(0, 3965))
+		//  Measured:  `377`
+		//  Estimated: `3842`
+		// Minimum execution time: 41_497_000 picoseconds.
+		Weight::from_parts(59_692_000, 0)
+			.saturating_add(Weight::from_parts(0, 3842))
 			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Storage: `Members::MemberRegistered` (r:1 w:1)
 	/// Proof: `Members::MemberRegistered` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -105,31 +107,35 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
-	/// Storage: `Members::MemberOnline` (r:26 w:25)
-	/// Proof: `Members::MemberOnline` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Members::Heartbeat` (r:25 w:0)
-	/// Proof: `Members::Heartbeat` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Members::TimedOut` (r:1 w:1)
+	/// Proof: `Members::TimedOut` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::MemberNetwork` (r:25 w:0)
 	/// Proof: `Members::MemberNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Elections::Unassigned` (r:1 w:1)
 	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::MemberShard` (r:25 w:0)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Members::Heartbeat` (r:26 w:25)
+	/// Proof: `Members::Heartbeat` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Elections::Unassigned` (r:0 w:25)
+	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Members::MemberOnline` (r:0 w:25)
+	/// Proof: `Members::MemberOnline` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `b` is `[1, 25]`.
 	/// The range of component `b` is `[1, 25]`.
 	fn timeout_heartbeats(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `502 + b * (156 ±0)`
-		//  Estimated: `3975 + b * (2630 ±0)`
-		// Minimum execution time: 38_723_000 picoseconds.
-		Weight::from_parts(13_184_685, 0)
-			.saturating_add(Weight::from_parts(0, 3975))
-			// Standard Error: 157_308
-			.saturating_add(Weight::from_parts(24_132_953, 0).saturating_mul(b.into()))
+		//  Measured:  `174 + b * (142 ±0)`
+		//  Estimated: `3637 + b * (2617 ±0)`
+		// Minimum execution time: 32_431_000 picoseconds.
+		Weight::from_parts(20_968_472, 0)
+			.saturating_add(Weight::from_parts(0, 3637))
+			// Standard Error: 51_899
+			.saturating_add(Weight::from_parts(18_887_360, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(b.into())))
+			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(b.into())))
-			.saturating_add(Weight::from_parts(0, 2630).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(b.into())))
+			.saturating_add(Weight::from_parts(0, 2617).saturating_mul(b.into()))
 	}
 }

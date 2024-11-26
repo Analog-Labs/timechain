@@ -59,16 +59,22 @@ benchmarks! {
 				pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 			);
 			Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
+			// Send heartbeat to set caller online and set heartbeat
 			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
 			assert!(MemberOnline::<T>::get(&caller).is_some());
-			assert!(Heartbeat::<T>::take(&caller).is_some());
+			assert!(Heartbeat::<T>::get(&caller).is_some());
+			// Add to timed out as if heartbeat was never submitted
+			TimedOut::<T>::mutate(|x| x.push(caller.clone()));
 		}
 	}: {
-		Pallet::<T>::timeout_heartbeats(0u32.into());
+		Pallet::<T>::timeout_heartbeats();
 	} verify {
 		for i in 0..b {
 			let caller: AccountId = [i as u8; 32].into();
 			assert!(MemberOnline::<T>::get(&caller).is_none());
+			assert!(Heartbeat::<T>::get(&caller).is_none());
+			// Next timed out set is derived from heartbeats previously in storage
+			assert!(TimedOut::<T>::get().contains(&caller));
 		}
 	}
 

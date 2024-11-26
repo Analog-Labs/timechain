@@ -233,6 +233,11 @@ pub struct Network {
 	pub network: NetworkId,
 	pub chain_name: String,
 	pub chain_network: String,
+	pub info: Option<NetworkInfo>,
+}
+
+#[derive(Clone, Debug)]
+pub struct NetworkInfo {
 	pub gateway: Address,
 	pub gateway_balance: u128,
 	pub admin: Address,
@@ -387,24 +392,33 @@ impl Tc {
 		let network_ids = self.runtime.networks().await?;
 		let mut networks = vec![];
 		for network in network_ids {
-			let (connector, gateway) = self.gateway(network).await?;
 			let (chain_name, chain_network) =
 				self.runtime.network_name(network).await?.context("invalid network")?;
-			let gateway_balance = connector.balance(gateway).await?;
-			let admin = connector.admin(gateway).await?;
-			let admin_balance = connector.balance(admin).await?;
-			let sync_status = self.sync_status(network).await?;
+			let chain_name =
+				String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
+			let chain_network =
+				String::decode(&mut chain_network.0.to_vec().as_slice()).unwrap_or_default();
+			let info = match self.gateway(network).await {
+				Ok((connector, gateway)) => {
+					let gateway_balance = connector.balance(gateway).await?;
+					let admin = connector.admin(gateway).await?;
+					let admin_balance = connector.balance(admin).await?;
+					let sync_status = self.sync_status(network).await?;
+					Some(NetworkInfo {
+						gateway,
+						gateway_balance,
+						admin,
+						admin_balance,
+						sync_status,
+					})
+				},
+				Err(_) => None,
+			};
 			networks.push(Network {
 				network,
-				chain_name: String::decode(&mut chain_name.0.to_vec().as_slice())
-					.unwrap_or_default(),
-				chain_network: String::decode(&mut chain_network.0.to_vec().as_slice())
-					.unwrap_or_default(),
-				gateway,
-				gateway_balance,
-				admin,
-				admin_balance,
-				sync_status,
+				chain_name,
+				chain_network,
+				info,
 			});
 		}
 		Ok(networks)

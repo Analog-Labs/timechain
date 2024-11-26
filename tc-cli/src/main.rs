@@ -202,16 +202,31 @@ impl IntoRow for Network {
 	type Row = NetworkEntry;
 
 	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		let mut gateway = String::new();
+		let mut gateway_balance = String::new();
+		let mut admin = String::new();
+		let mut admin_balance = String::new();
+		let mut read_events = 0;
+		let sync_status = if let Some(info) = self.info.as_ref() {
+			gateway = tc.format_address(Some(self.network), info.gateway)?;
+			gateway_balance = tc.format_balance(Some(self.network), info.gateway_balance)?;
+			admin = tc.format_address(Some(self.network), info.admin)?;
+			admin_balance = tc.format_balance(Some(self.network), info.admin_balance)?;
+			read_events = info.sync_status.task;
+			format!("{} / {}", info.sync_status.sync, info.sync_status.block)
+		} else {
+			format!("no connector configured")
+		};
 		Ok(NetworkEntry {
 			network: self.network,
 			chain_name: self.chain_name,
 			chain_network: self.chain_network,
-			gateway: tc.format_address(Some(self.network), self.gateway)?,
-			gateway_balance: tc.format_balance(Some(self.network), self.gateway_balance)?,
-			admin: tc.format_address(Some(self.network), self.admin)?,
-			admin_balance: tc.format_balance(Some(self.network), self.admin_balance)?,
-			read_events: self.sync_status.task,
-			sync_status: format!("{} / {}", self.sync_status.sync, self.sync_status.block),
+			gateway,
+			gateway_balance,
+			admin,
+			admin_balance,
+			read_events,
+			sync_status,
 		})
 	}
 }

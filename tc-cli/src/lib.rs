@@ -770,38 +770,46 @@ impl Tc {
 }
 
 impl Tc {
-	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
+	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
+		let config = self.config.network(network)?;
+		let gateway = self.register_network(network).await?;
+		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
+			tracing::info!("admin target balance is 0, using faucet");
+			self.faucet(network).await?;
+		}
+		tracing::info!("funding gateway");
+		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
+		self.fund(Some(network), gateway, gateway_funds).await?;
+		Ok(gateway)
+	}
+
+	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
+		let chronicle = self.wait_for_chronicle(chronicle).await?;
+		tracing::info!("funding chronicle timechain account");
+		let funds = self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
+		self.fund(None, chronicle.account.clone().into(), funds).await?;
+		let config = self.config.network(chronicle.network)?;
+		tracing::info!("funding chronicle target account");
+		let chronicle_target_funds =
+			self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
+		self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
+			.await?;
+		self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
+			.await?;
+		Ok(())
+	}
+
+	pub async fn deploy(&self, networks: Option<Vec<NetworkId>>) -> Result<()> {
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
-		for network in self.connectors.keys().copied() {
-			if !networks.is_empty() && networks.contains(&network) {
-				let config = self.config.network(network)?;
-				let gateway = self.register_network(network).await?;
-				if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-					tracing::info!("admin target balance is 0, using faucet");
-					self.faucet(network).await?;
-				}
-				tracing::info!("funding gateway");
-				let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
-				self.fund(Some(network), gateway, gateway_funds).await?;
-				gateways.insert(network, gateway);
-			}
+		let networks = networks.unwrap_or_else(|| self.connectors.keys().copied().collect());
+		for network in networks {
+			let gateway = self.deploy_network(network).await?;
+			gateways.insert(network, gateway);
 		}
 		self.register_routes(gateways).await?;
 		for chronicle in self.config.chronicles() {
-			let chronicle = self.wait_for_chronicle(chronicle).await?;
-			tracing::info!("funding chronicle timechain account");
-			let funds =
-				self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
-			self.fund(None, chronicle.account.clone().into(), funds).await?;
-			let config = self.config.network(chronicle.network)?;
-			tracing::info!("funding chronicle target account");
-			let chronicle_target_funds =
-				self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
-			self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
-				.await?;
-			self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
-				.await?;
+			self.deploy_chronicle(chronicle).await?;
 		}
 		Ok(())
 	}

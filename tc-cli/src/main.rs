@@ -202,16 +202,31 @@ impl IntoRow for Network {
 	type Row = NetworkEntry;
 
 	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		let mut gateway = String::new();
+		let mut gateway_balance = String::new();
+		let mut admin = String::new();
+		let mut admin_balance = String::new();
+		let mut read_events = 0;
+		let sync_status = if let Some(info) = self.info.as_ref() {
+			gateway = tc.format_address(Some(self.network), info.gateway)?;
+			gateway_balance = tc.format_balance(Some(self.network), info.gateway_balance)?;
+			admin = tc.format_address(Some(self.network), info.admin)?;
+			admin_balance = tc.format_balance(Some(self.network), info.admin_balance)?;
+			read_events = info.sync_status.task;
+			format!("{} / {}", info.sync_status.sync, info.sync_status.block)
+		} else {
+			"no connector configured".to_string()
+		};
 		Ok(NetworkEntry {
 			network: self.network,
 			chain_name: self.chain_name,
 			chain_network: self.chain_network,
-			gateway: tc.format_address(Some(self.network), self.gateway)?,
-			gateway_balance: tc.format_balance(Some(self.network), self.gateway_balance)?,
-			admin: tc.format_address(Some(self.network), self.admin)?,
-			admin_balance: tc.format_balance(Some(self.network), self.admin_balance)?,
-			read_events: self.sync_status.task,
-			sync_status: format!("{} / {}", self.sync_status.sync, self.sync_status.block),
+			gateway,
+			gateway_balance,
+			admin,
+			admin_balance,
+			read_events,
+			sync_status,
 		})
 	}
 }
@@ -486,7 +501,7 @@ impl IntoRow for MessageTrace {
 #[tokio::main]
 async fn main() {
 	if let Err(err) = real_main().await {
-		println!("{err}");
+		println!("{err:#?}");
 		std::process::exit(1);
 	} else {
 		std::process::exit(0);
@@ -598,7 +613,7 @@ async fn real_main() -> Result<()> {
 			tc.runtime_upgrade(&path).await?;
 		},
 		Command::Deploy => {
-			tc.deploy(vec![]).await?;
+			tc.deploy(None).await?;
 		},
 		Command::UnregisterMember { member } => {
 			let member = tc.parse_address(None, &member)?;
@@ -714,7 +729,7 @@ async fn real_main() -> Result<()> {
 
 async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 	// networks
-	tc.deploy(vec![src, dest]).await?;
+	tc.deploy(Some(vec![src, dest])).await?;
 	let (src_addr, src_block) = tc.deploy_tester(src).await?;
 	let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
 	tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);

@@ -111,6 +111,8 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 	/// Proof: `Members::TimedOut` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::MemberNetwork` (r:25 w:0)
 	/// Proof: `Members::MemberNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Elections::Unassigned` (r:1 w:1)
+	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::MemberShard` (r:25 w:0)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::Heartbeat` (r:26 w:25)

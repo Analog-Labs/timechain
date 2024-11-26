@@ -49,16 +49,12 @@ impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `Elections::Unassigned` (r:301 w:300)
-	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Members::MemberOnline` (r:300 w:0)
-	/// Proof: `Members::MemberOnline` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Elections::ShardSize` (r:1 w:0)
 	/// Proof: `Elections::ShardSize` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Members::MemberStake` (r:300 w:0)
-	/// Proof: `Members::MemberStake` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Elections::ShardThreshold` (r:1 w:0)
 	/// Proof: `Elections::ShardThreshold` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Elections::Unassigned` (r:1 w:1)
+	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::ShardIdCounter` (r:1 w:1)
 	/// Proof: `Shards::ShardIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::DkgTimeout` (r:0 w:100)
@@ -79,17 +75,16 @@ impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 100]`.
 	fn try_elect_shards(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `214 + b * (534 ±0)`
-		//  Estimated: `3657 + b * (7959 ±0)`
-		// Minimum execution time: 74_579_000 picoseconds.
-		Weight::from_parts(77_915_000, 0)
-			.saturating_add(Weight::from_parts(0, 3657))
-			// Standard Error: 423_052
-			.saturating_add(Weight::from_parts(186_000_655, 0).saturating_mul(b.into()))
+		//  Measured:  `173 + b * (96 ±0)`
+		//  Estimated: `3637 + b * (96 ±0)`
+		// Minimum execution time: 44_113_000 picoseconds.
+		Weight::from_parts(22_307_690, 0)
+			.saturating_add(Weight::from_parts(0, 3637))
+			// Standard Error: 75_628
+			.saturating_add(Weight::from_parts(31_693_573, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(b.into())))
-			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(T::DbWeight::get().writes((14_u64).saturating_mul(b.into())))
-			.saturating_add(Weight::from_parts(0, 7959).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes((11_u64).saturating_mul(b.into())))
+			.saturating_add(Weight::from_parts(0, 96).saturating_mul(b.into()))
 	}
 }

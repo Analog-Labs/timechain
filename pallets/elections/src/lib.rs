@@ -108,17 +108,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ShardThreshold<T: Config> = StorageValue<_, u16, ValueQuery>;
 
-	/// Unassigned members per network
+	/// Unassigned online members per network sorted by stake and then AccountId
 	#[pallet::storage]
-	pub type Unassigned<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		NetworkId,
-		Blake2_128Concat,
-		AccountId,
-		(),
-		OptionQuery,
-	>;
+	pub type Unassigned<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, Vec<AccountId>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -237,13 +230,24 @@ pub mod pallet {
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
 		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
+			let mut batch = Vec::new();
 			for member in members {
 				if !T::Members::is_member_registered(&member) {
 					T::Members::unstake_member(&member);
 				} else if T::Members::is_member_online(&member) {
-					Unassigned::<T>::insert(network, member, ());
+					batch.push(member.clone());
 				}
 			}
+			Unassigned::<T>::mutate(network, |unassigned| {
+				unassigned.extend(batch);
+				unassigned.sort_by(|a, b| {
+					T::Members::member_stake(a)
+						.cmp(&T::Members::member_stake(b))
+						// sort by AccountId iff amounts are equal to uphold determinism
+						.then_with(|| a.cmp(b))
+						.reverse()
+				});
+			});
 		}
 
 		///  Retrieves the default shard size.
@@ -261,7 +265,16 @@ pub mod pallet {
 		///    4. Notifies the `Shards` interface about the member coming online.
 		fn member_online(member: &AccountId, network: NetworkId) {
 			if !T::Shards::is_shard_member(member) {
-				Unassigned::<T>::insert(network, member, ());
+				Unassigned::<T>::mutate(network, |members| {
+					members.push(member.clone());
+					members.sort_by(|a, b| {
+						T::Members::member_stake(a)
+							.cmp(&T::Members::member_stake(b))
+							// sort by AccountId iff amounts are equal to uphold determinism
+							.then_with(|| a.cmp(b))
+							.reverse()
+					});
+				});
 			}
 			T::Shards::member_online(member, network);
 		}
@@ -271,7 +284,9 @@ pub mod pallet {
 		///    2. Notifies the `Shards` interface about the member going offline.
 		///    3. Returns the weight of the operation.
 		fn member_offline(member: &AccountId, network: NetworkId) {
-			Unassigned::<T>::remove(network, member);
+			Unassigned::<T>::mutate(network, |members| {
+				members.retain(|m| m != member);
+			});
 			T::Shards::member_offline(member, network);
 		}
 	}
@@ -280,35 +295,21 @@ pub mod pallet {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
-			let mut members = Vec::new();
-			// additional optimization would be storing this separately in order of member stake
-			for (m, _) in Unassigned::<T>::iter_prefix(network) {
-				if T::Members::is_member_online(&m) {
-					members.push(m);
-				}
+			let shard_size: u32 = ShardSize::<T>::get().into();
+			let shard_threshold = ShardThreshold::<T>::get();
+			let mut unassigned = Unassigned::<T>::get(network);
+			let num_elected =
+				sp_std::cmp::min((unassigned.len() as u32) / shard_size, max_elections)
+					* shard_size;
+			let mut members = Vec::with_capacity(num_elected as usize);
+			members.extend(unassigned.drain(..(num_elected as usize)));
+			Unassigned::<T>::insert(network, unassigned);
+			let mut num_elections = 0u32;
+			for next_shard in members.chunks(shard_size as usize) {
+				T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold);
+				num_elections += 1;
 			}
-			let members_size = members.len() as u32;
-			let shard_size = ShardSize::<T>::get();
-			if members_size < shard_size.into() {
-				return 0u32;
-			}
-			if members_size > shard_size.into() {
-				members.sort_unstable_by(|a, b| {
-					T::Members::member_stake(a)
-						.cmp(&T::Members::member_stake(b))
-						// sort by AccountId iff amounts are equal to uphold determinism
-						.then_with(|| a.cmp(b))
-						.reverse()
-				});
-			}
-			let num_new_shards =
-				sp_std::cmp::min(members_size.saturating_div(shard_size.into()), max_elections);
-			for _ in 0..num_new_shards {
-				let next_shard: Vec<AccountId> = members.drain(..(shard_size as usize)).collect();
-				next_shard.iter().for_each(|m| Unassigned::<T>::remove(network, m));
-				T::Shards::create_shard(network, next_shard, ShardThreshold::<T>::get());
-			}
-			num_new_shards
+			num_elections
 		}
 	}
 }

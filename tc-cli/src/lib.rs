@@ -233,6 +233,11 @@ pub struct Network {
 	pub network: NetworkId,
 	pub chain_name: String,
 	pub chain_network: String,
+	pub info: Option<NetworkInfo>,
+}
+
+#[derive(Clone, Debug)]
+pub struct NetworkInfo {
 	pub gateway: Address,
 	pub gateway_balance: u128,
 	pub admin: Address,
@@ -387,24 +392,33 @@ impl Tc {
 		let network_ids = self.runtime.networks().await?;
 		let mut networks = vec![];
 		for network in network_ids {
-			let (connector, gateway) = self.gateway(network).await?;
 			let (chain_name, chain_network) =
 				self.runtime.network_name(network).await?.context("invalid network")?;
-			let gateway_balance = connector.balance(gateway).await?;
-			let admin = connector.admin(gateway).await?;
-			let admin_balance = connector.balance(admin).await?;
-			let sync_status = self.sync_status(network).await?;
+			let chain_name =
+				String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
+			let chain_network =
+				String::decode(&mut chain_network.0.to_vec().as_slice()).unwrap_or_default();
+			let info = match self.gateway(network).await {
+				Ok((connector, gateway)) => {
+					let gateway_balance = connector.balance(gateway).await?;
+					let admin = connector.admin(gateway).await?;
+					let admin_balance = connector.balance(admin).await?;
+					let sync_status = self.sync_status(network).await?;
+					Some(NetworkInfo {
+						gateway,
+						gateway_balance,
+						admin,
+						admin_balance,
+						sync_status,
+					})
+				},
+				Err(_) => None,
+			};
 			networks.push(Network {
 				network,
-				chain_name: String::decode(&mut chain_name.0.to_vec().as_slice())
-					.unwrap_or_default(),
-				chain_network: String::decode(&mut chain_network.0.to_vec().as_slice())
-					.unwrap_or_default(),
-				gateway,
-				gateway_balance,
-				admin,
-				admin_balance,
-				sync_status,
+				chain_name,
+				chain_network,
+				info,
 			});
 		}
 		Ok(networks)
@@ -756,38 +770,46 @@ impl Tc {
 }
 
 impl Tc {
-	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
+	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
+		let config = self.config.network(network)?;
+		let gateway = self.register_network(network).await?;
+		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
+			tracing::info!("admin target balance is 0, using faucet");
+			self.faucet(network).await?;
+		}
+		tracing::info!("funding gateway");
+		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
+		self.fund(Some(network), gateway, gateway_funds).await?;
+		Ok(gateway)
+	}
+
+	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
+		let chronicle = self.wait_for_chronicle(chronicle).await?;
+		tracing::info!("funding chronicle timechain account");
+		let funds = self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
+		self.fund(None, chronicle.account.clone().into(), funds).await?;
+		let config = self.config.network(chronicle.network)?;
+		tracing::info!("funding chronicle target account");
+		let chronicle_target_funds =
+			self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
+		self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
+			.await?;
+		self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
+			.await?;
+		Ok(())
+	}
+
+	pub async fn deploy(&self, networks: Option<Vec<NetworkId>>) -> Result<()> {
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
-		for network in self.connectors.keys().copied() {
-			if !networks.is_empty() && networks.contains(&network) {
-				let config = self.config.network(network)?;
-				let gateway = self.register_network(network).await?;
-				if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-					tracing::info!("admin target balance is 0, using faucet");
-					self.faucet(network).await?;
-				}
-				tracing::info!("funding gateway");
-				let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
-				self.fund(Some(network), gateway, gateway_funds).await?;
-				gateways.insert(network, gateway);
-			}
+		let networks = networks.unwrap_or_else(|| self.connectors.keys().copied().collect());
+		for network in networks {
+			let gateway = self.deploy_network(network).await?;
+			gateways.insert(network, gateway);
 		}
 		self.register_routes(gateways).await?;
 		for chronicle in self.config.chronicles() {
-			let chronicle = self.wait_for_chronicle(chronicle).await?;
-			tracing::info!("funding chronicle timechain account");
-			let funds =
-				self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
-			self.fund(None, chronicle.account.clone().into(), funds).await?;
-			let config = self.config.network(chronicle.network)?;
-			tracing::info!("funding chronicle target account");
-			let chronicle_target_funds =
-				self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
-			self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
-				.await?;
-			self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
-				.await?;
+			self.deploy_chronicle(chronicle).await?;
 		}
 		Ok(())
 	}

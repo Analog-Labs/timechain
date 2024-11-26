@@ -215,7 +215,7 @@ impl IntoRow for Network {
 			read_events = info.sync_status.task;
 			format!("{} / {}", info.sync_status.sync, info.sync_status.block)
 		} else {
-			format!("no connector configured")
+			"no connector configured".to_string()
 		};
 		Ok(NetworkEntry {
 			network: self.network,
@@ -501,7 +501,7 @@ impl IntoRow for MessageTrace {
 #[tokio::main]
 async fn main() {
 	if let Err(err) = real_main().await {
-		println!("{err}");
+		println!("{err:#?}");
 		std::process::exit(1);
 	} else {
 		std::process::exit(0);

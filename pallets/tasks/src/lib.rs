@@ -276,7 +276,7 @@ pub mod pallet {
 		/// Set the network batch size
 		BatchSizeSet(NetworkId, u64, u64),
 		/// Insufficient Treasury Balance to payout rewards
-		InsufficientTreasuryBalance(TaskId),
+		InsufficientTreasuryBalance(AccountId, Balance),
 		/// Message received
 		MessageReceived(MessageId),
 		/// Message executed
@@ -485,12 +485,18 @@ pub mod pallet {
 
 		fn treasury_transfer(account: AccountId, amount: u128) {
 			let treasury = pallet_treasury::Pallet::<T>::account_id();
-			let _ = pallet_balances::Pallet::<T>::transfer(
+			match pallet_balances::Pallet::<T>::transfer(
 				&treasury,
 				&account,
 				amount,
 				ExistenceRequirement::KeepAlive,
-			);
+			) {
+				Ok(_) => {},
+				Err(err) => {
+					Self::deposit_event(Event::InsufficientTreasuryBalance(account, amount));
+					log::error!("Treasury transfer failed: {:?}", err);
+				},
+			}
 		}
 
 		pub(crate) fn create_task(network: NetworkId, task: Task) -> TaskId {

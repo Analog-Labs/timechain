@@ -477,7 +477,7 @@ pub mod pallet {
 
 		fn treasury_transfer_shard(shard: ShardId, amount: u128) {
 			let members = T::Shards::shard_members(shard);
-			if members.len() == 0 {
+			if members.is_empty() {
 				// Handle the case where there are no members
 				log::error!("Shard has no members, cannot distribute rewards.");
 				return;

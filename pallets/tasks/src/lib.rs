@@ -87,6 +87,7 @@ pub mod pallet {
 		fn set_send_message_task_reward() -> Weight;
 		fn sudo_cancel_task() -> Weight;
 		fn sudo_cancel_tasks(n: u32) -> Weight;
+		fn sudo_cancel_gmp_tasks(n: u32) -> Weight;
 		fn reset_tasks(n: u32) -> Weight;
 		fn set_shard_task_limit() -> Weight;
 		fn unregister_gateways(n: u32) -> Weight;
@@ -131,6 +132,10 @@ pub mod pallet {
 		}
 
 		fn sudo_cancel_tasks(_: u32) -> Weight {
+			Weight::default()
+		}
+
+		fn sudo_cancel_gmp_tasks(_: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -745,6 +750,47 @@ pub mod pallet {
 			Ok(())
 		}
 
+		///  Cancels a specified number of tasks.
+		/// # Flow
+		///    1. Ensure the origin of the transaction is a root user.
+		///    2. Iterate over unassigned tasks and cancel them until the specified maximum is reached.
+		///    3. If the maximum is not reached, iterate over shard tasks and cancel them until the specified maximum is reached.
+		///    4. Return `Ok(())` if all operations succeed.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::sudo_cancel_gmp_tasks(*max))]
+		pub fn sudo_cancel_gmp_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			// TODO (followup): ensure max <= PalletMax which is set according to our current block size limit
+			let mut cancelled = 0;
+			for (network, _, task_id) in UnassignedTasks::<T>::iter() {
+				if cancelled >= max {
+					return Ok(());
+				}
+				if let Some(task) = Tasks::<T>::get(task_id) {
+					if !matches!(task.function, Function::SendMessage { .. }) {
+						continue;
+					}
+				}
+				Self::cancel_task(task_id, network);
+				cancelled = cancelled.saturating_plus_one();
+			}
+			for (shard_id, task_id, _) in ShardTasks::<T>::iter() {
+				if let Some(network) = T::Shards::shard_network(shard_id) {
+					if cancelled >= max {
+						return Ok(());
+					}
+					if let Some(task) = Tasks::<T>::get(task_id) {
+						if !matches!(task.function, Function::SendMessage { .. }) {
+							continue;
+						}
+					}
+					Self::cancel_task(task_id, network);
+					cancelled = cancelled.saturating_plus_one();
+				}
+			}
+			Ok(())
+		}
+
 		/// Resets a specified number of tasks.
 		///
 		/// # Flow
@@ -753,7 +799,7 @@ pub mod pallet {
 		///  3. Iterate over [`UnassignedTasks`] storage to reset the task phase state until the specified maximum is reached.
 		///  4. Iterate over [`NetworkShards`] storage to schedule tasks for the network and shard.
 		///  5. Return `Ok(())` if all operations succeed.
-		#[pallet::call_index(10)]
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::reset_tasks(*max))]
 		pub fn reset_tasks(origin: OriginFor<T>, max: u32) -> DispatchResult {
 			ensure_root(origin)?;
@@ -789,7 +835,7 @@ pub mod pallet {
 		///    2. Insert the new task limit for the specified network into the [`ShardTaskLimit`] storage.
 		///    3. Emit an event indicating the shard task limit has been set.
 		///    4. Return `Ok(())` if all operations succeed.
-		#[pallet::call_index(11)]
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_shard_task_limit())]
 		pub fn set_shard_task_limit(
 			origin: OriginFor<T>,
@@ -810,7 +856,7 @@ pub mod pallet {
 		///   3. Clear all registered shards from the [`ShardRegistered`] storage.
 		///   4. Filter and process tasks, finishing tasks with a [`Function::ReadMessages`] function with an error result indicating shard offline or gateway change.
 		///   5. Return `Ok(())` if all operations succeed.
-		#[pallet::call_index(12)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_gateways(*num_gateways))]
 		pub fn unregister_gateways(origin: OriginFor<T>, num_gateways: u32) -> DispatchResult {
 			ensure_root(origin)?;
@@ -845,7 +891,7 @@ pub mod pallet {
 		///   3. Insert the new offset for the specified network into the [`NetworkOffset`] storage.
 		///   4. Emit an event indicating the batch size and offset have been set.
 		///   5. Return `Ok(())` if all operations succeed.
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_batch_size())]
 		pub fn set_batch_size(
 			origin: OriginFor<T>,

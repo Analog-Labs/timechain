@@ -179,8 +179,10 @@ benchmarks! {
 		};
 		// Fund and register all shard members
 		let mut i = 0u8;
+		let mut members: vec::Vec<AccountId> = vec![];
 		while u16::from(i) < <T as Config>::Elections::default_shard_size() {
 			let member = [i; 32];
+			members.push(member.into());
 			let member_account: AccountId = member.into();
 			pallet_balances::Pallet::<T>::resolve_creating(
 				&member_account,
@@ -197,7 +199,7 @@ benchmarks! {
 		}
 		<T as Config>::Shards::create_shard(
 			ETHEREUM,
-			[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
+			members,
 			1,
 		);
 		ShardState::<T>::insert(0, ShardStatus::Online);
@@ -235,6 +237,14 @@ benchmarks! {
 	}: _(RawOrigin::Root, 0) verify {}
 
 	sudo_cancel_tasks {
+		// TODO: replace upper bound with PALLET_MAXIMUM
+		let b in 1..10;
+		for i in 0..b {
+			let _ = create_simple_task::<T>()?;
+		}
+	}: _(RawOrigin::Root, b) verify {}
+
+	sudo_cancel_gmp_tasks {
 		// TODO: replace upper bound with PALLET_MAXIMUM
 		let b in 1..10;
 		for i in 0..b {

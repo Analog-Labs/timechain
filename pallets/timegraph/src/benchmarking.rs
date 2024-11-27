@@ -16,9 +16,9 @@ mod benchmarks {
 	fn deposit() {
 		let caller = whitelisted_caller();
 		let recipient = account("recipient", 0, 1);
-		let amount: BalanceOf<T> = 500_000_000_u32.into();
+		let amount: BalanceOf<T> = 5_000_000_u32.into();
 		let amount_be: BalanceOf<T> = amount * 100u32.into();
-		T::Currency::make_free_balance_be(&caller, amount_be);
+		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_be));
 		#[extrinsic_call]
 		deposit(RawOrigin::Signed(caller), recipient, amount);
 	}
@@ -27,10 +27,10 @@ mod benchmarks {
 	fn withdraw() {
 		let caller = whitelisted_caller();
 		let recipient = account("recipient", 0, 1);
-		let amount: BalanceOf<T> = 500_000_000_u32.into();
+		let amount: BalanceOf<T> = 5_000_000_u32.into();
 		let sequence = 1;
 		let amount_be: BalanceOf<T> = amount * 100u32.into();
-		T::Currency::make_free_balance_be(&caller, amount_be);
+		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_be));
 		#[extrinsic_call]
 		withdraw(RawOrigin::Signed(caller), recipient, amount, sequence);
 	}

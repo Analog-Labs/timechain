@@ -740,7 +740,7 @@ async fn real_main() -> Result<()> {
 
 async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 	// networks
-	tc.deploy(Some(vec![src, dest])).await?;
+	tc.deploy(vec![src, dest]).await?;
 	let (src_addr, src_block) = tc.deploy_tester(src).await?;
 	let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
 	tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);

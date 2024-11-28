@@ -3,6 +3,7 @@ use alloy_sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
+use reqwest::Client;
 use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
 	GetTransactionCount, Signer, SubmitResult, TransactionReceipt, Wallet,
@@ -25,6 +26,7 @@ use time_primitives::{
 	TssSignature,
 };
 
+use crate::sol::CCTP;
 use crate::sol::{ProxyContext, ProxyDigest};
 
 type AlloyAddress = alloy_primitives::Address;
@@ -305,6 +307,32 @@ impl Connector {
 		let initializer = sol::Gateway::initializeCall { admin, keys, networks }.abi_encode();
 		Ok(initializer)
 	}
+	async fn process_cctp_msg(&self, msg: &mut sol::GmpMessage) -> Result<()> {
+		let url = "";
+
+		let payload = msg.data.clone();
+		let mut cctp_payload = CCTP::abi_decode(&payload, false)?;
+		if cctp_payload.version != 0 {
+			// TODO invalid payload throw an error
+		}
+		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
+		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
+		let url = format!("{}/0x{}", url, hex::encode(burn_hash));
+		let client = Client::new();
+		let response = client.get(&url).send().await?.error_for_status()?;
+		let attestation_response: AttestationResponse = response.json().await?;
+		if attestation_response.status != "complete" {
+			// TODO wait after 10 sec if still not receive throw error
+		}
+		let signature = attestation_response.attestation.clone().ok_or_else(|| {
+			anyhow::anyhow!("Could not get attesation from response: {:?}", attestation_response)
+		})?;
+		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
+		let attestation = hex::decode(signature)?;
+		cctp_payload.attestation = attestation.into();
+		msg.data = cctp_payload.abi_encode().into();
+		Ok(())
+	}
 }
 
 #[async_trait]
@@ -399,7 +427,11 @@ impl IChain for Connector {
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		let contract: [u8; 20] = a_addr(gateway).0.into();
+		// TODO take as paramter
+		let contracts = vec![[0u8; 32], gateway];
+		let contracts: Vec<rosetta_client::Address> =
+			contracts.into_iter().map(|item| a_addr(item).0 .0.into()).collect();
+
 		let logs = self
 			.wallet
 			.query(GetLogs {
@@ -447,6 +479,10 @@ impl IConnector for Connector {
 							gas_cost: 1_000_000,
 							bytes: log.data.data.into(),
 						};
+						// if contracts.len() > 1 && gmp_message.src == contracts.clone()[1] {
+						// 	let gmp_message = todo!();
+						// 	self.process_cctp_msg(&mut gmp_message).await?;
+						// }
 						events.push(GmpEvent::MessageReceived(gmp_message));
 						break;
 					},
@@ -800,4 +836,10 @@ struct Contract {
 #[derive(Deserialize)]
 struct Bytecode {
 	object: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct AttestationResponse {
+	status: String,
+	attestation: Option<String>,
 }

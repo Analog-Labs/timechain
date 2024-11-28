@@ -5240,6 +5240,7 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
+ "reqwest",
  "rosetta-client",
  "rosetta-crypto",
  "rosetta-ethereum-backend",

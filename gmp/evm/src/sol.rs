@@ -43,6 +43,34 @@ alloy_sol_types::sol! {
 		address gateway;
 	}
 
+
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct CCTP {
+		/// Version of message body format
+		/// https://github.com/circlefin/evm-cctp-contracts/blob/release-2024-10-23T134808/src/TokenMessenger.sol#L106-L107
+		uint32 version;
+		/// Local Message Transmitter responsible for sending and receiving messages to/from remote domains
+		address localMessageTransmitter;
+		/// Minter responsible for minting and burning tokens on the local domain
+		address localMinter;
+		/// Amount of tokens to transfer
+		uint256 amount;
+		/// The destination domain
+		uint32 destinationDomain;
+		/// address of mint recipient on destination domain
+		bytes32 mintRecipient;
+		/// address of contract to burn deposited tokens, on local domain
+		address burnToken;
+		/// unique nonce reserved by message
+		uint64 nonce;
+		/// The attestation (obs: will be provided by the chronicle).
+		bytes attestation;
+		/// The message bytes emitted by the MessageSent event (obs: will be provided by the chronicle).
+		bytes message;
+		/// Any extra custom data that Zenswap wants to send to the recipient Zenswap Plugin.
+		bytes extraData;
+	}
+
 	contract GatewayProxy {
 		constructor(address admin) payable;
 	}

@@ -20,11 +20,13 @@ use sol::{u256, Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
+use tokio::time::sleep;
 
 use crate::sol::CCTP;
 use crate::sol::{ProxyContext, ProxyDigest};
@@ -310,23 +312,14 @@ impl Connector {
 		Ok(initializer)
 	}
 	async fn process_cctp_msg(&self, msg: &mut sol::GmpMessage) -> Result<()> {
-		let url = &self.cctp_attestation;
-
 		let payload = msg.data.clone();
 		let mut cctp_payload = CCTP::abi_decode(&payload, false)?;
 		if cctp_payload.version != 0 {
-			tracing::error!("Invalid cctp version for cctp msg: {:?}", msg);
+			anyhow::bail!("Invalid cctp version for cctp msg: {:?}", msg)
 		}
 		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
-		let url = format!("{}/0x{}", url, hex::encode(burn_hash));
-		let client = Client::new();
-		let response = client.get(&url).send().await?.error_for_status()?;
-		let attestation_response: AttestationResponse = response.json().await?;
-		if attestation_response.status != "complete" {
-			// TODO wait after 10 sec if still not receive throw error
-			tracing::error!("Attestation not available for burn_hash: {:?}", burn_hash);
-		}
+		let attestation_response = self.get_cctp_attestation(burn_hash).await?;
 		let signature = attestation_response.attestation.clone().ok_or_else(|| {
 			anyhow::anyhow!("Could not get attesation from response: {:?}", attestation_response)
 		})?;
@@ -335,6 +328,32 @@ impl Connector {
 		cctp_payload.attestation = attestation.into();
 		msg.data = cctp_payload.abi_encode().into();
 		Ok(())
+	}
+
+	async fn get_cctp_attestation(&self, burn_hash: [u8; 32]) -> Result<AttestationResponse> {
+		let url = format!(
+			"{}/0x{}",
+			&self.cctp_attestation.trim_end_matches("/"),
+			hex::encode(burn_hash)
+		);
+		let client = Client::new();
+		for attempt in 1..=2 {
+			let response = client.get(&url).send().await?.error_for_status()?;
+			let attestation_response: AttestationResponse = response.json().await?;
+			if attestation_response.status == "complete" {
+				return Ok(attestation_response);
+			} else {
+				tracing::error!(
+					"Attempt: {}, Attestation not available for burn hash: {}",
+					attempt,
+					hex::encode(burn_hash)
+				);
+				if attempt < 2 {
+					sleep(Duration::from_secs(10)).await;
+				}
+			}
+		}
+		anyhow::bail!("Could not fetch attestation for burn hash: {}", hex::encode(burn_hash))
 	}
 }
 

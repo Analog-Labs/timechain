@@ -692,34 +692,34 @@ impl Tc {
 
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
 		// TODO fix this once we have route struct in gateway master branch
-		// for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
-		// 	let connector = self.connector(src)?;
-		// 	let routes = connector.routes(gateway).await?;
-		// 	for dest in gateways.keys().copied() {
-		// 		if src == dest {
-		// 			continue;
-		// 		}
-		// 		let config = self.config.network(dest)?;
-		// 		let network_prices = self.read_csv_token_prices()?;
-		// 		let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
-		// 		let dest_price = get_network_price(&network_prices, &dest)?;
-		// 		let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
-		// 		let numerator = convert_bigint_to_u128(ratio.numer())?;
-		// 		let denominator = convert_bigint_to_u128(ratio.denom())?;
-		// 		let route = Route {
-		// 			network_id: dest,
-		// 			gateway,
-		// 			relative_gas_price: (numerator, denominator),
-		// 			gas_limit: config.route_gas_limit,
-		// 			base_fee: config.route_base_fee,
-		// 		};
-		// 		if routes.contains(&route) {
-		// 			continue;
-		// 		}
-		// 		tracing::info!("register_route {src} {dest}");
-		// 		connector.set_route(gateway, route).await?;
-		// 	}
-		// }
+		for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
+			let connector = self.connector(src)?;
+			let routes = connector.routes(gateway).await?;
+			for dest in gateways.keys().copied() {
+				if src == dest {
+					continue;
+				}
+				let config = self.config.network(dest)?;
+				let network_prices = self.read_csv_token_prices()?;
+				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
+				let dest_price = get_network_price(&network_prices, &dest)?;
+				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
+				let numerator = convert_bigint_to_u128(ratio.numer())?;
+				let denominator = convert_bigint_to_u128(ratio.denom())?;
+				let route = Route {
+					network_id: dest,
+					gateway,
+					relative_gas_price: (numerator, denominator),
+					gas_limit: config.route_gas_limit,
+					base_fee: config.route_base_fee,
+				};
+				if routes.contains(&route) {
+					continue;
+				}
+				tracing::info!("register_route {src} {dest}");
+				connector.set_route(gateway, route).await?;
+			}
+		}
 		Ok(())
 	}
 
@@ -843,7 +843,7 @@ impl Tc {
 		}
 		tracing::info!("Registering Routes");
 		self.register_routes(gateways).await?;
-		for chronicle in self.config.chronicles() {
+		for chronicle in chronicles {
 			self.deploy_chronicle(&chronicle).await?;
 		}
 		Ok(())

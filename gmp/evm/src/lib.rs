@@ -25,7 +25,7 @@ use time_primitives::{
 	TssSignature, H160,
 };
 
-use crate::sol::{GatewayContext, ProxyContext, ProxyDigest};
+use crate::sol::{ProxyContext, ProxyDigest};
 
 type AlloyAddress = alloy_primitives::Address;
 
@@ -172,9 +172,10 @@ impl Connector {
 	) -> Result<AlloyAddress> {
 		let gateway_bytecode = get_contract_from_slice(gateway)?;
 
-		let gateway_constructor = sol::Gateway::constructorCall { proxy: proxy_addr.into() };
-
-		let gateway_context = GatewayContext { networkId: self.network_id }.abi_encode();
+		let gateway_constructor = sol::Gateway::constructorCall {
+			network: self.network_id,
+			proxy: proxy_addr.into(),
+		};
 
 		let gateway_init_code =
 			extend_bytes_with_constructor(gateway_bytecode, gateway_constructor);
@@ -183,7 +184,6 @@ impl Connector {
 		let gateway_create_call = sol::IUniversalFactory::create2_0Call {
 			salt: config.deployment_salt.into(),
 			creationCode: gateway_init_code.into(),
-			arguments: gateway_context.into(),
 		}
 		.abi_encode();
 
@@ -462,7 +462,7 @@ impl IConnector for Connector {
 	) -> Result<(), String> {
 		let call = sol::Gateway::executeCall {
 			signature: sig.into(),
-			xCoord: sol::TssPublicKey::from(signer).xCoord,
+			xCoord: sol::TssKey::from(signer).xCoord,
 			message: msg.encode(batch).into(),
 		};
 		self.evm_call(gateway, call, 0, None).await.map_err(|err| err.to_string())?;

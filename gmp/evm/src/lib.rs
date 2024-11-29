@@ -333,7 +333,7 @@ impl Connector {
 	async fn get_cctp_attestation(&self, burn_hash: [u8; 32]) -> Result<AttestationResponse> {
 		let url = format!(
 			"{}/0x{}",
-			&self.cctp_attestation.trim_end_matches("/"),
+			&self.cctp_attestation.trim_end_matches('/'),
 			hex::encode(burn_hash)
 		);
 		let client = Client::new();

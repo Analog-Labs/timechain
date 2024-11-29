@@ -200,6 +200,8 @@ mod tests {
 				target_min_balance: 0,
 				timechain_min_balance: 0,
 				backend: Backend::Rust,
+				cctp_sender: None,
+				cctp_attestation: None,
 			},
 			Arc::new(mock.clone()),
 			tx,

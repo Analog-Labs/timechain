@@ -49,6 +49,8 @@ pub struct Connector {
 	network_id: NetworkId,
 	wallet: Arc<Wallet>,
 	backend: Adapter<DefaultClient>,
+	cctp_sender: Option<String>,
+	cctp_attestation: String,
 }
 
 impl Connector {
@@ -308,12 +310,12 @@ impl Connector {
 		Ok(initializer)
 	}
 	async fn process_cctp_msg(&self, msg: &mut sol::GmpMessage) -> Result<()> {
-		let url = "";
+		let url = &self.cctp_attestation;
 
 		let payload = msg.data.clone();
 		let mut cctp_payload = CCTP::abi_decode(&payload, false)?;
 		if cctp_payload.version != 0 {
-			// TODO invalid payload throw an error
+			tracing::error!("Invalid cctp version for cctp msg: {:?}", msg);
 		}
 		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
@@ -323,6 +325,7 @@ impl Connector {
 		let attestation_response: AttestationResponse = response.json().await?;
 		if attestation_response.status != "complete" {
 			// TODO wait after 10 sec if still not receive throw error
+			tracing::error!("Attestation not available for burn_hash: {:?}", burn_hash);
 		}
 		let signature = attestation_response.attestation.clone().ok_or_else(|| {
 			anyhow::anyhow!("Could not get attesation from response: {:?}", attestation_response)
@@ -360,10 +363,11 @@ impl IConnectorBuilder for Connector {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
+			cctp_sender: params.cctp_sender,
+			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
 		};
 		// local testnet send some funds
 		if connector.wallet.config().coin == 1 {
-			//Local run fund wallet
 			connector.faucet().await?;
 		};
 		Ok(connector)
@@ -427,11 +431,12 @@ impl IChain for Connector {
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		// TODO take as paramter
-		let contracts = vec![[0u8; 32], gateway];
-		let contracts: Vec<rosetta_client::Address> =
-			contracts.into_iter().map(|item| a_addr(item).0 .0.into()).collect();
+		let cctp_sender: Option<[u8; 20]> = self
+			.cctp_sender
+			.clone()
+			.map(|item| a_addr(self.parse_address(&item).unwrap_or([0u8; 32])).0 .0);
 
+		let contract: [u8; 20] = a_addr(gateway).0.into();
 		let logs = self
 			.wallet
 			.query(GetLogs {
@@ -456,8 +461,6 @@ impl IConnector for Connector {
 						let log = sol::Gateway::ShardsRegistered::decode_log(&log, true)?;
 						for key in log.keys.iter() {
 							events.push(GmpEvent::ShardRegistered(key.clone().into()));
-						}
-						break;
 					},
 					sol::Gateway::ShardsUnregistered::SIGNATURE_HASH => {
 						let log = sol::Gateway::ShardsUnregistered::decode_log(&log, true)?;

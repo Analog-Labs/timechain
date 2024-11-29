@@ -28,6 +28,8 @@ impl ConnectorWrapper {
 			network: network.to_string(),
 			url: db.to_str().unwrap().to_string(),
 			mnemonic: String::new(),
+			cctp_sender: None,
+			cctp_attestation: None,
 		})
 		.await?;
 		Ok(Self { connector })

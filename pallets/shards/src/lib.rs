@@ -422,25 +422,32 @@ pub mod pallet {
 		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardKeyGenTimedOut`] event.
 		///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
 		pub(crate) fn timeout_dkgs(n: BlockNumberFor<T>) -> Weight {
+			// Cache configuration values to minimize repeated storage reads
+			let dkg_timeout = T::DkgTimeout::get();
+			let max_timeouts_per_block = T::MaxTimeoutsPerBlock::get();
 			let mut num_timeouts = 0u32;
-			for (shard_id, created_block) in DkgTimeout::<T>::iter() {
-				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
+
+			// Iterate over DKG timeouts
+			DkgTimeout::<T>::iter()
+				.filter(|(_, created_block)| n.saturating_sub(*created_block) >= dkg_timeout)
+				.take(max_timeouts_per_block as usize)
+				.for_each(|(shard_id, _)| {
 					if let Some(status) = ShardState::<T>::get(shard_id) {
-						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
-							DkgTimeout::<T>::remove(shard_id);
-						} else {
+						if matches!(status, ShardStatus::Created | ShardStatus::Committed) {
 							Self::remove_shard_offline(shard_id);
 							Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
-							num_timeouts = num_timeouts.saturating_plus_one();
-							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-								return <T as Config>::WeightInfo::timeout_dkgs(
-									T::MaxTimeoutsPerBlock::get(),
-								);
-							}
+							num_timeouts = num_timeouts.saturating_add(1);
+						} else {
+							// Remove shard timeout entry
+							DkgTimeout::<T>::remove(shard_id);
 						}
+					} else {
+						// Remove shard timeout entry if state is missing
+						DkgTimeout::<T>::remove(shard_id);
 					}
-				}
-			}
+				});
+
+			// Return weight based on number of timeouts
 			<T as Config>::WeightInfo::timeout_dkgs(num_timeouts)
 		}
 		/// Fetches all shards associated with a given account.

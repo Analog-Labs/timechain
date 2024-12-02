@@ -2,7 +2,10 @@ use super::*;
 use crate::{Config, Pallet};
 
 use frame_benchmarking::benchmarks;
-use frame_support::traits::{Currency, Get};
+use frame_support::{
+	assert_ok,
+	traits::{Currency, Get},
+};
 use frame_system::RawOrigin;
 use polkadot_sdk::{
 	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_runtime, sp_std,
@@ -87,7 +90,7 @@ benchmarks! {
 	where_clause {  where T: pallet_members::Config }
 	commit {
 		let shard: Vec<[u8; 32]> = vec![ALICE, BOB, CHARLIE];
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1);
+		assert_ok!(Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1));
 		let alice: AccountId = ALICE.into();
 		// benchmark commitment that changes shard status
 		for member in shard {
@@ -118,7 +121,7 @@ benchmarks! {
 
 	ready {
 		let shard: Vec<[u8; 32]> = vec![ALICE, BOB, CHARLIE];
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1);
+		assert_ok!(Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1));
 		for member in shard.clone() {
 			let member_account: AccountId = member.into();
 			pallet_balances::Pallet::<T>::resolve_creating(
@@ -153,18 +156,19 @@ benchmarks! {
 
 	force_shard_offline {
 		let shard: Vec<AccountId> = vec![ALICE.into(), BOB.into(), CHARLIE.into()];
-		Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1);
+		assert_ok!(Pallet::<T>::create_shard(ETHEREUM, shard.clone(), 1));
 	}: _(RawOrigin::Root, SHARD_ID)
 	verify { }
 
 	timeout_dkgs {
 		let b in 1..<T as Config>::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
-			Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1);
+			assert_ok!(Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1));
 			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Created));
 		}
+		let timeout_block = frame_system::Pallet::<T>::block_number().saturating_add(T::DkgTimeout::get());
 	}: {
-		Pallet::<T>::timeout_dkgs(T::DkgTimeout::get().saturating_add(T::DkgTimeout::get()));
+		Pallet::<T>::timeout_dkgs(timeout_block);
 	} verify {
 		for i in 0..b {
 			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Offline));

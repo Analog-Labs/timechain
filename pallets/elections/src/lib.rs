@@ -162,7 +162,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
+			let mut num_elections = 0u32;
 			let networks = T::Networks::get_networks();
 			let net_counter0 = NetworkCounter::<T>::get();
 			let (mut net_counter, mut all_nets_elected) = (net_counter0, false);
@@ -175,7 +175,6 @@ pub mod pallet {
 					*next_network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
 				);
-				weight = weight.saturating_add(T::WeightInfo::try_elect_shards(elected));
 				num_elections = num_elections.saturating_add(elected);
 				if max_shards_created {
 					break;
@@ -190,7 +189,7 @@ pub mod pallet {
 				NetworkCounter::<T>::put(net_counter);
 			} // else counter starts where it left off => no write required
 			log::info!("on_initialize end");
-			weight
+			T::WeightInfo::try_elect_shards(num_elections)
 		}
 	}
 

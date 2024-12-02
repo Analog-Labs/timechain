@@ -36,11 +36,13 @@ fn create_shard<
 	network: NetworkId,
 ) {
 	NetworkGatewayAddress::<T>::insert(network, [0; 32]);
-	let shard_id = <T as Config>::Shards::create_shard(
+	let Ok(shard_id) = <T as Config>::Shards::create_shard(
 		network,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
-	);
+	) else {
+		return;
+	};
 	for m in [[0u8; 32], [1u8; 32], [2u8; 32]] {
 		let pk = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(m));
 		let acc: AccountId = m.into();

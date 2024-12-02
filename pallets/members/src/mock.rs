@@ -7,7 +7,7 @@ use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature,
+	BuildStorage, DispatchError, MultiSignature,
 };
 
 use time_primitives::{
@@ -51,8 +51,12 @@ impl ShardsInterface for MockShards {
 	fn shard_network(_shard_id: ShardId) -> Option<NetworkId> {
 		None
 	}
-	fn create_shard(_network: NetworkId, _members: Vec<AccountId>, _threshold: u16) -> ShardId {
-		0
+	fn create_shard(
+		_network: NetworkId,
+		_members: Vec<AccountId>,
+		_threshold: u16,
+	) -> Result<ShardId, DispatchError> {
+		Ok(0)
 	}
 	fn next_signer(_shard_id: ShardId) -> PublicKey {
 		pubkey_from_bytes([0; 32])

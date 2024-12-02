@@ -19,6 +19,7 @@ use time_primitives::{
 	GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
 	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
+use tokio::time::sleep;
 
 mod config;
 mod env;
@@ -440,9 +441,16 @@ impl Tc {
 		Ok(networks)
 	}
 
-	pub async fn chronicles(&self) -> Result<Vec<Chronicle>> {
+	pub async fn chronicles(&self, networks: Vec<NetworkId>) -> Result<Vec<Chronicle>> {
 		let mut chronicles = vec![];
-		for chronicle in self.config.chronicles() {
+		let networks =
+			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
+		let mut needed_chronicles = vec![];
+		for network in networks {
+			let config = self.config.network(network)?;
+			needed_chronicles.extend(config.chronicles.clone());
+		}
+		for chronicle in needed_chronicles {
 			let config = self.chronicle_config(&chronicle).await?;
 			let status = self.chronicle_status(&config.account).await?;
 			let network = config.network;
@@ -659,6 +667,7 @@ impl Tc {
 					},
 				})
 				.await?;
+			sleep(Duration::from_secs(20)).await;
 			gateway
 		};
 		tracing::info!("gateway address {}", self.format_address(Some(network), gateway)?);
@@ -691,7 +700,6 @@ impl Tc {
 	}
 
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
-		// TODO fix this once we have route struct in gateway master branch
 		for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
 			let routes = connector.routes(gateway).await?;
@@ -777,6 +785,7 @@ impl Tc {
 		tracing::info!("register_member {}", self.format_address(None, member.clone().into())?);
 		let min_stake = self.runtime.min_stake().await?;
 		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
+		sleep(Duration::from_secs(20)).await;
 		Ok(())
 	}
 

@@ -11,42 +11,42 @@ contracts:
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
     tester: "/etc/contracts/test_contract.sol/VotingContract.json"
 networks:
-  0:
-    backend: "grpc"
-    blockchain: "rust"
-    network: "0"
-    url: "http://gmp-grpc-0:3000"
-    gateway_funds: 10000
-    chronicle_target_funds: 10000
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    gmp_margin: 0.0
-    shard_task_limit: 50
-    route_gas_limit: 10000
-    # This is the base fee of evm chains. Connector have a method to fetch base fee:
-    # https://github.com/Analog-Labs/chain-connectors/blob/master/chains/ethereum/server/src/utils.rs#L296
-    # In short it queries the fee history for some past blocks 10/15 and takes median of it.
-    # TODO remove from here and fetch from connector when evm backend is functional
-    route_base_fee: 1400000000
-    chronicles: 
-    - http://chronicle-0:8080
-  1:
-    backend: "grpc"
-    blockchain: "rust"
-    network: "1"
-    url: "http://gmp-grpc-1:3000"
-    gateway_funds: 10000
-    chronicle_target_funds: 10000
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    gmp_margin: 0.0
-    shard_task_limit: 50
-    route_gas_limit: 10000
-    route_base_fee: 1715000000000
-    chronicles: 
-    - http://chronicle-1:8080
+  # 0:
+  #   backend: "grpc"
+  #   blockchain: "rust"
+  #   network: "0"
+  #   url: "http://gmp-grpc-0:3000"
+  #   gateway_funds: 10000
+  #   chronicle_target_funds: 10000
+  #   batch_size: 64
+  #   batch_offset: 0
+  #   batch_gas_limit: 10000
+  #   gmp_margin: 0.0
+  #   shard_task_limit: 50
+  #   route_gas_limit: 10000
+  #   # This is the base fee of evm chains. Connector have a method to fetch base fee:
+  #   # https://github.com/Analog-Labs/chain-connectors/blob/master/chains/ethereum/server/src/utils.rs#L296
+  #   # In short it queries the fee history for some past blocks 10/15 and takes median of it.
+  #   # TODO remove from here and fetch from connector when evm backend is functional
+  #   route_base_fee: 1400000000
+  #   chronicles: 
+  #   - http://chronicle-0:8080
+  # 1:
+  #   backend: "grpc"
+  #   blockchain: "rust"
+  #   network: "1"
+  #   url: "http://gmp-grpc-1:3000"
+  #   gateway_funds: 10000
+  #   chronicle_target_funds: 10000
+  #   batch_size: 64
+  #   batch_offset: 0
+  #   batch_gas_limit: 10000
+  #   gmp_margin: 0.0
+  #   shard_task_limit: 50
+  #   route_gas_limit: 10000
+  #   route_base_fee: 1715000000000
+  #   chronicles: 
+  #   - http://chronicle-1:8080
   3:
     backend: "evm"
     blockchain: "ethereum"

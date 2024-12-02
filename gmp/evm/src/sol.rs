@@ -28,11 +28,11 @@ alloy_sol_types::sol! {
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct Route {
 		uint16 networkId;
+		uint64 gasLimit;
+		uint128 baseFee;
 		bytes32 gateway;
 		uint128 relativeGasPriceNumerator;
 		uint128 relativeGasPriceDenominator;
-		uint64 gasLimit;
-		uint128 baseFee;
 	}
 
 	#[derive(Debug, Default, PartialEq, Eq)]
@@ -51,12 +51,12 @@ alloy_sol_types::sol! {
 		function deposit() external payable {}
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
-		function admin() external view returns (address);
+		function getAdmin() public view returns (address admin);
 		function setAdmin(address admin) external payable;
 		function shards() external view returns (TssKey[]);
-		function setShards(TssKey[] memory shards) external payable;
+		function setShards(TssKey[] calldata publicKeys) external;
 		function routes() external view returns (Route[]);
-		function setRoute(Route memory route) external;
+		function setRoute(Route calldata info) external;
 		function estimateMessageCost(uint16 networkid, uint256 messageSize, uint256 gasLimit) external view returns (uint256);
 		function withdraw(uint256 amount, address recipient, bytes calldata data) external returns (bytes memory output);
 

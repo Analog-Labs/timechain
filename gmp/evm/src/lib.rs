@@ -5,9 +5,9 @@ use async_trait::async_trait;
 use futures::Stream;
 use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
-	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
+	GetTransactionCount, Signer, SubmitResult, TransactionReceipt, Wallet,
 };
-use rosetta_crypto::{bip32::DerivedSecretKey, SecretKey};
+use rosetta_crypto::{bip44::ChildNumber, SecretKey};
 use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
@@ -220,17 +220,15 @@ impl Connector {
 	}
 
 	fn get_proxy_admin_creds(&self, config: &DeploymentConfig) -> Result<(SecretKey, [u8; 20])> {
-		let proxy_admin_sk = DerivedSecretKey::new(
-			&config.proxy_admin_sk.parse()?,
-			"",
-			rosetta_crypto::Algorithm::EcdsaRecoverableSecp256k1,
-		)?;
+		let signer = Signer::new(&config.proxy_admin_sk.parse()?, "")?;
+		let proxy_admin_sk = signer
+			.bip44_account(self.wallet.config().algorithm, self.wallet.config().coin, 0)?
+			.derive(ChildNumber::non_hardened_from_u32(0))?;
 
 		let proxy_admin_pk = proxy_admin_sk
 			.public_key()
 			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
 
-		tracing::info!("Proxy admin address: {:?}", proxy_admin_pk);
 		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
 		let proxy_admin_sk = proxy_admin_sk.secret_key();
 		Ok((proxy_admin_sk.clone(), proxy_admin_address))
@@ -544,8 +542,8 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address> {
-		let result = self.evm_view(gateway, sol::Gateway::adminCall {}, None).await?;
-		Ok(t_addr(result._0))
+		let result = self.evm_view(gateway, sol::Gateway::getAdminCall {}, None).await?;
+		Ok(t_addr(result.admin))
 	}
 	/// Sets the gateway admin.
 	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()> {
@@ -562,7 +560,7 @@ impl IConnectorAdmin for Connector {
 	/// Sets the registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
 		let shards = keys.iter().copied().map(Into::into).collect::<Vec<_>>();
-		let call = sol::Gateway::setShardsCall { shards };
+		let call = sol::Gateway::setShardsCall { publicKeys: shards };
 		self.evm_call(gateway, call, 0, None).await?;
 		Ok(())
 	}
@@ -574,7 +572,7 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()> {
-		let call = sol::Gateway::setRouteCall { route: route.into() };
+		let call = sol::Gateway::setRouteCall { info: route.into() };
 		self.evm_call(gateway, call, 0, None).await?;
 		Ok(())
 	}

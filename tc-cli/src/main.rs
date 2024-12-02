@@ -558,7 +558,7 @@ async fn real_main() -> Result<()> {
 			print_table(&tc, networks)?;
 		},
 		Command::Chronicles => {
-			let chronicles = tc.chronicles().await?;
+			let chronicles = tc.chronicles(vec![]).await?;
 			print_table(&tc, chronicles)?;
 		},
 		Command::Shards => {
@@ -753,9 +753,8 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 	// chronicles
 	let mut blocks = tc.finality_notification_stream();
 	while blocks.next().await.is_some() {
-		let chronicles = tc.chronicles().await?;
+		let chronicles = tc.chronicles(vec![src, dest]).await?;
 		let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
-		tracing::info!("waiting for chronicles to be registered");
 		print_table(tc, chronicles)?;
 		if !not_registered {
 			break;

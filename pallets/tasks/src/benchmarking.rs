@@ -36,13 +36,12 @@ fn create_shard<
 	network: NetworkId,
 ) {
 	NetworkGatewayAddress::<T>::insert(network, [0; 32]);
-	let Ok(shard_id) = <T as Config>::Shards::create_shard(
+	let shard_id = <T as Config>::Shards::create_shard(
 		network,
 		[[0u8; 32].into(), [1u8; 32].into(), [2u8; 32].into()].to_vec(),
 		1,
-	) else {
-		return;
-	};
+	)
+	.unwrap_or_default();
 	for m in [[0u8; 32], [1u8; 32], [2u8; 32]] {
 		let pk = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(m));
 		let acc: AccountId = m.into();
@@ -79,10 +78,17 @@ benchmarks! {
 		let b in 1..<T as Config>::MaxTasksPerBlock::get();
 		// reset storage from previous runs
 		TaskIdCounter::<T>::take();
+		let max_shards_created_per_block = <T as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
 			let network: NetworkId = i.try_into().unwrap_or_default();
 			create_shard::<T>(network);
 			TaskShard::<T>::take(create_task::<T>(network));
+			if i > 0 && i % max_shards_created_per_block == 0 {
+				let mut now = frame_system::Pallet::<T>::block_number();
+				now += 1u32.into();
+				frame_system::Pallet::<T>::set_block_number(now);
+				pallet_shards::Pallet::<T>::on_initialize(now);
+			}
 		}
 		assert_eq!(TaskIdCounter::<T>::get(), b as u64);
 	}: {
@@ -102,10 +108,17 @@ benchmarks! {
 		let b in 1..<T as Config>::MaxBatchesPerBlock::get();
 		// reset storage from previous runs
 		BatchIdCounter::<T>::take();
+		let max_shards_created_per_block = <T as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
 			let network: NetworkId = i.try_into().unwrap_or_default();
 			create_shard::<T>(network);
 			create_task::<T>(network);
+			if i > 0 && i % max_shards_created_per_block == 0 {
+				let mut now = frame_system::Pallet::<T>::block_number();
+				now += 1u32.into();
+				frame_system::Pallet::<T>::set_block_number(now);
+				pallet_shards::Pallet::<T>::on_initialize(now);
+			}
 		}
 		assert_eq!(BatchIdCounter::<T>::get(), 0u64);
 	}: {

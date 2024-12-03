@@ -51,9 +51,9 @@ alloy_sol_types::sol! {
 		function deposit() external payable {}
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
-		function getAdmin() public view returns (address admin);
+		function admin() external view returns (address);
 		function setAdmin(address admin) external payable;
-		function shards() external view returns (TssKey[]);
+		function shards() external view returns (TssKey[] memory);
 		function setShards(TssKey[] calldata publicKeys) external;
 		function routes() external view returns (Route[]);
 		function setRoute(Route calldata info) external;

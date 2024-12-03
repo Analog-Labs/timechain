@@ -9,7 +9,7 @@ contracts:
     additional_params: "/etc/deployer/additional_config.json"
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
-    tester: "/etc/contracts/test_contract.sol/VotingContract.json"
+    tester: "/etc/contracts/GmpProxy.sol/GmpProxy.json"
 networks:
   # 0:
   #   backend: "grpc"

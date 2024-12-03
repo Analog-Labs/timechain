@@ -542,8 +542,8 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address> {
-		let result = self.evm_view(gateway, sol::Gateway::getAdminCall {}, None).await?;
-		Ok(t_addr(result.admin))
+		let result = self.evm_view(gateway, sol::Gateway::adminCall {}, None).await?;
+		Ok(t_addr(result._0))
 	}
 	/// Sets the gateway admin.
 	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()> {
@@ -559,7 +559,8 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Sets the registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
-		let shards = keys.iter().copied().map(Into::into).collect::<Vec<_>>();
+		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
+		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
 		self.evm_call(gateway, call, 0, None).await?;
 		Ok(())

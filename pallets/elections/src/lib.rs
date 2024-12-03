@@ -306,16 +306,18 @@ pub mod pallet {
 					* shard_size;
 			let mut members = Vec::with_capacity(num_elected as usize);
 			members.extend(unassigned.drain(..(num_elected as usize)));
-			Unassigned::<T>::insert(network, unassigned);
 			let mut num_elections = 0u32;
-			for next_shard in members.chunks(shard_size as usize) {
+			for (i, next_shard) in members.chunks(shard_size as usize).enumerate() {
 				if T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold).is_ok() {
 					num_elections += 1;
 				} else {
 					max_shards_created = true;
+					unassigned
+						.extend(members.chunks(shard_size as usize).skip(i).flatten().cloned());
 					break;
 				}
 			}
+			Unassigned::<T>::insert(network, unassigned);
 			(num_elections, max_shards_created)
 		}
 	}

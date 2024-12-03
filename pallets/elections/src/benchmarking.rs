@@ -5,21 +5,21 @@ use frame_system::RawOrigin;
 use pallet_members::{MemberOnline, MemberStake};
 use pallet_networks::NetworkName;
 use polkadot_sdk::frame_benchmarking::benchmarks;
-use polkadot_sdk::{frame_system, sp_runtime};
+use polkadot_sdk::{frame_support::traits::Get, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::{BoundedVec, Vec};
 use time_primitives::{AccountId, ChainName, ChainNetwork, ElectionsInterface, NetworkId};
 const ETHEREUM: NetworkId = 0;
 
 benchmarks! {
-	where_clause { where T: pallet_members::Config + pallet_networks::Config }
+	where_clause { where T: pallet_members::Config + pallet_networks::Config + pallet_shards::Config }
 
 	set_shard_config {
 	}: _(RawOrigin::Root, 3, 1)
 	verify { }
 
 	try_elect_shards {
-		let b in 1..100;
+		let b in 1..<T as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
 		// Insert network
 		let net_name = (
 			ChainName(BoundedVec::truncate_from("ETHEREUM".encode())),

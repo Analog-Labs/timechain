@@ -11,7 +11,7 @@ impl<T: serde::Serialize> Encoder for BincodeEncoder<T> {
 	type Error = Status;
 
 	fn encode(&mut self, item: Self::Item, buf: &mut EncodeBuf<'_>) -> Result<(), Self::Error> {
-		bincode::serialize_into(buf.writer(), &item).map_err(|e| Status::internal(e.to_string()))
+		serde_json::to_writer(buf.writer(), &item).map_err(|e| Status::internal(e.to_string()))
 	}
 }
 
@@ -24,7 +24,7 @@ impl<U: serde::de::DeserializeOwned> Decoder for BincodeDecoder<U> {
 
 	fn decode(&mut self, buf: &mut DecodeBuf<'_>) -> Result<Option<Self::Item>, Self::Error> {
 		let item: Self::Item =
-			bincode::deserialize_from(buf.reader()).map_err(|e| Status::internal(e.to_string()))?;
+			serde_json::from_reader(buf.reader()).map_err(|e| Status::internal(e.to_string()))?;
 		Ok(Some(item))
 	}
 }

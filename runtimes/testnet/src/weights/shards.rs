@@ -47,8 +47,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `790`
 		//  Estimated: `11680`
-		// Minimum execution time: 521_926_000 picoseconds.
-		Weight::from_parts(536_303_000, 0)
+		// Minimum execution time: 521_535_000 picoseconds.
+		Weight::from_parts(545_270_000, 0)
 			.saturating_add(Weight::from_parts(0, 11680))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -69,8 +69,8 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `624`
 		//  Estimated: `11514`
-		// Minimum execution time: 62_968_000 picoseconds.
-		Weight::from_parts(67_817_000, 0)
+		// Minimum execution time: 61_745_000 picoseconds.
+		Weight::from_parts(66_775_000, 0)
 			.saturating_add(Weight::from_parts(0, 11514))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -109,23 +109,23 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `615`
 		//  Estimated: `11505`
-		// Minimum execution time: 123_792_000 picoseconds.
-		Weight::from_parts(129_414_000, 0)
+		// Minimum execution time: 124_813_000 picoseconds.
+		Weight::from_parts(138_910_000, 0)
 			.saturating_add(Weight::from_parts(0, 11505))
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(21))
 	}
-	/// Storage: `Shards::DkgTimeout` (r:6 w:5)
+	/// Storage: `Shards::DkgTimeout` (r:70 w:69)
 	/// Proof: `Shards::DkgTimeout` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardState` (r:5 w:5)
+	/// Storage: `Shards::ShardState` (r:69 w:69)
 	/// Proof: `Shards::ShardState` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardNetwork` (r:5 w:5)
+	/// Storage: `Shards::ShardNetwork` (r:69 w:69)
 	/// Proof: `Shards::ShardNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::ShardTasks` (r:5 w:0)
+	/// Storage: `Tasks::ShardTasks` (r:69 w:0)
 	/// Proof: `Tasks::ShardTasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardCommitment` (r:5 w:0)
+	/// Storage: `Shards::ShardCommitment` (r:69 w:0)
 	/// Proof: `Shards::ShardCommitment` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardMembers` (r:20 w:15)
+	/// Storage: `Shards::ShardMembers` (r:276 w:207)
 	/// Proof: `Shards::ShardMembers` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::MemberRegistered` (r:3 w:0)
 	/// Proof: `Members::MemberRegistered` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -135,33 +135,35 @@ impl<T: frame_system::Config> pallet_shards::WeightInfo for WeightInfo<T> {
 	/// Proof: `Elections::Unassigned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::MemberShard` (r:0 w:3)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardThreshold` (r:0 w:5)
+	/// Storage: `Shards::ShardThreshold` (r:0 w:69)
 	/// Proof: `Shards::ShardThreshold` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Shards::DkgTimeoutCounter` (r:0 w:1)
+	/// Proof: `Shards::DkgTimeoutCounter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::MemberNetwork` (r:0 w:3)
 	/// Proof: `Members::MemberNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::MemberPublicKey` (r:0 w:3)
 	/// Proof: `Members::MemberPublicKey` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Members::MemberPeerId` (r:0 w:3)
 	/// Proof: `Members::MemberPeerId` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::ShardTaskCount` (r:0 w:5)
+	/// Storage: `Tasks::ShardTaskCount` (r:0 w:69)
 	/// Proof: `Tasks::ShardTaskCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Tasks::NetworkShards` (r:0 w:5)
+	/// Storage: `Tasks::NetworkShards` (r:0 w:69)
 	/// Proof: `Tasks::NetworkShards` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `b` is `[1, 5]`.
-	/// The range of component `b` is `[1, 5]`.
+	/// The range of component `b` is `[1, 69]`.
+	/// The range of component `b` is `[1, 69]`.
 	fn timeout_dkgs(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `371 + b * (279 ±0)`
-		//  Estimated: `8786 + b * (10180 ±0)`
-		// Minimum execution time: 133_870_000 picoseconds.
-		Weight::from_parts(32_720_752, 0)
-			.saturating_add(Weight::from_parts(0, 8786))
-			// Standard Error: 210_790
-			.saturating_add(Weight::from_parts(113_522_111, 0).saturating_mul(b.into()))
+		//  Measured:  `386 + b * (277 ±0)`
+		//  Estimated: `8802 + b * (10178 ±0)`
+		// Minimum execution time: 133_179_000 picoseconds.
+		Weight::from_parts(138_609_000, 0)
+			.saturating_add(Weight::from_parts(0, 8802))
+			// Standard Error: 493_073
+			.saturating_add(Weight::from_parts(124_424_788, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(b.into())))
-			.saturating_add(T::DbWeight::get().writes(13))
+			.saturating_add(T::DbWeight::get().writes(14))
 			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(b.into())))
-			.saturating_add(Weight::from_parts(0, 10180).saturating_mul(b.into()))
+			.saturating_add(Weight::from_parts(0, 10178).saturating_mul(b.into()))
 	}
 }

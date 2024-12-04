@@ -43,8 +43,8 @@ impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `117`
 		//  Estimated: `3582`
-		// Minimum execution time: 12_603_000 picoseconds.
-		Weight::from_parts(13_916_000, 0)
+		// Minimum execution time: 13_777_000 picoseconds.
+		Weight::from_parts(15_428_000, 0)
 			.saturating_add(Weight::from_parts(0, 3582))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -59,31 +59,31 @@ impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
 	/// Proof: `Shards::DkgTimeoutCounter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Shards::ShardIdCounter` (r:1 w:1)
 	/// Proof: `Shards::ShardIdCounter` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::DkgTimeout` (r:0 w:5)
+	/// Storage: `Shards::DkgTimeout` (r:0 w:69)
 	/// Proof: `Shards::DkgTimeout` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardNetwork` (r:0 w:5)
+	/// Storage: `Shards::ShardNetwork` (r:0 w:69)
 	/// Proof: `Shards::ShardNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardMembers` (r:0 w:15)
+	/// Storage: `Shards::ShardMembers` (r:0 w:207)
 	/// Proof: `Shards::ShardMembers` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::MemberShard` (r:0 w:15)
+	/// Storage: `Shards::MemberShard` (r:0 w:207)
 	/// Proof: `Shards::MemberShard` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardMembersOnline` (r:0 w:5)
+	/// Storage: `Shards::ShardMembersOnline` (r:0 w:69)
 	/// Proof: `Shards::ShardMembersOnline` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardThreshold` (r:0 w:5)
+	/// Storage: `Shards::ShardThreshold` (r:0 w:69)
 	/// Proof: `Shards::ShardThreshold` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Shards::ShardState` (r:0 w:5)
+	/// Storage: `Shards::ShardState` (r:0 w:69)
 	/// Proof: `Shards::ShardState` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `b` is `[1, 5]`.
-	/// The range of component `b` is `[1, 5]`.
+	/// The range of component `b` is `[1, 69]`.
+	/// The range of component `b` is `[1, 69]`.
 	fn try_elect_shards(b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `172 + b * (96 ±0)`
+		//  Measured:  `173 + b * (96 ±0)`
 		//  Estimated: `3637 + b * (96 ±0)`
-		// Minimum execution time: 47_730_000 picoseconds.
-		Weight::from_parts(18_057_208, 0)
+		// Minimum execution time: 51_145_000 picoseconds.
+		Weight::from_parts(53_130_000, 0)
 			.saturating_add(Weight::from_parts(0, 3637))
-			// Standard Error: 63_773
-			.saturating_add(Weight::from_parts(33_876_269, 0).saturating_mul(b.into()))
+			// Standard Error: 33_781
+			.saturating_add(Weight::from_parts(36_998_231, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((11_u64).saturating_mul(b.into())))

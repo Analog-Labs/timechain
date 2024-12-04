@@ -2016,7 +2016,6 @@ mod tests {
 	use frame_system::offchain::CreateSignedTransaction;
 	use pallet_elections::WeightInfo as W4;
 	use pallet_members::WeightInfo as W2;
-	use pallet_shards::WeightInfo as W3;
 	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
 	use time_primitives::ON_INITIALIZE_BOUNDS;

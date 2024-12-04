@@ -1614,7 +1614,6 @@ mod multiplier_tests {
 	use frame_support::{dispatch::DispatchInfo, traits::OnFinalize};
 	use pallet_elections::WeightInfo as W4;
 	use pallet_members::WeightInfo as W2;
-	use pallet_shards::WeightInfo as W3;
 	use pallet_tasks::WeightInfo;
 	use separator::Separatable;
 	use sp_runtime::traits::Convert;

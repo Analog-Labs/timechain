@@ -306,7 +306,6 @@ pub mod pallet {
 			let mut num_elections = 0u32;
 			for (i, next_shard) in members.chunks(shard_size as usize).enumerate() {
 				if T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold).is_err() {
-					log::error!("Maximum shards elected this block UNEXPECTEDLY. FIX BUG!");
 					unassigned
 						.extend(members.chunks(shard_size as usize).skip(i).flatten().cloned());
 					break;

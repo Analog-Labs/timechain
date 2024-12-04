@@ -81,6 +81,7 @@ impl MembersInterface for MockMembers {
 pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
+	type MaxElectionsPerBlock = ConstU32<10>;
 	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
 	fn default_shard_size() -> u16 {
 		3
@@ -255,7 +256,6 @@ impl pallet_shards::Config for Test {
 	type Tasks = Tasks;
 	type Members = MockMembers;
 	type Elections = Elections;
-	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
 }
 

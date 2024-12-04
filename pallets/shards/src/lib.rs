@@ -134,8 +134,6 @@ pub mod pallet {
 		type Members: MembersInterface;
 		type Tasks: TasksInterface;
 		#[pallet::constant]
-		type MaxTimeoutsPerBlock: Get<u32>;
-		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
 
@@ -607,7 +605,8 @@ pub mod pallet {
 				frame_system::Pallet::<T>::block_number().saturating_add(T::DkgTimeout::get());
 			let dkg_timeout_counter = <DkgTimeoutCounter<T>>::get(dkg_timeout_block);
 			ensure!(
-				dkg_timeout_counter < T::MaxTimeoutsPerBlock::get(),
+				dkg_timeout_counter
+					< <<T as Config>::Elections as ElectionsInterface>::MaxElectionsPerBlock::get(),
 				Error::<T>::MaxShardsCreatedThisBlock
 			);
 			<DkgTimeoutCounter<T>>::insert(

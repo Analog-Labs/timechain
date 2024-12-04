@@ -7,7 +7,7 @@ use scale_info::prelude::{string::String, vec::Vec};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{
 	generic,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	traits::{BlakeTwo256, Get, IdentifyAccount, Verify},
 	DispatchError, DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
 };
 
@@ -150,6 +150,7 @@ pub trait MembersInterface {
 }
 
 pub trait ElectionsInterface {
+	type MaxElectionsPerBlock: Get<BlockNumber>;
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 	fn default_shard_size() -> u16;
 	fn member_online(id: &AccountId, network: NetworkId);

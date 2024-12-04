@@ -22,6 +22,7 @@ pub type Signature = MultiSignature;
 pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
+	type MaxElectionsPerBlock = ConstU32<10>;
 	fn member_online(_: &AccountId, _: NetworkId) {}
 	fn member_offline(_: &AccountId, _: NetworkId) {}
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}

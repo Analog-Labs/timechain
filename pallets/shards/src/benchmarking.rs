@@ -161,7 +161,7 @@ benchmarks! {
 	verify { }
 
 	timeout_dkgs {
-		let b in 1..<T as Config>::MaxTimeoutsPerBlock::get();
+		let b in 1..<<T as Config>::Elections as ElectionsInterface>::MaxElectionsPerBlock::get();
 		for i in 0..b {
 			assert_ok!(Pallet::<T>::create_shard(ETHEREUM, vec![ALICE.into(), BOB.into(), CHARLIE.into()], 1));
 			assert_eq!(ShardState::<T>::get(i as u64), Some(ShardStatus::Created));

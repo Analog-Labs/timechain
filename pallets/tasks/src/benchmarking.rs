@@ -78,7 +78,7 @@ benchmarks! {
 		let b in 1..<T as Config>::MaxTasksPerBlock::get();
 		// reset storage from previous runs
 		TaskIdCounter::<T>::take();
-		let max_shards_created_per_block = <T as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
+		let max_shards_created_per_block = <<T as pallet_shards::Config>::Elections as ElectionsInterface>::MaxElectionsPerBlock::get();
 		for i in 0..b {
 			let network: NetworkId = i.try_into().unwrap_or_default();
 			create_shard::<T>(network);
@@ -108,7 +108,7 @@ benchmarks! {
 		let b in 1..<T as Config>::MaxBatchesPerBlock::get();
 		// reset storage from previous runs
 		BatchIdCounter::<T>::take();
-		let max_shards_created_per_block = <T as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
+		let max_shards_created_per_block = <<T as pallet_shards::Config>::Elections as ElectionsInterface>::MaxElectionsPerBlock::get();
 		for i in 0..b {
 			let network: NetworkId = i.try_into().unwrap_or_default();
 			create_shard::<T>(network);

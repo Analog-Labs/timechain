@@ -19,7 +19,7 @@ benchmarks! {
 	verify { }
 
 	try_elect_shards {
-		let b in 1..<T as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
+		let b in 1..T::MaxElectionsPerBlock::get();
 		// Insert network
 		let net_name = (
 			ChainName(BoundedVec::truncate_from("ETHEREUM".encode())),

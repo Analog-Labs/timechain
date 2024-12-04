@@ -171,14 +171,11 @@ pub mod pallet {
 					net_counter = 0;
 					break;
 				};
-				let (elected, max_shards_created) = Self::try_elect_shards(
+				let elected = Self::try_elect_shards(
 					*next_network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
 				);
 				num_elections = num_elections.saturating_add(elected);
-				if max_shards_created {
-					break;
-				}
 				net_counter = (net_counter + 1) % networks.len() as u32;
 				if net_counter == net_counter0 {
 					all_nets_elected = true;
@@ -228,6 +225,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ElectionsInterface for Pallet<T> {
+		type MaxElectionsPerBlock = T::MaxElectionsPerBlock;
 		///  Handles the event when a shard goes offline.
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
@@ -296,8 +294,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected, Max Shards Created
-		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> (u32, bool) {
-			let mut max_shards_created = false;
+		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
 			let shard_size: u32 = ShardSize::<T>::get().into();
 			let shard_threshold = ShardThreshold::<T>::get();
 			let mut unassigned = Unassigned::<T>::get(network);
@@ -308,17 +305,17 @@ pub mod pallet {
 			members.extend(unassigned.drain(..(num_elected as usize)));
 			let mut num_elections = 0u32;
 			for (i, next_shard) in members.chunks(shard_size as usize).enumerate() {
-				if T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold).is_ok() {
-					num_elections += 1;
-				} else {
-					max_shards_created = true;
+				if T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold).is_err() {
+					log::error!("Maximum shards elected this block UNEXPECTEDLY. FIX BUG!");
 					unassigned
 						.extend(members.chunks(shard_size as usize).skip(i).flatten().cloned());
 					break;
+				} else {
+					num_elections += 1;
 				}
 			}
 			Unassigned::<T>::insert(network, unassigned);
-			(num_elections, max_shards_created)
+			num_elections
 		}
 	}
 }

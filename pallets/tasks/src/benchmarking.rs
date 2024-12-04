@@ -13,8 +13,9 @@ use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_
 use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, Commitment, ErrorMsg, GmpEvents, NetworkId, PublicKey, ShardStatus, ShardsInterface,
-	Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+	AccountId, Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, PublicKey,
+	ShardStatus, ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey,
+	TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;

@@ -12,7 +12,7 @@ use time_primitives::{AccountId, ChainName, ChainNetwork, ElectionsInterface, Ne
 const ETHEREUM: NetworkId = 0;
 
 benchmarks! {
-	where_clause { where T: pallet_members::Config + pallet_networks::Config + pallet_shards::Config }
+	where_clause { where T: pallet_members::Config + pallet_networks::Config }
 
 	set_shard_config {
 	}: _(RawOrigin::Root, 3, 1)

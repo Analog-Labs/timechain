@@ -22,7 +22,6 @@ serde.workspace = true
 simple-mermaid.workspace = true
 pallet-members.workspace = true
 pallet-networks.workspace = true
-pallet-shards.workspace = true
 polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "sp-runtime", "sp-std" ] }
 
 time-primitives.workspace = true
@@ -30,7 +29,7 @@ time-primitives.workspace = true
 [dev-dependencies]
 env_logger.workspace = true
 lazy_static = "1.4.0"
-
+pallet-shards.workspace = true
 polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 
 [features]
@@ -43,7 +42,6 @@ std = [
 	"pallet-members/std",
 	"polkadot-sdk/std",
 	"pallet-networks/std",
-	"pallet-shards/std",
 	"time-primitives/std",
 ]
 runtime-benchmarks = [

@@ -293,7 +293,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Elects as many as `max_elections` number of new shards for `networks`
-		/// Returns # of Shards Elected, Max Shards Created
+		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
 			let shard_size: u32 = ShardSize::<T>::get().into();
 			let shard_threshold = ShardThreshold::<T>::get();

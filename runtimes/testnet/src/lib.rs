@@ -988,7 +988,7 @@ impl pallet_elections::Config for Runtime {
 	type Members = Members;
 	type Shards = Shards;
 	type Networks = Networks;
-	type MaxElectionsPerBlock = ConstU32<69>;
+	type MaxElectionsPerBlock = ConstU32<102>;
 }
 
 impl pallet_shards::Config for Runtime {

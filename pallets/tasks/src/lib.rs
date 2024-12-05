@@ -641,6 +641,9 @@ pub mod pallet {
 							}
 						})
 						.collect::<Vec<ShardId>>();
+				if registered_shards.is_empty() {
+					continue;
+				}
 				let registered_shard_count = registered_shards.len() as u64;
 				let task_count = TaskCount::<T>::get(network);
 				let executed_task_count = ExecutedTaskCount::<T>::get(network);
@@ -671,22 +674,19 @@ pub mod pallet {
 		pub(crate) fn prepare_batches() -> Weight {
 			let max_batches = T::MaxBatchesPerBlock::get();
 			let mut num_batches_started = 0u32;
-
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
-
-				let queue = Self::ops_queue(network); // Consume the queue once
+				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
 						if num_batches_started == max_batches {
 							return <T as Config>::WeightInfo::prepare_batches(max_batches);
 						}
 						Self::start_batch(network, msg);
-						num_batches_started = num_batches_started.saturating_add(1);
+						num_batches_started = num_batches_started.saturating_plus_one();
 					}
 				}
-
 				if let Some(msg) = batcher.take_batch() {
 					if num_batches_started == max_batches {
 						return <T as Config>::WeightInfo::prepare_batches(max_batches);
@@ -695,7 +695,6 @@ pub mod pallet {
 					num_batches_started = num_batches_started.saturating_add(1);
 				}
 			}
-
 			<T as Config>::WeightInfo::prepare_batches(num_batches_started)
 		}
 

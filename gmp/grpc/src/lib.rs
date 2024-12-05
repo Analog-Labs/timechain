@@ -256,8 +256,14 @@ impl IConnectorAdmin for Connector {
 		gateway: Address,
 		dest: NetworkId,
 		msg_size: usize,
+		gas_limit: u128,
 	) -> Result<u128> {
-		let request = Request::new(proto::EstimateMessageCostRequest { gateway, dest, msg_size });
+		let request = Request::new(proto::EstimateMessageCostRequest {
+			gateway,
+			dest,
+			msg_size,
+			gas_limit,
+		});
 		let response = self.client.lock().await.estimate_message_cost(request).await?.into_inner();
 		Ok(response.cost)
 	}

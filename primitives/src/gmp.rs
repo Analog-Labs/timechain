@@ -64,6 +64,7 @@ impl GmpMessage {
 		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
 		hdr[77..93].copy_from_slice(&self.gas_limit.to_be_bytes());
 		hdr[93..109].copy_from_slice(&self.gas_cost.to_be_bytes());
+		// FIXME dont put msg length but the keccake256 of the bytes
 		hdr[109..113].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
 		hdr
 	}
@@ -77,6 +78,7 @@ impl GmpMessage {
 		use sha3::Digest;
 		let mut hasher = sha3::Keccak256::new();
 		hasher.update(self.encode_header());
+		// TODO instead of self.bytes use gateway
 		hasher.update(&self.bytes);
 		hasher.finalize().into()
 	}
@@ -368,6 +370,7 @@ pub trait IConnectorAdmin: IConnector {
 		gateway: Address,
 		dest: NetworkId,
 		msg_size: usize,
+		gas_limit: u128,
 	) -> Result<u128>;
 	/// Sends a message using the test contract.
 	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId>;

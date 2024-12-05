@@ -9,7 +9,7 @@ contracts:
     additional_params: "/etc/deployer/additional_config.json"
     proxy: "/etc/contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "/etc/contracts/Gateway.sol/Gateway.json"
-    tester: "/etc/contracts/GmpProxy.sol/GmpProxy.json"
+    tester: "/etc/contracts/GmpProxy.sol/GatewayProxy.json"
 networks:
   # 0:
   #   backend: "grpc"
@@ -61,7 +61,7 @@ networks:
     shard_task_limit: 50
     symbol: "ETH"
     token_decimals: 18
-    route_gas_limit: 10000
+    route_gas_limit: 10000000
     route_base_fee: 1400000000
     chronicles: 
     - http://chronicle-2:8080

@@ -434,6 +434,7 @@ impl IConnectorAdmin for Connector {
 		_gateway: Address,
 		_dest: NetworkId,
 		msg_size: usize,
+		_gas_limit: u128,
 	) -> Result<u128> {
 		Ok(msg_size as u128 * 100)
 	}

@@ -583,12 +583,13 @@ impl IConnectorAdmin for Connector {
 		gateway: Address,
 		dest: NetworkId,
 		msg_size: usize,
+		gas_limit: u128,
 	) -> Result<u128> {
 		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
 		let call = sol::Gateway::estimateMessageCostCall {
 			networkid: dest,
 			messageSize: msg_size,
-			gasLimit: U256::from(100_000),
+			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_view(gateway, call, None).await?;
 		let msg_cost: u128 = result._0.try_into().unwrap();
@@ -601,12 +602,25 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Sends a message using the test contract.
 	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
-		let id = msg.message_id();
-		let call = sol::GmpTester::sendMessageCall {
-			msg: sol::GmpMessage::from_outbound(msg),
+		// EVM specific logic
+		let mut modified_msg = msg.clone();
+		modified_msg.bytes = sol::GmpMessage::from_outbound(msg.clone()).abi_encode();
+		modified_msg.gas_limit = 300_000;
+
+		let cost_call = sol::GmpTester::estimateMessageCostCall {
+			messageSize: U256::from(modified_msg.bytes.len()),
+			gasLimit: U256::from(modified_msg.gas_limit),
 		};
-		self.evm_call(contract, call, 0, None).await?;
-		Ok(id)
+
+		let msg_cost = self.evm_view(contract, cost_call, None).await?;
+		let msg_cost = u128::try_from(msg_cost._0)?;
+
+		let call = sol::GmpTester::sendMessageCall {
+			msg: sol::GmpMessage::from_outbound(modified_msg.clone()),
+		};
+
+		self.evm_call(contract, call, msg_cost, None).await?;
+		Ok(msg.message_id())
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(

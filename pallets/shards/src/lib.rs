@@ -446,8 +446,6 @@ pub mod pallet {
 				}
 			});
 			DkgTimeoutCounter::<T>::remove(n);
-
-			// Return weight based on number of timeouts
 			<T as Config>::WeightInfo::timeout_dkgs(num_timeouts)
 		}
 		/// Fetches all shards associated with a given account.

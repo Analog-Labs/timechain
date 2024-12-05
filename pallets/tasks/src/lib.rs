@@ -311,9 +311,11 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let weight = Self::prepare_batches().saturating_add(Self::schedule_tasks());
+			let prepare_batches_weight = Self::prepare_batches();
+			let schedule_tasks_weight = Self::schedule_tasks();
+			let on_initialize_weight = prepare_batches_weight.saturating_add(schedule_tasks_weight);
 			log::info!("on_initialize end");
-			weight
+			on_initialize_weight
 		}
 	}
 
@@ -571,7 +573,7 @@ pub mod pallet {
 				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
 			ShardTasks::<T>::insert(shard, task_id, ());
 			TaskShard::<T>::insert(task_id, shard);
-			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_add(1));
+			ShardTaskCount::<T>::mutate(shard, |count| count.saturating_plus_one());
 			if needs_signer {
 				TaskSubmitter::<T>::insert(task_id, T::Shards::next_signer(shard));
 			}
@@ -611,18 +613,17 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		pub(crate) fn schedule_tasks() -> Weight {
-			let mut num_tasks_assigned: u32 = 0u32;
+			let mut num_tasks_assigned = 0u32;
+			let max_tasks = T::MaxTasksPerBlock::get();
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
 
-				// handle read events task assignment
+				// Assign read event tasks if not yet assigned
 				if TaskShard::<T>::get(task_id).is_none() {
 					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
-							if num_tasks_assigned == T::MaxTasksPerBlock::get() {
-								return <T as Config>::WeightInfo::schedule_tasks(
-									T::MaxTasksPerBlock::get(),
-								);
+							if num_tasks_assigned == max_tasks {
+								return <T as Config>::WeightInfo::schedule_tasks(max_tasks);
 							}
 							Self::assign_task(shard, task_id);
 							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
@@ -630,38 +631,37 @@ pub mod pallet {
 						}
 					}
 				}
-
-				// collect registered shards
-				let registered_shards: Vec<ShardId> = NetworkShards::<T>::iter_prefix(network)
-					.map(|(shard, _)| shard)
-					.filter(|shard| Self::is_shard_registered(*shard))
-					.collect();
-				if registered_shards.is_empty() {
-					continue;
-				}
-
-				// calculate tasks per shard
+				let registered_shards =
+					NetworkShards::<T>::iter_prefix(network)
+						.filter_map(|(shard, _)| {
+							if Self::is_shard_registered(shard) {
+								Some(shard)
+							} else {
+								None
+							}
+						})
+						.collect::<Vec<ShardId>>();
+				let registered_shard_count = registered_shards.len() as u64;
 				let task_count = TaskCount::<T>::get(network);
 				let executed_task_count = ExecutedTaskCount::<T>::get(network);
-				let assignable_task_count = task_count - executed_task_count;
-				let tasks_per_shard = assignable_task_count as u32 / registered_shards.len() as u32;
-				let tasks_per_shard = core::cmp::min(tasks_per_shard, max_assignable_tasks);
+				let assignable_task_count = task_count.saturating_sub(executed_task_count);
 
-				// assign tasks
 				for shard in registered_shards {
-					let capacity = tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard));
-					if T::MaxTasksPerBlock::get() > num_tasks_assigned.saturating_add(capacity) {
-						num_tasks_assigned = num_tasks_assigned
-							.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
-					} else {
-						Self::schedule_tasks_shard(
+					let shard_capacity = ShardTaskCount::<T>::get(shard);
+					let tasks_to_assign = assignable_task_count
+						.saturating_div(registered_shard_count)
+						.saturating_sub(shard_capacity.into());
+
+					let tasks_this_shard =
+						tasks_to_assign.min(max_tasks.saturating_sub(num_tasks_assigned).into());
+					num_tasks_assigned =
+						num_tasks_assigned.saturating_add(Self::schedule_tasks_shard(
 							network,
 							shard,
-							T::MaxTasksPerBlock::get().saturating_sub(num_tasks_assigned),
-						);
-						return <T as Config>::WeightInfo::schedule_tasks(
-							T::MaxTasksPerBlock::get(),
-						);
+							tasks_this_shard.try_into().unwrap_or_default(),
+						));
+					if num_tasks_assigned == max_tasks {
+						return <T as Config>::WeightInfo::schedule_tasks(max_tasks);
 					}
 				}
 			}
@@ -669,30 +669,33 @@ pub mod pallet {
 		}
 
 		pub(crate) fn prepare_batches() -> Weight {
+			let max_batches = T::MaxBatchesPerBlock::get();
 			let mut num_batches_started = 0u32;
+
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
-				let queue = Self::ops_queue(network);
+
+				let queue = Self::ops_queue(network); // Consume the queue once
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
-						if num_batches_started == T::MaxBatchesPerBlock::get() {
-							return <T as Config>::WeightInfo::prepare_batches(
-								T::MaxBatchesPerBlock::get(),
-							);
+						if num_batches_started == max_batches {
+							return <T as Config>::WeightInfo::prepare_batches(max_batches);
 						}
 						Self::start_batch(network, msg);
-						num_batches_started = num_batches_started.saturating_plus_one();
+						num_batches_started = num_batches_started.saturating_add(1);
 					}
 				}
-				if num_batches_started == T::MaxBatchesPerBlock::get() {
-					return <T as Config>::WeightInfo::prepare_batches(T::MaxBatchesPerBlock::get());
-				}
+
 				if let Some(msg) = batcher.take_batch() {
+					if num_batches_started == max_batches {
+						return <T as Config>::WeightInfo::prepare_batches(max_batches);
+					}
 					Self::start_batch(network, msg);
-					num_batches_started = num_batches_started.saturating_plus_one();
+					num_batches_started = num_batches_started.saturating_add(1);
 				}
 			}
+
 			<T as Config>::WeightInfo::prepare_batches(num_batches_started)
 		}
 

@@ -692,7 +692,7 @@ pub mod pallet {
 						return <T as Config>::WeightInfo::prepare_batches(max_batches);
 					}
 					Self::start_batch(network, msg);
-					num_batches_started = num_batches_started.saturating_add(1);
+					num_batches_started = num_batches_started.saturating_plus_one();
 				}
 			}
 			<T as Config>::WeightInfo::prepare_batches(num_batches_started)

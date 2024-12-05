@@ -12,6 +12,7 @@ use time_primitives::{
 };
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
+use tracing_subscriber::filter::EnvFilter;
 
 type GmpResult<T> = Result<Response<T>, Status>;
 
@@ -334,6 +335,8 @@ async fn shutdown_signal() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	let filter = EnvFilter::from_default_env();
+	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let args = Args::parse();
 	let server = ConnectorWrapper::new(args.network_id, &args.db).await?;
 	let svc = GmpServer::new(server);

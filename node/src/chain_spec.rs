@@ -325,7 +325,7 @@ impl GenesisKeysConfig {
 				TEAM_SUPPLY - SUDO_SUPPLY - controller_supply - council_supply,
 			),
 			(
-				hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"].into(),
+				hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"].into(),
 				TREASURY_SUPPLY,
 			),
 			(

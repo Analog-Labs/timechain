@@ -114,6 +114,7 @@ services:
     - '--ws.port=8545'
     - '--ws.origins=*'
     - '--ws.api=eth,debug,admin,txpool,web3,net'
+    - '--verbosity=4'
     profiles:
     - ethereum
     ports:

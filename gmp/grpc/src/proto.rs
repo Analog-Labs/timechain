@@ -159,6 +159,7 @@ pub struct EstimateMessageCostRequest {
 	pub gateway: Gateway,
 	pub dest: NetworkId,
 	pub msg_size: usize,
+	pub gas_limit: u128,
 }
 
 #[derive(Serialize, Deserialize)]

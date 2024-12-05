@@ -3,6 +3,7 @@ use crate::env::Mnemonics;
 use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
+use num_traits::ToBytes;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -704,9 +705,6 @@ impl Tc {
 			let connector = self.connector(src)?;
 			let routes = connector.routes(gateway).await?;
 			for dest in gateways.keys().copied() {
-				if src == dest {
-					continue;
-				}
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
 				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
@@ -916,10 +914,8 @@ impl Tc {
 			gas_cost: 200,
 			bytes: vec![],
 		};
-		let id = msg.message_id();
 		let connector = self.connector(network)?;
-		connector.send_message(tester, msg).await?;
-		Ok(id)
+		connector.send_message(tester, msg.clone()).await
 	}
 
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {

@@ -99,6 +99,7 @@ alloy_sol_types::sol! {
 	contract GmpTester {
 		constructor(address gateway);
 		function sendMessage(GmpMessage msg) payable;
+		function estimateMessageCost(uint256 messageSize, uint256 gasLimit) external view returns (uint256);
 		event MessageReceived(GmpMessage msg);
 	}
 

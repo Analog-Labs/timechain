@@ -235,7 +235,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::EstimateMessageCostResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let cost = connector
-			.estimate_message_cost(msg.gateway, msg.dest, msg.msg_size)
+			.estimate_message_cost(msg.gateway, msg.dest, msg.msg_size, msg.gas_limit)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::EstimateMessageCostResponse { cost }))

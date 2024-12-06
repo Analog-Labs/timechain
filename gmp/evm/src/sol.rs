@@ -16,12 +16,13 @@ alloy_sol_types::sol! {
 
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct GmpMessage {
-		bytes32 foreign;
-		uint16 foreign_network;
-		address local;
-		uint128 gasLimit;
-		uint128 gasCost;
+		uint16 src_network;
+		uint16 dest_network;
+		bytes32 src;
+		bytes32 dest;
 		uint64 nonce;
+		uint128 gas_limit;
+		uint128 gas_cost;
 		bytes data;
 	}
 
@@ -68,6 +69,27 @@ alloy_sol_types::sol! {
 			bytes32 indexed id,
 			GmpMessage msg
 		);
+
+		event GmpCreated(
+			bytes32 indexed id,
+			bytes32 indexed source,
+			address indexed destinationAddress,
+			uint16 destinationNetwork,
+			uint256 executionGasLimit,
+			uint256 salt,
+			bytes data
+		);
+
+		// #[derive(Debug, Default, PartialEq, Eq)]
+		// struct GmpMessage {
+		// 	bytes32 foreign; destinationAddress
+		// 	uint16 foreign_network; destinationNetwork
+		// 	address local; source
+		// 	uint128 gasLimit; execution gas limit
+		// 	uint128 gasCost; we dont have
+		// 	uint64 nonce; salt
+		// 	bytes data; data
+		// }
 
 		event MessageExecuted(
 			bytes32 indexed id,
@@ -186,53 +208,31 @@ impl From<Route> for time_primitives::Route {
 	}
 }
 
-impl GmpMessage {
-	pub fn outbound(self, local_network: NetworkId) -> time_primitives::GmpMessage {
-		time_primitives::GmpMessage {
-			dest_network: self.foreign_network,
-			dest: self.foreign.into(),
-			src_network: local_network,
-			src: crate::t_addr(self.local),
-			gas_limit: self.gasLimit,
-			gas_cost: self.gasCost,
-			nonce: self.nonce,
-			bytes: self.data.into(),
-		}
-	}
-
-	pub fn inbound(self, local_network: NetworkId) -> time_primitives::GmpMessage {
-		time_primitives::GmpMessage {
-			src_network: self.foreign_network,
-			src: self.foreign.into(),
-			dest_network: local_network,
-			dest: crate::t_addr(self.local),
-			gas_limit: self.gasLimit,
-			gas_cost: self.gasCost,
-			nonce: self.nonce,
-			bytes: self.data.into(),
-		}
-	}
-
-	pub fn from_inbound(msg: time_primitives::GmpMessage) -> Self {
+impl From<GmpMessage> for time_primitives::GmpMessage {
+	fn from(msg: GmpMessage) -> Self {
 		Self {
-			foreign_network: msg.src_network,
-			foreign: msg.src.into(),
-			local: crate::a_addr(msg.dest),
-			gasLimit: msg.gas_limit,
-			gasCost: msg.gas_cost,
+			src_network: msg.src_network,
+			dest_network: msg.dest_network,
+			src: msg.src.into(),
+			dest: msg.dest.into(),
 			nonce: msg.nonce,
-			data: msg.bytes.into(),
+			gas_limit: msg.gas_limit,
+			gas_cost: msg.gas_cost,
+			bytes: msg.data.into(),
 		}
 	}
+}
 
-	pub fn from_outbound(msg: time_primitives::GmpMessage) -> Self {
+impl From<time_primitives::GmpMessage> for GmpMessage {
+	fn from(msg: time_primitives::GmpMessage) -> Self {
 		Self {
-			foreign_network: msg.dest_network,
-			foreign: msg.dest.into(),
-			local: crate::a_addr(msg.src),
-			gasLimit: msg.gas_limit,
-			gasCost: msg.gas_cost,
+			src_network: msg.src_network,
+			dest_network: msg.dest_network,
+			src: msg.src.into(),
+			dest: msg.dest.into(),
 			nonce: msg.nonce,
+			gas_limit: msg.gas_limit,
+			gas_cost: msg.gas_cost,
 			data: msg.bytes.into(),
 		}
 	}

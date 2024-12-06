@@ -81,6 +81,7 @@ impl Connector {
 		else {
 			anyhow::bail!("{:?}", result)
 		};
+		tracing::info!("evm_call success: {:?}", tx_hash);
 		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash.into()))
 	}
 
@@ -395,13 +396,7 @@ impl IConnector for Connector {
 			.wallet
 			.query(GetLogs {
 				contracts: vec![contract.into()],
-				topics: vec![
-					sol::Gateway::ShardRegistered::SIGNATURE_HASH.0.into(),
-					sol::Gateway::ShardUnregistered::SIGNATURE_HASH.0.into(),
-					sol::Gateway::MessageReceived::SIGNATURE_HASH.0.into(),
-					sol::Gateway::MessageExecuted::SIGNATURE_HASH.0.into(),
-					sol::Gateway::BatchExecuted::SIGNATURE_HASH.0.into(),
-				],
+				topics: vec![],
 				block: FilterBlockOption::Range {
 					from_block: Some(blocks.start.into()),
 					to_block: Some(blocks.end.into()),
@@ -428,9 +423,26 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::MessageReceived::SIGNATURE_HASH => {
 						let log = sol::Gateway::MessageReceived::decode_log(&log, true)?;
-						events.push(GmpEvent::MessageReceived(
-							log.msg.clone().outbound(self.network_id),
-						));
+						// events.push(GmpEvent::MessageReceived(
+						// 	log.msg.clone().outbound(self.network_id),
+						// ));
+						events.push(GmpEvent::MessageReceived(log.msg.clone().into()));
+						break;
+					},
+					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
+						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
+						let gmp_message = GmpMessage {
+							src_network: self.network_id,
+							dest_network: log.destinationNetwork,
+							src: log.source.into(),
+							dest: t_addr(log.destinationAddress),
+							nonce: u64::try_from(log.salt)?,
+							gas_limit: u128::try_from(log.executionGasLimit)?,
+							// TODO compute gas cost here
+							gas_cost: 200,
+							bytes: log.data.data.into(),
+						};
+						events.push(GmpEvent::MessageReceived(gmp_message));
 						break;
 					},
 					sol::Gateway::MessageExecuted::SIGNATURE_HASH => {
@@ -445,6 +457,7 @@ impl IConnector for Connector {
 					},
 					_ => {},
 				}
+				tracing::info!("logsiter 3");
 			}
 		}
 		Ok(events)
@@ -604,7 +617,8 @@ impl IConnectorAdmin for Connector {
 	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
 		// EVM specific logic
 		let mut modified_msg = msg.clone();
-		modified_msg.bytes = sol::GmpMessage::from_outbound(msg.clone()).abi_encode();
+		// TODO
+		// modified_msg.bytes = sol::GmpMessage::from_outbound(msg.clone()).abi_encode();
 		modified_msg.gas_limit = 300_000;
 
 		let cost_call = sol::GmpTester::estimateMessageCostCall {
@@ -616,11 +630,14 @@ impl IConnectorAdmin for Connector {
 		let msg_cost = u128::try_from(msg_cost._0)?;
 
 		let call = sol::GmpTester::sendMessageCall {
-			msg: sol::GmpMessage::from_outbound(modified_msg.clone()),
+			// msg: sol::GmpMessage::from_outbound(modified_msg.clone()),
+			msg: todo!(),
 		};
 
 		self.evm_call(contract, call, msg_cost, None).await?;
-		Ok(msg.message_id())
+		let msg_id = msg.message_id();
+		tracing::info!("send_message id: {}", hex::encode(msg_id));
+		Ok(msg_id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(
@@ -647,7 +664,8 @@ impl IConnectorAdmin for Connector {
 				alloy_primitives::Log::new(contract.into(), topics, log.data.0.to_vec().into())
 					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			let log = sol::GmpTester::MessageReceived::decode_log(&log, true)?;
-			msgs.push(log.msg.clone().inbound(self.network_id));
+			// msgs.push(log.msg.clone().inbound(self.network_id));
+			msgs.push(log.msg.clone().into());
 		}
 		Ok(msgs)
 	}

@@ -48,13 +48,13 @@ pub struct GmpMessage {
 }
 
 impl GmpMessage {
-	const HEADER_LEN: usize = 113;
+	const HEADER_LEN: usize = 93;
 
 	pub fn encoded_len(&self) -> usize {
 		Self::HEADER_LEN + self.bytes.len()
 	}
 
-	fn encode_header(&self) -> [u8; 113] {
+	fn encode_header(&self) -> [u8; 93] {
 		let mut hdr = [0; Self::HEADER_LEN];
 		hdr[0] = 0; // struct version
 		hdr[1..3].copy_from_slice(&self.src_network.to_be_bytes());
@@ -63,9 +63,6 @@ impl GmpMessage {
 		hdr[37..69].copy_from_slice(&self.dest);
 		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
 		hdr[77..93].copy_from_slice(&self.gas_limit.to_be_bytes());
-		hdr[93..109].copy_from_slice(&self.gas_cost.to_be_bytes());
-		// FIXME dont put msg length but the keccake256 of the bytes
-		hdr[109..113].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
 		hdr
 	}
 
@@ -76,10 +73,10 @@ impl GmpMessage {
 
 	pub fn message_id(&self) -> MessageId {
 		use sha3::Digest;
+		let msg_hash: [u8; 32] = sha3::Keccak256::digest(&self.bytes).into();
 		let mut hasher = sha3::Keccak256::new();
 		hasher.update(self.encode_header());
-		// TODO instead of self.bytes use gateway
-		hasher.update(&self.bytes);
+		hasher.update(msg_hash);
 		hasher.finalize().into()
 	}
 }

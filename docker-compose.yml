@@ -89,7 +89,7 @@ services:
     - '--network-id=3'
     - '--backend=evm'
     environment:
-      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
     ports:
       - "8082:8080"

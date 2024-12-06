@@ -365,7 +365,7 @@ pub trait IConnectorAdmin: IConnector {
 		msg_size: usize,
 	) -> Result<u128>;
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<()>;
+	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId>;
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;

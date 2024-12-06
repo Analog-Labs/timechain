@@ -19,8 +19,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
-	H160,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature, H160,
 };
 
 type AlloyAddress = alloy_primitives::Address;
@@ -487,12 +487,13 @@ impl IConnectorAdmin for Connector {
 			.await
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<()> {
+	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
+		let id = msg.message_id();
 		let call = sol::GmpTester::sendMessageCall {
 			msg: sol::GmpMessage::from_outbound(msg),
 		};
 		self.evm_call(contract, call, 0, None).await?;
-		Ok(())
+		Ok(id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(

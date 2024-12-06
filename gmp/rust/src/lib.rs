@@ -16,8 +16,8 @@ use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
+	TssPublicKey, TssSignature,
 };
 
 const BLOCK_TIME: u64 = 1;
@@ -431,7 +431,8 @@ impl IConnectorAdmin for Connector {
 		Ok(msg_size as u128 * 100)
 	}
 
-	async fn send_message(&self, addr: Address, msg: GmpMessage) -> Result<()> {
+	async fn send_message(&self, addr: Address, msg: GmpMessage) -> Result<MessageId> {
+		let id = msg.message_id();
 		let tx = self.db.begin_write()?;
 		{
 			let t = tx.open_table(GATEWAY)?;
@@ -441,7 +442,7 @@ impl IConnectorAdmin for Connector {
 			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
 		}
 		tx.commit()?;
-		Ok(())
+		Ok(id)
 	}
 
 	async fn recv_messages(&self, addr: Address, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {

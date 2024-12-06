@@ -130,7 +130,7 @@ pub type SignedExtra<Runtime> = (
 use time_primitives::{AccountId, Signature};
 
 /// The address format for describing accounts.
-type Address = sp_runtime::MultiAddress<AccountId, ()>;
+pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic<Runtime, Call> =
@@ -138,6 +138,9 @@ pub type UncheckedExtrinsic<Runtime, Call> =
 /// The payload being signed in transactions.
 pub type SignedPayload<Runtime, Call> =
 	sp_runtime::generic::SignedPayload<Call, SignedExtra<Runtime>>;
+
+/// Type shorthand for the balance type used to charge transaction fees
+pub type PaymentBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
 
 /// Shared default babe genesis config
 pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =

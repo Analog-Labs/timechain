@@ -246,11 +246,11 @@ impl Gmp for ConnectorWrapper {
 		request: Request<proto::SendMessageRequest>,
 	) -> GmpResult<proto::SendMessageResponse> {
 		let (connector, msg) = self.connector(request)?;
-		connector
+		let message_id = connector
 			.send_message(msg.contract, msg.msg)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::SendMessageResponse {}))
+		Ok(Response::new(proto::SendMessageResponse { message_id }))
 	}
 
 	async fn recv_messages(

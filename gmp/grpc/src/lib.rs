@@ -5,7 +5,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId, Route, TssPublicKey, TssSignature,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -256,10 +257,10 @@ impl IConnectorAdmin for Connector {
 		Ok(response.cost)
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<()> {
+	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
 		let request = Request::new(proto::SendMessageRequest { contract, msg });
-		self.client.lock().await.send_message(request).await?;
-		Ok(())
+		let response = self.client.lock().await.send_message(request).await?.into_inner();
+		Ok(response.message_id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(

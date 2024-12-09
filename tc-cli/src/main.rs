@@ -96,6 +96,9 @@ enum Command {
 	Task {
 		task: TaskId,
 	},
+	AssignedTasks {
+		shard: ShardId,
+	},
 	TransactionBaseFee {
 		network: NetworkId,
 	},
@@ -267,6 +270,7 @@ struct ShardEntry {
 	registered: String,
 	size: u16,
 	threshold: u16,
+	assigned: usize,
 }
 
 impl IntoRow for Shard {
@@ -281,6 +285,7 @@ impl IntoRow for Shard {
 			registered: self.registered.to_string(),
 			size: self.size,
 			threshold: self.threshold,
+			assigned: self.assigned,
 		})
 	}
 }
@@ -578,6 +583,10 @@ async fn real_main() -> Result<()> {
 		Command::Task { task } => {
 			let task = tc.task(task).await?;
 			print_table(&tc, vec![task])?;
+		},
+		Command::AssignedTasks { shard } => {
+			let tasks = tc.assigned_tasks(shard).await?;
+			print_table(&tc, tasks)?;
 		},
 		Command::TransactionBaseFee { network } => {
 			let base_fee = tc.transaction_base_fee(network).await?;

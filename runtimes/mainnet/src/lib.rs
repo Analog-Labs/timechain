@@ -1323,7 +1323,7 @@ impl pallet_elections::Config for Runtime {
 	type Members = Members;
 	type Shards = Shards;
 	type Networks = Networks;
-	type MaxElectionsPerBlock = ConstU32<18>;
+	type MaxElectionsPerBlock = ConstU32<27>;
 }
 
 impl pallet_shards::Config for Runtime {
@@ -1333,7 +1333,6 @@ impl pallet_shards::Config for Runtime {
 	type Members = Members;
 	type Elections = Elections;
 	type Tasks = Tasks;
-	type MaxTimeoutsPerBlock = ConstU32<5>;
 	type DkgTimeout = ConstU32<10>;
 }
 
@@ -2017,7 +2016,6 @@ mod tests {
 	use frame_system::offchain::CreateSignedTransaction;
 	use pallet_elections::WeightInfo as W4;
 	use pallet_members::WeightInfo as W2;
-	use pallet_shards::WeightInfo as W3;
 	use pallet_tasks::WeightInfo;
 	use sp_runtime::UpperOf;
 	use time_primitives::ON_INITIALIZE_BOUNDS;
@@ -2117,38 +2115,6 @@ mod tests {
 		assert!(
 			max_batches_per_block_configured <= num_batches,
 			"MaxBatchesPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
-		);
-	}
-
-	#[test]
-	fn max_dkg_timeouts_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.dkgs * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(1)
-				.all_lte(avg_on_initialize),
-			"BUG: One DKG timeout consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(1)
-				.all_lte(<Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(2)),
-			"BUG: 1 DKG timeout consumes more weight than 2 DKG timeouts"
-		);
-		let mut num_timeouts: u32 = 2;
-		while <Runtime as pallet_shards::Config>::WeightInfo::timeout_dkgs(num_timeouts)
-			.all_lt(avg_on_initialize)
-		{
-			num_timeouts += 1;
-			if num_timeouts == 10_000_000 {
-				// 10_000_000 timeouts; halting to break out of loop
-				break;
-			}
-		}
-		let max_timeouts_per_block: u32 =
-			<Runtime as pallet_shards::Config>::MaxTimeoutsPerBlock::get();
-		assert!(
-			max_timeouts_per_block <= num_timeouts,
-			"MaxDKGTimeoutsPerBlock {max_timeouts_per_block} > max number of DKG timeouts per block tested = {num_timeouts}"
 		);
 	}
 

@@ -27,6 +27,7 @@ const FAUCET: u128 = 1_000_000_000;
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
 const ADMIN: TableDefinition<Address, Address> = TableDefinition::new("admin");
+const NONCE: TableDefinition<(Address, Address), u64> = TableDefinition::new("nonce");
 const EVENTS: MultimapTableDefinition<(Address, u64), Bincode<GmpEvent>> =
 	MultimapTableDefinition::new("events");
 const SHARDS: MultimapTableDefinition<Address, TssPublicKey> =
@@ -123,6 +124,7 @@ impl IConnectorBuilder for Connector {
 		tx.open_table(ADMIN)?;
 		tx.open_table(ROUTES)?;
 		tx.open_table(GATEWAY)?;
+		tx.open_table(NONCE)?;
 		tx.open_multimap_table(EVENTS)?;
 		tx.open_multimap_table(SHARDS)?;
 		tx.open_multimap_table(TESTERS)?;
@@ -431,16 +433,29 @@ impl IConnectorAdmin for Connector {
 		Ok(msg_size as u128 * 100)
 	}
 
-	async fn send_message(&self, addr: Address, msg: GmpMessage) -> Result<MessageId> {
-		let id = msg.message_id();
+	async fn send_message(&self, addr: Address, mut msg: GmpMessage) -> Result<MessageId> {
+		anyhow::ensure!(msg.src_network == self.network_id, "invalid source network id");
 		let tx = self.db.begin_write()?;
-		{
+		let id = {
+			// read nonce
+			let mut t = tx.open_table(NONCE)?;
+			let nonce = t.get((msg.src, addr))?.map(|a| a.value()).unwrap_or_default();
+			// increment nonce
+			t.insert((msg.src, addr), nonce + 1)?;
+			msg.nonce = nonce;
+			let id = msg.message_id();
+
+			// read gateway address
 			let t = tx.open_table(GATEWAY)?;
 			let gateway = t.get(addr)?.context("tester not deployed")?.value();
+
+			// insert gateway event
 			let mut t = tx.open_multimap_table(EVENTS)?;
 			let block = block(self.genesis);
 			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
-		}
+
+			id
+		};
 		tx.commit()?;
 		Ok(id)
 	}

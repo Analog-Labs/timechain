@@ -42,7 +42,7 @@ impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Task { task } => {
-				write!(f, r#"{{app="chronicle"}} |~ `task_id(.)=(.){task}`"#)
+				write!(f, r#"{{app="chronicle"}} |~ `task_id(.*)=(.*){task}`"#)
 			},
 			Self::Raw { query } => f.write_str(query),
 		}

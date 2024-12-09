@@ -294,6 +294,7 @@ pub struct Shard {
 	pub size: u16,
 	pub threshold: u16,
 	// TODO: pub stake: u128,
+	pub assigned: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -468,6 +469,7 @@ impl Tc {
 			if let Some(key) = key {
 				registered = registered_shards.get(&network).unwrap().contains(&key);
 			}
+			let assigned = self.runtime.assigned_tasks(shard).await?.len();
 			shards.push(Shard {
 				shard,
 				network,
@@ -476,9 +478,19 @@ impl Tc {
 				registered,
 				size,
 				threshold,
+				assigned,
 			});
 		}
 		Ok(shards)
+	}
+
+	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {
+		let task_ids = self.runtime.assigned_tasks(shard).await?;
+		let mut tasks = Vec::with_capacity(task_ids.len());
+		for id in task_ids {
+			tasks.push(self.task(id).await?);
+		}
+		Ok(tasks)
 	}
 
 	pub async fn members(&self, shard: ShardId) -> Result<Vec<Member>> {

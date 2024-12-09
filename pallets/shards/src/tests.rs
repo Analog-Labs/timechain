@@ -109,7 +109,11 @@ fn test_register_shard() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
 		for shard in &shards {
-			Shards::create_shard(ETHEREUM, shard.iter().map(|m| m.account_id.clone()).collect(), 1);
+			assert_ok!(Shards::create_shard(
+				ETHEREUM,
+				shard.iter().map(|m| m.account_id.clone()).collect(),
+				1
+			));
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let members = Shards::get_shard_members(shard_id as _);
@@ -160,7 +164,11 @@ fn test_register_shard() {
 fn dkg_times_out() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
-		Shards::create_shard(ETHEREUM, shard().iter().map(|m| m.account_id.clone()).collect(), 1);
+		assert_ok!(Shards::create_shard(
+			ETHEREUM,
+			shard().iter().map(|m| m.account_id.clone()).collect(),
+			1
+		));
 		roll(11);
 		System::assert_last_event(Event::<Test>::ShardKeyGenTimedOut(0).into());
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));

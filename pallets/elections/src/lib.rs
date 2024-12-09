@@ -162,7 +162,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
-			let (mut weight, mut num_elections) = (Weight::default(), 0u32);
+			let mut num_elections = 0u32;
 			let networks = T::Networks::get_networks();
 			let net_counter0 = NetworkCounter::<T>::get();
 			let (mut net_counter, mut all_nets_elected) = (net_counter0, false);
@@ -175,7 +175,6 @@ pub mod pallet {
 					*next_network,
 					T::MaxElectionsPerBlock::get().saturating_sub(num_elections),
 				);
-				weight = weight.saturating_add(T::WeightInfo::try_elect_shards(elected));
 				num_elections = num_elections.saturating_add(elected);
 				net_counter = (net_counter + 1) % networks.len() as u32;
 				if net_counter == net_counter0 {
@@ -187,7 +186,7 @@ pub mod pallet {
 				NetworkCounter::<T>::put(net_counter);
 			} // else counter starts where it left off => no write required
 			log::info!("on_initialize end");
-			weight
+			T::WeightInfo::try_elect_shards(num_elections)
 		}
 	}
 
@@ -226,6 +225,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> ElectionsInterface for Pallet<T> {
+		type MaxElectionsPerBlock = T::MaxElectionsPerBlock;
 		///  Handles the event when a shard goes offline.
 		/// # Flow
 		///    1. Inserts each member of the offline shard into the [`Unassigned`] storage for the given network.
@@ -303,12 +303,17 @@ pub mod pallet {
 					* shard_size;
 			let mut members = Vec::with_capacity(num_elected as usize);
 			members.extend(unassigned.drain(..(num_elected as usize)));
-			Unassigned::<T>::insert(network, unassigned);
 			let mut num_elections = 0u32;
-			for next_shard in members.chunks(shard_size as usize) {
-				T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold);
-				num_elections += 1;
+			for (i, next_shard) in members.chunks(shard_size as usize).enumerate() {
+				if T::Shards::create_shard(network, next_shard.to_vec(), shard_threshold).is_err() {
+					unassigned
+						.extend(members.chunks(shard_size as usize).skip(i).flatten().cloned());
+					break;
+				} else {
+					num_elections += 1;
+				}
 			}
+			Unassigned::<T>::insert(network, unassigned);
 			num_elections
 		}
 	}

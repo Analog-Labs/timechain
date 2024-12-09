@@ -95,7 +95,6 @@ impl pallet_shards::Config for Test {
 	type Tasks = MockTasks;
 	type Members = Members;
 	type Elections = Elections;
-	type MaxTimeoutsPerBlock = ConstU32<100>;
 	type DkgTimeout = ConstU64<10>;
 }
 

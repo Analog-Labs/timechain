@@ -7,7 +7,7 @@ use frame_support::traits::OnInitialize;
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature,
+	BuildStorage, DispatchError, MultiSignature,
 };
 
 use time_primitives::{
@@ -22,6 +22,7 @@ pub type Signature = MultiSignature;
 pub struct MockElections;
 
 impl ElectionsInterface for MockElections {
+	type MaxElectionsPerBlock = ConstU32<10>;
 	fn member_online(_: &AccountId, _: NetworkId) {}
 	fn member_offline(_: &AccountId, _: NetworkId) {}
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
@@ -51,8 +52,12 @@ impl ShardsInterface for MockShards {
 	fn shard_network(_shard_id: ShardId) -> Option<NetworkId> {
 		None
 	}
-	fn create_shard(_network: NetworkId, _members: Vec<AccountId>, _threshold: u16) -> ShardId {
-		0
+	fn create_shard(
+		_network: NetworkId,
+		_members: Vec<AccountId>,
+		_threshold: u16,
+	) -> Result<ShardId, DispatchError> {
+		Ok(0)
 	}
 	fn next_signer(_shard_id: ShardId) -> PublicKey {
 		pubkey_from_bytes([0; 32])

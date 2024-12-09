@@ -134,8 +134,6 @@ pub mod pallet {
 		type Members: MembersInterface;
 		type Tasks: TasksInterface;
 		#[pallet::constant]
-		type MaxTimeoutsPerBlock: Get<u32>;
-		#[pallet::constant]
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
 
@@ -153,10 +151,22 @@ pub mod pallet {
 	pub type ShardState<T: Config> =
 		StorageMap<_, Blake2_128Concat, ShardId, ShardStatus, OptionQuery>;
 
-	/// Maps `ShardId` to `BlockNumber` indicating the DKG timeout for each shard.
+	/// Maps `BlockNumber` to the number of shards scheduled to timeout
 	#[pallet::storage]
-	pub type DkgTimeout<T: Config> =
-		StorageMap<_, Blake2_128Concat, ShardId, BlockNumberFor<T>, OptionQuery>;
+	pub type DkgTimeoutCounter<T: Config> =
+		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
+
+	/// Tracks `BlockNumber` at which the shard with `ShardId` will DKG timeout.
+	#[pallet::storage]
+	pub type DkgTimeout<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		BlockNumberFor<T>,
+		Blake2_128Concat,
+		ShardId,
+		(),
+		OptionQuery,
+	>;
 
 	/// Maps `ShardId` to `u16` indicating the threshold for each shard.
 	#[pallet::storage]
@@ -228,6 +238,8 @@ pub mod pallet {
 		InvalidProofOfKnowledge,
 		/// Indicates that an unexpected ready state occurred.
 		UnexpectedReady,
+		/// Indicates that the maximum number of shards were created this block.
+		MaxShardsCreatedThisBlock,
 	}
 
 	#[pallet::call]
@@ -423,24 +435,17 @@ pub mod pallet {
 		///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
 		pub(crate) fn timeout_dkgs(n: BlockNumberFor<T>) -> Weight {
 			let mut num_timeouts = 0u32;
-			for (shard_id, created_block) in DkgTimeout::<T>::iter() {
-				if n.saturating_sub(created_block) >= T::DkgTimeout::get() {
-					if let Some(status) = ShardState::<T>::get(shard_id) {
-						if !matches!(status, ShardStatus::Created | ShardStatus::Committed) {
-							DkgTimeout::<T>::remove(shard_id);
-						} else {
-							Self::remove_shard_offline(shard_id);
-							Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
-							num_timeouts = num_timeouts.saturating_plus_one();
-							if num_timeouts == T::MaxTimeoutsPerBlock::get() {
-								return <T as Config>::WeightInfo::timeout_dkgs(
-									T::MaxTimeoutsPerBlock::get(),
-								);
-							}
-						}
+			// Iterate over DKG timeouts
+			DkgTimeout::<T>::drain_prefix(n).for_each(|(shard_id, _)| {
+				if let Some(status) = ShardState::<T>::get(shard_id) {
+					if matches!(status, ShardStatus::Created | ShardStatus::Committed) {
+						Self::remove_shard_offline(shard_id);
+						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
+						num_timeouts = num_timeouts.saturating_plus_one();
 					}
 				}
-			}
+			});
+			DkgTimeoutCounter::<T>::remove(n);
 			<T as Config>::WeightInfo::timeout_dkgs(num_timeouts)
 		}
 		/// Fetches all shards associated with a given account.
@@ -590,12 +595,28 @@ pub mod pallet {
 		///   6. Inserts each member into ShardMembers and associates them with [`MemberStatus::Added`].
 		///   7. Registers each member in `MemberShard` with the `shard_id`.
 		///   8. Emits a [`Event::ShardCreated`] event with the `shard_id` and network.
-		fn create_shard(network: NetworkId, members: Vec<AccountId>, threshold: u16) -> ShardId {
+		fn create_shard(
+			network: NetworkId,
+			members: Vec<AccountId>,
+			threshold: u16,
+		) -> Result<ShardId, DispatchError> {
+			let dkg_timeout_block =
+				frame_system::Pallet::<T>::block_number().saturating_add(T::DkgTimeout::get());
+			let dkg_timeout_counter = <DkgTimeoutCounter<T>>::get(dkg_timeout_block);
+			ensure!(
+				dkg_timeout_counter
+					< <<T as Config>::Elections as ElectionsInterface>::MaxElectionsPerBlock::get(),
+				Error::<T>::MaxShardsCreatedThisBlock
+			);
+			<DkgTimeoutCounter<T>>::insert(
+				dkg_timeout_block,
+				dkg_timeout_counter.saturating_plus_one(),
+			);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id.saturating_plus_one());
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
-			<DkgTimeout<T>>::insert(shard_id, frame_system::Pallet::<T>::block_number());
+			<DkgTimeout<T>>::insert(dkg_timeout_block, shard_id, ());
 			<ShardThreshold<T>>::insert(shard_id, threshold);
 			for member in &members {
 				ShardMembers::<T>::insert(shard_id, member, MemberStatus::Added);
@@ -603,7 +624,7 @@ pub mod pallet {
 			}
 			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
-			shard_id
+			Ok(shard_id)
 		}
 		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
 		///

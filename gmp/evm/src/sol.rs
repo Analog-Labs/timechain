@@ -133,7 +133,6 @@ alloy_sol_types::sol! {
 			payable
 			returns (address);
 	}
-
 }
 
 fn u256(bytes: &[u8]) -> U256 {

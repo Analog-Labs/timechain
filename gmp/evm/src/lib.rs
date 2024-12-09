@@ -423,9 +423,6 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::MessageReceived::SIGNATURE_HASH => {
 						let log = sol::Gateway::MessageReceived::decode_log(&log, true)?;
-						// events.push(GmpEvent::MessageReceived(
-						// 	log.msg.clone().outbound(self.network_id),
-						// ));
 						events.push(GmpEvent::MessageReceived(log.msg.clone().into()));
 						break;
 					},
@@ -617,8 +614,8 @@ impl IConnectorAdmin for Connector {
 	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
 		// EVM specific logic
 		let mut modified_msg = msg.clone();
-		// TODO
-		// modified_msg.bytes = sol::GmpMessage::from_outbound(msg.clone()).abi_encode();
+		let sol_msg: sol::GmpMessage = msg.clone().into();
+		modified_msg.bytes = sol_msg.abi_encode();
 		modified_msg.gas_limit = 300_000;
 
 		let cost_call = sol::GmpTester::estimateMessageCostCall {
@@ -629,10 +626,7 @@ impl IConnectorAdmin for Connector {
 		let msg_cost = self.evm_view(contract, cost_call, None).await?;
 		let msg_cost = u128::try_from(msg_cost._0)?;
 
-		let call = sol::GmpTester::sendMessageCall {
-			// msg: sol::GmpMessage::from_outbound(modified_msg.clone()),
-			msg: todo!(),
-		};
+		let call = sol::GmpTester::sendMessageCall { msg: modified_msg.into() };
 
 		self.evm_call(contract, call, msg_cost, None).await?;
 		let msg_id = msg.message_id();
@@ -664,7 +658,6 @@ impl IConnectorAdmin for Connector {
 				alloy_primitives::Log::new(contract.into(), topics, log.data.0.to_vec().into())
 					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			let log = sol::GmpTester::MessageReceived::decode_log(&log, true)?;
-			// msgs.push(log.msg.clone().inbound(self.network_id));
 			msgs.push(log.msg.clone().into());
 		}
 		Ok(msgs)

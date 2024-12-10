@@ -641,6 +641,9 @@ pub mod pallet {
 							}
 						})
 						.collect();
+				if registered_shards.is_empty() {
+					continue;
+				}
 				let tasks_per_shard = TaskCount::<T>::get(network)
 					.saturating_sub(ExecutedTaskCount::<T>::get(network))
 					.saturating_div(registered_shards.len() as u64);

@@ -195,6 +195,11 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Map from network to number of registered shards.
+	#[pallet::storage]
+	pub type RegisteredShardCount<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
+
 	/// Storage for task ID counter.
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -437,9 +442,11 @@ pub mod pallet {
 				match event {
 					GmpEvent::ShardRegistered(pubkey) => {
 						ShardRegistered::<T>::insert(pubkey, ());
+						RegisteredShardCount::<T>::mutate(network, |c| *c += 1);
 					},
 					GmpEvent::ShardUnregistered(pubkey) => {
 						ShardRegistered::<T>::remove(pubkey);
+						RegisteredShardCount::<T>::mutate(network, |c| *c -= 1);
 					},
 					GmpEvent::MessageReceived(msg) => {
 						let msg_id = msg.message_id();
@@ -631,22 +638,20 @@ pub mod pallet {
 						}
 					}
 				}
-				let registered_shards: Vec<ShardId> =
-					NetworkShards::<T>::iter_prefix(network)
-						.filter_map(|(shard, _)| {
-							if Self::is_shard_registered(shard) {
-								Some(shard)
-							} else {
-								None
-							}
-						})
-						.collect();
-				if registered_shards.is_empty() {
+				if RegisteredShardCount::<T>::get(network) == 0 {
 					continue;
 				}
+				let registered_shards =
+					NetworkShards::<T>::iter_prefix(network).filter_map(|(shard, _)| {
+						if Self::is_shard_registered(shard) {
+							Some(shard)
+						} else {
+							None
+						}
+					});
 				let tasks_per_shard = TaskCount::<T>::get(network)
 					.saturating_sub(ExecutedTaskCount::<T>::get(network))
-					.saturating_div(registered_shards.len() as u64);
+					.saturating_div(RegisteredShardCount::<T>::get(network));
 				for shard in registered_shards {
 					let tasks_to_assign =
 						tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard).into());

@@ -591,7 +591,7 @@ pub mod pallet {
 		///   6. If `capacity` is zero, stop further task assignments.
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
-		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> u32 {
+		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u64) -> u32 {
 			let mut num_tasks_assigned = 0u32;
 			let queue = Self::ua_task_queue(network);
 			for _ in 0..capacity {
@@ -631,7 +631,7 @@ pub mod pallet {
 						}
 					}
 				}
-				let registered_shards =
+				let registered_shards: Vec<ShardId> =
 					NetworkShards::<T>::iter_prefix(network)
 						.filter_map(|(shard, _)| {
 							if Self::is_shard_registered(shard) {
@@ -640,29 +640,18 @@ pub mod pallet {
 								None
 							}
 						})
-						.collect::<Vec<ShardId>>();
-				if registered_shards.is_empty() {
-					continue;
-				}
-				let registered_shard_count = registered_shards.len() as u64;
-				let task_count = TaskCount::<T>::get(network);
-				let executed_task_count = ExecutedTaskCount::<T>::get(network);
-				let assignable_task_count = task_count.saturating_sub(executed_task_count);
-
+						.collect();
+				let tasks_per_shard = TaskCount::<T>::get(network)
+					.saturating_sub(ExecutedTaskCount::<T>::get(network))
+					.saturating_div(registered_shards.len() as u64);
 				for shard in registered_shards {
-					let shard_capacity = ShardTaskCount::<T>::get(shard);
-					let tasks_to_assign = assignable_task_count
-						.saturating_div(registered_shard_count)
-						.saturating_sub(shard_capacity.into());
-
+					let tasks_to_assign =
+						tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard).into());
 					let tasks_this_shard =
 						tasks_to_assign.min(max_tasks.saturating_sub(num_tasks_assigned).into());
-					num_tasks_assigned =
-						num_tasks_assigned.saturating_add(Self::schedule_tasks_shard(
-							network,
-							shard,
-							tasks_this_shard.try_into().unwrap_or_default(),
-						));
+					num_tasks_assigned = num_tasks_assigned.saturating_add(
+						Self::schedule_tasks_shard(network, shard, tasks_this_shard),
+					);
 					if num_tasks_assigned == max_tasks {
 						return <T as Config>::WeightInfo::schedule_tasks(max_tasks);
 					}

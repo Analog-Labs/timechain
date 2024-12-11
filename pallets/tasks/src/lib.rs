@@ -616,9 +616,16 @@ pub mod pallet {
 		pub(crate) fn schedule_tasks() -> Weight {
 			let mut num_tasks_assigned = 0u32;
 			let max_tasks = T::MaxTasksPerBlock::get();
+			let mut networks_assigned = Vec::new();
 			// Optimize by breaking out of loop early if all networks covered
-			// Otherwise there are many unnecessary reads per iteration
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
+				if networks_assigned.contains(&network) {
+					// Max tasks already assigned for this network
+					continue;
+				} else {
+					// Max tasks assigned for this network below
+					networks_assigned.push(network);
+				}
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
 				let network_shards = NetworkShards::<T>::iter_prefix(network)
 					.map(|(s, _)| s)

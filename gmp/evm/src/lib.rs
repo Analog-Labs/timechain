@@ -15,14 +15,14 @@ use rosetta_server_ethereum::utils::{
 };
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
-use sol::{Network, TssKey};
+use sol::{u256, Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature, H160,
+	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpEvent, GmpMessage,
+	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
+	TssPublicKey, TssSignature, H160,
 };
 
 use crate::sol::{ProxyContext, ProxyDigest};
@@ -32,13 +32,13 @@ type AlloyAddress = alloy_primitives::Address;
 pub(crate) mod sol;
 
 fn a_addr(address: Address) -> AlloyAddress {
-	let address: [u8; 20] = address[..20].try_into().unwrap();
+	let address: [u8; 20] = address[12..32].try_into().unwrap();
 	AlloyAddress::from(address)
 }
 
 fn t_addr(address: alloy_primitives::Address) -> Address {
 	let mut addr = [0; 32];
-	addr[..20].copy_from_slice(&address.0[..]);
+	addr[12..32].copy_from_slice(&address.0[..]);
 	addr
 }
 
@@ -52,7 +52,7 @@ pub struct Connector {
 impl Connector {
 	#[allow(dead_code)]
 	async fn nonce(&self, address: Address) -> Result<u64> {
-		let address: [u8; 20] = address[..20].try_into().unwrap();
+		let address: [u8; 20] = address[12..32].try_into().unwrap();
 		self.wallet
 			.query(GetTransactionCount {
 				address: address.into(),
@@ -68,7 +68,7 @@ impl Connector {
 		amount: u128,
 		nonce: Option<u64>,
 	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
-		let contract: [u8; 20] = contract[..20].try_into().unwrap();
+		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
 		let result = self
 			.wallet
 			.eth_send_call(contract, call.abi_encode(), amount, nonce, None)
@@ -91,7 +91,7 @@ impl Connector {
 		call: T,
 		block: Option<u64>,
 	) -> Result<T::Return> {
-		let contract: [u8; 20] = contract[..20].try_into().unwrap();
+		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
 		let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
 		let result = self.wallet.eth_view_call(contract, call.abi_encode(), block).await?;
 		let CallResult::Success(result) = result else { anyhow::bail!("{:?}", result) };
@@ -153,6 +153,7 @@ impl Connector {
 
 		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
 		self.faucet().await?;
+		tracing::info!("wallet balance: {:?}", self.balance(self.address()).await);
 		self.transfer(deployer_address, config.required_balance).await?;
 
 		//Step2: load transaction from config
@@ -326,11 +327,17 @@ impl IConnectorBuilder for Connector {
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
 		let adapter = Adapter(client);
-		Ok(Self {
+		let connector = Self {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
-		})
+		};
+		// TODO Discuss keyfile issue
+		if connector.wallet.config().coin == 1 {
+			//Local run fund wallet
+			connector.faucet().await?;
+		};
+		Ok(connector)
 	}
 }
 
@@ -428,10 +435,13 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
+						//TODO remove when fixed in gateway
+						let mut source = log.source;
+						source[11] = 0;
 						let gmp_message = GmpMessage {
 							src_network: self.network_id,
 							dest_network: log.destinationNetwork,
-							src: log.source.into(),
+							src: source.into(),
 							dest: t_addr(log.destinationAddress),
 							nonce: u64::try_from(log.salt)?,
 							gas_limit: u128::try_from(log.executionGasLimit)?,
@@ -439,6 +449,11 @@ impl IConnector for Connector {
 							gas_cost: 200,
 							bytes: log.data.data.into(),
 						};
+						tracing::info!(
+							"read events msg: {:?}/{:?}",
+							gmp_message,
+							gmp_message.message_id()
+						);
 						events.push(GmpEvent::MessageReceived(gmp_message));
 						break;
 					},
@@ -463,15 +478,24 @@ impl IConnector for Connector {
 	async fn submit_commands(
 		&self,
 		gateway: Gateway,
-		batch: BatchId,
+		_batch: BatchId,
 		msg: GatewayMessage,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let call = sol::Gateway::executeCall {
-			signature: sig.into(),
-			xCoord: sol::TssKey::from(signer).xCoord,
-			message: msg.encode(batch).into(),
+		// TODO this implementation is not what was designed but due to limitation of gateway we are sending single msg.
+		let msg = msg.ops.get(0).ok_or_else(|| String::from("Invalid msg ops length"))?;
+		let GatewayOp::SendMessage(msg) = msg else {
+			return Err(String::from("Not valid type of GatewayOp"));
+		};
+		let signature = sol::Signature {
+			xCoord: if signer[0] % 2 == 0 { U256::from(0) } else { U256::from(1) },
+			e: u256(&sig[..32]),
+			s: u256(&sig[32..]),
+		};
+		let call = sol::Gateway::execute_1Call {
+			signature,
+			message: msg.clone().into(),
 		};
 		self.evm_call(gateway, call, 0, None).await.map_err(|err| err.to_string())?;
 		Ok(())
@@ -626,11 +650,13 @@ impl IConnectorAdmin for Connector {
 		let msg_cost = self.evm_view(contract, cost_call, None).await?;
 		let msg_cost = u128::try_from(msg_cost._0)?;
 
-		let call = sol::GmpTester::sendMessageCall { msg: modified_msg.into() };
+		let call = sol::GmpTester::sendMessageCall {
+			msg: modified_msg.clone().into(),
+		};
 
 		self.evm_call(contract, call, msg_cost, None).await?;
-		let msg_id = msg.message_id();
-		tracing::info!("send_message id: {}", hex::encode(msg_id));
+		let msg_id = modified_msg.message_id();
+		tracing::info!("send_message id: {:?}/{:?}", modified_msg, msg_id);
 		Ok(msg_id)
 	}
 	/// Receives messages from test contract.

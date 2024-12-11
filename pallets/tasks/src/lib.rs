@@ -441,6 +441,11 @@ pub mod pallet {
 					},
 					GmpEvent::MessageReceived(msg) => {
 						let msg_id = msg.message_id();
+						log::info!(
+							"pallet__tasks, pallet message id received: {:?},{:?}",
+							msg,
+							msg_id
+						);
 						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
 						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
@@ -563,7 +568,9 @@ pub mod pallet {
 			let Some(pubkey) = T::Shards::tss_public_key(shard) else {
 				return false;
 			};
-			ShardRegistered::<T>::get(pubkey).is_some()
+			//TODO remove this once fixed in gateway i.e. gateway does not emit this event
+			ShardRegistered::<T>::get(pubkey).is_none()
+			// ShardRegistered::<T>::get(pubkey).is_some()
 		}
 
 		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) {
@@ -590,13 +597,16 @@ pub mod pallet {
 		///   7. Get system tasks and, if space permits, non-system tasks.
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> u32 {
+			log::info!("pallet__tasks, schedule_tasks_shard: {}, {}", shard_id, capacity);
 			let mut num_tasks_assigned = 0u32;
 			let queue = Self::ua_task_queue(network);
 			for _ in 0..capacity {
 				let Some(task) = queue.pop() else {
 					break;
 				};
+				log::info!("pallet__tasks, fetched tasks from queue: {:?}", task);
 				Self::assign_task(shard_id, task);
+				log::info!("pallet__tasks, assigned task: {} to shard: {}", task, shard_id);
 				num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 			}
 			num_tasks_assigned
@@ -611,10 +621,12 @@ pub mod pallet {
 		/// 	for registered_shard in network:
 		/// 		number_of_tasks_to_assign = min(tasks_per_shard, shard_capacity(registered_shard))
 		pub(crate) fn schedule_tasks() -> Weight {
+			log::info!("pallet__tasks, schedule_tasks");
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
 
+				log::info!("pallet__tasks, schedule_tasks first if");
 				// handle read events task assignment
 				if TaskShard::<T>::get(task_id).is_none() {
 					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
@@ -631,11 +643,16 @@ pub mod pallet {
 					}
 				}
 
+				log::info!("pallet__tasks, schedule_tasks second if");
 				// collect registered shards
 				let registered_shards: Vec<ShardId> = NetworkShards::<T>::iter_prefix(network)
 					.map(|(shard, _)| shard)
 					.filter(|shard| Self::is_shard_registered(*shard))
 					.collect();
+				log::info!(
+					"pallet__tasks, schedule_tasks registered_shards: {:?}",
+					registered_shards
+				);
 				if registered_shards.is_empty() {
 					continue;
 				}
@@ -669,12 +686,15 @@ pub mod pallet {
 		}
 
 		pub(crate) fn prepare_batches() -> Weight {
+			log::info!("pallet__tasks, prepare_batches");
 			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
+				log::info!("pallet__tasks iterating read_events_tasks");
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
+					log::info!("pallet__tasks got msg from queue");
 					if let Some(msg) = batcher.push(op) {
 						if num_batches_started == T::MaxBatchesPerBlock::get() {
 							return <T as Config>::WeightInfo::prepare_batches(
@@ -697,6 +717,7 @@ pub mod pallet {
 		}
 
 		fn start_batch(network: NetworkId, msg: GatewayMessage) {
+			log::info!("pallet__tasks: start_batch");
 			let batch_id = BatchIdCounter::<T>::get();
 			BatchIdCounter::<T>::put(batch_id.saturating_add(1));
 			for op in &msg.ops {

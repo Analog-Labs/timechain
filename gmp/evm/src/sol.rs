@@ -16,13 +16,13 @@ alloy_sol_types::sol! {
 
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct GmpMessage {
-		uint16 src_network;
-		uint16 dest_network;
+		uint16 srcNetwork;
+		uint16 destNetwork;
 		bytes32 src;
 		bytes32 dest;
 		uint64 nonce;
-		uint128 gas_limit;
-		uint128 gas_cost;
+		uint128 gasLimit;
+		uint128 gasCost;
 		bytes data;
 	}
 
@@ -46,12 +46,30 @@ alloy_sol_types::sol! {
 		constructor(address admin) payable;
 	}
 
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct Signature {
+		uint256 xCoord;
+		uint256 e;
+		uint256 s;
+	}
+
+	enum GmpStatus {
+		NOT_FOUND,
+		SUCCESS,
+		REVERT,
+		INSUFFICIENT_FUNDS,
+		PENDING
+	}
+
 	contract Gateway {
 		constructor(uint16 network, address proxy) payable;
 		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
 		function deposit() external payable {}
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
+		function execute(Signature calldata signature, GmpMessage calldata message)
+			external
+			returns (GmpStatus status, bytes32 result);
 		function admin() external view returns (address);
 		function setAdmin(address admin) external payable;
 		function shards() external view returns (TssKey[] memory);
@@ -135,7 +153,7 @@ alloy_sol_types::sol! {
 	}
 }
 
-fn u256(bytes: &[u8]) -> U256 {
+pub fn u256(bytes: &[u8]) -> U256 {
 	U256::from_be_bytes(<[u8; 32]>::try_from(bytes).unwrap())
 }
 
@@ -210,13 +228,13 @@ impl From<Route> for time_primitives::Route {
 impl From<GmpMessage> for time_primitives::GmpMessage {
 	fn from(msg: GmpMessage) -> Self {
 		Self {
-			src_network: msg.src_network,
-			dest_network: msg.dest_network,
+			src_network: msg.srcNetwork,
+			dest_network: msg.destNetwork,
 			src: msg.src.into(),
 			dest: msg.dest.into(),
 			nonce: msg.nonce,
-			gas_limit: msg.gas_limit,
-			gas_cost: msg.gas_cost,
+			gas_limit: msg.gasLimit,
+			gas_cost: msg.gasCost,
 			bytes: msg.data.into(),
 		}
 	}
@@ -225,13 +243,13 @@ impl From<GmpMessage> for time_primitives::GmpMessage {
 impl From<time_primitives::GmpMessage> for GmpMessage {
 	fn from(msg: time_primitives::GmpMessage) -> Self {
 		Self {
-			src_network: msg.src_network,
-			dest_network: msg.dest_network,
+			srcNetwork: msg.src_network,
+			destNetwork: msg.dest_network,
 			src: msg.src.into(),
 			dest: msg.dest.into(),
 			nonce: msg.nonce,
-			gas_limit: msg.gas_limit,
-			gas_cost: msg.gas_cost,
+			gasLimit: msg.gas_limit,
+			gasCost: msg.gas_cost,
 			data: msg.bytes.into(),
 		}
 	}

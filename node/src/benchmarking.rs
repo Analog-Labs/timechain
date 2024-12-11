@@ -6,20 +6,27 @@ use crate::service::FullClient;
 
 use polkadot_sdk::*;
 
+use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::Get;
 
+use frame_system_rpc_runtime_api::AccountNonceApi;
+
 use sc_cli::Result;
+use sc_client_api::BlockBackend;
+
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_babe::SlotDuration;
+use sp_core::crypto::Pair;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::OpaqueExtrinsic;
-
-use sc_client_api::BlockBackend;
-use sp_core::crypto::Pair;
 use sp_runtime::codec::Encode;
+use sp_runtime::traits::{Dispatchable, StaticLookup};
+use sp_runtime::OpaqueExtrinsic;
 use sp_runtime::{generic, SaturatedConversion};
 
-use runtime_common::{BalancesCall, SystemCall};
-use time_primitives::{AccountId, Balance, Block, Nonce};
+use time_primitives::{AccountId, Balance, Block, BlockHash, Nonce, Signature};
+
+use runtime_common::{time::SLOT_DURATION, Address, BalancesCall, PaymentBalanceOf, SystemCall};
 
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
@@ -42,8 +49,12 @@ impl<Runtime, RuntimeApi> RemarkBuilder<Runtime, RuntimeApi> {
 impl<Runtime, RuntimeApi> frame_benchmarking_cli::ExtrinsicBuilder
 	for RemarkBuilder<Runtime, RuntimeApi>
 where
-	Runtime: frame_system::Config + pallet_transaction_payment::Config + Send + Sync,
+	Runtime:
+		frame_system::Config<Hash = BlockHash> + pallet_transaction_payment::Config + Send + Sync,
+	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	fn pallet(&self) -> &str {
 		"system"
@@ -62,7 +73,6 @@ where
 			Some(nonce),
 		)
 		.into();
-
 		Ok(extrinsic)
 	}
 }
@@ -79,9 +89,7 @@ pub struct TransferKeepAliveBuilder<Runtime, RuntimeApi> {
 
 impl<Runtime, RuntimeApi> TransferKeepAliveBuilder<Runtime, RuntimeApi> {
 	/// Creates a new [`Self`] from the given client.
-	pub fn new(client: Arc<FullClient<RuntimeApi>>, dest: AccountId) -> Self {
-		let value = 0;
-		//value = client.constants.balances.existential_deposit()
+	pub fn new(client: Arc<FullClient<RuntimeApi>>, dest: AccountId, value: Balance) -> Self {
 		Self {
 			client,
 			dest,
@@ -94,8 +102,17 @@ impl<Runtime, RuntimeApi> TransferKeepAliveBuilder<Runtime, RuntimeApi> {
 impl<Runtime, RuntimeApi> frame_benchmarking_cli::ExtrinsicBuilder
 	for TransferKeepAliveBuilder<Runtime, RuntimeApi>
 where
-	Runtime: frame_system::Config + pallet_transaction_payment::Config + Send + Sync,
+	Runtime: frame_system::Config<Hash = BlockHash>
+		+ pallet_balances::Config<Balance = Balance>
+		+ pallet_transaction_payment::Config
+		+ Send
+		+ Sync,
+	Runtime::Lookup: StaticLookup<Source = Address>,
+	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ From<BalancesCall<Runtime>>,
+	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	fn pallet(&self) -> &str {
 		"balances"
@@ -117,7 +134,6 @@ where
 			Some(nonce),
 		)
 		.into();
-
 		Ok(extrinsic)
 	}
 }
@@ -128,13 +144,16 @@ where
 pub fn fetch_nonce<RuntimeApi>(
 	client: &FullClient<RuntimeApi>,
 	account: sp_core::sr25519::Pair,
-) -> u32 {
+) -> u32
+where
+	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
+{
 	let best_hash = client.chain_info().best_hash;
-	//client
-	//	.runtime_api()
-	//	.account_nonce(best_hash, account.public().into())
-	//	.expect("Fetching account nonce works; qed")
-	0
+	client
+		.runtime_api()
+		.account_nonce(best_hash, account.public().into())
+		.expect("Fetching account nonce works; qed")
 }
 
 /// Create a transaction using the given `call`.
@@ -150,9 +169,12 @@ pub fn create_extrinsic<Runtime, RuntimeApi>(
 	nonce: Option<u32>,
 ) -> runtime_common::UncheckedExtrinsic<Runtime, Runtime::RuntimeCall>
 where
-	Runtime: frame_system::Config + Send + Sync + pallet_transaction_payment::Config,
-	//+ frame_support::dispatch::GetDispatchInfo,
+	Runtime:
+		frame_system::Config<Hash = BlockHash> + Send + Sync + pallet_transaction_payment::Config,
+	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
 {
 	let function = function.into();
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
@@ -161,27 +183,25 @@ where
 	let nonce = nonce.unwrap_or_else(|| fetch_nonce::<RuntimeApi>(client, sender.clone()));
 
 	let period = Runtime::BlockHashCount::get()
+		.into()
+		.as_u64()
 		.checked_next_power_of_two()
 		.map(|c| c / 2)
-		.unwrap_or(2) as u64;
-	let tip = 0;
+		.unwrap_or(2);
+	let era = generic::Era::mortal(period, best_block.saturated_into());
+
 	let extra: runtime_common::SignedExtra<Runtime> = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(
-			period,
-			best_block.saturated_into(),
-		)),
+		frame_system::CheckEra::<Runtime>::from(era),
 		frame_system::CheckNonce::<Runtime>::from(nonce.into()),
 		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip.into()),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(Default::default()),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	);
-
-	let version = Runtime::version();
-
+	let version = Runtime::Version::get();
 	let raw_payload = runtime_common::SignedPayload::<Runtime, Runtime::RuntimeCall>::from_raw(
 		function.clone(),
 		extra.clone(),
@@ -197,12 +217,12 @@ where
 			None,
 		),
 	);
-	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
+	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 	runtime_common::UncheckedExtrinsic::<Runtime, Runtime::RuntimeCall>::new_signed(
 		function,
-		sp_runtime::AccountId32::from(sender.public()).into(),
-		time_primitives::Signature::Sr25519(signature),
+		AccountId::from(sender.public()).into(),
+		Signature::Sr25519(signature),
 		extra,
 	)
 }
@@ -210,10 +230,17 @@ where
 /// Generates inherent data for the `benchmark overhead` command.
 pub fn inherent_benchmark_data() -> Result<InherentData> {
 	let mut inherent_data = InherentData::new();
-	let d = Duration::from_millis(0);
-	let timestamp = sp_timestamp::InherentDataProvider::new(d.into());
 
+	let timestamp = sp_timestamp::InherentDataProvider::new(Duration::from_millis(0).into());
 	futures::executor::block_on(timestamp.provide_inherent_data(&mut inherent_data))
-		.map_err(|e| format!("creating inherent data: {:?}", e))?;
+		.map_err(|e| format!("creating time inherent data: {:?}", e))?;
+
+	let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+		*timestamp,
+		SlotDuration::from_millis(SLOT_DURATION),
+	);
+	futures::executor::block_on(slot.provide_inherent_data(&mut inherent_data))
+		.map_err(|e| format!("creating slot inherent data: {:?}", e))?;
+
 	Ok(inherent_data)
 }

@@ -1,5 +1,5 @@
 use crate::{
-	//benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
+	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service::{self, FullClient},
@@ -7,14 +7,17 @@ use crate::{
 
 use polkadot_sdk::*;
 
+use frame_benchmarking_cli::ExtrinsicFactory;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-//use frame_benchmarking_cli::ExtrinsicFactory;
+use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
+use frame_support::traits::Get;
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
-//use sp_keyring::Sr25519Keyring;
-use sp_runtime::traits::HashingFor;
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::{Dispatchable, HashingFor, StaticLookup};
+use time_primitives::{AccountId, Balance, Block, BlockHash, Nonce};
 
-use time_primitives::{AccountId, Balance, Block, Nonce};
+use runtime_common::{Address, BalancesCall, PaymentBalanceOf};
 
 use mainnet_runtime::{Runtime as MainnetRuntime, RuntimeApi as MainnetRuntimeApi};
 use testnet_runtime::{Runtime as TestnetRuntime, RuntimeApi as TestnetRuntimeApi};
@@ -88,7 +91,15 @@ impl SubstrateCli for Cli {
 /// Parse command line arguments into service configuration.
 pub fn run_with<Runtime, RuntimeApi>(mut cli: Cli) -> sc_cli::Result<()>
 where
-	Runtime: frame_system::Config + pallet_transaction_payment::Config + Send + Sync,
+	Runtime: frame_system::Config<Hash = BlockHash>
+		+ pallet_transaction_payment::Config
+		+ pallet_balances::Config<Balance = Balance>
+		+ Send
+		+ Sync,
+	Runtime::Lookup: StaticLookup<Source = Address>,
+	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		+ From<BalancesCall<Runtime>>,
+	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
 		+ sp_api::Metadata<Block>
@@ -158,10 +169,11 @@ where
 
 						cmd.run(config, partial.client, db, storage)
 					},
-					/*BenchmarkCmd::Overhead(cmd) => {
+					BenchmarkCmd::Overhead(cmd) => {
 						// ensure that we keep the task manager alive
 						let partial = service::new_partial::<RuntimeApi>(&config)?;
-						let ext_builder = RemarkBuilder::<Runtime, RuntimeApi>::new(partial.client.clone());
+						let ext_builder =
+							RemarkBuilder::<Runtime, RuntimeApi>::new(partial.client.clone());
 
 						cmd.run(
 							config,
@@ -182,6 +194,7 @@ where
 							Box::new(TransferKeepAliveBuilder::<Runtime, RuntimeApi>::new(
 								partial.client.clone(),
 								Sr25519Keyring::Alice.to_account_id(),
+								Runtime::ExistentialDeposit::get(),
 							)),
 						]);
 
@@ -191,11 +204,10 @@ where
 							Vec::new(),
 							&ext_factory,
 						)
-					},*/
+					},
 					BenchmarkCmd::Machine(cmd) => {
 						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
 					},
-					_ => todo!("Does not compile at the moment"),
 				}
 			})
 		},

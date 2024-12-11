@@ -195,11 +195,6 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Map from network to number of registered shards.
-	#[pallet::storage]
-	pub type RegisteredShardCount<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, ValueQuery>;
-
 	/// Storage for task ID counter.
 	#[pallet::storage]
 	pub type TaskIdCounter<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -442,11 +437,9 @@ pub mod pallet {
 				match event {
 					GmpEvent::ShardRegistered(pubkey) => {
 						ShardRegistered::<T>::insert(pubkey, ());
-						RegisteredShardCount::<T>::mutate(network, |c| *c += 1);
 					},
 					GmpEvent::ShardUnregistered(pubkey) => {
 						ShardRegistered::<T>::remove(pubkey);
-						RegisteredShardCount::<T>::mutate(network, |c| *c -= 1);
 					},
 					GmpEvent::MessageReceived(msg) => {
 						let msg_id = msg.message_id();
@@ -622,41 +615,50 @@ pub mod pallet {
 		pub(crate) fn schedule_tasks() -> Weight {
 			let mut num_tasks_assigned = 0u32;
 			let max_tasks = T::MaxTasksPerBlock::get();
+			// Optimize by breaking out of loop early if all networks covered
+			// Otherwise there are many unnecessary reads per iteration
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
-
-				// Assign read event tasks if not yet assigned
+				let network_shards = NetworkShards::<T>::iter_prefix(network)
+					.map(|(s, _)| s)
+					.collect::<Vec<ShardId>>();
+				// Assign read event task if not yet assigned
 				if TaskShard::<T>::get(task_id).is_none() {
-					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+					// Optimize by caching ShardTaskCount::get(shard) in BTreeMap
+					for shard in network_shards.clone() {
 						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
+							Self::assign_task(shard, task_id);
+							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							if num_tasks_assigned == max_tasks {
 								return <T as Config>::WeightInfo::schedule_tasks(max_tasks);
 							}
-							Self::assign_task(shard, task_id);
-							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							break;
 						}
 					}
 				}
-				if RegisteredShardCount::<T>::get(network) == 0 {
+				let registered_shards =
+					network_shards
+						.into_iter()
+						.filter_map(|shard| {
+							if Self::is_shard_registered(shard) {
+								Some(shard)
+							} else {
+								None
+							}
+						})
+						.collect::<Vec<ShardId>>();
+				if registered_shards.is_empty() {
 					continue;
 				}
-				let registered_shards =
-					NetworkShards::<T>::iter_prefix(network).filter_map(|(shard, _)| {
-						if Self::is_shard_registered(shard) {
-							Some(shard)
-						} else {
-							None
-						}
-					});
 				let tasks_per_shard = TaskCount::<T>::get(network)
 					.saturating_sub(ExecutedTaskCount::<T>::get(network))
-					.saturating_div(RegisteredShardCount::<T>::get(network));
+					.saturating_div(registered_shards.len() as u64);
+				let tasks_per_shard = tasks_per_shard.min(max_assignable_tasks.into());
 				for shard in registered_shards {
-					let tasks_to_assign =
+					let tasks_this_shard =
 						tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard).into());
 					let tasks_this_shard =
-						tasks_to_assign.min(max_tasks.saturating_sub(num_tasks_assigned).into());
+						tasks_this_shard.min(max_tasks.saturating_sub(num_tasks_assigned).into());
 					num_tasks_assigned = num_tasks_assigned.saturating_add(
 						Self::schedule_tasks_shard(network, shard, tasks_this_shard),
 					);

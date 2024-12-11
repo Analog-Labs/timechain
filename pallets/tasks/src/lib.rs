@@ -63,6 +63,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::boxed::Box;
+	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 
@@ -622,16 +623,21 @@ pub mod pallet {
 				let network_shards = NetworkShards::<T>::iter_prefix(network)
 					.map(|(s, _)| s)
 					.collect::<Vec<ShardId>>();
+				let mut shard_task_count: BTreeMap<ShardId, u32> = BTreeMap::new();
 				// Assign read event task if not yet assigned
 				if TaskShard::<T>::get(task_id).is_none() {
-					// Optimize by caching ShardTaskCount::get(shard) in BTreeMap
-					for shard in network_shards.clone() {
-						if ShardTaskCount::<T>::get(shard) < max_assignable_tasks {
-							Self::assign_task(shard, task_id);
+					for shard in network_shards.iter() {
+						let task_count = ShardTaskCount::<T>::get(shard);
+						if task_count >= max_assignable_tasks {
+							shard_task_count.insert(*shard, task_count);
+							continue;
+						} else {
+							Self::assign_task(*shard, task_id);
 							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							if num_tasks_assigned == max_tasks {
 								return <T as Config>::WeightInfo::schedule_tasks(max_tasks);
 							}
+							shard_task_count.insert(*shard, task_count.saturating_plus_one());
 							break;
 						}
 					}
@@ -655,8 +661,11 @@ pub mod pallet {
 					.saturating_div(registered_shards.len() as u64);
 				let tasks_per_shard = tasks_per_shard.min(max_assignable_tasks.into());
 				for shard in registered_shards {
-					let tasks_this_shard =
-						tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard).into());
+					let tasks_this_shard = if let Some(count) = shard_task_count.get(&shard) {
+						tasks_per_shard.saturating_sub((*count).into())
+					} else {
+						tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard).into())
+					};
 					let tasks_this_shard =
 						tasks_this_shard.min(max_tasks.saturating_sub(num_tasks_assigned).into());
 					num_tasks_assigned = num_tasks_assigned.saturating_add(

@@ -42,9 +42,9 @@ jobs:
           docker compose run --rm --remove-orphans tc-cli smoke-test 0 1
       - name: Restart grpc nodes
         run: |
-          docker compose stop gmp-grpc-0 gmp-grpc-1
+          docker compose stop chronicle-0 chronicle-1 #gmp-grpc-0 gmp-grpc-1
           sleep 180s
-          docker compose start gmp-grpc-0 gmp-grpc-1
+          docker compose start chronicle-0 chronicle-1 #gmp-grpc-0 gmp-grpc-1
       - name: Still works
         run: |
           docker compose run --rm --remove-orphans tc-cli smoke-test 1 0

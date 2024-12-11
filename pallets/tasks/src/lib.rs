@@ -649,17 +649,10 @@ pub mod pallet {
 						}
 					}
 				}
-				let registered_shards =
-					network_shards
-						.into_iter()
-						.filter_map(|shard| {
-							if Self::is_shard_registered(shard) {
-								Some(shard)
-							} else {
-								None
-							}
-						})
-						.collect::<Vec<ShardId>>();
+				let registered_shards = network_shards
+					.into_iter()
+					.filter(|s| Self::is_shard_registered(*s))
+					.collect::<Vec<ShardId>>();
 				if registered_shards.is_empty() {
 					continue;
 				}

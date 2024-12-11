@@ -665,6 +665,7 @@ async fn real_main() -> Result<()> {
 			let (src_addr, dest_addr) = setup(&tc, src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
+			tracing::info!("send message");
 			let msg_id = tc.send_message(src, src_addr, dest, dest_addr, 0).await?;
 			tracing::info!(
 				"sent message to {} {}",

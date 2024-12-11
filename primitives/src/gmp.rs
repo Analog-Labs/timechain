@@ -61,8 +61,8 @@ impl GmpMessage {
 		hdr[3..5].copy_from_slice(&self.dest_network.to_be_bytes());
 		hdr[5..37].copy_from_slice(&self.src);
 		hdr[37..69].copy_from_slice(&self.dest);
-		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
-		hdr[77..93].copy_from_slice(&self.gas_limit.to_be_bytes());
+		hdr[69..85].copy_from_slice(&self.gas_limit.to_be_bytes());
+		hdr[85..93].copy_from_slice(&self.nonce.to_be_bytes());
 		hdr
 	}
 

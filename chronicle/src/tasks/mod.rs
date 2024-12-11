@@ -8,8 +8,8 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockHash, BlockNumber, ErrorMsg, GatewayMessage, GatewayOp, GmpEvents, GmpParams,
+	IConnector, NetworkId, ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -115,20 +115,41 @@ impl TaskParams {
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
-				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
-				let signature =
-					self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
-				let signer =
-					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
-						[0];
-				if let Err(e) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
-				{
-					Some(TaskResult::SubmitGatewayMessage {
-						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-					})
-				} else {
+				// TODO change to batch system when gaetway supports it
+				let mut err_vec: ErrorMsg = ErrorMsg(BoundedVec::default());
+				let msg_ops = msg.ops.clone();
+				for op in msg_ops.iter() {
+					// let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
+					//TODO gateway doesnt support shard management throw chronicle
+					let GatewayOp::SendMessage(inner_msg) = op else {
+						continue;
+					};
+					let payload = inner_msg.message_id();
+					let signature =
+						self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
+					let signer = self
+						.runtime
+						.get_shard_commitment(shard_id)
+						.await?
+						.context("invalid shard")?
+						.0[0];
+					// TODO remove when gateway support batch
+					let modified_gateway_msg =
+						GatewayMessage::new(vec![GatewayOp::SendMessage(inner_msg.clone())]);
+					if let Err(e) = self
+						.connector
+						.submit_commands(gateway, batch_id, modified_gateway_msg, signer, signature)
+						.await
+					{
+						if let Err(_) = err_vec.0.try_append(&mut e.encode()) {
+							tracing::error!("Task error too long to append: {}/{}", task_id, e);
+						}
+					}
+				}
+				if err_vec.0.is_empty() {
 					None
+				} else {
+					Some(TaskResult::SubmitGatewayMessage { error: err_vec })
 				}
 			},
 		};

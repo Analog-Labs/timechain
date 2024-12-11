@@ -1,5 +1,7 @@
 use crate::network::PeerId;
 use anyhow::Result;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use sha3::{Digest, Sha3_256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -63,6 +65,32 @@ fn signing_share_path(
 	keyshare_cache.join(file_name)
 }
 
+fn read_signing_share<T: DeserializeOwned>(
+	keyshare_cache: &Path,
+	commitment: &VerifiableSecretSharingCommitment,
+) -> Result<T> {
+	let file_name = signing_share_path(keyshare_cache, commitment);
+	let bytes = std::fs::read(file_name)?;
+	Ok(bincode::deserialize(&bytes)?)
+}
+
+fn write_signing_share<T: Serialize>(
+	keyshare_cache: &Path,
+	commitment: &VerifiableSecretSharingCommitment,
+	signing_share: &T,
+) {
+	let file_name = signing_share_path(keyshare_cache, commitment);
+	let bytes = bincode::serialize(signing_share).expect("can serialize signing share");
+	#[cfg(unix)]
+	{
+		use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+		std::fs::set_permissions(&file_name, Permissions::from_mode(0o600)).ok();
+	}
+	if let Err(err) = std::fs::write(file_name, bytes) {
+		tracing::error!("failed to write to tss cache directory {:#?}", err);
+	}
+}
+
 impl Tss {
 	pub fn new(
 		peer_id: PeerId,
@@ -74,22 +102,31 @@ impl Tss {
 		let peer_id = TssPeerId::new(peer_id)?;
 		let members = members.into_iter().map(TssPeerId::new).collect::<Result<BTreeSet<_>>>()?;
 		if members.len() == 1 {
-			let key = SigningKey::random();
-			let public = key.public().to_bytes().unwrap();
-			let commitment = VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
-			let proof_of_knowledge = tss::construct_proof_of_knowledge(
-				peer_id,
-				&[*key.to_scalar().as_ref()],
-				&commitment,
-			)
-			.unwrap();
-			Ok(Tss::Disabled(key, Some(TssAction::Commit(commitment, proof_of_knowledge)), false))
+			if let Some(commitment) = commitment {
+				let key = read_signing_share(tss_keyshare_cache, &commitment)?;
+				let key = SigningKey::from_bytes(key)?;
+				Ok(Tss::Disabled(key, None, true))
+			} else {
+				let key = SigningKey::random();
+				let public = key.public().to_bytes().unwrap();
+				let commitment =
+					VerifiableSecretSharingCommitment::deserialize(vec![public]).unwrap();
+				let proof_of_knowledge = tss::construct_proof_of_knowledge(
+					peer_id,
+					&[*key.to_scalar().as_ref()],
+					&commitment,
+				)
+				.unwrap();
+				write_signing_share(tss_keyshare_cache, &commitment, &key.to_bytes());
+				Ok(Tss::Disabled(
+					key,
+					Some(TssAction::Commit(commitment, proof_of_knowledge)),
+					false,
+				))
+			}
 		} else {
 			let recover = if let Some(commitment) = commitment {
-				let file_name = signing_share_path(tss_keyshare_cache, &commitment);
-				let bytes = std::fs::read(file_name)?;
-				let signing_share = bincode::deserialize(&bytes)?;
-				Some((signing_share, commitment))
+				Some(read_signing_share(tss_keyshare_cache, &commitment)?)
 			} else {
 				None
 			};
@@ -147,7 +184,7 @@ impl Tss {
 		Ok(())
 	}
 
-	pub fn next_action(&mut self, tss_keyshare_path: &Path) -> Option<TssAction> {
+	pub fn next_action(&mut self, tss_keyshare_cache: &Path) -> Option<TssAction> {
 		let action = match self {
 			Self::Enabled(tss) => tss.next_action(),
 			Self::Disabled(_, action, _) => return action.take(),
@@ -160,17 +197,7 @@ impl Tss {
 				TssAction::Commit(commitment, proof_of_knowledge)
 			},
 			tss::TssAction::Ready(signing_share, commitment, public_key) => {
-				let file_name = signing_share_path(tss_keyshare_path, &commitment);
-				let bytes =
-					bincode::serialize(&signing_share).expect("can serialize signing share");
-				#[cfg(unix)]
-				{
-					use std::{fs::Permissions, os::unix::fs::PermissionsExt};
-					std::fs::set_permissions(&file_name, Permissions::from_mode(0o600)).ok();
-				}
-				if let Err(err) = std::fs::write(file_name, bytes) {
-					tracing::error!("failed to write to tss cache directory {:#?}", err);
-				}
+				write_signing_share(tss_keyshare_cache, &commitment, &signing_share);
 				TssAction::PublicKey(public_key)
 			},
 			tss::TssAction::Signature(id, hash, sig) => TssAction::Signature(id, hash, sig),

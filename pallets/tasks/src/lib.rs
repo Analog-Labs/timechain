@@ -627,32 +627,43 @@ pub mod pallet {
 					networks_assigned.push(network);
 				}
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
-				let network_shards = NetworkShards::<T>::iter_prefix(network)
-					.map(|(s, _)| s)
-					.collect::<Vec<ShardId>>();
 				let mut shard_task_count: BTreeMap<ShardId, u32> = BTreeMap::new();
 				// Assign read event task if not yet assigned
-				if TaskShard::<T>::get(task_id).is_none() {
-					for shard in network_shards.iter() {
+				let registered_shards = if TaskShard::<T>::get(task_id).is_none() {
+					let mut shards = Vec::new();
+					let mut task_assigned = false;
+					for (shard, _) in NetworkShards::<T>::iter_prefix(network) {
+						if Self::is_shard_registered(shard) {
+							shards.push(shard);
+						}
 						let task_count = ShardTaskCount::<T>::get(shard);
-						if task_count >= max_assignable_tasks {
-							shard_task_count.insert(*shard, task_count);
+						if task_count >= max_assignable_tasks || task_assigned {
+							shard_task_count.insert(shard, task_count);
 							continue;
 						} else {
-							Self::assign_task(*shard, task_id);
+							task_assigned = true;
+							Self::assign_task(shard, task_id);
 							num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 							if num_tasks_assigned == max_tasks {
 								return <T as Config>::WeightInfo::schedule_tasks(max_tasks);
 							}
-							shard_task_count.insert(*shard, task_count.saturating_plus_one());
-							break;
+							shard_task_count.insert(shard, task_count.saturating_plus_one());
 						}
 					}
-				}
-				let registered_shards = network_shards
-					.into_iter()
-					.filter(|s| Self::is_shard_registered(*s))
-					.collect::<Vec<ShardId>>();
+					shards
+				} else {
+					NetworkShards::<T>::iter_prefix(network)
+						.filter_map(
+							|(s, _)| {
+								if Self::is_shard_registered(s) {
+									Some(s)
+								} else {
+									None
+								}
+							},
+						)
+						.collect::<Vec<ShardId>>()
+				};
 				if registered_shards.is_empty() {
 					continue;
 				}

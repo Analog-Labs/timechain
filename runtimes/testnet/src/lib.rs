@@ -1007,8 +1007,8 @@ impl pallet_tasks::Config for Runtime {
 	type WeightInfo = weights::tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
-	type MaxTasksPerBlock = ConstU32<50>;
-	type MaxBatchesPerBlock = ConstU32<10>;
+	type MaxTasksPerBlock = ConstU32<285>;
+	type MaxBatchesPerBlock = ConstU32<70>;
 }
 
 parameter_types! {

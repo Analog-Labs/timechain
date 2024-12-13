@@ -617,7 +617,6 @@ pub mod pallet {
 			let mut num_tasks_assigned = 0u32;
 			let max_tasks = T::MaxTasksPerBlock::get();
 			let mut networks_assigned = Vec::new();
-			// Optimize by breaking out of loop early if all networks covered
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				if networks_assigned.contains(&network) {
 					// Max tasks already assigned for this network

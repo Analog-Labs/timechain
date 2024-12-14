@@ -9,24 +9,24 @@ use polkadot_sdk::*;
 
 use frame_benchmarking_cli::ExtrinsicFactory;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
-use frame_support::traits::Get;
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::traits::{Dispatchable, HashingFor, StaticLookup};
-use time_primitives::{AccountId, Balance, Block, BlockHash, Nonce};
-
-use runtime_common::{Address, BalancesCall, PaymentBalanceOf};
-
-use mainnet_runtime::{Runtime as MainnetRuntime, RuntimeApi as MainnetRuntimeApi};
-use testnet_runtime::{Runtime as TestnetRuntime, RuntimeApi as TestnetRuntimeApi};
+use sp_runtime::traits::HashingFor;
+use time_primitives::Block;
 
 use std::sync::Arc;
+use timechain_runtime::{
+	ExistentialDeposit, Runtime, RuntimeApi, RUNTIME_VARIANT, VERSION, WASM_BINARY,
+};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Timechain Node".into()
+		if WASM_BINARY.is_some() {
+			format!("Timechain Node ('{}' v{})", RUNTIME_VARIANT, VERSION.spec_version)
+		} else {
+			"Timechain Node".into()
+		}
 	}
 
 	fn impl_version() -> String {
@@ -62,7 +62,7 @@ impl SubstrateCli for Cli {
 				chain_spec::GenesisKeysConfig::from_json_bytes(
 					&include_bytes!("chains/internal.keys.json")[..],
 				)?
-				.to_staging("staging")?,
+				.to_development("staging")?,
 			),
 			"integration" => Box::new(
 				chain_spec::GenesisKeysConfig::from_json_bytes(
@@ -77,8 +77,7 @@ impl SubstrateCli for Cli {
 				.to_development("development")?,
 			),
 			// Local testing networks
-			"sta" => Box::new(chain_spec::GenesisKeysConfig::default().to_local_staging()?),
-			"dev" => Box::new(chain_spec::GenesisKeysConfig::default().to_local_development()?),
+			"dev" => Box::new(chain_spec::GenesisKeysConfig::default().to_local()?),
 			// External chain spec file
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
@@ -87,37 +86,10 @@ impl SubstrateCli for Cli {
 	}
 }
 
-#[allow(clippy::extra_unused_type_parameters)]
 /// Parse command line arguments into service configuration.
-pub fn run_with<Runtime, RuntimeApi>(mut cli: Cli) -> sc_cli::Result<()>
-where
-	Runtime: frame_system::Config<Hash = BlockHash>
-		+ pallet_transaction_payment::Config
-		+ pallet_balances::Config<Balance = Balance>
-		+ Send
-		+ Sync,
-	Runtime::Lookup: StaticLookup<Source = Address>,
-	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-		+ From<BalancesCall<Runtime>>,
-	PaymentBalanceOf<Runtime>: From<u64>,
-	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
-	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
-		+ sp_api::Metadata<Block>
-		+ sp_session::SessionKeys<Block>
-		+ sp_api::ApiExt<Block>
-		+ sp_offchain::OffchainWorkerApi<Block>
-		+ sp_block_builder::BlockBuilder<Block>
-		+ sp_consensus_babe::BabeApi<Block>
-		+ sp_consensus_grandpa::GrandpaApi<Block>
-		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
-		+ frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-{
-	// Support for custom "--sta" flag
-	if cli.sta {
-		cli.run.shared_params.dev = true;
-		cli.run.shared_params.chain = Some("sta".to_string());
-	}
+pub fn run() -> sc_cli::Result<()> {
+	// Parse command line arguments
+	let cli = Cli::from_args();
 
 	// Parse subcommand to determine what to run
 	match &cli.subcommand {
@@ -194,7 +166,7 @@ where
 							Box::new(TransferKeepAliveBuilder::<Runtime, RuntimeApi>::new(
 								partial.client.clone(),
 								Sr25519Keyring::Alice.to_account_id(),
-								Runtime::ExistentialDeposit::get(),
+								ExistentialDeposit::get(),
 							)),
 						]);
 
@@ -282,18 +254,5 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<Block>(&config))
 		},
-	}
-}
-
-/// Parse command line arguments into service configuration.
-pub fn run() -> sc_cli::Result<()> {
-	let cli = Cli::from_args();
-
-	let chain = cli.run.shared_params.chain.clone().unwrap_or_default();
-
-	match chain.as_str() {
-		"mainnet" | "staging" => run_with::<MainnetRuntime, MainnetRuntimeApi>(cli),
-		"testnet" | "development" => run_with::<TestnetRuntime, TestnetRuntimeApi>(cli),
-		_ => run_with::<TestnetRuntime, TestnetRuntimeApi>(cli),
 	}
 }

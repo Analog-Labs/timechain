@@ -1,7 +1,7 @@
 [workspace.package]
 authors = [ "Analog Devs <https://github.com/Analog-Labs>" ]
 edition = "2021"
-version = "0.7.0"
+version = "0.8.0"
 homepage = "https://analog.one/"
 license = "GPL-3.0-only"
 readme = "README.md"
@@ -26,9 +26,7 @@ members = [
 	"pallets/tasks",
 	"pallets/timegraph",
 	"primitives",
-	"runtimes/common",
-	"runtimes/mainnet",
-	"runtimes/testnet",
+	"runtime",
 	"tc-cli",
 	"tc-subxt",
 	"tc-subxt/metadata",
@@ -49,7 +47,7 @@ async-stream = "0.3.5"
 async-trait = "0.1.80"
 clap = { version = "4.4.18", features = [ "derive" ] }
 env_logger = "0.11.3"
-futures = "0.3.30" 
+futures = "0.3.30"
 hex = "0.4.3"
 log = { version = "0.4.21", default-features = false }
 serde = { version = "1.0.203", default-features = false, features = [ "derive" ] }
@@ -82,12 +80,8 @@ pallet-shards = { path = "pallets/shards", default-features = false }
 pallet-tasks = { path = "pallets/tasks", default-features = false }
 pallet-timegraph = { path = "pallets/timegraph", default-features = false }
 
-# shared code between runtimes (nostd by default)
-runtime-common = { path = "runtimes/common", default-features = false }
-
 # runtimes in workspace
-mainnet-runtime = { path = "runtimes/mainnet" }
-testnet-runtime = { path = "runtimes/testnet" }
+timechain-runtime = { path = "runtime" }
 
 # shared libs in workspace
 gmp = { path = "gmp" }
@@ -99,8 +93,8 @@ tss = { path = "tss" }
 panic = "unwind"
 opt-level = 3
 
-# allow highly optimized production build
-[profile.production]
+# Use highly optimized build on mainnet
+[profile.mainnet]
 inherits = "release"
 lto = true
 codegen-units = 1
@@ -112,7 +106,7 @@ debug = true
 debug-assertions = true
 overflow-checks = true
 
-# make sure dev builds with backtrace do not slow us down
+# Make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
 inherits = "release"
 

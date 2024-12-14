@@ -47,16 +47,11 @@ pub use sp_core::{ed25519, sr25519, H160, H256, H512};
 /// An index to a block.
 pub type BlockNumber = u32;
 
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-/// The type for looking up accounts. We don't expect more than 4 billion of them.
-pub type AccountIndex = u32;
-
+/// Type used to represent balances
 pub type Balance = u128;
 
 /// Type used for expressing timestamp.
@@ -75,17 +70,30 @@ pub type Timestamp = u64;
 
 /// Digest item type.
 pub type DigestItem = generic::DigestItem;
-/// Header type.
+/// Block header type.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-/// Block type.
+/// Opaque block type.
 pub type Block = generic::Block<Header, OpaqueExtrinsic>;
-/// Block ID.
+/// Opaque block ID.
 pub type BlockId = generic::BlockId<Block>;
+
+/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
+pub type Signature = MultiSignature;
 
 /// General Public Key used across the protocol
 pub type PublicKey = MultiSigner;
 
+/// Official timechain SS58 prefix (`an`)
+#[cfg(not(any(feature = "testnet", feature = "develop")))]
 pub const SS_58_FORMAT: u16 = 12850;
+
+/// Unofficial testnet SS58 prefix (`at`)
+#[cfg(feature = "testnet")]
+pub const SS_58_FORMAT: u16 = 12851;
+
+/// Unofficial develop SS58 prefix
+#[cfg(feature = "develop")]
+pub const SS_58_FORMAT: u16 = 12852;
 
 pub fn format_address(account: &AccountId) -> String {
 	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))

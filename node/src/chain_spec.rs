@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sc_chain_spec::json_merge;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::{config::TelemetryEndpoints, ChainType};
 
@@ -16,11 +15,10 @@ use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 
-use mainnet_runtime::WASM_BINARY as MAINNET_RUNTIME;
-use testnet_runtime::WASM_BINARY as TESTNET_RUNTIME;
+use timechain_runtime::WASM_BINARY;
 
-use runtime_common::StakerStatus;
 use time_primitives::{AccountId, Balance, Block, ANLOG, TOKEN_DECIMALS};
+use timechain_runtime::StakerStatus;
 
 const SS_58_FORMAT: u32 = 12850;
 
@@ -47,7 +45,6 @@ const PER_NOMINATOR_STASH: Balance = 8 * PER_NOMINATION;
 const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
-const SUDO_SUPPLY: Balance = ANLOG * 50_000 + PER_CHRONICLE_STASH * 6;
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
 
@@ -76,15 +73,11 @@ pub struct Extensions {
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
-/// Helper enum used in internal calls
-enum RuntimeTarget {
-	Mainnet,
-	Testnet,
-}
-
 /// Helper to parse genesis keys json
 #[derive(serde::Deserialize)]
 pub struct GenesisKeysConfig {
+	/// Genesis members of on-chain technical committee
+	admins: Vec<AccountId>,
 	/// Keys used to bootstrap validator session keys.
 	/// Will match and register session keys to stashes and self-stake them.
 	/// Balance to be staked is controlled by PER_VALIDATOR_UNLOCKED
@@ -93,8 +86,6 @@ pub struct GenesisKeysConfig {
 	chronicles: Vec<AccountId>,
 	/// Optional controller account that will control all nominates stakes
 	controller: Option<AccountId>,
-	/// Genesis members of on-chain council
-	councils: Vec<AccountId>,
 	/// Additional endowed accounts and their balance in ANLOG.
 	endowments: Vec<(AccountId, Balance)>,
 	/// Stashes intended for community nominations.
@@ -104,8 +95,6 @@ pub struct GenesisKeysConfig {
 	/// There has to be at least one stash for every
 	/// session key set. Balance controlled by PER_VALIDATOR_STASH
 	stakes: Vec<AccountId>,
-	/// Root account to controll sudo pallet
-	sudo: AccountId,
 }
 
 impl Default for GenesisKeysConfig {
@@ -114,6 +103,14 @@ impl Default for GenesisKeysConfig {
 		use AccountKeyring::*;
 
 		GenesisKeysConfig {
+			admins: vec![
+				Alice.into(),
+				Bob.into(),
+				Charlie.into(),
+				Dave.into(),
+				Eve.into(),
+				Ferdie.into(),
+			],
 			bootstraps: vec![(
 				Alice.to_raw_public().unchecked_into(),
 				Ed25519Keyring::Alice.to_raw_public().unchecked_into(),
@@ -123,7 +120,6 @@ impl Default for GenesisKeysConfig {
 			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
-			councils: vec![Bob.into(), Charlie.into(), Dave.into(), Eve.into(), Ferdie.into()],
 			endowments: vec![(
 				hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"].into(),
 				TREASURY_SUPPLY,
@@ -137,7 +133,6 @@ impl Default for GenesisKeysConfig {
 				EveStash.into(),
 				FerdieStash.into(),
 			],
-			sudo: Alice.into(),
 		}
 	}
 }
@@ -150,71 +145,24 @@ impl GenesisKeysConfig {
 
 	/// Generate chain candidate for live deployment
 	pub fn to_mainnet(&self) -> Result<ChainSpec, String> {
-		self.to_chain_spec(
-			"analog-timechain",
-			RuntimeTarget::Mainnet,
-			"ANLOG",
-			ChainType::Live,
-			12,
-			8,
-		)
+		self.to_chain_spec("analog-timechain", "ANLOG", ChainType::Live, 12, 8)
 	}
 
-	/// Generate mainnet staging chain for supplied sub-identifier
-	pub fn to_staging(&self, subid: &str) -> Result<ChainSpec, String> {
-		let id = "analog-".to_owned() + subid;
-		self.to_chain_spec(
-			id.as_str(),
-			RuntimeTarget::Mainnet,
-			"SANLOG",
-			ChainType::Development,
-			6,
-			4,
-		)
-	}
-
-	/// Generate testnet development chain for supplied sub-identifier
+	/// Generate development chain for supplied sub-identifier
 	pub fn to_development(&self, subid: &str) -> Result<ChainSpec, String> {
 		let id = "analog-".to_owned() + subid;
-		self.to_chain_spec(
-			id.as_str(),
-			RuntimeTarget::Testnet,
-			"DANLOG",
-			ChainType::Development,
-			6,
-			4,
-		)
+		self.to_chain_spec(id.as_str(), "DANLOG", ChainType::Development, 6, 4)
 	}
 
-	/// Generate a local mainnet chain spec
-	pub fn to_local_staging(&self) -> Result<ChainSpec, String> {
-		self.to_chain_spec(
-			"analog-local-mainnet",
-			RuntimeTarget::Mainnet,
-			"SANLOG",
-			ChainType::Local,
-			3,
-			2,
-		)
-	}
-
-	/// Generate a local testnet chain spec
-	pub fn to_local_development(&self) -> Result<ChainSpec, String> {
-		self.to_chain_spec(
-			"analog-local-testnet",
-			RuntimeTarget::Testnet,
-			"DANLOG",
-			ChainType::Local,
-			3,
-			2,
-		)
+	/// Generate a local chain spec
+	pub fn to_local(&self) -> Result<ChainSpec, String> {
+		self.to_chain_spec("analog-local", "LANLOG", ChainType::Local, 3, 2)
 	}
 
 	/// Generate a chain spec from key config
 	fn to_chain_spec(
 		&self,
 		id: &str,
-		runtime: RuntimeTarget,
 		token_symbol: &str,
 		chain_type: ChainType,
 		shard_size: u16,
@@ -224,11 +172,7 @@ impl GenesisKeysConfig {
 		let name = id.to_case(Case::Title);
 
 		// Ensure wasm binary is available
-		let wasm_binary = match runtime {
-			RuntimeTarget::Mainnet => MAINNET_RUNTIME,
-			RuntimeTarget::Testnet => TESTNET_RUNTIME,
-		}
-		.expect(
+		let wasm_binary = WASM_BINARY.expect(
 			"Development wasm binary is not available. This means the client is built with \
 			 `SKIP_WASM_BUILD` flag and it is only usable for production chains. Please rebuild with \
 			 the flag disabled.",
@@ -278,9 +222,9 @@ impl GenesisKeysConfig {
 		}
 
 		// Budget and endow council stashes
-		let council_supply = self.councils.len() as u128 * PER_COUNCIL_STASH;
+		let council_supply = self.admins.len() as u128 * PER_COUNCIL_STASH;
 		endowments.append(
-			&mut self.councils.iter().map(|x| (x.clone(), PER_COUNCIL_STASH)).collect::<Vec<_>>(),
+			&mut self.admins.iter().map(|x| (x.clone(), PER_COUNCIL_STASH)).collect::<Vec<_>>(),
 		);
 
 		// Budget and endow nominator stashes
@@ -298,9 +242,6 @@ impl GenesisKeysConfig {
 		endowments.append(
 			&mut self.stakes.iter().map(|x| (x.clone(), PER_VALIDATOR_STASH)).collect::<Vec<_>>(),
 		);
-
-		// Endow sudo account
-		endowments.append(&mut vec![(self.sudo.clone(), SUDO_SUPPLY)]);
 
 		// Add simulated supplies
 		endowments.append(&mut vec![
@@ -322,7 +263,11 @@ impl GenesisKeysConfig {
 			),
 			(
 				hex!["62e926d7df56786c766af140cdc9da839c50e60fa0d6722488a1ad235f1c5d1a"].into(),
-				TEAM_SUPPLY - SUDO_SUPPLY - controller_supply - council_supply,
+				TEAM_SUPPLY - controller_supply - council_supply,
+			),
+			(
+				hex!["ca6b881965b230aa52153c972ca0dc3dd0fa0a7453c00b62dec3532716fcd92d"].into(),
+				TREASURY_SUPPLY,
 			),
 			(
 				hex!["f612a8386a524dc0159463e5b2d01624d1730603fac6a5a1191aa32569138c4c"].into(),
@@ -339,7 +284,7 @@ impl GenesisKeysConfig {
 				(
 					self.controller.clone().unwrap_or(self.stakes[i].clone()),
 					self.stakes[i].clone(),
-					testnet_runtime::SessionKeys {
+					timechain_runtime::SessionKeys {
 						babe: x.0.clone(),
 						grandpa: x.1.clone(),
 						im_online: x.2.clone(),
@@ -356,12 +301,12 @@ impl GenesisKeysConfig {
 			.map(|x| (x.1.clone(), x.0.clone(), locked, StakerStatus::<AccountId>::Validator))
 			.collect::<Vec<_>>();
 
-		let mut genesis_patch = serde_json::json!({
+		let genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
 			},
 			"babe": {
-				"epochConfig": runtime_common::BABE_GENESIS_EPOCH_CONFIG,
+				"epochConfig": timechain_runtime::time::BABE_GENESIS_EPOCH_CONFIG,
 			},
 			"elections": {
 				"shardSize": shard_size,
@@ -380,22 +325,10 @@ impl GenesisKeysConfig {
 				"slashRewardFraction": Perbill::from_percent(10),
 				"stakers": stakers
 			},
+			"technicalCommittee": {
+				"members": Some(self.admins.clone()),
+			},
 		});
-
-		let target_patch = match runtime {
-			RuntimeTarget::Mainnet => serde_json::json!({
-				"technicalCommittee": {
-					"members": Some(self.sudo.clone()).iter().chain(self.councils.iter()).collect::<Vec<_>>(),
-				},
-			}),
-			RuntimeTarget::Testnet => serde_json::json!({
-				"sudo": {
-					"key": Some(self.sudo.clone()),
-				},
-			}),
-		};
-
-		json_merge(&mut genesis_patch, target_patch);
 
 		// Put it all together ...
 		let mut builder = ChainSpec::builder(wasm_binary, Default::default())

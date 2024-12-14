@@ -10,7 +10,7 @@ use std::{
 	path::{Path, PathBuf},
 	time::Duration,
 };
-use tc_subxt::{MetadataVariant, SubxtClient};
+use tc_subxt::SubxtClient;
 use time_primitives::NetworkId;
 
 #[derive(Debug, Parser)]
@@ -33,9 +33,6 @@ pub struct ChronicleArgs {
 	/// timechain min balance
 	#[clap(long, default_value_t = 0)]
 	pub timechain_min_balance: u128,
-	/// Metadata version to use to connect to timechain node.
-	#[clap(long)]
-	pub timechain_metadata: MetadataVariant,
 	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
@@ -135,9 +132,7 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let subxt =
-		SubxtClient::with_key(&args.timechain_url, args.timechain_metadata, &timechain_mnemonic)
-			.await?;
+	let subxt = SubxtClient::with_key(&args.timechain_url, &timechain_mnemonic).await?;
 
 	let config = args.config(network_key, target_mnemonic)?;
 

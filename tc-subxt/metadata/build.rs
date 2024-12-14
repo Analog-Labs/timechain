@@ -49,19 +49,13 @@ fn derive(path: &Path, module: &str) -> String {
 	)
 }
 
-fn mainnet(wbuild: &Path) -> String {
-	let mainnet = wbuild.join("mainnet-runtime").join("mainnet_runtime.metadata.scale");
+fn timechain(wbuild: &Path) -> String {
+	let mainnet = wbuild.join("timechain-runtime").join("timechain_runtime.metadata.scale");
 	derive(&mainnet, "timechain")
-}
-
-fn testnet(wbuild: &Path) -> String {
-	let testnet = wbuild.join("testnet-runtime").join("testnet_runtime.metadata.scale");
-	derive(&testnet, "testnet")
 }
 
 fn main() {
 	let out_dir: PathBuf = std::env::var("OUT_DIR").unwrap().into();
 	let wbuild = out_dir.parent().unwrap().parent().unwrap().parent().unwrap().join("wbuild");
-	let metadata = format!("{}\n{}", mainnet(&wbuild), testnet(&wbuild));
-	std::fs::write(out_dir.join("metadata.rs"), metadata).unwrap();
+	std::fs::write(out_dir.join("metadata.rs"), timechain(&wbuild)).unwrap();
 }

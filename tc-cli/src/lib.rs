@@ -50,12 +50,8 @@ impl Tc {
 			tracing::info!("waiting for chain to start");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
-		let runtime = SubxtClient::with_key(
-			&config.global().timechain_url,
-			config.global().metadata_variant,
-			&env.timechain_mnemonic,
-		)
-		.await?;
+		let runtime =
+			SubxtClient::with_key(&config.global().timechain_url, &env.timechain_mnemonic).await?;
 		let mut connectors = HashMap::default();
 		for (id, network) in config.networks() {
 			let id = *id;

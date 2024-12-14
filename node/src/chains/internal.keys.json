@@ -1,4 +1,9 @@
 {
+  "admins": [
+    "an65ZUosuFfPTLJ6jRiotRwEBWxfjE3ZA3rN9khAEuEBbP1vN",
+    "an9CbHiXeALyA5pDGQNfJ8YKF5k8eW5YTHWRsn8ZBEH8tano9",
+    "an5jsJBqi2whFgKyZqBcgS7iY7qjvG1DGVuQsaVcGZaVu7uio"
+  ],
   "bootstraps": [
     [
       "anAHaZkjPoug2r3jsaua4dgVSKpp7hbw6vNRf1QDnAMpxxFBX",
@@ -120,10 +125,6 @@
     "anBH2gEs72QEAc4ufppmXBjHSDrj995UHpattE956aUAYXFGJ"
   ],
   "controller": "anAFMd7NCCekftTGrkhv9oymmZ4biPrmbMGj5mtvfXqeqkSST",
-  "councils": [
-    "an9CbHiXeALyA5pDGQNfJ8YKF5k8eW5YTHWRsn8ZBEH8tano9",
-    "an5jsJBqi2whFgKyZqBcgS7iY7qjvG1DGVuQsaVcGZaVu7uio"
-  ],
   "endowments": [
     ["an5xJhYKVepTVKH3JqeRc126R4iAzV8As9DuXLW9EQkyzhgFf", 100000],
     ["an8MGkKQtjYr2KKPcP1EoNsUwQ6uwEJikZrTXHJ2f1gy8TV1N", 1000000],
@@ -143,5 +144,4 @@
     "anAgptX1bbHCadmbK3PC1XuYhS6GFwK4twTdVgwcZ5SQ8Bu9B",
     "an97D3PKRS9EiDrdzkPXov5H7oD5HzDusmD7ChZiaVDE5yrxu"
   ],
-  "sudo": "an65ZUosuFfPTLJ6jRiotRwEBWxfjE3ZA3rN9khAEuEBbP1vN"
 }

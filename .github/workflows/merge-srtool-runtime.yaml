@@ -49,17 +49,11 @@ jobs:
         include:
           # Name denotes the artifact name in the workflow run
           - name: mainnet
-            chain: mainnet
             features: default
-          - name: staging
-            chain: mainnet
-            features: development
           - name: testnet
-            chain: testnet
-            features: default
-          - name: development
-            chain: testnet
-            features: development
+            features: testnet
+          - name: develop
+            features: develop
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4
@@ -71,8 +65,8 @@ jobs:
         with:
           image: analoglabs/srtool
           tag: 1.79.0
-          chain: ${{ matrix.chain }}
-          runtime_dir: runtimes/${{ matrix.chain }}
+          chain: ${{ matrix.name }}
+          runtime_dir: runtime
       - name: Srtool summary
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq . > timechain-srtool-digest.json
@@ -101,7 +95,7 @@ jobs:
       with:
         # NOTE: the assumption is that it will only deploy on development envs
         # Later we can add an input to specify what the target should be
-        name: development-runtime
+        name: develop-runtime
     - name: Extract runtime
       run: |
         ENV="${{ github.event.inputs.environment }}"

@@ -9,7 +9,49 @@
 //! | testnet | testnet  | testnet |
 //! | develop | develop  | dev     |
 //!
-//! ## Tokenomics
+//! Until we can extract individual package config a bit better,
+//! please check [`Runtime`] and the individual pallets.
+//!
+//! ## Frame Configuration
+//!
+//! |Section       |Pallet                |Config Implementation                               |
+//! |--------------|----------------------|----------------------------------------------------|
+//! |__Core__      |[`System`]            |[`Config`](struct@Runtime#config.System)            |
+//! |              |[`Timestamp`]         |[`Config`](struct@Runtime#config.Timestamp)         |
+//! |__Consensus__ |[`Babe`]              |[`Config`](struct@Runtime#config.Babe)              |
+//! |              |[`Grandpa`]           |[`Config`](struct@Runtime#config.Grandpa)           |
+//! |              |[`ImOnline`]          |[`Config`](struct@Runtime#config.ImOnline)          |
+//! |              |[`AuthorityDiscovery`]|[`Config`](struct@Runtime#config.AuthorityDiscovery)|
+//! |__Tokenomics__|[`Balances`]          |[`Config`](struct@Runtime#config.Balances)          |
+//! |              |[`Authorship`]        |[`Config`](struct@Runtime#config.Authorship)        |
+//! |              |[`TransactionPayment`]|[`Config`](struct@Runtime#config.TransactionPayment)|
+//!
+//! ### Utility
+//! - Vesting
+//! - [`Utility`]
+//! - [`Proxy`]
+//! - [`Multisig`]
+//!
+//! ### Nominated Proof of Stake
+//! - [`ElectionProviderMultiPhase`]
+//! - [`VoterList`]
+//! - [`Staking`]
+//! - [`Offences`]
+//! - [`Session`]
+//! - [`Historical`]
+//!
+//! ### On-chain funding
+//!  - [`Treasury`]
+//!
+//! ### Custom pallets
+//!  - [`Members`]
+//!  - [`Shards`]
+//!  - [`Elections`]
+//!  - [`Tasks`]
+//!  - [`Timegraph`]
+//!  - [`Networks`]
+//!  - [`Governance`]
+//!  - [`Dmail`]
 //!
 //! ## Weights and Fees
 //!
@@ -68,7 +110,6 @@ use frame_election_provider_support::{
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_state, get_preset},
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
@@ -297,54 +338,14 @@ parameter_types! {
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
-/// Calls that can bypass the safe-mode pallet.
-pub struct SafeModeWhitelistedCalls;
-impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
-	fn contains(call: &RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::System(_) | RuntimeCall::SafeMode(_))
-	}
-}
+// === CORE ===
 
-parameter_types! {
-	/// This represents duration of the networks safe mode.
-	/// Safe mode is typically activated in response to potential threats or instabilities
-	/// to restrict certain network operations.
-	pub const EnterDuration: BlockNumber = 1 * DAYS;
-	/// The deposit amount required to initiate the safe mode entry process.
-	/// This ensures that only participants with a significant economic stake (2,000,000 ANLOG tokens)
-	/// can trigger safe mode, preventing frivolous or malicious activations.
-	pub const EnterDepositAmount: Balance = 5_000_000 * ANLOG;  // ~5.5% of overall supply
-	/// The safe mode duration (in blocks) can be to extended.
-	/// This represents an additional 2 hours before an extension can be applied,
-	/// ensuring that any continuation of safe mode is deliberate and considered.
-	pub const ExtendDuration: BlockNumber = 12 * HOURS;
-	/// This ensures that participants must provide a moderate economic stake (1,000,000 ANLOG tokens)
-	/// to request an extension of safe mode, making it a costly action to prolong the restricted state.
-	pub const ExtendDepositAmount: Balance = 2_000_000 * ANLOG;
-	/// The minimal duration a deposit will remain reserved after safe-mode is entered or extended,
-	/// unless ['Pallet::force_release_deposit'] is successfully called sooner, acts as a security buffer
-	/// to ensure stability and allow for safe recovery from critical events
-	pub const ReleaseDelay: u32 = 2 * DAYS;
-}
-
-impl pallet_safe_mode::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type WhitelistedCalls = SafeModeWhitelistedCalls;
-	type EnterDuration = EnterDuration;
-	type EnterDepositAmount = EnterDepositAmount;
-	type ExtendDuration = ExtendDuration;
-	type ExtendDepositAmount = ExtendDepositAmount;
-	type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, ConstU32<9>>;
-	type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, ConstU32<11>>;
-	type ForceExitOrigin = EnsureRoot<AccountId>;
-	type ForceDepositOrigin = EnsureRoot<AccountId>;
-	type ReleaseDelay = ReleaseDelay;
-	type Notify = ();
-	type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
-}
-
+/// ## 00 - <a id="config.System">[`System`] Config</a>
+///
+/// Represents the runtime base configuration, pretty standard appart from:
+/// - [`BaseCallFilter`](#associatedtype.BaseCallFilter) is currently set to support safe mode
+/// - [`AccountData`](#associatedtype.AccountData) is managed by [`Balances`]
+/// - [`SS58Prefix`](#associatedtype.SS58Prefix) is registered for mainnet, rest is unofficial
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = SafeMode;
@@ -359,9 +360,245 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	#[cfg(not(any(feature = "testnet", feature = "develop")))]
 	type SS58Prefix = ConstU16<12850>;
+	#[cfg(all(feature = "testnet", not(feature = "develop")))]
+	type SS58Prefix = ConstU16<12851>;
+	#[cfg(feature = "develop")]
+	type SS58Prefix = ConstU16<12852>;
 	type MaxConsumers = ConstU32<16>;
 }
+
+parameter_types! {
+	/// minimum valid timeperiod
+	pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
+}
+
+/// ## 01 - <a id="config.Timestamp">[`Timestamp`] Config</a>
+///
+/// timestamp extension
+impl pallet_timestamp::Config for Runtime {
+	type Moment = Moment;
+	type OnTimestampSet = Babe;
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
+}
+
+// === CONSENSUS ===
+
+parameter_types! {
+	/// An epoch is a unit of time used for key operations in the consensus mechanism, such as validator
+	/// rotations and randomness generation. Once set at genesis, this value cannot be changed without
+	/// breaking block production.
+	///
+	/// Note: Do not attempt to modify after chain launch, as it will cause serious issues with block production.
+	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
+	/// This defines the interval at which new blocks are produced in the blockchain. It impacts
+	/// the speed of transaction processing and finality, as well as the load on the network
+	/// and validators. The value is defined in milliseconds.
+	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+	/// This defines how long a misbehavior reports in the staking or consensus system
+	/// remains valid before it expires. It is based on the bonding
+	/// duration, sessions per era, and the epoch duration. The longer the bonding duration or
+	/// number of sessions per era, the longer reports remain valid.
+	pub const ReportLongevity: u64 =
+		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+}
+
+/// ## 02 - <a id="config.Babe">[`Babe`] Config</a>
+///
+/// babe block production
+impl pallet_babe::Config for Runtime {
+	type EpochDuration = EpochDuration;
+	type ExpectedBlockTime = ExpectedBlockTime;
+	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
+	type DisabledValidators = Session;
+	type WeightInfo = ();
+	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominators;
+	type KeyOwnerProof =
+		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+	type EquivocationReportSystem =
+		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
+}
+
+parameter_types! {
+	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+}
+
+/// ## 03 - <a id="config.Grandpa">[`Grandpa`] Config</a>
+///
+/// grandpa finality gadget
+impl pallet_grandpa::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominators;
+	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
+	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type EquivocationReportSystem =
+		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
+}
+
+/// ## 04 - <a id="config.ImOnline">[`ImOnline`] Config</a>
+///
+/// validator heartbeats
+impl pallet_im_online::Config for Runtime {
+	type AuthorityId = ImOnlineId;
+	type RuntimeEvent = RuntimeEvent;
+	type NextSessionRotation = Babe;
+	type ValidatorSet = Historical;
+	type ReportUnresponsiveness = Offences;
+	type UnsignedPriority = ImOnlineUnsignedPriority;
+	type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
+	type MaxKeys = MaxKeys;
+	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+}
+
+/// ## 05 - <a id="config.AuthorityDiscovery">[`AuthorityDiscovery`] Config</a>
+///
+/// Add validator peer discovery, takes minimal configuration
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = MaxAuthorities;
+}
+
+// === TOKENOMICS ===
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+parameter_types! {
+	/// Minimum allowed account balance under which account will be reaped
+	pub const ExistentialDeposit: Balance = 1 * ANLOG;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
+	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
+}
+
+pub struct Author;
+impl OnUnbalanced<NegativeImbalance> for Author {
+	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+		if let Some(author) = Authorship::author() {
+			Balances::resolve_creating(&author, amount);
+		}
+	}
+}
+
+type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
+
+pub struct DealWithFees;
+impl OnUnbalanced<NegativeImbalance> for DealWithFees {
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+		if let Some(fees) = fees_then_tips.next() {
+			// for fees, 80% to treasury, 20% to author
+			let mut split = fees.ration(80, 20);
+			if let Some(tips) = fees_then_tips.next() {
+				// for tips, if any, 80% to treasury, 20% to author (though this can be anything)
+				tips.ration_merge_into(80, 20, &mut split);
+			}
+			Treasury::on_unbalanced(split.0);
+			Author::on_unbalanced(split.1);
+		}
+	}
+}
+
+parameter_types! {
+	// For weight estimation, we assume that the most locks on an individual account will be 50.
+	// This number may need to be adjusted in the future if this assumption no longer holds true.
+	pub const MaxLocks: u32 = 50;
+	pub const MaxReserves: u32 = 50;
+}
+
+/// ## 06 - <a id="config.Balances">[`Balances`] Config</a>
+///
+/// Add balance tracking and transfers
+impl pallet_balances::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type MaxLocks = MaxLocks;
+	type MaxReserves = MaxReserves;
+	type ReserveIdentifier = [u8; 8];
+	type Balance = Balance;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = frame_system::Pallet<Runtime>;
+	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
+}
+
+/// ## 07 - <a id="config.Authorship">[`Authorship`] Config</a>
+///
+/// Integrate block authorship with rest of runtime
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
+	type EventHandler = (Staking, ImOnline);
+}
+
+parameter_types! {
+	/// Multiplier for operational fees, set to 5.
+	pub const OperationalFeeMultiplier: u8 = 5;
+
+	/// The target block fullness level, set to 25%.
+	/// This determines the block saturation level, and fees will adjust based on this value.
+	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+
+	/// Adjustment variable for fee calculation, set to 1/100,000.
+	/// This value influences how rapidly the fee multiplier changes.
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
+
+	/// Minimum fee multiplier, set to 1/1,000,000,000.
+	/// This represents the smallest possible fee multiplier to prevent fees from dropping too low.
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+
+	/// Maximum fee multiplier, set to the maximum possible value of the `Multiplier` type.
+	pub MaximumMultiplier: Multiplier = Bounded::max_value();
+}
+
+/// Parameterized slow adjusting fee updated based on
+/// <https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html#-2.-slow-adjusting-mechanism>
+pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
+	R,
+	TargetBlockFullness,
+	AdjustmentVariable,
+	MinimumMultiplier,
+	MaximumMultiplier,
+>;
+
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
+/// ## 08 - <a id="config.TransactionPayment">[`TransactionPayment`] Config</a>
+///
+/// Charge users for their transactions according to the transactions weight.
+/// - [`WeightToFee`](#associatedtype.WeightToFee) is a custom curve, for details see [`crate::fee`]
+/// - [`LengtToFee`](#associatedtype.LengthToFee) is a custom curve, for details see [`crate::fee`]
+impl pallet_transaction_payment::Config for Runtime {
+	/// The event type that will be emitted for transaction payment events.
+	type RuntimeEvent = RuntimeEvent;
+
+	/// Specifies the currency adapter used for charging transaction fees.
+	/// The `CurrencyAdapter` is used to charge the fees and deal with any adjustments or redistribution of those fees.
+	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+
+	/// The multiplier applied to operational transaction fees.
+	/// Operational fees are used for transactions that are essential for the network's operation.
+	type OperationalFeeMultiplier = OperationalFeeMultiplier;
+
+	/// Defines how the weight of a transaction is converted to a fee.
+	type WeightToFee = WeightToFee;
+
+	/// Defines a constant multiplier for the length (in bytes) of a transaction, applied as an additional fee.
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
+
+	/// Defines how the fee multiplier is updated based on the block fullness.
+	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
+	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+}
+
+// === NEXT TO DOCUMENT ===
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -468,174 +705,6 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
-}
-
-parameter_types! {
-	/// An epoch is a unit of time used for key operations in the consensus mechanism, such as validator
-	/// rotations and randomness generation. Once set at genesis, this value cannot be changed without
-	/// breaking block production.
-	///
-	/// Note: Do not attempt to modify after chain launch, as it will cause serious issues with block production.
-	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
-	/// This defines the interval at which new blocks are produced in the blockchain. It impacts
-	/// the speed of transaction processing and finality, as well as the load on the network
-	/// and validators. The value is defined in milliseconds.
-	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
-	/// This defines how long a misbehavior reports in the staking or consensus system
-	/// remains valid before it expires. It is based on the bonding
-	/// duration, sessions per era, and the epoch duration. The longer the bonding duration or
-	/// number of sessions per era, the longer reports remain valid.
-	pub const ReportLongevity: u64 =
-		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
-}
-
-impl pallet_babe::Config for Runtime {
-	type EpochDuration = EpochDuration;
-	type ExpectedBlockTime = ExpectedBlockTime;
-	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
-	type DisabledValidators = Session;
-	type WeightInfo = ();
-	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominators;
-	type KeyOwnerProof =
-		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
-	type EquivocationReportSystem =
-		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
-}
-
-#[cfg(not(feature = "runtime-benchmarks"))]
-parameter_types! {
-	/// Minimum allowed account balance under which account will be reaped
-	pub const ExistentialDeposit: Balance = 1 * ANLOG;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
-	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
-}
-
-pub struct Author;
-impl OnUnbalanced<NegativeImbalance> for Author {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		if let Some(author) = Authorship::author() {
-			Balances::resolve_creating(&author, amount);
-		}
-	}
-}
-
-type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
-
-pub struct DealWithFees;
-impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
-		if let Some(fees) = fees_then_tips.next() {
-			// for fees, 80% to treasury, 20% to author
-			let mut split = fees.ration(80, 20);
-			if let Some(tips) = fees_then_tips.next() {
-				// for tips, if any, 80% to treasury, 20% to author (though this can be anything)
-				tips.ration_merge_into(80, 20, &mut split);
-			}
-			Treasury::on_unbalanced(split.0);
-			Author::on_unbalanced(split.1);
-		}
-	}
-}
-
-parameter_types! {
-	// For weight estimation, we assume that the most locks on an individual account will be 50.
-	// This number may need to be adjusted in the future if this assumption no longer holds true.
-	pub const MaxLocks: u32 = 50;
-	pub const MaxReserves: u32 = 50;
-}
-
-impl pallet_balances::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxLocks = MaxLocks;
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = frame_system::Pallet<Runtime>;
-	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
-}
-
-parameter_types! {
-
-	/// Multiplier for operational fees, set to 5.
-	pub const OperationalFeeMultiplier: u8 = 5;
-
-	/// The target block fullness level, set to 25%.
-	/// This determines the block saturation level, and fees will adjust based on this value.
-	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
-
-	/// Adjustment variable for fee calculation, set to 1/100,000.
-	/// This value influences how rapidly the fee multiplier changes.
-	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
-
-	/// Minimum fee multiplier, set to 1/1,000,000,000.
-	/// This represents the smallest possible fee multiplier to prevent fees from dropping too low.
-	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
-
-	/// Maximum fee multiplier, set to the maximum possible value of the `Multiplier` type.
-	pub MaximumMultiplier: Multiplier = Bounded::max_value();
-}
-
-/// Parameterized slow adjusting fee updated based on
-/// <https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html#-2.-slow-adjusting-mechanism>
-pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
-	R,
-	TargetBlockFullness,
-	AdjustmentVariable,
-	MinimumMultiplier,
-	MaximumMultiplier,
->;
-
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-impl pallet_transaction_payment::Config for Runtime {
-	/// The event type that will be emitted for transaction payment events.
-	type RuntimeEvent = RuntimeEvent;
-
-	/// Specifies the currency adapter used for charging transaction fees.
-	/// The `CurrencyAdapter` is used to charge the fees and deal with any adjustments or redistribution of those fees.
-	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
-
-	/// The multiplier applied to operational transaction fees.
-	/// Operational fees are used for transactions that are essential for the network's operation.
-	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-
-	/// Defines how the weight of a transaction is converted to a fee.
-	type WeightToFee = WeightToFee;
-
-	/// Defines a constant multiplier for the length (in bytes) of a transaction, applied as an additional fee.
-	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
-
-	/// Defines how the fee multiplier is updated based on the block fullness.
-	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
-	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
-}
-
-parameter_types! {
-	pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
-}
-
-impl pallet_timestamp::Config for Runtime {
-	type Moment = Moment;
-	type OnTimestampSet = Babe;
-	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
-}
-
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = (Staking, ImOnline);
 }
 
 impl_opaque_keys! {
@@ -1298,41 +1367,10 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 
-impl pallet_im_online::Config for Runtime {
-	type AuthorityId = ImOnlineId;
-	type RuntimeEvent = RuntimeEvent;
-	type NextSessionRotation = Babe;
-	type ValidatorSet = Historical;
-	type ReportUnresponsiveness = Offences;
-	type UnsignedPriority = ImOnlineUnsignedPriority;
-	type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;
-	type MaxKeys = MaxKeys;
-	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-}
-
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
-}
-
-impl pallet_authority_discovery::Config for Runtime {
-	type MaxAuthorities = MaxAuthorities;
-}
-
-parameter_types! {
-	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
-}
-
-impl pallet_grandpa::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominators;
-	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-	type EquivocationReportSystem =
-		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
 
 parameter_types! {
@@ -1489,6 +1527,56 @@ impl pallet_governance::Config for Runtime {
 	type StakingAdmin = StakingAdmin;
 }
 
+// === Temporary pallets
+
+/// Calls that can bypass the safe-mode pallet.
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+	fn contains(call: &RuntimeCall) -> bool {
+		matches!(call, RuntimeCall::System(_) | RuntimeCall::SafeMode(_))
+	}
+}
+
+parameter_types! {
+	/// This represents duration of the networks safe mode.
+	/// Safe mode is typically activated in response to potential threats or instabilities
+	/// to restrict certain network operations.
+	pub const EnterDuration: BlockNumber = 1 * DAYS;
+	/// The deposit amount required to initiate the safe mode entry process.
+	/// This ensures that only participants with a significant economic stake (2,000,000 ANLOG tokens)
+	/// can trigger safe mode, preventing frivolous or malicious activations.
+	pub const EnterDepositAmount: Balance = 5_000_000 * ANLOG;  // ~5.5% of overall supply
+	/// The safe mode duration (in blocks) can be to extended.
+	/// This represents an additional 2 hours before an extension can be applied,
+	/// ensuring that any continuation of safe mode is deliberate and considered.
+	pub const ExtendDuration: BlockNumber = 12 * HOURS;
+	/// This ensures that participants must provide a moderate economic stake (1,000,000 ANLOG tokens)
+	/// to request an extension of safe mode, making it a costly action to prolong the restricted state.
+	pub const ExtendDepositAmount: Balance = 2_000_000 * ANLOG;
+	/// The minimal duration a deposit will remain reserved after safe-mode is entered or extended,
+	/// unless ['Pallet::force_release_deposit'] is successfully called sooner, acts as a security buffer
+	/// to ensure stability and allow for safe recovery from critical events
+	pub const ReleaseDelay: u32 = 2 * DAYS;
+}
+
+impl pallet_safe_mode::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type WhitelistedCalls = SafeModeWhitelistedCalls;
+	type EnterDuration = EnterDuration;
+	type EnterDepositAmount = EnterDepositAmount;
+	type ExtendDuration = ExtendDuration;
+	type ExtendDepositAmount = ExtendDepositAmount;
+	type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, ConstU32<9>>;
+	type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, ConstU32<11>>;
+	type ForceExitOrigin = EnsureRoot<AccountId>;
+	type ForceDepositOrigin = EnsureRoot<AccountId>;
+	type ReleaseDelay = ReleaseDelay;
+	type Notify = ();
+	type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
+}
+
 /// Main runtime assembly
 #[frame_support::runtime]
 mod runtime {
@@ -1511,22 +1599,28 @@ mod runtime {
 	// = SDK pallets =
 
 	// Core pallets
+	/// Current configuration can be found here [here](struct@Runtime#config.System).
 	#[runtime::pallet_index(0)]
 	pub type System = frame_system;
 
+	/// Current configuration can be found here [here](struct@Runtime#config.Timestamp).
 	#[runtime::pallet_index(1)]
 	pub type Timestamp = pallet_timestamp;
 
 	// Block production, finality, heartbeat and discovery
+	/// Current configuration can be found here [here](struct@Runtime#config.Babe).
 	#[runtime::pallet_index(2)]
 	pub type Babe = pallet_babe;
 
+	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
 	#[runtime::pallet_index(3)]
 	pub type Grandpa = pallet_grandpa;
 
+	/// Current configuration can be found here [here](struct@Runtime#config.ImOnline).
 	#[runtime::pallet_index(4)]
 	pub type ImOnline = pallet_im_online;
 
+	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
 	#[runtime::pallet_index(5)]
 	pub type AuthorityDiscovery = pallet_authority_discovery;
 
@@ -1991,11 +2085,14 @@ impl_runtime_apis! {
 	/// - __genesis-builder__: support generation of custom genesis
 	#[cfg(feature = "genesis-builder")]
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			use frame_support::genesis_builder_helper::build_state;
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			use frame_support::genesis_builder_helper::get_preset;
 			get_preset::<RuntimeGenesisConfig>(id, |_| None)
 		}
 

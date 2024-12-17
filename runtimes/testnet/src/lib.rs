@@ -1241,7 +1241,11 @@ impl_runtime_apis! {
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
-			Executive::apply_extrinsic(extrinsic)
+			let result = Executive::apply_extrinsic(extrinsic.clone());
+			if let Err(e) = result {
+				panic!("Failed extrinsic: {:?}, error: {:?}", extrinsic, e);
+			}
+			result
 		}
 
 		fn finalize_block() -> <Block as BlockT>::Header {

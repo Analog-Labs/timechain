@@ -28,24 +28,24 @@ case "$(uname -m)" in
 esac
 
 # Evaluate optional environment argument
-environment="${1:-development}"
+environment="${1:-develop}"
 case "${environment}" in
 	mainnet)
-		profile=production
+		profile=mainnet
 		features=default
 		;;
 	testnet)
 		profile=testnet
-		features=default
+		features=testnet
 		;;
-	staging|development)
-		profile=testnet
-		features=development
+	develop)
+		profile=dev
+		features=develop
 		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"
-		echo >&2 "      - options: mainnet staging testnet development"
-		echo >&2 "      - default: development"
+		echo >&2 "      - options: mainnet testnet develop"
+		echo >&2 "      - default: develop"
 		exit 1
 		;;
 esac

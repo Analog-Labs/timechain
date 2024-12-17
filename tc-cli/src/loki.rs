@@ -1,7 +1,7 @@
 use crate::env::Loki;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use time_primitives::TaskId;
+use time_primitives::{ShardId, TaskId};
 
 //const DIRECTION_FORWARD: &'static str = "FORWARD";
 //const DIRECTION_BACKWARD: &'static str = "BACKWARD";
@@ -35,6 +35,7 @@ struct StreamValue {
 #[derive(Clone, Debug, clap::Parser)]
 pub enum Query {
 	Task { task: TaskId },
+	Shard { shard: ShardId },
 	Raw { query: String },
 }
 
@@ -43,6 +44,9 @@ impl std::fmt::Display for Query {
 		match self {
 			Self::Task { task } => {
 				write!(f, r#"{{app="chronicle"}} |~ `task_id(.*)=(.*){task}`"#)
+			},
+			Self::Shard { shard } => {
+				write!(f, r#"{{app="chronicle"}} |~ `shard_id(.*)=(.*){shard}`"#)
 			},
 			Self::Raw { query } => f.write_str(query),
 		}

@@ -1,5 +1,6 @@
 use alloy_primitives::U256;
-use time_primitives::NetworkId;
+
+use crate::{a_addr, t_addr};
 
 alloy_sol_types::sol! {
 	#[derive(Debug, Default, PartialEq, Eq)]
@@ -16,13 +17,12 @@ alloy_sol_types::sol! {
 
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct GmpMessage {
+		bytes32 source;
 		uint16 srcNetwork;
+		address dest;
 		uint16 destNetwork;
-		bytes32 src;
-		bytes32 dest;
-		uint64 nonce;
-		uint128 gasLimit;
-		uint128 gasCost;
+		uint256 gasLimit;
+		uint256 salt;
 		bytes data;
 	}
 
@@ -98,22 +98,30 @@ alloy_sol_types::sol! {
 			bytes data
 		);
 
-		// #[derive(Debug, Default, PartialEq, Eq)]
-		// struct GmpMessage {
-		// 	bytes32 foreign; destinationAddress
-		// 	uint16 foreign_network; destinationNetwork
-		// 	address local; source
-		// 	uint128 gasLimit; execution gas limit
-		// 	uint128 gasCost; we dont have
-		// 	uint64 nonce; salt
-		// 	bytes data; data
-		// }
+		// event MessageExecuted(
+		// 	bytes32 indexed id,
+		// 	bytes32 indexed source,
+		// 	address indexed dest,
+		// 	uint256 status,
+		// 	bytes32 result
+		// );
 
-		event MessageExecuted(
+
+		#[derive(Debug)]
+		enum GmpStatus {
+			NOT_FOUND,
+			SUCCESS,
+			REVERT,
+			INSUFFICIENT_FUNDS,
+			PENDING
+		}
+
+		#[derive(Debug)]
+		event GmpExecuted(
 			bytes32 indexed id,
 			bytes32 indexed source,
 			address indexed dest,
-			uint256 status,
+			GmpStatus status,
 			bytes32 result
 		);
 
@@ -230,11 +238,11 @@ impl From<GmpMessage> for time_primitives::GmpMessage {
 		Self {
 			src_network: msg.srcNetwork,
 			dest_network: msg.destNetwork,
-			src: msg.src.into(),
-			dest: msg.dest.into(),
-			nonce: msg.nonce,
-			gas_limit: msg.gasLimit,
-			gas_cost: msg.gasCost,
+			src: msg.source.into(),
+			dest: t_addr(msg.dest),
+			nonce: msg.salt.try_into().unwrap(),
+			gas_limit: msg.gasLimit.try_into().unwrap(),
+			gas_cost: 0,
 			bytes: msg.data.into(),
 		}
 	}
@@ -245,11 +253,10 @@ impl From<time_primitives::GmpMessage> for GmpMessage {
 		Self {
 			srcNetwork: msg.src_network,
 			destNetwork: msg.dest_network,
-			src: msg.src.into(),
-			dest: msg.dest.into(),
-			nonce: msg.nonce,
-			gasLimit: msg.gas_limit,
-			gasCost: msg.gas_cost,
+			source: msg.src.into(),
+			dest: a_addr(msg.dest),
+			salt: U256::from(msg.nonce),
+			gasLimit: U256::from(msg.gas_limit),
 			data: msg.bytes.into(),
 		}
 	}

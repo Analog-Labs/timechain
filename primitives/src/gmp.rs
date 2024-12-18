@@ -3,6 +3,7 @@ use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sha3::Digest;
 
 pub type Address = [u8; 32];
 pub type Gateway = Address;
@@ -48,31 +49,36 @@ pub struct GmpMessage {
 }
 
 impl GmpMessage {
-	const HEADER_LEN: usize = 93;
+	const HEADER_LEN: usize = 224;
 
 	pub fn encoded_len(&self) -> usize {
 		Self::HEADER_LEN + self.bytes.len()
 	}
 
-	fn encode_header(&self) -> [u8; 93] {
-		let mut hdr = [0; Self::HEADER_LEN];
-		hdr[0] = 0; // struct version
-		hdr[1..3].copy_from_slice(&self.src_network.to_be_bytes());
-		hdr[3..5].copy_from_slice(&self.dest_network.to_be_bytes());
-		hdr[5..37].copy_from_slice(&self.src);
-		hdr[37..69].copy_from_slice(&self.dest);
-		hdr[69..85].copy_from_slice(&self.gas_limit.to_be_bytes());
-		hdr[85..93].copy_from_slice(&self.nonce.to_be_bytes());
+	fn encode_header(&self) -> [u8; 224] {
+		// we dont include gasCost here due to its dynamic nature
+		let mut hdr = [0u8; 224];
+		// Leaving initial 32 bytes with padded 0's
+		hdr[32..64].copy_from_slice(&self.src);
+		// Leaving 30 bytes with padded 0's
+		hdr[94..96].copy_from_slice(&self.src_network.to_be_bytes());
+		hdr[96..128].copy_from_slice(&self.dest);
+		// Leaving 30 bytes with padded 0's
+		hdr[158..160].copy_from_slice(&self.dest_network.to_be_bytes());
+		// Leaving 16 bytes with padded 0's
+		hdr[176..192].copy_from_slice(&self.gas_limit.to_be_bytes());
+		// Leaving 16 bytes with padded 0's
+		hdr[216..224].copy_from_slice(&self.nonce.to_be_bytes());
 		hdr
 	}
 
 	pub fn encode_to(&self, buf: &mut Vec<u8>) {
+		let msg_hash: [u8; 32] = sha3::Keccak256::digest(&self.bytes).into();
 		buf.extend_from_slice(&self.encode_header());
-		buf.extend_from_slice(&self.bytes);
+		buf.extend_from_slice(&msg_hash);
 	}
 
 	pub fn message_id(&self) -> MessageId {
-		use sha3::Digest;
 		let msg_hash: [u8; 32] = sha3::Keccak256::digest(&self.bytes).into();
 		let mut hasher = sha3::Keccak256::new();
 		hasher.update(self.encode_header());

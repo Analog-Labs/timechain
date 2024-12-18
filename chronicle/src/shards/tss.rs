@@ -162,7 +162,11 @@ impl Tss {
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data),
 			Self::Disabled(key, actions, _) => {
-				let hash = VerifyingKey::message_hash(&data);
+				let hash = if data.len() != 32 {
+					VerifyingKey::message_hash(&data)
+				} else {
+					data.try_into().unwrap()
+				};
 				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
 			},
 		}

@@ -20,9 +20,9 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpEvent, GmpMessage,
+	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
 	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature, H160,
+	TssPublicKey, TssSignature,
 };
 
 use crate::sol::{ProxyContext, ProxyDigest};

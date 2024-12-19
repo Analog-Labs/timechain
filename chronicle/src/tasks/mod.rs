@@ -146,7 +146,11 @@ impl TaskParams {
 						}
 					}
 				}
-				Some(TaskResult::SubmitGatewayMessage { error: err_vec })
+				if !err_vec.0.is_empty() {
+					Some(TaskResult::SubmitGatewayMessage { error: err_vec })
+				} else {
+					None
+				}
 			},
 		};
 		if let Some(result) = result {

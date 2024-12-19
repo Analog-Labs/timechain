@@ -9,7 +9,7 @@ contracts:
     additional_params: "../../../gmp/evm/factory/additional_config.json"
     proxy: "../../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
     gateway: "../../../analog-gmp/out/Gateway.sol/Gateway.json"
-    tester: "../../../analog-gmp/out/GmpProxy.sol/GatewayProxy.json"
+    tester: "../../../analog-gmp/out/GmpProxy.sol/GmpProxy.json"
 networks:
   0:
     backend: "grpc"

@@ -11,6 +11,19 @@ agnostic abstraction.
 A group of chronicles form a shard to create threshold signatures and execute tasks assigned by the
 timechain.
 
+## Repo structure
+analog-gmp: evm gateway implementation
+chronicle: chronicle
+config: configuration files for various components
+docs: documentation
+gmp: gmp backend implementations
+node: timechain implementation
+pallets: custom pallets for timechain runtime
+primitives: basic data structures shared by the codebase
+runtime: custom timechain runtime
+tc-cli: command line tool to interface with the timechain
+tss: threshold signing state machine
+
 # Configuration
 Timechain is configured in a `config.yaml` file. Secrets are stored in a `.env` file. These are
 stored in the `config/envs/$ENVIRONMENT` directory.

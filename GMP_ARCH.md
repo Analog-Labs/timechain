@@ -8,6 +8,23 @@ as a `prices.csv` file.
 tc-cli --config ./config/envs/development/config.yaml fetch-token-price-data
 ```
 
+# Chronicle configuration
+Chronicle is configured by command line flags. Most important ones are the `--network-id`, `--target-url`,
+`--timechain-url`, `--target-keyfile`, `--timechain-keyfile`. If the keyfiles don't exist a new key is
+generated. The target url and keyfile are passed to a gmp backend which the chronicle uses to interface
+with a target chain.
+
+During startup the chronicle waits for a network to be registered on the timechain with the supplied
+network id and waits for the timechain and target accounts to have a minimum balance.
+
+To manage a swarm of chronicles the `tc-cli` can be used. The urls of the chronicles are read from
+`config.yaml` and the chronicle managment interface is used to get all the necessary information about
+the chronicle like public keys.
+
+```
+tc-cli --config ./config/envs/development/config.yaml chronicles
+```
+
 # Deployment
 Once the timechain nodes, chronicles and rpc nodes are started, the timechain is configured with the
 deploy command.
@@ -25,7 +42,7 @@ Deployment performs the following steps:
 - network is registered in the timechain
 - minimum balance is deposited in the gateway
 3. gateway routes are registered
-4. register chronicles
+4. register chronicles in the timechain
 - chronicle minimum timechain balance is transfered
 - chronicle minimum target chain balance is transfered
 - chronicle is registered on timechain, stake is provided by tc-cli

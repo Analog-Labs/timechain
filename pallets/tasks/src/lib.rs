@@ -361,11 +361,7 @@ pub mod pallet {
 					let expected_signer =
 						TaskSubmitter::<T>::get(task_id).map(|s| s.into_account());
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
-					if error.0.is_empty() {
-						Ok(())
-					} else {
-						Err(error)
-					}
+					Err(error)
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};

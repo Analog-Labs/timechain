@@ -23,12 +23,25 @@ Deployment performs the following steps:
 2. networks are deployed
 - gateway is deployed
 - network is registered in the timechain
-- gateway is minimum balance is deposited
+- minimum balance is deposited in the gateway
 3. gateway routes are registered
 4. register chronicles
 - chronicle minimum timechain balance is transfered
 - chronicle minimum target chain balance is transfered
 - chronicle is registered on timechain, stake is provided by tc-cli
+
+## Gateway deployment on EVM chains
+The deployment of the gateway on an evm chain is performed by the gmp-evm backend. This involves
+deploying three smart contracts.
+
+1. the universal factory
+this is the contract that will later deploy the proxy, ensuring that the proxy has the same address
+on every evm chain.
+2. the gateway proxy
+this is the contract that manages gateway updates. It forwards all calls to the actuall gateway contract.
+3. the gateway
+this is the contract implementing the gateway logic
+
 
 After the networks, routes and chronicles are automatically configured the timechain starts
 the shard creation process.
@@ -89,8 +102,8 @@ following events:
 The timechain creates a batch respecting the per network batch gas limit. A submit batch task is
 created and assigned to a shard, a member of the shard is assigned as the batch submitter. The
 batch is tss signed and the submitter submits the batch with a valid signature. The batch submitter
-is expected to eventually succeed and keep retrying submission until the submitting transaction is
-finalized. The gateway is not permitted to throw any errors on batch submission.
+is expected to eventually succeed and keep resubmitting the transaction until it is finalized. The
+gateway is not permitted to throw any errors on batch submission.
 
 # Reimbusting the batch transaction cost
 Submitting a batch has a transaction cost. We reimburst it to chronicles to ensure they don't

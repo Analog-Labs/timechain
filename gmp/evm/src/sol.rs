@@ -98,15 +98,6 @@ alloy_sol_types::sol! {
 			bytes data
 		);
 
-		// event MessageExecuted(
-		// 	bytes32 indexed id,
-		// 	bytes32 indexed source,
-		// 	address indexed dest,
-		// 	uint256 status,
-		// 	bytes32 result
-		// );
-
-
 		#[derive(Debug)]
 		enum GmpStatus {
 			NOT_FOUND,

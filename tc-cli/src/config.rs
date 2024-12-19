@@ -37,7 +37,7 @@ impl Config {
 		&self.yaml.config
 	}
 
-	pub fn chronicles(&self) -> Vec<String> {
+	pub fn _chronicles(&self) -> Vec<String> {
 		let mut chronicles = vec![];
 		for (_, network_config) in self.networks() {
 			chronicles.extend(network_config.chronicles.clone());

@@ -332,7 +332,7 @@ impl IConnectorBuilder for Connector {
 			wallet,
 			backend: adapter,
 		};
-		// TODO Discuss keyfile issue
+		// local testnet send some funds
 		if connector.wallet.config().coin == 1 {
 			//Local run fund wallet
 			connector.faucet().await?;
@@ -436,13 +436,10 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
-						//TODO remove when fixed in gateway
-						let mut source = log.source;
-						source[11] = 0;
 						let gmp_message = GmpMessage {
 							src_network: self.network_id,
 							dest_network: log.destinationNetwork,
-							src: source.into(),
+							src: log.source.into(),
 							dest: t_addr(log.destinationAddress),
 							nonce: u64::try_from(log.salt)?,
 							gas_limit: u128::try_from(log.executionGasLimit)?,
@@ -484,7 +481,7 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		// TODO this implementation is not what was designed but due to limitation of gateway we are sending single msg.
+		// TODO Currently sending single message fix when batching is available.
 		let msg = msg.ops.get(0).ok_or_else(|| String::from("Invalid msg ops length"))?;
 		let GatewayOp::SendMessage(msg) = msg else {
 			return Err(String::from("Not valid type of GatewayOp"));

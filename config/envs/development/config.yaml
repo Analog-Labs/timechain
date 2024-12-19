@@ -25,10 +25,6 @@ networks:
     route_gas_limit: 10000
     route_base_fee: 10000
     gmp_margin: 0.1
-    chronicles:
-    - https://chronicle-1.development.analog.one
-    - https://chronicle-2.development.analog.one
-    - https://chronicle-3.development.analog.one
 
   1:
     backend: "grpc"
@@ -44,7 +40,11 @@ networks:
     route_gas_limit: 10000
     route_base_fee: 10000
     gmp_margin: 0.1
-    chronicles: 
-    - https://chronicle-7.development.analog.one
-    - https://chronicle-8.development.analog.one
-    - https://chronicle-9.development.analog.one
+
+chronicles:
+- https://chronicle-1.development.analog.one
+- https://chronicle-2.development.analog.one
+- https://chronicle-3.development.analog.one
+- https://chronicle-7.development.analog.one
+- https://chronicle-8.development.analog.one
+- https://chronicle-9.development.analog.one

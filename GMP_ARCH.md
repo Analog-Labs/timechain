@@ -1,3 +1,16 @@
+# Overview
+
+The GMP system is built from multiple components. The timechain, a substrate-based chain, the
+chronicles, the `tc-cli` command line tool to manage the timechain and chronicles and a gateway
+deployed on every target blockchain.
+
+The chronicles communicate with external chains via the gmp interface. The gmp interface is implemented
+by a backend which uses a connector to deploy, manage and use the gateway, while providing a chain
+agnostic abstraction.
+
+A group of chronicles form a shard to create threshold signatures and execute tasks assigned by the
+timechain.
+
 # Configuration
 Timechain is configured in a `config.yaml` file. Secrets are stored in a `.env` file. These are
 stored in the `config/envs/$ENVIRONMENT` directory.

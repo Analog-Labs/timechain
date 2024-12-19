@@ -79,11 +79,10 @@ impl GmpMessage {
 	}
 
 	pub fn message_id(&self) -> MessageId {
-		let msg_hash: [u8; 32] = sha3::Keccak256::digest(&self.bytes).into();
-		let mut hasher = sha3::Keccak256::new();
-		hasher.update(self.encode_header());
-		hasher.update(msg_hash);
-		hasher.finalize().into()
+		let mut buf = Vec::new();
+		self.encode_to(&mut buf);
+		let message_id: [u8; 32] = sha3::Keccak256::digest(buf).into();
+		message_id.into()
 	}
 }
 

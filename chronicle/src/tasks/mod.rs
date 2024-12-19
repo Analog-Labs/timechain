@@ -8,8 +8,8 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, ErrorMsg, GatewayMessage, GatewayOp, GmpEvents, GmpParams,
-	IConnector, NetworkId, ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockHash, BlockNumber, ErrorMsg, GatewayMessage, GatewayOp, GmpEvents, IConnector,
+	NetworkId, ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -94,7 +94,7 @@ impl TaskParams {
 	async fn execute(
 		self,
 		block_number: BlockNumber,
-		network_id: NetworkId,
+		_network_id: NetworkId,
 		gateway: Address,
 		shard_id: ShardId,
 		task_id: TaskId,

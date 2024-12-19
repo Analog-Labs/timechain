@@ -298,6 +298,21 @@ fn test_read_event_task_assignment() {
 	})
 }
 
+#[test]
+fn task_completion_unassigns_task() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 2);
+		assert_eq!(Tasks::get_task_shard(2), Some(shard));
+		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0)]);
+		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
+		assert_eq!(Tasks::get_task_shard(2), None);
+	})
+}
+
 mod bench_helper {
 	use super::*;
 

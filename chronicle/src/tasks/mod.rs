@@ -119,12 +119,12 @@ impl TaskParams {
 				let mut err_vec: ErrorMsg = ErrorMsg(BoundedVec::default());
 				let msg_ops = msg.ops.clone();
 				for op in msg_ops.iter() {
-					// let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
 					//TODO gateway doesnt support shard management throw chronicle
 					let GatewayOp::SendMessage(inner_msg) = op else {
 						continue;
 					};
-					let payload = inner_msg.message_id();
+					let mut payload = vec![];
+					inner_msg.encode_to(&mut payload);
 					let signature =
 						self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
 					let signer = self

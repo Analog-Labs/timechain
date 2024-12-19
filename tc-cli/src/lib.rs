@@ -103,7 +103,7 @@ impl Tc {
 		let mut shards = vec![];
 		for shard_id in 0..shard_id_counter {
 			match self.runtime.shard_network(shard_id).await {
-				Ok(shard_network) if shard_network == network => {},
+				Ok(Some(shard_network)) if shard_network == network => {},
 				Ok(_) => continue,
 				Err(err) => {
 					tracing::info!("Skipping shard_id {shard_id}: {err}");
@@ -457,7 +457,9 @@ impl Tc {
 		let mut shards = vec![];
 		let mut registered_shards = HashMap::new();
 		for shard in 0..shard_id_counter {
-			let network = self.runtime.shard_network(shard).await?;
+			let Some(network) = self.runtime.shard_network(shard).await? else {
+				continue;
+			};
 			if let Entry::Vacant(e) = registered_shards.entry(network) {
 				e.insert(self.registered_shards(network).await?);
 			}

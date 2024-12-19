@@ -33,16 +33,10 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn shard_network(&self, shard_id: u64) -> Result<NetworkId> {
+	pub async fn shard_network(&self, shard_id: u64) -> Result<Option<NetworkId>> {
 		metadata_scope!(self.metadata, {
 			let storage_query = metadata::storage().shards().shard_network(shard_id);
-			self.client
-				.storage()
-				.at_latest()
-				.await?
-				.fetch(&storage_query)
-				.await?
-				.ok_or(anyhow!("Shard network not found"))
+			Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 		})
 	}
 

@@ -444,17 +444,10 @@ impl Tc {
 		Ok(networks)
 	}
 
-	pub async fn chronicles(&self, networks: Vec<NetworkId>) -> Result<Vec<Chronicle>> {
+	pub async fn chronicles(&self) -> Result<Vec<Chronicle>> {
 		let mut chronicles = vec![];
-		let networks =
-			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
-		let mut needed_chronicles = vec![];
-		for network in networks {
-			let config = self.config.network(network)?;
-			needed_chronicles.extend(config.chronicles.clone());
-		}
-		for chronicle in needed_chronicles {
-			let config = self.chronicle_config(&chronicle).await?;
+		for chronicle in self.config.chronicles() {
+			let config = self.chronicle_config(chronicle).await?;
 			let status = self.chronicle_status(&config.account).await?;
 			let network = config.network;
 			let balance = self.balance(None, config.account.clone().into()).await?;
@@ -841,19 +834,16 @@ impl Tc {
 	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
-		let mut chronicles = vec![];
 		let networks =
 			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
 		for network in networks {
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
-			let config = self.config.network(network)?;
-			chronicles.extend(config.chronicles.clone());
 		}
 		tracing::info!("Registering Routes");
 		self.register_routes(gateways).await?;
-		for chronicle in chronicles {
-			self.deploy_chronicle(&chronicle).await?;
+		for chronicle in self.config.chronicles() {
+			self.deploy_chronicle(chronicle).await?;
 		}
 		Ok(())
 	}

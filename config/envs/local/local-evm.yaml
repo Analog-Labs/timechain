@@ -28,5 +28,5 @@ networks:
     token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    chronicles: 
-    - http://chronicle-2:8080
+chronicles: 
+  - http://chronicle-2:8080

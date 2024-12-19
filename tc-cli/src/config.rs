@@ -37,12 +37,8 @@ impl Config {
 		&self.yaml.config
 	}
 
-	pub fn _chronicles(&self) -> Vec<String> {
-		let mut chronicles = vec![];
-		for (_, network_config) in self.networks() {
-			chronicles.extend(network_config.chronicles.clone());
-		}
-		chronicles
+	pub fn chronicles(&self) -> &[String] {
+		&self.yaml.chronicles
 	}
 
 	pub fn contracts(&self, network: NetworkId) -> Result<Contracts> {
@@ -77,6 +73,7 @@ struct ConfigYaml {
 	config: GlobalConfig,
 	contracts: HashMap<Backend, ContractsConfig>,
 	networks: HashMap<NetworkId, NetworkConfig>,
+	chronicles: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -119,7 +116,6 @@ pub struct NetworkConfig {
 	pub shard_task_limit: u32,
 	pub route_gas_limit: u64,
 	pub route_base_fee: u128,
-	pub chronicles: Vec<String>,
 }
 
 #[cfg(test)]

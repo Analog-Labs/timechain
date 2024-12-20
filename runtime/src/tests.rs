@@ -4,6 +4,7 @@ use crate::*;
 use frame_support::assert_ok;
 use frame_support::traits::{OnInitialize, WhitelistedStorageKeys};
 use frame_system::RawOrigin;
+use pallet_collective::RawOrigin as CollectiveOrigin;
 use pallet_shards::ShardMembers;
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
@@ -49,6 +50,7 @@ const B: [u8; 32] = [2u8; 32];
 const C: [u8; 32] = [3u8; 32];
 const D: [u8; 32] = [4u8; 32];
 const E: [u8; 32] = [5u8; 32];
+const S: [u8; 32] = [42u8; 32];
 
 // FIXME: test assumes fixed shard size
 const SHARD_SIZE: usize = 3;
@@ -63,9 +65,16 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	for i in 1..=(SHARD_SIZE * 3) {
 		balances.push((acc_pub(i.try_into().unwrap()).into(), 100_000 * ANLOG));
 	}
+	balances.push((acc_pub(42u8).into(), 100_000 * ANLOG));
 	pallet_balances::GenesisConfig::<Runtime> { balances }
 		.assimilate_storage(&mut storage)
 		.unwrap();
+	pallet_collective::GenesisConfig::<Runtime, pallet_collective::Instance1> {
+		members: vec![acc_pub(42u8).into()],
+		phantom: Default::default(),
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
 	pallet_elections::GenesisConfig::<Runtime>::default()
 		.assimilate_storage(&mut storage)
 		.unwrap();
@@ -90,11 +99,15 @@ fn shard_not_stuck_in_committed_state() {
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();
 	let c: AccountId = C.into();
+	let s: AccountId = S.into();
 	//let d: AccountId = D.into();
 	let first_shard = [c.clone(), b.clone(), a.clone()].to_vec();
 	//let second_shard = [d.clone(), c.clone(), b.clone()].to_vec();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network(),));
+		assert_ok!(Networks::register_network(
+			CollectiveOrigin::Member(s.clone()).into(),
+			network(),
+		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,
@@ -188,8 +201,12 @@ fn register_unregister_kills_task() {
 	let c: AccountId = C.into();
 	let d: AccountId = D.into();
 	let e: AccountId = E.into();
+	let s: AccountId = S.into();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network(),));
+		assert_ok!(Networks::register_network(
+			CollectiveOrigin::Member(s.clone()).into(),
+			network(),
+		));
 		assert_ok!(Members::register_member(
 			RawOrigin::Signed(a.clone()).into(),
 			ETHEREUM,

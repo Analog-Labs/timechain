@@ -443,8 +443,8 @@ impl IConnector for Connector {
 							dest: t_addr(log.destinationAddress),
 							nonce: u64::try_from(log.salt)?,
 							gas_limit: u128::try_from(log.executionGasLimit)?,
-							// TODO compute gas cost here
-							gas_cost: 200,
+							// TODO receive from gateway when implemented
+							gas_cost: 1_000_000,
 							bytes: log.data.data.into(),
 						};
 						tracing::info!(

@@ -47,7 +47,7 @@ jobs:
         with:
           name: weights-develop-${{ matrix.pallet }}
           if-no-files-found: error
-          path: weights/pallet_${{ matrix.pallet }}.rs
+          path: develop/pallet_${{ matrix.pallet }}.rs
   update-weights:
     needs: [run-benchmark]
     runs-on: [self-hosted, benchmark]

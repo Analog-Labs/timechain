@@ -1,7 +1,7 @@
 [package]
 name = "timechain-node"
 build = "build.rs"
-description = "A blockchain node using the proof of time consensus."
+description = "The official blockchain node of the Analog Timechain."
 default-run = "timechain-node"
 
 version.workspace = true
@@ -102,10 +102,7 @@ jsonrpsee = { version = "0.23.2", features = [ "server" ] }
 
 # node's local dependencies
 time-primitives.workspace = true
-
-runtime-common.workspace = true
-mainnet-runtime.workspace = true
-testnet-runtime.workspace = true
+timechain-runtime.workspace = true
 
 # additional command line interfaces
 #try-runtime-core = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }
@@ -131,17 +128,17 @@ std = [
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
-	"mainnet-runtime/runtime-benchmarks",
-	"testnet-runtime/runtime-benchmarks",
+	"timechain-runtime/runtime-benchmarks",
 ]
 # Enable features that allow the runtime to be tried and debugged.
 try-runtime = [
 	"polkadot-sdk/try-runtime",
-	"mainnet-runtime/try-runtime",
-	"testnet-runtime/try-runtime",
+	"timechain-runtime/try-runtime",
 	#"try-runtime-core",
 ]
-development = [
-	"mainnet-runtime/development",
-	"testnet-runtime/development",
+testnet = [
+	"timechain-runtime/testnet",
+]
+develop = [
+	"timechain-runtime/develop",
 ]

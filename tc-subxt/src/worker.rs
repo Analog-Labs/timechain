@@ -1,6 +1,6 @@
-use crate::metadata::MetadataVariant;
-use crate::metadata_scope;
+use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{LegacyRpcMethods, OnlineClient, TxInBlock};
+
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, StreamExt};
@@ -75,25 +75,13 @@ pub enum Tx {
 pub struct SubxtWorker {
 	rpc: RpcClient,
 	client: OnlineClient,
-	metadata: MetadataVariant,
 	keypair: Keypair,
 	nonce: u64,
 }
 
 impl SubxtWorker {
-	pub async fn new(
-		rpc: RpcClient,
-		client: OnlineClient,
-		metadata: MetadataVariant,
-		keypair: Keypair,
-	) -> Result<Self> {
-		let mut me = Self {
-			rpc,
-			client,
-			metadata,
-			keypair,
-			nonce: 0,
-		};
+	pub async fn new(rpc: RpcClient, client: OnlineClient, keypair: Keypair) -> Result<Self> {
+		let mut me = Self { rpc, client, keypair, nonce: 0 };
 		me.resync_nonce().await?;
 		Ok(me)
 	}
@@ -128,131 +116,128 @@ impl SubxtWorker {
 
 	pub async fn submit(&mut self, tx: (Tx, oneshot::Sender<TxInBlock>)) {
 		let (transaction, sender) = tx;
-		let tx = metadata_scope!(self.metadata, {
-			match transaction {
-				// system
-				Tx::SetCode { code } => {
-					let runtime_call = RuntimeCall::System(
-						metadata::runtime_types::frame_system::pallet::Call::set_code { code },
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				// balances
-				Tx::Transfer { account, balance } => {
-					let account = subxt::utils::Static(account);
-					let payload =
-						metadata::tx().balances().transfer_allow_death(account.into(), balance);
-					self.create_signed_payload(&payload).await
-				},
-				// networks
-				Tx::RegisterNetwork { network } => {
-					let network = subxt::utils::Static(network);
-					let runtime_call = RuntimeCall::Networks(
-						metadata::runtime_types::pallet_networks::pallet::Call::register_network {
-							network,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::ForceShardOffline { shard_id } => {
-					let runtime_call = RuntimeCall::Shards(
-						metadata::runtime_types::pallet_shards::pallet::Call::force_shard_offline {
-							shard_id,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::SetNetworkConfig { network, config } => {
-					let config = subxt::utils::Static(config);
-					let runtime_call = RuntimeCall::Networks(
-						metadata::runtime_types::pallet_networks::pallet::Call::set_network_config {
-							network,
-							config,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				// members
-				Tx::RegisterMember {
+		let tx = match transaction {
+			// system
+			Tx::SetCode { code } => {
+				let runtime_call =
+					RuntimeCall::System(runtime_types::frame_system::pallet::Call::set_code {
+						code,
+					});
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			// balances
+			Tx::Transfer { account, balance } => {
+				let account = subxt::utils::Static(account);
+				let payload =
+					metadata::tx().balances().transfer_allow_death(account.into(), balance);
+				self.create_signed_payload(&payload).await
+			},
+			// networks
+			Tx::RegisterNetwork { network } => {
+				let network = subxt::utils::Static(network);
+				let runtime_call = RuntimeCall::Networks(
+					runtime_types::pallet_networks::pallet::Call::register_network { network },
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::ForceShardOffline { shard_id } => {
+				let runtime_call = RuntimeCall::Shards(
+					metadata::runtime_types::pallet_shards::pallet::Call::force_shard_offline {
+						shard_id,
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::SetNetworkConfig { network, config } => {
+				let config = subxt::utils::Static(config);
+				let runtime_call = RuntimeCall::Networks(
+					metadata::runtime_types::pallet_networks::pallet::Call::set_network_config {
+						network,
+						config,
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			// members
+			Tx::RegisterMember {
+				network,
+				public_key,
+				peer_id,
+				stake_amount,
+			} => {
+				let public_key = subxt::utils::Static(public_key);
+				let payload = metadata::tx().members().register_member(
 					network,
 					public_key,
 					peer_id,
 					stake_amount,
-				} => {
-					let public_key = subxt::utils::Static(public_key);
-					let payload = metadata::tx().members().register_member(
+				);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::UnregisterMember { member } => {
+				let member = subxt::utils::Static(member);
+				let payload = metadata::tx().members().unregister_member(member);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::Heartbeat => {
+				let payload = metadata::tx().members().send_heartbeat();
+				self.create_signed_payload(&payload).await
+			},
+			// shards
+			Tx::SetShardConfig { shard_size, shard_threshold } => {
+				let runtime_call = RuntimeCall::Elections(
+					metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+						shard_size,
+						shard_threshold,
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::Commitment {
+				shard_id,
+				commitment,
+				proof_of_knowledge,
+			} => {
+				let commitment = subxt::utils::Static(commitment);
+				let payload =
+					metadata::tx().shards().commit(shard_id, commitment, proof_of_knowledge);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::Ready { shard_id } => {
+				let payload = metadata::tx().shards().ready(shard_id);
+				self.create_signed_payload(&payload).await
+			},
+			// tasks
+			Tx::SubmitTaskResult { task_id, result } => {
+				let result = subxt::utils::Static(result);
+				let payload = metadata::tx().tasks().submit_task_result(task_id, result);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::SubmitGmpEvents { network, gmp_events } => {
+				let runtime_call = RuntimeCall::Tasks(
+					metadata::runtime_types::pallet_tasks::pallet::Call::submit_gmp_events {
 						network,
-						public_key,
-						peer_id,
-						stake_amount,
-					);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::UnregisterMember { member } => {
-					let member = subxt::utils::Static(member);
-					let payload = metadata::tx().members().unregister_member(member);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::Heartbeat => {
-					let payload = metadata::tx().members().send_heartbeat();
-					self.create_signed_payload(&payload).await
-				},
-				// shards
-				Tx::SetShardConfig { shard_size, shard_threshold } => {
-					let runtime_call = RuntimeCall::Elections(
-						metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
-							shard_size,
-							shard_threshold,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::Commitment {
-					shard_id,
-					commitment,
-					proof_of_knowledge,
-				} => {
-					let commitment = subxt::utils::Static(commitment);
-					let payload =
-						metadata::tx().shards().commit(shard_id, commitment, proof_of_knowledge);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::Ready { shard_id } => {
-					let payload = metadata::tx().shards().ready(shard_id);
-					self.create_signed_payload(&payload).await
-				},
-				// tasks
-				Tx::SubmitTaskResult { task_id, result } => {
-					let result = subxt::utils::Static(result);
-					let payload = metadata::tx().tasks().submit_task_result(task_id, result);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::SubmitGmpEvents { network, gmp_events } => {
-					let runtime_call = RuntimeCall::Tasks(
-						metadata::runtime_types::pallet_tasks::pallet::Call::submit_gmp_events {
-							network,
-							events: subxt::utils::Static(gmp_events),
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-				Tx::RemoveTask { task_id } => {
-					let runtime_call = RuntimeCall::Tasks(
-						metadata::runtime_types::pallet_tasks::pallet::Call::remove_task {
-							task: task_id,
-						},
-					);
-					let payload = sudo(runtime_call);
-					self.create_signed_payload(&payload).await
-				},
-			}
-		});
+						events: subxt::utils::Static(gmp_events),
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::RemoveTask { task_id } => {
+				let runtime_call = RuntimeCall::Tasks(
+					metadata::runtime_types::pallet_tasks::pallet::Call::remove_task {
+						task: task_id,
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+		};
 
 		let result: Result<TxInBlock> = async {
 			let mut tx_progress = SubmittableExtrinsic::from_bytes(self.client.clone(), tx)

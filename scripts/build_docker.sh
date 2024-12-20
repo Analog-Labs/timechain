@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+set -x
 
 # Check for 'uname' and abort if it is not available.
 uname -v > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'uname' to identify the platform."; exit 1; }
@@ -28,24 +29,24 @@ case "$(uname -m)" in
 esac
 
 # Evaluate optional environment argument
-environment="${1:-development}"
+environment="${1:-develop}"
 case "${environment}" in
 	mainnet)
-		profile=production
+		profile=mainnet
 		features=default
 		;;
 	testnet)
 		profile=testnet
-		features=default
+		features=testnet
 		;;
-	staging|development)
+	develop)
 		profile=testnet
-		features=development
+		features=develop
 		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"
-		echo >&2 "      - options: mainnet staging testnet development"
-		echo >&2 "      - default: development"
+		echo >&2 "      - options: mainnet testnet develop"
+		echo >&2 "      - default: develop"
 		exit 1
 		;;
 esac

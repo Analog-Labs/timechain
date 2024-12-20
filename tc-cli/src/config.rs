@@ -3,7 +3,6 @@ use gmp::Backend;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tc_subxt::MetadataVariant;
 use time_primitives::NetworkId;
 
 #[derive(Clone, Debug)]
@@ -83,7 +82,6 @@ pub struct GlobalConfig {
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub chronicle_timechain_funds: String,
-	pub metadata_variant: MetadataVariant,
 	pub timechain_url: String,
 }
 

@@ -335,17 +335,17 @@ dependencies = [
 
 [[package]]
 name = "analog-docs"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chronicle",
- "mainnet-runtime",
+ "pallet-dmail",
  "pallet-elections",
  "pallet-members",
  "pallet-networks",
  "pallet-shards",
  "pallet-tasks",
  "pallet-timegraph",
- "testnet-runtime",
+ "timechain-runtime",
 ]
 
 [[package]]
@@ -2282,7 +2282,7 @@ dependencies = [
 
 [[package]]
 name = "chronicle"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5220,7 +5220,7 @@ dependencies = [
 
 [[package]]
 name = "gmp"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "gmp-evm",
@@ -5232,7 +5232,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-evm"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "alloy-primitives 0.8.5",
  "alloy-sol-types 0.8.5",
@@ -5255,7 +5255,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-grpc"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5275,7 +5275,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-rust"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7708,30 +7708,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mainnet-runtime"
-version = "0.7.0"
-dependencies = [
- "log",
- "pallet-dmail",
- "pallet-elections",
- "pallet-governance",
- "pallet-members",
- "pallet-networks",
- "pallet-shards",
- "pallet-tasks",
- "pallet-timegraph",
- "parity-scale-codec",
- "polkadot-sdk",
- "primitive-types 0.13.1",
- "runtime-common",
- "scale-info",
- "serde_json",
- "static_assertions",
- "substrate-wasm-builder",
- "time-primitives",
-]
-
-[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9464,7 +9440,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-dmail"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -9509,7 +9485,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-elections"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "env_logger 0.11.5",
  "lazy_static",
@@ -9581,7 +9557,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-governance"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -9690,7 +9666,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-members"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "env_logger 0.11.5",
  "lazy_static",
@@ -9807,7 +9783,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-networks"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -10240,7 +10216,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-shards"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "log",
  "pallet-elections",
@@ -10384,7 +10360,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-tasks"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "log",
  "pallet-elections",
@@ -10400,7 +10376,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-timegraph"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk",
@@ -14029,15 +14005,6 @@ name = "ruint-macro"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
-
-[[package]]
-name = "runtime-common"
-version = "1.0.0"
-dependencies = [
- "polkadot-sdk",
- "smallvec",
- "time-primitives",
-]
 
 [[package]]
 name = "rust-bip39"
@@ -18944,7 +18911,7 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "tc-cli"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -18998,10 +18965,9 @@ dependencies = [
 name = "tc-subxt-metadata"
 version = "0.1.0"
 dependencies = [
- "mainnet-runtime",
  "subxt",
- "testnet-runtime",
  "time-primitives",
+ "timechain-runtime",
 ]
 
 [[package]]
@@ -19055,29 +19021,6 @@ dependencies = [
  "sp-runtime 39.0.0",
  "staging-xcm",
  "westend-runtime-constants",
-]
-
-[[package]]
-name = "testnet-runtime"
-version = "0.7.0"
-dependencies = [
- "env_logger 0.11.5",
- "log",
- "pallet-dmail",
- "pallet-elections",
- "pallet-members",
- "pallet-networks",
- "pallet-shards",
- "pallet-tasks",
- "pallet-timegraph",
- "parity-scale-codec",
- "polkadot-sdk",
- "runtime-common",
- "scale-info",
- "separator",
- "static_assertions",
- "substrate-wasm-builder",
- "time-primitives",
 ]
 
 [[package]]
@@ -19271,15 +19214,13 @@ name = "timechain-generate-bags"
 version = "0.1.0"
 dependencies = [
  "clap",
- "mainnet-runtime",
  "polkadot-sdk",
- "runtime-common",
- "testnet-runtime",
+ "timechain-runtime",
 ]
 
 [[package]]
 name = "timechain-node"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-channel 1.9.0",
@@ -19292,15 +19233,39 @@ dependencies = [
  "hex-literal",
  "jsonrpsee 0.23.2",
  "log",
- "mainnet-runtime",
  "polkadot-sdk",
- "runtime-common",
  "serde",
  "serde_json",
- "testnet-runtime",
  "time-primitives",
+ "timechain-runtime",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "timechain-runtime"
+version = "0.8.0"
+dependencies = [
+ "env_logger 0.11.5",
+ "log",
+ "pallet-dmail",
+ "pallet-elections",
+ "pallet-governance",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "pallet-timegraph",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "primitive-types 0.13.1",
+ "scale-info",
+ "separator",
+ "serde_json",
+ "smallvec",
+ "static_assertions",
+ "substrate-wasm-builder",
+ "time-primitives",
 ]
 
 [[package]]

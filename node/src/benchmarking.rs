@@ -24,12 +24,19 @@ use sp_runtime::traits::{Dispatchable, StaticLookup};
 use sp_runtime::OpaqueExtrinsic;
 use sp_runtime::{generic, SaturatedConversion};
 
-use time_primitives::{AccountId, Balance, Block, BlockHash, Nonce, Signature};
-
-use runtime_common::{time::SLOT_DURATION, Address, BalancesCall, PaymentBalanceOf, SystemCall};
-
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
+use time_primitives::{AccountId, Balance, Block, BlockHash, Nonce, Signature};
+use timechain_runtime::{
+	time::SLOT_DURATION, Address, BalancesCall, PaymentBalanceOf, SignedExtra, SystemCall,
+};
+
+/// Unchecked extrinsic type as expected by this runtime.
+pub type UncheckedExtrinsic<Runtime, Call> =
+	sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra<Runtime>>;
+/// The payload being signed in transactions.
+pub type SignedPayload<Runtime, Call> =
+	sp_runtime::generic::SignedPayload<Call, SignedExtra<Runtime>>;
 
 /// Generates `System::Remark` extrinsics for the benchmarks.
 ///
@@ -167,7 +174,7 @@ pub fn create_extrinsic<Runtime, RuntimeApi>(
 	sender: sp_core::sr25519::Pair,
 	function: impl Into<Runtime::RuntimeCall>,
 	nonce: Option<u32>,
-) -> runtime_common::UncheckedExtrinsic<Runtime, Runtime::RuntimeCall>
+) -> UncheckedExtrinsic<Runtime, Runtime::RuntimeCall>
 where
 	Runtime:
 		frame_system::Config<Hash = BlockHash> + Send + Sync + pallet_transaction_payment::Config,
@@ -190,7 +197,7 @@ where
 		.unwrap_or(2);
 	let era = generic::Era::mortal(period, best_block.saturated_into());
 
-	let extra: runtime_common::SignedExtra<Runtime> = (
+	let extra: SignedExtra<Runtime> = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -202,7 +209,7 @@ where
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 	);
 	let version = Runtime::Version::get();
-	let raw_payload = runtime_common::SignedPayload::<Runtime, Runtime::RuntimeCall>::from_raw(
+	let raw_payload = SignedPayload::<Runtime, Runtime::RuntimeCall>::from_raw(
 		function.clone(),
 		extra.clone(),
 		(
@@ -219,7 +226,7 @@ where
 	);
 
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
-	runtime_common::UncheckedExtrinsic::<Runtime, Runtime::RuntimeCall>::new_signed(
+	UncheckedExtrinsic::<Runtime, Runtime::RuntimeCall>::new_signed(
 		function,
 		AccountId::from(sender.public()).into(),
 		Signature::Sr25519(signature),

@@ -14,5 +14,5 @@ for pallet_name in $pallets; do
         --extrinsic "*" \
         --steps 50 \
         --repeat 20 \
-        --output ./runtime/src/weights/$pallet_name.rs
+        --output ./runtime/src/weights/develop/$pallet_name.rs
 done

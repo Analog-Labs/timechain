@@ -19,7 +19,7 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: timechain-node
-          feature: runtime-benchmarks,development
+          feature: runtime-benchmarks
       - name: Upload runtime benchmarks
         uses: actions/upload-artifact@v4
         with:
@@ -32,7 +32,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chain: [staging, development]
         pallet: [elections, members, networks, shards, tasks, timegraph, dmail]
     steps:
       - name: Download runtime benchmarks
@@ -40,15 +39,15 @@ jobs:
         with:
           name: runtime-benchmarks
       - name: Prepare runtime benchmarks
-        run: chmod +x timechain-node && mkdir -p weights
+        run: chmod +x timechain-node && mkdir -p develop
       - name: Run runtime benchmarks
-        run: ./timechain-node benchmark pallet --chain dev --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./weights/${{ matrix.pallet }}.rs
+        run: ./timechain-node benchmark pallet --chain dev --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./develop/pallet_${{ matrix.pallet }}.rs
       - name: Upload weights
         uses: actions/upload-artifact@v4
         with:
-          name: weights-${{ matrix.chain }}-${{ matrix.pallet }}
+          name: weights-develop-${{ matrix.pallet }}
           if-no-files-found: error
-          path: weights/${{ matrix.pallet }}.rs
+          path: develop/pallet_${{ matrix.pallet }}.rs
   update-weights:
     needs: [run-benchmark]
     runs-on: [self-hosted, benchmark]
@@ -58,17 +57,11 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           submodules: recursive
-      - name: Download mainnet weights
+      - name: Download develop weights
         uses: actions/download-artifact@v4
         with:
-          path: runtimes/mainnet/src/weights
-          pattern: weights-staging-*
-          merge-multiple: true
-      - name: Download testnet weights
-        uses: actions/download-artifact@v4
-        with:
-          path: runtimes/testnet/src/weights
-          pattern: weights-development-*
+          path: runtime/src/weights/develop
+          pattern: weights-develop-*
           merge-multiple: true
       - name: Commit updated weights
         env:

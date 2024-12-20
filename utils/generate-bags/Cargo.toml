@@ -9,10 +9,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-clap.workspace = true 
+clap.workspace = true
 
 polkadot-sdk = { workspace = true, features = [ "generate-bags" ] }
 
-runtime-common.workspace = true
-mainnet-runtime.workspace = true
-testnet-runtime.workspace = true
+timechain-runtime.workspace = true

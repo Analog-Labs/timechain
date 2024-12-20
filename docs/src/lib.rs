@@ -6,11 +6,8 @@
 //! ## The Timechain Protocol
 //!
 //! The Analog Timechain is a substrate based solochain. It utilizes
-//! Babe and Grandpa to power its node and runtimes. There are two major runtime
-//! variants:
-//!
-//! - [`mainnet_runtime`].
-//! - [`testnet_runtime`].
+//! Babe and Grandpa to power its node and runtimes. More to the core
+//! logic can be found in the [`timechain_runtime`] docs.
 //!
 //! On top of that it runs the Timechain protocol to attest and relay data
 //! between various chains. This protocol is executed by shards of [`chronicle`] nodes.

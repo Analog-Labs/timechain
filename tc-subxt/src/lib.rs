@@ -11,14 +11,15 @@ use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
 use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
-use tc_subxt_metadata::testnet::sudo::events as SudoEvents;
+
 use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey};
 
 mod api;
 mod metadata;
 mod worker;
 
-pub use crate::metadata::MetadataVariant;
+use metadata::technical_committee::events as CommitteeEvent;
+
 pub use subxt_signer::sr25519::Keypair;
 
 pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;
@@ -29,37 +30,35 @@ pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient>;
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient,
-	metadata: MetadataVariant,
 	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<TxInBlock>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
 
 impl SubxtClient {
-	pub async fn new(url: &str, metadata: MetadataVariant, keypair: Keypair) -> Result<Self> {
+	pub async fn new(url: &str, keypair: Keypair) -> Result<Self> {
 		let rpc = Self::get_client(url).await?;
 		let client = OnlineClient::from_rpc_client(rpc.clone())
 			.await
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))?;
-		let worker = SubxtWorker::new(rpc, client.clone(), metadata, keypair).await?;
+		let worker = SubxtWorker::new(rpc, client.clone(), keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
 		let tx = worker.into_sender();
 		Ok(Self {
 			client,
-			metadata,
 			tx,
 			public_key,
 			account_id,
 		})
 	}
 
-	pub async fn with_key(url: &str, metadata: MetadataVariant, mnemonic: &str) -> Result<Self> {
+	pub async fn with_key(url: &str, mnemonic: &str) -> Result<Self> {
 		let secret =
 			SecretUri::from_str(mnemonic.trim()).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
-		Self::new(url, metadata, keypair).await
+		Self::new(url, keypair).await
 	}
 
 	pub async fn get_client(url: &str) -> Result<RpcClient> {
@@ -113,17 +112,14 @@ impl SubxtClient {
 	}
 
 	pub async fn balance(&self, account: &AccountId) -> Result<u128> {
-		metadata_scope!(self.metadata, {
-			let storage_query =
-				metadata::storage().system().account(subxt::utils::Static(account.clone()));
-			let result = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
-			Ok(if let Some(info) = result { info.data.free } else { 0 })
-		})
+		let storage_query =
+			metadata::storage().system().account(subxt::utils::Static(account.clone()));
+		let result = self.client.storage().at_latest().await?.fetch(&storage_query).await?;
+		Ok(if let Some(info) = result { info.data.free } else { 0 })
 	}
 
 	pub async fn wait_for_success(&self, tx: TxInBlock) -> Result<ExtrinsicEvents<PolkadotConfig>> {
-		type SpRuntimeDispatchError =
-			tc_subxt_metadata::testnet::runtime_types::sp_runtime::DispatchError;
+		type SpRuntimeDispatchError = metadata::runtime_types::sp_runtime::DispatchError;
 		let events = tx.fetch_events().await?;
 
 		for ev in events.iter() {
@@ -137,8 +133,8 @@ impl SubxtClient {
 				return Err(dispatch_error.into());
 			}
 
-			if let Some(event) = ev.as_event::<SudoEvents::Sudid>()? {
-				if let Err(err) = event.sudo_result {
+			if let Some(event) = ev.as_event::<CommitteeEvent::MemberExecuted>()? {
+				if let Err(err) = event.result {
 					let SpRuntimeDispatchError::Module(error) = err else {
 						anyhow::bail!("Tx failed with error: {:?}", err);
 					};

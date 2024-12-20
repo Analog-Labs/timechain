@@ -10,9 +10,9 @@ repository.workspace = true
 readme.workspace = true
 
 [dependencies]
-mainnet-runtime.workspace = true
-testnet-runtime.workspace = true
+timechain-runtime.workspace = true
 
+pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-members.workspace = true
 pallet-networks.workspace = true

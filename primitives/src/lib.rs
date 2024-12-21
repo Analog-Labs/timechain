@@ -88,10 +88,10 @@ pub type PublicKey = MultiSigner;
 pub const SS_58_FORMAT: u16 = 12850;
 
 /// Unofficial testnet SS58 prefix (`at`)
-#[cfg(feature = "testnet")]
+#[cfg(all(feature = "testnet", not(feature = "develop")))]
 pub const SS_58_FORMAT: u16 = 12851;
 
-/// Unofficial develop SS58 prefix
+/// Unofficial develop SS58 prefix (`az`)
 #[cfg(feature = "develop")]
 pub const SS_58_FORMAT: u16 = 12852;
 

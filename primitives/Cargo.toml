@@ -32,6 +32,8 @@ polkadot-sdk = { workspace = true, features = [
 
 [features]
 default = ["std"]
+testnet = []
+develop = []
 std = [
 	"futures",
 	"hex",

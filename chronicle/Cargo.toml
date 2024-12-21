@@ -40,3 +40,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [dev-dependencies]
 env_logger.workspace = true
+
+[features]
+testnet = [ "time-primitives/testnet" ]
+develop = [ "time-primitives/develop" ]

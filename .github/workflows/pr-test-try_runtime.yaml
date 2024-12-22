@@ -6,7 +6,7 @@ on:
       - '.github/workflows/pr-test-try_runtime.yaml'
       - 'pallets/**'
       - 'primitives/**'
-      - 'runtimes/**'
+      - 'runtime/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y librocksdb-dev
       - name: Install try-runtime-cli
-        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.8.0 --locked
+        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.7.0 --locked
       - name: Checkout sources
         uses: actions/checkout@v4
         with:

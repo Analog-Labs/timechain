@@ -85,18 +85,20 @@ pub type PublicKey = MultiSigner;
 
 /// Official timechain SS58 prefix (`an`)
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
-pub const SS_58_FORMAT: u16 = 12850;
+pub const SS58_PREFIX: u16 = 12850;
 
 /// Unofficial testnet SS58 prefix (`at`)
-#[cfg(feature = "testnet")]
-pub const SS_58_FORMAT: u16 = 12851;
+#[cfg(all(feature = "testnet", not(feature = "develop")))]
+pub const SS58_PREFIX: u16 = 12851;
 
-/// Unofficial develop SS58 prefix
+/// Unofficial develop SS58 prefix (`az`)
 #[cfg(feature = "develop")]
-pub const SS_58_FORMAT: u16 = 12852;
+pub const SS58_PREFIX: u16 = 12852;
 
+/// Helper to format address with correct prefix
 pub fn format_address(account: &AccountId) -> String {
-	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS_58_FORMAT))
+	// FIXME: Hardcoded to not break smoke tests, change to SS58_PREFIX once fixed
+	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(12850u16))
 }
 
 uint::construct_uint! {

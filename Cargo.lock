@@ -18967,7 +18967,6 @@ version = "0.1.0"
 dependencies = [
  "subxt",
  "time-primitives",
- "timechain-runtime",
 ]
 
 [[package]]

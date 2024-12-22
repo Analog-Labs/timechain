@@ -17,10 +17,8 @@ use sp_runtime::Perbill;
 
 use timechain_runtime::WASM_BINARY;
 
-use time_primitives::{AccountId, Balance, Block, ANLOG, TOKEN_DECIMALS};
+use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
 use timechain_runtime::StakerStatus;
-
-const SS_58_FORMAT: u32 = 12850;
 
 /// Total supply of token is 90_570_710.
 /// Initially we are distributing the total supply to the multiple accounts which is representing
@@ -182,7 +180,7 @@ impl GenesisKeysConfig {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("tokenSymbol".into(), token_symbol.into());
 		properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
-		properties.insert("ss58Format".into(), SS_58_FORMAT.into());
+		properties.insert("ss58Format".into(), SS58_PREFIX.into());
 
 		// Add default telemetry for all deployed networks
 		let telemetry = if chain_type != ChainType::Local {

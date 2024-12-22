@@ -108,10 +108,14 @@ time-primitives.workspace = true
 substrate-wasm-builder = { workspace = true, optional = true }
 
 [features]
-default = ["std"]
-testnet = []
-develop = [ "testnet", "genesis-builder" ]
-with-tracing = ["polkadot-sdk/with-tracing"]
+default = [ "std" ]
+testnet = [ "time-primitives/testnet" ]
+develop = [
+  "testnet",
+  "genesis-builder",
+  "time-primitives/develop",
+]
+with-tracing = [ "polkadot-sdk/with-tracing" ]
 std = [
 	"log/std",
 	"scale-codec/std",
@@ -141,21 +145,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
-	"polkadot-sdk/pallet-proxy",
-	"polkadot-sdk/pallet-multisig",
-	"polkadot-sdk/pallet-vesting",
-	"polkadot-sdk/pallet-referenda",
-	"polkadot-sdk/pallet-preimage",
-	"polkadot-sdk/pallet-scheduler",
-	"polkadot-sdk/pallet-identity",
-	"polkadot-sdk/pallet-collective",
-	"polkadot-sdk/pallet-membership",
-	"polkadot-sdk/pallet-ranked-collective",
-	"polkadot-sdk/pallet-treasury",
-	"polkadot-sdk/pallet-bounties",
-	"polkadot-sdk/pallet-child-bounties",
-	"polkadot-sdk/pallet-tips",
-	"polkadot-sdk/pallet-safe-mode",
+
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",

@@ -125,6 +125,15 @@ default = [ "std" ]
 std = [
 	"polkadot-sdk/std"
 ]
+# Runtime variants
+testnet = [
+    "time-primitives/testnet",
+	"timechain-runtime/testnet",
+]
+develop = [
+    "time-primitives/develop",
+	"timechain-runtime/develop",
+]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
@@ -135,10 +144,4 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"timechain-runtime/try-runtime",
 	#"try-runtime-core",
-]
-testnet = [
-	"timechain-runtime/testnet",
-]
-develop = [
-	"timechain-runtime/develop",
 ]

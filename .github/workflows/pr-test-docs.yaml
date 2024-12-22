@@ -11,7 +11,7 @@ on:
       - 'node/**'
       - 'pallets/**'
       - 'primitives/**'
-      - 'runtimes/**'
+      - 'runtime/**'
       - 'tc-cli/**'
       - 'tc-subxt/**'
       - 'tss/**'

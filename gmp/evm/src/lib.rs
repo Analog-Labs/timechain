@@ -419,14 +419,18 @@ impl IConnector for Connector {
 					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			for topic in log.topics() {
 				match *topic {
-					sol::Gateway::ShardRegistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardRegistered::decode_log(&log, true)?;
-						events.push(GmpEvent::ShardRegistered(log.key.clone().into()));
+					sol::Gateway::ShardsRegistered::SIGNATURE_HASH => {
+						let log = sol::Gateway::ShardsRegistered::decode_log(&log, true)?;
+						for key in log.keys.iter() {
+							events.push(GmpEvent::ShardRegistered(key.clone().into()));
+						}
 						break;
 					},
-					sol::Gateway::ShardUnregistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardUnregistered::decode_log(&log, true)?;
-						events.push(GmpEvent::ShardUnregistered(log.key.clone().into()));
+					sol::Gateway::ShardsUnregistered::SIGNATURE_HASH => {
+						let log = sol::Gateway::ShardsUnregistered::decode_log(&log, true)?;
+						for key in log.keys.iter() {
+							events.push(GmpEvent::ShardUnregistered(key.clone().into()));
+						}
 						break;
 					},
 					sol::Gateway::MessageReceived::SIGNATURE_HASH => {

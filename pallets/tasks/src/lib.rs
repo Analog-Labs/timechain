@@ -560,12 +560,10 @@ pub mod pallet {
 		}
 
 		pub(crate) fn is_shard_registered(shard: ShardId) -> bool {
-			let Some(_) = T::Shards::tss_public_key(shard) else {
+			let Some(pubkey) = T::Shards::tss_public_key(shard) else {
 				return false;
 			};
-			//TODO remove this once fixed in gateway i.e. gateway does not emit this event
-			true
-			// ShardRegistered::<T>::get(pubkey).is_some()
+			ShardRegistered::<T>::get(pubkey).is_some()
 		}
 
 		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) {

@@ -34,5 +34,11 @@ tracing.workspace = true
 tracing-subscriber = "0.3.18"
 
 [features]
-testnet = [ "time-primitives/testnet" ]
-develop = [ "time-primitives/develop" ]
+testnet = [
+  "time-primitives/testnet",
+  "tc-subxt/testnet",
+]
+develop = [
+  "time-primitives/develop",
+  "tc-subxt/develop",
+]

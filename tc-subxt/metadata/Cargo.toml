@@ -4,6 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+subxt = "0.37.0"
+
 time-primitives = { workspace = true, default-features = true }
 
-subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
+# Not used directly, but to build to generate metadata
+timechain-runtime.workspace = true
+
+[features]
+testnet = [
+  "time-primitives/testnet",
+  "timechain-runtime/testnet",
+]
+develop = [
+  "time-primitives/develop",
+  "timechain-runtime/develop",
+]

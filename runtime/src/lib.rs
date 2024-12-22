@@ -1432,28 +1432,28 @@ parameter_types! {
 // Mainnet config
 #[cfg(not(feature = "testnet"))]
 /// Default admin origin for system related governance
-type SystemAdmin = EitherOfDiverse<Root, TechnicalUnanimity>;
+type SystemAdmin = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalUnanimity>;
 
 #[cfg(not(feature = "testnet"))]
 /// Default admin origin for staking related governance
-type StakingAdmin = EitherOfDiverse<Root, TechnicalQualifiedMajority>;
+type StakingAdmin = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalQualifiedMajority>;
 
 #[cfg(not(feature = "testnet"))]
 /// Default admin origin for all chronicle related pallets
-type ChronicleAdmin = EitherOfDiverse<Root, TechnicalQualifiedMajority>;
+type ChronicleAdmin = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalQualifiedMajority>;
 
 // Testnet and develop config
 #[cfg(feature = "testnet")]
 /// Development admin origin for all system calls
-type SystemAdmin = EitherOfDiverse<Root, TechnicalMember>;
+type SystemAdmin = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMember>;
 
 #[cfg(feature = "testnet")]
 /// Development admin origin for all staking calls
-type StakingAdmin = EitherOfDiverse<Root, TechnicalMember>;
+type StakingAdmin = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMember>;
 
 #[cfg(feature = "testnet")]
 /// Development admin origin for all chronicle related pallets
-type ChronicleAdmin = EitherOfDiverse<Root, TechnicalMember>;
+type ChronicleAdmin = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMember>;
 
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

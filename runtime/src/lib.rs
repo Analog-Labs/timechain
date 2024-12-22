@@ -1431,7 +1431,7 @@ type SystemAdmin = EitherOfDiverse<Root, TechnicalUnanimity>;
 
 #[cfg(not(feature = "testnet"))]
 /// Default admin origin for staking related governance
-type StakingAdmin = EitherOfDiverse<Root, TechnicalQualifiedMajority>;
+type StakingAdmin = EitherOfDiverse<Root, TechnicalSuperMajority>;
 
 #[cfg(not(feature = "testnet"))]
 /// Default admin origin for all chronicle related pallets

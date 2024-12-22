@@ -167,7 +167,7 @@ pub use time_primitives::{
 	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
 	ErrorMsg, Gateway, GatewayMessage, Header, MemberStatus, MembersInterface, Moment, NetworkId,
 	NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
+	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG, SS58_PREFIX,
 };
 
 /// Constant values used within the runtime.
@@ -360,12 +360,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
-	#[cfg(not(any(feature = "testnet", feature = "develop")))]
-	type SS58Prefix = ConstU16<12850>;
-	#[cfg(all(feature = "testnet", not(feature = "develop")))]
-	type SS58Prefix = ConstU16<12851>;
-	#[cfg(feature = "develop")]
-	type SS58Prefix = ConstU16<12852>;
+	type SS58Prefix = ConstU16<{ SS58_PREFIX }>;
 	type MaxConsumers = ConstU32<16>;
 }
 

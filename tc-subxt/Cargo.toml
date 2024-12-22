@@ -31,3 +31,7 @@ subxt-signer = { version = "0.37.0", features = ["subxt"]}
 
 time-primitives = { workspace = true, default-features = true }
 tc-subxt-metadata = { path = "metadata" }
+
+[features]
+testnet = [ "tc-subxt-metadata/testnet" ]
+develop = [ "tc-subxt-metadata/develop" ]

@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
           - image: prod
-            profile: production
+            profile: mainnet
           - image: dev
             profile: testnet
     steps:

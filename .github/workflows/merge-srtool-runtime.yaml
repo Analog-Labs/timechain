@@ -99,7 +99,7 @@ jobs:
     - name: Extract runtime
       run: |
         ENV="${{ github.event.inputs.environment }}"
-        WASM_PATH=$(find runtimes/* -type f -name "*.wasm")
+        WASM_PATH=$(find runtime/* -type f -name "*.wasm")
         cp $WASM_PATH development-runtime.wasm
 
         # NOTE: environment follows folder structure

@@ -34,14 +34,14 @@ jobs:
       matrix:
         include:
           - image: prod
-            profile: production
+            profile: mainnet
             features: default
           - image: test
             profile: testnet
             features: default
           - image: dev
             profile: testnet
-            features: development
+            features: develop
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4

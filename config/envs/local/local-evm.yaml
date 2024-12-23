@@ -1,7 +1,7 @@
 config:
   shard_size: 1
   shard_threshold: 1
-  chronicle_timechain_funds: 1.
+  chronicle_timechain_funds: 100.
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
 contracts:
@@ -17,7 +17,7 @@ networks:
     network: "dev"
     url: "ws://ethereum:8545"
     gateway_funds: 10000000
-    chronicle_target_funds: 10000
+    chronicle_target_funds: 100000000000
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000

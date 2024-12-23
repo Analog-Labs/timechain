@@ -1,7 +1,7 @@
 config:
   shard_size: 1
   shard_threshold: 1
-  chronicle_timechain_funds: 1.
+  chronicle_timechain_funds: 100.
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
 contracts:

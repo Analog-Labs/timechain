@@ -29,9 +29,7 @@ impl GmpParams {
 		hasher.update(GMP_VERSION);
 		hasher.update(self.network.to_be_bytes());
 		hasher.update(self.gateway);
-		for chunk in payload.chunks(1024) {
-			hasher.update(sha3::Keccak256::digest(chunk));
-		}
+		hasher.update(payload);
 		hasher.finalize().into()
 	}
 }

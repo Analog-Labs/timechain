@@ -84,10 +84,11 @@
 /// The runtime is split into it components
 pub mod apis;
 pub mod configs;
+pub mod offchain;
 
 pub use apis::RuntimeApi;
 pub use configs::consensus::SessionKeys;
-pub use configs::core::{RuntimeBlockLength, RuntimeBlockWeights};
+pub use configs::core::{BlockHashCount, RuntimeBlockLength, RuntimeBlockWeights};
 pub use configs::governance::{
 	EnsureRootOrHalfTechnical, TechnicalMember, TechnicalQualifiedMajority, TechnicalSuperMajority,
 	TechnicalUnanimity,

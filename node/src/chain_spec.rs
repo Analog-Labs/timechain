@@ -256,7 +256,7 @@ impl GenesisKeysConfig {
 				"members": Some(self.admins.clone()),
 			},
 			"safeMode": {
-				"entered_until":  14 * DAYS,
+				"enteredUntil":  14 * DAYS,
 			}
 		});
 

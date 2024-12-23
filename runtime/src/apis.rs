@@ -35,7 +35,7 @@ use time_primitives::{
 use super::{
 	AccountId, AuthorityDiscovery, Babe, Balance, Block, EpochDuration, Executive, Grandpa,
 	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, SessionKeys, System,
-	TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
+	TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION, RuntimeGenesisConfig,
 };
 #[cfg(feature = "testnet")]
 use crate::{Members, Networks, Shards, Staking, Tasks};

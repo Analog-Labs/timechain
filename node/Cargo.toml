@@ -102,7 +102,7 @@ jsonrpsee = { version = "0.23.2", features = [ "server" ] }
 
 # node's local dependencies
 time-primitives.workspace = true
-timechain-runtime.workspace = true
+timechain-runtime = { workspace =  true, features = ["genesis-builder"] }
 
 # additional command line interfaces
 #try-runtime-core = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }

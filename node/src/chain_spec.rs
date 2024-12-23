@@ -255,9 +255,9 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
-			"safeMode": {
-				"enteredUntil":  14 * DAYS,
-			}
+			//"safeMode": {
+			//	"enteredUntil":  14 * DAYS,
+			//}
 		});
 
 		// Put it all together ...

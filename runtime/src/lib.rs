@@ -381,21 +381,21 @@ mod runtime {
 	pub type Timestamp = pallet_timestamp;
 
 	// Block production, finality, heartbeat and discovery
-	/// Authorship tracking extension.
-	/// Current configuration can be found here [here](struct@Runtime#config.Authorship).
-	#[runtime::pallet_index(2)]
-	pub type Authorship = pallet_authorship;
-
-	#[runtime::pallet_index(3)]
-	pub type Session = pallet_session;
-
-	#[runtime::pallet_index(4)]
-	pub type Historical = pallet_session_historical;
-
 	/// Blind Assignment for Blockchain Extension block production.
 	/// Current configuration can be found here [here](struct@Runtime#config.Babe).
-	#[runtime::pallet_index(5)]
+	#[runtime::pallet_index(2)]
 	pub type Babe = pallet_babe;
+
+	/// Authorship tracking extension.
+	/// Current configuration can be found here [here](struct@Runtime#config.Authorship).
+	#[runtime::pallet_index(3)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(4)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(5)]
+	pub type Historical = pallet_session_historical;
 
 	/// GHOST-based Recursive Ancestor Deriving Prefix Agreement finality gadget.
 	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
@@ -495,11 +495,6 @@ mod runtime {
 	#[runtime::pallet_index(5)]
 	pub type Babe = pallet_babe;
 
-	/// GHOST-based Recursive Ancestor Deriving Prefix Agreement finality gadget.
-	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
-	#[runtime::pallet_index(6)]
-	pub type Grandpa = pallet_grandpa;
-
 	/// Validator heartbeat protocol.
 	/// Current configuration can be found here [here](struct@Runtime#config.ImOnline).
 	#[runtime::pallet_index(7)]
@@ -509,15 +504,6 @@ mod runtime {
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
 	#[runtime::pallet_index(8)]
 	pub type AuthorityDiscovery = pallet_authority_discovery;
-
-	#[runtime::pallet_index(2)]
-	pub type Authorship = pallet_authorship;
-
-	#[runtime::pallet_index(3)]
-	pub type Session = pallet_session;
-
-	#[runtime::pallet_index(4)]
-	pub type Historical = pallet_session_historical;
 
 	// Tokens, fees and vesting
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
@@ -531,6 +517,20 @@ mod runtime {
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
 	#[runtime::pallet_index(11)]
 	pub type Vesting = pallet_vesting;
+
+	#[runtime::pallet_index(2)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(3)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(4)]
+	pub type Historical = pallet_session_historical;
+
+	/// GHOST-based Recursive Ancestor Deriving Prefix Agreement finality gadget.
+	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
+	#[runtime::pallet_index(6)]
+	pub type Grandpa = pallet_grandpa;
 
 	// Batch, proxy and multisig support
 	/// Current configuration can be found here [here](struct@Runtime#config.Utility).

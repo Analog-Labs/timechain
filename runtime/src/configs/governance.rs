@@ -75,6 +75,7 @@ pub struct SafeModeWhitelistedCalls;
 #[cfg(not(feature = "testnet"))]
 impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 	fn contains(call: &RuntimeCall) -> bool {
+		// TODO: Allow inherents
 		matches!(call, RuntimeCall::System(_) | RuntimeCall::SafeMode(_))
 	}
 }
@@ -111,7 +112,7 @@ impl pallet_safe_mode::Config for Runtime {
 	type EnterDepositAmount = EnterDepositAmount;
 	type ExtendDuration = ExtendDuration;
 	type ExtendDepositAmount = ExtendDepositAmount;
-	// FIXME: Mainnet
+	// TODO: Tie properly into governance
 	type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, ConstU32<9>>;
 	type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, ConstU32<11>>;
 	type ForceExitOrigin = EnsureRootOrHalfTechnical;

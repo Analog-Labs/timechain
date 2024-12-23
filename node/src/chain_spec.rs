@@ -118,7 +118,7 @@ impl Default for GenesisKeysConfig {
 			controller: None,
 			endowments: vec![(
 				hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"].into(),
-				TREASURY_SUPPLY,
+				1_000_000 * ANLOG,
 			)],
 			nominators: vec![],
 			stakes: vec![

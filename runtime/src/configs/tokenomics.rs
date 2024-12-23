@@ -123,8 +123,8 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
 }
 
-// TODO: Fix for mainnet
 pub struct Author;
+#[cfg(feature = "testnet")]
 impl OnUnbalanced<NegativeImbalance> for Author {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
 		if let Some(author) = Authorship::author() {
@@ -135,8 +135,8 @@ impl OnUnbalanced<NegativeImbalance> for Author {
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
-// TODO: Fix for mainnet
 pub struct DealWithFees;
+#[cfg(feature = "testnet")]
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
 		if let Some(fees) = fees_then_tips.next() {
@@ -221,8 +221,13 @@ impl pallet_transaction_payment::Config for Runtime {
 	/// The event type that will be emitted for transaction payment events.
 	type RuntimeEvent = RuntimeEvent;
 
+	#[cfg(not(feature = "testnet"))]
+	/// Disabled fee distribution on mainnet
+	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+
 	/// Specifies the currency adapter used for charging transaction fees.
 	/// The `CurrencyAdapter` is used to charge the fees and deal with any adjustments or redistribution of those fees.
+	#[cfg(feature = "testnet")]
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
 
 	/// The multiplier applied to operational transaction fees.

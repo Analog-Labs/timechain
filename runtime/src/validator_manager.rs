@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A pallet for managing validators on Rococo.
+//! A pallet for managing validators on early timechain, stolen from Rococo.
 
 pub use pallet::*;
 
 use polkadot_sdk::*;
 
-// FIXME: Replace with bounded vec?
 use sp_std::vec::Vec;
 
 type Session<T> = polkadot_sdk::pallet_session::Pallet<T>;

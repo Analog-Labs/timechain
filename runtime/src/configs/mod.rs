@@ -10,6 +10,6 @@ pub mod services;
 #[cfg(feature = "testnet")]
 pub mod staking;
 pub mod tokenomics;
-pub mod usability;
+pub mod utilities;
 
 pub mod custom;

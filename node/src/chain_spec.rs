@@ -21,23 +21,13 @@ use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIM
 use timechain_runtime::{StakerStatus, DAYS};
 
 // MAINNET
+
 // Small endowment to allow admins to work
-const MAINNET_PER_ADMIN: Balance = ANLOG * 100;
+const MAINNET_PER_ADMIN: Balance = ANLOG * 1000;
 // Smaller endowment to allow nodes to rotate keys
-const MAINNET_PER_STASH: Balance = ANLOG * 5;
+const MAINNET_PER_STASH: Balance = ANLOG * 10;
 
 // TESTNET
-
-/// Total supply of token is 90_570_710.
-/// Initially we are distributing the total supply to the multiple accounts which is representing
-/// its category pool which we will update in later part of development.
-const SEED_ROUND_SUPPLY: Balance = ANLOG * 24_275_364;
-const INITIAL_PRIVATE_SALE: Balance = ANLOG * 1_837_476;
-const PRIVATE_SALE: Balance = ANLOG * 8_919_012;
-const PUBLIC_SALE: Balance = ANLOG * 1_449_275;
-const TEAM_SUPPLY: Balance = ANLOG * 17_210_160;
-const TREASURY_SUPPLY: Balance = ANLOG * 13_224_636;
-const COMMUNITY_SUPPLY: Balance = ANLOG * 23_663_800;
 
 /// Stash and float for validators
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500_000;

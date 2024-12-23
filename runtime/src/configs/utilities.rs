@@ -1,3 +1,5 @@
+//! Collection of useful utilities extend transactions and wallets.
+
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 
 use polkadot_sdk::*;
@@ -22,8 +24,6 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 use crate::{
 	deposit, weights, Balance, Balances, OriginCaller, Runtime, RuntimeCall, RuntimeEvent,
 };
-
-// === USABILITY ===
 
 /// ## 09 - <a id="config.Utility">[`Utility`] Config</a>
 ///

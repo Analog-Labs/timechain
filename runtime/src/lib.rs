@@ -18,19 +18,19 @@
 //! |--------------|----------------------|----------------------------------------------------|
 //! |__Core__      |[`System`]            |[`Config`](struct@Runtime#config.System)            |
 //! |              |[`Timestamp`]         |[`Config`](struct@Runtime#config.Timestamp)         |
-//! |__Consensus__ |[`Authorship`]        |[`Config`](struct@Runtime#config.Authorship)|
-//! |              |[`Session`]     |      [`Config`](struct@Runtime#config.Session)|
-//! |              |[`Historical`]   |     [`Config`](struct@Runtime#config.Historical)|
+//! |__Consensus__ |[`Authorship`]        |[`Config`](struct@Runtime#config.Authorship)        |
+//! |              |[`Session`]           |[`Config`](struct@Runtime#config.Session)           |
+//! |              |[`Historical`]        |[`Config`](struct@Runtime#config.Historical)        |
 //! |              |[`Babe`]              |[`Config`](struct@Runtime#config.Babe)              |
 //! |              |[`Grandpa`]           |[`Config`](struct@Runtime#config.Grandpa)           |
 //! |              |[`ImOnline`]          |[`Config`](struct@Runtime#config.ImOnline)          |
 //! |              |[`AuthorityDiscovery`]|[`Config`](struct@Runtime#config.AuthorityDiscovery)|
 //! |__Tokenomics__|[`Balances`]          |[`Config`](struct@Runtime#config.Balances)          |
 //! |              |[`TransactionPayment`]|[`Config`](struct@Runtime#config.TransactionPayment)|
-//! |              |[`Vesting`]        |[`Config`](struct@Runtime#config.Vesting)        |
-//! |__Usability__|[`Utility`]          |[`Config`](struct@Runtime#config.Utility)          |
-//! |             |[`Proxy`]          |[`Config`](struct@Runtime#config.Proxy)          |
-//! |             |[`Multisig`]          |[`Config`](struct@Runtime#config.Multisig)          |
+//! |              |[`Vesting`]           |[`Config`](struct@Runtime#config.Vesting)           |
+//! |__Utilities__ |[`Utility`]           |[`Config`](struct@Runtime#config.Utility)           |
+//! |              |[`Proxy`]             |[`Config`](struct@Runtime#config.Proxy)             |
+//! |              |[`Multisig`]          |[`Config`](struct@Runtime#config.Multisig)          |
 //!
 //! ### Nominated Proof of Stake
 //! - [`ElectionProviderMultiPhase`]
@@ -285,13 +285,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * HOURS;
-pub const EPOCH_DURATION_IN_SLOTS: u64 = {
-	const SLOT_FILL_RATE: f64 = MILLISECS_PER_BLOCK as f64 / SLOT_DURATION as f64;
-
-	(EPOCH_DURATION_IN_BLOCKS as f64 * SLOT_FILL_RATE) as u64
-};
-
 /// TODO: 1 in 4 blocks (on average, not counting collisions) will be primary BABE blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
@@ -302,13 +295,7 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
 
-//use polkadot_sdk::*;
-
-//pub use time_primitives::currency::*;
-
-pub const TOTAL_ISSUANCE: Balance = 90_570_710 * ANLOG;
-
-pub const TRANSACTION_BYTE_FEE: Balance = MICROANLOG;
+/// TODO: Clean this up and move to tokenomics
 pub const STORAGE_BYTE_FEE: Balance = 300 * MILLIANLOG; // Change based on benchmarking
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -319,7 +306,7 @@ parameter_types! {
 	/// An epoch is a unit of time used for key operations in the consensus mechanism, such as validator
 	/// rotations and randomness generation. Once set at genesis, this value cannot be changed without
 	/// breaking block production.
-	pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
+	pub const EpochDuration: u64 = main_test_or_dev!(3 * HOURS, 30 * MINUTES, 5 * MINUTES) as u64;
 
 	/// This defines the interval at which new blocks are produced in the blockchain. It impacts
 	/// the speed of transaction processing and finality, as well as the load on the network
@@ -329,12 +316,12 @@ parameter_types! {
 	/// The number of sessions that constitute an era. An era is the time period over which staking rewards
 	/// are distributed, and validator set changes can occur. The era duration is a function of the number of
 	/// sessions and the length of each session.
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = 4;
 
 	/// The number of eras that a bonded stake must remain locked after the owner has requested to unbond.
-	/// This value represents 21 days, assuming each era is 24 hours long. This delay is intended to increase
+	/// This value represents 21 days, assuming each era is 12 hours long. This delay is intended to increase
 	/// network security by preventing stakers from immediately withdrawing funds after participating in staking.
-	pub const BondingDuration: sp_staking::EraIndex = 24 * 21;
+	pub const BondingDuration: sp_staking::EraIndex = 2 * 21;
 
 	/// The maximum number of validators a nominator can nominate. This sets an upper limit on how many validators
 	/// can be supported by a single nominator. A higher number allows more decentralization but increases the
@@ -370,6 +357,7 @@ mod runtime {
 	// = SDK pallets =
 
 	// Core pallets
+
 	/// Base pallet mandatory for all frame runtimes.
 	/// Current configuration can be found here [here](struct@Runtime#config.System).
 	#[runtime::pallet_index(0)]
@@ -381,6 +369,7 @@ mod runtime {
 	pub type Timestamp = pallet_timestamp;
 
 	// Block production, finality, heartbeat and discovery
+
 	/// Blind Assignment for Blockchain Extension block production.
 	/// Current configuration can be found here [here](struct@Runtime#config.Babe).
 	#[runtime::pallet_index(2)]
@@ -401,43 +390,44 @@ mod runtime {
 	#[runtime::pallet_index(5)]
 	pub type AuthorityDiscovery = pallet_authority_discovery;
 
-	// Tokens, fees and vesting
-	/// Current configuration can be found here [here](struct@Runtime#config.Balances).
-	#[runtime::pallet_index(6)]
-	pub type Balances = pallet_balances;
-
 	/// Authorship tracking extension.
 	/// Current configuration can be found here [here](struct@Runtime#config.Authorship).
-	#[runtime::pallet_index(7)]
+	#[runtime::pallet_index(6)]
 	pub type Authorship = pallet_authorship;
 
-	/// Current configuration can be found here [here](struct@Runtime#config.TransactionPayment).
+	#[runtime::pallet_index(7)]
+	pub type Session = pallet_session;
+
 	#[runtime::pallet_index(8)]
+	pub type Historical = pallet_session_historical;
+
+	// Tokens, fees and vesting
+
+	/// Current configuration can be found here [here](struct@Runtime#config.Balances).
+	#[runtime::pallet_index(9)]
+	pub type Balances = pallet_balances;
+
+	/// Current configuration can be found here [here](struct@Runtime#config.TransactionPayment).
+	#[runtime::pallet_index(10)]
 	pub type TransactionPayment = pallet_transaction_payment;
 
 	/// Current configuration can be found here [here](struct@Runtime#config.Vesting).
-	#[runtime::pallet_index(9)]
+	#[runtime::pallet_index(11)]
 	pub type Vesting = pallet_vesting;
 
 	// Batch, proxy and multisig support
+
 	/// Current configuration can be found here [here](struct@Runtime#config.Utility).
-	#[runtime::pallet_index(10)]
+	#[runtime::pallet_index(12)]
 	pub type Utility = pallet_utility;
 
 	/// Current configuration can be found here [here](struct@Runtime#config.Proxy).
-	#[runtime::pallet_index(11)]
+	#[runtime::pallet_index(13)]
 	pub type Proxy = pallet_proxy;
 
 	/// Current configuration can be found here [here](struct@Runtime#config.Multisig).
-	#[runtime::pallet_index(12)]
-	pub type Multisig = pallet_multisig;
-
-	#[runtime::pallet_index(13)]
-	pub type Session = pallet_session;
-
 	#[runtime::pallet_index(14)]
-	pub type Historical = pallet_session_historical;
-
+	pub type Multisig = pallet_multisig;
 
 	// On-chain governance
 	#[runtime::pallet_index(22)]
@@ -480,6 +470,7 @@ mod runtime {
 	// = SDK pallets =
 
 	// Core pallets
+
 	/// Base pallet mandatory for all frame runtimes.
 	/// Current configuration can be found here [here](struct@Runtime#config.System).
 	#[runtime::pallet_index(0)]
@@ -491,22 +482,38 @@ mod runtime {
 	pub type Timestamp = pallet_timestamp;
 
 	// Block production, finality, heartbeat and discovery
+
 	/// Blind Assignment for Blockchain Extension block production.
 	/// Current configuration can be found here [here](struct@Runtime#config.Babe).
-	#[runtime::pallet_index(5)]
+	#[runtime::pallet_index(2)]
 	pub type Babe = pallet_babe;
+
+	/// GHOST-based Recursive Ancestor Deriving Prefix Agreement finality gadget.
+	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
+	#[runtime::pallet_index(3)]
+	pub type Grandpa = pallet_grandpa;
 
 	/// Validator heartbeat protocol.
 	/// Current configuration can be found here [here](struct@Runtime#config.ImOnline).
-	#[runtime::pallet_index(7)]
+	#[runtime::pallet_index(4)]
 	pub type ImOnline = pallet_im_online;
 
 	/// Validator peer-to-peer discovery.
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
-	#[runtime::pallet_index(8)]
+	#[runtime::pallet_index(5)]
 	pub type AuthorityDiscovery = pallet_authority_discovery;
 
+	#[runtime::pallet_index(6)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(7)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(8)]
+	pub type Historical = pallet_session_historical;
+
 	// Tokens, fees and vesting
+
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
 	#[runtime::pallet_index(9)]
 	pub type Balances = pallet_balances;
@@ -519,21 +526,8 @@ mod runtime {
 	#[runtime::pallet_index(11)]
 	pub type Vesting = pallet_vesting;
 
-	#[runtime::pallet_index(2)]
-	pub type Authorship = pallet_authorship;
-
-	#[runtime::pallet_index(3)]
-	pub type Session = pallet_session;
-
-	#[runtime::pallet_index(4)]
-	pub type Historical = pallet_session_historical;
-
-	/// GHOST-based Recursive Ancestor Deriving Prefix Agreement finality gadget.
-	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
-	#[runtime::pallet_index(6)]
-	pub type Grandpa = pallet_grandpa;
-
 	// Batch, proxy and multisig support
+
 	/// Current configuration can be found here [here](struct@Runtime#config.Utility).
 	#[runtime::pallet_index(12)]
 	pub type Utility = pallet_utility;
@@ -547,6 +541,7 @@ mod runtime {
 	pub type Multisig = pallet_multisig;
 
 	// Nominated proof of stake
+
 	#[runtime::pallet_index(15)]
 	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
 
@@ -560,6 +555,7 @@ mod runtime {
 	pub type Offences = pallet_offences;
 
 	// On-chain identity,storage and scheduler
+
 	#[runtime::pallet_index(19)]
 	pub type Identity = pallet_identity;
 
@@ -570,6 +566,7 @@ mod runtime {
 	pub type Scheduler = pallet_scheduler;
 
 	// On-chain governance
+
 	#[runtime::pallet_index(22)]
 	pub type TechnicalCommittee = pallet_collective<Instance1>;
 
@@ -577,16 +574,19 @@ mod runtime {
 	pub type TechnicalMembership = pallet_membership;
 
 	// On-chain funding
+
 	#[runtime::pallet_index(27)]
 	pub type Treasury = pallet_treasury;
 
 	// = Custom pallets =
 
 	// Custom governance
+
 	#[runtime::pallet_index(32)]
 	pub type Governance = pallet_governance;
 
 	// general message passing pallets
+
 	#[runtime::pallet_index(33)]
 	pub type Members = pallet_members;
 

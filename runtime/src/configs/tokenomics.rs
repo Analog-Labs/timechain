@@ -30,7 +30,7 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 use crate::Treasury;
 use crate::{
 	weights, AccountId, Authorship, Balance, Balances, ExtrinsicBaseWeight, Runtime, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH, TRANSACTION_BYTE_FEE,
+	RuntimeFreezeReason, RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
 };
 
 use time_primitives::{MICROANLOG, MILLIANLOG, TOCK};

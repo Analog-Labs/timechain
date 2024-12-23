@@ -163,7 +163,7 @@ fn bytes32(u: U256) -> [u8; 32] {
 impl From<time_primitives::TssPublicKey> for TssKey {
 	fn from(key: time_primitives::TssPublicKey) -> Self {
 		Self {
-			yParity: if key[0] % 2 == 0 { 0 } else { 1 },
+			yParity: key[0].into(),
 			xCoord: u256(&key[1..]),
 		}
 	}

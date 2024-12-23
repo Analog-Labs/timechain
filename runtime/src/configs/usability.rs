@@ -101,7 +101,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					| RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. })
 			),
 			ProxyType::Governance => {
-				matches!(c, RuntimeCall::TechnicalCommittee(..) | RuntimeCall::Treasury(..))
+				matches!(c, RuntimeCall::TechnicalCommittee(..)) // | RuntimeCall::Treasury(..))
 			},
 			#[cfg(feature = "testnet")]
 			ProxyType::Staking => {

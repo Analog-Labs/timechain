@@ -19,8 +19,8 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 // Local module imports
 use crate::{
 	weights, AccountId, AuthorityDiscovery, Babe, Balance, BondingDuration, EpochDuration,
-	ExpectedBlockTime, Grandpa, Historical, ImOnline, MaxNominators, Runtime, RuntimeEvent,
-	Session, SessionsPerEra, ValidatorManager,
+	ExpectedBlockTime, Grandpa, Historical, ImOnline, MaxAuthorities, MaxNominators, Runtime,
+	RuntimeEvent, Session, SessionsPerEra, ValidatorManager,
 };
 
 #[cfg(feature = "testnet")]
@@ -159,7 +159,6 @@ impl pallet_grandpa::Config for Runtime {
 parameter_types! {
 	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	/// We prioritize im-online heartbeats over election solution submission.
-	pub const MaxAuthorities: u32 = 100;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 }

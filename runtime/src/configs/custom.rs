@@ -1,4 +1,4 @@
-use polkadot_sdk::*;
+use polkadot_sdk::{sp_runtime::traits::Ensure, *};
 
 use frame_support::{
 	pallet_prelude::Get,
@@ -16,47 +16,26 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 use time_primitives::ANLOG;
 // Local module imports
 use crate::{
-	Balance, Balances, Runtime, RuntimeEvent, TechnicalMember, TechnicalQualifiedMajority,
-	TechnicalSuperMajority, TechnicalUnanimity,
+	Balance, Balances, EnsureRootOrHalfTechnical, Runtime, RuntimeEvent, TechnicalMember,
+	TechnicalQualifiedMajority, TechnicalSuperMajority, TechnicalUnanimity,
 };
 #[cfg(feature = "testnet")]
 use crate::{Elections, Members, Networks, Shards, Tasks};
+
+use super::governance::EnsureRootOrTechnicalMember;
 
 // Custom pallet config
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-// Mainnet config
-#[cfg(not(feature = "testnet"))]
-/// Default admin origin for system related governance
-type SystemAdmin = TechnicalUnanimity;
-
-#[cfg(not(feature = "testnet"))]
-/// Default admin origin for staking related governance
-type StakingAdmin = TechnicalSuperMajority;
-
 #[cfg(not(feature = "testnet"))]
 /// Default admin origin for all chronicle related pallets
-type ChronicleAdmin = TechnicalQualifiedMajority;
-
-// Testnet and develop config
-#[cfg(feature = "testnet")]
-/// Development admin origin for all system calls
-type SystemAdmin = TechnicalMember;
-
-#[cfg(feature = "testnet")]
-/// Development admin origin for all staking calls
-type StakingAdmin = TechnicalMember;
+type ChronicleAdmin = EnsureRootOrHalfTechnical;
 
 #[cfg(feature = "testnet")]
 /// Development admin origin for all chronicle related pallets
-type ChronicleAdmin = TechnicalMember;
-
-impl pallet_governance::Config for Runtime {
-	type SystemAdmin = SystemAdmin;
-	type StakingAdmin = StakingAdmin;
-}
+type ChronicleAdmin = EnsureRootOrTechnicalMember;
 
 #[cfg(feature = "testnet")]
 impl pallet_members::Config for Runtime {

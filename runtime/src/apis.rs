@@ -34,8 +34,8 @@ use time_primitives::{
 // Local module imports
 use super::{
 	AccountId, AuthorityDiscovery, Babe, Balance, Block, EpochDuration, Executive, Grandpa,
-	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, SessionKeys, System,
-	TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION, RuntimeGenesisConfig,
+	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys,
+	System, TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
 };
 #[cfg(feature = "testnet")]
 use crate::{Members, Networks, Shards, Staking, Tasks};

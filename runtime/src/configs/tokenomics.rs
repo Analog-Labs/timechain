@@ -5,7 +5,8 @@ use smallvec::smallvec;
 use polkadot_sdk::*;
 
 use frame_support::weights::{
-	WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
+	constants::WEIGHT_REF_TIME_PER_SECOND, WeightToFeeCoefficient, WeightToFeeCoefficients,
+	WeightToFeePolynomial,
 };
 
 use frame_support::{
@@ -25,11 +26,14 @@ use sp_runtime::{
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
+#[cfg(feature = "testnet")]
+use crate::Treasury;
 use crate::{
 	weights, AccountId, Authorship, Balance, Balances, ExtrinsicBaseWeight, Runtime, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, System, Treasury, ANLOG, TRANSACTION_BYTE_FEE,
+	RuntimeFreezeReason, RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH, TRANSACTION_BYTE_FEE,
 };
-use time_primitives::{MILLIANLOG, TOCK};
+
+use time_primitives::{MICROANLOG, MILLIANLOG, TOCK};
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 /// node's balance type.
@@ -42,6 +46,12 @@ use time_primitives::{MILLIANLOG, TOCK};
 ///   - Setting it to `0` will essentially disable the weight fee.
 ///   - Setting it to `1` will cause the literal `#[weight = x]` values to be charged.
 pub struct WeightToFee;
+
+pub const MIN_LINEAR_WEIGHT_FEE: Balance = MILLIANLOG;
+pub const MAX_QUADRATIC_WEIGHT_FEE: Balance = 90_000 * ANLOG;
+
+pub const MAXIMUM_BLOCK_WEIGHT_SECONDS: u64 = 2;
+
 /// By introducing a second-degree term, the fee will grow faster as the weight increases.
 /// This can be useful for discouraging transactions that consume excessive resources.
 /// While a first-degree polynomial gives a linear fee increase, adding a quadratic term
@@ -50,21 +60,52 @@ pub struct WeightToFee;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		let q_2 = MAX_QUADRATIC_WEIGHT_FEE as u128 * MAX_QUADRATIC_WEIGHT_FEE as u128;
+		let p_2 = WEIGHT_REF_TIME_PER_SECOND.saturating_mul(MAXIMUM_BLOCK_WEIGHT_SECONDS) as u128;
 		// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
-		let p = MILLIANLOG;
-		let q = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+		let p_1 = MIN_LINEAR_WEIGHT_FEE;
+		let q_1 = Balance::from(ExtrinsicBaseWeight::get().ref_time());
 		smallvec![
 			WeightToFeeCoefficient {
 				degree: 2,
 				negative: false,
-				coeff_frac: Perbill::from_rational((TOCK / MILLIANLOG) % q, q),
-				coeff_integer: (TOCK / MILLIANLOG) / q,
+				coeff_frac: Perbill::from_rational(p_2 % q_2, q_2),
+				coeff_integer: p_2 / q_2,
 			},
 			WeightToFeeCoefficient {
 				degree: 1,
 				negative: false,
-				coeff_frac: Perbill::from_rational(p % q, q),
-				coeff_integer: p / q,
+				coeff_frac: Perbill::from_rational(p_1 % q_1, q_1),
+				coeff_integer: p_1 / q_1,
+			}
+		]
+	}
+}
+
+pub const MIN_LINEAR_LENGTH_FEE: Balance = MICROANLOG;
+pub const MAX_QUADRATIC_LENGTH_FEE: Balance = 10_000 * ANLOG;
+
+pub struct LengthToFee;
+impl WeightToFeePolynomial for LengthToFee {
+	type Balance = Balance;
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		let q_2 = MAX_QUADRATIC_LENGTH_FEE as u128 * MAX_QUADRATIC_WEIGHT_FEE as u128;
+		let p_2 = MAX_BLOCK_LENGTH as u128;
+		// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
+		let p_1 = MIN_LINEAR_LENGTH_FEE;
+		let q_1 = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+		smallvec![
+			WeightToFeeCoefficient {
+				degree: 2,
+				negative: false,
+				coeff_frac: Perbill::from_rational(p_2 % q_2, q_2),
+				coeff_integer: p_2 / q_2,
+			},
+			WeightToFeeCoefficient {
+				degree: 1,
+				negative: false,
+				coeff_frac: Perbill::from_rational(p_1 % q_1, q_1),
+				coeff_integer: p_1 / q_1,
 			}
 		]
 	}
@@ -82,6 +123,7 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
 }
 
+// TODO: Fix for mainnet
 pub struct Author;
 impl OnUnbalanced<NegativeImbalance> for Author {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
@@ -93,6 +135,7 @@ impl OnUnbalanced<NegativeImbalance> for Author {
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
+// TODO: Fix for mainnet
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
@@ -103,6 +146,7 @@ impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 				// for tips, if any, 80% to treasury, 20% to author (though this can be anything)
 				tips.ration_merge_into(80, 20, &mut split);
 			}
+			#[cfg(feature = "testnet")]
 			Treasury::on_unbalanced(split.0);
 			Author::on_unbalanced(split.1);
 		}
@@ -171,8 +215,8 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 /// ## 07 - <a id="config.TransactionPayment">[`TransactionPayment`] Config</a>
 ///
 /// Charge users for their transactions according to the transactions weight.
-/// - [`WeightToFee`](#associatedtype.WeightToFee) is a custom curve, for details see [`crate::fee`]
-/// - [`LengtToFee`](#associatedtype.LengthToFee) is a custom curve, for details see [`crate::fee`]
+/// - [`WeightToFee`](#associatedtype.WeightToFee) is a custom curve, for details see [`crate::tokenomics`]
+/// - [`LengthToFee`](#associatedtype.LengthToFee) is a custom curve, for details see [`crate::tokenomics`]
 impl pallet_transaction_payment::Config for Runtime {
 	/// The event type that will be emitted for transaction payment events.
 	type RuntimeEvent = RuntimeEvent;
@@ -185,11 +229,11 @@ impl pallet_transaction_payment::Config for Runtime {
 	/// Operational fees are used for transactions that are essential for the network's operation.
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 
-	/// Defines how the weight of a transaction is converted to a fee.
+	/// Use our custom weight to fee curve
 	type WeightToFee = WeightToFee;
 
-	/// Defines a constant multiplier for the length (in bytes) of a transaction, applied as an additional fee.
-	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ TRANSACTION_BYTE_FEE }>>;
+	/// Use our custom length to fee curve
+	type LengthToFee = LengthToFee;
 
 	/// Defines how the fee multiplier is updated based on the block fullness.
 	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
@@ -197,7 +241,7 @@ impl pallet_transaction_payment::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MinVestedTransfer: Balance = 100 * ANLOG;
+	pub const MinVestedTransfer: Balance = 1 * ANLOG;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }

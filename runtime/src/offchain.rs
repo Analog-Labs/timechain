@@ -28,14 +28,14 @@ use time_primitives::{BlockHash, BlockNumber, Moment, Signature, SS58_PREFIX};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
-#[cfg(not(feature = "testnet"))]
-use crate::SafeMode;
 use super::{
 	weights::{self, BlockExecutionWeight, ExtrinsicBaseWeight},
-	AccountId, Babe, Balance, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, RuntimeTask, SignedPayload, System, UncheckedExtrinsic, MAXIMUM_BLOCK_WEIGHT,
-	SLOT_DURATION, VERSION, BlockHashCount
+	AccountId, Babe, Balance, Block, BlockHashCount, Nonce, PalletInfo, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, RuntimeTask, SignedPayload, System, UncheckedExtrinsic,
+	MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, VERSION,
 };
+#[cfg(not(feature = "testnet"))]
+use crate::SafeMode;
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where

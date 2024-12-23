@@ -86,7 +86,7 @@ impl frame_system::Config for Runtime {
 	type BaseCallFilter = ();
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
-	type DbWeight = ParityDbWeight;;
+	type DbWeight = ParityDbWeight;
 	type Nonce = Nonce;
 	type Hash = BlockHash;
 	type AccountId = AccountId;

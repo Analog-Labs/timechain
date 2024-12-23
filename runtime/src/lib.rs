@@ -268,6 +268,9 @@ pub fn native_version() -> NativeVersion {
 	}
 }
 
+/// Maximum block size
+pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
+
 /// Average expected block time that we are targeting.
 pub const MILLISECS_PER_BLOCK: Moment = 6000;
 
@@ -337,6 +340,9 @@ parameter_types! {
 	/// can be supported by a single nominator. A higher number allows more decentralization but increases the
 	/// complexity of the staking system.
 	pub const MaxNominators: u32 = main_or_test!(0, 16);
+
+	/// Maximum numbers of authorities
+	pub const MaxAuthorities: u32 = 100;
 }
 
 pub type TechnicalCollective = pallet_collective::Instance1;
@@ -445,10 +451,6 @@ mod runtime {
 	#[runtime::pallet_index(25)]
 	pub type ValidatorManager = validator_manager;
 
-	// On-chain funding
-	#[runtime::pallet_index(27)]
-	pub type Treasury = pallet_treasury;
-
 	// Custom governance
 	#[runtime::pallet_index(32)]
 	pub type Governance = pallet_governance;
@@ -488,15 +490,6 @@ mod runtime {
 	pub type Timestamp = pallet_timestamp;
 
 	// Block production, finality, heartbeat and discovery
-	#[runtime::pallet_index(2)]
-	pub type Authorship = pallet_authorship;
-
-	#[runtime::pallet_index(3)]
-	pub type Session = pallet_session;
-
-	#[runtime::pallet_index(4)]
-	pub type Historical = pallet_session_historical;
-
 	/// Blind Assignment for Blockchain Extension block production.
 	/// Current configuration can be found here [here](struct@Runtime#config.Babe).
 	#[runtime::pallet_index(5)]
@@ -516,6 +509,15 @@ mod runtime {
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
 	#[runtime::pallet_index(8)]
 	pub type AuthorityDiscovery = pallet_authority_discovery;
+
+	#[runtime::pallet_index(2)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(3)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(4)]
+	pub type Historical = pallet_session_historical;
 
 	// Tokens, fees and vesting
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).

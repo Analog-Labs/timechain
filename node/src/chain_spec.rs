@@ -18,7 +18,7 @@ use sp_runtime::Perbill;
 use timechain_runtime::WASM_BINARY;
 
 use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
-use timechain_runtime::StakerStatus;
+use timechain_runtime::{StakerStatus, DAYS};
 
 // MAINNET
 // Small endowment to allow admins to work
@@ -255,6 +255,9 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
+			"safeMode": {
+				"entered_until":  14 * DAYS,
+			}
 		});
 
 		// Put it all together ...

@@ -24,7 +24,7 @@ parameter_types! {
 	pub const TechnicalMaxProposals: u32 = 100;
 	pub const TechnicalMaxMembers: u32 = 100;
 
-	pub MaxCollectivesProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
+	pub MaxCollectivesProposalWeight: Weight = Perbill::from_percent(75) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
@@ -40,24 +40,22 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
 }
 
-#[allow(dead_code)]
 // Limit membership check to development mode
 pub type TechnicalMember = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
 
-#[allow(dead_code)]
+pub type TechnicalHalf =
+	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 2>;
 pub type TechnicalMajority =
 	pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>;
-#[allow(dead_code)]
 pub type TechnicalQualifiedMajority =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>;
-#[allow(dead_code)]
 pub type TechnicalSuperMajority =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 3, 4>;
-#[allow(dead_code)]
 pub type TechnicalUnanimity =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>;
 
-pub type EnsureRootOrHalfTechnical = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMajority>;
+pub type EnsureRootOrTechnicalMember = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMember>;
+pub type EnsureRootOrHalfTechnical = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalHalf>;
 
 impl pallet_membership::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -100,7 +98,7 @@ parameter_types! {
 	/// The minimal duration a deposit will remain reserved after safe-mode is entered or extended,
 	/// unless ['Pallet::force_release_deposit'] is successfully called sooner, acts as a security buffer
 	/// to ensure stability and allow for safe recovery from critical events
-	pub const ReleaseDelay: u32 = 2 * DAYS;
+	pub const ReleaseDelay: u32 = 7 * DAYS;
 }
 
 #[cfg(not(feature = "testnet"))]
@@ -113,9 +111,10 @@ impl pallet_safe_mode::Config for Runtime {
 	type EnterDepositAmount = EnterDepositAmount;
 	type ExtendDuration = ExtendDuration;
 	type ExtendDepositAmount = ExtendDepositAmount;
+	// FIXME: Mainnet
 	type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, ConstU32<9>>;
 	type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, ConstU32<11>>;
-	type ForceExitOrigin = EnsureRoot<AccountId>;
+	type ForceExitOrigin = EnsureRootOrHalfTechnical;
 	type ForceDepositOrigin = EnsureRoot<AccountId>;
 	type ReleaseDelay = ReleaseDelay;
 	type Notify = ();
@@ -123,7 +122,23 @@ impl pallet_safe_mode::Config for Runtime {
 }
 
 #[cfg(not(feature = "testnet"))]
+impl pallet_governance::Config for Runtime {
+	/// Default admin origin for system related governance
+	type SystemAdmin = EnsureRootOrHalfTechnical;
+	/// Default admin origin for staking related governance
+	type StakingAdmin = EnsureRootOrHalfTechnical;
+}
+
+#[cfg(feature = "testnet")]
+impl pallet_governance::Config for Runtime {
+	/// Development admin origin for all system calls
+	type SystemAdmin = EnsureRootOrTechnicalMember;
+	/// Development admin origin for all staking calls
+	type StakingAdmin = EnsureRootOrTechnicalMember;
+}
+
+#[cfg(not(feature = "testnet"))]
 impl crate::validator_manager::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type PrivilegedOrigin = EnsureRoot<AccountId>;
+	type PrivilegedOrigin = EnsureRootOrHalfTechnical;
 }

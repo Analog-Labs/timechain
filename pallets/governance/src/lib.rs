@@ -32,14 +32,15 @@ pub mod pallet {
 	use sp_runtime::{Perbill, Percent};
 
 	// Useful coupling shorthands
+	#[cfg(feature = "broken")]
 	type CurrencyBalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		polkadot_sdk::frame_system::Config + pallet_balances::Config + pallet_staking::Config
+	pub trait Config: polkadot_sdk::frame_system::Config + pallet_balances::Config
+	// + pallet_staking::Config
 	{
 		/// Allowed origin for system calls
 		type SystemAdmin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -60,6 +61,7 @@ pub mod pallet {
 		// Wrapper around staking pallet calls
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet_staking::Config>::WeightInfo::set_validator_count())]
+		#[cfg(feature = "broken")]
 		pub fn set_validator_count(
 			origin: OriginFor<T>,
 			#[pallet::compact] new: u32,
@@ -74,6 +76,7 @@ pub mod pallet {
 			<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_set()
                 .max(<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_remove())
         )]
+		#[cfg(feature = "broken")]
 		pub fn set_staking_configs(
 			origin: OriginFor<T>,
 			min_nominator_bond: ConfigOp<CurrencyBalanceOf<T>>,

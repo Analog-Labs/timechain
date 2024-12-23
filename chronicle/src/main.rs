@@ -13,6 +13,9 @@ use std::{
 use tc_subxt::SubxtClient;
 use time_primitives::NetworkId;
 
+#[cfg(not(feature = "testnet"))]
+compile_error!("GMP is currently not supported on mainnet.");
+
 #[derive(Debug, Parser)]
 pub struct ChronicleArgs {
 	/// The network to be used from Analog Connector.

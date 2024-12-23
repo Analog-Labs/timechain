@@ -51,33 +51,53 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			// Pre-release networks
-			"mainnet" => Box::new(chain_spec::GenesisKeysConfig::default().to_mainnet()?),
-			// Choose latest live network by default
-			"testnet" | "" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+			// Choose soft-launch mainnet byr default
+			"mainnet" | "" => {
+				assert!(cfg!(not(feature = "testnet")), "Runtime variant missmatch");
+				Box::new(
+					chain_spec::GenesisKeysConfig::from_json_bytes(
+						&include_bytes!("chains/mainnet.keys.json")[..],
+					)?
+					.to_live()?,
+				)
+			},
+			// Old testnet environment
+			"testnet" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 				&include_bytes!("chains/testnet.raw.json")[..],
 			)?),
 			// Internal development networks
-			"staging" => Box::new(
-				chain_spec::GenesisKeysConfig::from_json_bytes(
-					&include_bytes!("chains/internal.keys.json")[..],
-				)?
-				.to_development("staging")?,
-			),
-			"integration" => Box::new(
-				chain_spec::GenesisKeysConfig::from_json_bytes(
-					&include_bytes!("chains/internal.keys.json")[..],
-				)?
-				.to_development("integration")?,
-			),
-			"development" => Box::new(
-				chain_spec::GenesisKeysConfig::from_json_bytes(
-					&include_bytes!("chains/internal.keys.json")[..],
-				)?
-				.to_development("development")?,
-			),
+			"staging" => {
+				assert!(cfg!(not(feature = "develop")), "Runtime variant missmatch");
+				Box::new(
+					chain_spec::GenesisKeysConfig::from_json_bytes(
+						&include_bytes!("chains/internal.keys.json")[..],
+					)?
+					.to_development("staging")?,
+				)
+			},
+			"integration" => {
+				assert!(cfg!(not(feature = "develop")), "Runtime variant missmatch");
+				Box::new(
+					chain_spec::GenesisKeysConfig::from_json_bytes(
+						&include_bytes!("chains/internal.keys.json")[..],
+					)?
+					.to_development("integration")?,
+				)
+			},
+			"development" => {
+				assert!(cfg!(not(feature = "develop")), "Runtime variant missmatch");
+				Box::new(
+					chain_spec::GenesisKeysConfig::from_json_bytes(
+						&include_bytes!("chains/internal.keys.json")[..],
+					)?
+					.to_development("development")?,
+				)
+			},
 			// Local testing networks
-			"dev" => Box::new(chain_spec::GenesisKeysConfig::default().to_local()?),
+			"dev" => {
+				assert!(cfg!(not(feature = "testnet")), "Runtime variant missmatch");
+				Box::new(chain_spec::GenesisKeysConfig::default().to_local()?)
+			},
 			// External chain spec file
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)

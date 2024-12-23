@@ -386,57 +386,58 @@ mod runtime {
 	#[runtime::pallet_index(2)]
 	pub type Babe = pallet_babe;
 
-	/// Authorship tracking extension.
-	/// Current configuration can be found here [here](struct@Runtime#config.Authorship).
-	#[runtime::pallet_index(3)]
-	pub type Authorship = pallet_authorship;
-
-	#[runtime::pallet_index(4)]
-	pub type Session = pallet_session;
-
-	#[runtime::pallet_index(5)]
-	pub type Historical = pallet_session_historical;
-
 	/// GHOST-based Recursive Ancestor Deriving Prefix Agreement finality gadget.
 	/// Current configuration can be found here [here](struct@Runtime#config.Grandpa).
-	#[runtime::pallet_index(6)]
+	#[runtime::pallet_index(3)]
 	pub type Grandpa = pallet_grandpa;
 
 	/// Validator heartbeat protocol.
 	/// Current configuration can be found here [here](struct@Runtime#config.ImOnline).
-	#[runtime::pallet_index(7)]
+	#[runtime::pallet_index(4)]
 	pub type ImOnline = pallet_im_online;
 
 	/// Validator peer-to-peer discovery.
 	/// Current configuration can be found here [here](struct@Runtime#config.AuthorityDiscovery).
-	#[runtime::pallet_index(8)]
+	#[runtime::pallet_index(5)]
 	pub type AuthorityDiscovery = pallet_authority_discovery;
 
 	// Tokens, fees and vesting
 	/// Current configuration can be found here [here](struct@Runtime#config.Balances).
-	#[runtime::pallet_index(9)]
+	#[runtime::pallet_index(6)]
 	pub type Balances = pallet_balances;
 
+	/// Authorship tracking extension.
+	/// Current configuration can be found here [here](struct@Runtime#config.Authorship).
+	#[runtime::pallet_index(7)]
+	pub type Authorship = pallet_authorship;
+
 	/// Current configuration can be found here [here](struct@Runtime#config.TransactionPayment).
-	#[runtime::pallet_index(10)]
+	#[runtime::pallet_index(8)]
 	pub type TransactionPayment = pallet_transaction_payment;
 
 	/// Current configuration can be found here [here](struct@Runtime#config.Vesting).
-	#[runtime::pallet_index(11)]
+	#[runtime::pallet_index(9)]
 	pub type Vesting = pallet_vesting;
 
 	// Batch, proxy and multisig support
 	/// Current configuration can be found here [here](struct@Runtime#config.Utility).
-	#[runtime::pallet_index(12)]
+	#[runtime::pallet_index(10)]
 	pub type Utility = pallet_utility;
 
 	/// Current configuration can be found here [here](struct@Runtime#config.Proxy).
-	#[runtime::pallet_index(13)]
+	#[runtime::pallet_index(11)]
 	pub type Proxy = pallet_proxy;
 
 	/// Current configuration can be found here [here](struct@Runtime#config.Multisig).
-	#[runtime::pallet_index(14)]
+	#[runtime::pallet_index(12)]
 	pub type Multisig = pallet_multisig;
+
+	#[runtime::pallet_index(13)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(14)]
+	pub type Historical = pallet_session_historical;
+
 
 	// On-chain governance
 	#[runtime::pallet_index(22)]

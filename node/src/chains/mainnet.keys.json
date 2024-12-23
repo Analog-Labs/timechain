@@ -1,0 +1,74 @@
+{
+  "admins": [
+    "an6huAuLqDiv5VjnwxGf8JRjPwu7va9tumaMbriERHwjPV6Q8",
+    "an96zB2862d4YdhcqQXNBep4NDLHFUdSVuSbhwfKmeGVQPCpw"
+  ],
+  "bootstraps": [
+    [
+      "an9c4ednjBwKyPZtPS71JPPhNRpZRrr65hMH2ExguiapdunVu",
+      "an8jZRAyuVpZvrBVkRt6rWGn2bMaHoBYHA4d9z1DeLB5JdvQn",
+      "an6dKeYHhDR4DuKCb8AHx46GzUjuR3C2Jqx1ocdAViUCGDic4",
+      "an5wCxvKKaJ7VxK7rZZDjwN9fAmWNZQHPaJS1q7Xmpb3ft28z"
+    ],[
+      "an89fnStLHXTyrvDbXPuix8MFi7dtBxpRRWMS36tfzpqof7MN",
+      "an8qziZBCiQKRjxLCxM88ApVtSSiEPwEjQrSdeN6A41JxdjNF",
+      "an85NAfhURakMVtN1HWj7m5KadgwngzwtugqFmia3sgYJ1njp",
+      "an6S8aXAdaL8AGYrVLBpfVPoX1tVSLLZhTNMY5j5LvBnDnoqk"
+    ],[
+      "an7XSAjZKwWs4ygtLikaQMjxZxUU8qtBYRGjpcpXkF92w777f",
+      "anAq58JHu5AgHdGy55pmBEDSYHXNmZNcGcudWWywCFcX4gkZk",
+      "an9CfdFHUErwiogNRPm8oUG8qNGfR4HAPVoM9uzXewEoVrQPJ",
+      "an7XbuFuAQWaaAhNM5rZr4TYVt3wjZpx8377kh6PgFS1eCH3Z"
+    ],[
+      "an9PjfY6SFrhtg1KGdu8UzJ3dhfwxZQkvaaHDboPptncYJCxm",
+      "an5gbPXTU5tgmP5bpRinSjnLSyd4QXGwoDCQo1Az3zNDNtBNY",
+      "an97Az4kTDkLfvmdF7rwLjgZGxJ7zV2rWext8fdDNUxdApJxK",
+      "an72WDVraNACs6uycyBePG3pSPh2Qm8gPCv3QvuCC1nnBy5cs"
+    ],[
+      "an8RQbyh1p5pvkQmQZNKn6msJDGwV4cH18BKRJ8PnPaYBPwo4",
+      "an9jMC366uu8vmQHsHDvY1t5QXVkG3kj39aP16Tassz2XJhgY",
+      "an6JrX9G26uzf4qkHT1XdshyMw6CBBdXN62MheJotoe4qXUbK",
+      "an6SBjMjCNhMfiRQo22YUkcVwjJJCvMcXXEQsRz2DXiS7WZfk"
+    ],[
+      "an6rTYFt6LrqGbkk446Qav2MuTtCUDKHAKCUD16jU3TrQPvLM",
+      "an8MjniMR5w3JRQFyPqTdaWe3GENLM1dr7r8bQ68YKHAXDump",
+      "an7Y5N7qd9d1LmRnwhcsg822X14PXVPvoNNPBAKVQMGe2HeT7",
+      "an5gaSf6m69xdPetXU385VsSLjaYswGjRamRKrF8ZpQcbDeCp"
+    ],[
+      "an6kbeySR9c5pvx7P8JFyJxJMWXd7quqxfBC4xDwD4qTPpftm",
+      "an7cDoWsS8PHDmohPNEredxtqBrEYJEzThmNTpEg4YW858aBH",
+      "an8hbDK4QdqUr7FmGi1h8fJMhtDVphu19wjr8fAhSxzJhQ3Qb",
+      "an9RSXg5e9r1uyfnba6F9cR5ieEeV9QoiaxgrJ8ozBhmAVmih"
+    ],[
+      "an9jZdPrP8N8yEEosZLXBh5pioMFrEvFvmoesL2f4mGC79Zb1",
+      "an7geWHViaBFwA7ATDVkvazuU3wM5F2TJRJ5iFWmugZtJ2CYK",
+      "an8qXC86uMEjMbJf2Kt1VBPyfPLxMjeaXrXNwJaT8RBxikG45",
+      "anA44bzCdJ5u1TuoeMJppRAbJ6r54yp4jXJL4gRMcKTexigjS"
+    ],[
+      "anACm2ja757q1ZRxVcWLSXBiVRgzvZRCFPA3fykHNvw3xJr7V",
+      "anBJwVZtfUfuSR6ZsbA1SyhDN66DY1ddY86vGRpVBX5UkneJ2",
+      "anB4RbQJmGsRw8gVxyM9bJUZs6kbxUXMouTjtiUnXqXZ9YoxU",
+      "an7RytmSFKEWBBsiwwrUzSDgC27RHPC3ag6gURA5cRFnGL6Lx"
+    ],[
+      "an6FmiBbs7kkV4y55nTUz6HJ3ytMqQnHrt2iAELDFGuUSa7Y8",
+      "anAJyCGXBh5C1WXAqYRgNbyTCjHrcsYoMv1AJ9NdnzPSwukRH",
+      "an921t1jXq3To9FwWnUU8K2zDGA8nBsiARtoWJ1i6UMRHEaGW",
+      "an6pEpCLXogayEyrn1GGASzvU1Ybm5JiwWypcDfW9HfRTzsEP"
+    ]
+  ],
+  "chronicles": [],
+  "endowments": [],
+  "nominators": [],
+  "stakes": [
+    "an7LvWFafWHjyhZ267mkuuy6XV4ssZZjeA1dux8ofdwAPyeho",
+    "an9xepmpRQpem2oQDTTuVqtBm6ct5kpitQCkYdurYJvbnNEnB",
+    "an9qKiw6BF76nD5ctS7dzn8rSwLJ7QX2F4gVM2EAF5RA1cshs",
+    "anAZH2qZWUKrATyesBNafnAB5uZxWJKikh79hvdMa37Jstg5o",
+    "anAS24QYWe4dNb3kSzZWooWyTwZ886wwkWGQjEqb4E3edRGFx",
+    "anAnkRFYEmXPi8ZzwGWSx5UYkwkwEqKuSHDUwN6r1Ytw4mNoF",
+    "an9hU3qw1XvcQmT37LpksFQewQcc1ik59LRRkPXmaLKPkWXss",
+    "anAEa5Ef4qG8aGPscxPyy8xhwWqPuhdezg7mP3vXEon9ujyLK",
+    "anAnfgSbH2ZTUDjbusaXDyzssoEbHPQUL5RWB4Jy57aQirDwS",
+    "an7fhdR6zS8BMRW6EMb1bCHJCrQyzcHGNoQ9aVTzsunrs6CjT"
+  ]
+}

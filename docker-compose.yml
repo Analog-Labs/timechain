@@ -126,7 +126,7 @@ services:
       RUST_LOG: 'tc_subxt=debug,tc_cli=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
     volumes:
-    - './config/envs/local/local-evm.yaml:/etc/config.yaml:ro'
+    - './config/envs/local/local-grpc.yaml:/etc/config.yaml:ro'
     - './config/envs/local/prices.csv:/etc/prices.csv'
     - './analog-gmp/out:/etc/contracts:ro'
     - './gmp/evm/factory/additional_config.json:/etc/deployer/additional_config.json:ro'

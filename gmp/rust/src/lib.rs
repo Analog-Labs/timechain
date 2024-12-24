@@ -240,8 +240,20 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let bytes = msg.encode(batch);
-		let hash = GmpParams::new(self.network_id(), gateway).hash(&bytes);
+		// TODO fix when batching enabled on gateway
+		// let bytes = msg.encode(batch);
+		// let hash = GmpParams::new(self.network_id(), gateway).hash(&bytes);
+
+		// Temporary Non Batch implementation
+		let mut hash: Vec<u8> = vec![];
+		if let Some(GatewayOp::SendMessage(inner_msg)) =
+			msg.clone().ops.into_iter().find(|op| matches!(op, GatewayOp::SendMessage(_)))
+		{
+			inner_msg.encode_to(&mut hash);
+		} else {
+			return Err(String::from("Invalid or unsupported message received from Chronicle"));
+		};
+
 		time_primitives::verify_signature(signer, &hash, sig)
 			.map_err(|_| "invalid signature".to_string())?;
 		(|| {

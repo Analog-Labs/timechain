@@ -15,9 +15,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 
 const BLOCK_TIME: u64 = 1;

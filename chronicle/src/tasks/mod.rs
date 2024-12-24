@@ -119,7 +119,7 @@ impl TaskParams {
 				let mut err_vec: ErrorMsg = ErrorMsg(BoundedVec::default());
 				let msg_ops = msg.ops.clone();
 				for op in msg_ops.iter() {
-					//TODO gateway doesnt support shard management throw chronicle
+					//TODO gateway doesnt support shard management
 					let GatewayOp::SendMessage(inner_msg) = op else {
 						continue;
 					};
@@ -133,6 +133,7 @@ impl TaskParams {
 						.await?
 						.context("invalid shard")?
 						.0[0];
+
 					// TODO remove when gateway support batch
 					let modified_gateway_msg =
 						GatewayMessage::new(vec![GatewayOp::SendMessage(inner_msg.clone())]);

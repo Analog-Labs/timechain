@@ -1,7 +1,6 @@
 #[cfg(feature = "std")]
 use crate::{
-	encode_gmp_events, BatchId, BlockNumber, Gateway, GatewayMessage, GmpEvent, GmpParams,
-	NetworkId, TaskId,
+	encode_gmp_events, BatchId, BlockNumber, Gateway, GatewayMessage, GmpEvent, NetworkId, TaskId,
 };
 #[cfg(feature = "std")]
 use futures::channel::oneshot;
@@ -183,13 +182,24 @@ impl MockTssSigner {
 	#[cfg(feature = "std")]
 	pub fn sign_gateway_message(
 		&self,
-		network: NetworkId,
-		gateway: Gateway,
-		batch: BatchId,
+		_network: NetworkId,
+		_gateway: Gateway,
+		_batch: BatchId,
 		msg: &GatewayMessage,
 	) -> TssSignature {
-		let bytes = msg.encode(batch);
-		let hash = GmpParams { network, gateway }.hash(&bytes);
+		// TODO uncomment this is actual implementation
+		// let bytes = msg.encode(batch);
+		// let hash = GmpParams { network, gateway }.hash(&bytes);
+		// self.sign(&hash)
+
+		// Remove below code after batching implementation
+		use crate::GatewayOp;
+		let mut hash: Vec<u8> = vec![];
+		if let Some(GatewayOp::SendMessage(inner_msg)) =
+			msg.clone().ops.into_iter().find(|op| matches!(op, GatewayOp::SendMessage(_)))
+		{
+			inner_msg.encode_to(&mut hash);
+		}
 		self.sign(&hash)
 	}
 

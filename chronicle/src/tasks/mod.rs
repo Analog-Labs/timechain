@@ -141,7 +141,7 @@ impl TaskParams {
 						.submit_commands(gateway, batch_id, modified_gateway_msg, signer, signature)
 						.await
 					{
-						if let Err(_) = err_vec.0.try_append(&mut e.encode()) {
+						if err_vec.0.try_append(&mut e.encode()).is_err() {
 							tracing::error!("Task error too long to append: {}/{}", task_id, e);
 						}
 					}

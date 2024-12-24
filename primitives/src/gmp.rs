@@ -84,7 +84,7 @@ impl GmpMessage {
 		let mut buf = Vec::new();
 		self.encode_to(&mut buf);
 		let message_id: [u8; 32] = sha3::Keccak256::digest(buf).into();
-		message_id.into()
+		message_id
 	}
 }
 

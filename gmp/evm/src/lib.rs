@@ -486,7 +486,7 @@ impl IConnector for Connector {
 		sig: TssSignature,
 	) -> Result<(), String> {
 		// TODO Currently sending single message fix when batching is available.
-		let msg = msg.ops.get(0).ok_or_else(|| String::from("Invalid msg ops length"))?;
+		let msg = msg.ops.first().ok_or_else(|| String::from("Invalid msg ops length"))?;
 		let GatewayOp::SendMessage(msg) = msg else {
 			return Err(String::from("Not valid type of GatewayOp"));
 		};

@@ -470,8 +470,10 @@ pub mod pallet {
 			signature: TssSignature,
 		) -> DispatchResult {
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			time_primitives::verify_signature(public_key, data, signature)
-				.map_err(|_| Error::<T>::InvalidSignature)?;
+			if time_primitives::verify_signature(public_key, data, signature).is_err() {
+				log::error!("invalid tss signature shard_id={shard_id} public_key={public_key:?} data={data:?} sig={signature:?}");
+				return Err(Error::<T>::InvalidSignature.into());
+			}
 			Ok(())
 		}
 

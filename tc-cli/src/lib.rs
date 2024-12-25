@@ -48,7 +48,7 @@ impl Tc {
 		let env = Mnemonics::from_env()?;
 		let config = Config::from_file(config)?;
 		while let Err(err) = SubxtClient::get_client(&config.global().timechain_url).await {
-			tracing::info!("waiting for chain to start {err:?}");
+			tracing::info!("waiting for chain to start: {err:?}");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		let runtime =
@@ -139,8 +139,9 @@ impl Tc {
 		if let Some(network) = network {
 			self.connector(network)?.parse_address(address)
 		} else {
-			let address: AccountId =
-				address.parse().map_err(|_| anyhow::anyhow!("invalid timechain account"))?;
+			let address: AccountId = address
+				.parse()
+				.map_err(|err| anyhow::anyhow!("invalid timechain account: {err}"))?;
 			Ok(address.into())
 		}
 	}

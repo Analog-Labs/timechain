@@ -119,10 +119,7 @@ impl Connector {
 		factory_address: [u8; 20],
 		call: Vec<u8>,
 	) -> Result<(AlloyAddress, u64)> {
-		let result = self
-			.wallet
-			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
-			.await?;
+		let result = self.wallet.eth_send_call(factory_address, call, 0, None, None).await?;
 		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
 			anyhow::bail!("tx timed out");
 		};

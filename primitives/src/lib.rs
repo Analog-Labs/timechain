@@ -97,8 +97,7 @@ pub const SS58_PREFIX: u16 = 12852;
 
 /// Helper to format address with correct prefix
 pub fn format_address(account: &AccountId) -> String {
-	// FIXME: Hardcoded to not break smoke tests, change to SS58_PREFIX once fixed
-	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(12850u16))
+	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS58_PREFIX))
 }
 
 uint::construct_uint! {

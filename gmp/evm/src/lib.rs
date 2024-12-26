@@ -20,13 +20,13 @@ use sol::{u256, Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
+use thiserror::Error;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
-use tokio::time::sleep;
+use tokio::sync::Mutex;
 
 use crate::sol::CCTP;
 use crate::sol::{ProxyContext, ProxyDigest};
@@ -53,6 +53,7 @@ pub struct Connector {
 	backend: Adapter<DefaultClient>,
 	cctp_sender: Option<String>,
 	cctp_attestation: String,
+	cctp_queue: Arc<Mutex<Vec<sol::GmpMessage>>>,
 }
 
 impl Connector {
@@ -311,49 +312,71 @@ impl Connector {
 		let initializer = sol::Gateway::initializeCall { admin, keys, networks }.abi_encode();
 		Ok(initializer)
 	}
-	async fn process_cctp_msg(&self, msg: &mut sol::GmpMessage) -> Result<()> {
+	async fn process_cctp_msg(&self, msg: &mut sol::GmpMessage) -> Result<(), CctpError> {
 		let payload = msg.data.clone();
-		let mut cctp_payload = CCTP::abi_decode(&payload, false)?;
+		let mut cctp_payload =
+			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
 		if cctp_payload.version != 0 {
-			anyhow::bail!("Invalid cctp version for cctp msg: {:?}", msg)
+			return Err(CctpError::InvalidVersion);
 		}
 		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
 		let attestation_response = self.get_cctp_attestation(burn_hash).await?;
-		let signature = attestation_response.attestation.clone().ok_or_else(|| {
-			anyhow::anyhow!("Could not get attesation from response: {:?}", attestation_response)
-		})?;
+		let signature =
+			attestation_response.attestation.clone().ok_or(CctpError::AttestationResponse)?;
 		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
-		let attestation = hex::decode(signature)?;
+		let attestation = hex::decode(signature).map_err(|_| CctpError::InvalidSignature)?;
 		cctp_payload.attestation = attestation.into();
 		msg.data = cctp_payload.abi_encode().into();
 		Ok(())
 	}
 
-	async fn get_cctp_attestation(&self, burn_hash: [u8; 32]) -> Result<AttestationResponse> {
+	async fn get_cctp_attestation(
+		&self,
+		burn_hash: [u8; 32],
+	) -> Result<AttestationResponse, CctpError> {
 		let url = format!(
 			"{}/0x{}",
 			&self.cctp_attestation.trim_end_matches('/'),
 			hex::encode(burn_hash)
 		);
 		let client = Client::new();
-		for attempt in 1..=2 {
-			let response = client.get(&url).send().await?.error_for_status()?;
-			let attestation_response: AttestationResponse = response.json().await?;
-			if attestation_response.status == "complete" {
-				return Ok(attestation_response);
-			} else {
-				tracing::error!(
-					"Attempt: {}, Attestation not available for burn hash: {}",
-					attempt,
-					hex::encode(burn_hash)
-				);
-				if attempt < 2 {
-					sleep(Duration::from_secs(10)).await;
-				}
+		let response = client
+			.get(&url)
+			.send()
+			.await
+			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?
+			.error_for_status()
+			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
+		let attestation_response: AttestationResponse =
+			response.json().await.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
+		if attestation_response.status == "complete" {
+			return Ok(attestation_response);
+		}
+		Err(CctpError::AttestationPending)
+	}
+
+	async fn process_cctp_queue(&self) -> Vec<sol::GmpMessage> {
+		let mut attested_msgs = vec![];
+		let mut queue = self.cctp_queue.lock().await;
+		let msgs = std::mem::take(&mut *queue);
+		for mut msg in msgs {
+			match self.process_cctp_msg(&mut msg).await {
+				Ok(()) => attested_msgs.push(msg),
+				Err(CctpError::AttestationPending) => {
+					tracing::info!("Attestation is pending for msg: {:?}", msg);
+					queue.push(msg);
+				},
+				Err(error) => {
+					tracing::error!("Failed to process cctp message: {:?}: {:?}", msg, error);
+				},
 			}
 		}
-		anyhow::bail!("Could not fetch attestation for burn hash: {}", hex::encode(burn_hash))
+
+		if !queue.is_empty() {
+			tracing::info!("{} Cctp messages have pending attestations.", queue.len());
+		}
+		attested_msgs
 	}
 }
 
@@ -384,6 +407,7 @@ impl IConnectorBuilder for Connector {
 			backend: adapter,
 			cctp_sender: params.cctp_sender,
 			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
+			cctp_queue: Default::default(),
 		};
 		// local testnet send some funds
 		if connector.wallet.config().coin == 1 {
@@ -501,11 +525,22 @@ impl IConnector for Connector {
 							gas_cost: 1_000_000,
 							bytes: log.data.data.into(),
 						};
-						// if contracts.len() > 1 && gmp_message.src == contracts.clone()[1] {
-						// 	let gmp_message = todo!();
-						// 	self.process_cctp_msg(&mut gmp_message).await?;
-						// }
-						events.push(GmpEvent::MessageReceived(gmp_message));
+						if let Some(cctp_sender) = cctp_sender {
+							if sender == cctp_sender.into() {
+								let mut cctp_queue = self.cctp_queue.lock().await;
+								cctp_queue.push(data.clone());
+								let msgs = self.process_cctp_queue().await;
+								for msg in msgs {
+									events.push(GmpEvent::MessageReceived(
+										msg.clone().outbound(self.network_id),
+									));
+								}
+							}
+						} else {
+							events.push(GmpEvent::MessageReceived(
+								data.clone().outbound(self.network_id),
+							));
+						}
 						break;
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
@@ -864,4 +899,20 @@ struct Bytecode {
 struct AttestationResponse {
 	status: String,
 	attestation: Option<String>,
+}
+
+#[derive(Error, Debug)]
+enum CctpError {
+	#[error("Attestation is pending.")]
+	AttestationPending,
+	#[error("Failed to get attestation from response.")]
+	AttestationResponse,
+	#[error("Invalid payload.")]
+	InvalidPayload,
+	#[error("Invalid response {0}.")]
+	InvalidResponse(String),
+	#[error("Invalid signature.")]
+	InvalidSignature,
+	#[error("Cctp version is invalid.")]
+	InvalidVersion,
 }

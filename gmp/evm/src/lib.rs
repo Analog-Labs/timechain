@@ -119,7 +119,10 @@ impl Connector {
 		factory_address: [u8; 20],
 		call: Vec<u8>,
 	) -> Result<(AlloyAddress, u64)> {
-		let result = self.wallet.eth_send_call(factory_address, call, 0, None, None).await?;
+		let result = self
+			.wallet
+			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
+			.await?;
 		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
 			anyhow::bail!("tx timed out");
 		};
@@ -477,24 +480,24 @@ impl IConnector for Connector {
 	async fn submit_commands(
 		&self,
 		gateway: Gateway,
-		_batch: BatchId,
+		batch: BatchId,
 		msg: GatewayMessage,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		// TODO Currently sending single message fix when batching is available.
-		let msg = msg.ops.first().ok_or_else(|| String::from("Invalid msg ops length"))?;
-		let GatewayOp::SendMessage(msg) = msg else {
-			return Err(String::from("Not valid type of GatewayOp"));
-		};
 		let signature = sol::Signature {
 			xCoord: u256(&signer[1..33]),
 			e: u256(&sig[..32]),
 			s: u256(&sig[32..]),
 		};
-		let call = sol::Gateway::execute_1Call {
+		let ops: Vec<sol::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
+		let call = sol::Gateway::batchExecuteCall {
 			signature,
-			message: msg.clone().into(),
+			message: sol::InboundMessage {
+				version: 0,
+				batchID: batch,
+				ops,
+			},
 		};
 		self.evm_call(gateway, call, 0, None).await.map_err(|err| err.to_string())?;
 		Ok(())

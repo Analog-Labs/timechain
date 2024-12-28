@@ -1,4 +1,5 @@
 use alloy_primitives::U256;
+use alloy_sol_types::SolValue;
 
 use crate::{a_addr, t_addr};
 
@@ -61,6 +62,23 @@ alloy_sol_types::sol! {
 		PENDING
 	}
 
+	struct InboundMessage {
+		uint8 version;
+		uint64 batchID;
+		GatewayOp[] ops;
+	}
+
+	struct GatewayOp {
+		Command command;
+		bytes params;
+	}
+
+	enum Command {
+		GMP,
+		SetShards,
+		SetRoute
+	}
+
 	contract Gateway {
 		constructor(uint16 network, address proxy) payable;
 		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
@@ -70,6 +88,8 @@ alloy_sol_types::sol! {
 		function execute(Signature calldata signature, GmpMessage calldata message)
 			external
 			returns (GmpStatus status, bytes32 result);
+
+		function batchExecute(Signature calldata signature, InboundMessage calldata message) external;
 		function admin() external view returns (address);
 		function setAdmin(address admin) external payable;
 		function shards() external view returns (TssKey[] memory);
@@ -249,6 +269,22 @@ impl From<time_primitives::GmpMessage> for GmpMessage {
 			salt: U256::from(msg.nonce),
 			gasLimit: U256::from(msg.gas_limit),
 			data: msg.bytes.into(),
+		}
+	}
+}
+
+impl From<time_primitives::GatewayOp> for GatewayOp {
+	fn from(msg: time_primitives::GatewayOp) -> Self {
+		match msg {
+			time_primitives::GatewayOp::SendMessage(msg) => GatewayOp {
+				command: Command::GMP,
+				params: Into::<GmpMessage>::into(msg).abi_encode().into(),
+			},
+			time_primitives::GatewayOp::RegisterShard(shard_id) => GatewayOp {
+				command: Command::SetShards,
+				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
+			},
+			time_primitives::GatewayOp::UnregisterShard(_) => todo!(),
 		}
 	}
 }

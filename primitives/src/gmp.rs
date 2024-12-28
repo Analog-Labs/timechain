@@ -111,25 +111,22 @@ pub enum GatewayOp {
 
 impl GatewayOp {
 	pub fn encoded_len(&self) -> usize {
-		1 + match self {
+		match self {
 			Self::SendMessage(msg) => msg.encoded_len(),
-			_ => 8 + 33,
+			_ => 32,
 		}
 	}
 
 	pub fn encode_to(&self, buf: &mut Vec<u8>) {
 		match self {
 			Self::SendMessage(msg) => {
-				buf.push(0);
-				msg.encode_to(buf);
+				buf.extend_from_slice(&msg.message_id());
 			},
 			Self::RegisterShard(pubkey) => {
-				buf.push(1);
-				buf.extend_from_slice(pubkey);
+				buf.extend_from_slice(&pubkey[1..]);
 			},
 			Self::UnregisterShard(pubkey) => {
-				buf.push(2);
-				buf.extend_from_slice(pubkey);
+				buf.extend_from_slice(&pubkey[1..]);
 			},
 		}
 	}
@@ -171,13 +168,23 @@ impl GatewayMessage {
 	}
 
 	pub fn encode(&self, batch_id: BatchId) -> Vec<u8> {
+		let mut message_hash: [u8; 32] = [0u8; 32];
 		let mut buf = Vec::new();
-		buf.push(0); // struct version
+		// include version in buffer
+		buf.extend_from_slice(&[0u8; 32]);
+		// include batch id
+		// padding for batch_id, since batch_id is uint64 we pad initial 0 until we have 32 bytes
+		buf.extend_from_slice(&[0u8; 24]);
 		buf.extend_from_slice(&batch_id.to_be_bytes());
-		buf.extend_from_slice(&(self.ops.len() as u32).to_be_bytes());
 		for op in &self.ops {
-			op.encode_to(&mut buf);
+			let mut op_hasher = sha3::Keccak256::new();
+			let mut op_hash = Vec::new();
+			op.encode_to(&mut op_hash);
+			op_hasher.update(message_hash);
+			op_hasher.update(op_hash);
+			message_hash = op_hasher.finalize().into();
 		}
+		buf.extend_from_slice(&message_hash);
 		buf
 	}
 }

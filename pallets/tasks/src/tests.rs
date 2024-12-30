@@ -44,7 +44,7 @@ fn register_shard(shard: ShardId) {
 fn submit_gateway_events(shard: ShardId, task_id: TaskId, events: &[GmpEvent]) {
 	let signature = MockTssSigner::new(shard).sign_gmp_events(task_id, events);
 	let result = TaskResult::ReadGatewayEvents {
-		events: GmpEvents(BoundedVec::truncate_from(events.to_vec())),
+		events: GmpEvents(events.to_vec()),
 		signature,
 	};
 	assert_ok!(Tasks::submit_task_result(

@@ -69,7 +69,7 @@ benchmarks! {
 	}: _(
 		RawOrigin::Signed([0u8; 32].into()),
 		task_id,
-		TaskResult::ReadGatewayEvents { events: GmpEvents(BoundedVec::truncate_from(vec![])), signature: SIGNATURE }
+		TaskResult::ReadGatewayEvents { events: GmpEvents(vec![]), signature: SIGNATURE }
 	) verify {
 		assert_eq!(TaskOutput::<T>::get(task_id), Some(Ok(())));
 		assert!(TaskShard::<T>::get(task_id).is_none());
@@ -129,7 +129,7 @@ benchmarks! {
 	}
 
 	submit_gmp_events {
-	}: _(RawOrigin::Root, ETHEREUM, GmpEvents(BoundedVec::truncate_from(vec![])))
+	}: _(RawOrigin::Root, ETHEREUM, GmpEvents(vec![]))
 	verify { }
 
 	sync_network {}: _(RawOrigin::Root, ETHEREUM, 100u64) verify { }

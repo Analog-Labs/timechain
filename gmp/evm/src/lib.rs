@@ -20,9 +20,9 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
-	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 
 use crate::sol::{ProxyContext, ProxyDigest};
@@ -433,11 +433,6 @@ impl IConnector for Connector {
 						}
 						break;
 					},
-					sol::Gateway::MessageReceived::SIGNATURE_HASH => {
-						let log = sol::Gateway::MessageReceived::decode_log(&log, true)?;
-						events.push(GmpEvent::MessageReceived(log.msg.clone().into()));
-						break;
-					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
 						let gmp_message = GmpMessage {
@@ -451,11 +446,6 @@ impl IConnector for Connector {
 							gas_cost: 1_000_000,
 							bytes: log.data.data.into(),
 						};
-						tracing::info!(
-							"read events msg: {:?}/{:?}",
-							gmp_message,
-							gmp_message.message_id()
-						);
 						events.push(GmpEvent::MessageReceived(gmp_message));
 						break;
 					},

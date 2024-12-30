@@ -54,6 +54,7 @@ alloy_sol_types::sol! {
 		uint256 s;
 	}
 
+	#[derive(Debug)]
 	enum GmpStatus {
 		NOT_FOUND,
 		SUCCESS,
@@ -75,7 +76,8 @@ alloy_sol_types::sol! {
 
 	enum Command {
 		GMP,
-		SetShards,
+		RegisterShard,
+		UnregisterShard,
 		SetRoute
 	}
 
@@ -88,7 +90,6 @@ alloy_sol_types::sol! {
 		function execute(Signature calldata signature, GmpMessage calldata message)
 			external
 			returns (GmpStatus status, bytes32 result);
-
 		function batchExecute(Signature calldata signature, InboundMessage calldata message) external;
 		function admin() external view returns (address);
 		function setAdmin(address admin) external payable;
@@ -100,14 +101,7 @@ alloy_sol_types::sol! {
 		function withdraw(uint256 amount, address recipient, bytes calldata data) external returns (bytes memory output);
 
 		event ShardsRegistered(TssKey[] keys);
-
 		event ShardsUnregistered(TssKey[] keys);
-
-		event MessageReceived(
-			bytes32 indexed id,
-			GmpMessage msg
-		);
-
 		event GmpCreated(
 			bytes32 indexed id,
 			bytes32 indexed source,
@@ -117,16 +111,6 @@ alloy_sol_types::sol! {
 			uint256 salt,
 			bytes data
 		);
-
-		#[derive(Debug)]
-		enum GmpStatus {
-			NOT_FOUND,
-			SUCCESS,
-			REVERT,
-			INSUFFICIENT_FUNDS,
-			PENDING
-		}
-
 		#[derive(Debug)]
 		event GmpExecuted(
 			bytes32 indexed id,
@@ -135,7 +119,6 @@ alloy_sol_types::sol! {
 			GmpStatus status,
 			bytes32 result
 		);
-
 		event BatchExecuted(
 			uint64 batch,
 		);
@@ -281,10 +264,13 @@ impl From<time_primitives::GatewayOp> for GatewayOp {
 				params: Into::<GmpMessage>::into(msg).abi_encode().into(),
 			},
 			time_primitives::GatewayOp::RegisterShard(shard_id) => GatewayOp {
-				command: Command::SetShards,
+				command: Command::RegisterShard,
 				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
 			},
-			time_primitives::GatewayOp::UnregisterShard(_) => todo!(),
+			time_primitives::GatewayOp::UnregisterShard(shard_id) => GatewayOp {
+				command: Command::UnregisterShard,
+				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
+			},
 		}
 	}
 }

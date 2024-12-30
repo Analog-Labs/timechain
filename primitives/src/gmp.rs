@@ -11,32 +11,6 @@ pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
 
-const GMP_VERSION: &str = "Analog GMP v2";
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct GmpParams {
-	pub network: NetworkId,
-	pub gateway: Gateway,
-}
-
-impl GmpParams {
-	pub fn new(network: NetworkId, gateway: Gateway) -> Self {
-		Self { network, gateway }
-	}
-
-	pub fn hash(&self, payload: &[u8]) -> Hash {
-		use sha3::Digest;
-		let mut hasher = sha3::Keccak256::new();
-		hasher.update(GMP_VERSION);
-		hasher.update(self.network.to_be_bytes());
-		hasher.update(self.gateway);
-		for chunk in payload.chunks(1024) {
-			hasher.update(sha3::Keccak256::digest(chunk));
-		}
-		hasher.finalize().into()
-	}
-}
-
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
 pub struct GmpMessage {

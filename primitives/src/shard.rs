@@ -184,22 +184,10 @@ impl MockTssSigner {
 		&self,
 		_network: NetworkId,
 		_gateway: Gateway,
-		_batch: BatchId,
+		batch: BatchId,
 		msg: &GatewayMessage,
 	) -> TssSignature {
-		// TODO uncomment this is actual implementation
-		// let bytes = msg.encode(batch);
-		// let hash = GmpParams { network, gateway }.hash(&bytes);
-		// self.sign(&hash)
-
-		// Remove below code after batching implementation
-		use crate::GatewayOp;
-		let mut hash: Vec<u8> = vec![];
-		if let Some(GatewayOp::SendMessage(inner_msg)) =
-			msg.clone().ops.into_iter().find(|op| matches!(op, GatewayOp::SendMessage(_)))
-		{
-			inner_msg.encode_to(&mut hash);
-		}
+		let hash = msg.encode(batch);
 		self.sign(&hash)
 	}
 

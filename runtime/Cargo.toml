@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dev-dependencies]
 env_logger.workspace = true
 separator = "0.4.1"
+hex-literal = "0.4.1"
 
 [dependencies]
 log = { workspace = true }

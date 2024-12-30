@@ -95,6 +95,17 @@ fn roll(n: u32) {
 }
 
 #[test]
+fn verify_treasury_address() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(
+			Treasury::account_id(),
+			hex_literal::hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"]
+				.into()
+		);
+	});
+}
+
+#[test]
 fn shard_not_stuck_in_committed_state() {
 	let a: AccountId = A.into();
 	let b: AccountId = B.into();

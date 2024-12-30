@@ -72,7 +72,7 @@ enum Command {
 		amount: String,
 	},
 	// read data
-	FetchTokenPriceData,
+	FetchPrices,
 	Networks,
 	Chronicles,
 	Shards,
@@ -550,7 +550,7 @@ async fn real_main() -> Result<()> {
 			tc.transfer(network, address, amount).await?;
 		},
 		// read data
-		Command::FetchTokenPriceData => {
+		Command::FetchPrices => {
 			tc.fetch_token_prices().await?;
 		},
 		Command::Networks => {

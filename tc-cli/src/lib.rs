@@ -760,8 +760,9 @@ impl Tc {
 		for _ in 0..40 {
 			match self.chronicle_config(chronicle).await {
 				Ok(config) => return Ok(config),
-				Err(_) => {
+				Err(err) => {
 					tracing::info!("waiting for chronicle {chronicle} to come online");
+					tracing::debug!("{err:#?}");
 					tokio::time::sleep(Duration::from_secs(1)).await
 				},
 			}

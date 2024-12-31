@@ -52,15 +52,9 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
 			// Choose soft-launch mainnet byr default
-			"mainnet" | "" => {
-				assert!(cfg!(not(feature = "testnet")), "Runtime variant missmatch");
-				Box::new(
-					chain_spec::GenesisKeysConfig::from_json_bytes(
-						&include_bytes!("chains/mainnet.keys.json")[..],
-					)?
-					.to_live()?,
-				)
-			},
+			"mainnet" | "" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+				&include_bytes!("chains/mainnet.raw.json")[..],
+			)?),
 			// Old testnet environment
 			"testnet" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 				&include_bytes!("chains/testnet.raw.json")[..],

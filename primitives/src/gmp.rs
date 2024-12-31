@@ -108,7 +108,7 @@ impl GatewayOp {
 	pub fn gas(&self) -> u128 {
 		match self {
 			Self::SendMessage(msg) => msg.gas_cost,
-			_ => 10_000,
+			_ => 40_000,
 		}
 	}
 }
@@ -160,6 +160,10 @@ impl GatewayMessage {
 		}
 		buf.extend_from_slice(&message_hash);
 		buf
+	}
+
+	pub fn gas(&self) -> u128 {
+		self.ops.iter().fold(0u128, |acc, op| acc.saturating_add(op.gas()))
 	}
 }
 

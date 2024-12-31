@@ -513,6 +513,7 @@ pub mod pallet {
 			if !needs_registration {
 				ReadEventsTask::<T>::insert(network, task_id);
 			} else {
+				log::info!("pallet___task adding task to unassigned queue: {:?}", task_id);
 				Self::ua_task_queue(network).push(task_id);
 			}
 			TaskCount::<T>::insert(network, TaskCount::<T>::get(network).saturating_add(1));
@@ -522,12 +523,13 @@ pub mod pallet {
 
 		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {
 			TaskOutput::<T>::insert(task_id, result.clone());
+			log::info!("pallet___task finishing task: {:?}", task_id);
 			if let Some(shard) = TaskShard::<T>::take(task_id) {
+				log::info!("pallet___task Task shard found cleaning up: {:?}", task_id);
 				ShardTasks::<T>::remove(shard, task_id);
-				ShardTaskCount::<T>::insert(
-					shard,
-					ShardTaskCount::<T>::get(shard).saturating_sub(1),
-				);
+				ShardTaskCount::<T>::mutate(shard, |count| {
+					*count = count.saturating_sub(1);
+				});
 				ExecutedTaskCount::<T>::insert(
 					network,
 					ExecutedTaskCount::<T>::get(network).saturating_add(1),
@@ -571,7 +573,9 @@ pub mod pallet {
 				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
 			ShardTasks::<T>::insert(shard, task_id, ());
 			TaskShard::<T>::insert(task_id, shard);
-			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_add(1));
+			ShardTaskCount::<T>::mutate(shard, |count| {
+				*count = count.saturating_sub(1);
+			});
 			if needs_signer {
 				TaskSubmitter::<T>::insert(task_id, T::Shards::next_signer(shard));
 			}
@@ -592,10 +596,12 @@ pub mod pallet {
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> u32 {
 			let mut num_tasks_assigned = 0u32;
 			let queue = Self::ua_task_queue(network);
+			log::info!("pallet___tasks capacity: {:?}", capacity);
 			for _ in 0..capacity {
 				let Some(task) = queue.pop() else {
 					break;
 				};
+				log::info!("pallet___tasks assigned task: {:?}", task);
 				Self::assign_task(shard_id, task);
 				num_tasks_assigned = num_tasks_assigned.saturating_plus_one();
 			}
@@ -642,14 +648,35 @@ pub mod pallet {
 
 				// calculate tasks per shard
 				let task_count = TaskCount::<T>::get(network);
+				log::info!("pallet___tasks schedule...task_count: {:?}", task_count);
 				let executed_task_count = ExecutedTaskCount::<T>::get(network);
+				log::info!(
+					"pallet___tasks schedule...executed_task_count: {:?}",
+					executed_task_count
+				);
 				let assignable_task_count = task_count - executed_task_count;
+				log::info!(
+					"pallet___tasks schedule...assignable_task_count: {:?}",
+					assignable_task_count
+				);
 				let tasks_per_shard = assignable_task_count as u32 / registered_shards.len() as u32;
+				log::info!("pallet___tasks schedule...task_per_shard: {:?}", tasks_per_shard);
 				let tasks_per_shard = core::cmp::min(tasks_per_shard, max_assignable_tasks);
+				log::info!("pallet___tasks schedule...task_per_shard: {:?}", tasks_per_shard);
+				for (_, task_id) in UATasks::<T>::iter_prefix(network) {
+					log::info!("pallet___tasks schedule...ua tasks: {:?}", task_id);
+				}
 
 				// assign tasks
 				for shard in registered_shards {
-					let capacity = tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard));
+					let shard_task_count = ShardTaskCount::<T>::get(shard);
+					let capacity = tasks_per_shard.saturating_sub(shard_task_count);
+					log::info!(
+						"pallet___tasks schedule... capacity: {:?}, task_per_shard: {:?}, shard_task_count: {:?}",
+						capacity,
+						tasks_per_shard,
+						shard_task_count
+					);
 					if T::MaxTasksPerBlock::get() > num_tasks_assigned.saturating_add(capacity) {
 						num_tasks_assigned = num_tasks_assigned
 							.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));

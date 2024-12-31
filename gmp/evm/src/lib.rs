@@ -67,11 +67,12 @@ impl Connector {
 		call: T,
 		amount: u128,
 		nonce: Option<u64>,
+		gas_limit: Option<u64>,
 	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
 		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
 		let result = self
 			.wallet
-			.eth_send_call(contract, call.abi_encode(), amount, nonce, None)
+			.eth_send_call(contract, call.abi_encode(), amount, nonce, gas_limit)
 			.await?;
 		let SubmitResult::Executed {
 			result: CallResult::Success(result),
@@ -480,6 +481,12 @@ impl IConnector for Connector {
 			e: u256(&sig[..32]),
 			s: u256(&sig[32..]),
 		};
+		// Adding extra overhead for gateway call
+		let total_gas = msg.gas().saturating_add(100_000u128);
+		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
+			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
+			u64::MAX
+		});
 		let ops: Vec<sol::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
 		let call = sol::Gateway::batchExecuteCall {
 			signature,
@@ -489,7 +496,10 @@ impl IConnector for Connector {
 				ops,
 			},
 		};
-		self.evm_call(gateway, call, 0, None).await.map_err(|err| err.to_string())?;
+		tracing::info!("Submitting command to gateway with gas: {:?}", gas_limit);
+		self.evm_call(gateway, call, 0, None, Some(gas_limit))
+			.await
+			.map_err(|err| err.to_string())?;
 		Ok(())
 	}
 }
@@ -563,7 +573,7 @@ impl IConnectorAdmin for Connector {
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};
-		self.evm_call(proxy, call, 0, None).await?;
+		self.evm_call(proxy, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the gateway admin.
@@ -574,7 +584,7 @@ impl IConnectorAdmin for Connector {
 	/// Sets the gateway admin.
 	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-		self.evm_call(gateway, call, 0, None).await?;
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the registered shard keys.
@@ -588,7 +598,7 @@ impl IConnectorAdmin for Connector {
 		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
-		self.evm_call(gateway, call, 0, None).await?;
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the gateway routing table.
@@ -600,7 +610,7 @@ impl IConnectorAdmin for Connector {
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()> {
 		let call = sol::Gateway::setRouteCall { info: route.into() };
-		self.evm_call(gateway, call, 0, None).await?;
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Estimates the message cost.
@@ -646,7 +656,7 @@ impl IConnectorAdmin for Connector {
 			msg: modified_msg.clone().into(),
 		};
 
-		self.evm_call(contract, call, msg_cost, None).await?;
+		self.evm_call(contract, call, msg_cost, None, None).await?;
 		let msg_id = modified_msg.message_id();
 		Ok(msg_id)
 	}
@@ -716,13 +726,13 @@ impl IConnectorAdmin for Connector {
 			recipient: a_addr(receipient),
 			data: vec![].into(),
 		};
-		self.evm_call(gateway, call, 0, None).await?;
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Deposit gateway funds.
 	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
 		let call = sol::Gateway::depositCall {};
-		self.evm_call(gateway, call, amount, None).await?;
+		self.evm_call(gateway, call, amount, None, None).await?;
 		Ok(())
 	}
 }

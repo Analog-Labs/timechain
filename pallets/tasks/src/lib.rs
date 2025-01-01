@@ -574,7 +574,7 @@ pub mod pallet {
 			ShardTasks::<T>::insert(shard, task_id, ());
 			TaskShard::<T>::insert(task_id, shard);
 			ShardTaskCount::<T>::mutate(shard, |count| {
-				*count = count.saturating_sub(1);
+				*count = count.saturating_add(1);
 			});
 			if needs_signer {
 				TaskSubmitter::<T>::insert(task_id, T::Shards::next_signer(shard));

@@ -1456,7 +1456,9 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type Shards = Shards;
 	type MinStake = ConstU128<0>;
-	type HeartbeatTimeout = ConstU32<300>;
+	// type HeartbeatTimeout = ConstU32<300>;
+	//TEST
+	type HeartbeatTimeout = ConstU32<10>;
 	type MaxTimeoutsPerBlock = ConstU32<25>;
 }
 

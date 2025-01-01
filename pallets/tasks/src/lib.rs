@@ -659,6 +659,8 @@ pub mod pallet {
 					"pallet___tasks schedule...assignable_task_count: {:?}",
 					assignable_task_count
 				);
+				// Problem no 1:
+				// these assignable task count could contain tasks which are already assigned to other shard and is in process of executing.
 				let tasks_per_shard = assignable_task_count as u32 / registered_shards.len() as u32;
 				log::debug!("pallet___tasks schedule...task_per_shard: {:?}", tasks_per_shard);
 				let tasks_per_shard = core::cmp::min(tasks_per_shard, max_assignable_tasks);

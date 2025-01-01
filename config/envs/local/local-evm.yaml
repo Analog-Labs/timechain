@@ -29,3 +29,4 @@ networks:
     route_base_fee: 1400000000
 chronicles: 
   - http://chronicle-2:8080
+  - http://chronicle-3:8080

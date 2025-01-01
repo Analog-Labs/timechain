@@ -13,7 +13,8 @@ services:
     - '--validator'
     - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
-    - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
+    # - '-ltxpool=trace,basic_authorship=trace,runtime=trace,pallet_tasks=debug'
+    - '-lpallet_tasks=debug'
     ports:
       - 9944:9944
 
@@ -94,6 +95,25 @@ services:
     ports:
       - "8082:8080"
 
+  chronicle-3:
+    image: 'analoglabs/chronicle-develop'
+    command:
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=ws://ethereum:8545'
+    - '--timechain-min-balance=1000000000000'
+    - '--target-min-balance=10000'
+    - '--network-id=3'
+    - '--backend=evm'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
+      RUST_BACKTRACE: 1
+    ports:
+      - "8083:8080"
+
   ethereum:
     image: 'ethereum/client-go:v1.14.11'
     command:
@@ -126,7 +146,7 @@ services:
       RUST_LOG: 'tc_subxt=debug,tc_cli=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
     volumes:
-    - './config/envs/local/local-grpc.yaml:/etc/config.yaml:ro'
+    - './config/envs/local/local-evm.yaml:/etc/config.yaml:ro'
     - './config/envs/local/prices.csv:/etc/prices.csv'
     - './analog-gmp/out:/etc/contracts:ro'
     - './gmp/evm/factory/additional_config.json:/etc/deployer/additional_config.json:ro'

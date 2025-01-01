@@ -4,7 +4,7 @@ use crate::{BatchIdCounter, ShardRegistered};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_shards::{ShardCommitment, ShardState};
-use polkadot_sdk::{frame_support, frame_system, sp_runtime};
+use polkadot_sdk::{frame_support, frame_system, sp_runtime, sp_std};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
 use time_primitives::{
@@ -234,6 +234,56 @@ fn test_msg_execution_error_completes_submit_task() {
 			Some(Err(ErrorMsg(BoundedVec::truncate_from("error message".encode()))))
 		);
 	})
+}
+
+#[test]
+fn reproduce_local_err() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard_1 = create_shard(ETHEREUM, 3, 1);
+		let shard_2 = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		roll(1);
+		// let msg = mock_gmp_msg(1);
+		// submit_gateway_events(shard_1, 1, &[GmpEvent::MessageReceived(msg.clone())]);
+		// roll(1);
+		// let msg = mock_gmp_msg(1);
+		// submit_gateway_events(shard_1, 1, &[GmpEvent::MessageReceived(msg.clone())]);
+		// roll(1);
+		// print_tasks();
+		// unassigned_tasks();
+	})
+}
+
+// for debugging
+fn print_tasks() {
+	sp_std::if_std! {
+		println!("Total Tasks  ====================");
+		for (k, v) in crate::Tasks::<Test>::iter() {
+			println!("Task_id: {:?}", k);
+			match v {
+				Task::ReadGatewayEvents { blocks } => {
+						println!("read task: {:?}/{:?}", k, blocks);
+				},
+				Task::SubmitGatewayMessage { batch_id } => {
+					let gateway_msg = crate::BatchMessage::<Test>::get(batch_id);
+					println!("gateway msg: {:?}", gateway_msg);
+				},
+			}
+		}
+		println!("Total Tasks  ====================");
+	}
+}
+
+// for debugging
+fn unassigned_tasks() {
+	sp_std::if_std! {
+		println!("unassigned tasks ====================");
+		for (k1, _, v) in crate::UATasks::<Test>::iter() {
+			println!("{:?},{:?}", k1, v);
+		}
+		println!("====================");
+	}
 }
 
 #[test]

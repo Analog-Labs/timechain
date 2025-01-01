@@ -620,6 +620,7 @@ pub mod pallet {
 			let mut num_tasks_assigned: u32 = 0u32;
 			for (network, task_id) in ReadEventsTask::<T>::iter() {
 				let max_assignable_tasks = T::Networks::shard_task_limit(network);
+				// log::debug!("max assignable tasks are: {:?}", max_assignable_tasks);
 
 				// handle read events task assignment
 				if TaskShard::<T>::get(task_id).is_none() {

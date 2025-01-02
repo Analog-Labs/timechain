@@ -72,7 +72,7 @@ enum Command {
 		amount: String,
 	},
 	// read data
-	FetchTokenPriceData,
+	FetchPrices,
 	Networks,
 	Chronicles,
 	Shards,
@@ -119,7 +119,9 @@ enum Command {
 	RuntimeUpgrade {
 		path: PathBuf,
 	},
-	Deploy,
+	Deploy {
+		networks: Vec<u16>,
+	},
 	UnregisterMember {
 		member: String,
 	},
@@ -548,7 +550,7 @@ async fn real_main() -> Result<()> {
 			tc.transfer(network, address, amount).await?;
 		},
 		// read data
-		Command::FetchTokenPriceData => {
+		Command::FetchPrices => {
 			tc.fetch_token_prices().await?;
 		},
 		Command::Networks => {
@@ -621,8 +623,8 @@ async fn real_main() -> Result<()> {
 		Command::RuntimeUpgrade { path } => {
 			tc.runtime_upgrade(&path).await?;
 		},
-		Command::Deploy => {
-			tc.deploy(None).await?;
+		Command::Deploy { networks } => {
+			tc.deploy(networks).await?;
 		},
 		Command::UnregisterMember { member } => {
 			let member = tc.parse_address(None, &member)?;
@@ -663,6 +665,7 @@ async fn real_main() -> Result<()> {
 			let (src_addr, dest_addr) = setup(&tc, src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
+			tracing::info!("send message");
 			let msg_id = tc.send_message(src, src_addr, dest, dest_addr, 0).await?;
 			tracing::info!(
 				"sent message to {} {}",
@@ -738,7 +741,7 @@ async fn real_main() -> Result<()> {
 
 async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 	// networks
-	tc.deploy(Some(vec![src, dest])).await?;
+	tc.deploy(vec![src, dest]).await?;
 	let (src_addr, src_block) = tc.deploy_tester(src).await?;
 	let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
 	tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);

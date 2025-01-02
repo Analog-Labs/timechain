@@ -15,9 +15,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 
 const BLOCK_TIME: u64 = 1;
@@ -240,8 +240,8 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let bytes = msg.encode(batch);
-		let hash = GmpParams::new(self.network_id(), gateway).hash(&bytes);
+		let hash = msg.encode(batch);
+
 		time_primitives::verify_signature(signer, &hash, sig)
 			.map_err(|_| "invalid signature".to_string())?;
 		(|| {
@@ -301,7 +301,12 @@ impl IConnectorAdmin for Connector {
 		Ok((gateway, block))
 	}
 
-	async fn redeploy_gateway(&self, gateway: Address, _gateway_impl: &[u8]) -> Result<()> {
+	async fn redeploy_gateway(
+		&self,
+		_additional_params: &[u8],
+		gateway: Address,
+		_gateway_impl: &[u8],
+	) -> Result<()> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ADMIN)?;
 		let admin = read_admin(&t, gateway)?;
@@ -429,6 +434,7 @@ impl IConnectorAdmin for Connector {
 		_gateway: Address,
 		_dest: NetworkId,
 		msg_size: usize,
+		_gas_limit: u128,
 	) -> Result<u128> {
 		Ok(msg_size as u128 * 100)
 	}
@@ -492,6 +498,23 @@ impl IConnectorAdmin for Connector {
 		_amount: u128,
 		_address: Address,
 	) -> Result<()> {
+		Ok(())
+	}
+
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		{
+			let mut t = tx.open_table(BALANCE)?;
+			let balance = read_balance(&t, self.address)?;
+			if balance < amount {
+				anyhow::bail!("insufficient balance");
+			}
+			let dest_balance = read_balance(&t, gateway)?;
+			t.insert(self.address, balance - amount)?;
+			t.insert(gateway, dest_balance + amount)?;
+		}
+		tx.commit()?;
 		Ok(())
 	}
 }

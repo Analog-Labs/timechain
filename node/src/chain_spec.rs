@@ -15,10 +15,8 @@ use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 
-use timechain_runtime::WASM_BINARY;
-
 use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
-use timechain_runtime::StakerStatus;
+use timechain_runtime::{StakerStatus, Treasury, WASM_BINARY};
 
 /// Total supply of token is 90_570_710.
 /// Initially we are distributing the total supply to the multiple accounts which is representing
@@ -119,7 +117,8 @@ impl Default for GenesisKeysConfig {
 			// TODO: Would be better to assign individual controllers
 			controller: None,
 			endowments: vec![(
-				hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"].into(),
+				// 6d6f646c70792f74727372790000000000000000000000000000000000000000
+				Treasury::account_id(),
 				TREASURY_SUPPLY,
 			)],
 			nominators: vec![],

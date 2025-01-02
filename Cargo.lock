@@ -5241,6 +5241,7 @@ dependencies = [
  "futures",
  "hex",
  "rosetta-client",
+ "rosetta-crypto",
  "rosetta-ethereum-backend",
  "rosetta-ethereum-types",
  "rosetta-server",

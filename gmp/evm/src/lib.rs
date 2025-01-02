@@ -1,40 +1,44 @@
 use alloy_primitives::{B256, U256};
-use alloy_sol_types::{SolCall, SolConstructor, SolEvent};
+use alloy_sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
 use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
-	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
+	GetTransactionCount, Signer, SubmitResult, TransactionReceipt, Wallet,
 };
+use rosetta_crypto::{bip44::ChildNumber, SecretKey};
 use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
 	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 };
 use serde::Deserialize;
-use sha3::Keccak256;
+use sha3::{Digest, Keccak256};
+use sol::{u256, Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature, H160,
+	TssSignature,
 };
+
+use crate::sol::{ProxyContext, ProxyDigest};
 
 type AlloyAddress = alloy_primitives::Address;
 
 pub(crate) mod sol;
 
 fn a_addr(address: Address) -> AlloyAddress {
-	let address: [u8; 20] = address[..20].try_into().unwrap();
+	let address: [u8; 20] = address[12..32].try_into().unwrap();
 	AlloyAddress::from(address)
 }
 
 fn t_addr(address: alloy_primitives::Address) -> Address {
 	let mut addr = [0; 32];
-	addr[..20].copy_from_slice(&address.0[..]);
+	addr[12..32].copy_from_slice(&address.0[..]);
 	addr
 }
 
@@ -48,7 +52,7 @@ pub struct Connector {
 impl Connector {
 	#[allow(dead_code)]
 	async fn nonce(&self, address: Address) -> Result<u64> {
-		let address: [u8; 20] = address[..20].try_into().unwrap();
+		let address: [u8; 20] = address[12..32].try_into().unwrap();
 		self.wallet
 			.query(GetTransactionCount {
 				address: address.into(),
@@ -63,11 +67,12 @@ impl Connector {
 		call: T,
 		amount: u128,
 		nonce: Option<u64>,
+		gas_limit: Option<u64>,
 	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
-		let contract: [u8; 20] = contract[..20].try_into().unwrap();
+		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
 		let result = self
 			.wallet
-			.eth_send_call(contract, call.abi_encode(), amount, nonce, None)
+			.eth_send_call(contract, call.abi_encode(), amount, nonce, gas_limit)
 			.await?;
 		let SubmitResult::Executed {
 			result: CallResult::Success(result),
@@ -77,6 +82,7 @@ impl Connector {
 		else {
 			anyhow::bail!("{:?}", result)
 		};
+		tracing::info!("evm_call success: {:?}", tx_hash);
 		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash.into()))
 	}
 
@@ -86,7 +92,7 @@ impl Connector {
 		call: T,
 		block: Option<u64>,
 	) -> Result<T::Return> {
-		let contract: [u8; 20] = contract[..20].try_into().unwrap();
+		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
 		let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
 		let result = self.wallet.eth_view_call(contract, call.abi_encode(), block).await?;
 		let CallResult::Success(result) = result else { anyhow::bail!("{:?}", result) };
@@ -118,7 +124,7 @@ impl Connector {
 			.wallet
 			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
 			.await?;
-		let SubmitResult::Executed { result, receipt, .. } = result else {
+		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
 			anyhow::bail!("tx timed out");
 		};
 		match result {
@@ -127,7 +133,7 @@ impl Connector {
 					.logs
 					.iter()
 					.find(|log| log.address.as_bytes() == factory_address)
-					.with_context(|| "Log with factory address not found")?;
+					.with_context(|| format!("Log with factory address not found: {}", tx_hash))?;
 				let topic = log
 					.topics
 					.first()
@@ -137,17 +143,18 @@ impl Connector {
 				Ok((contract_address, receipt.block_number.unwrap()))
 			},
 			CallResult::Revert(reason) => {
-				anyhow::bail!("Deployment reverted: {:?}", hex::encode(reason))
+				anyhow::bail!("Deployment reverted: {tx_hash:?}: {:?}", hex::encode(reason))
 			},
 			CallResult::Error => anyhow::bail!("Failed to deploy contract"),
 		}
 	}
 
 	async fn deploy_factory(&self, config: &DeploymentConfig) -> Result<()> {
-		let deployer_address = self.parse_address(&config.deployer)?;
+		let deployer_address = self.parse_address(&config.factory_deployer)?;
 
-		//Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
 		self.faucet().await?;
+		tracing::info!("wallet balance: {:?}", self.balance(self.address()).await);
 		self.transfer(deployer_address, config.required_balance).await?;
 
 		//Step2: load transaction from config
@@ -158,6 +165,145 @@ impl Connector {
 
 		tracing::info!("Deployed factory with hash: {:?}", tx_hash);
 		Ok(())
+	}
+
+	async fn deploy_gateway(
+		&self,
+		config: &DeploymentConfig,
+		proxy_addr: [u8; 20],
+		gateway: &[u8],
+	) -> Result<AlloyAddress> {
+		let gateway_bytecode = get_contract_from_slice(gateway)?;
+
+		let gateway_constructor = sol::Gateway::constructorCall {
+			network: self.network_id,
+			proxy: proxy_addr.into(),
+		};
+
+		let gateway_init_code =
+			extend_bytes_with_constructor(gateway_bytecode, gateway_constructor);
+
+		// deploy using universal factory
+		let gateway_create_call = sol::IUniversalFactory::create2_0Call {
+			salt: config.deployment_salt.into(),
+			creationCode: gateway_init_code.into(),
+		}
+		.abi_encode();
+
+		tracing::info!("Deploying gateway ...");
+
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let (gateway_address, _) =
+			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
+		tracing::info!("gateway deployed at: {:?}", gateway_address);
+		Ok(gateway_address)
+	}
+
+	fn compute_proxy_address(
+		&self,
+		config: &DeploymentConfig,
+		admin: AlloyAddress,
+		proxy: &[u8],
+	) -> Result<[u8; 20]> {
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
+		let proxy_bytecode = get_contract_from_slice(proxy)?;
+
+		// proxy CreationCode
+		let proxy_bytecode =
+			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
+
+		let computed_proxy_address = compute_create2_address(
+			factory_address,
+			config.deployment_salt,
+			proxy_bytecode.clone(),
+		)?;
+
+		Ok(computed_proxy_address)
+	}
+
+	fn get_proxy_admin_creds(&self, config: &DeploymentConfig) -> Result<(SecretKey, [u8; 20])> {
+		let signer = Signer::new(&config.proxy_admin_sk.parse()?, "")?;
+		let proxy_admin_sk = signer
+			.bip44_account(self.wallet.config().algorithm, self.wallet.config().coin, 0)?
+			.derive(ChildNumber::non_hardened_from_u32(0))?;
+
+		let proxy_admin_pk = proxy_admin_sk
+			.public_key()
+			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
+
+		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
+		let proxy_admin_sk = proxy_admin_sk.secret_key();
+		Ok((proxy_admin_sk.clone(), proxy_admin_address))
+	}
+
+	async fn deploy_proxy(
+		&self,
+		config: &DeploymentConfig,
+		proxy_addr: AlloyAddress,
+		gateway_address: AlloyAddress,
+		proxy_bytes: &[u8],
+		admin_sk: SecretKey,
+		admin: AlloyAddress,
+	) -> Result<(AlloyAddress, u64)> {
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let deployment_salt = config.deployment_salt;
+
+		// constructor params
+		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
+		let proxy_bytecode = get_contract_from_slice(proxy_bytes)?;
+		let proxy_bytecode =
+			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
+
+		// computing signature for security purpose
+		let digest = ProxyDigest {
+			proxy: proxy_addr,
+			implementation: gateway_address,
+		}
+		.abi_encode();
+		let payload: [u8; 32] = Keccak256::digest(digest).into();
+		let signature = admin_sk.sign_prehashed(&payload)?;
+		let (v, r, s) = extract_signature_bytes(signature.to_bytes())?;
+		let arguments = ProxyContext {
+			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
+			v: v + 27,
+			r: r.into(),
+			s: s.into(),
+			implementation: gateway_address,
+		}
+		.abi_encode();
+
+		let initializer = self.get_initializer(admin)?;
+
+		// Proxy creation
+		let proxy_init_call = sol::IUniversalFactory::create2_1Call {
+			salt: deployment_salt.into(),
+			creationCode: proxy_bytecode.into(),
+			arguments: arguments.into(),
+			callback: initializer.into(),
+		}
+		.abi_encode();
+
+		tracing::info!("Deploying proxy ...");
+		let (proxy_address, block) =
+			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
+
+		if proxy_address != proxy_addr {
+			anyhow::bail!(
+				"Unable to compute proxy address: expected: {:?}, got {:?}",
+				proxy_addr,
+				proxy_address
+			);
+		}
+		tracing::info!("Proxy deployed at: {}", proxy_address);
+		Ok((proxy_address, block))
+	}
+
+	fn get_initializer(&self, admin: AlloyAddress) -> Result<Vec<u8>> {
+		let keys: Vec<TssKey> = vec![];
+		let networks: Vec<Network> = vec![];
+		let initializer = sol::Gateway::initializeCall { admin, keys, networks }.abi_encode();
+		Ok(initializer)
 	}
 }
 
@@ -182,11 +328,17 @@ impl IConnectorBuilder for Connector {
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
 		let adapter = Adapter(client);
-		Ok(Self {
+		let connector = Self {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
-		})
+		};
+		// local testnet send some funds
+		if connector.wallet.config().coin == 1 {
+			//Local run fund wallet
+			connector.faucet().await?;
+		};
+		Ok(connector)
 	}
 }
 
@@ -252,13 +404,7 @@ impl IConnector for Connector {
 			.wallet
 			.query(GetLogs {
 				contracts: vec![contract.into()],
-				topics: vec![
-					sol::Gateway::ShardRegistered::SIGNATURE_HASH.0.into(),
-					sol::Gateway::ShardUnregistered::SIGNATURE_HASH.0.into(),
-					sol::Gateway::MessageReceived::SIGNATURE_HASH.0.into(),
-					sol::Gateway::MessageExecuted::SIGNATURE_HASH.0.into(),
-					sol::Gateway::BatchExecuted::SIGNATURE_HASH.0.into(),
-				],
+				topics: vec![],
 				block: FilterBlockOption::Range {
 					from_block: Some(blocks.start.into()),
 					to_block: Some(blocks.end.into()),
@@ -266,6 +412,7 @@ impl IConnector for Connector {
 			})
 			.await?;
 		let mut events = vec![];
+		tracing::info!("gmp executed hash: {:?}", sol::Gateway::GmpExecuted::SIGNATURE_HASH);
 		for log in logs {
 			let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
 			let log =
@@ -273,25 +420,38 @@ impl IConnector for Connector {
 					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			for topic in log.topics() {
 				match *topic {
-					sol::Gateway::ShardRegistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardRegistered::decode_log(&log, true)?;
-						events.push(GmpEvent::ShardRegistered(log.key.clone().into()));
+					sol::Gateway::ShardsRegistered::SIGNATURE_HASH => {
+						let log = sol::Gateway::ShardsRegistered::decode_log(&log, true)?;
+						for key in log.keys.iter() {
+							events.push(GmpEvent::ShardRegistered(key.clone().into()));
+						}
 						break;
 					},
-					sol::Gateway::ShardUnregistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardUnregistered::decode_log(&log, true)?;
-						events.push(GmpEvent::ShardUnregistered(log.key.clone().into()));
+					sol::Gateway::ShardsUnregistered::SIGNATURE_HASH => {
+						let log = sol::Gateway::ShardsUnregistered::decode_log(&log, true)?;
+						for key in log.keys.iter() {
+							events.push(GmpEvent::ShardUnregistered(key.clone().into()));
+						}
 						break;
 					},
-					sol::Gateway::MessageReceived::SIGNATURE_HASH => {
-						let log = sol::Gateway::MessageReceived::decode_log(&log, true)?;
-						events.push(GmpEvent::MessageReceived(
-							log.msg.clone().outbound(self.network_id),
-						));
+					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
+						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
+						let gmp_message = GmpMessage {
+							src_network: self.network_id,
+							dest_network: log.destinationNetwork,
+							src: log.source.into(),
+							dest: t_addr(log.destinationAddress),
+							nonce: u64::try_from(log.salt)?,
+							gas_limit: u128::try_from(log.executionGasLimit)?,
+							// TODO receive from gateway when implemented
+							gas_cost: 1_000_000,
+							bytes: log.data.data.into(),
+						};
+						events.push(GmpEvent::MessageReceived(gmp_message));
 						break;
 					},
-					sol::Gateway::MessageExecuted::SIGNATURE_HASH => {
-						let log = sol::Gateway::MessageExecuted::decode_log(&log, true)?;
+					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
+						let log = sol::Gateway::GmpExecuted::decode_log(&log, true)?;
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 						break;
 					},
@@ -302,6 +462,7 @@ impl IConnector for Connector {
 					},
 					_ => {},
 				}
+				tracing::info!("logsiter 3");
 			}
 		}
 		Ok(events)
@@ -315,12 +476,30 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let call = sol::Gateway::executeCall {
-			signature: sig.into(),
-			xCoord: sol::TssPublicKey::from(signer).xCoord,
-			message: msg.encode(batch).into(),
+		let signature = sol::Signature {
+			xCoord: u256(&signer[1..33]),
+			e: u256(&sig[..32]),
+			s: u256(&sig[32..]),
 		};
-		self.evm_call(gateway, call, 0, None).await.map_err(|err| err.to_string())?;
+		// Adding extra overhead for gateway call
+		let total_gas = msg.gas().saturating_add(100_000u128);
+		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
+			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
+			u64::MAX
+		});
+		let ops: Vec<sol::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
+		let call = sol::Gateway::batchExecuteCall {
+			signature,
+			message: sol::InboundMessage {
+				version: 0,
+				batchID: batch,
+				ops,
+			},
+		};
+		tracing::info!("Submitting command to gateway with gas: {:?}", gas_limit);
+		self.evm_call(gateway, call, 0, None, Some(gas_limit))
+			.await
+			.map_err(|err| err.to_string())?;
 		Ok(())
 	}
 }
@@ -349,83 +528,52 @@ impl IConnectorAdmin for Connector {
 			tracing::info!("Factory is deployed: {:?}", is_factory_deployed.len());
 		}
 
-		let deployment_salt = [0u8; 32];
+		// proxy address computation
+		let (admin_sk, admin) = self.get_proxy_admin_creds(&config)?;
+		let proxy_addr = self.compute_proxy_address(&config, admin.into(), proxy)?;
 
-		let sender = a_addr(self.address()).0 .0;
-		let computed_proxy_address =
-			compute_create3_address(factory_address, sender, deployment_salt).await?;
-
+		// check if proxy is deployed
 		let is_proxy_deployed = self
 			.backend
-			.get_code(computed_proxy_address.into(), rosetta_ethereum_types::AtBlock::Latest)
+			.get_code(proxy_addr.into(), rosetta_ethereum_types::AtBlock::Latest)
 			.await?;
-
-		// gateway deployment
-		let gateway_bytecode = get_contract_from_slice(gateway)?;
-		let gateway_contstructor = sol::Gateway::constructorCall {
-			networkId: self.network_id,
-			proxy: computed_proxy_address.into(),
-		};
-		let gateway_init_code =
-			extend_bytes_with_constructor(gateway_bytecode, gateway_contstructor);
-
-		//deploy using universal factory
-		let gateway_create_call = sol::IUniversalFactory::create2Call {
-			salt: deployment_salt.into(),
-			creationCode: gateway_init_code.into(),
-		}
-		.abi_encode();
-
-		// deploy_gateway with universal factory
-		let (gateway_address, _) =
-			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
-		tracing::info!("gateway deployed at: {:?}", gateway_address);
 
 		if !is_proxy_deployed.is_empty() {
 			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
-			return Ok((t_addr(computed_proxy_address.into()), 0));
+			return Ok((t_addr(proxy_addr.into()), 0));
 		}
 
-		//proxy constructor
-		let proxy_constructor = sol::GatewayProxy::constructorCall {
-			implementation: gateway_address,
-			initializer: vec![].into(),
-		};
+		// gateway deployment
+		let gateway_address = self.deploy_gateway(&config, proxy_addr, gateway).await?;
 
-		let proxy_bytecode = get_contract_from_slice(proxy)?;
-		let proxy_bytecode =
-			extend_bytes_with_constructor(proxy_bytecode.clone(), proxy_constructor);
+		// compute proxy arguments
+		let (proxy_address, block) = self
+			.deploy_proxy(
+				&config,
+				proxy_addr.into(),
+				gateway_address,
+				proxy,
+				admin_sk,
+				admin.into(),
+			)
+			.await?;
 
-		// dploy proxy using universal factory
-		let proxy_init_call = sol::IUniversalFactory::create3Call {
-			salt: deployment_salt.into(),
-			creationCode: proxy_bytecode.into(),
-		}
-		.abi_encode();
-
-		let (proxy_address, block_number) =
-			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
-		if proxy_address != computed_proxy_address {
-			anyhow::bail!(
-				"Unable to compute proxy address: expected: {:?}, got {:?}",
-				AlloyAddress::from_slice(&computed_proxy_address),
-				proxy_address
-			);
-		}
-
-		Ok((t_addr(proxy_address), block_number))
+		Ok((t_addr(proxy_address), block))
 	}
+
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()> {
-		let call = sol::Gateway::constructorCall {
-			networkId: self.network_id,
-			proxy: a_addr(proxy),
-		};
-		let (gateway_addr, _) = self.deploy_contract(gateway, call).await?;
+	async fn redeploy_gateway(
+		&self,
+		additional_params: &[u8],
+		proxy: Address,
+		gateway: &[u8],
+	) -> Result<()> {
+		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+		let gateway_addr = self.deploy_gateway(&config, a_addr(proxy).into(), gateway).await?;
 		let call = sol::Gateway::upgradeCall {
-			newImplementation: a_addr(gateway_addr),
+			newImplementation: gateway_addr,
 		};
-		self.evm_call(proxy, call, 0, None).await?;
+		self.evm_call(proxy, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the gateway admin.
@@ -436,7 +584,7 @@ impl IConnectorAdmin for Connector {
 	/// Sets the gateway admin.
 	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-		self.evm_call(gateway, call, 0, None).await?;
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the registered shard keys.
@@ -447,9 +595,10 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Sets the registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
-		let shards = keys.iter().copied().map(Into::into).collect::<Vec<_>>();
-		let call = sol::Gateway::setShardsCall { shards };
-		self.evm_call(gateway, call, 0, None).await?;
+		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
+		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
+		let call = sol::Gateway::setShardsCall { publicKeys: shards };
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the gateway routing table.
@@ -460,8 +609,8 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()> {
-		let call = sol::Gateway::setRouteCall { route: route.into() };
-		self.evm_call(gateway, call, 0, None).await?;
+		let call = sol::Gateway::setRouteCall { info: route.into() };
+		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Estimates the message cost.
@@ -470,12 +619,13 @@ impl IConnectorAdmin for Connector {
 		gateway: Address,
 		dest: NetworkId,
 		msg_size: usize,
+		gas_limit: u128,
 	) -> Result<u128> {
 		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
 		let call = sol::Gateway::estimateMessageCostCall {
 			networkid: dest,
 			messageSize: msg_size,
-			gasLimit: U256::from(100_000),
+			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_view(gateway, call, None).await?;
 		let msg_cost: u128 = result._0.try_into().unwrap();
@@ -488,12 +638,27 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Sends a message using the test contract.
 	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
-		let id = msg.message_id();
-		let call = sol::GmpTester::sendMessageCall {
-			msg: sol::GmpMessage::from_outbound(msg),
+		// EVM specific logic
+		let mut modified_msg = msg.clone();
+		modified_msg.gas_limit = 300_000;
+		let sol_msg: sol::GmpMessage = modified_msg.clone().into();
+		modified_msg.bytes = sol_msg.abi_encode();
+
+		let cost_call = sol::GmpTester::estimateMessageCostCall {
+			messageSize: U256::from(modified_msg.bytes.len()),
+			gasLimit: U256::from(modified_msg.gas_limit),
 		};
-		self.evm_call(contract, call, 0, None).await?;
-		Ok(id)
+
+		let msg_cost = self.evm_view(contract, cost_call, None).await?;
+		let msg_cost = u128::try_from(msg_cost._0)?;
+
+		let call = sol::GmpTester::sendMessageCall {
+			msg: modified_msg.clone().into(),
+		};
+
+		self.evm_call(contract, call, msg_cost, None, None).await?;
+		let msg_id = modified_msg.message_id();
+		Ok(msg_id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(
@@ -506,7 +671,7 @@ impl IConnectorAdmin for Connector {
 			.wallet
 			.query(GetLogs {
 				contracts: vec![contract.into()],
-				topics: vec![sol::GmpTester::MessageReceived::SIGNATURE_HASH.0.into()],
+				topics: vec![],
 				block: FilterBlockOption::Range {
 					from_block: Some(blocks.start.into()),
 					to_block: Some(blocks.end.into()),
@@ -519,8 +684,13 @@ impl IConnectorAdmin for Connector {
 			let log =
 				alloy_primitives::Log::new(contract.into(), topics, log.data.0.to_vec().into())
 					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
-			let log = sol::GmpTester::MessageReceived::decode_log(&log, true)?;
-			msgs.push(log.msg.clone().inbound(self.network_id));
+			for topic in log.topics() {
+				let sol::GmpTester::MessageReceived::SIGNATURE_HASH = *topic else {
+					continue;
+				};
+				let log = sol::GmpTester::MessageReceived::decode_log(&log, true)?;
+				msgs.push(log.msg.clone().into());
+			}
 		}
 		Ok(msgs)
 	}
@@ -556,46 +726,37 @@ impl IConnectorAdmin for Connector {
 			recipient: a_addr(receipient),
 			data: vec![].into(),
 		};
-		self.evm_call(gateway, call, 0, None).await?;
+		self.evm_call(gateway, call, 0, None, None).await?;
+		Ok(())
+	}
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
+		let call = sol::Gateway::depositCall {};
+		self.evm_call(gateway, call, amount, None, None).await?;
 		Ok(())
 	}
 }
 
-async fn compute_create3_address(
+fn compute_create2_address(
 	factory_address: [u8; 20],
-	sender: [u8; 20],
 	salt: [u8; 32],
+	init_code: Vec<u8>,
 ) -> Result<[u8; 20]> {
-	// solidity code
-	// salt = keccak256(abi.encodePacked(msg.sender, salt));
-	// bytes32 proxyHash = 0x0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6;
-	// address proxy = address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(factory), uint256(salt), proxyHash)))));
-	// return address(uint160(uint256(keccak256(abi.encodePacked(uint16(0xd694), proxy, uint8(1))))));
+	// solidity
+	// bytes32 create2hash = keccak256(abi.encodePacked(uint8(0xff), address(factory), salt, initcodeHash));
+	// return address(uint160(uint256(create2hash)));
+	//
 	use sha3::Digest;
-	let proxy_hash =
-		hex::decode("0281a97663cf81306691f0800b13a91c4d335e1d772539f127389adae654ffc6")?;
-
-	let mut hasher = Keccak256::new();
-	hasher.update(sender);
-	hasher.update(salt);
-	let salt_hashed = hasher.finalize();
-
+	let init_code_hash: [u8; 32] = Keccak256::digest(init_code).into();
 	let mut hasher = Keccak256::new();
 	hasher.update([0xff]);
 	hasher.update(factory_address);
-	hasher.update(salt_hashed.as_slice());
-	hasher.update(&proxy_hash);
+	hasher.update(salt);
+	hasher.update(init_code_hash);
+
 	let proxy_hashed = hasher.finalize();
 
-	let proxy_address = H160::from_slice(&proxy_hashed[12..]);
-
-	let mut hasher = Keccak256::new();
-	hasher.update(0xd694u16.to_be_bytes());
-	hasher.update(proxy_address.as_bytes());
-	hasher.update([1]);
-	let final_hashed = hasher.finalize();
-
-	Ok(AlloyAddress::from_slice(&final_hashed[12..]).0 .0)
+	Ok(AlloyAddress::from_slice(&proxy_hashed[12..]).0 .0)
 }
 
 fn get_contract_from_slice(slice: &[u8]) -> Result<Vec<u8>> {
@@ -610,12 +771,25 @@ fn extend_bytes_with_constructor(bytecode: Vec<u8>, constructor: impl SolConstru
 	bytecode
 }
 
+pub fn extract_signature_bytes(sig: Vec<u8>) -> Result<(u8, [u8; 32], [u8; 32])> {
+	if sig.len() != 65 {
+		anyhow::bail!("Invalid signature length");
+	}
+
+	let r: [u8; 32] = sig[0..32].try_into()?;
+	let s: [u8; 32] = sig[32..64].try_into()?;
+	let v = sig[64];
+	Ok((v, r, s))
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct DeploymentConfig {
-	pub deployer: String,
+	pub factory_deployer: String,
 	pub required_balance: u128,
 	pub raw_tx: String,
 	pub factory_address: String,
+	pub deployment_salt: [u8; 32],
+	pub proxy_admin_sk: String,
 }
 
 #[derive(Deserialize)]

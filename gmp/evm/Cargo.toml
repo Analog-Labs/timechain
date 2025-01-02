@@ -16,6 +16,7 @@ async-trait.workspace = true
 futures.workspace = true
 hex.workspace = true
 rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }
+rosetta-crypto = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }
 rosetta-server = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }
 rosetta-server-ethereum = { git = "https://github.com/analog-labs/chain-connectors", branch  = "gmp-api" }
 rosetta-ethereum-backend = { git = "https://github.com/analog-labs/chain-connectors", branch = "gmp-api" }

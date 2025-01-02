@@ -159,6 +159,7 @@ pub struct EstimateMessageCostRequest {
 	pub gateway: Gateway,
 	pub dest: NetworkId,
 	pub msg_size: usize,
+	pub gas_limit: u128,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -214,3 +215,12 @@ pub struct WithdrawFundsRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct WithdrawFundsResponse {}
+
+#[derive(Serialize, Deserialize)]
+pub struct DepositRequest {
+	pub gateway: Address,
+	pub amount: u128,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DepositResponse {}

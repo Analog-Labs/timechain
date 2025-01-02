@@ -135,7 +135,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::RedeployGatewayResponse> {
 		let (connector, msg) = self.connector(request)?;
 		connector
-			.redeploy_gateway(msg.proxy, &msg.gateway)
+			.redeploy_gateway(&[], msg.proxy, &msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::RedeployGatewayResponse {}))
@@ -235,7 +235,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::EstimateMessageCostResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let cost = connector
-			.estimate_message_cost(msg.gateway, msg.dest, msg.msg_size)
+			.estimate_message_cost(msg.gateway, msg.dest, msg.msg_size, msg.gas_limit)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::EstimateMessageCostResponse { cost }))
@@ -298,6 +298,18 @@ impl Gmp for ConnectorWrapper {
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::WithdrawFundsResponse {}))
+	}
+
+	async fn deposit(
+		&self,
+		request: Request<proto::DepositRequest>,
+	) -> GmpResult<proto::DepositResponse> {
+		let (connector, msg) = self.connector(request)?;
+		connector
+			.deposit_funds(msg.gateway, msg.amount)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::DepositResponse {}))
 	}
 }
 

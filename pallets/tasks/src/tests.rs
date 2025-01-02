@@ -274,41 +274,7 @@ fn reproduce_local_err() {
 		roll(1);
 		roll(1);
 		roll(1);
-		roll(1);
-		roll(1);
-		// unassigned_tasks();
 	})
-}
-
-// for debugging
-fn print_tasks() {
-	sp_std::if_std! {
-		println!("Total Tasks  ====================");
-		for (k, v) in crate::Tasks::<Test>::iter() {
-			println!("Task_id: {:?}", k);
-			match v {
-				Task::ReadGatewayEvents { blocks } => {
-						println!("read task: {:?}/{:?}", k, blocks);
-				},
-				Task::SubmitGatewayMessage { batch_id } => {
-					let gateway_msg = crate::BatchMessage::<Test>::get(batch_id);
-					println!("gateway msg: {:?}", gateway_msg);
-				},
-			}
-		}
-		println!("Total Tasks  ====================");
-	}
-}
-
-// for debugging
-fn unassigned_tasks() {
-	sp_std::if_std! {
-		println!("unassigned tasks ====================");
-		for (k1, _, v) in crate::UATasks::<Test>::iter() {
-			println!("{:?},{:?}", k1, v);
-		}
-		println!("====================");
-	}
 }
 
 #[test]

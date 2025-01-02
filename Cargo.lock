@@ -19202,7 +19202,6 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
- "log",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",

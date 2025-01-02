@@ -108,7 +108,7 @@ impl TaskParams {
 				let payload = time_primitives::encode_gmp_events(task_id, &events);
 				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
 				Some(TaskResult::ReadGatewayEvents {
-					events: GmpEvents(BoundedVec::truncate_from(events)),
+					events: GmpEvents(events),
 					signature,
 				})
 			},

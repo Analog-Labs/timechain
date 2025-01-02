@@ -1,6 +1,6 @@
 //! Frame base configuration
 
-use scale_codec::Encode;
+//use scale_codec::Encode;
 use static_assertions::const_assert;
 
 use polkadot_sdk::*;
@@ -16,11 +16,12 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use sp_version::RuntimeVersion;
 
 use sp_runtime::{
-	generic::Era,
-	traits::{Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup, Verify},
+	//generic::Era,
+	//traits::{Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup, Verify},
+	//traits::OpaqueKeys,
 	Perbill,
 };
-use time_primitives::{BlockHash, BlockNumber, Moment, Signature, SS58_PREFIX};
+use time_primitives::{BlockHash, BlockNumber, Moment, SS58_PREFIX}; //Signature
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -32,14 +33,26 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 use crate::SafeMode;
 use crate::{
 	weights::{self, BlockExecutionWeight, ExtrinsicBaseWeight},
-	AccountId, Babe, Balance, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, RuntimeTask, SignedPayload, System, UncheckedExtrinsic, MAXIMUM_BLOCK_WEIGHT,
-	SLOT_DURATION, VERSION,
+	AccountId,
+	Babe,
+	Balance,
+	Block,
+	Nonce,
+	PalletInfo,
+	Runtime,
+	RuntimeCall,
+	RuntimeEvent,
+	RuntimeOrigin,
+	RuntimeTask,
+	//SignedPayload, System, UncheckedExtrinsic,
+	MAXIMUM_BLOCK_WEIGHT,
+	SLOT_DURATION,
+	VERSION,
 };
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
-const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
+pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);

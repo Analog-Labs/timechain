@@ -2,15 +2,14 @@
 
 use polkadot_sdk::*;
 
-use scale_codec::{Decode, Encode};
+use scale_codec::Encode;
 
-use frame_support::{pallet_prelude::Get, traits::KeyOwnerProofSystem, weights::Weight};
+use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
-
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -18,15 +17,16 @@ use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	traits::{Block as BlockT, Extrinsic, NumberFor, OpaqueKeys},
+	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedPointNumber,
+	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
 pub use time_primitives::{MembersInterface, NetworksInterface};
 
+#[cfg(feature = "testnet")]
 use time_primitives::{
 	BatchId, BlockNumber, ChainName, ChainNetwork, Commitment, ErrorMsg, Gateway, GatewayMessage,
 	MemberStatus, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, Task, TaskId,
@@ -34,9 +34,11 @@ use time_primitives::{
 // Local module imports
 use super::{
 	AccountId, AuthorityDiscovery, Babe, Balance, Block, EpochDuration, Executive, Grandpa,
-	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys,
-	System, TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
+	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, SessionKeys, System,
+	TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
 };
+#[cfg(feature = "genesis-builder")]
+use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
 use crate::{Members, Networks, Shards, Staking, Tasks};
 
@@ -365,11 +367,12 @@ impl_runtime_apis! {
 	/// - __runtime-benchmarks__: support runtime benchmarking
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
+
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList, list_benchmark};
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -381,25 +384,19 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
 
+			// Import substrate macros created by macros (and all pallets by effects)
+			use crate::*;
+
 			let mut list = Vec::<BenchmarkList>::new();
-			list_benchmark!(list, extra, pallet_elections, Elections);
-			list_benchmark!(list, extra, pallet_shards, Shards);
-			list_benchmark!(list, extra, pallet_tasks, Tasks);
-			list_benchmark!(list, extra, pallet_members, Members);
-			list_benchmark!(list, extra, pallet_timegraph, Timegraph);
-			list_benchmark!(list, extra, pallet_networks, Networks);
-			list_benchmark!(list, extra, pallet_dmail, Dmail);
 			list_benchmarks!(list, extra);
-
 			let storage_info = AllPalletsWithSystem::storage_info();
-
 			(list, storage_info)
 		}
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-			use frame_benchmarking::{add_benchmark, baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
@@ -419,23 +416,18 @@ impl_runtime_apis! {
 			use frame_support::traits::{TrackedStorageKey, WhitelistedStorageKeys};
 			let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
+			// Import substrate macros created by macros (and all pallets by effects)
+			use crate::*;
+
 			// Treasury Account
 			// TODO: this is manual for now, someday we might be able to use a
 			// macro for this particular key
-			let treasury_key = frame_system::Account::<Runtime>::hashed_key_for(Treasury::account_id());
-			whitelist.push(treasury_key.to_vec().into());
+			#[cfg(feature = "testnet")]
+			whitelist.push(frame_system::Account::<Runtime>::hashed_key_for(Treasury::account_id()).to_vec().into());
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
-			add_benchmark!(params, batches, pallet_elections, Elections);
-			add_benchmark!(params, batches, pallet_shards, Shards);
-			add_benchmark!(params, batches, pallet_tasks, Tasks);
-			add_benchmark!(params, batches, pallet_members, Members);
-			add_benchmark!(params, batches, pallet_timegraph, Timegraph);
-			add_benchmark!(params, batches, pallet_network, Networks);
-			add_benchmark!(params, batches, pallet_dmail, Dmail);
 			add_benchmarks!(params, batches);
-
 			Ok(batches)
 		}
 	}
@@ -448,7 +440,7 @@ impl_runtime_apis! {
 			// have a backtrace here. If any of the pre/post migration checks fail, we shall stop
 			// right here and right now.
 			let weight = Executive::try_runtime_upgrade(checks).unwrap();
-			(weight, RuntimeBlockWeights::get().max_block)
+			(weight, crate::RuntimeBlockWeights::get().max_block)
 		}
 
 		fn execute_block(

@@ -18,6 +18,7 @@
 
 pub use pallet::*;
 
+#[allow(unused_imports)]
 use polkadot_sdk::*;
 
 use sp_std::vec::Vec;
@@ -29,7 +30,6 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::EnsureOrigin};
 	use frame_system::pallet_prelude::*;
-	use polkadot_sdk::*;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -51,6 +51,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
+	#[allow(unused_imports)]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// New validators were added to the set.
@@ -81,6 +82,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
 
+			#[allow(clippy::redundant_closure)]
 			validators.clone().into_iter().for_each(|v| ValidatorsToAdd::<T>::append(v));
 
 			Self::deposit_event(Event::ValidatorsRegistered(validators));
@@ -98,6 +100,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::PrivilegedOrigin::ensure_origin(origin)?;
 
+			#[allow(clippy::redundant_closure)]
 			validators.clone().into_iter().for_each(|v| ValidatorsToRetire::<T>::append(v));
 
 			Self::deposit_event(Event::ValidatorsDeregistered(validators));

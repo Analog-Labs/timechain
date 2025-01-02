@@ -2,21 +2,34 @@
 
 use polkadot_sdk::*;
 
-use frame_support::{
-	parameter_types,
-	traits::{Contains, EitherOfDiverse},
-	weights::Weight,
-};
-use frame_system::{EnsureRoot, EnsureRootWithSuccess};
+use frame_support::{parameter_types, traits::EitherOfDiverse, weights::Weight};
+use frame_system::EnsureRoot;
 
-use sp_runtime::{traits::ConstU32, Perbill};
+use sp_runtime::Perbill;
 
 use time_primitives::{AccountId, Balance, BlockNumber, ANLOG};
 
+#[cfg(not(feature = "testnet"))]
+use frame_support::traits::Contains;
+#[cfg(not(feature = "testnet"))]
+use frame_system::EnsureRootWithSuccess;
+#[cfg(not(feature = "testnet"))]
+use sp_runtime::traits::ConstU32;
+
 // Local module imports
+#[cfg(not(feature = "testnet"))]
+use crate::{Balances, RuntimeHoldReason};
 use crate::{
-	Balances, Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
-	RuntimeOrigin, TechnicalCollective, TechnicalCommittee, DAYS, HOURS,
+	//Balances, RuntimeHoldReason,
+	Runtime,
+	RuntimeBlockWeights,
+	RuntimeCall,
+	RuntimeEvent,
+	RuntimeOrigin,
+	TechnicalCollective,
+	TechnicalCommittee,
+	DAYS,
+	HOURS,
 };
 
 parameter_types! {
@@ -126,16 +139,16 @@ impl pallet_safe_mode::Config for Runtime {
 impl pallet_governance::Config for Runtime {
 	/// Default admin origin for system related governance
 	type SystemAdmin = EnsureRootOrHalfTechnical;
-	/// Default admin origin for staking related governance
-	type StakingAdmin = EnsureRootOrHalfTechnical;
+	// Default admin origin for staking related governance
+	//type StakingAdmin = EnsureRootOrHalfTechnical;
 }
 
 #[cfg(feature = "testnet")]
 impl pallet_governance::Config for Runtime {
 	/// Development admin origin for all system calls
 	type SystemAdmin = EnsureRootOrTechnicalMember;
-	/// Development admin origin for all staking calls
-	type StakingAdmin = EnsureRootOrTechnicalMember;
+	// Development admin origin for all staking calls
+	//type StakingAdmin = EnsureRootOrTechnicalMember;
 }
 
 #[cfg(not(feature = "testnet"))]

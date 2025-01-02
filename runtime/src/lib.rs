@@ -88,12 +88,14 @@ pub mod offchain;
 
 pub use apis::RuntimeApi;
 pub use configs::consensus::SessionKeys;
-pub use configs::core::{BlockHashCount, RuntimeBlockLength, RuntimeBlockWeights};
+pub use configs::core::{
+	BlockHashCount, RuntimeBlockLength, RuntimeBlockWeights, AVERAGE_ON_INITIALIZE_RATIO,
+};
 pub use configs::governance::{
 	EnsureRootOrHalfTechnical, TechnicalMember, TechnicalQualifiedMajority, TechnicalSuperMajority,
 	TechnicalUnanimity,
 };
-pub use configs::tokenomics::ExistentialDeposit;
+pub use configs::tokenomics::{ExistentialDeposit, LengthToFee, WeightToFee};
 
 /// Validator Set Bootstraping
 mod validator_manager;
@@ -104,15 +106,21 @@ pub mod variants;
 /// Import variant constants and macros
 pub use variants::*;
 
+/// Runtime benchmark list
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+mod benches;
+
 /// Runtime test suite
 #[cfg(test)]
 mod tests;
 
 /// Benchmarked pallet weights
 mod weights;
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight};
+pub use weights::{BlockExecutionWeight, ExtrinsicBaseWeight};
 
 /// Automatically generated nomination bag boundaries
+#[cfg(feature = "testnet")]
 mod staking_bags;
 
 // Make the WASM binary available.
@@ -133,8 +141,9 @@ use pallet_session::historical as pallet_session_historical;
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use sp_runtime::{
-	create_runtime_str, generic,
-	traits::{Block as BlockT, Extrinsic, OpaqueKeys},
+	create_runtime_str,
+	generic,
+	//traits::{OpaqueKeys},
 };
 use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
@@ -612,45 +621,6 @@ mod runtime {
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
 type Migrations = ();
 
-/// List of available benchmarks
-#[cfg(feature = "runtime-benchmarks")]
-mod benches {
-	polkadot_sdk::frame_benchmarking::define_benchmarks!(
-		[frame_benchmarking, BaselineBench::<Runtime>]
-		[frame_system, SystemBench::<Runtime>]
-		[pallet_babe, Babe]
-		[pallet_bags_list, VoterList]
-		[pallet_balances, Balances]
-		[pallet_collective, TechnicalCommittee]
-		[pallet_elections, Elections]
-		[pallet_dmail, Dmail]
-		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
-		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
-		[pallet_grandpa, Grandpa]
-		[pallet_identity, Identity]
-		[pallet_im_online, ImOnline]
-		[pallet_membership, TechnicalMembership]
-		[pallet_members, Members]
-		[pallet_multisig, Multisig]
-		[pallet_networks, Networks]
-		[pallet_offences, OffencesBench::<Runtime>]
-		[pallet_preimage, Preimage]
-		[pallet_proxy, Proxy]
-		[pallet_scheduler, Scheduler]
-		[pallet_session, SessionBench::<Runtime>]
-		[pallet_shards, Shards]
-		[pallet_staking, Staking]
-		[pallet_tasks, Tasks]
-		[pallet_timegraph, Timegraph]
-		[pallet_timestamp, Timestamp]
-		[pallet_tips, Tips]
-		[pallet_treasury, Treasury]
-		[pallet_utility, Utility]
-		[pallet_vesting, Vesting]
-		[pallet_safe_mode, SafeMode]
-	);
-}
-
 #[cfg(test)]
 mod included_tests {
 	use super::*;
@@ -669,17 +639,6 @@ mod included_tests {
 	}
 
 	#[test]
-	fn perbill_as_onchain_accuracy() {
-		type OnChainAccuracy =
-			<<Runtime as pallet_election_provider_multi_phase::MinerConfig>::Solution as NposSolution>::Accuracy;
-		let maximum_chain_accuracy: Vec<UpperOf<OnChainAccuracy>> = (0..MaxNominations::get())
-			.map(|_| <UpperOf<OnChainAccuracy>>::from(OnChainAccuracy::one().deconstruct()))
-			.collect();
-		let _: UpperOf<OnChainAccuracy> =
-			maximum_chain_accuracy.iter().fold(0, |acc, x| acc.checked_add(*x).unwrap());
-	}
-
-	#[test]
 	fn call_size() {
 		let size = core::mem::size_of::<RuntimeCall>();
 		assert!(
@@ -688,379 +647,6 @@ mod included_tests {
 			 Some calls have too big arguments, use Box to reduce the size of RuntimeCall.
 			 If the limit is too strong, maybe consider increase the limit.",
 			size,
-		);
-	}
-
-	#[test]
-	fn max_tasks_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.tasks * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
-				.all_lte(avg_on_initialize),
-			"BUG: Scheduling a single task consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
-				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2)),
-			"BUG: Scheduling 1 task consumes more weight than scheduling 2"
-		);
-		let mut num_tasks: u32 = 2;
-		while <Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(num_tasks)
-			.all_lt(avg_on_initialize)
-		{
-			num_tasks += 1;
-			if num_tasks == 10_000_000 {
-				// 10_000_000 tasks reached; halting to break out of loop
-				break;
-			}
-		}
-		let max_tasks_per_block_configured: u32 =
-			<Runtime as pallet_tasks::Config>::MaxTasksPerBlock::get();
-		assert!(
-			max_tasks_per_block_configured <= num_tasks,
-			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
-		);
-	}
-
-	#[test]
-	fn max_batches_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.batches * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
-				.all_lte(avg_on_initialize),
-			"BUG: Starting a single batch consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
-				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(2)),
-			"BUG: Starting 1 batch consumes more weight than starting 2"
-		);
-		let mut num_batches: u32 = 2;
-		while <Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(num_batches)
-			.all_lt(avg_on_initialize)
-		{
-			num_batches += 1;
-			if num_batches == 10_000_000 {
-				// 10_000_000 batches started; halting to break out of loop
-				break;
-			}
-		}
-		let max_batches_per_block_configured: u32 =
-			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
-		assert!(
-			max_batches_per_block_configured <= num_batches,
-			"MaxBatchesPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
-		);
-	}
-
-	#[test]
-	fn max_heartbeat_timeouts_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.heartbeats * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
-				.all_lte(avg_on_initialize),
-			"BUG: One Heartbeat timeout consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
-				.all_lte(<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(2)),
-			"BUG: 1 Heartbeat timeout consumes more weight than 2 Heartbeat timeouts"
-		);
-		let mut num_timeouts: u32 = 2;
-		while <Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(num_timeouts)
-			.all_lt(avg_on_initialize)
-		{
-			num_timeouts += 1;
-			if num_timeouts == 10_000_000 {
-				// 10_000_000 timeouts; halting to break out of loop
-				break;
-			}
-		}
-		let max_timeouts_per_block: u32 =
-			<Runtime as pallet_members::Config>::MaxTimeoutsPerBlock::get();
-		assert!(
-			max_timeouts_per_block <= num_timeouts,
-			"MaxHeartbeatTimeoutsPerBlock {max_timeouts_per_block} > max number of Heartbeat timeouts per block tested = {num_timeouts}"
-		);
-	}
-
-	#[test]
-	fn max_elections_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.elections * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		let try_elect_shard: Weight =
-			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(1);
-		assert!(
-			try_elect_shard.all_lte(avg_on_initialize),
-			"BUG: One shard election consumes more weight than available in on-initialize"
-		);
-		assert!(
-			try_elect_shard
-				.all_lte(<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(2)),
-			"BUG: 1 shard election consumes more weight than 2 shard elections"
-		);
-		let mut num_elections: u32 = 3;
-		while <Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(num_elections)
-			.all_lt(avg_on_initialize)
-		{
-			num_elections += 1;
-			if num_elections == 10_000_000 {
-				// 10_000_000 elections; halting to break out of loop
-				break;
-			}
-		}
-		let max_elections_per_block: u32 =
-			<Runtime as pallet_elections::Config>::MaxElectionsPerBlock::get();
-		assert!(
-			max_elections_per_block <= num_elections,
-			"MaxElectionsPerBlock {max_elections_per_block} > max number of Elections per block tested = {num_elections}"
-		);
-	}
-
-	use super::{
-		frame_support::weights::WeightToFee as WeightToFeeT, tokenomics::WeightToFee,
-		MAXIMUM_BLOCK_WEIGHT,
-	};
-	use crate::weights::ExtrinsicBaseWeight;
-
-	#[test]
-	// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
-	fn full_block_fee_is_correct() {
-		// A full block should cost between 5,000 and 10,000 MILLIANLOG.
-		let full_block = WeightToFee::weight_to_fee(&MAXIMUM_BLOCK_WEIGHT);
-		println!("FULL BLOCK Fee: {}", full_block);
-		assert!(full_block >= 5_000 * MILLIANLOG);
-		assert!(full_block <= 10_000 * MILLIANLOG);
-	}
-
-	#[test]
-	// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
-	fn extrinsic_base_fee_is_correct() {
-		// `ExtrinsicBaseWeight` should cost MICROANLOG
-		println!("Base: {}", ExtrinsicBaseWeight::get());
-		let x = WeightToFee::weight_to_fee(&ExtrinsicBaseWeight::get());
-		let y = MILLIANLOG;
-		assert!(x.max(y) - x.min(y) < MICROANLOG);
-	}
-}
-
-#[cfg(test)]
-mod multiplier_tests {
-	use super::*;
-	use frame_support::{dispatch::DispatchInfo, traits::OnFinalize};
-	use pallet_elections::WeightInfo as W4;
-	use pallet_members::WeightInfo as W2;
-	use pallet_tasks::WeightInfo;
-	use separator::Separatable;
-	use time_primitives::ON_INITIALIZE_BOUNDS;
-
-	fn run_with_system_weight<F>(w: Weight, mut assertions: F)
-	where
-		F: FnMut(),
-	{
-		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap()
-			.into();
-		t.execute_with(|| {
-			System::set_block_consumed_resources(w, 0);
-			assertions()
-		});
-	}
-
-	#[test]
-	fn multiplier_can_grow_from_zero() {
-		let minimum_multiplier = MinimumMultiplier::get();
-		let target = TargetBlockFullness::get()
-			* RuntimeBlockWeights::get().get(DispatchClass::Normal).max_total.unwrap();
-		// if the min is too small, then this will not change, and we are doomed forever.
-		// the weight is 1/100th bigger than target.
-		run_with_system_weight(target.saturating_mul(101) / 100, || {
-			use sp_runtime::traits::Convert;
-
-			let next = SlowAdjustingFeeUpdate::<Runtime>::convert(minimum_multiplier);
-			assert!(next > minimum_multiplier, "{:?} !>= {:?}", next, minimum_multiplier);
-		})
-	}
-
-	#[test]
-	fn multiplier_growth_simulator() {
-		// assume the multiplier is initially set to its minimum. We update it with values twice the
-		//target (target is 25%, thus 50%) and we see at which point it reaches 1.
-		let mut multiplier = MinimumMultiplier::get();
-		let block_weight = RuntimeBlockWeights::get().get(DispatchClass::Normal).max_total.unwrap();
-		let mut blocks = 0;
-		let mut fees_paid = 0;
-		let info = DispatchInfo {
-			weight: Weight::MAX,
-			..Default::default()
-		};
-
-		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap()
-			.into();
-		// set the minimum
-		t.execute_with(|| {
-			frame_system::Pallet::<Runtime>::set_block_consumed_resources(Weight::MAX, 0);
-			pallet_transaction_payment::NextFeeMultiplier::<Runtime>::set(MinimumMultiplier::get());
-		});
-
-		while multiplier <= Multiplier::from_u32(1) {
-			t.execute_with(|| {
-				// imagine this tx was called.
-				let fee = TransactionPayment::compute_fee(0, &info, 0);
-				fees_paid += fee;
-
-				// this will update the multiplier.
-				System::set_block_consumed_resources(block_weight, 0);
-				TransactionPayment::on_finalize(1);
-				let next = TransactionPayment::next_fee_multiplier();
-
-				assert!(next > multiplier, "{:?} !>= {:?}", next, multiplier);
-				multiplier = next;
-
-				println!(
-					"block = {} / multiplier {:?} / fee = {:?} / fess so far {:?}",
-					blocks,
-					multiplier,
-					fee.separated_string(),
-					fees_paid.separated_string()
-				);
-			});
-			blocks += 1;
-		}
-	}
-
-	#[test]
-	fn max_tasks_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.tasks * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
-				.all_lte(avg_on_initialize),
-			"BUG: Scheduling a single task consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(1)
-				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(2)),
-			"BUG: Scheduling 1 task consumes more weight than scheduling 2"
-		);
-		let mut num_tasks: u32 = 2;
-		while <Runtime as pallet_tasks::Config>::WeightInfo::schedule_tasks(num_tasks)
-			.all_lt(avg_on_initialize)
-		{
-			num_tasks += 1;
-			if num_tasks == 10_000_000 {
-				// 10_000_000 tasks reached; halting to break out of loop
-				break;
-			}
-		}
-		let max_tasks_per_block_configured: u32 =
-			<Runtime as pallet_tasks::Config>::MaxTasksPerBlock::get();
-		assert!(
-			max_tasks_per_block_configured <= num_tasks,
-			"MaxTasksPerBlock {max_tasks_per_block_configured} > max number of tasks per block tested = {num_tasks}"
-		);
-	}
-
-	#[test]
-	fn max_batches_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.batches * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
-				.all_lte(avg_on_initialize),
-			"BUG: Starting a single batch consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(1)
-				.all_lte(<Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(2)),
-			"BUG: Starting 1 batch consumes more weight than starting 2"
-		);
-		let mut num_batches: u32 = 2;
-		while <Runtime as pallet_tasks::Config>::WeightInfo::prepare_batches(num_batches)
-			.all_lt(avg_on_initialize)
-		{
-			num_batches += 1;
-			if num_batches == 10_000_000 {
-				// 10_000_000 batches started; halting to break out of loop
-				break;
-			}
-		}
-		let max_batches_per_block_configured: u32 =
-			<Runtime as pallet_tasks::Config>::MaxBatchesPerBlock::get();
-		assert!(
-			max_batches_per_block_configured <= num_batches,
-			"MaxBatchesPerBlock {max_batches_per_block_configured} > max number of batches per block tested = {num_batches}"
-		);
-	}
-
-	#[test]
-	fn max_heartbeat_timeouts_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.heartbeats * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		assert!(
-			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
-				.all_lte(avg_on_initialize),
-			"BUG: One Heartbeat timeout consumes more weight than available in on-initialize"
-		);
-		assert!(
-			<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(1)
-				.all_lte(<Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(2)),
-			"BUG: 1 Heartbeat timeout consumes more weight than 2 Heartbeat timeouts"
-		);
-		let mut num_timeouts: u32 = 2;
-		while <Runtime as pallet_members::Config>::WeightInfo::timeout_heartbeats(num_timeouts)
-			.all_lt(avg_on_initialize)
-		{
-			num_timeouts += 1;
-			if num_timeouts == 10_000_000 {
-				// 10_000_000 timeouts; halting to break out of loop
-				break;
-			}
-		}
-		let max_timeouts_per_block: u32 =
-			<Runtime as pallet_members::Config>::MaxTimeoutsPerBlock::get();
-		assert!(
-			max_timeouts_per_block <= num_timeouts,
-			"MaxHeartbeatTimeoutsPerBlock {max_timeouts_per_block} > max number of Heartbeat timeouts per block tested = {num_timeouts}"
-		);
-	}
-
-	#[test]
-	fn max_elections_per_block() {
-		let avg_on_initialize: Weight =
-			ON_INITIALIZE_BOUNDS.elections * (AVERAGE_ON_INITIALIZE_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		let try_elect_shard: Weight =
-			<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(1);
-		assert!(
-			try_elect_shard.all_lte(avg_on_initialize),
-			"BUG: One shard election consumes more weight than available in on-initialize"
-		);
-		assert!(
-			try_elect_shard
-				.all_lte(<Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(2)),
-			"BUG: 1 shard election consumes more weight than 2 shard elections"
-		);
-		let mut num_elections: u32 = 3;
-		while <Runtime as pallet_elections::Config>::WeightInfo::try_elect_shards(num_elections)
-			.all_lt(avg_on_initialize)
-		{
-			num_elections += 1;
-			if num_elections == 10_000_000 {
-				// 10_000_000 elections; halting to break out of loop
-				break;
-			}
-		}
-		let max_elections_per_block: u32 =
-			<Runtime as pallet_elections::Config>::MaxElectionsPerBlock::get();
-		assert!(
-			max_elections_per_block <= num_elections,
-			"MaxElectionsPerBlock {max_elections_per_block} > max number of Elections per block tested = {num_elections}"
 		);
 	}
 }

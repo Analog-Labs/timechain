@@ -1,6 +1,6 @@
 //! Nominated Proof of Stake Config
 
-use scale_codec::{Decode, Encode, MaxEncodedLen};
+use scale_codec::Decode;
 
 use polkadot_sdk::*;
 
@@ -12,16 +12,17 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Imbalance},
+	traits::{ConstU32, EitherOfDiverse},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{Block as BlockT, Extrinsic, OpaqueKeys},
+	//	traits::{Block as BlockT, Extrinsic, OpaqueKeys},
 	transaction_validity::TransactionPriority,
-	Perbill, Percent,
+	Perbill,
+	Percent,
 };
 use sp_std::prelude::*;
 
@@ -31,9 +32,9 @@ use time_primitives::BlockNumber;
 // Local module imports
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
-	ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, Runtime, RuntimeBlockLength,
-	RuntimeBlockWeights, RuntimeEvent, Session, SessionsPerEra, Staking, TechnicalCollective,
-	Timestamp, TransactionPayment, Treasury, VoterList, ANLOG, EPOCH_DURATION_IN_BLOCKS,
+	ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration, Runtime,
+	RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent, Session, SessionsPerEra, Staking,
+	TechnicalCollective, Timestamp, TransactionPayment, Treasury, VoterList, ANLOG,
 };
 
 parameter_types! {
@@ -41,11 +42,11 @@ parameter_types! {
 	/// are authorized by users with private keys, usually nominators or council members) can be submitted.
 	/// It is calculated as 1/3 of the total epoch duration, ensuring that signed
 	/// transactions are allowed for a quarter of the epoch.
-	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 3;
+	pub const SignedPhase: u32 = EpochDuration::get() as u32;
 	/// This phase determines the time window, in blocks, during which unsigned transactions (those
 	/// without authorization, usually by offchain workers) can be submitted. Like the signed phase,
 	/// it occupies 1/3 of the total epoch duration.
-	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	pub const UnsignedPhase: u32 = EpochDuration::get() as u32;
 
 	// Signed Config
 	/// This represents the fixed reward given to participants for submitting valid signed
@@ -130,7 +131,6 @@ pub const MINER_MAX_ITERATIONS: u32 = 10;
 
 /// A source of random balance for NposSolver, which is meant to be run by the OCW election miner.
 pub struct OffchainRandomBalancing;
-#[cfg(feature = "testnet")]
 impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
 	fn get() -> Option<BalancingConfig> {
 		use sp_runtime::traits::TrailingZeroInput;
@@ -151,7 +151,6 @@ impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
 }
 
 pub struct OnChainSeqPhragmen;
-#[cfg(feature = "testnet")]
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
 	type Solver = SequentialPhragmen<
@@ -164,7 +163,6 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionBoundsOnChain;
 }
 
-#[cfg(feature = "testnet")]
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type AccountId = AccountId;
 	type MaxLength = MinerMaxLength;
@@ -185,10 +183,9 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	}
 }
 
-/// ## 13 - <a id="config.ElectionProviderMultiPhase">[`ElectionProviderMultiPhase`] Config</a>
+/// ## <a id="config.ElectionProviderMultiPhase">[`ElectionProviderMultiPhase`] Config</a>
 ///
 /// Manages off- and on-chain validator election
-#[cfg(feature = "testnet")]
 impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -266,10 +263,9 @@ impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxValidators = ConstU32<1000>;
 }
 
-/// ## 14 - <a id="config.Staking">[`Staking`] Config</a>
+/// ## <a id="config.Staking">[`Staking`] Config</a>
 ///
 /// Tracks nominations and stake
-#[cfg(feature = "testnet")]
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
@@ -311,10 +307,9 @@ parameter_types! {
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
 
-/// ## 15 - <a id="config.VoterList">[`VoterList`] Config</a>
+/// ## <a id="config.VoterList">[`VoterList`] Config</a>
 ///
 /// Organizes nominations into bags by relative size
-#[cfg(feature = "testnet")]
 impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	/// The voter bags-list is loosely kept up to date, and the real source of truth for the score
@@ -325,12 +320,31 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
-/// ## 18 - <a id="config.Offences">[`Offences`] Config</a>
+/// ## <a id="config.Offences">[`Offences`] Config</a>
 ///
 /// Tracks offences
-#[cfg(feature = "testnet")]
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use frame_election_provider_support::NposSolution;
+	//use frame_support::weights::Weight;
+	use sp_runtime::UpperOf;
+
+	#[test]
+	fn perbill_as_onchain_accuracy() {
+		type OnChainAccuracy =
+			<<Runtime as pallet_election_provider_multi_phase::MinerConfig>::Solution as NposSolution>::Accuracy;
+		let maximum_chain_accuracy: Vec<UpperOf<OnChainAccuracy>> = (0..MaxNominations::get())
+			.map(|_| <UpperOf<OnChainAccuracy>>::from(OnChainAccuracy::one().deconstruct()))
+			.collect();
+		let _: UpperOf<OnChainAccuracy> =
+			maximum_chain_accuracy.iter().fold(0, |acc, x| acc.checked_add(*x).unwrap());
+	}
 }

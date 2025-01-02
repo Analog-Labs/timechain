@@ -141,6 +141,7 @@ genesis-builder = [ "polkadot-sdk/sp-genesis-builder" ]
 runtime-benchmarks = [
 	"genesis-builder",
 	"polkadot-sdk/runtime-benchmarks",
+	"polkadot-sdk/frame-benchmarking",
 	"polkadot-sdk/frame-system-benchmarking",
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",

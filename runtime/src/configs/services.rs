@@ -3,17 +3,14 @@
 use polkadot_sdk::*;
 
 use frame_support::{
-	pallet_prelude::Get,
+	//pallet_prelude::Get,
 	parameter_types,
 	traits::{fungible::HoldConsideration, ConstU32, EqualPrivilegeOnly, LinearStoragePrice},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 
-use sp_runtime::{
-	traits::{OpaqueKeys, Verify},
-	Perbill,
-};
+use sp_runtime::{traits::Verify, Perbill};
 
 use pallet_identity::legacy::IdentityInfo;
 

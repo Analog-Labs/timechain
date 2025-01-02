@@ -11,9 +11,10 @@ use frame_support::weights::{
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU128, ConstU32, Currency, Imbalance, OnUnbalanced, WithdrawReasons},
-	weights::ConstantMultiplier,
+	traits::{ConstU32, WithdrawReasons},
 };
+#[cfg(feature = "testnet")]
+use frame_support::traits::{Imbalance, OnUnbalanced, WithdrawReasons};
 
 use sp_runtime::{
 	traits::{Bounded, ConvertInto},
@@ -26,14 +27,15 @@ use sp_runtime::{
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
-#[cfg(feature = "testnet")]
-use crate::Treasury;
 use crate::{
-	weights, AccountId, Authorship, Balance, Balances, ExtrinsicBaseWeight, Runtime, RuntimeEvent,
+	weights, Balance, Balances, ExtrinsicBaseWeight, Runtime, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
 };
-
-use time_primitives::{MICROANLOG, MILLIANLOG, TOCK};
+#[cfg(feature = "testnet")]
+use crate::{AccountId, Authorship, Treasury};
+#[cfg(feature = "testnet")]
+use frame_support::traits::Currency;
+use time_primitives::{MICROANLOG, MILLIANLOG};
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
 /// node's balance type.
@@ -60,7 +62,7 @@ pub const MAXIMUM_BLOCK_WEIGHT_SECONDS: u64 = 2;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		let q_2 = MAX_QUADRATIC_WEIGHT_FEE as u128 * MAX_QUADRATIC_WEIGHT_FEE as u128;
+		let q_2: Balance = MAX_QUADRATIC_WEIGHT_FEE * MAX_QUADRATIC_WEIGHT_FEE;
 		let p_2 = WEIGHT_REF_TIME_PER_SECOND.saturating_mul(MAXIMUM_BLOCK_WEIGHT_SECONDS) as u128;
 		// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
 		let p_1 = MIN_LINEAR_WEIGHT_FEE;
@@ -89,7 +91,7 @@ pub struct LengthToFee;
 impl WeightToFeePolynomial for LengthToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-		let q_2 = MAX_QUADRATIC_LENGTH_FEE as u128 * MAX_QUADRATIC_WEIGHT_FEE as u128;
+		let q_2 = MAX_QUADRATIC_LENGTH_FEE * MAX_QUADRATIC_WEIGHT_FEE;
 		let p_2 = MAX_BLOCK_LENGTH as u128;
 		// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
 		let p_1 = MIN_LINEAR_LENGTH_FEE;
@@ -133,6 +135,7 @@ impl OnUnbalanced<NegativeImbalance> for Author {
 	}
 }
 
+#[cfg(feature = "testnet")]
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 pub struct DealWithFees;
@@ -160,7 +163,7 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 }
 
-/// ## 06 - <a id="config.Balances">[`Balances`] Config</a>
+/// ## <a id="config.Balances">[`Balances`] Config</a>
 ///
 /// Add balance tracking and transfers
 impl pallet_balances::Config for Runtime {
@@ -212,7 +215,7 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
-/// ## 07 - <a id="config.TransactionPayment">[`TransactionPayment`] Config</a>
+/// ## <a id="config.TransactionPayment">[`TransactionPayment`] Config</a>
 ///
 /// Charge users for their transactions according to the transactions weight.
 /// - [`WeightToFee`](#associatedtype.WeightToFee) is a custom curve, for details see [`crate::tokenomics`]
@@ -251,7 +254,7 @@ parameter_types! {
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
-/// ## 08 - <a id="config.Vesting">[`Vesting`] Config</a>
+/// ## <a id="config.Vesting">[`Vesting`] Config</a>
 ///
 /// Allow tokens to be locked following schedule
 impl pallet_vesting::Config for Runtime {
@@ -265,4 +268,127 @@ impl pallet_vesting::Config for Runtime {
 	// `VestingInfo` encode length is 36bytes. 28 schedules gets encoded as 1009 bytes, which is the
 	// highest number of schedules that encodes less than 2^10.
 	const MAX_VESTING_SCHEDULES: u32 = 28;
+}
+
+#[cfg(test)]
+mod test {
+	use polkadot_sdk::*;
+	use time_primitives::{MICROANLOG, MILLIANLOG};
+
+	use frame_support::{
+		dispatch::{DispatchClass, DispatchInfo},
+		traits::OnFinalize,
+		weights::{Weight, WeightToFee as WeightToFeeT},
+	};
+	use pallet_transaction_payment::Multiplier;
+	use separator::Separatable;
+	use sp_runtime::BuildStorage;
+	//use pallet_elections::WeightInfo as W4;
+	//
+	//use pallet_members::WeightInfo as W2;
+	//use pallet_tasks::WeightInfo;
+
+	use super::{MinimumMultiplier, SlowAdjustingFeeUpdate, TargetBlockFullness};
+	use crate::{
+		ExtrinsicBaseWeight, Runtime, RuntimeBlockWeights, System, TransactionPayment,
+		MAXIMUM_BLOCK_WEIGHT,
+	};
+
+	#[test]
+	// Test that the fee for `MAXIMUM_BLOCK_WEIGHT` of weight has sane bounds.
+	fn full_block_fee_is_correct() {
+		// A full block should cost between 5,000 and 10,000 MILLIANLOG.
+		let full_block = crate::WeightToFee::weight_to_fee(&MAXIMUM_BLOCK_WEIGHT);
+		println!("FULL BLOCK Fee: {}", full_block);
+		assert!(full_block >= 5_000 * MILLIANLOG);
+		assert!(full_block <= 10_000 * MILLIANLOG);
+	}
+
+	#[test]
+	// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
+	fn extrinsic_base_fee_is_correct() {
+		// `ExtrinsicBaseWeight` should cost MICROANLOG
+		println!("Base: {}", ExtrinsicBaseWeight::get());
+		let x = crate::WeightToFee::weight_to_fee(&ExtrinsicBaseWeight::get());
+		let y = MILLIANLOG;
+		assert!(x.max(y) - x.min(y) < MICROANLOG);
+	}
+
+	fn run_with_system_weight<F>(w: Weight, mut assertions: F)
+	where
+		F: FnMut(),
+	{
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
+			.unwrap()
+			.into();
+		t.execute_with(|| {
+			System::set_block_consumed_resources(w, 0);
+			assertions()
+		});
+	}
+
+	#[test]
+	fn multiplier_can_grow_from_zero() {
+		let minimum_multiplier = MinimumMultiplier::get();
+		let target = TargetBlockFullness::get()
+			* RuntimeBlockWeights::get().get(DispatchClass::Normal).max_total.unwrap();
+		// if the min is too small, then this will not change, and we are doomed forever.
+		// the weight is 1/100th bigger than target.
+		run_with_system_weight(target.saturating_mul(101) / 100, || {
+			use sp_runtime::traits::Convert;
+
+			let next = SlowAdjustingFeeUpdate::<Runtime>::convert(minimum_multiplier);
+			assert!(next > minimum_multiplier, "{:?} !>= {:?}", next, minimum_multiplier);
+		})
+	}
+
+	#[test]
+	fn multiplier_growth_simulator() {
+		// assume the multiplier is initially set to its minimum. We update it with values twice the
+		//target (target is 25%, thus 50%) and we see at which point it reaches 1.
+		let mut multiplier = MinimumMultiplier::get();
+		let block_weight = RuntimeBlockWeights::get().get(DispatchClass::Normal).max_total.unwrap();
+		let mut blocks = 0;
+		let mut fees_paid = 0;
+		let info = DispatchInfo {
+			weight: Weight::MAX,
+			..Default::default()
+		};
+
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+			.build_storage()
+			.unwrap()
+			.into();
+		// set the minimum
+		t.execute_with(|| {
+			frame_system::Pallet::<Runtime>::set_block_consumed_resources(Weight::MAX, 0);
+			pallet_transaction_payment::NextFeeMultiplier::<Runtime>::set(MinimumMultiplier::get());
+		});
+
+		while multiplier <= Multiplier::from_u32(1) {
+			t.execute_with(|| {
+				// imagine this tx was called.
+				let fee = TransactionPayment::compute_fee(0, &info, 0);
+				fees_paid += fee;
+
+				// this will update the multiplier.
+				System::set_block_consumed_resources(block_weight, 0);
+				TransactionPayment::on_finalize(1);
+				let next = TransactionPayment::next_fee_multiplier();
+
+				assert!(next > multiplier, "{:?} !>= {:?}", next, multiplier);
+				multiplier = next;
+
+				println!(
+					"block = {} / multiplier {:?} / fee = {:?} / fess so far {:?}",
+					blocks,
+					multiplier,
+					fee.separated_string(),
+					fees_paid.separated_string()
+				);
+			});
+			blocks += 1;
+		}
+	}
 }

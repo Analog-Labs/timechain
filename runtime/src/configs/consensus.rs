@@ -4,27 +4,24 @@ use polkadot_sdk::*;
 
 use sp_std::prelude::*;
 
-use frame_support::{pallet_prelude::Get, parameter_types, traits::KeyOwnerProofSystem};
+use frame_support::parameter_types;
 
-use sp_core::crypto::KeyTypeId;
-use sp_runtime::{
-	impl_opaque_keys,
-	traits::{Block as BlockT, Extrinsic, OpaqueKeys},
-	transaction_validity::TransactionPriority,
-};
-
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
+use sp_runtime::{impl_opaque_keys, traits::OpaqueKeys, transaction_validity::TransactionPriority};
 
 // Local module imports
+#[cfg(not(feature = "testnet"))]
+use crate::ValidatorManager;
 use crate::{
-	weights, AccountId, AuthorityDiscovery, Babe, Balance, BondingDuration, EpochDuration,
+	weights, AccountId, AuthorityDiscovery, Babe, BondingDuration, EpochDuration,
 	ExpectedBlockTime, Grandpa, Historical, ImOnline, MaxAuthorities, MaxNominators, Runtime,
-	RuntimeEvent, Session, SessionsPerEra, ValidatorManager,
+	RuntimeEvent, SessionsPerEra,
 };
-
 #[cfg(feature = "testnet")]
-use crate::{Offences, Staking};
+use crate::{Offences, Staking, Balance, Session};
+#[cfg(feature = "testnet")]
+use frame_support::traits::KeyOwnerProofSystem;
+#[cfg(feature = "testnet")]
+use sp_core::crypto::KeyTypeId;
 
 /// ## <a id="config.Authorship">[`Authorship`] Config</a>
 ///
@@ -78,7 +75,7 @@ impl pallet_session::Config for Runtime {
 pub struct FullIdentificationOf;
 impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf {
 	fn convert(_: AccountId) -> Option<()> {
-		Some(Default::default())
+		Some(())
 	}
 }
 
@@ -148,7 +145,7 @@ impl pallet_grandpa::Config for Runtime {
 	#[cfg(not(feature = "testnet"))]
 	type KeyOwnerProof = sp_core::Void;
 	#[cfg(feature = "testnet")]
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, sp_consensus_grandpa::AuthorityId)>>::Proof;
 	#[cfg(not(feature = "testnet"))]
 	type EquivocationReportSystem = ();
 	#[cfg(feature = "testnet")]
@@ -167,12 +164,9 @@ parameter_types! {
 ///
 /// validator heartbeats
 impl pallet_im_online::Config for Runtime {
-	type AuthorityId = ImOnlineId;
+	type AuthorityId = pallet_im_online::sr25519::AuthorityId;
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = Babe;
-	//#[cfg(not(feature = "testnet"))]
-	//type ValidatorSet = Session;
-	//#[cfg(feature = "testnet")]
 	type ValidatorSet = Historical;
 	#[cfg(not(feature = "testnet"))]
 	type ReportUnresponsiveness = ();

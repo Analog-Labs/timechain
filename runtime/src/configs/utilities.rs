@@ -5,15 +5,12 @@ use scale_codec::{Decode, Encode, MaxEncodedLen};
 use polkadot_sdk::*;
 
 use frame_support::{
-	pallet_prelude::Get,
+	//pallet_prelude::Get,
 	parameter_types,
 	traits::{ConstU32, InstanceFilter},
 };
 
-use sp_runtime::{
-	traits::{BlakeTwo256, Block as BlockT, Extrinsic, OpaqueKeys},
-	RuntimeDebug,
-};
+use sp_runtime::{traits::BlakeTwo256, RuntimeDebug};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -107,6 +104,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Staking => {
 				matches!(c, RuntimeCall::Staking(..))
 			},
+			#[allow(unreachable_patterns)]
 			_ => false,
 		}
 	}

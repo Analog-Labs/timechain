@@ -3,36 +3,13 @@ use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sha3::Digest;
 
 pub type Address = [u8; 32];
 pub type Gateway = Address;
 pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
-
-const GMP_VERSION: &str = "Analog GMP v2";
-
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
-pub struct GmpParams {
-	pub network: NetworkId,
-	pub gateway: Gateway,
-}
-
-impl GmpParams {
-	pub fn new(network: NetworkId, gateway: Gateway) -> Self {
-		Self { network, gateway }
-	}
-
-	pub fn hash(&self, payload: &[u8]) -> Hash {
-		use sha3::Digest;
-		let mut hasher = sha3::Keccak256::new();
-		hasher.update(GMP_VERSION);
-		hasher.update(self.network.to_be_bytes());
-		hasher.update(self.gateway);
-		hasher.update(payload);
-		hasher.finalize().into()
-	}
-}
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
@@ -48,37 +25,40 @@ pub struct GmpMessage {
 }
 
 impl GmpMessage {
-	const HEADER_LEN: usize = 113;
+	const HEADER_LEN: usize = 224;
 
 	pub fn encoded_len(&self) -> usize {
 		Self::HEADER_LEN + self.bytes.len()
 	}
 
-	fn encode_header(&self) -> [u8; 113] {
-		let mut hdr = [0; Self::HEADER_LEN];
-		hdr[0] = 0; // struct version
-		hdr[1..3].copy_from_slice(&self.src_network.to_be_bytes());
-		hdr[3..5].copy_from_slice(&self.dest_network.to_be_bytes());
-		hdr[5..37].copy_from_slice(&self.src);
-		hdr[37..69].copy_from_slice(&self.dest);
-		hdr[69..77].copy_from_slice(&self.nonce.to_be_bytes());
-		hdr[77..93].copy_from_slice(&self.gas_limit.to_be_bytes());
-		hdr[93..109].copy_from_slice(&self.gas_cost.to_be_bytes());
-		hdr[109..113].copy_from_slice(&(self.bytes.len() as u32).to_be_bytes());
+	fn encode_header(&self) -> [u8; 224] {
+		// we dont include gasCost here due to its dynamic nature
+		let mut hdr = [0u8; 224];
+		// Leaving initial 32 bytes with padded 0's
+		hdr[32..64].copy_from_slice(&self.src);
+		// Leaving 30 bytes with padded 0's
+		hdr[94..96].copy_from_slice(&self.src_network.to_be_bytes());
+		hdr[96..128].copy_from_slice(&self.dest);
+		// Leaving 30 bytes with padded 0's
+		hdr[158..160].copy_from_slice(&self.dest_network.to_be_bytes());
+		// Leaving 16 bytes with padded 0's
+		hdr[176..192].copy_from_slice(&self.gas_limit.to_be_bytes());
+		// Leaving 16 bytes with padded 0's
+		hdr[216..224].copy_from_slice(&self.nonce.to_be_bytes());
 		hdr
 	}
 
 	pub fn encode_to(&self, buf: &mut Vec<u8>) {
+		let msg_hash: [u8; 32] = sha3::Keccak256::digest(&self.bytes).into();
 		buf.extend_from_slice(&self.encode_header());
-		buf.extend_from_slice(&self.bytes);
+		buf.extend_from_slice(&msg_hash);
 	}
 
 	pub fn message_id(&self) -> MessageId {
-		use sha3::Digest;
-		let mut hasher = sha3::Keccak256::new();
-		hasher.update(self.encode_header());
-		hasher.update(&self.bytes);
-		hasher.finalize().into()
+		let mut buf = Vec::new();
+		self.encode_to(&mut buf);
+		let message_id: [u8; 32] = sha3::Keccak256::digest(buf).into();
+		message_id
 	}
 }
 
@@ -105,25 +85,22 @@ pub enum GatewayOp {
 
 impl GatewayOp {
 	pub fn encoded_len(&self) -> usize {
-		1 + match self {
+		match self {
 			Self::SendMessage(msg) => msg.encoded_len(),
-			_ => 8 + 33,
+			_ => 32,
 		}
 	}
 
 	pub fn encode_to(&self, buf: &mut Vec<u8>) {
 		match self {
 			Self::SendMessage(msg) => {
-				buf.push(0);
-				msg.encode_to(buf);
+				buf.extend_from_slice(&msg.message_id());
 			},
 			Self::RegisterShard(pubkey) => {
-				buf.push(1);
-				buf.extend_from_slice(pubkey);
+				buf.extend_from_slice(&pubkey[1..]);
 			},
 			Self::UnregisterShard(pubkey) => {
-				buf.push(2);
-				buf.extend_from_slice(pubkey);
+				buf.extend_from_slice(&pubkey[1..]);
 			},
 		}
 	}
@@ -131,7 +108,7 @@ impl GatewayOp {
 	pub fn gas(&self) -> u128 {
 		match self {
 			Self::SendMessage(msg) => msg.gas_cost,
-			_ => 10_000,
+			_ => 40_000,
 		}
 	}
 }
@@ -165,14 +142,28 @@ impl GatewayMessage {
 	}
 
 	pub fn encode(&self, batch_id: BatchId) -> Vec<u8> {
+		let mut message_hash: [u8; 32] = [0u8; 32];
 		let mut buf = Vec::new();
-		buf.push(0); // struct version
+		// include version in buffer
+		buf.extend_from_slice(&[0u8; 32]);
+		// include batch id
+		// padding for batch_id, since batch_id is uint64 we pad initial 0 until we have 32 bytes
+		buf.extend_from_slice(&[0u8; 24]);
 		buf.extend_from_slice(&batch_id.to_be_bytes());
-		buf.extend_from_slice(&(self.ops.len() as u32).to_be_bytes());
 		for op in &self.ops {
-			op.encode_to(&mut buf);
+			let mut op_hasher = sha3::Keccak256::new();
+			let mut op_hash = Vec::new();
+			op.encode_to(&mut op_hash);
+			op_hasher.update(message_hash);
+			op_hasher.update(op_hash);
+			message_hash = op_hasher.finalize().into();
 		}
+		buf.extend_from_slice(&message_hash);
 		buf
+	}
+
+	pub fn gas(&self) -> u128 {
+		self.ops.iter().fold(0u128, |acc, op| acc.saturating_add(op.gas()))
 	}
 }
 
@@ -342,7 +333,12 @@ pub trait IConnectorAdmin: IConnector {
 		gateway: &[u8],
 	) -> Result<(Address, u64)>;
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()>;
+	async fn redeploy_gateway(
+		&self,
+		additional_params: &[u8],
+		proxy: Address,
+		gateway: &[u8],
+	) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address) -> Result<Address>;
 	/// Sets the gateway admin.
@@ -363,6 +359,7 @@ pub trait IConnectorAdmin: IConnector {
 		gateway: Address,
 		dest: NetworkId,
 		msg_size: usize,
+		gas_limit: u128,
 	) -> Result<u128>;
 	/// Sends a message using the test contract.
 	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId>;
@@ -375,6 +372,8 @@ pub trait IConnectorAdmin: IConnector {
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
 	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()>;
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()>;
 }
 
 #[cfg(feature = "std")]

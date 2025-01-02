@@ -187,7 +187,12 @@ impl IConnectorAdmin for Connector {
 		Ok((response.address, response.block))
 	}
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address, gateway: &[u8]) -> Result<()> {
+	async fn redeploy_gateway(
+		&self,
+		_additional_params: &[u8],
+		proxy: Address,
+		gateway: &[u8],
+	) -> Result<()> {
 		let request = Request::new(proto::RedeployGatewayRequest {
 			proxy,
 			gateway: gateway.to_vec(),
@@ -251,8 +256,14 @@ impl IConnectorAdmin for Connector {
 		gateway: Address,
 		dest: NetworkId,
 		msg_size: usize,
+		gas_limit: u128,
 	) -> Result<u128> {
-		let request = Request::new(proto::EstimateMessageCostRequest { gateway, dest, msg_size });
+		let request = Request::new(proto::EstimateMessageCostRequest {
+			gateway,
+			dest,
+			msg_size,
+			gas_limit,
+		});
 		let response = self.client.lock().await.estimate_message_cost(request).await?.into_inner();
 		Ok(response.cost)
 	}
@@ -294,6 +305,12 @@ impl IConnectorAdmin for Connector {
 	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()> {
 		let request = Request::new(proto::WithdrawFundsRequest { gateway, amount, address });
 		self.client.lock().await.withdraw_funds(request).await?.into_inner();
+		Ok(())
+	}
+	/// Deposit gateway funds.
+	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
+		let request = Request::new(proto::DepositRequest { gateway, amount });
+		self.client.lock().await.deposit(request).await?;
 		Ok(())
 	}
 }

@@ -313,6 +313,47 @@ fn task_completion_unassigns_task() {
 	})
 }
 
+#[test]
+fn test_task_stuck_in_unassigned_queue() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard_1 = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		roll(1);
+		let shard_2 = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		submit_gateway_events(shard_1, 1, &[]);
+		roll(1);
+		roll(1);
+		let task_shard = Tasks::task_shard(4).unwrap();
+		submit_gateway_events(task_shard, 4, &[]);
+		roll(1);
+		register_shard(shard_1);
+		assert!(Tasks::is_shard_registered(shard_1));
+		roll(1);
+		register_shard(shard_2);
+		assert!(Tasks::is_shard_registered(shard_2));
+		let task_shard = Tasks::task_shard(5).unwrap();
+		let msg = mock_gmp_msg(1);
+		submit_gateway_events(task_shard, 5, &[GmpEvent::MessageReceived(msg.clone())]);
+		roll(1);
+		let account = Tasks::get_task_submitter(7).unwrap();
+		submit_submission_error(account, 7, "error message");
+		roll(1);
+		let account = Tasks::get_task_submitter(2).unwrap();
+		submit_submission_error(account, 2, "error message");
+		let account = Tasks::get_task_submitter(3).unwrap();
+		submit_submission_error(account, 3, "error message");
+		let task_shard = Tasks::task_shard(6).unwrap();
+		submit_gateway_events(task_shard, 6, &[]);
+		roll(1);
+		shard_offline(ETHEREUM, shard_2);
+		roll(1);
+		roll(1);
+		assert!(Tasks::get_task_shard(9).is_some());
+	})
+}
+
 mod bench_helper {
 	use super::*;
 

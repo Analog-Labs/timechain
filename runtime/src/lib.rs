@@ -97,9 +97,6 @@ pub use configs::governance::{
 };
 pub use configs::tokenomics::{ExistentialDeposit, LengthToFee, WeightToFee};
 
-/// Validator Set Bootstraping
-mod validator_manager;
-
 /// Helpers to handle variant flags
 pub mod variants;
 
@@ -449,7 +446,7 @@ mod runtime {
 	pub type SafeMode = pallet_safe_mode;
 
 	#[runtime::pallet_index(25)]
-	pub type ValidatorManager = validator_manager;
+	pub type ValidatorManager = pallet_validators;
 
 	// Custom governance
 	#[runtime::pallet_index(32)]

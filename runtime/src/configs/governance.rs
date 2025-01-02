@@ -152,7 +152,7 @@ impl pallet_governance::Config for Runtime {
 }
 
 #[cfg(not(feature = "testnet"))]
-impl crate::validator_manager::Config for Runtime {
+impl pallet_validators::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PrivilegedOrigin = EnsureRootOrHalfTechnical;
 }

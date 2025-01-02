@@ -10549,6 +10549,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-validators"
+version = "0.8.0"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-vesting"
 version = "37.0.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.1-anlog0#066faa1fa2f673f5ce0e9df271bf0d04c56ef841"
@@ -19256,6 +19266,7 @@ dependencies = [
  "pallet-shards",
  "pallet-tasks",
  "pallet-timegraph",
+ "pallet-validators",
  "parity-scale-codec",
  "polkadot-sdk",
  "primitive-types 0.13.1",

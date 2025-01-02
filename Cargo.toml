@@ -25,6 +25,7 @@ members = [
 	"pallets/shards",
 	"pallets/tasks",
 	"pallets/timegraph",
+	"pallets/validators",
 	"primitives",
 	"runtime",
 	"tc-cli",
@@ -79,6 +80,7 @@ pallet-networks = { path = "pallets/networks", default-features = false }
 pallet-shards = { path = "pallets/shards", default-features = false }
 pallet-tasks = { path = "pallets/tasks", default-features = false }
 pallet-timegraph = { path = "pallets/timegraph", default-features = false }
+pallet-validators = { path = "pallets/validators", default-features = false }
 
 # runtimes in workspace
 timechain-runtime = { path = "runtime" }

@@ -1,5 +1,6 @@
+#![cfg_attr(not(feature = "std"), no_std)]
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Substrate.
 
 // Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,15 +16,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! A pallet for managing validators on early timechain, stolen from Rococo.
-
 pub use pallet::*;
 
-#[allow(unused_imports)]
 use polkadot_sdk::*;
 
 use sp_std::vec::Vec;
 
-type Session<T> = polkadot_sdk::pallet_session::Pallet<T>;
+type Session<T> = pallet_session::Pallet<T>;
 
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
@@ -51,7 +50,6 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[allow(unused_imports)]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// New validators were added to the set.

@@ -804,7 +804,6 @@ impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
 		let gateway = self.register_network(network).await?;
-		sleep(Duration::from_secs(20)).await;
 		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
 			tracing::info!("admin target balance is 0, using faucet");
 			self.faucet(network).await?;
@@ -832,6 +831,7 @@ impl Tc {
 	}
 
 	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
+		let networks: std::collections::HashSet<NetworkId> = networks.into_iter().collect();
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
 		let networks =

@@ -47,8 +47,8 @@ impl Tc {
 		dotenv::from_path(config.parent().unwrap().join(".env")).ok();
 		let env = Mnemonics::from_env()?;
 		let config = Config::from_file(config)?;
-		while SubxtClient::get_client(&config.global().timechain_url).await.is_err() {
-			tracing::info!("waiting for chain to start");
+		while let Err(err) = SubxtClient::get_client(&config.global().timechain_url).await {
+			tracing::info!("waiting for chain to start: {err:?}");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		let runtime =
@@ -63,7 +63,11 @@ impl Tc {
 				url: network.url.clone(),
 				mnemonic: env.target_mnemonic.clone(),
 			};
-			let connector = network.backend.connect_admin(&params).await?;
+			let connector = network
+				.backend
+				.connect_admin(&params)
+				.await
+				.context("failed to connect to backend")?;
 
 			let target_address = connector.format_address(connector.address());
 			tracing::info!("target address: {}", target_address);
@@ -135,8 +139,9 @@ impl Tc {
 		if let Some(network) = network {
 			self.connector(network)?.parse_address(address)
 		} else {
-			let address: AccountId =
-				address.parse().map_err(|_| anyhow::anyhow!("invalid timechain account"))?;
+			let address: AccountId = address
+				.parse()
+				.map_err(|err| anyhow::anyhow!("invalid timechain account: {err}"))?;
 			Ok(address.into())
 		}
 	}
@@ -755,8 +760,9 @@ impl Tc {
 		for _ in 0..40 {
 			match self.chronicle_config(chronicle).await {
 				Ok(config) => return Ok(config),
-				Err(_) => {
+				Err(err) => {
 					tracing::info!("waiting for chronicle {chronicle} to come online");
+					tracing::debug!("{err:#?}");
 					tokio::time::sleep(Duration::from_secs(1)).await
 				},
 			}

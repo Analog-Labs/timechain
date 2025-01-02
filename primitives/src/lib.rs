@@ -93,12 +93,11 @@ pub const SS58_PREFIX: u16 = 12851;
 
 /// Unofficial develop SS58 prefix (`az`)
 #[cfg(feature = "develop")]
-pub const SS58_PREFIX: u16 = 12852;
+pub const SS58_PREFIX: u16 = 42;
 
 /// Helper to format address with correct prefix
 pub fn format_address(account: &AccountId) -> String {
-	// FIXME: Hardcoded to not break smoke tests, change to SS58_PREFIX once fixed
-	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(12850u16))
+	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS58_PREFIX))
 }
 
 uint::construct_uint! {
@@ -187,4 +186,22 @@ pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
 	fn gateway_registered(network: NetworkId, block: u64);
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_parse_addr() {
+		let addrs = [
+			"5DiPYChakvifNd4oC9s5ezGYn2WebiVdf8cUXRcG1XF9Jcfm",
+			"an7DqmJUeV3tjLf1NH7LRi4hu2YBftLs9K6LrAbf9UEvR8ePm",
+			"atVc4Jo8T5fsFLQu4FBdwsjj6PbLVQ5ATPHoFYLpR6xyd9N1V",
+		];
+		for addr in addrs {
+			let account = AccountId::from_string(addr).unwrap();
+			println!("{account}");
+		}
+	}
 }

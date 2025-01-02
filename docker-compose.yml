@@ -93,6 +93,8 @@ services:
       RUST_BACKTRACE: 1
     ports:
       - "8082:8080"
+    profiles:
+    - ethereum
 
   ethereum:
     image: 'ethereum/client-go:v1.14.11'

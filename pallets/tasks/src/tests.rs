@@ -330,6 +330,7 @@ fn test_task_stuck_in_unassigned_queue() {
 		roll(1);
 		register_shard(shard_1);
 		assert!(Tasks::is_shard_registered(shard_1));
+		roll(1);
 		register_shard(shard_2);
 		assert!(Tasks::is_shard_registered(shard_2));
 		let task_shard = Tasks::task_shard(5).unwrap();
@@ -347,7 +348,6 @@ fn test_task_stuck_in_unassigned_queue() {
 		submit_gateway_events(task_shard, 6, &[]);
 		roll(1);
 		shard_offline(ETHEREUM, shard_2);
-		roll(1);
 		roll(1);
 		roll(1);
 		assert!(Tasks::get_task_shard(9).is_some());

@@ -272,11 +272,8 @@ impl pallet_tasks::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Networks = MockNetworks;
-	// type MaxTasksPerBlock = ConstU32<3>;
-	// type MaxBatchesPerBlock = ConstU32<4>;
-	// To mimic live behaviour
-	type MaxTasksPerBlock = ConstU32<50>;
-	type MaxBatchesPerBlock = ConstU32<10>;
+	type MaxTasksPerBlock = ConstU32<3>;
+	type MaxBatchesPerBlock = ConstU32<4>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

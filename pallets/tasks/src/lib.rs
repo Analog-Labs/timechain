@@ -655,9 +655,6 @@ pub mod pallet {
 					(assignable_task_count as u32 - 1) / registered_shards.len() as u32 + 1;
 				let tasks_per_shard = core::cmp::min(tasks_per_shard, max_assignable_tasks);
 				log::debug!("task_per_shard: {tasks_per_shard}");
-				for (_, task_id) in UATasks::<T>::iter_prefix(network) {
-					log::debug!("unassigned {task_id}");
-				}
 
 				// assign tasks
 				for shard in registered_shards {

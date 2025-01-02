@@ -756,6 +756,7 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 	while blocks.next().await.is_some() {
 		let chronicles = tc.chronicles().await?;
 		let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
+		tracing::info!("waiting for chronicles to be registered");
 		print_table(tc, chronicles)?;
 		if !not_registered {
 			break;

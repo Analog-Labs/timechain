@@ -840,7 +840,6 @@ impl Tc {
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
 		}
-		tracing::info!("Registering Routes");
 		self.register_routes(gateways).await?;
 		for chronicle in self.config.chronicles() {
 			self.deploy_chronicle(chronicle).await?;

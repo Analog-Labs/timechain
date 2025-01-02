@@ -272,8 +272,11 @@ impl pallet_tasks::Config for Test {
 	type WeightInfo = ();
 	type Shards = Shards;
 	type Networks = MockNetworks;
-	type MaxTasksPerBlock = ConstU32<3>;
-	type MaxBatchesPerBlock = ConstU32<4>;
+	// type MaxTasksPerBlock = ConstU32<3>;
+	// type MaxBatchesPerBlock = ConstU32<4>;
+	// To mimic live behaviour
+	type MaxTasksPerBlock = ConstU32<50>;
+	type MaxBatchesPerBlock = ConstU32<10>;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
@@ -308,6 +311,7 @@ impl frame_system::offchain::SigningTypes for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	let _ = env_logger::try_init();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![

@@ -421,10 +421,6 @@ impl IConnectorBuilder for Connector {
 			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
 			cctp_queue: Default::default(),
 		};
-		// local testnet send some funds
-		if connector.wallet.config().coin == 1 {
-			connector.faucet().await?;
-		};
 		Ok(connector)
 	}
 }
@@ -502,7 +498,6 @@ impl IConnector for Connector {
 			})
 			.await?;
 		let mut events = vec![];
-		tracing::info!("gmp executed hash: {:?}", sol::Gateway::GmpExecuted::SIGNATURE_HASH);
 		for log in logs {
 			let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
 			let log =
@@ -597,7 +592,7 @@ impl IConnector for Connector {
 				ops,
 			},
 		};
-		tracing::info!("Submitting command to gateway with gas: {:?}", gas_limit);
+		tracing::info!("Submitting batch: {batch} to gateway with gas: {gas_limit}");
 		self.evm_call(gateway, call, 0, None, Some(gas_limit))
 			.await
 			.map_err(|err| err.to_string())?;

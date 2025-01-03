@@ -33,6 +33,7 @@ use crate::sol::{ProxyContext, ProxyDigest};
 
 type AlloyAddress = alloy_primitives::Address;
 type CctpRetryCount = u8;
+const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
 pub(crate) mod sol;
 
@@ -371,7 +372,7 @@ impl Connector {
 				Ok(()) => attested_msgs.push(msg),
 				Err(CctpError::AttestationPending) => {
 					retry_count += 1;
-					if retry_count > 2 {
+					if retry_count >= MAX_CCTP_RETRY {
 						tracing::info!("Dropping Cctp message: {msg:?} with count: {retry_count}",);
 					} else {
 						tracing::info!("Attestation is pending for msg: {:?}", msg);

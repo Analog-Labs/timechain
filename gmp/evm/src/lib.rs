@@ -32,6 +32,7 @@ use crate::sol::CCTP;
 use crate::sol::{ProxyContext, ProxyDigest};
 
 type AlloyAddress = alloy_primitives::Address;
+type CctpRetryCount = u8;
 
 pub(crate) mod sol;
 
@@ -53,7 +54,7 @@ pub struct Connector {
 	backend: Adapter<DefaultClient>,
 	cctp_sender: Option<String>,
 	cctp_attestation: String,
-	cctp_queue: Arc<Mutex<Vec<sol::GmpMessage>>>,
+	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
 }
 
 impl Connector {
@@ -312,8 +313,8 @@ impl Connector {
 		let initializer = sol::Gateway::initializeCall { admin, keys, networks }.abi_encode();
 		Ok(initializer)
 	}
-	async fn process_cctp_msg(&self, msg: &mut sol::GmpMessage) -> Result<(), CctpError> {
-		let payload = msg.data.clone();
+	async fn process_cctp_msg(&self, msg: &mut GmpMessage) -> Result<(), CctpError> {
+		let payload = msg.bytes.clone();
 		let mut cctp_payload =
 			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
 		if cctp_payload.version != 0 {
@@ -327,7 +328,7 @@ impl Connector {
 		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
 		let attestation = hex::decode(signature).map_err(|_| CctpError::InvalidSignature)?;
 		cctp_payload.attestation = attestation.into();
-		msg.data = cctp_payload.abi_encode().into();
+		msg.bytes = cctp_payload.abi_encode();
 		Ok(())
 	}
 
@@ -356,16 +357,26 @@ impl Connector {
 		Err(CctpError::AttestationPending)
 	}
 
-	async fn process_cctp_queue(&self) -> Vec<sol::GmpMessage> {
-		let mut attested_msgs = vec![];
+	async fn process_cctp_queue(&self) -> Vec<GmpMessage> {
 		let mut queue = self.cctp_queue.lock().await;
+		if queue.is_empty() {
+			return vec![];
+		}
+
+		let mut attested_msgs = vec![];
+
 		let msgs = std::mem::take(&mut *queue);
-		for mut msg in msgs {
+		for (mut msg, mut retry_count) in msgs {
 			match self.process_cctp_msg(&mut msg).await {
 				Ok(()) => attested_msgs.push(msg),
 				Err(CctpError::AttestationPending) => {
-					tracing::info!("Attestation is pending for msg: {:?}", msg);
-					queue.push(msg);
+					retry_count += 1;
+					if retry_count > 2 {
+						tracing::info!("Dropping Cctp message: {msg:?} with count: {retry_count}",);
+					} else {
+						tracing::info!("Attestation is pending for msg: {:?}", msg);
+						queue.push((msg, retry_count));
+					}
 				},
 				Err(error) => {
 					tracing::error!("Failed to process cctp message: {:?}: {:?}", msg, error);
@@ -504,6 +515,7 @@ impl IConnector for Connector {
 						let log = sol::Gateway::ShardsRegistered::decode_log(&log, true)?;
 						for key in log.keys.iter() {
 							events.push(GmpEvent::ShardRegistered(key.clone().into()));
+						}
 					},
 					sol::Gateway::ShardsUnregistered::SIGNATURE_HASH => {
 						let log = sol::Gateway::ShardsUnregistered::decode_log(&log, true)?;
@@ -526,20 +538,12 @@ impl IConnector for Connector {
 							bytes: log.data.data.into(),
 						};
 						if let Some(cctp_sender) = cctp_sender {
-							if sender == cctp_sender.into() {
+							if gmp_message.src == t_addr(cctp_sender.into()) {
 								let mut cctp_queue = self.cctp_queue.lock().await;
-								cctp_queue.push(data.clone());
-								let msgs = self.process_cctp_queue().await;
-								for msg in msgs {
-									events.push(GmpEvent::MessageReceived(
-										msg.clone().outbound(self.network_id),
-									));
-								}
+								cctp_queue.push((gmp_message.clone(), 0));
 							}
 						} else {
-							events.push(GmpEvent::MessageReceived(
-								data.clone().outbound(self.network_id),
-							));
+							events.push(GmpEvent::MessageReceived(gmp_message));
 						}
 						break;
 					},
@@ -557,6 +561,11 @@ impl IConnector for Connector {
 				}
 				tracing::info!("logsiter 3");
 			}
+		}
+		// CCTP calls processing
+		let msgs = self.process_cctp_queue().await;
+		for msg in msgs {
+			events.push(GmpEvent::MessageReceived(msg));
 		}
 		Ok(events)
 	}

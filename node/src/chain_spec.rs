@@ -15,33 +15,42 @@ use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use sp_runtime::Perbill;
 
-use timechain_runtime::WASM_BINARY;
+use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
-use timechain_runtime::{StakerStatus, DAYS};
+use timechain_runtime::StakerStatus;
 
 // MAINNET
 
 // Small endowment to allow admins to work
+#[allow(dead_code)]
 const MAINNET_PER_ADMIN: Balance = ANLOG * 1000;
 // Smaller endowment to allow nodes to rotate keys
+#[allow(dead_code)]
 const MAINNET_PER_STASH: Balance = ANLOG * 10;
 
 // TESTNET
 
 /// Stash and float for validators
+#[allow(dead_code)]
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500_000;
+#[allow(dead_code)]
 const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 20_000;
 
 /// Stash for community nominations
+#[allow(dead_code)]
 const PER_NOMINATION: Balance = ANLOG * 180_000;
+#[allow(dead_code)]
 const PER_NOMINATOR_STASH: Balance = 8 * PER_NOMINATION;
 
 /// Stash and float for chronicles
+#[allow(dead_code)]
 const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
+#[allow(dead_code)]
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
+#[allow(dead_code)]
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
 
 /// Minimum needed validators, currently lowered for testing environments
@@ -140,7 +149,10 @@ impl GenesisKeysConfig {
 	}
 
 	/// Generate chain candidate for live deployment
+	#[allow(dead_code)]
 	pub fn to_live(&self) -> Result<ChainSpec, String> {
+		assert!(!cfg!(feature = "develop"), "Runtimes with 'develop' feature are not safe to be used in production.");
+
 		if cfg!(feature = "testnet") {
 			self.to_chain_spec("analog-testnet", "TANLOG", ChainType::Live, 3, 2)
 		} else {
@@ -150,13 +162,18 @@ impl GenesisKeysConfig {
 
 	/// Generate development chain for supplied sub-identifier
 	pub fn to_development(&self, subid: &str) -> Result<ChainSpec, String> {
+		if !cfg!(feature = "develop") {
+			log::warn!("Development chain with missmatched runtime variant: {}", RUNTIME_VARIANT);
+		}
+
 		let id = "analog-".to_owned() + subid;
 		self.to_chain_spec(id.as_str(), "DANLOG", ChainType::Development, 6, 4)
 	}
 
 	/// Generate a local chain spec
 	pub fn to_local(&self) -> Result<ChainSpec, String> {
-		self.to_chain_spec("analog-local", "LANLOG", ChainType::Local, 3, 2)
+		let id = "analog-".to_owned() + RUNTIME_VARIANT + "-local";
+		self.to_chain_spec(id.as_str(), "LANLOG", ChainType::Local, 3, 2)
 	}
 
 	/// Generate a chain spec from key config
@@ -245,9 +262,6 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
-			//"safeMode": {
-			//	"enteredUntil":  14 * DAYS,
-			//}
 		});
 
 		// Put it all together ...
@@ -329,7 +343,6 @@ impl GenesisKeysConfig {
 
 		// Endow controller if necessary
 		if let Some(controller) = self.controller.as_ref() {
-			controller_supply = CONTROLLER_SUPPLY;
 			endowments.append(&mut vec![(controller.clone(), CONTROLLER_SUPPLY)]);
 		}
 

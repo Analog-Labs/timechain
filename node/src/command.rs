@@ -51,7 +51,7 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			// Choose soft-launch mainnet byr default
+			// Choose soft-launch mainnet by default
 			"mainnet" | "" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 				&include_bytes!("chains/mainnet.raw.json")[..],
 			)?),
@@ -61,7 +61,6 @@ impl SubstrateCli for Cli {
 			)?),
 			// Internal development networks
 			"staging" => {
-				assert!(cfg!(not(feature = "develop")), "Runtime variant missmatch");
 				Box::new(
 					chain_spec::GenesisKeysConfig::from_json_bytes(
 						&include_bytes!("chains/internal.keys.json")[..],
@@ -70,7 +69,6 @@ impl SubstrateCli for Cli {
 				)
 			},
 			"integration" => {
-				assert!(cfg!(not(feature = "develop")), "Runtime variant missmatch");
 				Box::new(
 					chain_spec::GenesisKeysConfig::from_json_bytes(
 						&include_bytes!("chains/internal.keys.json")[..],
@@ -79,7 +77,6 @@ impl SubstrateCli for Cli {
 				)
 			},
 			"development" => {
-				assert!(cfg!(not(feature = "develop")), "Runtime variant missmatch");
 				Box::new(
 					chain_spec::GenesisKeysConfig::from_json_bytes(
 						&include_bytes!("chains/internal.keys.json")[..],
@@ -89,7 +86,6 @@ impl SubstrateCli for Cli {
 			},
 			// Local testing networks
 			"dev" => {
-				assert!(cfg!(not(feature = "testnet")), "Runtime variant missmatch");
 				Box::new(chain_spec::GenesisKeysConfig::default().to_local()?)
 			},
 			// External chain spec file

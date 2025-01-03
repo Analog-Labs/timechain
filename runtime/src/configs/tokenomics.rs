@@ -14,7 +14,7 @@ use frame_support::{
 	traits::{ConstU32, WithdrawReasons},
 };
 #[cfg(feature = "testnet")]
-use frame_support::traits::{Imbalance, OnUnbalanced, WithdrawReasons};
+use frame_support::traits::{Imbalance, OnUnbalanced};
 
 use sp_runtime::{
 	traits::{Bounded, ConvertInto},

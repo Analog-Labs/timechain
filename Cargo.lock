@@ -19225,6 +19225,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "polkadot-sdk",
+ "time-primitives",
  "timechain-runtime",
 ]
 

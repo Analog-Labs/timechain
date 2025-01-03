@@ -13,4 +13,5 @@ clap.workspace = true
 
 polkadot-sdk = { workspace = true, features = [ "generate-bags" ] }
 
+time-primitives.workspace = true
 timechain-runtime.workspace = true

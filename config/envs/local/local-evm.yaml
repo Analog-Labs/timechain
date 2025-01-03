@@ -17,7 +17,7 @@ networks:
     network: "dev"
     url: "ws://ethereum:8545"
     gateway_funds: 10000000
-    chronicle_target_funds: 100000000000
+    chronicle_target_funds: 1000000000000000000
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000

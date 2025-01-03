@@ -62,6 +62,8 @@ impl Tc {
 				network: network.network.clone(),
 				url: network.url.clone(),
 				mnemonic: env.target_mnemonic.clone(),
+				cctp_sender: None,
+				cctp_attestation: None,
 			};
 			let connector = network
 				.backend

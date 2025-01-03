@@ -486,10 +486,8 @@ impl IChain for Connector {
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		let cctp_sender = self
-			.cctp_sender
-			.clone()
-			.map(|item| self.parse_address(&item).unwrap_or([0u8; 32]));
+		let cctp_sender =
+			self.cctp_sender.clone().map(|item| self.parse_address(&item)).transpose()?;
 
 		let contract: [u8; 20] = a_addr(gateway).0.into();
 		let logs = self

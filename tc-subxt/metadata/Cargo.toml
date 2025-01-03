@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-subxt = "0.37.0"
+subxt.workspace = true
 
 time-primitives = { workspace = true, default-features = true }
 

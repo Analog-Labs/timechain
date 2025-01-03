@@ -26,8 +26,8 @@ scale-codec.workspace = true
 scale-decode.workspace = true
 scale-info.workspace = true
 
-subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
-subxt-signer = { version = "0.37.0", features = ["subxt"]}
+subxt = { workspace = true, features = ["unstable-reconnecting-rpc-client"] }
+subxt-signer.workspace = true
 
 time-primitives = { workspace = true, default-features = true }
 tc-subxt-metadata = { path = "metadata" }

@@ -47,7 +47,7 @@ alloy_sol_types::sol! {
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct CCTP {
 		/// Version of message body format
-		/// https://github.com/circlefin/evm-cctp-contracts/blob/release-2024-10-23T134808/src/TokenMessenger.sol#L106-L107
+		/// <https://github.com/circlefin/evm-cctp-contracts/blob/release-2024-10-23T134808/src/TokenMessenger.sol#L106-L107>
 		uint32 version;
 		/// Local Message Transmitter responsible for sending and receiving messages to/from remote domains
 		address localMessageTransmitter;

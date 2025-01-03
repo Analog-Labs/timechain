@@ -184,7 +184,10 @@ fn block_stream<
 						let block_number = block.header().number;
 						yield (block_hash, block_number);
 					},
-					Err(subxt::error::Error::Rpc(_)) => break,
+					Err(subxt::error::Error::Rpc(err)) => {
+						tracing::error!("Subxt rpc error {err:?}");
+						break;
+					}
 					Err(e) => {
 						tracing::error!("Error receiving block: {:?}", e);
 						tokio::time::sleep(Duration::from_secs(1)).await;

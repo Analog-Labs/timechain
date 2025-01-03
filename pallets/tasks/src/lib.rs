@@ -470,8 +470,10 @@ pub mod pallet {
 			signature: TssSignature,
 		) -> DispatchResult {
 			let public_key = T::Shards::tss_public_key(shard_id).ok_or(Error::<T>::UnknownShard)?;
-			time_primitives::verify_signature(public_key, data, signature)
-				.map_err(|_| Error::<T>::InvalidSignature)?;
+			if time_primitives::verify_signature(public_key, data, signature).is_err() {
+				log::error!("invalid tss signature shard_id={shard_id} public_key={public_key:?} data={data:?} sig={signature:?}");
+				return Err(Error::<T>::InvalidSignature.into());
+			}
 			Ok(())
 		}
 
@@ -517,12 +519,14 @@ pub mod pallet {
 			}
 			TaskCount::<T>::insert(network, TaskCount::<T>::get(network).saturating_add(1));
 			Self::deposit_event(Event::TaskCreated(task_id));
+			log::debug!("create task {task_id} (network {network})");
 			task_id
 		}
 
 		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {
 			TaskOutput::<T>::insert(task_id, result.clone());
-			if let Some(shard) = TaskShard::<T>::take(task_id) {
+			if let Some(shard) = Some(TaskShard::<T>::take(task_id).unwrap()) {
+				log::debug!("finish task {task_id} on {shard}");
 				ShardTasks::<T>::remove(shard, task_id);
 				ShardTaskCount::<T>::insert(
 					shard,
@@ -567,6 +571,7 @@ pub mod pallet {
 		}
 
 		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) {
+			log::debug!("assigned task {task_id} to {shard}");
 			let needs_signer =
 				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
 			ShardTasks::<T>::insert(shard, task_id, ());
@@ -634,7 +639,9 @@ pub mod pallet {
 				// collect registered shards
 				let registered_shards: Vec<ShardId> = NetworkShards::<T>::iter_prefix(network)
 					.map(|(shard, _)| shard)
-					.filter(|shard| Self::is_shard_registered(*shard))
+					.filter(|shard| {
+						Self::is_shard_registered(*shard) && T::Shards::is_shard_online(*shard)
+					})
 					.collect();
 				if registered_shards.is_empty() {
 					continue;
@@ -644,12 +651,20 @@ pub mod pallet {
 				let task_count = TaskCount::<T>::get(network);
 				let executed_task_count = ExecutedTaskCount::<T>::get(network);
 				let assignable_task_count = task_count - executed_task_count;
-				let tasks_per_shard = assignable_task_count as u32 / registered_shards.len() as u32;
+				log::debug!("assignable tasks: {task_count} - {executed_task_count} = {assignable_task_count}");
+				// (x - 1) / y + 1 == ceil(x / y)
+				let tasks_per_shard =
+					(assignable_task_count as u32 - 1) / registered_shards.len() as u32 + 1;
 				let tasks_per_shard = core::cmp::min(tasks_per_shard, max_assignable_tasks);
+				log::debug!("task_per_shard: {tasks_per_shard}");
 
 				// assign tasks
 				for shard in registered_shards {
-					let capacity = tasks_per_shard.saturating_sub(ShardTaskCount::<T>::get(shard));
+					let shard_task_count = ShardTaskCount::<T>::get(shard);
+					let capacity = tasks_per_shard.saturating_sub(shard_task_count);
+					log::debug!(
+						"{shard} shard_task_count: {shard_task_count} shard_capacity: {capacity}",
+					);
 					if T::MaxTasksPerBlock::get() > num_tasks_assigned.saturating_add(capacity) {
 						num_tasks_assigned = num_tasks_assigned
 							.saturating_add(Self::schedule_tasks_shard(network, shard, capacity));
@@ -761,10 +776,14 @@ pub mod pallet {
 		fn shard_offline(shard_id: ShardId, network: NetworkId) {
 			NetworkShards::<T>::remove(network, shard_id);
 			// unassign tasks
+			let read_events_task_id = ReadEventsTask::<T>::get(network);
 			ShardTasks::<T>::drain_prefix(shard_id).for_each(|(task_id, _)| {
 				TaskShard::<T>::remove(task_id);
-				Self::ua_task_queue(network).push(task_id);
+				if Some(task_id) != read_events_task_id {
+					Self::ua_task_queue(network).push(task_id);
+				}
 			});
+			log::info!("shard {shard_id} offline");
 			ShardTaskCount::<T>::insert(shard_id, 0);
 			let Some(key) = T::Shards::tss_public_key(shard_id) else {
 				return;

@@ -18,7 +18,7 @@ use sp_runtime::Perbill;
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
-use timechain_runtime::StakerStatus;
+use timechain_runtime::{StakerStatus, Treasury, WASM_BINARY};
 
 // MAINNET
 
@@ -126,8 +126,9 @@ impl Default for GenesisKeysConfig {
 			// TODO: Would be better to assign individual controllers
 			controller: None,
 			endowments: vec![(
-				hex!["6d6f646c70792f74727372790000000000000000000000000000000000000000"].into(),
-				1_000_000 * ANLOG,
+				// 6d6f646c70792f74727372790000000000000000000000000000000000000000
+				Treasury::account_id(),
+				20_000_000 * ANLOG,
 			)],
 			nominators: vec![],
 			stakes: vec![

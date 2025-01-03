@@ -19,6 +19,7 @@ use time_primitives::{
 	GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
 	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
+use tokio::time::sleep;
 
 mod config;
 mod env;
@@ -46,8 +47,8 @@ impl Tc {
 		dotenv::from_path(config.parent().unwrap().join(".env")).ok();
 		let env = Mnemonics::from_env()?;
 		let config = Config::from_file(config)?;
-		while SubxtClient::get_client(&config.global().timechain_url).await.is_err() {
-			tracing::info!("waiting for chain to start");
+		while let Err(err) = SubxtClient::get_client(&config.global().timechain_url).await {
+			tracing::info!("waiting for chain to start: {err:?}");
 			sleep_or_abort(Duration::from_secs(10)).await?;
 		}
 		let runtime =
@@ -62,7 +63,14 @@ impl Tc {
 				url: network.url.clone(),
 				mnemonic: env.target_mnemonic.clone(),
 			};
-			let connector = network.backend.connect_admin(&params).await?;
+			let connector = network
+				.backend
+				.connect_admin(&params)
+				.await
+				.context("failed to connect to backend")?;
+
+			let target_address = connector.format_address(connector.address());
+			tracing::info!("target address: {}", target_address);
 			connectors.insert(id, connector);
 		}
 		Ok(Self { config, runtime, connectors })
@@ -131,8 +139,9 @@ impl Tc {
 		if let Some(network) = network {
 			self.connector(network)?.parse_address(address)
 		} else {
-			let address: AccountId =
-				address.parse().map_err(|_| anyhow::anyhow!("invalid timechain account"))?;
+			let address: AccountId = address
+				.parse()
+				.map_err(|err| anyhow::anyhow!("invalid timechain account: {err}"))?;
 			Ok(address.into())
 		}
 	}
@@ -218,7 +227,26 @@ impl Tc {
 		let balance = self.balance(network, address).await?;
 		let diff = min_balance.saturating_sub(balance);
 		if diff > 0 {
-			self.transfer(network, address, diff).await?;
+			self.deposit(network, address, diff).await?;
+		}
+		Ok(())
+	}
+
+	pub async fn deposit(
+		&self,
+		network: Option<NetworkId>,
+		address: Address,
+		balance: u128,
+	) -> Result<()> {
+		tracing::info!(
+			"transfering {} to {}",
+			self.format_balance(network, balance)?,
+			self.format_address(network, address)?,
+		);
+		if let Some(network) = network {
+			self.connector(network)?.deposit_funds(address, balance).await?;
+		} else {
+			self.runtime.transfer(address.into(), balance).await?;
 		}
 		Ok(())
 	}
@@ -676,9 +704,6 @@ impl Tc {
 			let connector = self.connector(src)?;
 			let routes = connector.routes(gateway).await?;
 			for dest in gateways.keys().copied() {
-				if src == dest {
-					continue;
-				}
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
 				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
@@ -735,8 +760,9 @@ impl Tc {
 		for _ in 0..40 {
 			match self.chronicle_config(chronicle).await {
 				Ok(config) => return Ok(config),
-				Err(_) => {
+				Err(err) => {
 					tracing::info!("waiting for chronicle {chronicle} to come online");
+					tracing::debug!("{err:#?}");
 					tokio::time::sleep(Duration::from_secs(1)).await
 				},
 			}
@@ -757,6 +783,7 @@ impl Tc {
 		tracing::info!("register_member {}", self.format_address(None, member.clone().into())?);
 		let min_stake = self.runtime.min_stake().await?;
 		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
+		sleep(Duration::from_secs(20)).await;
 		Ok(())
 	}
 
@@ -809,10 +836,12 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn deploy(&self, networks: Option<Vec<NetworkId>>) -> Result<()> {
+	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
+		let networks: std::collections::HashSet<NetworkId> = networks.into_iter().collect();
 		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
-		let networks = networks.unwrap_or_else(|| self.connectors.keys().copied().collect());
+		let networks =
+			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
 		for network in networks {
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
@@ -852,7 +881,9 @@ impl Tc {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
 		tracing::info!("redeploying gateway");
-		connector.redeploy_gateway(gateway, &contracts.gateway).await?;
+		connector
+			.redeploy_gateway(&contracts.additional_params, gateway, &contracts.gateway)
+			.await?;
 		Ok(())
 	}
 
@@ -880,10 +911,8 @@ impl Tc {
 			gas_cost: 200,
 			bytes: vec![],
 		};
-		let id = msg.message_id();
 		let connector = self.connector(network)?;
-		connector.send_message(tester, msg).await?;
-		Ok(id)
+		connector.send_message(tester, msg.clone()).await
 	}
 
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {
@@ -892,7 +921,7 @@ impl Tc {
 
 	pub async fn complete_batch(&self, network_id: NetworkId, batch_id: BatchId) -> Result<()> {
 		let gmp_event = GmpEvent::BatchExecuted(batch_id);
-		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
+		let events = GmpEvents(vec![gmp_event]);
 		self.runtime.submit_gmp_events(network_id, events).await
 	}
 

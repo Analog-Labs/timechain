@@ -125,7 +125,7 @@ mod tests {
 	#[test]
 	fn make_sure_envs_parse() {
 		let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../config/envs");
-		Config::from_file(&root.join("local/config.yaml")).unwrap();
+		Config::from_file(&root.join("local/local-grpc.yaml")).unwrap();
 		Config::from_file(&root.join("development/config.yaml")).unwrap();
 	}
 }

@@ -5241,6 +5241,7 @@ dependencies = [
  "futures",
  "hex",
  "rosetta-client",
+ "rosetta-crypto",
  "rosetta-ethereum-backend",
  "rosetta-ethereum-types",
  "rosetta-server",
@@ -10362,6 +10363,7 @@ dependencies = [
 name = "pallet-tasks"
 version = "0.8.0"
 dependencies = [
+ "env_logger 0.11.5",
  "log",
  "pallet-elections",
  "pallet-members",

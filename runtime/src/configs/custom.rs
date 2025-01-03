@@ -44,7 +44,7 @@ impl pallet_members::Config for Runtime {
 	type WeightInfo = weights::pallet_members::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Shards = Shards;
-	type MinStake = ConstU128<0>;
+	type MinStake = ConstU128<1>;
 	type HeartbeatTimeout = ConstU32<300>;
 	type MaxTimeoutsPerBlock = ConstU32<25>;
 }

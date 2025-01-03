@@ -8,8 +8,8 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, IConnector, NetworkId, ShardId, Task,
+	TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -94,7 +94,7 @@ impl TaskParams {
 	async fn execute(
 		self,
 		block_number: BlockNumber,
-		network_id: NetworkId,
+		_network_id: NetworkId,
 		gateway: Address,
 		shard_id: ShardId,
 		task_id: TaskId,
@@ -108,16 +108,15 @@ impl TaskParams {
 				let payload = time_primitives::encode_gmp_events(task_id, &events);
 				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
 				Some(TaskResult::ReadGatewayEvents {
-					events: GmpEvents(BoundedVec::truncate_from(events)),
+					events: GmpEvents(events),
 					signature,
 				})
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
-				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
-				let signature =
-					self.tss_sign(block_number, shard_id, task_id, payload.to_vec()).await?;
+				let payload = msg.encode(batch_id);
+				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
 				let signer =
 					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
 						[0];

@@ -18,11 +18,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 
 use sp_runtime::{
-	curve::PiecewiseLinear,
-	//	traits::{Block as BlockT, Extrinsic, OpaqueKeys},
-	transaction_validity::TransactionPriority,
-	Perbill,
-	Percent,
+	curve::PiecewiseLinear, transaction_validity::TransactionPriority, Perbill, Percent,
 };
 use sp_std::prelude::*;
 

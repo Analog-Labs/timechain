@@ -60,34 +60,26 @@ impl SubstrateCli for Cli {
 				&include_bytes!("chains/testnet.raw.json")[..],
 			)?),
 			// Internal development networks
-			"staging" => {
-				Box::new(
-					chain_spec::GenesisKeysConfig::from_json_bytes(
-						&include_bytes!("chains/internal.keys.json")[..],
-					)?
-					.to_development("staging")?,
-				)
-			},
-			"integration" => {
-				Box::new(
-					chain_spec::GenesisKeysConfig::from_json_bytes(
-						&include_bytes!("chains/internal.keys.json")[..],
-					)?
-					.to_development("integration")?,
-				)
-			},
-			"development" => {
-				Box::new(
-					chain_spec::GenesisKeysConfig::from_json_bytes(
-						&include_bytes!("chains/internal.keys.json")[..],
-					)?
-					.to_development("development")?,
-				)
-			},
+			"staging" => Box::new(
+				chain_spec::GenesisKeysConfig::from_json_bytes(
+					&include_bytes!("chains/internal.keys.json")[..],
+				)?
+				.to_development("staging")?,
+			),
+			"integration" => Box::new(
+				chain_spec::GenesisKeysConfig::from_json_bytes(
+					&include_bytes!("chains/internal.keys.json")[..],
+				)?
+				.to_development("integration")?,
+			),
+			"development" => Box::new(
+				chain_spec::GenesisKeysConfig::from_json_bytes(
+					&include_bytes!("chains/internal.keys.json")[..],
+				)?
+				.to_development("development")?,
+			),
 			// Local testing networks
-			"dev" => {
-				Box::new(chain_spec::GenesisKeysConfig::default().to_local()?)
-			},
+			"dev" => Box::new(chain_spec::GenesisKeysConfig::default().to_local()?),
 			// External chain spec file
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)

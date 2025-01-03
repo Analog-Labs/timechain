@@ -15,13 +15,8 @@ use frame_support::{
 use frame_system::limits::{BlockLength, BlockWeights};
 use sp_version::RuntimeVersion;
 
-use sp_runtime::{
-	//generic::Era,
-	//traits::{Extrinsic, OpaqueKeys, SaturatedConversion, StaticLookup, Verify},
-	//traits::OpaqueKeys,
-	Perbill,
-};
-use time_primitives::{BlockHash, BlockNumber, Moment, SS58_PREFIX}; //Signature
+use sp_runtime::Perbill;
+use time_primitives::{BlockHash, BlockNumber, Moment, SS58_PREFIX};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -33,21 +28,8 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 use crate::SafeMode;
 use crate::{
 	weights::{self, BlockExecutionWeight, ExtrinsicBaseWeight},
-	AccountId,
-	Babe,
-	Balance,
-	Block,
-	Nonce,
-	PalletInfo,
-	Runtime,
-	RuntimeCall,
-	RuntimeEvent,
-	RuntimeOrigin,
-	RuntimeTask,
-	//SignedPayload, System, UncheckedExtrinsic,
-	MAXIMUM_BLOCK_WEIGHT,
-	SLOT_DURATION,
-	VERSION,
+	AccountId, Babe, Balance, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, RuntimeTask, MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, VERSION,
 };
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.

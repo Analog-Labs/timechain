@@ -9,12 +9,12 @@ use frame_support::weights::{
 	WeightToFeePolynomial,
 };
 
+#[cfg(feature = "testnet")]
+use frame_support::traits::{Imbalance, OnUnbalanced};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, WithdrawReasons},
 };
-#[cfg(feature = "testnet")]
-use frame_support::traits::{Imbalance, OnUnbalanced};
 
 use sp_runtime::{
 	traits::{Bounded, ConvertInto},
@@ -28,8 +28,8 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 
 // Local module imports
 use crate::{
-	weights, Balance, Balances, ExtrinsicBaseWeight, Runtime, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
+	weights, Balance, Balances, ExtrinsicBaseWeight, Runtime, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
 };
 #[cfg(feature = "testnet")]
 use crate::{AccountId, Authorship, Treasury};

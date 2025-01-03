@@ -5,7 +5,6 @@ use scale_codec::{Decode, Encode, MaxEncodedLen};
 use polkadot_sdk::*;
 
 use frame_support::{
-	//pallet_prelude::Get,
 	parameter_types,
 	traits::{ConstU32, InstanceFilter},
 };
@@ -22,7 +21,7 @@ use crate::{
 	deposit, weights, Balance, Balances, OriginCaller, Runtime, RuntimeCall, RuntimeEvent,
 };
 
-/// ## 09 - <a id="config.Utility">[`Utility`] Config</a>
+/// ## <a id="config.Utility">[`Utility`] Config</a>
 ///
 /// Batch and other useful extrinsics
 impl pallet_utility::Config for Runtime {
@@ -40,7 +39,7 @@ parameter_types! {
 	pub const DepositFactor: Balance = deposit(0, 32);
 }
 
-/// ## 10 - <a id="config.Multisig">[`Multisig`] Config</a>
+/// ## <a id="config.Multisig">[`Multisig`] Config</a>
 ///
 /// On-chain multi signature wallets
 impl pallet_multisig::Config for Runtime {
@@ -119,7 +118,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	}
 }
 
-/// ## 11 - <a id="config.Proxy">[`Proxy`] Config</a>
+/// ## <a id="config.Proxy">[`Proxy`] Config</a>
 ///
 /// Allows to instantiate proxy wallets
 impl pallet_proxy::Config for Runtime {

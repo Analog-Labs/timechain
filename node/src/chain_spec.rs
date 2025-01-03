@@ -1,5 +1,4 @@
 use convert_case::{Case, Casing};
-use hex_literal::hex;
 use serde::{Deserialize, Serialize};
 
 use polkadot_sdk::*;
@@ -13,14 +12,16 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
-use sp_runtime::Perbill;
-
-use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
-use timechain_runtime::{StakerStatus, Treasury, WASM_BINARY};
+use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 // MAINNET
+
+#[cfg(not(feature = "testnet"))]
+fn default_endowments() -> Vec<(AccountId, Balance)> {
+	vec![]
+}
 
 // Small endowment to allow admins to work
 #[allow(dead_code)]
@@ -30,6 +31,15 @@ const MAINNET_PER_ADMIN: Balance = ANLOG * 1000;
 const MAINNET_PER_STASH: Balance = ANLOG * 10;
 
 // TESTNET
+
+#[cfg(feature = "testnet")]
+fn default_endowments() -> Vec<(AccountId, Balance)> {
+	vec![(
+		// 6d6f646c70792f74727372790000000000000000000000000000000000000000
+		timechain_runtime::Treasury::account_id(),
+		20_000_000 * ANLOG,
+	)]
+}
 
 /// Stash and float for validators
 #[allow(dead_code)]
@@ -54,6 +64,7 @@ const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
 
 /// Minimum needed validators, currently lowered for testing environments
+#[allow(dead_code)]
 const MIN_VALIDATOR_COUNT: u32 = 1;
 
 /// Default telemetry server for all networks
@@ -88,6 +99,7 @@ pub struct GenesisKeysConfig {
 	/// Balance to be staked is controlled by PER_VALIDATOR_UNLOCKED
 	bootstraps: Vec<(BabeId, GrandpaId, ImOnlineId, DiscoveryId)>,
 	/// Stashes to be used for chronicles, balances controlled by PER_CHRONICLE_STASH
+	#[allow(dead_code)]
 	chronicles: Vec<AccountId>,
 	/// Optional controller account that will control all nominates stakes
 	controller: Option<AccountId>,
@@ -95,6 +107,7 @@ pub struct GenesisKeysConfig {
 	endowments: Vec<(AccountId, Balance)>,
 	/// Stashes intended for community nominations.
 	/// Sizing controlled by PER_NOMINATION_STASH
+	#[allow(dead_code)]
 	nominators: Vec<AccountId>,
 	/// Stashes intended to be used to run validators.
 	/// There has to be at least one stash for every
@@ -125,11 +138,7 @@ impl Default for GenesisKeysConfig {
 			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
-			endowments: vec![(
-				// 6d6f646c70792f74727372790000000000000000000000000000000000000000
-				Treasury::account_id(),
-				20_000_000 * ANLOG,
-			)],
+			endowments: default_endowments(),
 			nominators: vec![],
 			stakes: vec![
 				AliceStash.into(),
@@ -152,7 +161,10 @@ impl GenesisKeysConfig {
 	/// Generate chain candidate for live deployment
 	#[allow(dead_code)]
 	pub fn to_live(&self) -> Result<ChainSpec, String> {
-		assert!(!cfg!(feature = "develop"), "Runtimes with 'develop' feature are not safe to be used in production.");
+		assert!(
+			!cfg!(feature = "develop"),
+			"Runtimes with 'develop' feature are not safe to be used in production."
+		);
 
 		if cfg!(feature = "testnet") {
 			self.to_chain_spec("analog-testnet", "TANLOG", ChainType::Live, 3, 2)
@@ -184,8 +196,8 @@ impl GenesisKeysConfig {
 		id: &str,
 		token_symbol: &str,
 		chain_type: ChainType,
-		shard_size: u16,
-		shard_threshold: u16,
+		_shard_size: u16,
+		_shard_threshold: u16,
 	) -> Result<ChainSpec, String> {
 		// Determine name from identifier
 		let name = id.to_case(Case::Title);
@@ -389,7 +401,14 @@ impl GenesisKeysConfig {
 		let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
 		let stakers = authorities
 			.iter()
-			.map(|x| (x.1.clone(), x.0.clone(), locked, StakerStatus::<AccountId>::Validator))
+			.map(|x| {
+				(
+					x.1.clone(),
+					x.0.clone(),
+					locked,
+					timechain_runtime::StakerStatus::<AccountId>::Validator,
+				)
+			})
 			.collect::<Vec<_>>();
 
 		let genesis_patch = serde_json::json!({
@@ -413,7 +432,7 @@ impl GenesisKeysConfig {
 				"validatorCount": authorities.len() as u32,
 				"minimumValidatorCount": MIN_VALIDATOR_COUNT,
 				"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
-				"slashRewardFraction": Perbill::from_percent(10),
+				"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
 				"stakers": stakers
 			},
 			"technicalCommittee": {

@@ -45,7 +45,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk::frame_system::Config + pallet_balances::Config //+ pallet_staking::Config
+	pub trait Config: polkadot_sdk::frame_system::Config + pallet_balances::Config
+	//+ pallet_staking::Config
 	{
 		/// Allowed origin for system calls
 		type SystemAdmin: EnsureOrigin<Self::RuntimeOrigin>;

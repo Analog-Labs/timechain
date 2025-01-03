@@ -619,7 +619,7 @@ mod runtime {
 type Migrations = ();
 
 #[cfg(test)]
-mod included_tests {
+mod core_tests {
 	use super::*;
 
 	use frame_system::offchain::CreateSignedTransaction;

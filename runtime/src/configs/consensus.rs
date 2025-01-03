@@ -17,7 +17,7 @@ use crate::{
 	RuntimeEvent, SessionsPerEra,
 };
 #[cfg(feature = "testnet")]
-use crate::{Offences, Staking, Balance, Session};
+use crate::{Balance, Offences, Session, Staking};
 #[cfg(feature = "testnet")]
 use frame_support::traits::KeyOwnerProofSystem;
 #[cfg(feature = "testnet")]
@@ -145,7 +145,8 @@ impl pallet_grandpa::Config for Runtime {
 	#[cfg(not(feature = "testnet"))]
 	type KeyOwnerProof = sp_core::Void;
 	#[cfg(feature = "testnet")]
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, sp_consensus_grandpa::AuthorityId)>>::Proof;
+	type KeyOwnerProof =
+		<Historical as KeyOwnerProofSystem<(KeyTypeId, sp_consensus_grandpa::AuthorityId)>>::Proof;
 	#[cfg(not(feature = "testnet"))]
 	type EquivocationReportSystem = ();
 	#[cfg(feature = "testnet")]

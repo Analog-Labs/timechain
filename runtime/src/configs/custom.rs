@@ -1,13 +1,9 @@
 use polkadot_sdk::*;
 
 use frame_support::{
-	//pallet_prelude::Get,
 	parameter_types,
 	traits::{ConstU128, ConstU32},
-	//weights::Weight,
 };
-
-//use sp_runtime::traits::{Block as BlockT, Extrinsic, OpaqueKeys};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>

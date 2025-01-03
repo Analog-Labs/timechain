@@ -3,7 +3,6 @@
 use polkadot_sdk::*;
 
 use frame_support::{
-	//pallet_prelude::Get,
 	parameter_types,
 	traits::{fungible::HoldConsideration, ConstU32, EqualPrivilegeOnly, LinearStoragePrice},
 	weights::Weight,

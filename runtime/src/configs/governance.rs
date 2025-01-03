@@ -20,16 +20,8 @@ use sp_runtime::traits::ConstU32;
 #[cfg(not(feature = "testnet"))]
 use crate::{Balances, RuntimeHoldReason};
 use crate::{
-	//Balances, RuntimeHoldReason,
-	Runtime,
-	RuntimeBlockWeights,
-	RuntimeCall,
-	RuntimeEvent,
-	RuntimeOrigin,
-	TechnicalCollective,
-	TechnicalCommittee,
-	DAYS,
-	HOURS,
+	Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin, TechnicalCollective,
+	TechnicalCommittee, DAYS, HOURS,
 };
 
 parameter_types! {

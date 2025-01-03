@@ -1,29 +1,14 @@
 //! Offchain signing implementation.
 
 use scale_codec::Encode;
-//use static_assertions::const_assert;
 
 use polkadot_sdk::*;
-
-/*
-use frame_support::{
-	derive_impl,
-	dispatch::DispatchClass,
-	parameter_types,
-	traits::{ConstU16, ConstU32},
-	weights::{constants::ParityDbWeight, Weight},
-};
-*/
-//use frame_system::limits::{BlockLength, BlockWeights};
-//use sp_version::RuntimeVersion;
 
 use sp_runtime::{
 	generic::Era,
 	traits::{Extrinsic, SaturatedConversion, StaticLookup, Verify},
-	//Perbill,
 };
 use time_primitives::Signature;
-//use time_primitives::{BlockHash, BlockNumber, Moment, Signature, SS58_PREFIX};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -32,21 +17,9 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 
 // Local module imports
 use super::{
-	//weights::{self, BlockExecutionWeight, ExtrinsicBaseWeight},
-	AccountId,
-	BlockHashCount,
-	Nonce,
-	Runtime,
-	RuntimeCall,
-	//Babe, Balance, Block, PalletInfo,
-	//RuntimeEvent, RuntimeOrigin, RuntimeTask,
-	SignedPayload,
-	System,
+	AccountId, BlockHashCount, Nonce, Runtime, RuntimeCall, SignedPayload, System,
 	UncheckedExtrinsic,
-	//MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, VERSION,
 };
-//#[cfg(not(feature = "testnet"))]
-//use crate::SafeMode;
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where

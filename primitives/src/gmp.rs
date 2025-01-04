@@ -261,6 +261,8 @@ pub struct ConnectorParams {
 	pub network: String,
 	pub url: String,
 	pub mnemonic: String,
+	pub cctp_sender: Option<String>,
+	pub cctp_attestation: Option<String>,
 }
 
 #[cfg(feature = "std")]

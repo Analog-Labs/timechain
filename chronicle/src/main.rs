@@ -51,6 +51,12 @@ pub struct ChronicleArgs {
 	/// Gmp backend to use.
 	#[clap(long, default_value = "evm")]
 	pub backend: Backend,
+	/// Cctp Sender.
+	#[clap(long)]
+	pub cctp_sender: Option<String>,
+	/// Cctp Sender.
+	#[clap(long)]
+	pub cctp_attestation: Option<String>,
 }
 
 impl ChronicleArgs {
@@ -64,6 +70,8 @@ impl ChronicleArgs {
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
 			backend: self.backend,
+			cctp_sender: self.cctp_sender,
+			cctp_attestation: self.cctp_attestation,
 		})
 	}
 }
@@ -87,6 +95,10 @@ async fn main() -> Result<()> {
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
 	let args = ChronicleArgs::parse();
+
+	if args.cctp_sender.is_some() && args.cctp_attestation.is_none() {
+		anyhow::bail!("Requires cctp attestation url with cctp sender");
+	}
 
 	if !args.tss_keyshare_cache.exists() {
 		std::fs::create_dir_all(&args.tss_keyshare_cache)?;

@@ -579,6 +579,8 @@ mod tests {
 			network: network.to_string(),
 			url: "tempfile".to_string(),
 			mnemonic: mnemonic.to_string(),
+			cctp_sender: None,
+			cctp_attestation: None,
 		})
 		.await
 	}

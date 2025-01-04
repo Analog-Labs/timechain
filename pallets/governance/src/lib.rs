@@ -32,10 +32,8 @@ pub mod pallet {
 	// Additional custom imports
 	use frame_system::{RawOrigin, WeightInfo as SystemWeights};
 
-	#[cfg(feature = "testnet")]
-	use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
-	#[cfg(feature = "testnet")]
-	use sp_runtime::{Perbill, Percent};
+	//use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
+	//use sp_runtime::{Perbill, Percent};
 
 	// Useful coupling shorthands
 	#[cfg(feature = "broken")]
@@ -64,6 +62,7 @@ pub mod pallet {
 			frame_system::Pallet::<T>::authorize_upgrade(RawOrigin::Root.into(), code_hash)
 		}
 
+		/*
 		// Wrapper around staking pallet calls
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet_staking::Config>::WeightInfo::set_validator_count())]
@@ -80,8 +79,8 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(
 			<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_set()
-                .max(<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_remove())
-        )]
+				.max(<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_remove())
+		)]
 		#[cfg(feature = "broken")]
 		pub fn set_staking_configs(
 			origin: OriginFor<T>,
@@ -105,5 +104,6 @@ pub mod pallet {
 				max_staked_rewards,
 			)
 		}
+		*/
 	}
 }

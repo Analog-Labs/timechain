@@ -226,8 +226,8 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	/// The number of eras after a slashing event before the slashing is enacted. This delay allows participants
-	/// to challenge slashes or react to slashing events. It is set to 1/4 of the BondingDuration.
-	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7;
+	/// to challenge slashes or react to slashing events. It is set to 1/3 of the BondingDuration.
+	pub const SlashDeferDuration: sp_staking::EraIndex = 2 * 7;
 
 	/// The reward curve used for staking payouts. This curve defines how rewards are distributed across validators
 	/// and nominators, typically favoring higher stakes but ensuring diminishing returns as stakes increase.

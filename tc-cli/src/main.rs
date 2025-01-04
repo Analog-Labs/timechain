@@ -14,9 +14,6 @@ use time_primitives::{
 };
 use tracing_subscriber::filter::EnvFilter;
 
-#[cfg(not(feature = "testnet"))]
-compile_error!("GMP is currently not supported on mainnet.");
-
 #[derive(Clone, Debug)]
 pub struct RelGasPrice {
 	pub num: u128,

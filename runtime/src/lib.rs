@@ -87,6 +87,7 @@ pub mod configs;
 pub mod offchain;
 
 pub use apis::RuntimeApi;
+use apis::_InternalImplRuntimeApis;
 pub use configs::consensus::SessionKeys;
 pub use configs::core::{
 	BlockHashCount, RuntimeBlockLength, RuntimeBlockWeights, AVERAGE_ON_INITIALIZE_RATIO,

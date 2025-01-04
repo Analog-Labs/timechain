@@ -16,6 +16,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
+use sp_metadata_ir::RuntimeApiMetadataIR;
 use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionSource, TransactionValidity},
@@ -41,6 +42,22 @@ use super::{
 use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
 use crate::{Members, Networks, Shards, Staking, Tasks};
+
+// Original Author: ntn-x2 @ KILTprotocol
+// Workaround for runtime API impls not exposed in metadata if implemented in a
+// different file than the runtime's `lib.rs`. Related issue (subxt) -> https://github.com/paritytech/subxt/issues/1873.
+pub(crate) trait _InternalImplRuntimeApis {
+	fn runtime_metadata(&self) -> Vec<RuntimeApiMetadataIR>;
+}
+impl<T> _InternalImplRuntimeApis for T
+where
+	T: InternalImplRuntimeApis,
+{
+	#[inline(always)]
+	fn runtime_metadata(&self) -> Vec<RuntimeApiMetadataIR> {
+		<T as InternalImplRuntimeApis>::runtime_metadata(self)
+	}
+}
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {

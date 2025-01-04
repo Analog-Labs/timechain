@@ -15,9 +15,6 @@ async-trait.workspace = true
 clap.workspace = true
 futures.workspace = true
 hex.workspace = true
-polkadot-sdk = { workspace = true, features = [
-	"sp-runtime",
-]}
 serde = { workspace = true, features = ["derive"] }
 tokio.workspace = true
 tracing.workspace = true
@@ -33,5 +30,11 @@ time-primitives = { workspace = true, default-features = true }
 tc-subxt-metadata = { path = "metadata" }
 
 [features]
-testnet = [ "tc-subxt-metadata/testnet" ]
-develop = [ "tc-subxt-metadata/develop" ]
+testnet = [
+  "time-primitives/testnet",
+  "tc-subxt-metadata/testnet"
+]
+develop = [
+  "time-primitives/develop",
+  "tc-subxt-metadata/develop"
+]

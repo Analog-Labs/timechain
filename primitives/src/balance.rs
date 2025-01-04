@@ -39,7 +39,7 @@ impl<'a> BalanceFormatter<'a> {
 		let base = f64::powi(10., unit as i32 + self.decimals as i32);
 		let tokens = balance as f64 / base;
 		let tokens_str = format!("{tokens:.3}");
-		let tokens_str = tokens_str.trim_end_matches(|c| c == '0' || c == '.');
+		let tokens_str = tokens_str.trim_end_matches(['0', '.']);
 		if let Some(prefix) = prefix {
 			format!("{tokens_str}{prefix} {}", self.symbol)
 		} else {

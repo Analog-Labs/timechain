@@ -9,7 +9,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstU16, ConstU32},
+	traits::{ConstU16, ConstU32, Everything},
 	weights::{constants::ParityDbWeight, Weight},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
@@ -78,7 +78,7 @@ impl frame_system::Config for Runtime {
 	#[cfg(not(feature = "testnet"))]
 	type BaseCallFilter = SafeMode;
 	#[cfg(feature = "testnet")]
-	type BaseCallFilter = ();
+	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type DbWeight = ParityDbWeight;

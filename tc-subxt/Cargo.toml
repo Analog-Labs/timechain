@@ -15,9 +15,6 @@ async-trait.workspace = true
 clap.workspace = true
 futures.workspace = true
 hex.workspace = true
-polkadot-sdk = { workspace = true, features = [
-	"sp-runtime",
-]}
 serde = { workspace = true, features = ["derive"] }
 tokio.workspace = true
 tracing.workspace = true
@@ -26,12 +23,18 @@ scale-codec.workspace = true
 scale-decode.workspace = true
 scale-info.workspace = true
 
-subxt = { version = "0.37.0", features = ["unstable-reconnecting-rpc-client"] }
-subxt-signer = { version = "0.37.0", features = ["subxt"]}
+subxt = { workspace = true, features = ["unstable-reconnecting-rpc-client"] }
+subxt-signer.workspace = true
 
 time-primitives = { workspace = true, default-features = true }
 tc-subxt-metadata = { path = "metadata" }
 
 [features]
-testnet = [ "tc-subxt-metadata/testnet" ]
-develop = [ "tc-subxt-metadata/develop" ]
+testnet = [
+  "time-primitives/testnet",
+  "tc-subxt-metadata/testnet"
+]
+develop = [
+  "time-primitives/develop",
+  "tc-subxt-metadata/develop"
+]

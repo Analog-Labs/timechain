@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-subxt = "0.37.0"
+subxt.workspace = true
 
 time-primitives = { workspace = true, default-features = true }
 
-# Not used directly, but to build to generate metadata
+# Not used directly, but build runtime and to generate metadata
 timechain-runtime.workspace = true
 
 [features]
@@ -17,6 +17,7 @@ testnet = [
   "timechain-runtime/testnet",
 ]
 develop = [
+  "testnet",
   "time-primitives/develop",
   "timechain-runtime/develop",
 ]

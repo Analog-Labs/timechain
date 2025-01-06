@@ -19,3 +19,6 @@ pub const MICROANLOG: Balance = MILLIANLOG / 1000; // 10^6
 pub const NANOANLOG: Balance = MICROANLOG / 1000; // 10^3
 /// The smallest unit of Analog Token in fixed point representation
 pub const TOCK: Balance = NANOANLOG / 1000; // 1
+
+/// Total issuance at genesis
+pub const TOTAL_ISSUANCE: Balance = 90_570_710 * ANLOG;

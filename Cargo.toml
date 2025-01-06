@@ -25,6 +25,7 @@ members = [
 	"pallets/shards",
 	"pallets/tasks",
 	"pallets/timegraph",
+	"pallets/validators",
 	"primitives",
 	"runtime",
 	"tc-cli",
@@ -62,10 +63,14 @@ scale-decode = { version = "0.13.1", default-features = false, features = [ "der
 scale-info = { version = "2.11.3", default-features = false, features = [ "derive" ] }
 
 # main substrate sdk
-polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.15.1-anlog0", default-features = false }
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.15.5-anlog0", default-features = false }
 
 # specialized wasm builder
-substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.1-anlog0", features = [ "metadata-hash" ] }
+substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.15.5-anlog0", features = [ "metadata-hash" ] }
+
+# metadata based chain interaction
+subxt = { version = "0.37.0" }
+subxt-signer = { version = "0.37.0" }
 
 # shared code between node and runtime (nostd by default)
 time-primitives = { path = "primitives", default-features = false }
@@ -79,6 +84,7 @@ pallet-networks = { path = "pallets/networks", default-features = false }
 pallet-shards = { path = "pallets/shards", default-features = false }
 pallet-tasks = { path = "pallets/tasks", default-features = false }
 pallet-timegraph = { path = "pallets/timegraph", default-features = false }
+pallet-validators = { path = "pallets/validators", default-features = false }
 
 # runtimes in workspace
 timechain-runtime = { path = "runtime" }

@@ -28,7 +28,7 @@ use std::marker::PhantomData;
 use std::{sync::Arc, time::Duration};
 use time_primitives::{AccountId, Balance, Block, BlockHash, Nonce, Signature};
 use timechain_runtime::{
-	time::SLOT_DURATION, Address, BalancesCall, PaymentBalanceOf, SignedExtra, SystemCall,
+	Address, BalancesCall, PaymentBalanceOf, SignedExtra, SystemCall, SLOT_DURATION,
 };
 
 /// Unchecked extrinsic type as expected by this runtime.

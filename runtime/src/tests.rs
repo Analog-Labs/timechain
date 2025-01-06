@@ -1,6 +1,8 @@
 /// Integration tests
 use crate::*;
 
+use scale_codec::Encode;
+
 use frame_support::assert_ok;
 use frame_support::traits::{OnInitialize, WhitelistedStorageKeys};
 use frame_system::RawOrigin;
@@ -8,7 +10,7 @@ use pallet_collective::RawOrigin as CollectiveOrigin;
 use pallet_shards::ShardMembers;
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::Pair;
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, Percent};
 use std::collections::HashSet;
 use time_primitives::{
 	AccountId, ElectionsInterface, Network, NetworkConfig, NetworkId, PublicKey, ShardStatus,

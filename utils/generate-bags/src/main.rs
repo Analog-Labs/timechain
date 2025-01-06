@@ -2,7 +2,8 @@
 use clap::Parser;
 use polkadot_sdk::generate_bags::generate_thresholds;
 use std::path::PathBuf;
-use timechain_runtime::{currency::TOTAL_ISSUANCE, ExistentialDeposit, Runtime};
+use time_primitives::TOTAL_ISSUANCE;
+use timechain_runtime::{ExistentialDeposit, Runtime};
 
 #[derive(Parser)]
 // #[clap(author, version, about)]

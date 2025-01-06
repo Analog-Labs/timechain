@@ -20,31 +20,36 @@ mod tests;
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
+
+	use polkadot_sdk::pallet_balances;
+	use polkadot_sdk::{frame_support, frame_system};
+	#[cfg(feature = "broken")]
+	use polkadot_sdk::{pallet_staking, sp_runtime};
+
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use polkadot_sdk::{frame_support, frame_system};
 
 	// Additional custom imports
 	use frame_system::{RawOrigin, WeightInfo as SystemWeights};
 
-	use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
-	use polkadot_sdk::{pallet_balances, pallet_staking, sp_runtime};
-	use sp_runtime::{Perbill, Percent};
+	//use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
+	//use sp_runtime::{Perbill, Percent};
 
 	// Useful coupling shorthands
+	#[cfg(feature = "broken")]
 	type CurrencyBalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		polkadot_sdk::frame_system::Config + pallet_balances::Config + pallet_staking::Config
+	pub trait Config: polkadot_sdk::frame_system::Config + pallet_balances::Config
+	//+ pallet_staking::Config
 	{
 		/// Allowed origin for system calls
 		type SystemAdmin: EnsureOrigin<Self::RuntimeOrigin>;
-		/// Allowed origin for staking calls
-		type StakingAdmin: EnsureOrigin<Self::RuntimeOrigin>;
+		// Allowed origin for staking calls
+		//type StakingAdmin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::call]
@@ -57,9 +62,11 @@ pub mod pallet {
 			frame_system::Pallet::<T>::authorize_upgrade(RawOrigin::Root.into(), code_hash)
 		}
 
+		/*
 		// Wrapper around staking pallet calls
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet_staking::Config>::WeightInfo::set_validator_count())]
+		#[cfg(feature = "broken")]
 		pub fn set_validator_count(
 			origin: OriginFor<T>,
 			#[pallet::compact] new: u32,
@@ -72,8 +79,9 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(
 			<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_set()
-                .max(<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_remove())
-        )]
+				.max(<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_remove())
+		)]
+		#[cfg(feature = "broken")]
 		pub fn set_staking_configs(
 			origin: OriginFor<T>,
 			min_nominator_bond: ConfigOp<CurrencyBalanceOf<T>>,
@@ -96,5 +104,6 @@ pub mod pallet {
 				max_staked_rewards,
 			)
 		}
+		*/
 	}
 }

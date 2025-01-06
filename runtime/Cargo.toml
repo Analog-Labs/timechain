@@ -80,6 +80,7 @@ polkadot-sdk = { workspace = true, features = [
 	"sp-core",
 	"sp-inherents",
 	"sp-io",
+	"sp-metadata-ir",
 	"sp-offchain",
 	"sp-runtime",
 	"sp-session",
@@ -100,6 +101,7 @@ pallet-networks.workspace = true
 pallet-shards.workspace = true
 pallet-tasks.workspace = true
 pallet-timegraph.workspace = true
+pallet-validators.workspace = true
 
 # shared code between runtimes and/or node
 time-primitives.workspace = true
@@ -132,6 +134,7 @@ std = [
 	"pallet-shards/std",
 	"pallet-tasks/std",
 	"pallet-timegraph/std",
+	"pallet-validators/std",
 
 	"time-primitives/std",
 
@@ -141,6 +144,7 @@ genesis-builder = [ "polkadot-sdk/sp-genesis-builder" ]
 runtime-benchmarks = [
 	"genesis-builder",
 	"polkadot-sdk/runtime-benchmarks",
+	"polkadot-sdk/frame-benchmarking",
 	"polkadot-sdk/frame-system-benchmarking",
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",
@@ -154,6 +158,7 @@ runtime-benchmarks = [
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timegraph/runtime-benchmarks",
+	"pallet-validators/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-sdk/try-runtime",
@@ -166,4 +171,5 @@ try-runtime = [
 	"pallet-shards/try-runtime",
 	"pallet-tasks/try-runtime",
 	"pallet-timegraph/try-runtime",
+	"pallet-validators/try-runtime",
 ]

@@ -135,21 +135,13 @@ impl GatewayOp {
 			Self::RegisterShard(pubkey) => {
 				let mut op_bytes = [0u8; 64];
 				op_bytes[31..].copy_from_slice(pubkey);
-<<<<<<< HEAD
 				let op_hash: [u8; 32] = Keccak256::digest(op_bytes).into();
-=======
-				let op_hash: [u8; 32] = Keccak256::digest(&op_bytes).into();
->>>>>>> b467d6b4 (update gas_limit now received in event)
 				buf.extend_from_slice(&op_hash);
 			},
 			Self::UnregisterShard(pubkey) => {
 				let mut op_bytes = [0u8; 64];
 				op_bytes[31..].copy_from_slice(pubkey);
-<<<<<<< HEAD
 				let op_hash: [u8; 32] = Keccak256::digest(op_bytes).into();
-=======
-				let op_hash: [u8; 32] = Keccak256::digest(&op_bytes).into();
->>>>>>> b467d6b4 (update gas_limit now received in event)
 				buf.extend_from_slice(&op_hash);
 			},
 		}
@@ -194,14 +186,9 @@ impl GatewayMessage {
 	pub fn encode(&self, batch_id: BatchId) -> [u8; 32] {
 		let mut op_root_hash: [u8; 32] = [0u8; 32];
 		let mut buf = Vec::new();
-		// include message version in buffer
+		// include version in buffer
 		buf.extend_from_slice(&[0u8; 32]);
 		// include batch id
-<<<<<<< HEAD
-		// padding for batch_id, since batch_id is uint64 we do intial padding with 0 until we have 32 bytes
-=======
-		// padding for batch_id, since batch_id is uint64 we do padding with 0 until we have 32 bytes
->>>>>>> b467d6b4 (update gas_limit now received in event)
 		buf.extend_from_slice(&[0u8; 24]);
 		buf.extend_from_slice(&batch_id.to_be_bytes());
 		for op in &self.ops {

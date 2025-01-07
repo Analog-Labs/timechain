@@ -29,7 +29,7 @@ impl GmpParams {
 		data.extend_from_slice(GMP_VERSION.as_bytes());
 		data.extend_from_slice(&self.network.to_be_bytes());
 		data.extend_from_slice(&self.gateway);
-		data.extend_from_slice(&payload);
+		data.extend_from_slice(payload);
 		data
 	}
 }
@@ -135,13 +135,13 @@ impl GatewayOp {
 			Self::RegisterShard(pubkey) => {
 				let mut op_bytes = [0u8; 64];
 				op_bytes[31..].copy_from_slice(pubkey);
-				let op_hash: [u8; 32] = Keccak256::digest(&op_bytes).into();
+				let op_hash: [u8; 32] = Keccak256::digest(op_bytes).into();
 				buf.extend_from_slice(&op_hash);
 			},
 			Self::UnregisterShard(pubkey) => {
 				let mut op_bytes = [0u8; 64];
 				op_bytes[31..].copy_from_slice(pubkey);
-				let op_hash: [u8; 32] = Keccak256::digest(&op_bytes).into();
+				let op_hash: [u8; 32] = Keccak256::digest(op_bytes).into();
 				buf.extend_from_slice(&op_hash);
 			},
 		}

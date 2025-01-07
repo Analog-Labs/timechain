@@ -186,10 +186,10 @@ impl GatewayMessage {
 	pub fn encode(&self, batch_id: BatchId) -> [u8; 32] {
 		let mut op_root_hash: [u8; 32] = [0u8; 32];
 		let mut buf = Vec::new();
-		// include message version in buffer
+		// include version in buffer
 		buf.extend_from_slice(&[0u8; 32]);
 		// include batch id
-		// padding for batch_id, since batch_id is uint64 we do padding with 0 until we have 32 bytes
+		// padding for batch_id, since batch_id is uint64 we do intial padding with 0 until we have 32 bytes
 		buf.extend_from_slice(&[0u8; 24]);
 		buf.extend_from_slice(&batch_id.to_be_bytes());
 		for op in &self.ops {

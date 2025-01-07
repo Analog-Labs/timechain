@@ -3,13 +3,36 @@ use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sha3::Digest;
+use sha3::{Digest, Keccak256};
 
 pub type Address = [u8; 32];
 pub type Gateway = Address;
 pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
+
+const GMP_VERSION: &str = "Analog GMP v2";
+
+#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+pub struct GmpParams {
+	pub network: NetworkId,
+	pub gateway: Gateway,
+}
+
+impl GmpParams {
+	pub fn new(network: NetworkId, gateway: Gateway) -> Self {
+		Self { network, gateway }
+	}
+
+	pub fn hash(&self, payload: &[u8]) -> Vec<u8> {
+		let mut data: Vec<u8> = Vec::new();
+		data.extend_from_slice(GMP_VERSION.as_bytes());
+		data.extend_from_slice(&self.network.to_be_bytes());
+		data.extend_from_slice(&self.gateway);
+		data.extend_from_slice(&payload);
+		data
+	}
+}
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
@@ -49,7 +72,7 @@ impl GmpMessage {
 	}
 
 	pub fn encode_to(&self, buf: &mut Vec<u8>) {
-		let msg_hash: [u8; 32] = sha3::Keccak256::digest(&self.bytes).into();
+		let msg_hash: [u8; 32] = Keccak256::digest(&self.bytes).into();
 		buf.extend_from_slice(&self.encode_header());
 		buf.extend_from_slice(&msg_hash);
 	}
@@ -57,8 +80,7 @@ impl GmpMessage {
 	pub fn message_id(&self) -> MessageId {
 		let mut buf = Vec::new();
 		self.encode_to(&mut buf);
-		let message_id: [u8; 32] = sha3::Keccak256::digest(buf).into();
-		message_id
+		Keccak256::digest(buf).into()
 	}
 }
 
@@ -84,6 +106,20 @@ pub enum GatewayOp {
 }
 
 impl GatewayOp {
+	fn to_code(&self) -> u8 {
+		match self {
+			GatewayOp::SendMessage(_) => 1,
+			GatewayOp::RegisterShard(_) => 2,
+			GatewayOp::UnregisterShard(_) => 3,
+		}
+	}
+
+	fn to_u256_code(&self) -> [u8; 32] {
+		let mut bytes = [0u8; 32];
+		bytes[31] = self.to_code();
+		bytes
+	}
+
 	pub fn encoded_len(&self) -> usize {
 		match self {
 			Self::SendMessage(msg) => msg.encoded_len(),
@@ -97,10 +133,16 @@ impl GatewayOp {
 				buf.extend_from_slice(&msg.message_id());
 			},
 			Self::RegisterShard(pubkey) => {
-				buf.extend_from_slice(&pubkey[1..]);
+				let mut op_bytes = [0u8; 64];
+				op_bytes[31..].copy_from_slice(pubkey);
+				let op_hash: [u8; 32] = Keccak256::digest(&op_bytes).into();
+				buf.extend_from_slice(&op_hash);
 			},
 			Self::UnregisterShard(pubkey) => {
-				buf.extend_from_slice(&pubkey[1..]);
+				let mut op_bytes = [0u8; 64];
+				op_bytes[31..].copy_from_slice(pubkey);
+				let op_hash: [u8; 32] = Keccak256::digest(&op_bytes).into();
+				buf.extend_from_slice(&op_hash);
 			},
 		}
 	}
@@ -141,25 +183,27 @@ impl GatewayMessage {
 		Self { ops }
 	}
 
-	pub fn encode(&self, batch_id: BatchId) -> Vec<u8> {
-		let mut message_hash: [u8; 32] = [0u8; 32];
+	pub fn encode(&self, batch_id: BatchId) -> [u8; 32] {
+		let mut op_root_hash: [u8; 32] = [0u8; 32];
 		let mut buf = Vec::new();
-		// include version in buffer
+		// include message version in buffer
 		buf.extend_from_slice(&[0u8; 32]);
 		// include batch id
-		// padding for batch_id, since batch_id is uint64 we pad initial 0 until we have 32 bytes
+		// padding for batch_id, since batch_id is uint64 we do padding with 0 until we have 32 bytes
 		buf.extend_from_slice(&[0u8; 24]);
 		buf.extend_from_slice(&batch_id.to_be_bytes());
 		for op in &self.ops {
-			let mut op_hasher = sha3::Keccak256::new();
+			let mut op_hasher = Keccak256::new();
 			let mut op_hash = Vec::new();
 			op.encode_to(&mut op_hash);
-			op_hasher.update(message_hash);
+
+			op_hasher.update(op_root_hash);
+			op_hasher.update(op.to_u256_code());
 			op_hasher.update(op_hash);
-			message_hash = op_hasher.finalize().into();
+			op_root_hash = op_hasher.finalize().into();
 		}
-		buf.extend_from_slice(&message_hash);
-		buf
+		buf.extend_from_slice(&op_root_hash);
+		Keccak256::digest(&buf).into()
 	}
 
 	pub fn gas(&self) -> u128 {

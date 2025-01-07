@@ -22,8 +22,8 @@ alloy_sol_types::sol! {
 		uint16 srcNetwork;
 		address dest;
 		uint16 destNetwork;
-		uint256 gasLimit;
-		uint256 salt;
+		uint64 gasLimit;
+		uint64 nonce;
 		bytes data;
 	}
 
@@ -102,7 +102,10 @@ alloy_sol_types::sol! {
 		bytes params;
 	}
 
+
+	#[derive(Debug)]
 	enum Command {
+		Invalid,
 		GMP,
 		RegisterShard,
 		UnregisterShard,
@@ -135,8 +138,9 @@ alloy_sol_types::sol! {
 			bytes32 indexed source,
 			address indexed destinationAddress,
 			uint16 destinationNetwork,
-			uint256 executionGasLimit,
-			uint256 salt,
+			uint64 executionGasLimit,
+			uint64 gasCost,
+			uint64 nonce,
 			bytes data
 		);
 		#[derive(Debug)]
@@ -262,8 +266,8 @@ impl From<GmpMessage> for time_primitives::GmpMessage {
 			dest_network: msg.destNetwork,
 			src: msg.source.into(),
 			dest: t_addr(msg.dest),
-			nonce: msg.salt.try_into().unwrap(),
-			gas_limit: msg.gasLimit.try_into().unwrap(),
+			nonce: msg.nonce,
+			gas_limit: msg.gasLimit.into(),
 			gas_cost: 0,
 			bytes: msg.data.into(),
 		}
@@ -277,8 +281,8 @@ impl From<time_primitives::GmpMessage> for GmpMessage {
 			destNetwork: msg.dest_network,
 			source: msg.src.into(),
 			dest: a_addr(msg.dest),
-			salt: U256::from(msg.nonce),
-			gasLimit: U256::from(msg.gas_limit),
+			nonce: msg.nonce,
+			gasLimit: msg.gas_limit as u64,
 			data: msg.bytes.into(),
 		}
 	}

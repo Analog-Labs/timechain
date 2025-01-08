@@ -204,3 +204,29 @@ impl Tss {
 		})
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn test_tss_recovery(n: usize) {
+		let dir = tempfile::tempdir().unwrap();
+		let mut members = BTreeSet::new();
+		for i in 1..(n + 1) {
+			let secret = [i as u8; 32];
+			let peerid = ed25519_dalek::SigningKey::from_bytes(&secret).verifying_key().to_bytes();
+			members.insert(peerid);
+		}
+		let peerid = *members.iter().next().unwrap();
+		let mut tss = Tss::new(peerid, members.clone(), n as _, None, dir.path()).unwrap();
+		let TssAction::Commit(commitment, _) = tss.next_action(dir.path()).unwrap() else {
+			panic!();
+		};
+		Tss::new(peerid, members, n as _, Some(commitment), dir.path()).unwrap();
+	}
+
+	#[test]
+	fn test_tss_recovery_1() {
+		test_tss_recovery(1);
+	}
+}

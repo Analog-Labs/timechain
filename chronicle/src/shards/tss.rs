@@ -126,7 +126,7 @@ impl Tss {
 			}
 		} else {
 			let recover = if let Some(commitment) = commitment {
-				Some(read_signing_share(tss_keyshare_cache, &commitment)?)
+				Some((read_signing_share(tss_keyshare_cache, &commitment)?, commitment))
 			} else {
 				None
 			};

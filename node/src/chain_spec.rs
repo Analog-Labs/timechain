@@ -13,7 +13,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 
-use time_primitives::{AccountId, Balance, Block, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
+use time_primitives::{AccountId, Balance, Block, BlockNumber, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 // MAINNET

@@ -530,11 +530,9 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						if let Some(cctp_sender) = cctp_sender {
-							if gmp_message.src == cctp_sender {
-								let mut cctp_queue = self.cctp_queue.lock().await;
-								cctp_queue.push((gmp_message.clone(), 0));
-							}
+						if Some(gmp_message.src) == cctp_sender {
+							let mut cctp_queue = self.cctp_queue.lock().await;
+							cctp_queue.push((gmp_message.clone(), 0));
 						} else {
 							events.push(GmpEvent::MessageReceived(gmp_message));
 						}

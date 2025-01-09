@@ -39,8 +39,10 @@ tracing-panic = "0.1.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 [dev-dependencies]
+ed25519-dalek = "2.1.1"
 env_logger.workspace = true
+tempfile = "3.15.0"
 
 [features]
-testnet = [ "time-primitives/testnet" ]
-develop = [ "time-primitives/develop" ]
+testnet = [ "time-primitives/testnet", "tc-subxt/testnet" ]
+develop = [ "time-primitives/develop", "tc-subxt/develop" ]

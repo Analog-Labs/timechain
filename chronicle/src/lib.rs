@@ -169,7 +169,7 @@ pub async fn run_chronicle(
 mod tests {
 	use super::*;
 	use crate::mock::Mock;
-	use futures::StreamExt;
+	use futures::{Future, FutureExt, StreamExt};
 	use polkadot_sdk::sp_runtime::BoundedVec;
 	use scale_codec::Encode;
 	use std::time::Duration;
@@ -185,18 +185,19 @@ mod tests {
 	///
 	/// * `mock` - Mock instance for testing.
 	/// * `network_id` - Identifier for the network.
-	async fn chronicle(mock: Mock, network_id: NetworkId) {
+	async fn chronicle(mock: Mock, network_id: NetworkId, exit: impl Future<Output = ()> + Unpin) {
 		tracing::info!("running chronicle ");
-		let mut network_key = [0; 32];
-		getrandom::getrandom(&mut network_key).unwrap();
+		let network_key = *mock.account_id().as_ref();
 		let (tx, mut rx) = mpsc::channel(10);
+		let tss_keyshare_cache = format!("/tmp/{}", hex::encode(&network_key)).into();
+		std::fs::create_dir_all(&tss_keyshare_cache).unwrap();
 		let handle = tokio::task::spawn(run_chronicle(
 			ChronicleConfig {
 				network_id,
 				network_key,
 				target_url: "tempfile".to_string(),
 				target_mnemonic: "mnemonic".into(),
-				tss_keyshare_cache: "/tmp".into(),
+				tss_keyshare_cache,
 				target_min_balance: 0,
 				timechain_min_balance: 0,
 				backend: Backend::Rust,
@@ -222,7 +223,7 @@ mod tests {
 			}
 		});
 		tracing::info!("registered chronicle");
-		handle.await.unwrap().unwrap();
+		futures::future::select(handle, exit).await;
 	}
 
 	/// Smoke test for the Chronicle application.
@@ -248,7 +249,7 @@ mod tests {
 			let instance = mock.instance(id);
 			std::thread::spawn(move || {
 				let rt = tokio::runtime::Runtime::new().unwrap();
-				rt.block_on(chronicle(instance, network_id));
+				rt.block_on(chronicle(instance, network_id, futures::future::pending::<()>()));
 			});
 		}
 		// Wait for members to register.
@@ -276,6 +277,84 @@ mod tests {
 				continue;
 			}
 			break;
+		}
+
+		tracing::info!("creating task");
+		// Create a task and assign it to the shard.
+		let task_id = mock.create_task(Task::ReadGatewayEvents { blocks: 0..1 });
+		tracing::info!("assigning task");
+		mock.assign_task(task_id, shard_id);
+		// Wait for the task to complete.
+		loop {
+			tracing::info!("waiting for task");
+			let task = mock.task(task_id).unwrap();
+			if task.result.is_none() {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			break;
+		}
+		Ok(())
+	}
+
+	#[tokio::test]
+	async fn chronicle_restart() -> Result<()> {
+		env_logger::try_init().ok();
+		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+
+		let mock = Mock::default().instance(42);
+		let network_id = mock.create_network(
+			ChainName(BoundedVec::truncate_from("rust".encode())),
+			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
+		);
+		let mut shutdown = vec![];
+		// Spawn multiple threads to run the Chronicle application.
+		for id in 0..3 {
+			let instance = mock.instance(id);
+			let (tx, rx) = futures::channel::oneshot::channel();
+			shutdown.push(tx);
+			std::thread::spawn(move || {
+				let rt = tokio::runtime::Runtime::new().unwrap();
+				rt.block_on(chronicle(instance, network_id, rx.map(|_| ())));
+			});
+		}
+		// Wait for members to register.
+		loop {
+			tracing::info!("waiting for members to register");
+			if mock.members(network_id).len() < 3 {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			break;
+		}
+		// Collect member accounts.
+		let members: Vec<AccountId> = mock
+			.members(network_id)
+			.into_iter()
+			.map(|(public, _)| public.into_account())
+			.collect();
+		// Create a shard.
+		let shard_id = mock.create_shard(members.clone(), 2);
+		// Wait for the shard to be online.
+		loop {
+			tracing::info!("waiting for shard");
+			if mock.get_shard_status(shard_id).await.unwrap() != ShardStatus::Online {
+				tokio::time::sleep(Duration::from_secs(1)).await;
+				continue;
+			}
+			break;
+		}
+
+		for tx in shutdown {
+			tx.send(()).unwrap();
+		}
+		// Spawn multiple threads to run the Chronicle application.
+		for id in 0..3 {
+			let instance = mock.instance(id);
+			std::thread::spawn(move || {
+				let rt = tokio::runtime::Runtime::new().unwrap();
+				rt.block_on(chronicle(instance, network_id, futures::future::pending()));
+			});
 		}
 
 		tracing::info!("creating task");

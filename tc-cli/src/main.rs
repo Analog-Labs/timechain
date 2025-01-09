@@ -743,7 +743,9 @@ async fn setup(tc: &Tc, src: NetworkId, dest: NetworkId) -> Result<(Address, Add
 	// networks
 	tc.deploy(vec![src, dest]).await?;
 	let (src_addr, src_block) = tc.deploy_tester(src).await?;
+	tracing::info!("Source testing contract: {:?}", hex::encode(src_addr));
 	let (dest_addr, dest_block) = tc.deploy_tester(dest).await?;
+	tracing::info!("Destination testing contract: {:?}", hex::encode(dest_addr));
 	tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
 	let networks = tc.networks().await?;
 	print_table(tc, networks.clone())?;

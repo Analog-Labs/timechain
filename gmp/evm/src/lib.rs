@@ -519,7 +519,9 @@ impl IConnector for Connector {
 						break;
 					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
+						tracing::info!("debug==== gmp created hit");
 						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
+						tracing::info!("debug==== gmp logs");
 						let gmp_message = GmpMessage {
 							src_network: self.network_id,
 							dest_network: log.destinationNetwork,
@@ -534,6 +536,7 @@ impl IConnector for Connector {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));
 						} else {
+							tracing::info!("debug==== gmp others pushed");
 							events.push(GmpEvent::MessageReceived(gmp_message));
 						}
 						break;

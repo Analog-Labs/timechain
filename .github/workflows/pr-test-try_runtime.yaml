@@ -20,12 +20,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chain: [testnet]
+        chain: [mainnet]
     steps:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y librocksdb-dev
       - name: Install try-runtime-cli
-        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.7.0 --locked
+        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.8.0 --locked
       - name: Checkout sources
         uses: actions/checkout@v4
         with:

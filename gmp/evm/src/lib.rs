@@ -342,14 +342,21 @@ impl Connector {
 			&self.cctp_attestation.trim_end_matches('/'),
 			hex::encode(burn_hash)
 		);
+		tracing::info!("cctp_url: {:?}", url);
 		let client = Client::new();
 		let response = client
 			.get(&url)
 			.send()
 			.await
-			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?
+			.map_err(|e| {
+				tracing::info!("Cctp request failed: {}", e);
+				CctpError::InvalidResponse(e.to_string())
+			})?
 			.error_for_status()
-			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
+			.map_err(|e| {
+				eprintln!("Response status error: {}", e);
+				CctpError::InvalidResponse(e.to_string())
+			})?;
 		let attestation_response: AttestationResponse =
 			response.json().await.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
 		if attestation_response.status == "complete" {

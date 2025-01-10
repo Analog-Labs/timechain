@@ -91,7 +91,7 @@ services:
     # this contract is created as destination contract when we run the smoke-test first time
     - '--cctp-sender=0x981f8b5cd4de6b1a925854b63be9411b48b60bf2'
     # for circle testnet attestations
-    - '--cctp-attestation="https://iris-api-sandbox.circle.com/v1/attestation/"'
+    - '--cctp-attestation=https://iris-api-sandbox.circle.com/attestations/'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1

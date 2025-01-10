@@ -6,13 +6,13 @@ use futures::stream::BoxStream;
 use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
-use subxt::backend::rpc::reconnecting_rpc_client::{Client, ExponentialBackoff};
+use subxt::backend::rpc::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as Client};
 use subxt::backend::rpc::RpcClient;
 use subxt::blocks::ExtrinsicEvents;
 use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
 
-use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey};
+use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
 
 mod api;
 mod metadata;
@@ -182,16 +182,16 @@ fn block_stream<
 					Ok(block) => {
 						let block_hash = block.hash();
 						let block_number = block.header().number;
-						yield (block_hash, block_number);
+						yield (H256(block_hash.0), block_number);
 					},
-					Err(subxt::error::Error::Rpc(err)) => {
-						tracing::error!("Subxt rpc error {err:?}");
-						break;
-					}
 					Err(e) => {
-						tracing::error!("Error receiving block: {:?}", e);
+						if e.is_disconnected_will_reconnect() {
+							tracing::error!("subxt connection was lost and we may have missed a few blocks");
+							continue;
+						}
+						tracing::error!("Subxt error: {:?}", e);
 						tokio::time::sleep(Duration::from_secs(1)).await;
-						continue;
+						break;
 					},
 				}
 			}

@@ -611,6 +611,15 @@ impl Tc {
 		let (dest, submit) = if let Some(batch) = msg.batch {
 			let batch = self.batch(batch).await?;
 			let submit = self.task(batch.task).await?;
+
+			if let Some(Err(err)) = submit.output.clone() {
+				return Err(anyhow::anyhow!(
+					"Submit task {} failed with error: {}",
+					submit.task,
+					err
+				));
+			}
+
 			let dest = self.sync_status(submit.network).await?;
 			(Some(dest), Some(submit))
 		} else {

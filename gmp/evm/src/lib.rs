@@ -525,17 +525,14 @@ impl IConnector for Connector {
 							dest_network: log.destinationNetwork,
 							src: log.source.into(),
 							dest: t_addr(log.destinationAddress),
-							nonce: u64::try_from(log.salt)?,
-							gas_limit: u128::try_from(log.executionGasLimit)?,
-							// TODO receive from gateway when implemented
-							gas_cost: 1_000_000,
+							nonce: log.nonce,
+							gas_limit: log.executionGasLimit.into(),
+							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						if let Some(cctp_sender) = cctp_sender {
-							if gmp_message.src == cctp_sender {
-								let mut cctp_queue = self.cctp_queue.lock().await;
-								cctp_queue.push((gmp_message.clone(), 0));
-							}
+						if Some(gmp_message.src) == cctp_sender {
+							let mut cctp_queue = self.cctp_queue.lock().await;
+							cctp_queue.push((gmp_message.clone(), 0));
 						} else {
 							events.push(GmpEvent::MessageReceived(gmp_message));
 						}
@@ -593,9 +590,10 @@ impl IConnector for Connector {
 			},
 		};
 		tracing::info!("Submitting batch: {batch} to gateway with gas: {gas_limit}");
-		self.evm_call(gateway, call, 0, None, Some(gas_limit))
-			.await
-			.map_err(|err| err.to_string())?;
+		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
+			tracing::info!("Error occured on gmp call: {:?}", err);
+			err.to_string()
+		})?;
 		Ok(())
 	}
 }

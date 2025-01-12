@@ -15,9 +15,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
+	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
+	TssPublicKey, TssSignature,
 };
 
 const BLOCK_TIME: u64 = 1;
@@ -240,7 +240,7 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let hash = msg.encode(batch);
+		let hash = GmpParams::new(self.network_id(), gateway).hash(&msg.encode(batch));
 
 		time_primitives::verify_signature(signer, &hash, sig)
 			.map_err(|_| "invalid signature".to_string())?;

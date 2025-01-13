@@ -15,7 +15,7 @@ benchmarks! {
 	where_clause { where T: pallet_members::Config + pallet_networks::Config }
 
 	set_shard_config {
-	}: _(RawOrigin::Root, 3, 1)
+	}: _(RawOrigin::Root, 3u16, 1u16)
 	verify { }
 
 	try_elect_shards {

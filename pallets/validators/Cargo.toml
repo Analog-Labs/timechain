@@ -18,14 +18,19 @@ log.workspace = true
 scale-codec.workspace = true
 scale-info.workspace = true
 
-polkadot-sdk = { workspace = true, features = [ "frame-system", "pallet-session", "pallet-staking"] }
+polkadot-sdk = { workspace = true, features = [
+	"frame-system",
+	"frame-support",
+	"pallet-session",
+	"pallet-staking",
+	"sp-std",
+] }
 
 [features]
 default = [ "std" ]
 std = [
 	"scale-codec/std",
 	"scale-info/std",
-
 	"polkadot-sdk/std",
 ]
 runtime-benchmarks = [

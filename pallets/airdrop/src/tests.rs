@@ -1,5 +1,5 @@
 use crate as pallet_airdrop;
-use crate::Call;
+use crate::Call as AirdropCall;
 
 use super::*;
 //use hex_literal::hex;
@@ -9,9 +9,7 @@ use scale_codec::Encode;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use frame_support::{
-	assert_err, assert_noop, assert_ok, derive_impl,
-	dispatch::{GetDispatchInfo, Pays},
-	ord_parameter_types, parameter_types,
+	assert_err, assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ExistenceRequirement, WithdrawReasons},
 };
 use pallet_balances;
@@ -20,8 +18,7 @@ use sp_keyring::{
 	Ed25519Keyring::{Dave, Eve, Ferdie},
 };
 use sp_runtime::{
-	traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
-	DispatchError::BadOrigin, TokenError,
+	traits::Identity, transaction_validity::TransactionLongevity, BuildStorage, TokenError,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -375,6 +372,75 @@ fn claiming_while_vested_doesnt_work() {
 				69
 			),
 			Error::<Test>::VestedBalanceExists,
+		);
+	});
+}
+
+#[test]
+fn validate_unsigned_works() {
+	use sp_runtime::traits::ValidateUnsigned;
+	let source = sp_runtime::transaction_validity::TransactionSource::External;
+
+	new_test_ext().execute_with(|| {
+		// Allow transaction with a valid schnorr signature
+		assert_eq!(
+			Pallet::<Test>::validate_unsigned(
+				source,
+				&AirdropCall::claim_raw {
+					source: Alice.into(),
+					proof: Alice.sign(&Airdrop::to_message(&1)[..]).0,
+					target: 1,
+				}
+			),
+			Ok(ValidTransaction {
+				priority: 100,
+				requires: vec![],
+				provides: vec![("airdrop", AccountId32::from(Alice)).encode()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		);
+		// Allow transaction with a valid edwards signature
+		assert_eq!(
+			Pallet::<Test>::validate_unsigned(
+				source,
+				&AirdropCall::claim_raw {
+					source: Dave.into(),
+					proof: Dave.sign(&Airdrop::to_message(&1)[..]).0,
+					target: 1,
+				}
+			),
+			Ok(ValidTransaction {
+				priority: 100,
+				requires: vec![],
+				provides: vec![("airdrop", AccountId32::from(Dave)).encode()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		);
+		// Fail transaction with an invalid proof
+		assert_eq!(
+			Pallet::<Test>::validate_unsigned(
+				source,
+				&AirdropCall::claim_raw {
+					source: Alice.into(),
+					proof: [0u8; 64],
+					target: 0,
+				}
+			),
+			InvalidTransaction::BadProof.into(),
+		);
+		// Fail transaction without any claim behind them
+		assert_eq!(
+			Pallet::<Test>::validate_unsigned(
+				source,
+				&AirdropCall::claim_raw {
+					source: Charlie.into(),
+					proof: Charlie.sign(&Airdrop::to_message(&0)[..]).0,
+					target: 0,
+				}
+			),
+			InvalidTransaction::BadSigner.into(),
 		);
 	});
 }

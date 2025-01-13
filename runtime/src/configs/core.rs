@@ -9,7 +9,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstU16, ConstU32, Everything},
+	traits::{ConstU16, ConstU32},
 	weights::{constants::ParityDbWeight, Weight},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
@@ -24,6 +24,8 @@ use time_primitives::{BlockHash, BlockNumber, Moment, SS58_PREFIX};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
+#[cfg(feature = "testnet")]
+use frame_support::traits::Everything;
 #[cfg(not(feature = "testnet"))]
 use crate::SafeMode;
 use crate::{

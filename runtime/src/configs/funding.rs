@@ -2,10 +2,12 @@
 
 use polkadot_sdk::*;
 
+#[cfg(feature = "testnet")]
 use frame_system::{EnsureRoot, EnsureWithSuccess};
 
+use frame_support::parameter_types;
+#[cfg(feature = "testnet")]
 use frame_support::{
-	parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		EitherOfDiverse,
@@ -13,11 +15,13 @@ use frame_support::{
 	PalletId,
 };
 
+#[cfg(feature = "testnet")]
 use sp_runtime::{traits::IdentityLookup, Percent, Permill};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 
+#[cfg(feature = "testnet")]
 use time_primitives::BlockNumber;
 
 // Local module imports

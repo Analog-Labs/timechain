@@ -24,8 +24,6 @@ use time_primitives::{BlockHash, BlockNumber, Moment, SS58_PREFIX};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
-#[cfg(feature = "testnet")]
-use frame_support::traits::Everything;
 #[cfg(not(feature = "testnet"))]
 use crate::SafeMode;
 use crate::{
@@ -33,6 +31,8 @@ use crate::{
 	AccountId, Babe, Balance, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, RuntimeTask, MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, VERSION,
 };
+#[cfg(feature = "testnet")]
+use frame_support::traits::Everything;
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.

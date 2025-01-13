@@ -268,42 +268,45 @@ impl GenesisKeysConfig {
 				})
 				.collect::<Vec<_>>();
 
-			json_merge(&mut genesis_patch, serde_json::json!({
-				"elections": {
-					"shardSize": shard_size,
-					"shardThreshold": shard_threshold,
-				},
-				"networks": {
-					"networks": [],
-				},
-				"staking": {
-					"validatorCount": authorities.len() as u32,
-					"minimumValidatorCount": MIN_VALIDATOR_COUNT,
-					"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
-					"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
-					"stakers": stakers
-				},
-			}));
+			json_merge(
+				&mut genesis_patch,
+				serde_json::json!({
+					"elections": {
+						"shardSize": shard_size,
+						"shardThreshold": shard_threshold,
+					},
+					"networks": {
+						"networks": [],
+					},
+					"staking": {
+						"validatorCount": authorities.len() as u32,
+						"minimumValidatorCount": MIN_VALIDATOR_COUNT,
+						"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
+						"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
+						"stakers": stakers
+					},
+				}),
+			);
 		}
 
 		if cfg!(feature = "develop") {
 			use AccountKeyring::*;
 
-			let airdrop: Vec<(AccountId, Balance)> = vec![
-				(One.into(), 10_000 * ANLOG),
-				(Two.into(), 10_000 * ANLOG),
-			];
+			let airdrop: Vec<(AccountId, Balance)> =
+				vec![(One.into(), 10_000 * ANLOG), (Two.into(), 10_000 * ANLOG)];
 
-			let vesting: Vec<(AccountId, Balance, Balance, BlockNumber)> = vec![
-				(Two.into(), 8_000 * ANLOG, 80 * ANLOG, 100),
-			];
+			let vesting: Vec<(AccountId, Balance, Balance, BlockNumber)> =
+				vec![(Two.into(), 8_000 * ANLOG, 80 * ANLOG, 100)];
 
-			json_merge(&mut genesis_patch, serde_json::json!({
-				"airdrop": {
-					"claims": airdrop,
-					"vesting": vesting,
-				}
-			}));
+			json_merge(
+				&mut genesis_patch,
+				serde_json::json!({
+					"airdrop": {
+						"claims": airdrop,
+						"vesting": vesting,
+					}
+				}),
+			);
 		}
 
 		// Put it all together ...

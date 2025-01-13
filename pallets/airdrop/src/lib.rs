@@ -161,7 +161,7 @@ pub mod pallet {
 		/// A call to claim is deemed valid if the signature provided matches
 		/// the expected signed message of:
 		///
-		/// > <Bytes>(configured prefix string)(address)</Bytes>
+		/// > `<Bytes>(configured prefix string)(address)</Bytes>`
 		///
 		/// and `address` matches the `destination` account.
 		///
@@ -299,15 +299,12 @@ impl<T: Config> Pallet<T> {
 		value: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
 	) -> sp_runtime::DispatchResult {
-		// Ensure to not ovewrite existing claim
-		if Claims::<T>::get(&owner).is_some() {
-			return Err(Error::<T>::AlreadyHasClaim.into());
-		}
+		ensure!(Claims::<T>::get(&owner).is_none(), Error::<T>::AlreadyHasClaim);
 
 		// Update total, add amount and optional vesting schedule
 		Total::<T>::mutate(|t| *t += value);
 
-		Claims::<T>::insert(owner.clone(), value);
+		Claims::<T>::insert(&owner, value);
 		if let Some(vs) = vesting {
 			Vesting::<T>::insert(owner, vs);
 		}
@@ -315,7 +312,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Internal processing function that executes the an airdrop
+	/// Internal processing function that executes an airdrop
 	fn process_airdrop(source: AccountId32, target: T::AccountId) -> sp_runtime::DispatchResult {
 		// Retreive token amount and check and update total
 		let amount = Claims::<T>::get(&source).ok_or(Error::<T>::HasNoClaim)?;
@@ -323,9 +320,7 @@ impl<T: Config> Pallet<T> {
 
 		// Ensure the account has not other vesting schedules associate with it
 		let vesting = Vesting::<T>::get(&source);
-		if vesting.is_some() && T::VestingSchedule::vesting_balance(&target).is_some() {
-			return Err(Error::<T>::VestedBalanceExists.into());
-		}
+                ensure!(vesting.is_none() || T::VestingSchedule::vesting_balance(&target).is_none(), Error::<T>::VestedBalanceExists);
 
 		// First deposit the balance to ensure that the account exists.
 		let _ = CurrencyOf::<T>::deposit_creating(&target, amount);

@@ -16,6 +16,9 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 //! Pallet to process airdrop claims
 
+#[cfg(test)]
+mod tests;
+
 pub use pallet::*;
 
 use polkadot_sdk::*;
@@ -66,8 +69,6 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	//use pallet_staking::RewardDestination;
-	//use polkadot_sdk::*;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -145,8 +146,8 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	//#[pallet::hooks]
+	//impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -262,19 +263,23 @@ fn to_ascii_hex(data: &[u8]) -> Vec<u8> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Turn target address into message to be signed as proof
+	fn to_message(target: &T::AccountId) -> Vec<u8>{
+		let mut message = b"<Bytes>".to_vec();
+		message.extend_from_slice(T::RawPrefix::get());
+		message.extend(target.using_encoded(to_ascii_hex));
+		message.extend_from_slice(b"</Bytes>");
+		message
+	}
+
 	/// Internal verification function that ensure a valid proof has been provided
 	fn verify_proof(
 		source: &AccountId32,
 		proof: &RawSignature,
 		target: &T::AccountId,
 	) -> sp_runtime::DispatchResult {
-		// Construct message that we expect to be signed as proof
-		let mut message = b"<Bytes>".to_vec();
-		message.extend_from_slice(T::RawPrefix::get());
-		message.extend(target.using_encoded(to_ascii_hex));
-		message.extend_from_slice(b"</Bytes>");
-
 		// Check the two supported signatures types
+		let message = Self::to_message(target);
 		ensure!(
 			SchnorrSignature::from_raw(*proof)
 				.verify(&message[..], &SchnorrPublic::from_raw(source.clone().into()))

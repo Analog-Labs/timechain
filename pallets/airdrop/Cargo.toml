@@ -19,7 +19,13 @@ serde.workspace = true
 scale-codec.workspace = true
 scale-info.workspace = true
 
-polkadot-sdk = { workspace = true, features = [ "frame-support", "frame-system", "pallet-balances" ] }
+polkadot-sdk = { workspace = true, features = [
+  "frame-support",
+  "frame-system",
+  "pallet-balances",
+  "pallet-vesting",
+  "sp-keyring",
+] }
 
 time-primitives.workspace = true
 

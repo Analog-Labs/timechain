@@ -23,7 +23,7 @@ scale-codec.workspace = true
 scale-decode.workspace = true
 scale-info.workspace = true
 
-subxt = { workspace = true, features = ["unstable-reconnecting-rpc-client"] }
+subxt = { workspace = true, features = ["reconnecting-rpc-client"] }
 subxt-signer.workspace = true
 
 time-primitives = { workspace = true, default-features = true }

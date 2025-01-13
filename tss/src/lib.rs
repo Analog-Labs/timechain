@@ -239,7 +239,7 @@ where
 	/// 5. Returns the result of the processing.
 	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) -> Result<()> {
 		tracing::info!(
-			peer_id = field::display(self.peer_id.clone()),
+			peer_id = field::display(&self.peer_id),
 			"on_message from peer_id={peer_id} msg={msg}",
 		);
 		if self.peer_id == peer_id {
@@ -258,8 +258,9 @@ where
 					session.on_message(frost_id, msg);
 				} else {
 					tracing::info!(
-						peer_id = field::display(self.peer_id.clone()),
-						"invalid signing session {id}",
+						peer_id = field::display(&self.peer_id),
+						session = field::display(id),
+						"invalid signing session",
 					);
 				}
 			},
@@ -277,14 +278,14 @@ where
 	/// 2. If in the DKG state, processes the commit and sets committed to true.
 	/// 3. Logs an error if not in the DKG state.
 	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
-		tracing::info!(peer_id = field::display(self.peer_id.clone()), "commit",);
+		tracing::info!(peer_id = field::display(&self.peer_id), "commit",);
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
 				dkg.on_commit(commitment);
 				self.committed = true;
 			},
 			_ => {
-				tracing::error!(peer_id = field::display(self.peer_id.clone()), "unexpected commit")
+				tracing::error!(peer_id = field::display(&self.peer_id), "unexpected commit")
 			},
 		}
 	}
@@ -320,12 +321,16 @@ where
 	/// 2. Inserts a new session if it does not already exist.
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_start(&mut self, id: I) {
-		tracing::info!(peer_id = field::display(self.peer_id.clone()), "start {}", id);
+		tracing::info!(
+			peer_id = field::display(&self.peer_id),
+			session = field::display(&id),
+			"start"
+		);
 		if self.get_or_insert_session(id.clone()).is_none() {
 			tracing::error!(
-				peer_id = field::display(self.peer_id.clone()),
-				"not ready to sign for {}",
-				id
+				peer_id = field::display(&self.peer_id),
+				session = field::display(&id),
+				"not ready to sign for",
 			);
 		}
 	}
@@ -337,14 +342,18 @@ where
 	/// 2. Sets the data for the session if it exists.
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
-		tracing::info!(peer_id = field::display(self.peer_id.clone()), "sign {}", id);
+		tracing::info!(
+			peer_id = field::display(&self.peer_id),
+			session = field::display(&id),
+			"sign"
+		);
 		if let Some(session) = self.get_or_insert_session(id.clone()) {
 			session.set_data(data)
 		} else {
 			tracing::error!(
-				peer_id = field::display(self.peer_id.clone()),
-				"not ready to sign for {}",
-				id
+				peer_id = field::display(&self.peer_id),
+				session = field::display(&id),
+				"not ready to sign",
 			);
 		}
 	}
@@ -356,16 +365,20 @@ where
 	/// 2. Removes the session if it exists.
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_complete(&mut self, id: I) {
-		tracing::info!(peer_id = field::display(self.peer_id.clone()), "complete {}", id);
+		tracing::info!(
+			peer_id = field::display(&self.peer_id),
+			session = field::display(&id),
+			"complete"
+		);
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
 				signing_sessions.remove(&id);
 			},
 			_ => {
 				tracing::error!(
-					peer_id = field::display(self.peer_id.clone()),
-					"not ready to complete for {}",
-					id
+					peer_id = field::display(&self.peer_id),
+					session = field::display(&id),
+					"not ready to complete",
 				);
 			},
 		}
@@ -411,7 +424,7 @@ where
 					// If the DKG fails, transition to the Failed state
 					DkgAction::Failure(error) => {
 						tracing::error!(
-							peer_id = field::display(self.peer_id.clone()),
+							peer_id = field::display(&self.peer_id),
 							"dkg failed with {:?}",
 							error
 						);

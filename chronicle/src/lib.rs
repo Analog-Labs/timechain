@@ -310,7 +310,7 @@ mod tests {
 		let mut shutdown = vec![];
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {
-			let instance = mock.instance(id);
+			let instance = mock.instance(id + 4);
 			let (tx, rx) = futures::channel::oneshot::channel();
 			shutdown.push(tx);
 			std::thread::spawn(move || {
@@ -350,7 +350,7 @@ mod tests {
 		}
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {
-			let instance = mock.instance(id);
+			let instance = mock.instance(id + 4);
 			std::thread::spawn(move || {
 				let rt = tokio::runtime::Runtime::new().unwrap();
 				rt.block_on(chronicle(instance, network_id, futures::future::pending()));

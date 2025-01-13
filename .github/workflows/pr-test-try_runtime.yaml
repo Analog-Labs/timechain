@@ -20,12 +20,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chain: [testnet]
+        chain: [mainnet]
     steps:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y librocksdb-dev
       - name: Install try-runtime-cli
-        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.7.0 --locked
+        run: cargo install --git https://github.com/paritytech/try-runtime-cli --tag v0.8.0 --locked
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
@@ -34,8 +34,8 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: timechain-runtime
-          feature: try-runtime,${{ matrix.chain }}
+          feature: try-runtime
       - name: Download current snapshot
         run: curl -LO https://analog-public.s3.amazonaws.com/state-snapshot/${{ matrix.chain }}-state.snap
       - name: Run try-runtime test
-        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade --checks all --disable-spec-version-check --disable-idempotency-checks snap --path ${{ matrix.chain }}-state.snap
+        run: try-runtime --runtime target/release/wbuild/timechain-runtime/timechain_runtime.wasm on-runtime-upgrade --blocktime 6000 --checks all --disable-spec-version-check --disable-idempotency-checks snap --path ${{ matrix.chain }}-state.snap

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sc_chain_spec::ChainSpecExtension;
+use sc_chain_spec::{json_merge, ChainSpecExtension};
 use sc_service::{config::TelemetryEndpoints, ChainType};
 
 use sp_authority_discovery::AuthorityId as DiscoveryId;
@@ -16,55 +16,18 @@ use sp_keyring::{AccountKeyring, Ed25519Keyring};
 use time_primitives::{AccountId, Balance, Block, BlockNumber, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
-// MAINNET
-
-#[cfg(not(feature = "testnet"))]
-fn default_endowments() -> Vec<(AccountId, Balance)> {
-	vec![]
-}
-
-// Small endowment to allow admins to work
-#[allow(dead_code)]
-const MAINNET_PER_ADMIN: Balance = ANLOG * 1000;
-// Smaller endowment to allow nodes to rotate keys
-#[allow(dead_code)]
-const MAINNET_PER_STASH: Balance = ANLOG * 10;
-
-// TESTNET
-
-#[cfg(feature = "testnet")]
-fn default_endowments() -> Vec<(AccountId, Balance)> {
-	vec![(
-		// 6d6f646c70792f74727372790000000000000000000000000000000000000000
-		timechain_runtime::Treasury::account_id(),
-		20_000_000 * ANLOG,
-	)]
-}
-
 /// Stash and float for validators
-#[allow(dead_code)]
 const PER_VALIDATOR_STASH: Balance = ANLOG * 500_000;
-#[allow(dead_code)]
 const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 20_000;
 
-/// Stash for community nominations
-#[allow(dead_code)]
-const PER_NOMINATION: Balance = ANLOG * 180_000;
-#[allow(dead_code)]
-const PER_NOMINATOR_STASH: Balance = 8 * PER_NOMINATION;
-
 /// Stash and float for chronicles
-#[allow(dead_code)]
 const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
-#[allow(dead_code)]
 const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
-#[allow(dead_code)]
 const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
 
 /// Minimum needed validators, currently lowered for testing environments
-#[allow(dead_code)]
 const MIN_VALIDATOR_COUNT: u32 = 1;
 
 /// Default telemetry server for all networks
@@ -105,10 +68,6 @@ pub struct GenesisKeysConfig {
 	controller: Option<AccountId>,
 	/// Additional endowed accounts and their balance in ANLOG.
 	endowments: Vec<(AccountId, Balance)>,
-	/// Stashes intended for community nominations.
-	/// Sizing controlled by PER_NOMINATION_STASH
-	#[allow(dead_code)]
-	nominators: Vec<AccountId>,
 	/// Stashes intended to be used to run validators.
 	/// There has to be at least one stash for every
 	/// session key set. Balance controlled by PER_VALIDATOR_STASH
@@ -138,8 +97,7 @@ impl Default for GenesisKeysConfig {
 			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
-			endowments: default_endowments(),
-			nominators: vec![],
+			endowments: vec![],
 			stakes: vec![
 				AliceStash.into(),
 				BobStash.into(),
@@ -190,117 +148,6 @@ impl GenesisKeysConfig {
 	}
 
 	/// Generate a chain spec from key config
-	#[cfg(not(feature = "testnet"))]
-	fn to_chain_spec(
-		&self,
-		id: &str,
-		token_symbol: &str,
-		chain_type: ChainType,
-		_shard_size: u16,
-		_shard_threshold: u16,
-	) -> Result<ChainSpec, String> {
-		// Determine name from identifier
-		let name = id.to_case(Case::Title);
-
-		// Ensure wasm binary is available
-		let wasm_binary = WASM_BINARY.expect(
-			"Development wasm binary is not available. This means the client is built with \
-			 `SKIP_WASM_BUILD` flag and it is only usable for production chains. Please rebuild with \
-			 the flag disabled.",
-		);
-
-		// Setup base currency unit name and decimal places
-		let mut properties = sc_chain_spec::Properties::new();
-		properties.insert("tokenSymbol".into(), token_symbol.into());
-		properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
-		properties.insert("ss58Format".into(), SS58_PREFIX.into());
-
-		// Add default telemetry for all deployed networks
-		let telemetry = if chain_type != ChainType::Local {
-			Some(
-				TelemetryEndpoints::new(vec![(
-					DEFAULT_TELEMETRY_URL.to_string(),
-					DEFAULT_TELEMETRY_LEVEL,
-				)])
-				.expect("Default telemetry url is valid"),
-			)
-		} else {
-			None
-		};
-
-		// Convert endowments in config according to token decimals
-		let mut endowments = self
-			.endowments
-			.iter()
-			.map(|(addr, bal)| (addr.clone(), bal * ANLOG))
-			.collect::<Vec<_>>();
-
-		// Endow council and stashes
-		endowments.append(
-			&mut self.admins.iter().map(|x| (x.clone(), MAINNET_PER_ADMIN)).collect::<Vec<_>>(),
-		);
-		endowments.append(
-			&mut self.stakes.iter().map(|x| (x.clone(), MAINNET_PER_STASH)).collect::<Vec<_>>(),
-		);
-
-		// Load session keys to bootstrap validators from file
-		let authorities: Vec<_> = self
-			.bootstraps
-			.iter()
-			.enumerate()
-			.map(|(i, x)| {
-				(
-					self.controller.clone().unwrap_or(self.stakes[i].clone()),
-					self.stakes[i].clone(),
-					timechain_runtime::SessionKeys {
-						babe: x.0.clone(),
-						grandpa: x.1.clone(),
-						im_online: x.2.clone(),
-						authority_discovery: x.3.clone(),
-					},
-				)
-			})
-			.collect();
-
-		let genesis_patch = serde_json::json!({
-			"balances": {
-				"balances": endowments,
-			},
-			"babe": {
-				"epochConfig": timechain_runtime::BABE_GENESIS_EPOCH_CONFIG,
-			},
-			"session": {
-				"keys": authorities,
-			},
-			"technicalCommittee": {
-				"members": Some(self.admins.clone()),
-			},
-		});
-
-		// Put it all together ...
-		let mut builder = ChainSpec::builder(wasm_binary, Default::default())
-			.with_name(&name)
-			.with_id(id)
-			.with_protocol_id(id)
-			.with_chain_type(chain_type)
-			.with_properties(properties)
-			.with_genesis_config_patch(genesis_patch)
-	        .with_boot_nodes(vec![
-				"/dns/bootnode-1.timechain.analog.one/tcp/30333/ws/p2p/12D3KooWB1mphok6BmTmTYZkujiL96LMbHyLCXfS2rTYv7N57cQx".parse().unwrap(),
-				"/dns/bootnode-2.timechain.analog.one/tcp/30333/ws/p2p/12D3KooWFSJporNXWo2gooT4x66tKvWVL7T2wcyzGndVvGyNB59X".parse().unwrap()
-			]);
-
-		// ... and add optional telemetry
-		if let Some(endpoints) = telemetry {
-			builder = builder.with_telemetry_endpoints(endpoints);
-		}
-
-		// ... to generate chain spec
-		Ok(builder.build())
-	}
-
-	/// Generate a chain spec from key config
-	#[cfg(feature = "testnet")]
 	fn to_chain_spec(
 		&self,
 		id: &str,
@@ -314,9 +161,9 @@ impl GenesisKeysConfig {
 
 		// Ensure wasm binary is available
 		let wasm_binary = WASM_BINARY.expect(
-			"Development wasm binary is not available. This means the client is built with \
-			 `SKIP_WASM_BUILD` flag and it is only usable for production chains. Please rebuild with \
-			 the flag disabled.",
+			"The wasm runtime was not included with this release, i.e. the client was built with the \
+			 `SKIP_WASM_BUILD` flag and it is only usable for chains that have already been initalized.\
+			 Please rebuild with the flag disabled to start new chains from genesis.",
 		);
 
 		// Setup base currency unit name and decimal places
@@ -345,7 +192,7 @@ impl GenesisKeysConfig {
 			.map(|(addr, bal)| (addr.clone(), bal * ANLOG))
 			.collect::<Vec<_>>();
 
-		// Budget and endow chronicle stashes
+		// Endow chronicle stashes
 		endowments.append(
 			&mut self
 				.chronicles
@@ -356,27 +203,21 @@ impl GenesisKeysConfig {
 
 		// Endow controller if necessary
 		if let Some(controller) = self.controller.as_ref() {
-			endowments.append(&mut vec![(controller.clone(), CONTROLLER_SUPPLY)]);
+			endowments.push((controller.clone(), CONTROLLER_SUPPLY));
 		}
 
-		// Budget and endow council stashes
+		// Endow council members and validators
 		endowments.append(
 			&mut self.admins.iter().map(|x| (x.clone(), PER_COUNCIL_STASH)).collect::<Vec<_>>(),
 		);
 
-		// Budget and endow nominator stashes
-		endowments.append(
-			&mut self
-				.nominators
-				.iter()
-				.map(|x| (x.clone(), PER_NOMINATOR_STASH))
-				.collect::<Vec<_>>(),
-		);
-
-		// Budget and endow validator stashes
 		endowments.append(
 			&mut self.stakes.iter().map(|x| (x.clone(), PER_VALIDATOR_STASH)).collect::<Vec<_>>(),
 		);
+
+		#[cfg(feature = "testnet")]
+		// Currently still needed for GMP (6d6f646c70792f74727372790000000000000000000000000000000000000000)
+		endowments.push((timechain_runtime::Treasury::account_id(), 20_000_000 * ANLOG));
 
 		// Load session keys to bootstrap validators from file
 		let authorities: Vec<_> = self
@@ -397,48 +238,73 @@ impl GenesisKeysConfig {
 			})
 			.collect();
 
-		// Self-stake all authorities
-		let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
-		let stakers = authorities
-			.iter()
-			.map(|x| {
-				(
-					x.1.clone(),
-					x.0.clone(),
-					locked,
-					timechain_runtime::StakerStatus::<AccountId>::Validator,
-				)
-			})
-			.collect::<Vec<_>>();
-
-		let genesis_patch = serde_json::json!({
+		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
 			},
 			"babe": {
 				"epochConfig": timechain_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			},
-			"elections": {
-				"shardSize": shard_size,
-				"shardThreshold": shard_threshold,
-			},
-			"networks": {
-				"networks": [],
-			},
 			"session": {
 				"keys": authorities,
-			},
-			"staking": {
-				"validatorCount": authorities.len() as u32,
-				"minimumValidatorCount": MIN_VALIDATOR_COUNT,
-				"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
-				"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
-				"stakers": stakers
 			},
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
 		});
+
+		if cfg!(feature = "testnet") {
+			// Self-stake all authorities
+			let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
+			let stakers = authorities
+				.iter()
+				.map(|x| {
+					(
+						x.1.clone(),
+						x.0.clone(),
+						locked,
+						timechain_runtime::StakerStatus::<AccountId>::Validator,
+					)
+				})
+				.collect::<Vec<_>>();
+
+			json_merge(&mut genesis_patch, serde_json::json!({
+				"elections": {
+					"shardSize": shard_size,
+					"shardThreshold": shard_threshold,
+				},
+				"networks": {
+					"networks": [],
+				},
+				"staking": {
+					"validatorCount": authorities.len() as u32,
+					"minimumValidatorCount": MIN_VALIDATOR_COUNT,
+					"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
+					"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
+					"stakers": stakers
+				},
+			}));
+		}
+
+		if cfg!(feature = "develop") {
+			use AccountKeyring::*;
+
+			let airdrop: Vec<(AccountId, Balance)> = vec![
+				(One.into(), 10_000 * ANLOG),
+				(Two.into(), 10_000 * ANLOG),
+			];
+
+			let vesting: Vec<(AccountId, Balance, Balance, BlockNumber)> = vec![
+				(Two.into(), 8_000 * ANLOG, 80 * ANLOG, 100),
+			];
+
+			json_merge(&mut genesis_patch, serde_json::json!({
+				"airdrop": {
+					"claims": airdrop,
+					"vesting": vesting,
+				}
+			}));
+		}
 
 		// Put it all together ...
 		let mut builder = ChainSpec::builder(wasm_binary, Default::default())

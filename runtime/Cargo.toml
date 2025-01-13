@@ -165,6 +165,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"polkadot-sdk/frame-try-runtime",
+	"pallet-airdrop/try-runtime",
 	"pallet-elections/try-runtime",
 	"pallet-governance/try-runtime",
 	"pallet-members/try-runtime",

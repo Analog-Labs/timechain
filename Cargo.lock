@@ -9053,7 +9053,7 @@ name = "pallet-airdrop"
 version = "0.8.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk",
+ "polkadot-sdk 0.6.0",
  "scale-info",
  "serde",
  "time-primitives",
@@ -9911,6 +9911,18 @@ dependencies = [
  "safe-mix",
  "scale-info",
  "sp-runtime 39.0.3",
+]
+
+[[package]]
+name = "pallet-launch"
+version = "0.8.0"
+dependencies = [
+ "log",
+ "pallet-airdrop",
+ "parity-scale-codec",
+ "polkadot-sdk 0.6.0",
+ "scale-info",
+ "time-primitives",
 ]
 
 [[package]]
@@ -19912,6 +19924,7 @@ dependencies = [
  "pallet-dmail",
  "pallet-elections",
  "pallet-governance",
+ "pallet-launch",
  "pallet-members",
  "pallet-networks",
  "pallet-shards",

@@ -83,3 +83,9 @@ impl pallet_airdrop::Config for Runtime {
 	type RawPrefix = RawPrefix;
 	type WeightInfo = pallet_airdrop::TestWeightInfo;
 }
+
+#[cfg(not(feature = "testnet"))]
+impl pallet_launch::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type VestingSchedule = Vesting;
+}

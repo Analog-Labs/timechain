@@ -2,10 +2,12 @@
 
 use polkadot_sdk::*;
 
+#[cfg(feature = "testnet")]
 use frame_system::{EnsureRoot, EnsureWithSuccess};
 
+use frame_support::parameter_types;
+#[cfg(feature = "testnet")]
 use frame_support::{
-	parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		EitherOfDiverse,
@@ -13,19 +15,21 @@ use frame_support::{
 	PalletId,
 };
 
+#[cfg(feature = "testnet")]
 use sp_runtime::{traits::IdentityLookup, Percent, Permill};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 
+#[cfg(feature = "testnet")]
 use time_primitives::BlockNumber;
 
 // Local module imports
-use crate::{
-	deposit, AccountId, Balance, Balances, Runtime, RuntimeEvent, TechnicalCollective, Treasury,
-	ANLOG, DAYS,
-};
+#[cfg(feature = "testnet")]
+use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
+use crate::{main_or_test, Runtime, RuntimeEvent, Vesting};
 
+#[cfg(feature = "testnet")]
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const ProposalBondMinimum: Balance = 1 * ANLOG;
@@ -43,6 +47,7 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
+#[cfg(feature = "testnet")]
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
@@ -66,4 +71,15 @@ impl pallet_treasury::Config for Runtime {
 	type PayoutPeriod = SpendPayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+parameter_types! {
+	pub RawPrefix: &'static [u8] = main_or_test!(b"Airdrop ANLOG to the Timechain account: ", b"Simulate airdrop to the test account: ");
+}
+
+impl pallet_airdrop::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type VestingSchedule = Vesting;
+	type RawPrefix = RawPrefix;
+	type WeightInfo = pallet_airdrop::TestWeightInfo;
 }

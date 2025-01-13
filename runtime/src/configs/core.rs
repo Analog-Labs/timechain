@@ -9,7 +9,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstU16, ConstU32, Everything},
+	traits::{ConstU16, ConstU32},
 	weights::{constants::ParityDbWeight, Weight},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
@@ -31,6 +31,8 @@ use crate::{
 	AccountId, Babe, Balance, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, RuntimeTask, MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, VERSION,
 };
+#[cfg(feature = "testnet")]
+use frame_support::traits::Everything;
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.

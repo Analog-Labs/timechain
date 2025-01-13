@@ -2,7 +2,6 @@
 
 pub mod consensus;
 pub mod core;
-#[cfg(feature = "testnet")]
 pub mod funding;
 pub mod governance;
 #[cfg(feature = "testnet")]

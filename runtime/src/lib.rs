@@ -81,7 +81,7 @@
 // Allow more readable constants
 #![allow(clippy::identity_op)]
 
-/// The runtime is split into it components
+/// The runtime is split into its components
 pub mod apis;
 pub mod configs;
 pub mod offchain;
@@ -437,6 +437,7 @@ mod runtime {
 	pub type Multisig = pallet_multisig;
 
 	// On-chain governance
+
 	#[runtime::pallet_index(22)]
 	pub type TechnicalCommittee = pallet_collective<Instance1>;
 
@@ -450,8 +451,14 @@ mod runtime {
 	pub type ValidatorManager = pallet_validators;
 
 	// Custom governance
+
 	#[runtime::pallet_index(32)]
 	pub type Governance = pallet_governance;
+
+	// Custom funding pallets
+
+	#[runtime::pallet_index(42)]
+	pub type Airdrop = pallet_airdrop;
 }
 
 /// Testnet and develop runtime assembly
@@ -614,6 +621,11 @@ mod runtime {
 
 	#[runtime::pallet_index(39)]
 	pub type Dmail = pallet_dmail;
+
+	// Custom funding pallets
+
+	#[runtime::pallet_index(42)]
+	pub type Airdrop = pallet_airdrop;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

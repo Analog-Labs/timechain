@@ -17,6 +17,7 @@ members = [
 	"gmp/grpc",
 	"gmp/rust",
 	"node",
+	"pallets/airdrop",
 	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",
@@ -76,6 +77,7 @@ subxt-signer = { version = "0.38.0" }
 time-primitives = { path = "primitives", default-features = false }
 
 # pallets in workspace (nostd by default)
+pallet-airdrop = { path = "pallets/airdrop", default-features = false }
 pallet-dmail = { path = "pallets/dmail", default-features = false }
 pallet-elections = { path = "pallets/elections", default-features = false }
 pallet-governance = { path = "pallets/governance", default-features = false }

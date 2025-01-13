@@ -93,6 +93,7 @@ polkadot-sdk = { workspace = true, features = [
 ]}
 
 # Custom local pallets
+pallet-airdrop.workspace = true
 pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-governance.workspace = true
@@ -126,11 +127,12 @@ std = [
 	"primitive-types/std",
 	"polkadot-sdk/std",
 
+	"pallet-airdrop/std",
+	"pallet-dmail/std",
 	"pallet-elections/std",
 	"pallet-governance/std",
 	"pallet-members/std",
 	"pallet-networks/std",
-	"pallet-dmail/std",
 	"pallet-shards/std",
 	"pallet-tasks/std",
 	"pallet-timegraph/std",
@@ -163,6 +165,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"polkadot-sdk/frame-try-runtime",
+	"pallet-airdrop/try-runtime",
 	"pallet-elections/try-runtime",
 	"pallet-governance/try-runtime",
 	"pallet-members/try-runtime",

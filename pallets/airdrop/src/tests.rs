@@ -15,13 +15,13 @@ use frame_support::{
 	traits::{ExistenceRequirement, WithdrawReasons},
 };
 use pallet_balances;
-use sp_runtime::{
-	traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
-	DispatchError::BadOrigin, TokenError,
-};
 use sp_keyring::{
 	AccountKeyring::{Alice, Bob, Charlie},
 	Ed25519Keyring::{Dave, Eve, Ferdie},
+};
+use sp_runtime::{
+	traits::Identity, transaction_validity::TransactionLongevity, BuildStorage,
+	DispatchError::BadOrigin, TokenError,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -91,16 +91,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 	pallet_airdrop::GenesisConfig::<Test> {
-		claims: vec![
-			(Alice.into(), 100),
-			(Bob.into(), 200),
-			(Dave.into(), 300),
-			(Eve.into(), 400),
-		],
-		vesting: vec![
-			(Alice.into(), 50, 10, 1),
-			(Dave.into(), 50, 10, 1),
-		],
+		claims: vec![(Alice.into(), 100), (Bob.into(), 200), (Dave.into(), 300), (Eve.into(), 400)],
+		vesting: vec![(Alice.into(), 50, 10, 1), (Dave.into(), 50, 10, 1)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -116,18 +108,24 @@ fn basic_setup_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
 
-		/*
-		assert_eq!(pallet_airdrop::Claims::<Test>::get(Alice.into()), Some(100));
-		assert_eq!(pallet_airdrop::Claims::<Test>::get(Bob.into()), Some(200));
-		assert_eq!(pallet_airdrop::Claims::<Test>::get(Charlie.into()), None);
-		assert_eq!(pallet_airdrop::Claims::<Test>::get(Dave.into()), Some(300));
-		assert_eq!(pallet_airdrop::Claims::<Test>::get(Eve.into()), Some(400));
-		assert_eq!(pallet_airdrop::Claims::<Test>::get(Ferdie.into()), None);
+		assert_eq!(pallet_airdrop::Claims::<Test>::get::<AccountId32>(Alice.into()), Some(100));
+		assert_eq!(pallet_airdrop::Claims::<Test>::get::<AccountId32>(Bob.into()), Some(200));
+		assert_eq!(pallet_airdrop::Claims::<Test>::get::<AccountId32>(Charlie.into()), None);
 
-		assert_eq!(pallet_airdrop::Vesting::<Test>::get(Alice.into()), Some((50, 10, 1)));
-		assert_eq!(pallet_airdrop::Vesting::<Test>::get(Bob.into()), None);
-		assert_eq!(pallet_airdrop::Vesting::<Test>::get(Charlie.into()), None);
-		*/
+		assert_eq!(pallet_airdrop::Claims::<Test>::get::<AccountId32>(Dave.into()), Some(300));
+		assert_eq!(pallet_airdrop::Claims::<Test>::get::<AccountId32>(Eve.into()), Some(400));
+		assert_eq!(pallet_airdrop::Claims::<Test>::get::<AccountId32>(Ferdie.into()), None);
+
+		assert_eq!(
+			pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Alice.into()),
+			Some((50, 10, 1))
+		);
+		assert_eq!(pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Bob.into()), None);
+		assert_eq!(
+			pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Dave.into()),
+			Some((50, 10, 1))
+		);
+		assert_eq!(pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Eve.into()), None);
 	});
 }
 
@@ -164,7 +162,7 @@ fn claim_raw_edwards_works() {
 }
 
 #[test]
-fn signer_missmatch_doesnt_work() {
+fn signer_missmatch_fails() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
@@ -185,12 +183,11 @@ fn signer_missmatch_doesnt_work() {
 			),
 			Error::<Test>::InvalidSignature,
 		);
-
 	});
 }
 
 #[test]
-fn target_missmatch_doesnt_work() {
+fn target_missmatch_fails() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
@@ -215,7 +212,7 @@ fn target_missmatch_doesnt_work() {
 }
 
 #[test]
-fn non_claimant_doesnt_work() {
+fn without_claim_fails() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_noop!(
@@ -235,6 +232,149 @@ fn non_claimant_doesnt_work() {
 				42,
 			),
 			Error::<Test>::HasNoClaim
+		);
+	});
+}
+
+#[test]
+fn mint_claim_works() {
+	new_test_ext().execute_with(|| {
+		// Non-root are not allowed to add new claims
+		assert_noop!(
+			Airdrop::mint(RuntimeOrigin::signed(42), Charlie.into(), 200, None),
+			sp_runtime::traits::BadOrigin,
+		);
+		assert_eq!(Balances::free_balance(42), 0);
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&42)[..]).0,
+				42,
+			),
+			Error::<Test>::HasNoClaim,
+		);
+		// Root is allowed to add claim
+		assert_ok!(Airdrop::mint(RuntimeOrigin::root(), Charlie.into(), 200, None));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 200);
+		// Minting does not overwrite existing claim
+		assert_noop!(
+			Airdrop::mint(RuntimeOrigin::root(), Charlie.into(), 200, None),
+			Error::<Test>::AlreadyHasClaim
+		);
+		// Added claim can be processed
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Charlie.into(),
+			Charlie.sign(&Airdrop::to_message(&42)[..]).0,
+			42,
+		));
+		assert_eq!(Balances::free_balance(&42), 200);
+		assert_eq!(Vesting::vesting_balance(&42), None);
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
+	});
+}
+
+#[test]
+fn mint_claim_with_vesting_works() {
+	new_test_ext().execute_with(|| {
+		// Non-root user is not able to add claim
+		assert_noop!(
+			Airdrop::mint(RuntimeOrigin::signed(42), Charlie.into(), 200, Some((50, 10, 1)),),
+			sp_runtime::traits::BadOrigin,
+		);
+		assert_eq!(Balances::free_balance(42), 0);
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&42)[..]).0,
+				42,
+			),
+			Error::<Test>::HasNoClaim,
+		);
+		// Root user is able to add claim and vestign is honored
+		assert_ok!(Airdrop::mint(RuntimeOrigin::root(), Charlie.into(), 200, Some((50, 10, 1)),));
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Charlie.into(),
+			Charlie.sign(&Airdrop::to_message(&42)[..]).0,
+			42,
+		));
+		assert_eq!(Balances::free_balance(&42), 200);
+		assert_eq!(Vesting::vesting_balance(&42), Some(50));
+
+		// Make sure we can not transfer the vested balance.
+		assert_err!(
+			<Balances as Currency<_>>::transfer(&42, &80, 180, ExistenceRequirement::AllowDeath),
+			TokenError::Frozen,
+		);
+	});
+}
+
+#[test]
+fn origin_signed_claiming_fail() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(42), 0);
+		assert_err!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::signed(42),
+				Alice.into(),
+				Alice.sign(&Airdrop::to_message(&42)[..]).0,
+				42,
+			),
+			sp_runtime::traits::BadOrigin,
+		);
+	});
+}
+
+#[test]
+fn double_claiming_doesnt_work() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(42), 0);
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Alice.into(),
+			Alice.sign(&Airdrop::to_message(&42)[..]).0,
+			42,
+		));
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Alice.into(),
+				Alice.sign(&Airdrop::to_message(&42)[..]).0,
+				42,
+			),
+			Error::<Test>::HasNoClaim
+		);
+	});
+}
+
+#[test]
+fn claiming_while_vested_doesnt_work() {
+	new_test_ext().execute_with(|| {
+		CurrencyOf::<Test>::make_free_balance_be(&69, total_claims());
+		assert_eq!(Balances::free_balance(69), total_claims());
+		// A user is already vested
+		assert_ok!(<Test as Config>::VestingSchedule::add_vesting_schedule(
+			&69,
+			total_claims(),
+			100,
+			10
+		));
+		assert_ok!(Airdrop::mint(RuntimeOrigin::root(), Charlie.into(), 200, Some((50, 10, 1)),));
+		// New total
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 200);
+
+		// They should not be able to claim
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&69)[..]).0,
+				69
+			),
+			Error::<Test>::VestedBalanceExists,
 		);
 	});
 }

@@ -104,6 +104,8 @@ pub mod pallet {
 		PotUnderflow,
 		/// The account already has a vested balance.
 		VestedBalanceExists,
+		/// The account already has a claim associated with it
+		AlreadyHasClaim,
 	}
 
 	#[pallet::storage]
@@ -264,7 +266,7 @@ fn to_ascii_hex(data: &[u8]) -> Vec<u8> {
 
 impl<T: Config> Pallet<T> {
 	/// Turn target address into message to be signed as proof
-	fn to_message(target: &T::AccountId) -> Vec<u8>{
+	fn to_message(target: &T::AccountId) -> Vec<u8> {
 		let mut message = b"<Bytes>".to_vec();
 		message.extend_from_slice(T::RawPrefix::get());
 		message.extend(target.using_encoded(to_ascii_hex));
@@ -297,6 +299,11 @@ impl<T: Config> Pallet<T> {
 		value: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
 	) -> sp_runtime::DispatchResult {
+		// Ensure to not ovewrite existing claim
+		if Claims::<T>::get(&owner).is_some() {
+			return Err(Error::<T>::AlreadyHasClaim.into());
+		}
+
 		// Update total, add amount and optional vesting schedule
 		Total::<T>::mutate(|t| *t += value);
 

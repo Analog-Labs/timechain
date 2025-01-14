@@ -213,7 +213,7 @@ fn test_msg_execution_event_completes_submit_task() {
 		roll(1);
 		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
-		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0)]);
+		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0, None)]);
 		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
 	})
 }
@@ -307,7 +307,7 @@ fn task_completion_unassigns_task() {
 		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
 		assert_eq!(Tasks::get_task_shard(2), Some(shard));
-		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0)]);
+		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0, None)]);
 		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
 		assert_eq!(Tasks::get_task_shard(2), None);
 	})

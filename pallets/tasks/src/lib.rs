@@ -68,8 +68,8 @@ pub mod pallet {
 
 	use time_primitives::{
 		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		GmpEvents, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId, ShardsInterface,
-		Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+		GmpEvents, Hash as TxHash, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId,
+		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -258,6 +258,9 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type BatchTaskId<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type BatchTxHash<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TxHash, OptionQuery>;
 
 	/// Map storage for task signers.
 	#[pallet::storage]
@@ -449,9 +452,12 @@ pub mod pallet {
 						MessageExecutedTaskId::<T>::insert(msg_id, task_id);
 						Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
 					},
-					GmpEvent::BatchExecuted(batch_id) => {
+					GmpEvent::BatchExecuted(batch_id, tx_hash) => {
 						if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
 							Self::finish_task(network, task_id, Ok(()));
+						}
+						if let Some(hash) = tx_hash {
+							BatchTxHash::<T>::insert(batch_id, hash);
 						}
 					},
 				}

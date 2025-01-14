@@ -502,11 +502,15 @@ impl IConnector for Connector {
 			})
 			.await?;
 		let mut events = vec![];
-		for log in logs {
-			let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
-			let log =
-				alloy_primitives::Log::new(a_addr(gateway), topics, log.data.0.to_vec().into())
-					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
+		for outer_log in logs {
+			let topics =
+				outer_log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
+			let log = alloy_primitives::Log::new(
+				a_addr(gateway),
+				topics,
+				outer_log.data.0.to_vec().into(),
+			)
+			.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			for topic in log.topics() {
 				match *topic {
 					sol::Gateway::ShardsRegistered::SIGNATURE_HASH => {
@@ -549,7 +553,10 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::BatchExecuted::decode_log(&log, true)?;
-						events.push(GmpEvent::BatchExecuted(log.batch));
+						events.push(GmpEvent::BatchExecuted(
+							log.batch,
+							outer_log.transaction_hash.map(|hash| hash.into()),
+						));
 						break;
 					},
 					_ => {},

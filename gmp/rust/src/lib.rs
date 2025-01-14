@@ -276,7 +276,7 @@ impl IConnector for Connector {
 						},
 					}
 				}
-				events.insert((gateway, block), GmpEvent::BatchExecuted(batch))?;
+				events.insert((gateway, block), GmpEvent::BatchExecuted(batch, None))?;
 			}
 			tx.commit()?;
 			Ok(())

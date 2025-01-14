@@ -707,10 +707,10 @@ impl Tc {
 	}
 
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
-		for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
+		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
-			let routes = connector.routes(gateway).await?;
-			for dest in gateways.keys().copied() {
+			let routes = connector.routes(src_gateway).await?;
+			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
 				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
@@ -720,7 +720,7 @@ impl Tc {
 				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
 					network_id: dest,
-					gateway,
+					gateway: dest_gateway,
 					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
@@ -729,7 +729,7 @@ impl Tc {
 					continue;
 				}
 				tracing::info!("register_route {src} {dest}");
-				connector.set_route(gateway, route).await?;
+				connector.set_route(src_gateway, route).await?;
 			}
 		}
 		Ok(())

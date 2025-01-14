@@ -451,6 +451,7 @@ impl IChain for Connector {
 	async fn faucet(&self) -> Result<()> {
 		let balance = match self.network_id() {
 			6 => 10u128.pow(25), // astar
+			2 => 10u128.pow(29), // ethereum
 			3 => 10u128.pow(29), // ethereum
 			network_id => {
 				tracing::info!("network {network_id} doesn't support faucet");

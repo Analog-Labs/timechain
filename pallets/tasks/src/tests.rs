@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{BatchIdCounter, ShardRegistered};
+use crate::{BatchIdCounter, BatchTxHash, ShardRegistered};
 
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -215,6 +215,20 @@ fn test_msg_execution_event_completes_submit_task() {
 		Tasks::assign_task(shard, 2);
 		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0, None)]);
 		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
+	})
+}
+
+#[test]
+fn test_msg_execution_event_completes_submit_task_with_tx_hash() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		Tasks::assign_task(shard, 2);
+		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted(0, Some([0u8; 32]))]);
+		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
+		assert_eq!(BatchTxHash::<Test>::get(0), Some([0u8; 32]));
 	})
 }
 

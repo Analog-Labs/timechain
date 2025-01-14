@@ -1,6 +1,7 @@
 FROM rust:1.79.0 as builder
 
 ARG PROFILE
+ARG FEATURES=default
 
 WORKDIR /build
 
@@ -9,7 +10,7 @@ RUN mkdir /build/bin
 
 COPY . .
 
-RUN CARGO_HTTP_CHECK_REVOKE=false cargo build --profile $PROFILE --locked -p chronicle
+RUN CARGO_HTTP_CHECK_REVOKE=false cargo build --profile $PROFILE --locked -p chronicle --features $FEATURES
 RUN mv /build/target/$PROFILE/chronicle /build/bin/chronicle
 
 FROM ubuntu:22.04

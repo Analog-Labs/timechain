@@ -47,8 +47,10 @@ jobs:
         include:
           - image: prod
             profile: mainnet
+            features: default
           - image: dev
             profile: testnet
+            features: testnet,develop
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4
@@ -73,3 +75,4 @@ jobs:
           build_args: |
             VCS_REF=${{ needs.set-tags.outputs.commit_hash8 }}
             PROFILE=${{ matrix.profile }}
+            FEATURES=${{ matrix.features }}

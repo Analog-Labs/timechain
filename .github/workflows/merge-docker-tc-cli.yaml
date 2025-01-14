@@ -58,8 +58,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       - name: Build contracts
         run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
+      # At the moment mainnet doesn't support GMP, so the only compatible metadata is the testnet one
       - name: Build tc-cli
-        run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl
+        run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
       - name: Copy contracts
         run: cp -r target/x86_64-unknown-linux-musl/testnet/tc-cli tc-cli-bin
       - name: Build and push

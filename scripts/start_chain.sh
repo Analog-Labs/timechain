@@ -4,13 +4,8 @@ network_type=$1  # The first argument to the script
 mode=$2         # The second argument to the script
 
 run_ethereum() {
-#    if [ "$1" == "single" ]; then
         echo "Running single node Ethereum configuration."
         docker compose --profile ethereum down -v && ./scripts/build_docker.sh && docker compose --profile ethereum up
-#    elif [ "$1" == "multi" ]; then
-#        echo "Running multi node Ethereum configuration."
-#        docker compose --profile ethereum3 down -v && ./scripts/build_docker.sh && docker compose --profile ethereum3 up
-#    fi
 }
 
 run_astar() {

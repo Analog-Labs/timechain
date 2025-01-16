@@ -320,7 +320,10 @@ impl<T: Config> Pallet<T> {
 
 		// Ensure the account has not other vesting schedules associate with it
 		let vesting = Vesting::<T>::get(&source);
-                ensure!(vesting.is_none() || T::VestingSchedule::vesting_balance(&target).is_none(), Error::<T>::VestedBalanceExists);
+		ensure!(
+			vesting.is_none() || T::VestingSchedule::vesting_balance(&target).is_none(),
+			Error::<T>::VestedBalanceExists
+		);
 
 		// First deposit the balance to ensure that the account exists.
 		let _ = CurrencyOf::<T>::deposit_creating(&target, amount);

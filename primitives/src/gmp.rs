@@ -283,7 +283,7 @@ impl std::fmt::Display for GmpEvent {
 				writeln!(f, "message_executed {}", hex::encode(msg))
 			},
 			Self::BatchExecuted { batch_id, tx_hash } => {
-				let tx_hash = tx_hash.as_ref().map_or("None".to_string(), |hash| hex::encode(hash));
+				let tx_hash = tx_hash.as_ref().map_or("None".to_string(), hex::encode);
 				writeln!(f, "batch_executed {batch_id} with tx_hash {tx_hash}")
 			},
 		}

@@ -1,23 +1,14 @@
 //! This file describes the migrations to be run at stage 1.
 //!
 //! The goal of this migration is to supply exchanges with the necessary tokens
-//! before TGE.
-use crate::{RawEndowmentMigration, RawVestingSchedule};
+//! before the official token genesis event.
+use crate::RawEndowmentMigration;
 
-use time_primitives::{ANLOG, MILLIANLOG};
+use time_primitives::ANLOG;
 
-/// Example schedule: One week unlock
-const LINEAR_EXAMPLE_SCHEDULE: Option<RawVestingSchedule> =
-	Some((1000 * ANLOG, 8 * MILLIANLOG, 20000));
-
-/// Example schedule: One week shelf, one week unlock
-const SHELF_EXAMPLE_SCHEDULE: Option<RawVestingSchedule> =
-	Some((1000 * ANLOG, 8 * MILLIANLOG, 70000));
-
-/// Launch .
-/// TODO: This is currently test data
+/// Prelaunch exchange deposits.
 pub const DEPOSITS_PRELAUNCH: RawEndowmentMigration = &[
-	("anANQ9g1Jp7hez8CZEp5ksHwnKcsuX3fL2cRtqZfGFzwbk5cY", 2000 * ANLOG, LINEAR_EXAMPLE_SCHEDULE),
-	("an8oEsbqAgPhkq7i3ot7p7x2pDms24WFzXnHZnCXbC22MyEmb", 2000 * ANLOG, SHELF_EXAMPLE_SCHEDULE),
-	("an8qtwmyD1PbPTj7iLfi97cV73uYQ3p8qxZYuKCphURCtGKHX", 42690 * MILLIANLOG, None),
+	("anACAutxx15HrcAKf5UcV4dBKHMiTLWwqWEasemR5UJXR9nah", 39328100 * ANLOG, None),
+	("anAncc6xjYvEFkiab8SJH72ne2Su3TFkN7Gzbfw9XQkthAjfp", 39328063 * ANLOG, None),
+	("an8YSmkWinrh8HVE6k8691GJPqTfvz7gjBtkAgGfd6PhSfuYT", 13636400 * ANLOG, None),
 ];

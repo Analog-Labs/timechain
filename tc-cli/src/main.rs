@@ -700,6 +700,7 @@ async fn real_main() -> Result<()> {
 			let mut msgs = HashSet::new();
 			for nonce in 0..num_messages {
 				let msg = tc.send_message(src, src_addr, dest, dest_addr, nonce as _).await?;
+				tracing::info!("msg sent with: {:?}", hex::encode(msg));
 				msgs.insert(msg);
 			}
 			while let Some((_, block)) = blocks.next().await {
@@ -707,6 +708,7 @@ async fn real_main() -> Result<()> {
 				for msg in &msgs {
 					let msg = tc.message(*msg).await?;
 					if msg.exec.is_some() {
+						tracing::info!("msg received is: {:?}", hex::encode(msg.message));
 						received.insert(msg.message);
 					}
 				}
@@ -792,8 +794,9 @@ async fn wait_for_sync(tc: &Tc, network: NetworkId) -> Result<()> {
 	let mut blocks = tc.finality_notification_stream();
 	while blocks.next().await.is_some() {
 		let status = tc.sync_status(network).await?;
+		let batch_size = status.next_sync - status.sync;
 		tracing::info!("waiting for network {network} to sync {} / {}", status.sync, status.block);
-		if status.next_sync > status.block {
+		if status.next_sync >= status.block {
 			break;
 		}
 	}

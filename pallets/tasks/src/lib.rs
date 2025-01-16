@@ -450,6 +450,9 @@ pub mod pallet {
 					},
 					GmpEvent::MessageExecuted(msg_id) => {
 						MessageExecutedTaskId::<T>::insert(msg_id, task_id);
+						sp_std::if_std! {
+							println!("msg executed with hash: {:?}", msg_id);
+						}
 						Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
 					},
 					GmpEvent::BatchExecuted(batch_id, tx_hash) => {

@@ -31,7 +31,7 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: doc
-          features: testnet
+          features: develop
           args: --no-deps --document-private-items
       - name: Upload docs
         uses: actions/upload-artifact@v4

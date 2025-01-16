@@ -46,7 +46,7 @@
 //! ### On-chain governance
 //!  - [`TechnicalCommittee`]
 //!  - [`TechnicalMembership`]
-//!  - [`SafeMode`]
+//!  - SafeMode
 //!
 //! ### On-chain funding
 //!  - [`Treasury`]

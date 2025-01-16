@@ -38,7 +38,7 @@ jobs:
           docker compose --profile ethereum up -d
       - name: fetch prices
         run: |
-          docker compose run --rm --remove-orphans tc-cli fetch-prices
+          docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml fetch-prices
       - name: Smoke test
         run: |
           docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml smoke-test 2 3

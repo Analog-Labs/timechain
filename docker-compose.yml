@@ -36,8 +36,6 @@ services:
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://gmp-grpc-0:3000'
-    - '--timechain-min-balance=1000000000000'
-    - '--target-min-balance=10000'
     - '--network-id=0'
     - '--backend=grpc'
     environment:
@@ -65,8 +63,6 @@ services:
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://gmp-grpc-1:3000'
-    - '--timechain-min-balance=1000000000000'
-    - '--target-min-balance=10000'
     - '--network-id=1'
     - '--backend=grpc'
     environment:
@@ -84,8 +80,6 @@ services:
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=ws://ethereum:8545'
-    - '--timechain-min-balance=1000000000000'
-    - '--target-min-balance=10000'
     - '--network-id=2'
     - '--backend=evm'
     environment:
@@ -105,8 +99,6 @@ services:
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=ws://ethereum:8545'
-    - '--timechain-min-balance=1000000000000'
-    - '--target-min-balance=10000'
     - '--network-id=3'
     - '--backend=evm'
     environment:

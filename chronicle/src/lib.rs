@@ -5,7 +5,7 @@ use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
 use anyhow::Result;
 use futures::channel::mpsc;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use gmp::Backend;
 use scale_codec::Decode;
 use std::path::PathBuf;
@@ -39,10 +39,6 @@ pub struct ChronicleConfig {
 	pub target_mnemonic: String,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
-	/// Target min balance.
-	pub target_min_balance: u128,
-	/// Timechain min balance.
-	pub timechain_min_balance: u128,
 	/// Backend
 	pub backend: Backend,
 	// Cctp request sender
@@ -131,19 +127,13 @@ pub async fn run_chronicle(
 			peer_id_hex: hex::encode(network.peer_id()),
 		}))
 		.await?;
-	let timechain_min_balance = config.timechain_min_balance;
-	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
-		tracing::warn!(target: TW_LOG, "timechain balance is below {timechain_min_balance}");
-		sleep(Duration::from_secs(6)).await;
-	}
-	let target_min_balance = config.target_min_balance;
-	while connector.balance(connector.address()).await? < target_min_balance {
-		tracing::warn!(target: TW_LOG, "target balance is below {target_min_balance}");
-		sleep(Duration::from_secs(6)).await;
-	}
-	while !substrate.is_registered().await? {
+	let mut ticker = substrate.finality_notification_stream();
+	loop {
+		if substrate.is_registered().await? {
+			break;
+		}
 		tracing::warn!(target: TW_LOG, "chronicle isn't registered");
-		sleep(Duration::from_secs(6)).await;
+		ticker.next().await;
 	}
 
 	let span = span!(
@@ -198,8 +188,6 @@ mod tests {
 				target_url: "tempfile".to_string(),
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache,
-				target_min_balance: 0,
-				timechain_min_balance: 0,
 				backend: Backend::Rust,
 				cctp_sender: None,
 				cctp_attestation: None,

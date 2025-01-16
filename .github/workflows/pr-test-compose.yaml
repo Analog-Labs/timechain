@@ -20,8 +20,6 @@ jobs:
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.5
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
       - name: Build dev containers
         run: |
           ./scripts/build_docker.sh

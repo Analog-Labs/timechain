@@ -8,18 +8,21 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-basic:
-    runs-on: [self-hosted, integration]
-    #if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
+    runs-on: [self-hosted, cache-runner]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Configure sccache env for Rust
-        run: | 
-          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.5
+      - name: Setup Rust cache
+        uses: actions/cache@v4
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/
+            target/            
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - name: Build dev containers
         run: |
           ./scripts/build_docker.sh

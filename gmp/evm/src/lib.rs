@@ -534,6 +534,7 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
+						tracing::info!("GMP CREATED received, {}", gmp_message.nonce);
 						if Some(gmp_message.src) == cctp_sender {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));

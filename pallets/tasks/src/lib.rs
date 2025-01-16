@@ -259,6 +259,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BatchTaskId<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
 
+	/// TxHash of the batch executed.
+	///
+	/// It can `None` either if the BatchExecuted event was not received or it was received but tx_hash was `None`.   
 	#[pallet::storage]
 	pub type BatchTxHash<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TxHash, OptionQuery>;
 

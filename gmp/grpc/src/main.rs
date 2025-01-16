@@ -83,6 +83,18 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::BalanceResponse { balance }))
 	}
 
+	async fn finalized_block(
+		&self,
+		request: Request<proto::FinalizedBlockRequest>,
+	) -> GmpResult<proto::FinalizedBlockResponse> {
+		let (connector, _) = self.connector(request)?;
+		let finalized_block = connector
+			.finalized_block()
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::FinalizedBlockResponse { finalized_block }))
+	}
+
 	type BlockStreamStream =
 		Pin<Box<dyn Stream<Item = Result<proto::BlockStreamResponse, Status>> + Send + 'static>>;
 

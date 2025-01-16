@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::env::Mnemonics;
 use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
-use futures::stream::{BoxStream, StreamExt};
+use futures::stream::BoxStream;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -402,8 +402,7 @@ impl Tc {
 		let blocks = self.read_events_blocks(sync_task).await?;
 		let block = self
 			.connector(network)?
-			.block_stream()
-			.next()
+			.finalized_block()
 			.await
 			.context("failed to read target block")?;
 		Ok(SyncStatus {

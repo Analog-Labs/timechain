@@ -69,11 +69,11 @@ parameter_types! {
 
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
-/// ## 00 - <a id="config.System">[`System`] Config</a>
+/// ## 00 - <a id="config.System">`System` Config</a>
 ///
 /// Represents the runtime base configuration, pretty standard appart from:
 /// - [`BaseCallFilter`](#associatedtype.BaseCallFilter) is currently set to support safe mode
-/// - [`AccountData`](#associatedtype.AccountData) is managed by [`Balances`]
+/// - [`AccountData`](#associatedtype.AccountData) is managed by `Balances`
 /// - [`SS58Prefix`](#associatedtype.SS58Prefix) is registered for mainnet, rest is unofficial
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -101,7 +101,7 @@ parameter_types! {
 	pub const MinimumPeriod: Moment = SLOT_DURATION / 2;
 }
 
-/// ## 01 - <a id="config.Timestamp">[`Timestamp`] Config</a>
+/// ## 01 - <a id="config.Timestamp">`Timestamp` Config</a>
 ///
 /// timestamp extension
 impl pallet_timestamp::Config for Runtime {

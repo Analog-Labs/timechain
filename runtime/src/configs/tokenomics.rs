@@ -1,5 +1,4 @@
 //! Tokenomics configurations.
-
 use smallvec::smallvec;
 
 use polkadot_sdk::*;
@@ -215,11 +214,11 @@ pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
-/// ## <a id="config.TransactionPayment">[`TransactionPayment`] Config</a>
+/// ## <a id="config.TransactionPayment">TransactionPayment Config</a>
 ///
 /// Charge users for their transactions according to the transactions weight.
-/// - [`WeightToFee`](#associatedtype.WeightToFee) is a custom curve, for details see [`crate::tokenomics`]
-/// - [`LengthToFee`](#associatedtype.LengthToFee) is a custom curve, for details see [`crate::tokenomics`]
+/// - [`WeightToFee`](#associatedtype.WeightToFee) is a custom curve, for details see `crate::tokenomics`
+/// - [`LengthToFee`](#associatedtype.LengthToFee) is a custom curve, for details see `crate::tokenomics`
 impl pallet_transaction_payment::Config for Runtime {
 	/// The event type that will be emitted for transaction payment events.
 	type RuntimeEvent = RuntimeEvent;
@@ -254,7 +253,7 @@ parameter_types! {
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
 }
 
-/// ## <a id="config.Vesting">[`Vesting`] Config</a>
+/// ## <a id="config.Vesting">`Vesting` Config</a>
 ///
 /// Allow tokens to be locked following schedule
 impl pallet_vesting::Config for Runtime {

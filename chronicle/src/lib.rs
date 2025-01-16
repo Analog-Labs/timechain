@@ -10,10 +10,8 @@ use gmp::Backend;
 use scale_codec::Decode;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use time_primitives::admin::Config;
 use time_primitives::{ConnectorParams, NetworkId};
-use tokio::time::sleep;
 use tracing::{event, span, Level};
 
 pub mod admin;
@@ -69,15 +67,15 @@ pub async fn run_chronicle(
 	substrate: Arc<dyn Runtime>,
 	mut admin: mpsc::Sender<AdminMsg>,
 ) -> Result<()> {
+	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
 	let (chain, subchain) = loop {
 		let network = substrate.get_network(config.network_id).await?;
 		if let Some(network) = network {
 			break network;
-		} else {
-			tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
-			sleep(Duration::from_secs(10)).await;
-		};
+		}
+		tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
+		ticker.next().await;
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
@@ -127,7 +125,6 @@ pub async fn run_chronicle(
 			peer_id_hex: hex::encode(network.peer_id()),
 		}))
 		.await?;
-	let mut ticker = substrate.finality_notification_stream();
 	loop {
 		if substrate.is_registered().await? {
 			break;

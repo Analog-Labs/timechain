@@ -553,10 +553,10 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::BatchExecuted::decode_log(&log, true)?;
-						events.push(GmpEvent::BatchExecuted(
-							log.batch,
-							outer_log.transaction_hash.map(|hash| hash.into()),
-						));
+						events.push(GmpEvent::BatchExecuted {
+							batch_id: log.batch,
+							tx_hash: outer_log.transaction_hash.map(|hash| hash.into()),
+						});
 						break;
 					},
 					_ => {},

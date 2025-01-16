@@ -926,7 +926,7 @@ impl Tc {
 	}
 
 	pub async fn complete_batch(&self, network_id: NetworkId, batch_id: BatchId) -> Result<()> {
-		let gmp_event = GmpEvent::BatchExecuted(batch_id, None);
+		let gmp_event = GmpEvent::BatchExecuted { batch_id, tx_hash: None };
 		let events = GmpEvents(vec![gmp_event]);
 		self.runtime.submit_gmp_events(network_id, events).await
 	}

@@ -452,7 +452,7 @@ pub mod pallet {
 						MessageExecutedTaskId::<T>::insert(msg_id, task_id);
 						Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
 					},
-					GmpEvent::BatchExecuted(batch_id, tx_hash) => {
+					GmpEvent::BatchExecuted { batch_id, tx_hash } => {
 						if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
 							Self::finish_task(network, task_id, Ok(()));
 						}

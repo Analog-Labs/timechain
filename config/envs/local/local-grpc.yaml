@@ -1,7 +1,7 @@
 config:
   shard_size: 1
   shard_threshold: 1
-  chronicle_timechain_funds: 100.
+  chronicle_timechain_funds: 1.
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
 contracts:
@@ -16,8 +16,8 @@ networks:
     blockchain: "rust"
     network: "0"
     url: "http://gmp-grpc-0:3000"
-    gateway_funds: 10000
-    chronicle_target_funds: 10000
+    gateway_funds: 1.
+    chronicle_target_funds: 1.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -34,8 +34,8 @@ networks:
     blockchain: "rust"
     network: "1"
     url: "http://gmp-grpc-1:3000"
-    gateway_funds: 10000
-    chronicle_target_funds: 10000
+    gateway_funds: 1.
+    chronicle_target_funds: 1.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000

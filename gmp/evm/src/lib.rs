@@ -473,6 +473,9 @@ impl IChain for Connector {
 	async fn balance(&self, address: Address) -> Result<u128> {
 		self.wallet.balance(a_addr(address).to_string()).await
 	}
+	async fn finalized_block(&self) -> Result<u64> {
+		Ok(self.wallet.status().await?.index)
+	}
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		self.wallet.block_stream()

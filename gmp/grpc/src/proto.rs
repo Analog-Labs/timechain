@@ -31,6 +31,14 @@ pub struct BalanceResponse {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct FinalizedBlockRequest {}
+
+#[derive(Serialize, Deserialize)]
+pub struct FinalizedBlockResponse {
+	pub finalized_block: u64,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct BlockStreamRequest {}
 
 #[derive(Serialize, Deserialize)]

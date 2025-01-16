@@ -115,6 +115,11 @@ impl IChain for Connector {
 		let response = self.client.lock().await.balance(request).await?;
 		Ok(response.get_ref().balance)
 	}
+	async fn finalized_block(&self) -> Result<u64> {
+		let request = Request::new(proto::FinalizedBlockRequest {});
+		let response = self.client.lock().await.finalized_block(request).await?;
+		Ok(response.get_ref().finalized_block)
+	}
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		let request = Request::new(proto::BlockStreamRequest {});

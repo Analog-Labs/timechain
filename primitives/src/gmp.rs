@@ -348,6 +348,8 @@ pub trait IChain: Send + Sync + 'static {
 	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
 	/// Queries the account balance.
 	async fn balance(&self, address: Address) -> Result<u128>;
+	/// Returns the last finalized block.
+	async fn finalized_block(&self) -> Result<u64>;
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>>;
 }

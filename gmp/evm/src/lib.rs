@@ -56,6 +56,8 @@ pub struct Connector {
 	cctp_sender: Option<String>,
 	cctp_attestation: String,
 	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
+	// Temporary fix to avoid nonce overlap
+	wallet_guard: Arc<Mutex<()>>,
 }
 
 impl Connector {
@@ -420,6 +422,7 @@ impl IConnectorBuilder for Connector {
 			cctp_sender: params.cctp_sender,
 			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
 			cctp_queue: Default::default(),
+			wallet_guard: Default::default(),
 		};
 		Ok(connector)
 	}
@@ -601,6 +604,7 @@ impl IConnector for Connector {
 			},
 		};
 		tracing::info!("Submitting batch: {batch} to gateway with gas: {gas_limit}");
+		let _guard = self.wallet_guard.lock().await;
 		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
 			tracing::info!("Error occured on gmp call: {:?}", err);
 			err.to_string()

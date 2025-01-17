@@ -162,7 +162,6 @@ fn test_basic() {
 	let pubkey = tester.run().assert_pubkeys(n).unwrap();
 	tester.sign(0, &msg);
 	tester.run().assert_signatures(sigs, &pubkey, 0, &msg);
-	panic!();
 }
 
 #[test]

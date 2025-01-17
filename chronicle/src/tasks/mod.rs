@@ -123,6 +123,7 @@ impl TaskParams {
 				if let Err(e) =
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
+					tracing::error!("Error while executing batch {batch_id}: {e}");
 					Some(TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
 					})

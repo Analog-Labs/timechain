@@ -79,7 +79,7 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum:8545'
+    - '--target-url=ws://ethereum-1:8545'
     - '--network-id=2'
     - '--backend=evm'
     environment:
@@ -98,7 +98,7 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum:8545'
+    - '--target-url=ws://ethereum-2:8545'
     - '--network-id=3'
     - '--backend=evm'
     environment:
@@ -109,7 +109,7 @@ services:
     profiles:
     - ethereum
 
-  ethereum:
+  ethereum-1:
     image: 'ethereum/client-go:v1.14.11'
     command:
     - '--dev'
@@ -134,6 +134,32 @@ services:
     - ethereum
     ports:
     - 8545:8545
+
+  ethereum-2:
+    image: 'ethereum/client-go:v1.14.11'
+    command:
+    - '--dev'
+    - '--dev.gaslimit=30000000'
+    - '--ipcdisable'
+    - '--dev.period=2'
+    - '--rpc.txfeecap=0'
+    - '--rpc.allow-unprotected-txs=true'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
+    - '--ws'
+    - '--ws.addr=0.0.0.0'
+    - '--ws.port=8545'
+    - '--ws.origins=*'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
+    - '--verbosity=4'
+    profiles:
+    - ethereum
+    ports:
+    - 8546:8545
 
   tc-cli:
     image: 'analoglabs/tc-cli-develop'

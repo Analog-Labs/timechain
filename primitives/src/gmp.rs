@@ -260,7 +260,10 @@ pub enum GmpEvent {
 	),
 	MessageReceived(GmpMessage),
 	MessageExecuted(MessageId),
-	BatchExecuted(BatchId),
+	BatchExecuted {
+		batch_id: BatchId,
+		tx_hash: Option<Hash>,
+	},
 }
 
 #[cfg(feature = "std")]
@@ -279,8 +282,9 @@ impl std::fmt::Display for GmpEvent {
 			Self::MessageExecuted(msg) => {
 				writeln!(f, "message_executed {}", hex::encode(msg))
 			},
-			Self::BatchExecuted(batch) => {
-				writeln!(f, "batch_executed {}", batch)
+			Self::BatchExecuted { batch_id, tx_hash } => {
+				let tx_hash = tx_hash.as_ref().map_or("None".to_string(), hex::encode);
+				writeln!(f, "batch_executed {batch_id} with tx_hash {tx_hash}")
 			},
 		}
 	}

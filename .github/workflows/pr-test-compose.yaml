@@ -37,7 +37,7 @@ jobs:
       - name: Setup containers
         run: |
           docker compose --profile ethereum up -d
-      - name: fetch prices
+      - name: Fetch prices
         run: |
           docker compose run --rm --remove-orphans tc-cli fetch-prices
       - name: Smoke test
@@ -51,7 +51,10 @@ jobs:
       - name: Still works
         run: |
           docker compose run --rm --remove-orphans tc-cli smoke-test 1 0
-      - name: Cleanup
+      - name: Cleanup containers
         if: ${{ always() }}
         run: |
           docker compose --profile "*" down
+      - name: Cleanup working dir
+        if: ${{ always() }}
+        uses: eviden-actions/clean-self-hosted-runner@v1

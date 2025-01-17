@@ -4,6 +4,19 @@ use crate::{
 };
 use frost_evm::{Signature, VerifyingKey};
 use std::collections::{BTreeMap, BTreeSet};
+use tracing::{Level, Span};
+
+pub(crate) fn init_logger() {
+	tracing_subscriber::fmt()
+		.pretty()
+		.with_ansi(false)
+		.with_max_level(tracing::Level::DEBUG)
+		.with_file(true)
+		.with_line_number(true)
+		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		.try_init()
+		.ok();
+}
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 struct Peer(u8);
@@ -53,6 +66,7 @@ struct TssTester {
 	tss: Vec<Tss<Id, Peer>>,
 	events: TssEvents,
 	fault_injector: FaultInjector,
+	span: Span,
 }
 
 impl TssTester {
@@ -61,15 +75,17 @@ impl TssTester {
 	}
 
 	pub fn new_with_fault_injector(n: usize, t: usize, fault_injector: FaultInjector) -> Self {
+		let span = tracing::span!(Level::INFO, "shard", shard_id = 42);
 		let members = (0..n).map(|i| Peer(i as _)).collect::<BTreeSet<_>>();
 		let mut tss = Vec::with_capacity(n);
 		for i in 0..n {
-			tss.push(Tss::new(Peer(i as _), members.clone(), t as _, None));
+			tss.push(Tss::new(Peer(i as _), members.clone(), t as _, None, &span));
 		}
 		Self {
 			tss,
 			events: Default::default(),
 			fault_injector,
+			span,
 		}
 	}
 
@@ -106,22 +122,16 @@ impl TssTester {
 						TssAction::Send(msgs) => {
 							for (to, msg) in msgs {
 								if let Some(msg) = (self.fault_injector)(from, to, msg) {
-									match self.tss[to.0 as usize].on_message(from, msg) {
-										Ok(msg) => msg,
-										Err(error) => {
-											tracing::error!("request error {}", error);
-											continue;
-										},
-									}
+									self.tss[to.0 as usize].on_message(from, msg);
 								}
 							}
 						},
 						TssAction::Ready(_, _, pubkey) => {
-							tracing::info!("{} action pubkey", from);
+							tracing::info!(parent: &self.span, "{} action pubkey", from);
 							assert!(self.events.pubkeys.insert(from, pubkey).is_none());
 						},
 						TssAction::Signature(id, _hash, sig) => {
-							tracing::info!("{} action {} signature", from, id);
+							tracing::info!(parent: &self.span, "{} action {} signature", from, id);
 							assert!(self
 								.events
 								.signatures
@@ -143,7 +153,7 @@ impl TssTester {
 
 #[test]
 fn test_basic() {
-	env_logger::try_init().ok();
+	init_logger();
 	let n = 3;
 	let t = 3;
 	let sigs = n - t + 1;
@@ -156,7 +166,7 @@ fn test_basic() {
 
 #[test]
 fn test_multiple_signing_sessions() {
-	env_logger::try_init().ok();
+	init_logger();
 	let n = 3;
 	let t = 3;
 	let sigs = n - t + 1;
@@ -173,7 +183,7 @@ fn test_multiple_signing_sessions() {
 
 #[test]
 fn test_threshold_sign() {
-	env_logger::try_init().ok();
+	init_logger();
 	let n = 3;
 	let t = 2;
 	let sigs = n - t + 1;

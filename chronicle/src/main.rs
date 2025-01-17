@@ -79,6 +79,8 @@ fn generate_key(path: &Path) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
 	tracing_subscriber::fmt()
+		.pretty()
+		.with_ansi(false)
 		.with_max_level(tracing::Level::DEBUG)
 		.with_file(true)
 		.with_line_number(true)

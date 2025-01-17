@@ -596,7 +596,6 @@ pub mod pallet {
 		///   8. Assign each task to the shard using `Self::assign_task(network, shard_id, index, task)`.
 		fn schedule_tasks_shard(network: NetworkId, shard_id: ShardId, capacity: u32) -> u32 {
 			let mut num_tasks_assigned = 0u32;
-			log::debug!("schedule tasks {shard_id}");
 			let queue = Self::ua_task_queue(network);
 			for _ in 0..capacity {
 				let Some(task) = queue.pop() else {

@@ -4,9 +4,14 @@ use crate::mock::*;
 
 use crate::{AirdropMigration, DepositMigration};
 
+use time_primitives::ANLOG;
+
 #[test]
-fn data_v1_works() {
-	DepositMigration::<Test>::new(crate::data::v1::DEPOSITS_PRELAUNCH);
+fn data_v1_validation() {
+	assert_eq!(
+		DepositMigration::<Test>::new(crate::data::v1::DEPOSITS_PRELAUNCH).sum() as u128,
+		92_292_563 * ANLOG,
+	)
 }
 
 #[test]

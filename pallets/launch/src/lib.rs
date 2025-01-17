@@ -11,6 +11,8 @@ use time_primitives::{AccountId, Balance, BlockNumber};
 
 use polkadot_sdk::*;
 
+use sp_runtime::traits::Zero;
+
 /// Underlying migration data
 mod data;
 
@@ -155,6 +157,10 @@ pub mod pallet {
 				));
 			}
 			Self(checked)
+		}
+
+		pub fn sum(self) -> BalanceOf<T> {
+			self.0.iter().fold(Zero::zero(), |acc: BalanceOf<T>, &(_, b, _)| acc + b)
 		}
 
 		/// Execute deposits as far as possible, log failed deposit as events

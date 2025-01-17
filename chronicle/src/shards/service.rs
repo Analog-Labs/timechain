@@ -142,6 +142,7 @@ where
 						VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
 					Some(commitment)
 				} else {
+					tracing::debug!("shard commitment not found");
 					None
 				};
 			self.tss_states.insert(

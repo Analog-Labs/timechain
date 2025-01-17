@@ -316,7 +316,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
-/// ## <a id="config.Offences">[`Offences`] Config</a>
+/// ## <a id="config.Offences">`Offences` Config</a>
 ///
 /// Tracks offences
 impl pallet_offences::Config for Runtime {

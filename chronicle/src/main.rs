@@ -27,12 +27,6 @@ pub struct ChronicleArgs {
 	/// key file for connector wallet
 	#[clap(long)]
 	pub target_keyfile: PathBuf,
-	/// target min balance
-	#[clap(long, default_value_t = 0)]
-	pub target_min_balance: u128,
-	/// timechain min balance
-	#[clap(long, default_value_t = 0)]
-	pub timechain_min_balance: u128,
 	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
@@ -64,8 +58,6 @@ impl ChronicleArgs {
 		Ok(ChronicleConfig {
 			network_id: self.network_id,
 			network_key,
-			timechain_min_balance: self.timechain_min_balance,
-			target_min_balance: self.target_min_balance,
 			target_url: self.target_url,
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,

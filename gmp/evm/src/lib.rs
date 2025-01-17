@@ -56,6 +56,8 @@ pub struct Connector {
 	cctp_sender: Option<String>,
 	cctp_attestation: String,
 	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
+	// Temporary fix to avoid nonce overlap
+	wallet_guard: Arc<Mutex<()>>,
 }
 
 impl Connector {
@@ -420,6 +422,7 @@ impl IConnectorBuilder for Connector {
 			cctp_sender: params.cctp_sender,
 			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
 			cctp_queue: Default::default(),
+			wallet_guard: Default::default(),
 		};
 		Ok(connector)
 	}
@@ -473,6 +476,9 @@ impl IChain for Connector {
 	async fn balance(&self, address: Address) -> Result<u128> {
 		self.wallet.balance(a_addr(address).to_string()).await
 	}
+	async fn finalized_block(&self) -> Result<u64> {
+		Ok(self.wallet.status().await?.index)
+	}
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		self.wallet.block_stream()
@@ -499,11 +505,15 @@ impl IConnector for Connector {
 			})
 			.await?;
 		let mut events = vec![];
-		for log in logs {
-			let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
-			let log =
-				alloy_primitives::Log::new(a_addr(gateway), topics, log.data.0.to_vec().into())
-					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
+		for outer_log in logs {
+			let topics =
+				outer_log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
+			let log = alloy_primitives::Log::new(
+				a_addr(gateway),
+				topics,
+				outer_log.data.0.to_vec().into(),
+			)
+			.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			for topic in log.topics() {
 				match *topic {
 					sol::Gateway::ShardsRegistered::SIGNATURE_HASH => {
@@ -546,7 +556,10 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::BatchExecuted::decode_log(&log, true)?;
-						events.push(GmpEvent::BatchExecuted(log.batch));
+						events.push(GmpEvent::BatchExecuted {
+							batch_id: log.batch,
+							tx_hash: outer_log.transaction_hash.map(|hash| hash.into()),
+						});
 						break;
 					},
 					_ => {},
@@ -591,6 +604,7 @@ impl IConnector for Connector {
 			},
 		};
 		tracing::info!("Submitting batch: {batch} to gateway with gas: {gas_limit}");
+		let _guard = self.wallet_guard.lock().await;
 		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
 			tracing::info!("Error occured on gmp call: {:?}", err);
 			err.to_string()

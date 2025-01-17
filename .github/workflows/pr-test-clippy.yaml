@@ -33,4 +33,4 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: clippy
-          args: --all-targets --all-features -- -D warnings
+          args: --all-targets --all-features -- -D warnings -A clippy::manual_inspect

@@ -12,7 +12,6 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ExistenceRequirement, WithdrawReasons},
 };
-use pallet_balances;
 use sp_keyring::{
 	AccountKeyring::{Alice, Bob, Charlie},
 	Ed25519Keyring::{Dave, Eve, Ferdie},
@@ -136,7 +135,7 @@ fn claim_raw_schnorr_works() {
 			Alice.sign(&Airdrop::to_message(&42)[..]).0,
 			42,
 		));
-		assert_eq!(Balances::free_balance(&42), 100);
+		assert_eq!(Balances::free_balance(42), 100);
 		assert_eq!(Vesting::vesting_balance(&42), Some(50));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 100);
 	});
@@ -152,7 +151,7 @@ fn claim_raw_edwards_works() {
 			Dave.sign(&Airdrop::to_message(&42)[..]).0,
 			42,
 		));
-		assert_eq!(Balances::free_balance(&42), 300);
+		assert_eq!(Balances::free_balance(42), 300);
 		assert_eq!(Vesting::vesting_balance(&42), Some(50));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 300);
 	});
@@ -266,7 +265,7 @@ fn mint_claim_works() {
 			Charlie.sign(&Airdrop::to_message(&42)[..]).0,
 			42,
 		));
-		assert_eq!(Balances::free_balance(&42), 200);
+		assert_eq!(Balances::free_balance(42), 200);
 		assert_eq!(Vesting::vesting_balance(&42), None);
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
 	});
@@ -298,7 +297,7 @@ fn mint_claim_with_vesting_works() {
 			Charlie.sign(&Airdrop::to_message(&42)[..]).0,
 			42,
 		));
-		assert_eq!(Balances::free_balance(&42), 200);
+		assert_eq!(Balances::free_balance(42), 200);
 		assert_eq!(Vesting::vesting_balance(&42), Some(50));
 
 		// Make sure we can not transfer the vested balance.
@@ -396,7 +395,7 @@ fn validate_unsigned_works() {
 				priority: 100,
 				requires: vec![],
 				provides: vec![("airdrop", AccountId32::from(Alice)).encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		);
@@ -414,7 +413,7 @@ fn validate_unsigned_works() {
 				priority: 100,
 				requires: vec![],
 				provides: vec![("airdrop", AccountId32::from(Dave)).encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		);

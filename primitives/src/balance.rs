@@ -39,7 +39,8 @@ impl<'a> BalanceFormatter<'a> {
 		let base = f64::powi(10., unit as i32 + self.decimals as i32);
 		let tokens = balance as f64 / base;
 		let tokens_str = format!("{tokens:.3}");
-		let tokens_str = tokens_str.trim_end_matches(['0', '.']);
+		let tokens_str = tokens_str.trim_end_matches('0');
+		let tokens_str = tokens_str.trim_end_matches('.');
 		if let Some(prefix) = prefix {
 			format!("{tokens_str}{prefix} {}", self.symbol)
 		} else {
@@ -75,6 +76,9 @@ mod tests {
 			(0, "0 ANLG"),
 			(1, "1p ANLG"),
 			(1_000_000_000_000, "1 ANLG"),
+			(10_000_000_000_000, "10 ANLG"),
+			(100_000_000_000_000, "100 ANLG"),
+			(1_000_000_000_000_000, "1k ANLG"),
 			(1_200_000, "1.2u ANLG"),
 			(1_200_000_000_000_000, "1.2k ANLG"),
 		];

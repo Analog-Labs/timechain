@@ -33,23 +33,10 @@ pub mod pallet {
 	use frame_support::traits::{
 		Currency, OriginTrait, PalletInfoAccess, StorageVersion, VestingSchedule,
 	};
+	use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
+
 	use time_primitives::traits::Ss58Codec;
-
-	// Type aliases to interact with vesting pallet
-	type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
-		<T as frame_system::Config>::AccountId,
-	>>::Currency;
-	type BalanceOf<T> =
-		<CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-	// Type aliases to interact with Airdrop pallet
-	type AirdropCurrencyOf<T> =
-		<<T as pallet_airdrop::Config>::VestingSchedule as VestingSchedule<
-			<T as frame_system::Config>::AccountId,
-		>>::Currency;
-	type AirdropBalanceOf<T> =
-		<AirdropCurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// Updating this number will automatically execute the next launch stages on update
 	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(0);
@@ -121,8 +108,6 @@ pub mod pallet {
 		}
 	}
 
-	use sp_runtime::traits::CheckedConversion;
-
 	/// Vesting schedule embedded in code, but not yet parsed and verified
 	pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 
@@ -131,6 +116,15 @@ pub mod pallet {
 
 	/// Endowment migration embedded in code, but not yet parsed and verified
 	pub type RawEndowmentMigration = &'static [RawEndowmentDetails];
+
+	/// Type aliases for currency used by the vesting schedule
+	type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
+		<T as frame_system::Config>::AccountId,
+	>>::Currency;
+
+	/// Type aliases for balance used by the vesting schedule
+	type BalanceOf<T> =
+		<CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// Parsed vesting details
 	type VestingDetails<T> = (BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>);
@@ -152,7 +146,9 @@ pub mod pallet {
 				if let Some(parsed) = Self::parse(details) {
 					checked.push(parsed)
 				} else {
-					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid { id: details.0.to_string() });
+					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid {
+						id: details.0.to_string(),
+					});
 				}
 			}
 			Self(checked)
@@ -171,7 +167,7 @@ pub mod pallet {
 					))
 				} else {
 					None
-				}
+				},
 			))
 		}
 
@@ -212,6 +208,16 @@ pub mod pallet {
 		}
 	}
 
+	/// Type aliases for the currency used in the airdrop vesting scheduler
+	type AirdropCurrencyOf<T> =
+		<<T as pallet_airdrop::Config>::VestingSchedule as VestingSchedule<
+			<T as frame_system::Config>::AccountId,
+		>>::Currency;
+
+	/// Type aliases for the balance used in the airdrop vesting scheduler
+	type AirdropBalanceOf<T> =
+		<AirdropCurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 	/// Parsed vesting details
 	type AirdropVestingDetails<T> = (AirdropBalanceOf<T>, AirdropBalanceOf<T>, BlockNumberFor<T>);
 
@@ -219,7 +225,7 @@ pub mod pallet {
 	type AirdropDetails<T> = (AccountId, AirdropBalanceOf<T>, Option<AirdropVestingDetails<T>>);
 
 	/// Parsed and verified migration that endows account
-	pub struct AirdropMigration<T: Config>( Vec<AirdropDetails<T>>);
+	pub struct AirdropMigration<T: Config>(Vec<AirdropDetails<T>>);
 
 	impl<T: Config> AirdropMigration<T>
 	where
@@ -232,7 +238,9 @@ pub mod pallet {
 				if let Some(parsed) = Self::parse(details) {
 					checked.push(parsed)
 				} else {
-					Pallet::<T>::deposit_event(Event::<T>::AirdropInvalid { id: details.0.to_string() });
+					Pallet::<T>::deposit_event(Event::<T>::AirdropInvalid {
+						id: details.0.to_string(),
+					});
 				}
 			}
 			Self(checked)
@@ -251,7 +259,7 @@ pub mod pallet {
 					))
 				} else {
 					None
-				}
+				},
 			))
 		}
 

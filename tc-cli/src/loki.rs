@@ -43,10 +43,10 @@ impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Task { task } => {
-				write!(f, r#"{{app="chronicle"}} |~ `task_id(.*)=(.*){task}`"#)
+				write!(f, r#"{{app="chronicle"}} |~ `(task_id|session)={task}`"#)
 			},
 			Self::Shard { shard } => {
-				write!(f, r#"{{app="chronicle"}} |~ `shard_id(.*)=(.*){shard}`"#)
+				write!(f, r#"{{app="chronicle"}} |= `shard_id={shard}`"#)
 			},
 			Self::Raw { query } => f.write_str(query),
 		}

@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::env::Mnemonics;
 use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
 use anyhow::{Context, Result};
-use futures::stream::{BoxStream, StreamExt};
+use futures::stream::BoxStream;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -402,8 +402,7 @@ impl Tc {
 		let blocks = self.read_events_blocks(sync_task).await?;
 		let block = self
 			.connector(network)?
-			.block_stream()
-			.next()
+			.finalized_block()
 			.await
 			.context("failed to read target block")?;
 		Ok(SyncStatus {
@@ -707,10 +706,10 @@ impl Tc {
 	}
 
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
-		for (src, gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
+		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
-			let routes = connector.routes(gateway).await?;
-			for dest in gateways.keys().copied() {
+			let routes = connector.routes(src_gateway).await?;
+			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
 				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
@@ -720,7 +719,7 @@ impl Tc {
 				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
 					network_id: dest,
-					gateway,
+					gateway: dest_gateway,
 					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
@@ -729,7 +728,7 @@ impl Tc {
 					continue;
 				}
 				tracing::info!("register_route {src} {dest}");
-				connector.set_route(gateway, route).await?;
+				connector.set_route(src_gateway, route).await?;
 			}
 		}
 		Ok(())
@@ -927,7 +926,7 @@ impl Tc {
 	}
 
 	pub async fn complete_batch(&self, network_id: NetworkId, batch_id: BatchId) -> Result<()> {
-		let gmp_event = GmpEvent::BatchExecuted(batch_id);
+		let gmp_event = GmpEvent::BatchExecuted { batch_id, tx_hash: None };
 		let events = GmpEvents(vec![gmp_event]);
 		self.runtime.submit_gmp_events(network_id, events).await
 	}

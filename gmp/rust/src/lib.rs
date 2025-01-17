@@ -202,6 +202,10 @@ impl IChain for Connector {
 		Ok(())
 	}
 
+	async fn finalized_block(&self) -> Result<u64> {
+		Ok(block(self.genesis))
+	}
+
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		let genesis = self.genesis;
@@ -272,7 +276,10 @@ impl IConnector for Connector {
 						},
 					}
 				}
-				events.insert((gateway, block), GmpEvent::BatchExecuted(batch))?;
+				events.insert(
+					(gateway, block),
+					GmpEvent::BatchExecuted { batch_id: batch, tx_hash: None },
+				)?;
 			}
 			tx.commit()?;
 			Ok(())

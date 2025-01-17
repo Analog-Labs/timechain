@@ -5,15 +5,13 @@ use crate::shards::{TimeWorker, TimeWorkerParams};
 use crate::tasks::TaskParams;
 use anyhow::Result;
 use futures::channel::mpsc;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use gmp::Backend;
 use scale_codec::Decode;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use time_primitives::admin::Config;
 use time_primitives::{ConnectorParams, NetworkId};
-use tokio::time::sleep;
 use tracing::{event, span, Level};
 
 pub mod admin;
@@ -39,10 +37,6 @@ pub struct ChronicleConfig {
 	pub target_mnemonic: String,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
-	/// Target min balance.
-	pub target_min_balance: u128,
-	/// Timechain min balance.
-	pub timechain_min_balance: u128,
 	/// Backend
 	pub backend: Backend,
 	// Cctp request sender
@@ -73,15 +67,15 @@ pub async fn run_chronicle(
 	substrate: Arc<dyn Runtime>,
 	mut admin: mpsc::Sender<AdminMsg>,
 ) -> Result<()> {
+	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
 	let (chain, subchain) = loop {
 		let network = substrate.get_network(config.network_id).await?;
 		if let Some(network) = network {
 			break network;
-		} else {
-			tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
-			sleep(Duration::from_secs(10)).await;
-		};
+		}
+		tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
+		ticker.next().await;
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
@@ -131,19 +125,12 @@ pub async fn run_chronicle(
 			peer_id_hex: hex::encode(network.peer_id()),
 		}))
 		.await?;
-	let timechain_min_balance = config.timechain_min_balance;
-	while substrate.balance(substrate.account_id()).await? < timechain_min_balance {
-		tracing::warn!(target: TW_LOG, "timechain balance is below {timechain_min_balance}");
-		sleep(Duration::from_secs(6)).await;
-	}
-	let target_min_balance = config.target_min_balance;
-	while connector.balance(connector.address()).await? < target_min_balance {
-		tracing::warn!(target: TW_LOG, "target balance is below {target_min_balance}");
-		sleep(Duration::from_secs(6)).await;
-	}
-	while !substrate.is_registered().await? {
+	loop {
+		if substrate.is_registered().await? {
+			break;
+		}
 		tracing::warn!(target: TW_LOG, "chronicle isn't registered");
-		sleep(Duration::from_secs(6)).await;
+		ticker.next().await;
 	}
 
 	let span = span!(
@@ -189,7 +176,7 @@ mod tests {
 		tracing::info!("running chronicle ");
 		let network_key = *mock.account_id().as_ref();
 		let (tx, mut rx) = mpsc::channel(10);
-		let tss_keyshare_cache = format!("/tmp/{}", hex::encode(&network_key)).into();
+		let tss_keyshare_cache = format!("/tmp/chronicles/{}", hex::encode(network_key)).into();
 		std::fs::create_dir_all(&tss_keyshare_cache).unwrap();
 		let handle = tokio::task::spawn(run_chronicle(
 			ChronicleConfig {
@@ -198,8 +185,6 @@ mod tests {
 				target_url: "tempfile".to_string(),
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache,
-				target_min_balance: 0,
-				timechain_min_balance: 0,
 				backend: Backend::Rust,
 				cctp_sender: None,
 				cctp_attestation: None,

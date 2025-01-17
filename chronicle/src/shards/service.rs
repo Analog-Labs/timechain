@@ -152,6 +152,7 @@ where
 					threshold,
 					commitment,
 					&self.tss_keyshare_cache,
+					&span,
 				)?,
 			);
 			if let Err(e) = self.admin_request.send(AdminMsg::JoinedShard(shard_id)).await {

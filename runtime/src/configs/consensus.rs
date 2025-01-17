@@ -23,7 +23,7 @@ use frame_support::traits::KeyOwnerProofSystem;
 #[cfg(feature = "testnet")]
 use sp_core::crypto::KeyTypeId;
 
-/// ## <a id="config.Authorship">[`Authorship`] Config</a>
+/// ## <a id="config.Authorship">`Authorship` Config</a>
 ///
 /// Tracks block authorship
 impl pallet_authorship::Config for Runtime {
@@ -51,7 +51,7 @@ impl<T> sp_runtime::traits::Convert<T, Option<T>> for IdentityValidator {
 	}
 }
 
-/// ## <a id="config.Session">[`Session`] Config</a>
+/// ## <a id="config.Session">`Session`] Config</a>
 ///
 /// Tracks session keys
 impl pallet_session::Config for Runtime {

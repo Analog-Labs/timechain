@@ -16,7 +16,7 @@ use frost_evm::Scalar;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use tracing::field;
+use tracing::{field, Level, Span};
 
 pub use frost_evm::frost_core::keys::sum_commitments;
 pub use frost_evm::frost_secp256k1::Signature as ProofOfKnowledge;
@@ -138,6 +138,7 @@ pub struct Tss<I, P> {
 	coordinators: BTreeSet<Identifier>,
 	state: TssState<I>,
 	committed: bool,
+	span: Span,
 }
 
 impl<I, P> Tss<I, P>
@@ -160,7 +161,12 @@ where
 		members: BTreeSet<P>,
 		threshold: u16,
 		recover: Option<(SigningShare, VerifiableSecretSharingCommitment)>,
+		span: &Span,
 	) -> Self {
+		let span = tracing::span!(parent: span,
+			Level::INFO, "tss",
+			peer_id = field::display(&peer_id),
+		);
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_id.to_frost();
 		let frost_to_peer: BTreeMap<_, _> =
@@ -170,11 +176,11 @@ where
 			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
 		let is_coordinator = coordinators.contains(&frost_id);
 		tracing::info!(
-			peer_id = field::display(peer_id.clone()),
-			"initialize {}/{} coordinator = {}",
-			threshold,
-			members.len(),
-			is_coordinator,
+			parent: &span,
+			threshold = threshold,
+			members = members.len(),
+			coordinator = is_coordinator,
+			"initialize",
 		);
 		let committed = recover.is_some();
 		Self {
@@ -197,6 +203,7 @@ where
 				TssState::Dkg(Dkg::new(frost_id, members, threshold))
 			},
 			committed,
+			span,
 		}
 	}
 
@@ -237,38 +244,43 @@ where
 	/// 3. Converts the sender to a FROST identifier and validates it.
 	/// 4. Processes the message based on the current state (DKG or ROAST).
 	/// 5. Returns the result of the processing.
-	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) -> Result<()> {
-		tracing::info!(
-			peer_id = field::display(&self.peer_id),
-			"on_message from peer_id={peer_id} msg={msg}",
+	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) {
+		let span = tracing::span!(
+			parent: &self.span,
+			Level::INFO, "on_message",
+			from = field::display(&peer_id),
+			msg = field::display(&msg),
 		);
 		if self.peer_id == peer_id {
-			anyhow::bail!("{} received message from self", self.peer_id);
+			tracing::error!(parent: &span, "received message from self");
+			return;
 		}
 		let frost_id = peer_id.to_frost();
 		if !self.frost_to_peer.contains_key(&frost_id) {
-			anyhow::bail!("{} received message unknown peer {}", self.peer_id, peer_id);
+			tracing::error!(parent: &span, "received message from unknown peer");
+			return;
 		}
 		match (&mut self.state, msg) {
 			(TssState::Dkg(dkg), TssMessage::Dkg { msg }) => {
 				dkg.on_message(frost_id, msg);
 			},
 			(TssState::Roast { signing_sessions, .. }, TssMessage::Roast { id, msg }) => {
+				let span = tracing::span!(
+					parent: &span,
+					Level::INFO,
+					"session",
+					session = field::display(&id),
+				);
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg);
 				} else {
-					tracing::info!(
-						peer_id = field::display(&self.peer_id),
-						session = field::display(id),
-						"invalid signing session",
-					);
+					tracing::error!(parent: &span, "invalid signing session");
 				}
 			},
-			(_, msg) => {
-				anyhow::bail!("unexpected message {}", msg);
+			(_, _) => {
+				tracing::error!(parent: &span, "unexpected message");
 			},
 		}
-		Ok(())
 	}
 
 	/// Handles commit actions and updates the state accordingly.
@@ -278,14 +290,14 @@ where
 	/// 2. If in the DKG state, processes the commit and sets committed to true.
 	/// 3. Logs an error if not in the DKG state.
 	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
-		tracing::info!(peer_id = field::display(&self.peer_id), "commit",);
+		tracing::info!(parent: &self.span, "commit");
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
 				dkg.on_commit(commitment);
 				self.committed = true;
 			},
 			_ => {
-				tracing::error!(peer_id = field::display(&self.peer_id), "unexpected commit")
+				tracing::error!(parent: &self.span, "unexpected commit")
 			},
 		}
 	}
@@ -309,6 +321,7 @@ where
 					key_package.clone(),
 					public_key_package.clone(),
 					self.coordinators.clone(),
+					&self.span,
 				)
 			})),
 			_ => None,
@@ -321,15 +334,15 @@ where
 	/// 2. Inserts a new session if it does not already exist.
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_start(&mut self, id: I) {
-		tracing::info!(
-			peer_id = field::display(&self.peer_id),
+		let span = tracing::span!(
+			parent: &self.span,
+			Level::INFO,
+			"start",
 			session = field::display(&id),
-			"start"
 		);
 		if self.get_or_insert_session(id.clone()).is_none() {
 			tracing::error!(
-				peer_id = field::display(&self.peer_id),
-				session = field::display(&id),
+				parent: &span,
 				"not ready to sign for",
 			);
 		}
@@ -342,17 +355,17 @@ where
 	/// 2. Sets the data for the session if it exists.
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
-		tracing::info!(
-			peer_id = field::display(&self.peer_id),
+		let span = tracing::span!(
+			parent: &self.span,
+			Level::INFO,
+			"sign",
 			session = field::display(&id),
-			"sign"
 		);
 		if let Some(session) = self.get_or_insert_session(id.clone()) {
 			session.set_data(data)
 		} else {
 			tracing::error!(
-				peer_id = field::display(&self.peer_id),
-				session = field::display(&id),
+				parent: &span,
 				"not ready to sign",
 			);
 		}
@@ -365,10 +378,11 @@ where
 	/// 2. Removes the session if it exists.
 	/// 3. Logs an error if not ready to sign.
 	pub fn on_complete(&mut self, id: I) {
-		tracing::info!(
-			peer_id = field::display(&self.peer_id),
+		let span = tracing::span!(
+			parent: &self.span,
+			Level::INFO,
+			"complete",
 			session = field::display(&id),
-			"complete"
 		);
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
@@ -376,8 +390,7 @@ where
 			},
 			_ => {
 				tracing::error!(
-					peer_id = field::display(&self.peer_id),
-					session = field::display(&id),
+					parent: &span,
 					"not ready to complete",
 				);
 			},
@@ -419,14 +432,15 @@ where
 							public_key_package,
 							signing_sessions: Default::default(),
 						};
+						tracing::info!(parent: &self.span, "ready");
 						return Some(TssAction::Ready(signing_share, commitment, public_key));
 					},
 					// If the DKG fails, transition to the Failed state
 					DkgAction::Failure(error) => {
 						tracing::error!(
-							peer_id = field::display(&self.peer_id),
-							"dkg failed with {:?}",
-							error
+							parent: &self.span,
+							error = field::debug(&error),
+							"dkg failed",
 						);
 						self.state = TssState::Failed;
 						return None;

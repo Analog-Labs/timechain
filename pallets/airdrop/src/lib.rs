@@ -89,6 +89,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// A new airdrop eligibility has been created.
+		Minted { owner: AccountId32, amount: BalanceOf<T> },
 		/// Someone claimed their airdrop.
 		Claimed { source: AccountId32, target: T::AccountId, amount: BalanceOf<T> },
 	}
@@ -296,18 +298,21 @@ impl<T: Config> Pallet<T> {
 	/// Internal function to mint additional airdrops
 	fn mint_airdrop(
 		owner: AccountId32,
-		value: BalanceOf<T>,
+		amount: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
 	) -> sp_runtime::DispatchResult {
 		ensure!(Claims::<T>::get(&owner).is_none(), Error::<T>::AlreadyHasClaim);
 
 		// Update total, add amount and optional vesting schedule
-		Total::<T>::mutate(|t| *t += value);
+		Total::<T>::mutate(|t| *t += amount);
 
-		Claims::<T>::insert(&owner, value);
+		Claims::<T>::insert(&owner, amount);
 		if let Some(vs) = vesting {
-			Vesting::<T>::insert(owner, vs);
+			Vesting::<T>::insert(owner.clone(), vs);
 		}
+
+		// Deposit event on success.
+		Self::deposit_event(Event::<T>::Minted { owner, amount });
 
 		Ok(())
 	}

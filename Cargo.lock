@@ -20556,12 +20556,13 @@ name = "tss"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "env_logger 0.11.6",
  "frost-evm",
+ "hex",
  "rand_core 0.6.4",
  "serde",
  "simple-mermaid",
  "tracing",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]

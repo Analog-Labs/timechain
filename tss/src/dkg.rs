@@ -172,7 +172,7 @@ mod tests {
 
 	#[test]
 	fn test_dkg() {
-		env_logger::try_init().ok();
+		crate::tests::init_logger();
 		let members: BTreeSet<_> = default_identifiers(3).into_iter().collect();
 		let threshold = 2;
 		let mut dkgs: HashMap<_, _> = members

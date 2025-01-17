@@ -6,6 +6,7 @@ use sha3::{Digest, Sha3_256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 pub use time_primitives::TaskId;
+use tracing::Span;
 pub use tss::{
 	ProofOfKnowledge, Signature, SigningKey, VerifiableSecretSharingCommitment, VerifyingKey,
 };
@@ -98,6 +99,7 @@ impl Tss {
 		threshold: u16,
 		commitment: Option<VerifiableSecretSharingCommitment>,
 		tss_keyshare_cache: &Path,
+		span: &Span,
 	) -> Result<Self> {
 		let peer_id = TssPeerId::new(peer_id)?;
 		let members = members.into_iter().map(TssPeerId::new).collect::<Result<BTreeSet<_>>>()?;
@@ -130,7 +132,7 @@ impl Tss {
 			} else {
 				None
 			};
-			Ok(Tss::Enabled(tss::Tss::new(peer_id, members, threshold, recover)))
+			Ok(Tss::Enabled(tss::Tss::new(peer_id, members, threshold, recover, span)))
 		}
 	}
 
@@ -178,7 +180,7 @@ impl Tss {
 	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<()> {
 		let peer_id = TssPeerId::new(peer_id)?;
 		match self {
-			Self::Enabled(tss) => tss.on_message(peer_id, msg)?,
+			Self::Enabled(tss) => tss.on_message(peer_id, msg),
 			Self::Disabled(_, _, _) => {},
 		};
 		Ok(())
@@ -208,8 +210,10 @@ impl Tss {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use tracing::Level;
 
 	fn test_tss_recovery(n: usize) {
+		let span = tracing::span!(Level::INFO, "tss");
 		let dir = tempfile::tempdir().unwrap();
 		let mut members = BTreeSet::new();
 		for i in 1..(n + 1) {
@@ -218,11 +222,11 @@ mod tests {
 			members.insert(peerid);
 		}
 		let peerid = *members.iter().next().unwrap();
-		let mut tss = Tss::new(peerid, members.clone(), n as _, None, dir.path()).unwrap();
+		let mut tss = Tss::new(peerid, members.clone(), n as _, None, dir.path(), &span).unwrap();
 		let TssAction::Commit(commitment, _) = tss.next_action(dir.path()).unwrap() else {
 			panic!();
 		};
-		Tss::new(peerid, members, n as _, Some(commitment), dir.path()).unwrap();
+		Tss::new(peerid, members, n as _, Some(commitment), dir.path(), &span).unwrap();
 	}
 
 	#[test]

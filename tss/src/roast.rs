@@ -23,6 +23,7 @@ use frost_evm::{
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use tracing::{Level, Span};
 
 /// Represents a signing request sent to a RoastSigner.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -44,16 +45,19 @@ struct RoastSigner {
 	data: Option<Vec<u8>>,
 	coordinators: BTreeMap<Identifier, SigningNonces>,
 	requests: VecDeque<(Identifier, RoastSignerRequest)>,
+	span: Span,
 }
 
 impl RoastSigner {
 	/// Creates a new `RoastSigner` instance with the given key package.
-	pub fn new(key_package: KeyPackage) -> Self {
+	pub fn new(key_package: KeyPackage, span: &Span) -> Self {
+		let span = tracing::span!(parent: span, Level::INFO, "signer");
 		Self {
 			key_package,
 			data: None,
 			coordinators: Default::default(),
 			requests: Default::default(),
+			span,
 		}
 	}
 
@@ -93,7 +97,7 @@ impl RoastSigner {
 			let signature_share = match round2::sign(&signing_package, &nonces, &self.key_package) {
 				Ok(ss) => ss,
 				Err(err) => {
-					tracing::error!(session_id = session_id, "invalid signing package {err:?}");
+					tracing::error!(parent: &self.span, session_id = session_id, "invalid signing package {err:?}");
 					continue;
 				},
 			};
@@ -145,17 +149,20 @@ struct RoastCoordinator {
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 	sessions: BTreeMap<u16, RoastSession>,
 	committed: BTreeSet<Identifier>,
+	span: Span,
 }
 
 impl RoastCoordinator {
 	/// Creates a new `RoastCoordinator` instance with the given threshold.
-	fn new(threshold: u16) -> Self {
+	fn new(threshold: u16, span: &Span) -> Self {
+		let span = tracing::span!(parent: span, Level::INFO, "coordinator");
 		Self {
 			threshold,
 			session_id: 0,
 			commitments: Default::default(),
 			sessions: Default::default(),
 			committed: Default::default(),
+			span,
 		}
 	}
 
@@ -179,6 +186,7 @@ impl RoastCoordinator {
 	fn start_session(&mut self) -> Option<RoastSignerRequest> {
 		if self.commitments.len() < self.threshold as _ {
 			tracing::debug!(
+				parent: &self.span,
 				session_id = self.session_id,
 				"commitments {}/{}",
 				self.commitments.len(),
@@ -248,6 +256,7 @@ pub struct Roast {
 	coordinator: Option<RoastCoordinator>,
 	public_key_package: PublicKeyPackage,
 	coordinators: BTreeSet<Identifier>,
+	_span: Span,
 }
 
 impl Roast {
@@ -258,13 +267,20 @@ impl Roast {
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
 		coordinators: BTreeSet<Identifier>,
+		span: &Span,
 	) -> Self {
+		let span = tracing::span!(parent: span, Level::INFO, "roast");
 		let is_coordinator = coordinators.contains(&id);
 		Self {
-			signer: RoastSigner::new(key_package),
-			coordinator: if is_coordinator { Some(RoastCoordinator::new(threshold)) } else { None },
+			signer: RoastSigner::new(key_package, &span),
+			coordinator: if is_coordinator {
+				Some(RoastCoordinator::new(threshold, &span))
+			} else {
+				None
+			},
 			public_key_package,
 			coordinators,
+			_span: span,
 		}
 	}
 
@@ -332,11 +348,12 @@ mod tests {
 	use super::*;
 	use anyhow::Result;
 	use frost_evm::keys::{generate_with_dealer, IdentifierList};
+	use tracing::Level;
 
 	/// The module includes a test for the Roast protocol to ensure its correctness.
 	#[test]
 	fn test_roast() -> Result<()> {
-		env_logger::try_init().ok();
+		crate::tests::init_logger();
 		let signers = 3;
 		let threshold = 2;
 		let coordinator = 1;
@@ -355,6 +372,7 @@ mod tests {
 						KeyPackage::try_from(secret_share).unwrap(),
 						public_key_package.clone(),
 						coordinators.clone(),
+						&tracing::span!(Level::INFO, "shard"),
 					),
 				)
 			})

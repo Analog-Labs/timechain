@@ -79,10 +79,12 @@ pub mod pallet {
 		MigrationStarted { stage: u16 },
 		/// Missing migration to reach latest stage.
 		MigrationMissing { stage: u16 },
-		/// Invalid migration to reach latest stage
-		MigrationInvalid { stage: u16 },
+		/// A deposit migration could not be parsed
+		DepositInvalid { id: String },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
+		/// An airdrop migration could not be parsed
+		AirdropInvalid { id: String },
 		/// An airdrop migration failed due to a vesting schedule conflict.
 		AirdropFailed { target: T::AccountId },
 	}
@@ -124,41 +126,56 @@ pub mod pallet {
 	/// Vesting schedule embedded in code, but not yet parsed and verified
 	pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 
+	/// Endowment detailsembedded in code, but not yet parsed and verified
+	pub type RawEndowmentDetails = (&'static str, Balance, Option<RawVestingSchedule>);
+
 	/// Endowment migration embedded in code, but not yet parsed and verified
-	pub type RawEndowmentMigration =
-		&'static [(&'static str, Balance, Option<RawVestingSchedule>)];
+	pub type RawEndowmentMigration = &'static [RawEndowmentDetails];
 
 	/// Parsed vesting details
 	type VestingDetails<T> = (BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>);
 
+	/// Parsed deposit details
+	type DepositDetails<A, T> = (A, BalanceOf<T>, Option<VestingDetails<T>>);
+
 	/// Parsed and verified migration that endows account
-	pub struct DepositMigration<T: Config>(
-		Vec<(T::AccountId, BalanceOf<T>, Option<VestingDetails<T>>)>,
-	);
+	pub struct DepositMigration<T: Config>(Vec<DepositDetails<T::AccountId, T>>);
 
 	impl<T: Config> DepositMigration<T>
 	where
 		T::AccountId: From<AccountId>,
 	{
-		/// Create new endowing migration by parsing and converting raw info
+		/// Create new deposit migration by parsing and converting raw info
 		pub fn new(data: RawEndowmentMigration) -> Self {
 			let mut checked = vec![];
-			for (address, amount, shedule) in data.iter() {
-				checked.push((
-					AccountId::from_ss58check(address).unwrap().into(),
-					BalanceOf::<T>::checked_from(*amount).unwrap(),
-					shedule.map(|(locked, per_block, start)| {
-						(
-							BalanceOf::<T>::checked_from(locked).unwrap(),
-							BalanceOf::<T>::checked_from(per_block).unwrap(),
-							BlockNumberFor::<T>::checked_from(start).unwrap(),
-						)
-					}),
-				));
+			for details in data.into_iter() {
+				if let Some(parsed) = Self::parse(details) {
+					checked.push(parsed)
+				} else {
+					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid { id: details.0.to_string() });
+				}
 			}
 			Self(checked)
 		}
 
+		/// Parse an individual entry of a deposit migration
+		pub fn parse(details: &RawEndowmentDetails) -> Option<DepositDetails<T::AccountId, T>> {
+			Some((
+				AccountId::from_ss58check(details.0).ok()?.into(),
+				BalanceOf::<T>::checked_from(details.1)?,
+				if let Some((locked, per_block, start)) = details.2 {
+					Some((
+						BalanceOf::<T>::checked_from(locked)?,
+						BalanceOf::<T>::checked_from(per_block)?,
+						BlockNumberFor::<T>::checked_from(start)?,
+					))
+				} else {
+					None
+				}
+			))
+		}
+
+		/// Compute the total amount of minted token in this
 		pub fn sum(self) -> BalanceOf<T> {
 			self.0.iter().fold(Zero::zero(), |acc: BalanceOf<T>, &(_, b, _)| acc + b)
 		}
@@ -198,10 +215,11 @@ pub mod pallet {
 	/// Parsed vesting details
 	type AirdropVestingDetails<T> = (AirdropBalanceOf<T>, AirdropBalanceOf<T>, BlockNumberFor<T>);
 
+	/// Parsed deposit details
+	type AirdropDetails<T> = (AccountId, AirdropBalanceOf<T>, Option<AirdropVestingDetails<T>>);
+
 	/// Parsed and verified migration that endows account
-	pub struct AirdropMigration<T: Config>(
-		Vec<(AccountId, AirdropBalanceOf<T>, Option<AirdropVestingDetails<T>>)>,
-	);
+	pub struct AirdropMigration<T: Config>( Vec<AirdropDetails<T>>);
 
 	impl<T: Config> AirdropMigration<T>
 	where
@@ -210,22 +228,34 @@ pub mod pallet {
 		/// Create new endowing migration by parsing and converting raw info
 		pub fn new(data: RawEndowmentMigration) -> Self {
 			let mut checked = vec![];
-			for (address, amount, shedule) in data.iter() {
-				checked.push((
-					AccountId::from_ss58check(address).unwrap().into(),
-					AirdropBalanceOf::<T>::checked_from(*amount).unwrap(),
-					shedule.map(|(locked, per_block, start)| {
-						(
-							AirdropBalanceOf::<T>::checked_from(locked).unwrap(),
-							AirdropBalanceOf::<T>::checked_from(per_block).unwrap(),
-							BlockNumberFor::<T>::checked_from(start).unwrap(),
-						)
-					}),
-				));
+			for details in data.into_iter() {
+				if let Some(parsed) = Self::parse(details) {
+					checked.push(parsed)
+				} else {
+					Pallet::<T>::deposit_event(Event::<T>::AirdropInvalid { id: details.0.to_string() });
+				}
 			}
 			Self(checked)
 		}
 
+		/// Try to parse an individual entry of an airdrop migration
+		pub fn parse(details: &RawEndowmentDetails) -> Option<AirdropDetails<T>> {
+			Some((
+				AccountId::from_ss58check(details.0).ok()?.into(),
+				AirdropBalanceOf::<T>::checked_from(details.1)?,
+				if let Some((locked, per_block, start)) = details.2 {
+					Some((
+						AirdropBalanceOf::<T>::checked_from(locked)?,
+						AirdropBalanceOf::<T>::checked_from(per_block)?,
+						BlockNumberFor::<T>::checked_from(start)?,
+					))
+				} else {
+					None
+				}
+			))
+		}
+
+		/// Add all airdrops inside the airdrop migration
 		pub fn execute(self) -> Weight {
 			let mut weight = Weight::zero();
 

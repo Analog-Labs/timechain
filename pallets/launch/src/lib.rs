@@ -67,11 +67,11 @@ pub mod pallet {
 		/// Missing migration to reach latest stage.
 		MigrationMissing { stage: u16 },
 		/// A deposit migration could not be parsed
-		DepositInvalid { id: String },
+		DepositInvalid { id: Vec<u8> },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
 		/// An airdrop migration could not be parsed
-		AirdropInvalid { id: String },
+		AirdropInvalid { id: Vec<u8> },
 		/// An airdrop migration failed due to a vesting schedule conflict.
 		AirdropFailed { target: T::AccountId },
 	}
@@ -146,9 +146,7 @@ pub mod pallet {
 				if let Some(parsed) = Self::parse(details) {
 					checked.push(parsed)
 				} else {
-					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid {
-						id: details.0.to_string(),
-					});
+					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid { id: details.0.into() });
 				}
 			}
 			Self(checked)
@@ -238,9 +236,7 @@ pub mod pallet {
 				if let Some(parsed) = Self::parse(details) {
 					checked.push(parsed)
 				} else {
-					Pallet::<T>::deposit_event(Event::<T>::AirdropInvalid {
-						id: details.0.to_string(),
-					});
+					Pallet::<T>::deposit_event(Event::<T>::AirdropInvalid { id: details.0.into() });
 				}
 			}
 			Self(checked)

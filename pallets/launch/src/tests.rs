@@ -39,7 +39,7 @@ fn data_v2_validation() {
 		//assert_eq!(v2.sum() as u128, 92_292_563 * ANLOG);
 
 		// Ensure non of the endowments causes an error event
-		let w = v2.execute();
+		let _w = v2.execute();
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// TODO: Check weight

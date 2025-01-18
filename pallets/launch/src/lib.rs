@@ -36,7 +36,7 @@ pub mod pallet {
 	use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
 
-	use time_primitives::traits::Ss58Codec;
+	use time_primitives::{traits::Ss58Codec, ANLOG};
 
 	/// Updating this number will automatically execute the next launch stages on update
 	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(0);
@@ -68,6 +68,8 @@ pub mod pallet {
 		MigrationMissing { stage: u16 },
 		/// A deposit migration could not be parsed
 		DepositInvalid { id: Vec<u8> },
+		/// Deposit does not exceed existential deposit
+		DepositTooSmall { target: T::AccountId },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
 		/// An airdrop migration could not be parsed
@@ -142,8 +144,15 @@ pub mod pallet {
 		/// Create new deposit migration by parsing and converting raw info
 		pub fn new(data: RawEndowmentMigration) -> Self {
 			let mut checked = vec![];
+			let existential_deposit = 1 * ANLOG; // <T as Config>::ExistentialDeposit::get();
 			for details in data.into_iter() {
 				if let Some(parsed) = Self::parse(details) {
+					// Ensure migration can not throw existential deposit error
+					/*if parsed.1 < existential_deposit {
+						Pallet::<T>::deposit_event(Event::<T>::DepositTooSmall { target: parsed.0 });
+						continue;
+					}*/
+
 					checked.push(parsed)
 				} else {
 					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid { id: details.0.into() });
@@ -180,26 +189,34 @@ pub mod pallet {
 
 			for (target, amount, schedule) in self.0.iter() {
 				// Check vesting status first...
-				if schedule.is_some()
-					&& <T as Config>::VestingSchedule::vesting_balance(&target).is_some()
-				{
-					Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
-						target: target.clone(),
-					});
-					continue;
+				if let Some(vs) = schedule {
+					// (Checking if the target is able to receive a vested transfer is one read)
+					weight += T::DbWeight::get().reads(1);
+
+					if <T as Config>::VestingSchedule::can_add_vesting_schedule(
+						&target, vs.0, vs.1, vs.2,
+					)
+					.is_err()
+					{
+						Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
+							target: target.clone(),
+						});
+						continue;
+					}
 				}
 
 				// ...then add balance to ensure that the account exists...
 				let _ = CurrencyOf::<T>::deposit_creating(&target, *amount);
+				// (Read existential deposit, followed by reading and writing account store.)
+				weight += T::DbWeight::get().reads_writes(2, 1);
 
 				// ...and finally apply vesting schedule, if there is one.
 				if let Some(vs) = schedule {
 					<T as Config>::VestingSchedule::add_vesting_schedule(&target, vs.0, vs.1, vs.2)
 						.expect("No other vesting schedule exists, as checked above; qed");
+					// (Updating the vesting schedule involves reading the info, followed by writing the info, the vesting and the lock.)
+					weight += T::DbWeight::get().reads_writes(1, 3)
 				}
-
-				//let count = 10;
-				//weight += T::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
 			}
 
 			weight
@@ -264,6 +281,9 @@ pub mod pallet {
 			let mut weight = Weight::zero();
 
 			for (target, amount, schedule) in self.0.iter() {
+				weight += T::DbWeight::get().reads_writes(1, 3);
+
+				// Can fail if claim already exists, so those are logged.
 				if pallet_airdrop::Pallet::<T>::mint(
 					T::RuntimeOrigin::root(),
 					target.clone(),
@@ -272,14 +292,17 @@ pub mod pallet {
 				)
 				.is_err()
 				{
+					// (Reading claims was necessary to determine claim exists.)
+					weight += T::DbWeight::get().reads(1);
+
 					Pallet::<T>::deposit_event(Event::<T>::AirdropFailed {
 						target: target.clone().into(),
 					});
 					continue;
 				}
 
-				//let count = 10;
-				//weight += T::DbWeight::get().reads_writes(count as Weight + 1, count as Weight + 1)
+				// (Read and write claims and total and optimal write vesting.)
+				weight += T::DbWeight::get().reads_writes(2, 3);
 			}
 
 			weight

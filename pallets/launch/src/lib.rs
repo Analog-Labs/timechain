@@ -33,10 +33,9 @@ pub mod pallet {
 	use frame_support::traits::{
 		Currency, OriginTrait, PalletInfoAccess, StorageVersion, VestingSchedule,
 	};
+	use sp_core::crypto::Ss58Codec;
 	use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
-
-	use time_primitives::{traits::Ss58Codec, ANLOG};
 
 	/// Updating this number will automatically execute the next launch stages on update
 	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(0);
@@ -55,8 +54,11 @@ pub mod pallet {
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
-		/// The vesting backend to use to enforce provided vesting schedules
+		/// The vesting backend to use to enforce provided vesting schedules.
 		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		/// The minimum size a deposit has to have to be considered valid.
+		/// Set this to at least the minimum deposit to avoid errors
+		type MinimumDeposit: Get<BalanceOf<Self>>;
 	}
 
 	#[pallet::event]
@@ -144,14 +146,12 @@ pub mod pallet {
 		/// Create new deposit migration by parsing and converting raw info
 		pub fn new(data: RawEndowmentMigration) -> Self {
 			let mut checked = vec![];
-			let existential_deposit = 1 * ANLOG; // <T as Config>::ExistentialDeposit::get();
 			for details in data.into_iter() {
 				if let Some(parsed) = Self::parse(details) {
-					// Ensure migration can not throw existential deposit error
-					/*if parsed.1 < existential_deposit {
+					if parsed.1 < <T as Config>::MinimumDeposit::get() {
 						Pallet::<T>::deposit_event(Event::<T>::DepositTooSmall { target: parsed.0 });
 						continue;
-					}*/
+					}
 
 					checked.push(parsed)
 				} else {
@@ -178,8 +178,8 @@ pub mod pallet {
 			))
 		}
 
-		/// Compute the total amount of minted token in this
-		pub fn sum(self) -> BalanceOf<T> {
+		/// Compute the total amount of minted tokens in this migration
+		pub fn sum(&self) -> BalanceOf<T> {
 			self.0.iter().fold(Zero::zero(), |acc: BalanceOf<T>, &(_, b, _)| acc + b)
 		}
 

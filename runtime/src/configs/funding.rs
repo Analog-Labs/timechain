@@ -93,4 +93,5 @@ impl pallet_airdrop::Config for Runtime {
 impl pallet_launch::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
+	type MinimumDeposit = ExistentialDeposit;
 }

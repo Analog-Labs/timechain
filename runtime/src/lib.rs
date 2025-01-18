@@ -624,11 +624,6 @@ mod runtime {
 
 	#[runtime::pallet_index(39)]
 	pub type Dmail = pallet_dmail;
-
-	// Custom funding pallets
-
-	#[runtime::pallet_index(42)]
-	pub type Airdrop = pallet_airdrop;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

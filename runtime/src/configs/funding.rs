@@ -27,7 +27,9 @@ use time_primitives::BlockNumber;
 // Local module imports
 #[cfg(feature = "testnet")]
 use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
-use crate::{main_or_test, Runtime, RuntimeEvent, Vesting};
+#[cfg(not(feature = "testnet"))]
+use crate::ExistentialDeposit;
+use crate::{Runtime, RuntimeEvent, Vesting};
 
 #[cfg(feature = "testnet")]
 parameter_types! {
@@ -73,14 +75,17 @@ impl pallet_treasury::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+#[cfg(not(feature = "testnet"))]
 parameter_types! {
-	pub RawPrefix: &'static [u8] = main_or_test!(b"Airdrop ANLOG to the Timechain account: ", b"Simulate airdrop to the test account: ");
+	pub RawPrefix: &'static [u8] = b"Airdrop ANLOG to the Timechain account: ";
 }
 
+#[cfg(not(feature = "testnet"))]
 impl pallet_airdrop::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
 	type RawPrefix = RawPrefix;
+	type MinimumBalance = ExistentialDeposit;
 	type WeightInfo = pallet_airdrop::TestWeightInfo;
 }
 

@@ -18,7 +18,7 @@ use sp_runtime::traits::ConstU32;
 
 // Local module imports
 #[cfg(not(feature = "testnet"))]
-use crate::{Balances, RuntimeHoldReason, Vesting};
+use crate::{Balances, RuntimeHoldReason};
 use crate::{
 	Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin, TechnicalCollective,
 	TechnicalCommittee, DAYS, HOURS,

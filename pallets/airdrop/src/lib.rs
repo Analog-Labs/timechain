@@ -80,9 +80,14 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		/// Vesting backend used to provided vested airdrops.
 		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		/// Prefix to include in message signed by user to clarify intend.
 		#[pallet::constant]
 		type RawPrefix: Get<&'static [u8]>;
+		/// Additional safety check to avoid, minting claims below existential balance.
+		type MinimumBalance: Get<BalanceOf<Self>>;
+		/// Weight information of the pallet
 		type WeightInfo: WeightInfo;
 	}
 
@@ -101,9 +106,10 @@ pub mod pallet {
 		HasNoClaim,
 		/// Provided signature is invalid.
 		InvalidSignature,
-		/// There's not enough in the pot to pay out some unvested amount. Generally implies a
-		/// logic error.
+		/// Claimed exceed minted funds, implies internal logic error.
 		PotUnderflow,
+		/// The size of the airdrop is below the minimal allowed amount
+		BalanceTooSmall,
 		/// The account already has a vested balance.
 		VestedBalanceExists,
 		/// The account already has a claim associated with it
@@ -301,6 +307,8 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
 	) -> sp_runtime::DispatchResult {
+		// Ensure amount is large enough and mint does not overwrite existing claim
+		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
 		ensure!(Claims::<T>::get(&owner).is_none(), Error::<T>::AlreadyHasClaim);
 
 		// Update total, add amount and optional vesting schedule

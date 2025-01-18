@@ -12,6 +12,7 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ExistenceRequirement, WithdrawReasons},
 };
+use sp_core::ConstU64;
 use sp_keyring::{
 	AccountKeyring::{Alice, Bob, Charlie},
 	Ed25519Keyring::{Dave, Eve, Ferdie},
@@ -75,6 +76,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
 	type RawPrefix = RawPrefix;
+	type MinimumBalance = ConstU64<1>;
 	type WeightInfo = TestWeightInfo;
 }
 

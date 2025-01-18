@@ -146,7 +146,7 @@ pub mod pallet {
 		/// Create new deposit migration by parsing and converting raw info
 		pub fn new(data: RawEndowmentMigration) -> Self {
 			let mut checked = vec![];
-			for details in data.into_iter() {
+			for details in data.iter() {
 				if let Some(parsed) = Self::parse(details) {
 					if parsed.1 < <T as Config>::MinimumDeposit::get() {
 						Pallet::<T>::deposit_event(Event::<T>::DepositTooSmall {
@@ -196,7 +196,7 @@ pub mod pallet {
 					weight += T::DbWeight::get().reads(1);
 
 					if <T as Config>::VestingSchedule::can_add_vesting_schedule(
-						&target, vs.0, vs.1, vs.2,
+						target, vs.0, vs.1, vs.2,
 					)
 					.is_err()
 					{
@@ -208,13 +208,13 @@ pub mod pallet {
 				}
 
 				// ...then add balance to ensure that the account exists...
-				let _ = CurrencyOf::<T>::deposit_creating(&target, *amount);
+				let _ = CurrencyOf::<T>::deposit_creating(target, *amount);
 				// (Read existential deposit, followed by reading and writing account store.)
 				weight += T::DbWeight::get().reads_writes(2, 1);
 
 				// ...and finally apply vesting schedule, if there is one.
 				if let Some(vs) = schedule {
-					<T as Config>::VestingSchedule::add_vesting_schedule(&target, vs.0, vs.1, vs.2)
+					<T as Config>::VestingSchedule::add_vesting_schedule(target, vs.0, vs.1, vs.2)
 						.expect("No other vesting schedule exists, as checked above; qed");
 					// (Updating the vesting schedule involves reading the info, followed by writing the info, the vesting and the lock.)
 					weight += T::DbWeight::get().reads_writes(1, 3)
@@ -251,7 +251,7 @@ pub mod pallet {
 		/// Create new endowing migration by parsing and converting raw info
 		pub fn new(data: RawEndowmentMigration) -> Self {
 			let mut checked = vec![];
-			for details in data.into_iter() {
+			for details in data.iter() {
 				if let Some(parsed) = Self::parse(details) {
 					checked.push(parsed)
 				} else {
@@ -264,7 +264,7 @@ pub mod pallet {
 		/// Try to parse an individual entry of an airdrop migration
 		pub fn parse(details: &RawEndowmentDetails) -> Option<AirdropDetails<T>> {
 			Some((
-				AccountId::from_ss58check(details.0).ok()?.into(),
+				AccountId::from_ss58check(details.0).ok()?,
 				AirdropBalanceOf::<T>::checked_from(details.1)?,
 				if let Some((locked, per_block, start)) = details.2 {
 					Some((

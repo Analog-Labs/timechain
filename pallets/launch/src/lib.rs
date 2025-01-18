@@ -149,7 +149,9 @@ pub mod pallet {
 			for details in data.into_iter() {
 				if let Some(parsed) = Self::parse(details) {
 					if parsed.1 < <T as Config>::MinimumDeposit::get() {
-						Pallet::<T>::deposit_event(Event::<T>::DepositTooSmall { target: parsed.0 });
+						Pallet::<T>::deposit_event(Event::<T>::DepositTooSmall {
+							target: parsed.0,
+						});
 						continue;
 					}
 

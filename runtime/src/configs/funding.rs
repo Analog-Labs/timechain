@@ -25,10 +25,10 @@ use sp_runtime::{traits::IdentityLookup, Percent, Permill};
 use time_primitives::BlockNumber;
 
 // Local module imports
-#[cfg(feature = "testnet")]
-use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
 #[cfg(not(feature = "testnet"))]
 use crate::ExistentialDeposit;
+#[cfg(feature = "testnet")]
+use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
 use crate::{Runtime, RuntimeEvent, Vesting};
 
 #[cfg(feature = "testnet")]

@@ -4,7 +4,7 @@ use crate::mock::*;
 
 use crate::{AirdropMigration, DepositMigration};
 
-use time_primitives::ANLOG;
+use time_primitives::{ANLOG, MICROANLOG};
 
 #[test]
 fn data_v1_validation() {
@@ -16,7 +16,7 @@ fn data_v1_validation() {
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment
-		assert_eq!(v1.sum() as u128, 92_358_563 * ANLOG);
+		assert_eq!(v1.sum(), 92_358_563 * ANLOG);
 
 		// Ensure non of the endowments causes an error event
 		let _w = v1.execute();
@@ -35,8 +35,8 @@ fn data_v2_validation() {
 		let v2 = AirdropMigration::<Test>::new(crate::data::v2::AIRDROP_SNAPSHOT_ONE);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
-		// TODO: Ensure correct sum of endowment
-		//assert_eq!(v2.sum() as u128, 92_292_563 * ANLOG);
+		// Ensure correct sum
+		assert_eq!(v2.sum(), 410_428_775_207_278 * MICROANLOG);
 
 		// Ensure non of the endowments causes an error event
 		let _w = v2.execute();

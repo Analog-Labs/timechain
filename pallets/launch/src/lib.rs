@@ -278,6 +278,11 @@ pub mod pallet {
 			))
 		}
 
+		/// Compute the total amount of minted tokens in this migration
+		pub fn sum(&self) -> AirdropBalanceOf<T> {
+			self.0.iter().fold(Zero::zero(), |acc: AirdropBalanceOf<T>, &(_, b, _)| acc + b)
+		}
+
 		/// Add all airdrops inside the airdrop migration
 		pub fn execute(self) -> Weight {
 			let mut weight = Weight::zero();

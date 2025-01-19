@@ -13,6 +13,5 @@ pub const DEPOSITS_PRELAUNCH_0: RawEndowmentMigration = &[
 ];
 
 /// Prelaunch exchange deposits round 2.
-pub const DEPOSITS_PRELAUNCH_1: RawEndowmentMigration = &[
-	("anAncc6xjYvEFkiab8SJH72ne2Su3TFkN7Gzbfw9XQkthAjfp", 39328063 * ANLOG, None),
-];
+pub const DEPOSITS_PRELAUNCH_1: RawEndowmentMigration =
+	&[("anAncc6xjYvEFkiab8SJH72ne2Su3TFkN7Gzbfw9XQkthAjfp", 39328063 * ANLOG, None)];

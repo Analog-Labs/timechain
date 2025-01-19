@@ -96,8 +96,10 @@ pub mod pallet {
 
 				weight += match stage {
 					0 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_0).execute(),
-					1 => AirdropMigration::<T>::new(data::v2::AIRDROP_SNAPSHOT_ONE).execute(),
-					2 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_1).execute(),
+					1 => AirdropMigration::<T>::new(data::v2::AIRDROP_SNAPSHOT_ONE_0).execute(),
+					//2 => AirdropMigration::<T>::new(data::v3::AIRDROP_SNAPSHOT_ONE_1).execute(),
+					//3 => AirdropMigration::<T>::new(data::v4::AIRDROP_SNAPSHOT_ONE_2).execute(),
+					4 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_1).execute(),
 					_ => break,
 				};
 

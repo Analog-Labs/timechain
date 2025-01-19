@@ -5,6 +5,7 @@
 
 use crate::RawEndowmentMigration;
 
+#[allow(dead_code)]
 /// The first incentivized testnet airdrop snapshot.
 pub const AIRDROP_SNAPSHOT_ONE_2: RawEndowmentMigration = &[
 	("5Cf9K7dv7KvYHkiPAgRrHdnY73NfeuxsahK8EgMwnepM7SeB", 1_361_001_039_303_530, None),

@@ -16,7 +16,7 @@ fn data_v1_validation() {
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment
-		assert_eq!(v1.sum() as u128, 92_292_563 * ANLOG);
+		assert_eq!(v1.sum() as u128, 92_358_563 * ANLOG);
 
 		// Ensure non of the endowments causes an error event
 		let _w = v1.execute();

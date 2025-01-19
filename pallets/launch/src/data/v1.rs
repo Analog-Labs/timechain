@@ -8,7 +8,7 @@ use time_primitives::ANLOG;
 
 /// Prelaunch exchange deposits.
 pub const DEPOSITS_PRELAUNCH: RawEndowmentMigration = &[
-	("anACAutxx15HrcAKf5UcV4dBKHMiTLWwqWEasemR5UJXR9nah", 39328100 * ANLOG, None),
+	("anACAutxx15HrcAKf5UcV4dBKHMiTLWwqWEasemR5UJXR9nah", 39394100 * ANLOG, None),
 	("anAncc6xjYvEFkiab8SJH72ne2Su3TFkN7Gzbfw9XQkthAjfp", 39328063 * ANLOG, None),
 	("an8YSmkWinrh8HVE6k8691GJPqTfvz7gjBtkAgGfd6PhSfuYT", 13636400 * ANLOG, None),
 ];

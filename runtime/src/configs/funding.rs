@@ -27,7 +27,7 @@ use time_primitives::BlockNumber;
 // Local module imports
 #[cfg(feature = "testnet")]
 use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
-use crate::{main_or_test, Runtime, RuntimeEvent, Vesting, ExistentialDeposit};
+use crate::{main_or_test, ExistentialDeposit, Runtime, RuntimeEvent, Vesting};
 
 #[cfg(feature = "testnet")]
 parameter_types! {

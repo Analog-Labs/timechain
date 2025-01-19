@@ -66,8 +66,10 @@ impl pallet_vesting::Config for Test {
 }
 
 parameter_types! {
-	pub RawPrefix: &'static [u8] = b"Pay RUSTs to the TEST account: ";
+	// Currently needs to match the prefix to be benchmarked with as we can not sign in wasm.
+	pub RawPrefix: &'static [u8] = b"Airdrop TANLOG to the Testnet account: ";
 }
+
 ord_parameter_types! {
 	pub const Six: u64 = 6;
 }
@@ -76,7 +78,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
 	type RawPrefix = RawPrefix;
-	type MinimumBalance = ConstU64<1>;
+	type MinimumBalance = ConstU64<500>;
 	type WeightInfo = TestWeightInfo;
 }
 

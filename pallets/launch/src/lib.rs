@@ -94,8 +94,9 @@ pub mod pallet {
 				Pallet::<T>::deposit_event(Event::<T>::MigrationStarted { stage });
 
 				weight += match stage {
-					0 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH).execute(),
+					0 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_0).execute(),
 					1 => AirdropMigration::<T>::new(data::v2::AIRDROP_SNAPSHOT_ONE).execute(),
+					2 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_1).execute(),
 					_ => break,
 				};
 

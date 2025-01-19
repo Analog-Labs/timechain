@@ -112,8 +112,8 @@ pub mod pallet {
 		PotUnderflow,
 		/// The size of the airdrop is below the minimal allowed amount
 		BalanceTooSmall,
-		/// The account already has a vested balance.
-		VestedBalanceExists,
+		/// The account already has to many vesting schedule associated with it.
+		VestingNotPossible,
 		/// The account already has a claim associated with it
 		AlreadyHasClaim,
 	}
@@ -335,8 +335,15 @@ impl<T: Config> Pallet<T> {
 		// Ensure the account has not other vesting schedules associate with it
 		let vesting = Vesting::<T>::get(&source);
 		ensure!(
-			vesting.is_none() || T::VestingSchedule::vesting_balance(&target).is_none(),
-			Error::<T>::VestedBalanceExists
+			vesting.is_none()
+				|| T::VestingSchedule::can_add_vesting_schedule(
+					&target,
+					vesting.expect("Vesting is some; qed").0,
+					vesting.expect("Vesting is some; qed").1,
+					vesting.expect("Vesting is some; qed").2,
+				)
+				.is_ok(),
+			Error::<T>::VestingNotPossible
 		);
 
 		// First deposit the balance to ensure that the account exists.
@@ -345,7 +352,7 @@ impl<T: Config> Pallet<T> {
 		// Then apply any associated vesting schedule
 		if let Some(vs) = vesting {
 			T::VestingSchedule::add_vesting_schedule(&target, vs.0, vs.1, vs.2)
-				.expect("No other vesting schedule exists, as checked above; qed");
+				.expect("Adding vesting schedule was checked above; qed");
 		}
 
 		// Update total and remove claim

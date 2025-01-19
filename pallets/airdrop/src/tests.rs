@@ -62,7 +62,7 @@ impl pallet_vesting::Config for Test {
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
 	type BlockNumberProvider = System;
-	const MAX_VESTING_SCHEDULES: u32 = 28;
+	const MAX_VESTING_SCHEDULES: u32 = 1;
 }
 
 parameter_types! {
@@ -327,7 +327,7 @@ fn origin_signed_claiming_fail() {
 }
 
 #[test]
-fn double_claiming_doesnt_work() {
+fn double_claiming_fails() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_ok!(Airdrop::claim_raw(
@@ -349,11 +349,11 @@ fn double_claiming_doesnt_work() {
 }
 
 #[test]
-fn claiming_while_vested_doesnt_work() {
+fn claiming_exceeding_vesting_fails() {
 	new_test_ext().execute_with(|| {
 		CurrencyOf::<Test>::make_free_balance_be(&69, total_claims());
 		assert_eq!(Balances::free_balance(69), total_claims());
-		// A user is already vested
+		// A user is already vested and the vesting limit is one
 		assert_ok!(<Test as Config>::VestingSchedule::add_vesting_schedule(
 			&69,
 			total_claims(),
@@ -372,7 +372,7 @@ fn claiming_while_vested_doesnt_work() {
 				Charlie.sign(&Airdrop::to_message(&69)[..]).0,
 				69
 			),
-			Error::<Test>::VestedBalanceExists,
+			Error::<Test>::VestingNotPossible,
 		);
 	});
 }

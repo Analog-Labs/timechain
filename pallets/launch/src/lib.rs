@@ -1,9 +1,10 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 //! # Mainnet Rollout Migrations
 //!
 //! This pallet is responsible to migrate the mainnet chain state
 //! through the various phases of the mainnet soft-launch, rollout and
 //! token genesis event.
-#![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
 

@@ -154,6 +154,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
 
+	"pallet-airdrop/runtime-benchmarks",
 	"pallet-dmail/runtime-benchmarks",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",

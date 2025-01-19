@@ -25,11 +25,9 @@ use sp_runtime::{traits::IdentityLookup, Percent, Permill};
 use time_primitives::BlockNumber;
 
 // Local module imports
-#[cfg(not(feature = "testnet"))]
-use crate::ExistentialDeposit;
 #[cfg(feature = "testnet")]
 use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
-use crate::{Runtime, RuntimeEvent, Vesting};
+use crate::{main_or_test, Runtime, RuntimeEvent, Vesting, ExistentialDeposit};
 
 #[cfg(feature = "testnet")]
 parameter_types! {
@@ -75,12 +73,10 @@ impl pallet_treasury::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
-#[cfg(not(feature = "testnet"))]
 parameter_types! {
-	pub RawPrefix: &'static [u8] = b"Airdrop ANLOG to the Timechain account: ";
+	pub RawPrefix: &'static [u8] = main_or_test!(b"Airdrop ANLOG to the Timechain account: ", b"Airdrop TANLOG to the Testnet account: ");
 }
 
-#[cfg(not(feature = "testnet"))]
 impl pallet_airdrop::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;

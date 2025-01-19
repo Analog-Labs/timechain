@@ -38,6 +38,8 @@ use super::{
 	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, SessionKeys, System,
 	TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
 };
+#[cfg(feature = "runtime-benchmarks")]
+use crate::Airdrop;
 #[cfg(feature = "genesis-builder")]
 use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]

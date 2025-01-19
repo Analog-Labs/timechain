@@ -16,6 +16,8 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 //! Pallet to process airdrop claims
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 #[cfg(test)]
 mod tests;
 
@@ -116,9 +118,11 @@ pub mod pallet {
 		AlreadyHasClaim,
 	}
 
+	/// List of all unclaimed airdrops and their amounts
 	#[pallet::storage]
 	pub type Claims<T: Config> = StorageMap<_, Identity, AccountId32, BalanceOf<T>>;
 
+	/// Total sum of all unclaimed airdrops
 	#[pallet::storage]
 	pub type Total<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
@@ -155,9 +159,6 @@ pub mod pallet {
 			});
 		}
 	}
-
-	//#[pallet::hooks]
-	//impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -327,7 +328,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Internal processing function that executes an airdrop
 	fn process_airdrop(source: AccountId32, target: T::AccountId) -> sp_runtime::DispatchResult {
-		// Retreive token amount and check and update total
+		// Retrieve token amount and check and update total
 		let amount = Claims::<T>::get(&source).ok_or(Error::<T>::HasNoClaim)?;
 		let new_total = Total::<T>::get().checked_sub(&amount).ok_or(Error::<T>::PotUnderflow)?;
 

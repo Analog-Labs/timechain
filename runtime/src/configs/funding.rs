@@ -27,7 +27,7 @@ use time_primitives::BlockNumber;
 // Local module imports
 #[cfg(feature = "testnet")]
 use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
-use crate::{main_or_test, ExistentialDeposit, Runtime, RuntimeEvent, Vesting};
+use crate::{main_or_test, weights, ExistentialDeposit, Runtime, RuntimeEvent, Vesting};
 
 #[cfg(feature = "testnet")]
 parameter_types! {
@@ -82,7 +82,7 @@ impl pallet_airdrop::Config for Runtime {
 	type VestingSchedule = Vesting;
 	type RawPrefix = RawPrefix;
 	type MinimumBalance = ExistentialDeposit;
-	type WeightInfo = pallet_airdrop::TestWeightInfo;
+	type WeightInfo = weights::pallet_airdrop::WeightInfo<Runtime>;
 }
 
 #[cfg(not(feature = "testnet"))]

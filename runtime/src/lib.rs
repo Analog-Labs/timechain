@@ -459,6 +459,9 @@ mod runtime {
 
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
+
+	#[runtime::pallet_index(43)]
+	pub type Launch = pallet_launch;
 }
 
 /// Testnet and develop runtime assembly

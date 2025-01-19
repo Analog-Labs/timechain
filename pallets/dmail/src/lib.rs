@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

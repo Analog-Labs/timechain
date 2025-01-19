@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 //! # Analog Governance Pallet
 //!
 //! This is custom pallet to be used for the ever extending mainnet governance.

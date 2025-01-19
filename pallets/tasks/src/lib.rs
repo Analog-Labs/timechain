@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 //! # Timechain Task Pallet
 //!
 //! This chart shows all the extrinsics and events of the task pallet. It

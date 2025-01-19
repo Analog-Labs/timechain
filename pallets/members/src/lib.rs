@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 
 //! This pallet manages members' registration, heartbeat functionality, and
 //! member management within a decentralized network.

@@ -5,6 +5,7 @@
 polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[frame_benchmarking, BaselineBench::<Runtime>]
 	[frame_system, SystemBench::<Runtime>]
+	[pallet_airdrop, Airdrop]
 	[pallet_babe, Babe]
 	[pallet_bags_list, VoterList]
 	[pallet_balances, Balances]

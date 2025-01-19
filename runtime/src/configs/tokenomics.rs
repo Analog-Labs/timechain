@@ -121,7 +121,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	// Use more u32 friendly value for benchmark runtime and AtLeast32Bit
-	pub const ExistentialDeposit: Balance = 500 * MILLIANLOG;
+	pub const ExistentialDeposit: Balance = 500;
 }
 
 pub struct Author;

@@ -1,21 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-// Copyright (C) Parity Technologies (UK) Ltd.
-// Copyright (C) Analog One Corporation.
-
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+#![allow(clippy::manual_inspect)]
 //! Pallet to process airdrop claims
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 #[cfg(test)]
 mod tests;
 
@@ -80,15 +68,22 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		/// Vesting backend used to provided vested airdrops.
 		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		/// Prefix to include in message signed by user to clarify intend.
 		#[pallet::constant]
 		type RawPrefix: Get<&'static [u8]>;
+		/// Additional safety check to avoid, minting claims below existential balance.
+		type MinimumBalance: Get<BalanceOf<Self>>;
+		/// Weight information of the pallet
 		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// A new airdrop eligibility has been created.
+		Minted { owner: AccountId32, amount: BalanceOf<T> },
 		/// Someone claimed their airdrop.
 		Claimed { source: AccountId32, target: T::AccountId, amount: BalanceOf<T> },
 	}
@@ -99,18 +94,21 @@ pub mod pallet {
 		HasNoClaim,
 		/// Provided signature is invalid.
 		InvalidSignature,
-		/// There's not enough in the pot to pay out some unvested amount. Generally implies a
-		/// logic error.
+		/// Claimed exceed minted funds, implies internal logic error.
 		PotUnderflow,
-		/// The account already has a vested balance.
-		VestedBalanceExists,
+		/// The size of the airdrop is below the minimal allowed amount
+		BalanceTooSmall,
+		/// The account already has to many vesting schedule associated with it.
+		VestingNotPossible,
 		/// The account already has a claim associated with it
 		AlreadyHasClaim,
 	}
 
+	/// List of all unclaimed airdrops and their amounts
 	#[pallet::storage]
 	pub type Claims<T: Config> = StorageMap<_, Identity, AccountId32, BalanceOf<T>>;
 
+	/// Total sum of all unclaimed airdrops
 	#[pallet::storage]
 	pub type Total<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
@@ -147,9 +145,6 @@ pub mod pallet {
 			});
 		}
 	}
-
-	//#[pallet::hooks]
-	//impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -296,33 +291,45 @@ impl<T: Config> Pallet<T> {
 	/// Internal function to mint additional airdrops
 	fn mint_airdrop(
 		owner: AccountId32,
-		value: BalanceOf<T>,
+		amount: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
 	) -> sp_runtime::DispatchResult {
+		// Ensure amount is large enough and mint does not overwrite existing claim
+		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
 		ensure!(Claims::<T>::get(&owner).is_none(), Error::<T>::AlreadyHasClaim);
 
 		// Update total, add amount and optional vesting schedule
-		Total::<T>::mutate(|t| *t += value);
+		Total::<T>::mutate(|t| *t += amount);
 
-		Claims::<T>::insert(&owner, value);
+		Claims::<T>::insert(&owner, amount);
 		if let Some(vs) = vesting {
-			Vesting::<T>::insert(owner, vs);
+			Vesting::<T>::insert(owner.clone(), vs);
 		}
+
+		// Deposit event on success.
+		Self::deposit_event(Event::<T>::Minted { owner, amount });
 
 		Ok(())
 	}
 
 	/// Internal processing function that executes an airdrop
 	fn process_airdrop(source: AccountId32, target: T::AccountId) -> sp_runtime::DispatchResult {
-		// Retreive token amount and check and update total
+		// Retrieve token amount and check and update total
 		let amount = Claims::<T>::get(&source).ok_or(Error::<T>::HasNoClaim)?;
 		let new_total = Total::<T>::get().checked_sub(&amount).ok_or(Error::<T>::PotUnderflow)?;
 
 		// Ensure the account has not other vesting schedules associate with it
 		let vesting = Vesting::<T>::get(&source);
 		ensure!(
-			vesting.is_none() || T::VestingSchedule::vesting_balance(&target).is_none(),
-			Error::<T>::VestedBalanceExists
+			vesting.is_none()
+				|| T::VestingSchedule::can_add_vesting_schedule(
+					&target,
+					vesting.expect("Vesting is some; qed").0,
+					vesting.expect("Vesting is some; qed").1,
+					vesting.expect("Vesting is some; qed").2,
+				)
+				.is_ok(),
+			Error::<T>::VestingNotPossible
 		);
 
 		// First deposit the balance to ensure that the account exists.
@@ -331,7 +338,7 @@ impl<T: Config> Pallet<T> {
 		// Then apply any associated vesting schedule
 		if let Some(vs) = vesting {
 			T::VestingSchedule::add_vesting_schedule(&target, vs.0, vs.1, vs.2)
-				.expect("No other vesting schedule exists, as checked above; qed");
+				.expect("Adding vesting schedule was checked above; qed");
 		}
 
 		// Update total and remove claim

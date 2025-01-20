@@ -45,7 +45,9 @@ impl TaskParams {
 		shard_id: ShardId,
 		task_id: TaskId,
 		data: Vec<u8>,
+		span: &Span,
 	) -> Result<TssSignature> {
+		tracing::debug!(target: TW_LOG, parent: span, "tss_sign");
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
@@ -66,9 +68,10 @@ impl TaskParams {
 		task_id: TaskId,
 		task: &Task,
 		target_block_height: u64,
+		span: &Span,
 	) -> Result<bool> {
 		if target_block_height < task.start_block() {
-			tracing::debug!(target: TW_LOG, task_id,
+			tracing::debug!(target: TW_LOG, parent: span,
 				"task scheduled for future {:?}/{:?}",
 				target_block_height,
 				task.start_block(),
@@ -79,7 +82,7 @@ impl TaskParams {
 			let Some(public_key) = self.runtime.get_task_submitter(task_id).await? else {
 				tracing::debug!(
 					target: TW_LOG,
-					task_id,
+					parent: span,
 					"no submitter set for task",
 				);
 				return Ok(false);
@@ -91,6 +94,7 @@ impl TaskParams {
 		Ok(true)
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn execute(
 		self,
 		block_number: BlockNumber,
@@ -107,7 +111,8 @@ impl TaskParams {
 					self.connector.read_events(gateway, blocks).await.context("read_events")?;
 				tracing::info!(target: TW_LOG, parent: &span, "read {} events", events.len(),);
 				let payload = time_primitives::encode_gmp_events(task_id, &events);
-				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
+				let signature =
+					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				Some(TaskResult::ReadGatewayEvents {
 					events: GmpEvents(events),
 					signature,
@@ -117,7 +122,8 @@ impl TaskParams {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
-				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
+				let signature =
+					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				let signer =
 					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
 						[0];
@@ -139,7 +145,7 @@ impl TaskParams {
 				tracing::error!(
 					target: TW_LOG,
 					parent: &span,
-					"Error submitting task result {:?}",
+					"error submitting task result: {:?}",
 					e
 				);
 			}
@@ -185,7 +191,7 @@ impl TaskExecutor {
 				continue;
 			}
 			let task = self.params.runtime.get_task(task_id).await?.context("invalid task")?;
-			if !self.params.is_executable(task_id, &task, target_block_height).await? {
+			if !self.params.is_executable(task_id, &task, target_block_height, span).await? {
 				continue;
 			}
 
@@ -193,7 +199,7 @@ impl TaskExecutor {
 				target: TW_LOG,
 				parent: span,
 				Level::INFO,
-				"starting task",
+				"task started",
 				task_id,
 				%task,
 				target_block_height,
@@ -206,11 +212,11 @@ impl TaskExecutor {
 					.await
 				{
 					Ok(()) => {
-						tracing::info!(target: TW_LOG, parent: &span, task_id, target_block_height, "Task completed");
+						tracing::info!(target: TW_LOG, parent: &span, task_id, target_block_height, "task completed");
 					},
 					Err(error) => {
 						*total_failed.lock().await += 1;
-						tracing::error!(target: TW_LOG, parent: &span, task_id, target_block_height, ?error, "Task failed");
+						tracing::error!(target: TW_LOG, parent: &span, task_id, target_block_height, ?error, "task failed");
 					},
 				};
 			});

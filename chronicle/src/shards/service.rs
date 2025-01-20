@@ -112,7 +112,7 @@ where
 			if self.tss_states.contains_key(&shard_id) {
 				continue;
 			}
-			let span = span!(target: TW_LOG, parent: &span, Level::DEBUG, "new shard", shard_id);
+			let span = span!(target: TW_LOG, parent: &span, Level::DEBUG, "join shard", shard_id);
 			let members = self.substrate.get_shard_members(shard_id).await?;
 			let threshold = self.substrate.get_shard_threshold(shard_id).await?;
 			let futures: Vec<_> = members

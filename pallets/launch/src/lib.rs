@@ -39,7 +39,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(0);
+	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(5);
 
 	/// Workaround to get raw storage version
 	pub fn on_chain_launch_stage<P: PalletInfoAccess>() -> u16 {
@@ -67,7 +67,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// An new migration stage was entered
 		MigrationStarted { stage: u16 },
-		/// Missing migration to reach latest stage.
+		/// Missing or retired migration to reach latest stage.
 		MigrationMissing { stage: u16 },
 		/// A deposit migration could not be parsed
 		DepositInvalid { id: Vec<u8> },
@@ -95,11 +95,9 @@ pub mod pallet {
 				Pallet::<T>::deposit_event(Event::<T>::MigrationStarted { stage });
 
 				weight += match stage {
-					0 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_0).execute(),
-					1 => AirdropMigration::<T>::new(data::v2::AIRDROP_SNAPSHOT_ONE_0).execute(),
-					//2 => AirdropMigration::<T>::new(data::v3::AIRDROP_SNAPSHOT_ONE_1).execute(),
-					//3 => AirdropMigration::<T>::new(data::v4::AIRDROP_SNAPSHOT_ONE_2).execute(),
-					4 => DepositMigration::<T>::new(data::v1::DEPOSITS_PRELAUNCH_1).execute(),
+					4 => DepositMigration::<T>::new(data::v5::DEPOSITS_PRELAUNCH_1).execute(),
+					//5 => AirdropMigration::<T>::new(data::v6::AIRDROP_VALIDATORS).execute(),
+					//6 => DepositMigration::<T>::new(data::v7::DEPOSITS_TOKEN_GENESIS_EVENT).execute(),
 					_ => break,
 				};
 

@@ -112,9 +112,14 @@ pub async fn run_chronicle(
 	let timechain_address = time_primitives::format_address(substrate.account_id());
 	let target_address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
-	event!(target: TW_LOG, Level::INFO, "timechain address: {}", timechain_address);
-	event!(target: TW_LOG, Level::INFO, "target address: {}", target_address);
-	event!(target: TW_LOG, Level::INFO, "peer id: {}", peer_id);
+	let span = span!(
+		target: TW_LOG,
+		Level::INFO,
+		"chronicle",
+		timechain=timechain_address,
+		target=target_address,
+		peer_id=peer_id,
+	);
 	admin
 		.send(AdminMsg::SetConfig(Config {
 			network: config.network_id,
@@ -129,15 +134,10 @@ pub async fn run_chronicle(
 		if substrate.is_registered().await? {
 			break;
 		}
-		tracing::warn!(target: TW_LOG, "chronicle isn't registered");
+		tracing::warn!(target: TW_LOG, parent: &span, "chronicle isn't registered");
 		ticker.next().await;
 	}
 
-	let span = span!(
-		target: TW_LOG,
-		Level::INFO,
-		"run_chronicle",
-	);
 	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,

@@ -25,7 +25,7 @@ pub struct NetworkConfig {
 #[derive(Deserialize, Serialize)]
 pub struct Message {
 	pub shard_id: ShardId,
-	pub block_number: BlockNumber,
+	pub block: BlockNumber,
 	pub payload: TssMessage,
 }
 

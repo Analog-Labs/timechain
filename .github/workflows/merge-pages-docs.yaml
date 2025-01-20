@@ -36,7 +36,7 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: doc
-          args: --no-deps --document-private-items
+          args: --no-deps --all-features --document-private-items
       - name: Assemble structure
         env:
           DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow

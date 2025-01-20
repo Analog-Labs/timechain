@@ -1,8 +1,9 @@
+#![allow(clippy::needless_borrows_for_generic_args)]
+
 use crate as pallet_airdrop;
 use crate::Call as AirdropCall;
 
 use super::*;
-//use hex_literal::hex;
 
 use scale_codec::Encode;
 

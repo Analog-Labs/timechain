@@ -45,9 +45,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: prod
-            profile: mainnet
-            features: default
           - image: dev
             profile: testnet
             features: testnet,develop

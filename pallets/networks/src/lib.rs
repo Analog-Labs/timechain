@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 //! The network pallet manages the registration and configuration of various
 //! blockchain networks within a decentralized system. It provides functionality
 //! to add new networks, retrieve network information, and ensures each network

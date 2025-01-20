@@ -21,6 +21,7 @@ members = [
 	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",
+	"pallets/launch",
 	"pallets/members",
 	"pallets/networks",
 	"pallets/shards",
@@ -81,6 +82,7 @@ pallet-airdrop = { path = "pallets/airdrop", default-features = false }
 pallet-dmail = { path = "pallets/dmail", default-features = false }
 pallet-elections = { path = "pallets/elections", default-features = false }
 pallet-governance = { path = "pallets/governance", default-features = false }
+pallet-launch = { path = "pallets/launch", default-features = false }
 pallet-members = { path = "pallets/members", default-features = false }
 pallet-networks = { path = "pallets/networks", default-features = false }
 pallet-shards = { path = "pallets/shards", default-features = false }

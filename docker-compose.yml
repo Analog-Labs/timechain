@@ -41,8 +41,6 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    ports:
-      - "8080:8080"
 
   gmp-grpc-1:
     image: 'analoglabs/gmp-grpc-develop'
@@ -68,8 +66,6 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-    ports:
-      - "8081:8080"
 
   chronicle-2:
     image: 'analoglabs/chronicle-develop'
@@ -79,14 +75,12 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum:8545'
+    - '--target-url=ws://ethereum-1:8545'
     - '--network-id=2'
     - '--backend=evm'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    ports:
-      - "8082:8080"
     profiles:
     - ethereum
 
@@ -98,18 +92,16 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum:8545'
+    - '--target-url=ws://ethereum-2:8545'
     - '--network-id=3'
     - '--backend=evm'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    ports:
-      - "8083:8080"
     profiles:
     - ethereum
 
-  ethereum:
+  ethereum-1:
     image: 'ethereum/client-go:v1.14.11'
     command:
     - '--dev'
@@ -135,6 +127,32 @@ services:
     ports:
     - 8545:8545
 
+  ethereum-2:
+    image: 'ethereum/client-go:v1.14.11'
+    command:
+    - '--dev'
+    - '--dev.gaslimit=30000000'
+    - '--ipcdisable'
+    - '--dev.period=2'
+    - '--rpc.txfeecap=0'
+    - '--rpc.allow-unprotected-txs=true'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
+    - '--ws'
+    - '--ws.addr=0.0.0.0'
+    - '--ws.port=8545'
+    - '--ws.origins=*'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
+    - '--verbosity=4'
+    profiles:
+    - ethereum
+    ports:
+    - 8546:8545
+
   tc-cli:
     image: 'analoglabs/tc-cli-develop'
     environment:
@@ -143,6 +161,7 @@ services:
     volumes:
     - './config/envs/local/local-evm.yaml:/etc/local-evm.yaml:ro'
     - './config/envs/local/local-grpc.yaml:/etc/config.yaml:ro'
+    - './config/envs/local/local-grpc-tss.yaml:/etc/local-grpc-tss.yaml:ro'
     - './config/envs/local/prices.csv:/etc/prices.csv'
     - './analog-gmp/out:/etc/contracts:ro'
     - './gmp/evm/factory/additional_config.json:/etc/deployer/additional_config.json:ro'

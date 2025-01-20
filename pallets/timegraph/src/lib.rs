@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 //! This pallet provides functionality for users to deposit and withdraw funds.
 //! It maintains a sequence for deposits and withdrawals to ensure order
 //!  and prevent replay attacks.

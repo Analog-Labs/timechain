@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::manual_inspect)]
 //! # Timechain Shards Pallet
 //!
 //! The Shards pallet manages the lifecycle of shards in a decentralized network. It handles the

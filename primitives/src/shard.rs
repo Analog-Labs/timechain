@@ -136,7 +136,7 @@ impl std::fmt::Display for ShardStatus {
 pub struct TssSigningRequest {
 	pub task_id: TaskId,
 	pub shard_id: ShardId,
-	pub block_number: BlockNumber,
+	pub block: BlockNumber,
 	pub data: Vec<u8>,
 	pub tx: oneshot::Sender<(TssHash, TssSignature)>,
 }

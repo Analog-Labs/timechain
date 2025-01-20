@@ -97,6 +97,7 @@ pallet-airdrop.workspace = true
 pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-governance.workspace = true
+pallet-launch.workspace = true
 pallet-members.workspace = true
 pallet-networks.workspace = true
 pallet-shards.workspace = true
@@ -131,6 +132,7 @@ std = [
 	"pallet-dmail/std",
 	"pallet-elections/std",
 	"pallet-governance/std",
+	"pallet-launch/std",
 	"pallet-members/std",
 	"pallet-networks/std",
 	"pallet-shards/std",
@@ -152,11 +154,12 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
 
+	"pallet-airdrop/runtime-benchmarks",
+	"pallet-dmail/runtime-benchmarks",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
 	"pallet-networks/runtime-benchmarks",
-	"pallet-dmail/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timegraph/runtime-benchmarks",
@@ -165,12 +168,14 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"polkadot-sdk/frame-try-runtime",
+
 	"pallet-airdrop/try-runtime",
+	"pallet-dmail/try-runtime",
 	"pallet-elections/try-runtime",
 	"pallet-governance/try-runtime",
+	"pallet-launch/try-runtime",
 	"pallet-members/try-runtime",
 	"pallet-networks/try-runtime",
-	"pallet-dmail/try-runtime",
 	"pallet-shards/try-runtime",
 	"pallet-tasks/try-runtime",
 	"pallet-timegraph/try-runtime",

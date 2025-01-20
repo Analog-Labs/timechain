@@ -8,12 +8,12 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId, ShardId, Task,
+	TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{event, span, Level};
+use tracing::{event, span, Level, Span};
 
 #[derive(Clone)]
 pub struct TaskParams {
@@ -41,18 +41,20 @@ impl TaskParams {
 
 	async fn tss_sign(
 		&self,
-		block_number: BlockNumber,
+		block: BlockNumber,
 		shard_id: ShardId,
 		task_id: TaskId,
 		data: Vec<u8>,
+		span: &Span,
 	) -> Result<TssSignature> {
+		tracing::debug!(target: TW_LOG, parent: span, "tss_sign");
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
 			.send(TssSigningRequest {
 				task_id,
 				shard_id,
-				block_number,
+				block,
 				data,
 				tx,
 			})
@@ -66,9 +68,10 @@ impl TaskParams {
 		task_id: TaskId,
 		task: &Task,
 		target_block_height: u64,
+		span: &Span,
 	) -> Result<bool> {
 		if target_block_height < task.start_block() {
-			tracing::debug!(target: TW_LOG, task_id,
+			tracing::debug!(target: TW_LOG, parent: span,
 				"task scheduled for future {:?}/{:?}",
 				target_block_height,
 				task.start_block(),
@@ -79,7 +82,7 @@ impl TaskParams {
 			let Some(public_key) = self.runtime.get_task_submitter(task_id).await? else {
 				tracing::debug!(
 					target: TW_LOG,
-					task_id,
+					parent: span,
 					"no submitter set for task",
 				);
 				return Ok(false);
@@ -91,6 +94,7 @@ impl TaskParams {
 		Ok(true)
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn execute(
 		self,
 		block_number: BlockNumber,
@@ -99,14 +103,16 @@ impl TaskParams {
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
+		span: Span,
 	) -> Result<()> {
 		let result = match task {
 			Task::ReadGatewayEvents { blocks } => {
 				let events =
 					self.connector.read_events(gateway, blocks).await.context("read_events")?;
-				tracing::info!(target: TW_LOG, task_id, "read {} events", events.len(),);
+				tracing::info!(target: TW_LOG, parent: &span, "read {} events", events.len(),);
 				let payload = time_primitives::encode_gmp_events(task_id, &events);
-				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
+				let signature =
+					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				Some(TaskResult::ReadGatewayEvents {
 					events: GmpEvents(events),
 					signature,
@@ -116,13 +122,15 @@ impl TaskParams {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
-				let signature = self.tss_sign(block_number, shard_id, task_id, payload).await?;
+				let signature =
+					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				let signer =
 					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
 						[0];
 				if let Err(e) =
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
+					tracing::error!(target: TW_LOG, parent: &span, batch_id, "Error while executing batch: {e}");
 					Some(TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
 					})
@@ -132,13 +140,12 @@ impl TaskParams {
 			},
 		};
 		if let Some(result) = result {
-			tracing::debug!(task_id = task_id, shard_id = shard_id, "submitting task result",);
+			tracing::debug!(target: TW_LOG, parent: &span, "submitting task result",);
 			if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
 				tracing::error!(
 					target: TW_LOG,
-					task_id = task_id,
-					shard_id = shard_id,
-					"Error submitting task result {:?}",
+					parent: &span,
+					"error submitting task result: {:?}",
 					e
 				);
 			}
@@ -162,18 +169,11 @@ impl TaskExecutor {
 
 	pub async fn process_tasks(
 		&mut self,
-		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
+		span: &Span,
 	) -> Result<(Vec<TaskId>, Vec<TaskId>, u64)> {
-		let span = span!(
-			target: TW_LOG,
-			Level::DEBUG,
-			"process_tasks",
-			block = block_hash.to_string(),
-			block_number,
-		);
 		let network = self.params.network();
 		let gateway = self
 			.params
@@ -191,25 +191,32 @@ impl TaskExecutor {
 				continue;
 			}
 			let task = self.params.runtime.get_task(task_id).await?.context("invalid task")?;
-			if !self.params.is_executable(task_id, &task, target_block_height).await? {
+			if !self.params.is_executable(task_id, &task, target_block_height, span).await? {
 				continue;
 			}
 
-			tracing::info!(
+			let span = span!(
+				target: TW_LOG,
+				parent: span,
+				Level::INFO,
+				"task started",
 				task_id,
 				%task,
 				target_block_height,
-				"Starting task"
 			);
 			let exec = self.params.clone();
+			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
-				match exec.execute(block_number, network, gateway, shard_id, task_id, task).await {
+				match exec
+					.execute(block_number, network, gateway, shard_id, task_id, task, span2)
+					.await
+				{
 					Ok(()) => {
-						tracing::info!(task_id, target_block_height, "Task completed");
+						tracing::info!(target: TW_LOG, parent: &span, task_id, target_block_height, "task completed");
 					},
 					Err(error) => {
 						*total_failed.lock().await += 1;
-						tracing::error!(task_id, target_block_height, ?error, "Task failed");
+						tracing::error!(target: TW_LOG, parent: &span, task_id, target_block_height, ?error, "task failed");
 					},
 				};
 			});
@@ -225,7 +232,7 @@ impl TaskExecutor {
 				if !handle.is_finished() {
 					event!(
 						target: TW_LOG,
-						parent: &span,
+						parent: span,
 						Level::DEBUG,
 						task_id,
 						"task aborted",

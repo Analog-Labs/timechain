@@ -143,14 +143,15 @@ fn basic_setup_works() {
 #[test]
 fn claim_raw_schnorr_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		let alice = Alice.into();
+		assert_eq!(Balances::free_balance(&alice), 0);
 		assert_ok!(Airdrop::claim_raw(
 			RuntimeOrigin::none(),
 			Alice.into(),
 			Alice.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&Alice.into()), 1000);
+		assert_eq!(Balances::free_balance(&alice), 1000);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(50));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 1000);
 	});
@@ -159,14 +160,15 @@ fn claim_raw_schnorr_works() {
 #[test]
 fn claim_raw_edwards_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		let alice = Alice.into();
+		assert_eq!(Balances::free_balance(&alice), 0);
 		assert_ok!(Airdrop::claim_raw(
 			RuntimeOrigin::none(),
 			Dave.into(),
 			Dave.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&Alice.into()), 3000);
+		assert_eq!(Balances::free_balance(&alice), 3000);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(50));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 3000);
 	});
@@ -247,12 +249,13 @@ fn without_claim_fails() {
 #[test]
 fn mint_works() {
 	new_test_ext().execute_with(|| {
+		let alice = Alice.into();
 		// Non-root are not allowed to add new claims
 		assert_noop!(
 			Airdrop::mint(RuntimeOrigin::signed(Alice.into()), Charlie.into(), 1000, None),
 			sp_runtime::traits::BadOrigin,
 		);
-		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_eq!(Balances::free_balance(&alice), 0);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
@@ -277,7 +280,7 @@ fn mint_works() {
 			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&Alice.into()), 1000);
+		assert_eq!(Balances::free_balance(&alice), 1000);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), None);
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
 	});
@@ -286,6 +289,7 @@ fn mint_works() {
 #[test]
 fn mint_with_vesting_works() {
 	new_test_ext().execute_with(|| {
+		let alice = Alice.into();
 		// Non-root user is not able to add claim
 		assert_noop!(
 			Airdrop::mint(
@@ -296,7 +300,7 @@ fn mint_with_vesting_works() {
 			),
 			sp_runtime::traits::BadOrigin,
 		);
-		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_eq!(Balances::free_balance(&alice), 0);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
@@ -314,7 +318,7 @@ fn mint_with_vesting_works() {
 			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&Alice.into()), 500);
+		assert_eq!(Balances::free_balance(&alice), 500);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(500));
 
 		// Make sure we can not transfer the vested balance.
@@ -369,8 +373,9 @@ fn double_claiming_fails() {
 #[test]
 fn claims_exceeding_vesting_fails() {
 	new_test_ext().execute_with(|| {
+		let charlie = Charlie.into();
 		CurrencyOf::<Test>::make_free_balance_be(&Charlie.into(), total_claims());
-		assert_eq!(Balances::free_balance(&Charlie.into()), total_claims());
+		assert_eq!(Balances::free_balance(&charlie), total_claims());
 		// A user is already vested and the vesting limit is one
 		assert_ok!(<Test as Config>::VestingSchedule::add_vesting_schedule(
 			&Charlie.into(),

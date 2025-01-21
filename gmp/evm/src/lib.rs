@@ -500,7 +500,7 @@ impl IConnector for Connector {
 				topics: vec![],
 				block: FilterBlockOption::Range {
 					from_block: Some(blocks.start.into()),
-					// Evm fetches blocks from both ranges that is provided. This makes end block exclusive.
+					// Evm fetches logs from both blocks that is provided in range. This makes end block exclusive.
 					to_block: Some((blocks.end - 1).into()),
 				},
 			})

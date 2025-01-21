@@ -838,12 +838,6 @@ impl IConnectorAdmin for Connector {
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
-	/// Deposit gateway funds.
-	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
-		let call = sol::Gateway::depositCall {};
-		self.evm_call(gateway, call, amount, None, None).await?;
-		Ok(())
-	}
 }
 
 fn compute_create2_address(

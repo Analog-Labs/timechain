@@ -186,7 +186,8 @@ mod tests {
 		tracing::info!("running chronicle");
 		let network_key = *mock.account_id().as_ref();
 		let (tx, mut rx) = mpsc::channel(10);
-		let tss_keyshare_cache = format!("/tmp/chronicles/{}", hex::encode(network_key)).into();
+		let root = if std::env::var("CI").is_ok() { "." } else { "/tmp" };
+		let tss_keyshare_cache = format!("{root}/chronicles/{}", hex::encode(network_key)).into();
 		std::fs::create_dir_all(&tss_keyshare_cache).unwrap();
 		let handle = tokio::task::spawn(run_chronicle(
 			ChronicleConfig {

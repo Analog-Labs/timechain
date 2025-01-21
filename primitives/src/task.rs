@@ -1,4 +1,4 @@
-use crate::{BatchId, GmpEvent, TssSignature, ANLOG};
+use crate::{BatchId, GmpEvent, TssSignature, MICROANLOG};
 use core::ops::Range;
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -37,7 +37,7 @@ impl Task {
 	}
 
 	pub fn reward(&self) -> u128 {
-		2 * ANLOG
+		MICROANLOG
 	}
 
 	pub fn needs_registration(&self) -> bool {

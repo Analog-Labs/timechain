@@ -29,8 +29,6 @@ mod roast;
 #[cfg(test)]
 mod tests;
 
-#[allow(dead_code)]
-
 /// Represents the state of the TSS process.
 ///
 /// - Dkg(Dkg): State during the DKG process.

@@ -505,6 +505,8 @@ impl IConnector for Connector {
 				},
 			})
 			.await?;
+
+		tracing::info!("block range: {:?}..{:?}", blocks.start, blocks.end);
 		let mut events = vec![];
 		for outer_log in logs {
 			let topics =
@@ -542,6 +544,11 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
+						tracing::info!(
+							"GMP Created, nonce: {}/{}",
+							gmp_message.nonce,
+							hex::encode(gmp_message.message_id())
+						);
 						if Some(gmp_message.src) == cctp_sender {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));
@@ -552,6 +559,7 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log, true)?;
+						tracing::info!("GMP Executed: {:?}", hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 						break;
 					},

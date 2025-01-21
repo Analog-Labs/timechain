@@ -447,6 +447,7 @@ pub mod pallet {
 						ShardRegistered::<T>::remove(pubkey);
 					},
 					GmpEvent::MessageReceived(msg) => {
+						log::info!("gmp_msg received: {}", msg.nonce);
 						let msg_id = msg.message_id();
 						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
@@ -697,9 +698,13 @@ pub mod pallet {
 			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
 				let batch_gas_limit = T::Networks::batch_gas_limit(network);
+				log::info!("gmp_msg batch_gas_limit: {:?}", batch_gas_limit);
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
+					if let GatewayOp::SendMessage(msg) = op.clone() {
+						log::info!("gmp_msg scheduled: {}", msg.nonce);
+					}
 					if let Some(msg) = batcher.push(op) {
 						Self::start_batch(network, msg);
 						num_batches_started = num_batches_started.saturating_plus_one();
@@ -724,6 +729,7 @@ pub mod pallet {
 			}
 			BatchMessage::<T>::insert(batch_id, msg);
 			let task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
+			log::info!("msg created: {}", task_id);
 			BatchTaskId::<T>::insert(batch_id, task_id);
 		}
 	}

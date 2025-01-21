@@ -59,12 +59,12 @@ pub mod pallet {
 	};
 
 	pub trait WeightInfo {
-		fn set_shard_config() -> Weight;
+		fn set_network_shard_config() -> Weight;
 		fn try_elect_shards(b: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn set_shard_config() -> Weight {
+		fn set_network_shard_config() -> Weight {
 			Weight::default()
 		}
 		fn try_elect_shards(_: u32) -> Weight {
@@ -101,18 +101,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NetworkCounter<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// Default size of each new shard
-	#[pallet::storage]
-	pub type ShardSize<T: Config> = StorageValue<_, u16, ValueQuery>;
-
 	/// Size of each new shard per network
 	#[pallet::storage]
 	pub type NetworkShardSize<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
-
-	/// Default threshold of each new shard
-	#[pallet::storage]
-	pub type ShardThreshold<T: Config> = StorageValue<_, u16, ValueQuery>;
 
 	/// Threshold of each new shard per network
 	#[pallet::storage]
@@ -128,16 +120,14 @@ pub mod pallet {
 	pub struct GenesisConfig<T> {
 		#[serde(skip)]
 		pub _p: PhantomData<T>,
-		pub shard_size: u16,
-		pub shard_threshold: u16,
+		pub networks: Vec<(NetworkId, u16, u16)>,
 	}
 
 	impl<T> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
 				_p: PhantomData,
-				shard_size: 3,
-				shard_threshold: 2,
+				networks: Vec::new(),
 			}
 		}
 	}
@@ -145,22 +135,22 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			assert!(
-				MAX_SHARD_SIZE >= self.shard_size.into(),
-				"Attempted to set ShardSize {} > MaxShardSize {} which bounds commitment length",
-				self.shard_size,
-				MAX_SHARD_SIZE
-			);
-			ShardSize::<T>::put(self.shard_size);
-			ShardThreshold::<T>::put(self.shard_threshold);
+			for (network, shard_size, shard_threshold) in self.networks.iter() {
+				assert!(
+					MAX_SHARD_SIZE >= (*shard_size).into(),
+					"Attempted to set ShardSize {} > MaxShardSize {} which bounds commitment length",
+					shard_size,
+					MAX_SHARD_SIZE
+				);
+				NetworkShardSize::<T>::insert(network, shard_size);
+				NetworkShardThreshold::<T>::insert(network, shard_threshold);
+			}
 		}
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Set shard config: size, threshold
-		ShardConfigSet(u16, u16),
 		/// Set network shard config: network, size, threshold
 		NetworkShardConfigSet(NetworkId, u16, u16),
 	}
@@ -209,7 +199,7 @@ pub mod pallet {
 	/// management.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		///  Sets the configuration for default shard size and threshold.
+		/// Sets the network configuration for shard size and threshold.
 		/// # Flow:
 		///    1. Ensures the caller is the root.
 		///    2. Validates that `shard_size` is greater than or equal to `shard_threshold`.
@@ -218,26 +208,7 @@ pub mod pallet {
 		///    5. Iterates through all unassigned members in the [`Unassigned`] storage.
 		///    6. Calls `try_elect_shard` for each network to form new shards if possible.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_shard_config())]
-		pub fn set_shard_config(
-			origin: OriginFor<T>,
-			shard_size: u16,
-			shard_threshold: u16,
-		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(MAX_SHARD_SIZE >= shard_size.into(), Error::<T>::ShardSizeAboveMax);
-			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
-			ShardSize::<T>::put(shard_size);
-			ShardThreshold::<T>::put(shard_threshold);
-			Self::deposit_event(Event::ShardConfigSet(shard_size, shard_threshold));
-			for network in T::Networks::get_networks() {
-				Self::try_elect_shards(network, T::MaxElectionsPerBlock::get());
-			}
-			Ok(())
-		}
-		/// Sets the network configuration for shard size and threshold.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_shard_config())]
+		#[pallet::weight(T::WeightInfo::set_network_shard_config())]
 		pub fn set_network_shard_config(
 			origin: OriginFor<T>,
 			network: NetworkId,
@@ -282,10 +253,8 @@ pub mod pallet {
 		}
 
 		///  Retrieves the default shard size.
-		/// # Flow
-		///    1. Returns the value of [`ShardSize`] from storage.
 		fn default_shard_size() -> u16 {
-			ShardSize::<T>::get()
+			3u16
 		}
 
 		///  Handles the event when a member comes online.
@@ -326,10 +295,8 @@ pub mod pallet {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
-			let shard_size: u32 =
-				NetworkShardSize::<T>::get(network).unwrap_or(ShardSize::<T>::get()).into();
-			let shard_threshold =
-				NetworkShardThreshold::<T>::get(network).unwrap_or(ShardThreshold::<T>::get());
+			let shard_size: u32 = NetworkShardSize::<T>::get(network).unwrap_or(3).into();
+			let shard_threshold = NetworkShardThreshold::<T>::get(network).unwrap_or(2);
 			let mut unassigned = Unassigned::<T>::get(network);
 			let num_elected =
 				sp_std::cmp::min((unassigned.len() as u32) / shard_size, max_elections)

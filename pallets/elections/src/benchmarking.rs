@@ -14,8 +14,8 @@ const ETHEREUM: NetworkId = 0;
 benchmarks! {
 	where_clause { where T: pallet_members::Config + pallet_networks::Config }
 
-	set_shard_config {
-	}: _(RawOrigin::Root, 3u16, 1u16)
+	set_network_shard_config {
+	}: _(RawOrigin::Root, ETHEREUM, 3u16, 1u16)
 	verify { }
 
 	try_elect_shards {
@@ -35,7 +35,7 @@ benchmarks! {
 			Into::<AccountId>::into(acc)
 		};
 		for i in 0..b {
-			for j in 0..ShardSize::<T>::get() {
+			for j in 0..NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(3) {
 				let member = account(i, j);
 				MemberOnline::<T>::insert(member.clone(), ());
 				Pallet::<T>::member_online(&member, ETHEREUM);
@@ -52,7 +52,7 @@ benchmarks! {
 		// ShardSize # of unassigned were elected to a shard
 		assert_eq!(
 			pre_unassigned_count - post_unassigned_count,
-			(b as u16).saturating_mul(ShardSize::<T>::get()),
+			(b as u16).saturating_mul(NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(3)),
 		);
 		let unassigned = Unassigned::<T>::get(ETHEREUM);
 		// New shard members were removed from Unassigned

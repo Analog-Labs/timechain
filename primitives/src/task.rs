@@ -37,7 +37,7 @@ impl Task {
 	}
 
 	pub fn reward(&self) -> u128 {
-		1 * MICROANLOG
+		MICROANLOG
 	}
 
 	pub fn needs_registration(&self) -> bool {

@@ -1,5 +1,4 @@
 use crate::runtime::Runtime;
-use crate::TW_LOG;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream};
@@ -47,7 +46,7 @@ impl TaskParams {
 		data: Vec<u8>,
 		span: &Span,
 	) -> Result<TssSignature> {
-		tracing::debug!(target: TW_LOG, parent: span, "tss_sign");
+		tracing::debug!(parent: span, "tss_sign");
 		let (tx, rx) = oneshot::channel();
 		self.tss
 			.clone()
@@ -71,7 +70,7 @@ impl TaskParams {
 		span: &Span,
 	) -> Result<bool> {
 		if target_block_height < task.start_block() {
-			tracing::debug!(target: TW_LOG, parent: span,
+			tracing::debug!(parent: span,
 				"task scheduled for future {:?}/{:?}",
 				target_block_height,
 				task.start_block(),
@@ -81,7 +80,6 @@ impl TaskParams {
 		if task.needs_signer() {
 			let Some(public_key) = self.runtime.get_task_submitter(task_id).await? else {
 				tracing::debug!(
-					target: TW_LOG,
 					parent: span,
 					"no submitter set for task",
 				);
@@ -109,7 +107,7 @@ impl TaskParams {
 			Task::ReadGatewayEvents { blocks } => {
 				let events =
 					self.connector.read_events(gateway, blocks).await.context("read_events")?;
-				tracing::info!(target: TW_LOG, parent: &span, "read {} events", events.len(),);
+				tracing::info!(parent: &span, "read {} events", events.len(),);
 				let payload = time_primitives::encode_gmp_events(task_id, &events);
 				let signature =
 					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
@@ -130,7 +128,7 @@ impl TaskParams {
 				if let Err(e) =
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
-					tracing::error!(target: TW_LOG, parent: &span, batch_id, "Error while executing batch: {e}");
+					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
 					Some(TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
 					})
@@ -140,10 +138,9 @@ impl TaskParams {
 			},
 		};
 		if let Some(result) = result {
-			tracing::debug!(target: TW_LOG, parent: &span, "submitting task result",);
+			tracing::debug!(parent: &span, "submitting task result",);
 			if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
 				tracing::error!(
-					target: TW_LOG,
 					parent: &span,
 					"error submitting task result: {:?}",
 					e
@@ -196,7 +193,6 @@ impl TaskExecutor {
 			}
 
 			let span = span!(
-				target: TW_LOG,
 				parent: span,
 				Level::INFO,
 				"task started",
@@ -212,11 +208,11 @@ impl TaskExecutor {
 					.await
 				{
 					Ok(()) => {
-						tracing::info!(target: TW_LOG, parent: &span, task_id, target_block_height, "task completed");
+						tracing::info!(parent: &span, task_id, target_block_height, "task completed");
 					},
 					Err(error) => {
 						*total_failed.lock().await += 1;
-						tracing::error!(target: TW_LOG, parent: &span, task_id, target_block_height, ?error, "task failed");
+						tracing::error!(parent: &span, task_id, target_block_height, ?error, "task failed");
 					},
 				};
 			});
@@ -231,7 +227,6 @@ impl TaskExecutor {
 			} else {
 				if !handle.is_finished() {
 					event!(
-						target: TW_LOG,
 						parent: span,
 						Level::DEBUG,
 						task_id,

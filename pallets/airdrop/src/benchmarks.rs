@@ -65,7 +65,8 @@ benchmarks! {
 
 		let target: T::AccountId = account("target", 0, SEED);
 		// This is how the proof was generate, but requires std
-		//let proof = SrClaimer.sign(&Pallet::<T>::to_message(&target)[..]).0;
+		#[cfg(feature = "std")]
+		println!("updated schnorr proof: {:?}", SrClaimer.sign(&Pallet::<T>::to_message(&target)[..]).0);
 
 		let txsource = sp_runtime::transaction_validity::TransactionSource::External;
 		let call_enc = Call::<T>::claim_raw { source: source.clone(), proof: SCHNORR_PROOF, target }.encode();
@@ -97,7 +98,8 @@ benchmarks! {
 
 		let target: T::AccountId = account("target", 0, SEED);
 		// This is how the proof was generate, but requires std
-		//let proof = EdClaimer.sign(&Pallet::<T>::to_message(&target)[..]).0;
+		#[cfg(feature = "std")]
+		println!("updated edwards proof: {:?}", EdClaimer.sign(&Pallet::<T>::to_message(&target)[..]).0);
 
 		let txsource = sp_runtime::transaction_validity::TransactionSource::External;
 		let call_enc = Call::<T>::claim_raw { source: source.clone(), proof: EDWARDS_PROOF, target }.encode();
@@ -125,7 +127,7 @@ benchmarks! {
 
 	impl_benchmark_test_suite!(
 		Pallet,
-		crate::tests::new_test_ext(),
-		crate::tests::Test,
+		crate::mock::new_test_ext(),
+		crate::mock::Test,
 	);
 }

@@ -23,19 +23,19 @@ const TOTAL_DEPLOYED: Balance = GENESIS + STAGE_1 + STAGE_2;
 const TOTAL_TREASURY: Balance = STAGE_2_DIFF;
 
 #[test]
-fn data_v7_validation() {
+fn data_v8_validation() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
 		// Parse raw data of migration and check for any error event
-		let v6 = DepositMigration::<Test>::new(crate::data::v7::DEPOSITS_PRELAUNCH_2);
+		let v8 = AirdropMigration::<Test>::new(crate::data::v8::AIRDROPS_SNAPSHOT_2);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment
-		assert_eq!(v6.sum(), 226_449_338 * ANLOG);
+		assert_eq!(v8.sum(), 20_288_872_847_294_611_363);
 
 		// Ensure non of the endowments causes an error event
-		let _w = v6.execute();
+		let _w = v8.execute();
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// TODO: Check weight
@@ -43,12 +43,12 @@ fn data_v7_validation() {
 }
 
 #[test]
-fn data_v8_validation() {
+fn data_v9_validation() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
 		// Parse raw data of migration and check for any error event
-		let v6 = AirdropMigration::<Test>::new(crate::data::v8::AIRDROP_VALIDATORS);
+		let v6 = AirdropMigration::<Test>::new(crate::data::v9::AIRDROP_VALIDATORS);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment
@@ -63,12 +63,12 @@ fn data_v8_validation() {
 }
 
 #[test]
-fn data_v9_validation() {
+fn data_v10_validation() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
 		// Parse raw data of migration and check for any error event
-		let v7 = DepositMigration::<Test>::new(crate::data::v9::DEPOSITS_TOKEN_GENESIS_EVENT);
+		let v7 = DepositMigration::<Test>::new(crate::data::v10::DEPOSITS_TOKEN_GENESIS_EVENT);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment

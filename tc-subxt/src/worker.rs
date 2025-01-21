@@ -50,6 +50,11 @@ pub enum Tx {
 		shard_size: u16,
 		shard_threshold: u16,
 	},
+	SetNetworkShardConfig {
+		network: NetworkId,
+		shard_size: u16,
+		shard_threshold: u16,
+	},
 	Commitment {
 		shard_id: ShardId,
 		commitment: Commitment,
@@ -191,6 +196,21 @@ impl SubxtWorker {
 			Tx::SetShardConfig { shard_size, shard_threshold } => {
 				let runtime_call = RuntimeCall::Elections(
 					metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
+						shard_size,
+						shard_threshold,
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.create_signed_payload(&payload).await
+			},
+			Tx::SetNetworkShardConfig {
+				network,
+				shard_size,
+				shard_threshold,
+			} => {
+				let runtime_call = RuntimeCall::Elections(
+					metadata::runtime_types::pallet_elections::pallet::Call::set_network_shard_config {
+						network,
 						shard_size,
 						shard_threshold,
 					},

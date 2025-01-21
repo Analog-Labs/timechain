@@ -235,6 +235,7 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+		/// Sets the network configuration for shard size and threshold.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_shard_config())]
 		pub fn set_network_shard_config(

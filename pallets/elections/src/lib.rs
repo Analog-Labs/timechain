@@ -101,13 +101,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NetworkCounter<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// Size of each new shard
+	/// Default size of each new shard
 	#[pallet::storage]
 	pub type ShardSize<T: Config> = StorageValue<_, u16, ValueQuery>;
 
-	/// Threshold of each new shard
+	/// Size of each new shard per network
+	#[pallet::storage]
+	pub type NetworkShardSize<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
+
+	/// Default threshold of each new shard
 	#[pallet::storage]
 	pub type ShardThreshold<T: Config> = StorageValue<_, u16, ValueQuery>;
+
+	/// Threshold of each new shard per network
+	#[pallet::storage]
+	pub type NetworkShardThreshold<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
 
 	/// Unassigned online members per network sorted by stake and then AccountId
 	#[pallet::storage]
@@ -151,6 +161,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Set shard config: size, threshold
 		ShardConfigSet(u16, u16),
+		/// Set network shard config: network, size, threshold
+		NetworkShardConfigSet(NetworkId, u16, u16),
 	}
 
 	#[pallet::error]
@@ -197,7 +209,7 @@ pub mod pallet {
 	/// management.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		///  Sets the configuration for shard size and threshold.
+		///  Sets the configuration for default shard size and threshold.
 		/// # Flow:
 		///    1. Ensures the caller is the root.
 		///    2. Validates that `shard_size` is greater than or equal to `shard_threshold`.
@@ -221,6 +233,23 @@ pub mod pallet {
 			for network in T::Networks::get_networks() {
 				Self::try_elect_shards(network, T::MaxElectionsPerBlock::get());
 			}
+			Ok(())
+		}
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::set_shard_config())]
+		pub fn set_network_shard_config(
+			origin: OriginFor<T>,
+			network: NetworkId,
+			shard_size: u16,
+			shard_threshold: u16,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(MAX_SHARD_SIZE >= shard_size.into(), Error::<T>::ShardSizeAboveMax);
+			ensure!(shard_size >= shard_threshold, Error::<T>::ThresholdLargerThanSize);
+			NetworkShardSize::<T>::insert(network, shard_size);
+			NetworkShardThreshold::<T>::insert(network, shard_threshold);
+			Self::deposit_event(Event::NetworkShardConfigSet(network, shard_size, shard_threshold));
+			Self::try_elect_shards(network, T::MaxElectionsPerBlock::get());
 			Ok(())
 		}
 	}
@@ -296,8 +325,10 @@ pub mod pallet {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
-			let shard_size: u32 = ShardSize::<T>::get().into();
-			let shard_threshold = ShardThreshold::<T>::get();
+			let shard_size: u32 =
+				NetworkShardSize::<T>::get(network).unwrap_or(ShardSize::<T>::get()).into();
+			let shard_threshold =
+				NetworkShardThreshold::<T>::get(network).unwrap_or(ShardThreshold::<T>::get());
 			let mut unassigned = Unassigned::<T>::get(network);
 			let num_elected =
 				sp_std::cmp::min((unassigned.len() as u32) / shard_size, max_elections)

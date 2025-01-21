@@ -23,36 +23,16 @@ const TOTAL_DEPLOYED: Balance = GENESIS + STAGE_1 + STAGE_2;
 const TOTAL_TREASURY: Balance = STAGE_2_DIFF;
 
 #[test]
-fn data_v6_validation() {
-	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
-		// Parse raw data of migration and check for any error event
-		let v6 = AirdropMigration::<Test>::new(crate::data::v6::AIRDROP_TESTING);
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// Ensure correct sum of endowment
-		assert_eq!(v6.sum(), 50 * ANLOG);
-
-		// Ensure non of the endowments causes an error event
-		let _w = v6.execute();
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// TODO: Check weight
-	});
-}
-
-#[test]
 fn data_v7_validation() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
 		// Parse raw data of migration and check for any error event
-		let v6 = AirdropMigration::<Test>::new(crate::data::v7::AIRDROP_SNAPSHOT_2);
+		let v6 = DepositMigration::<Test>::new(crate::data::v7::DEPOSITS_PRELAUNCH_2);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment
-		assert_eq!(v6.sum(), 0);
+		assert_eq!(v6.sum(), 226_449_338 * ANLOG);
 
 		// Ensure non of the endowments causes an error event
 		let _w = v6.execute();

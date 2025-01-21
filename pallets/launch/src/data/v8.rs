@@ -6,4 +6,4 @@
 use crate::RawEndowmentMigration;
 
 // Incentivized testnet validator rewards
-pub const AIRDROP_SNAPSHOT_2: RawEndowmentMigration = &[];
+pub const AIRDROP_VALIDATORS: RawEndowmentMigration = &[];

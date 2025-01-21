@@ -1,9 +1,60 @@
 //! This file describes the migrations to be run at stage 5.
 //!
-//! The goal of this migration is to reward testnet validators.
-#![allow(dead_code)]
-
+//! The goal of this migration is to provide us with test airdrops.
 use crate::RawEndowmentMigration;
 
+use time_primitives::ANLOG;
+
 // Incentivized testnet validator rewards
-pub const AIRDROP_VALIDATORS: RawEndowmentMigration = &[];
+pub const AIRDROP_TESTING: RawEndowmentMigration = &[
+	("an94T1pXs5fXBhH2drGQUpMZkSooKAHbQMcCQmRCuyjJ6QvFe", ANLOG, None),
+	("an9crHK8b96NUYuEvBJ1Mziua9wJA746QiFR7axiwqSVfNpF2", ANLOG, None),
+	("an6rAttekoERD7x8nkEev87Zbo1k6CCwZnX8XCygkYjq1U8pv", ANLOG, None),
+	("an9Ffmh6so9BVEGf5T8tHDwsykgTzW2uA6TccTyJuyB1hpHTG", ANLOG, None),
+	("an7dAjVCZqjHpidT53o6zW37RowbvuE6FSiJySFHH1AkzQCT3", ANLOG, None),
+	("anBETYwKeirNr7i3jgKKjAgioqgESGTcQLAKx6vWC3V6sEGV2", ANLOG, None),
+	("anAU1qqB9hfsMQEL5PTNnWsbALk5q8YKnEMAz8x5qXe74Mtkt", ANLOG, None),
+	("an6tMJSkSee9ySfpH8JujV6xytnRnNPF73EAp7u5VQmKQ5FtQ", ANLOG, None),
+	("anAqHd9F6UDsAYiXTxsovuXPcrzji2VpZgm7mXNEq8Sg83GBp", ANLOG, None),
+	("anACBDVaxRryYV4HTYKNQR8DAigSNgczZytbNRvnDT9qSngem", ANLOG, None),
+	("an92BFXAznck1zhuV8jvTP1PQVUj1o2ehBYUeZQSyrMtTn4oq", ANLOG, None),
+	("anBEACkm8gUoMpou9zpu5XyQyVjSKYcH6xEtUyNvCHNKbYpcU", ANLOG, None),
+	("an7vm62Pxh2cfnFUMHchPwmB9PrQik4ScbA3Ts1DvcGy1kQuR", ANLOG, None),
+	("an754R4EW1yeXKVXN8kig5SozP2FhnV7RMu6jegJwNuQt9hKL", ANLOG, None),
+	("an6LqWhZ99YZFG5uyzkPoh3iyX4MTBgByQwpLsLEet3LzpzUJ", ANLOG, None),
+	("an6LrYX7pMFhvP4kpWFiJSkJQGXLGT3WgLcWm3LeBvaQdkc6j", ANLOG, None),
+	("an9Cj2NQ51CK93yLhAvVcczwy5xZsPKRwywd937Ww1mA5W181", ANLOG, None),
+	("an9nDKV4DdNojihmfZ1nzmAsiPBxj5qERCvzMY1cHE6KzkRcu", ANLOG, None),
+	("an97usqKYVhML1Wbr9z1cxiGZ8uqHZbBPkigGZbgoCKGsjkee", ANLOG, None),
+	("an5umaKfgYESUL9axhr9nBVfNMiSQ83x4PXP8z5fkityM1m98", ANLOG, None),
+	("an7sz5x5FaYasWSBHLXwvn5jVyxNYwZQm42N8gNtrusXChuV9", ANLOG, None),
+	("an877RSpQKPfRME8c5pTUrsBEbTUheKQbNSMGVSdktZfmgvvK", ANLOG, None),
+	("anAWvursSQkRn9fVtSYeWdH8SG7ooSHamu5okysWrW9HsN2HD", ANLOG, None),
+	("an8NrFUedsPBz4G4oYSw3cFRxAAKUYVN77MRTyTAYaSyLdedf", ANLOG, None),
+	("an63GF25sYrhSrnbqgTs1aRoAJ3Xm5TWRnFS6RqbSsUkRWqEK", ANLOG, None),
+	("an94nC4qzw8BMpSohWatHKzRUHdWaLXU12umUvAqJC4sgSo8q", ANLOG, None),
+	("an5rWJopnk9T8ioakxPkm3p3FmF4QVfTakK6xy675p8FF747T", ANLOG, None),
+	("anATXyvSaXbGX6QwmEiR3LLirQACu3WLZXynpDnWmxxJo3MdK", ANLOG, None),
+	("an7nhMH2rH63cGk8FqGQt3KbZs6pW5SiqXuXLJuUafw8Kz7Xt", ANLOG, None),
+	("an8XP6AKHMhS15ZaNjANPQACzWtuUg2bXfzWiHowkytRy6xzg", ANLOG, None),
+	("an7r735EsPsdmh59ocvpUZ3ZJ7G9EddfRWM4aozQrV8vp64sj", ANLOG, None),
+	("an9vTY3FYciJZZaNZJ3MHsanCi8b13XTLACMCMqgUHyRekDwq", ANLOG, None),
+	("an7vte4oiBFsfqPivVNynEfHS3mfF9AwimPPz3ztpJnKLpqgc", ANLOG, None),
+	("an6ybwc7jiA4pc4FL44G2DaKnzR9phe6aDvEU5mrB9EU32Ji2", ANLOG, None),
+	("an5gZqfK7Wge5XFiXBCqHkcXooNK2bevibxj5f8k8Q1SeGjVh", ANLOG, None),
+	("an7yuiQJyidnQaSLtK2L5wA4TSLKAHSofN7LcM1bV2epu5wTx", ANLOG, None),
+	("an8Et3Q6t8un4y4oAHHTKwNrEqAeT7TahmZGYdo2sXqpWHLjB", ANLOG, None),
+	("an9UkBhn85ymqkbw5YG6NZKhxJ7qBubUpJy6oevXVLvjRzJxe", ANLOG, None),
+	("an6m7qcaaRVjYct4sDqkdEazcsZG2h6Z6ao8tugpAtf2MkQGr", ANLOG, None),
+	("an8kkFy5aYEs2Gonhze333jm9W31y71S9Vcg5eSvoELmMR6wg", ANLOG, None),
+	("an6MJi7UVyLRKFoz2v22wau7G29XKPZ7cQhgK3fZ8vrNG3YFv", ANLOG, None),
+	("an6mNfKYHWwnqjSoyjUkqsBN7WdX6jfLpFcpGyUrpideEsPuk", ANLOG, None),
+	("an6b9yyGkgaofQ9YeViN6J9K4ybaYjzMjCLj973TXHwScpz2Z", ANLOG, None),
+	("an7JmzCAky8x5At7SCjFp6mwiGaUTqheoE9F8dUabuaHdUg8J", ANLOG, None),
+	("an8HiSfQKLjWUWR7Qm9VLgyJMPkUJfEAvnXzSYmuEufCmPbP7", ANLOG, None),
+	("an6MYS4PFxHcmkq8DNntNTsY96hJU9u1RijzZA37arg2hPiRe", ANLOG, None),
+	("an5pSaDb6haPiwbd9qs6cPKFVfYfXA62L6ma6YcbELdwf6WT9", ANLOG, None),
+	("an8z11QKuMHokD1jcF2hbZTMpoZZues9Lsxuvt2AwpKqVUBEF", ANLOG, None),
+	("an6FXurCJKGpELCAVfjgk22Etj6w49u3EBMsnpF651jwVE1mK", ANLOG, None),
+	("anAc7KtPgw5e2WbXVeJddBbq6f2j3ZQkxLdXWgtoqNb67VxF6", ANLOG, None),
+];

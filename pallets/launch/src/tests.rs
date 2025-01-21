@@ -11,36 +11,16 @@ use time_primitives::{Balance, ANLOG};
 // Operation allocation (launch budget) to pay for fees and test early integrations
 const GENESIS: Balance = 3100 * ANLOG;
 
-// First exchange allocations in preparation for TGE
+// First exchange allocations in preparation for TGE (v1 + v5)
 const STAGE_1: Balance = (53_030_500 + 39_328_063) * ANLOG;
 
-// First airdrop snapshot
-const STAGE_2: Balance = 410_168_623_085_944_989_935;
-const STAGE_2_ROUNDED: Balance = 410_168_625 * ANLOG;
-const STAGE_2_DIFF: Balance = STAGE_2_ROUNDED - STAGE_2;
+// First airdrop snapshot (v2 + v3 + v4)
+const STAGE_2: Balance = 410_168_624 * ANLOG;
+const STAGE_2_DIFF: Balance = STAGE_2 - 410_168_623_085_944_989_935;
 
 // FIXME: Make this a check before deployment
-const TOTAL_DEPLOYED: Balance = GENESIS + STAGE_1 + STAGE_2_ROUNDED;
-
-#[test]
-fn data_v5_validation() {
-	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
-		// Parse raw data of migration and check for any error event
-		let v5 = DepositMigration::<Test>::new(crate::data::v5::DEPOSITS_PRELAUNCH_1);
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// Ensure correct sum of endowment
-		assert_eq!(v5.sum(), 39_328_063 * ANLOG);
-
-		// Ensure non of the endowments causes an error event
-		let _w = v5.execute();
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// TODO: Check weight
-	});
-}
+const TOTAL_DEPLOYED: Balance = GENESIS + STAGE_1 + STAGE_2;
+const TOTAL_TREASURY: Balance = STAGE_2_DIFF;
 
 #[test]
 fn data_v6_validation() {
@@ -48,11 +28,11 @@ fn data_v6_validation() {
 		System::set_block_number(1);
 
 		// Parse raw data of migration and check for any error event
-		let v6 = AirdropMigration::<Test>::new(crate::data::v6::AIRDROP_VALIDATORS);
+		let v6 = AirdropMigration::<Test>::new(crate::data::v6::AIRDROP_TESTING);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment
-		assert_eq!(v6.sum(), 0);
+		assert_eq!(v6.sum(), 50 * ANLOG);
 
 		// Ensure non of the endowments causes an error event
 		let _w = v6.execute();
@@ -68,7 +48,47 @@ fn data_v7_validation() {
 		System::set_block_number(1);
 
 		// Parse raw data of migration and check for any error event
-		let v7 = DepositMigration::<Test>::new(crate::data::v7::DEPOSITS_TOKEN_GENESIS_EVENT);
+		let v6 = AirdropMigration::<Test>::new(crate::data::v7::AIRDROP_SNAPSHOT_2);
+		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
+
+		// Ensure correct sum of endowment
+		assert_eq!(v6.sum(), 0);
+
+		// Ensure non of the endowments causes an error event
+		let _w = v6.execute();
+		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
+
+		// TODO: Check weight
+	});
+}
+
+#[test]
+fn data_v8_validation() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		// Parse raw data of migration and check for any error event
+		let v6 = AirdropMigration::<Test>::new(crate::data::v8::AIRDROP_VALIDATORS);
+		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
+
+		// Ensure correct sum of endowment
+		assert_eq!(v6.sum(), 0);
+
+		// Ensure non of the endowments causes an error event
+		let _w = v6.execute();
+		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
+
+		// TODO: Check weight
+	});
+}
+
+#[test]
+fn data_v9_validation() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		// Parse raw data of migration and check for any error event
+		let v7 = DepositMigration::<Test>::new(crate::data::v9::DEPOSITS_TOKEN_GENESIS_EVENT);
 		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
 
 		// Ensure correct sum of endowment

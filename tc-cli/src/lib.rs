@@ -246,7 +246,7 @@ impl Tc {
 			self.format_address(network, address)?,
 		);
 		if let Some(network) = network {
-			self.connector(network)?.deposit_funds(address, balance).await?;
+			self.connector(network)?.transfer(address, balance).await?;
 		} else {
 			self.runtime.transfer(address.into(), balance).await?;
 		}

@@ -115,7 +115,6 @@ alloy_sol_types::sol! {
 	contract Gateway {
 		constructor(uint16 network, address proxy) payable;
 		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
-		function deposit() external payable {}
 		function upgrade(address newImplementation) external payable;
 		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
 		function execute(Signature calldata signature, GmpMessage calldata message)

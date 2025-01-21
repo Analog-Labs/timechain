@@ -39,7 +39,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(5);
+	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(6);
 
 	/// Workaround to get raw storage version
 	pub fn on_chain_launch_stage<P: PalletInfoAccess>() -> u16 {
@@ -95,9 +95,10 @@ pub mod pallet {
 				Pallet::<T>::deposit_event(Event::<T>::MigrationStarted { stage });
 
 				weight += match stage {
-					4 => DepositMigration::<T>::new(data::v5::DEPOSITS_PRELAUNCH_1).execute(),
-					//5 => AirdropMigration::<T>::new(data::v6::AIRDROP_VALIDATORS).execute(),
-					//6 => DepositMigration::<T>::new(data::v7::DEPOSITS_TOKEN_GENESIS_EVENT).execute(),
+					5 => AirdropMigration::<T>::new(data::v6::AIRDROP_TESTING).execute(),
+					//7 => AirdropMigration::<T>::new(data::v7::AIRDROP_SNAPSHOT_2).execute(),
+					//8 => AirdropMigration::<T>::new(data::v8::AIRDROP_VALIDATORS).execute(),
+					//9 => DepositMigration::<T>::new(data::v9::DEPOSITS_TOKEN_GENESIS_EVENT).execute(),
 					_ => break,
 				};
 

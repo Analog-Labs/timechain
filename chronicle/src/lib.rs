@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use time_primitives::admin::Config;
 use time_primitives::{ConnectorParams, NetworkId};
-use tracing::{event, span, Level};
+use tracing::{span, Level};
 
 pub mod admin;
 #[cfg(test)]
@@ -22,8 +22,21 @@ mod runtime;
 mod shards;
 mod tasks;
 
-/// Logging target for the Chronicle application.
-pub const TW_LOG: &str = "chronicle";
+pub fn init_logger() {
+	let filter = tracing_subscriber::EnvFilter::from_default_env()
+		.add_directive("chronicle=debug".parse().unwrap())
+		.add_directive("tss=debug".parse().unwrap());
+	tracing_subscriber::fmt()
+		.pretty()
+		.with_ansi(false)
+		.with_max_level(tracing::Level::INFO)
+		.with_file(true)
+		.with_line_number(true)
+		.with_env_filter(filter)
+		.try_init()
+		.ok();
+	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+}
 
 /// Configuration structure for the Chronicle application.
 pub struct ChronicleConfig {
@@ -74,7 +87,7 @@ pub async fn run_chronicle(
 		if let Some(network) = network {
 			break network;
 		}
-		tracing::warn!(target: TW_LOG, "network {} isn't registered", config.network_id);
+		tracing::warn!("network {} isn't registered", config.network_id);
 		ticker.next().await;
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
@@ -93,9 +106,7 @@ pub async fn run_chronicle(
 		match config.backend.connect(&connector_params).await {
 			Ok(connector) => break connector,
 			Err(error) => {
-				event!(
-					target: TW_LOG,
-					Level::INFO,
+				tracing::info!(
 					"Initializing connector returned an error {:?}, retrying in one second",
 					error
 				);
@@ -113,12 +124,11 @@ pub async fn run_chronicle(
 	let target_address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
 	let span = span!(
-		target: TW_LOG,
 		Level::INFO,
 		"chronicle",
-		timechain=timechain_address,
-		target=target_address,
-		peer_id=peer_id,
+		timechain = timechain_address,
+		target = target_address,
+		peer_id = peer_id,
 	);
 	admin
 		.send(AdminMsg::SetConfig(Config {
@@ -134,7 +144,7 @@ pub async fn run_chronicle(
 		if substrate.is_registered().await? {
 			break;
 		}
-		tracing::warn!(target: TW_LOG, parent: &span, "chronicle isn't registered");
+		tracing::warn!(parent: &span, "chronicle isn't registered");
 		ticker.next().await;
 	}
 
@@ -173,10 +183,11 @@ mod tests {
 	/// * `mock` - Mock instance for testing.
 	/// * `network_id` - Identifier for the network.
 	async fn chronicle(mock: Mock, network_id: NetworkId, exit: impl Future<Output = ()> + Unpin) {
-		tracing::info!("running chronicle ");
+		tracing::info!("running chronicle");
 		let network_key = *mock.account_id().as_ref();
 		let (tx, mut rx) = mpsc::channel(10);
-		let tss_keyshare_cache = format!("/tmp/chronicles/{}", hex::encode(network_key)).into();
+		let root = if std::env::var("CI").is_ok() { "." } else { "/tmp" };
+		let tss_keyshare_cache = format!("{root}/chronicles/{}", hex::encode(network_key)).into();
 		std::fs::create_dir_all(&tss_keyshare_cache).unwrap();
 		let handle = tokio::task::spawn(run_chronicle(
 			ChronicleConfig {
@@ -221,8 +232,7 @@ mod tests {
 	/// * `Result<()>` - Returns an empty result on success, or an error on failure.
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
-		env_logger::try_init().ok();
-		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+		init_logger();
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network(
@@ -284,8 +294,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_restart() -> Result<()> {
-		env_logger::try_init().ok();
-		std::panic::set_hook(Box::new(tracing_panic::panic_hook));
+		init_logger();
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network(

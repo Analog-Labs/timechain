@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use bip39::Mnemonic;
-use chronicle::ChronicleConfig;
+use chronicle::{init_logger, ChronicleConfig};
 use clap::Parser;
 use futures::channel::mpsc;
 use futures::FutureExt;
@@ -78,16 +78,7 @@ fn generate_key(path: &Path) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	tracing_subscriber::fmt()
-		.pretty()
-		.with_ansi(false)
-		.with_max_level(tracing::Level::DEBUG)
-		.with_file(true)
-		.with_line_number(true)
-		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-		.init();
-	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
-
+	init_logger();
 	let args = ChronicleArgs::parse();
 
 	if args.cctp_sender.is_some() && args.cctp_attestation.is_none() {

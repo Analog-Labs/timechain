@@ -846,11 +846,11 @@ impl Tc {
 
 	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
 		let networks: std::collections::HashSet<NetworkId> = networks.into_iter().collect();
-		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
 		let networks =
 			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
 		for network in networks {
+			self.set_network_shard_config(network).await?;
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
 		}

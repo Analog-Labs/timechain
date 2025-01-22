@@ -103,17 +103,28 @@ impl SubxtClient {
 		Ok(())
 	}
 
-	pub async fn set_shard_config(&self, shard_size: u16, shard_threshold: u16) -> Result<()> {
+	pub async fn set_shard_config(
+		&self,
+		network: NetworkId,
+		shard_size: u16,
+		shard_threshold: u16,
+	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
+		self.tx.unbounded_send((
+			Tx::SetNetworkShardConfig {
+				network,
+				shard_size,
+				shard_threshold,
+			},
+			tx,
+		))?;
 		let tx = rx.await?;
 		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 
-	pub async fn shard_size_config(&self) -> Result<u16> {
-		let storage_query = metadata::storage().elections().shard_size();
+	pub async fn shard_size_config(&self, network: NetworkId) -> Result<u16> {
+		let storage_query = metadata::storage().elections().network_shard_size(network);
 		self.client
 			.storage()
 			.at_latest()
@@ -123,8 +134,8 @@ impl SubxtClient {
 			.ok_or(anyhow!("Shard size not found"))
 	}
 
-	pub async fn shard_threshold_config(&self) -> Result<u16> {
-		let storage_query = metadata::storage().elections().shard_threshold();
+	pub async fn shard_threshold_config(&self, network: NetworkId) -> Result<u16> {
+		let storage_query = metadata::storage().elections().network_shard_threshold(network);
 		self.client
 			.storage()
 			.at_latest()

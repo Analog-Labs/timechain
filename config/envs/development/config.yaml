@@ -1,6 +1,4 @@
 config:
-  shard_size: 1
-  shard_threshold: 1
   chronicle_timechain_funds: 1.
   timechain_url: 'wss://rpc.development.analog.one'
   prices_path: 'prices.csv'
@@ -25,6 +23,8 @@ networks:
     route_gas_limit: 10000
     route_base_fee: 10000
     gmp_margin: 0.1
+    shard_size: 1
+    shard_threshold: 1
 
   1:
     backend: "grpc"
@@ -40,6 +40,8 @@ networks:
     route_gas_limit: 10000
     route_base_fee: 10000
     gmp_margin: 0.1
+    shard_size: 1
+    shard_threshold: 1
 
 chronicles:
 - https://chronicle-1.development.analog.one

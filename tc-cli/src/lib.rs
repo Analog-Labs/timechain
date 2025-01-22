@@ -634,9 +634,10 @@ impl Tc {
 
 impl Tc {
 	async fn set_network_shard_config(&self, network: NetworkId) -> Result<()> {
-		let set_shard_size = self.config.global().shard_size;
+		let config = self.config.network(network)?;
+		let set_shard_size = config.shard_size;
 		let shard_size = self.runtime.shard_size_config(network).await?;
-		let set_shard_threshold = self.config.global().shard_threshold;
+		let set_shard_threshold = config.shard_threshold;
 		let shard_threshold = self.runtime.shard_threshold_config(network).await?;
 		if shard_size == set_shard_size && shard_threshold == set_shard_threshold {
 			return Ok(());

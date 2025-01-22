@@ -256,6 +256,12 @@ fn move_with_vesting_works() {
 		);
 		// Root user is able to move claim and vesting is honored
 		assert_ok!(Airdrop::transfer(RuntimeOrigin::root(), Alice.into(), Charlie.into()));
+
+		// Alice transferred her airdrop to Charlie
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), None);
+
+		// Charlie claims it to be paid out back to Alice
 		assert_ok!(Airdrop::claim_raw(
 			RuntimeOrigin::none(),
 			Charlie.into(),

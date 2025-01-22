@@ -230,7 +230,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `from`: The address from which to move the claim.
-		/// - `to`: The address to which to move the claim.
+		/// - `to`: The address to which to move the claim. Only addresses with no existing claims are allowed.
 		///
 		/// <weight>
 		/// The weight of this call is invariant over the input parameters.

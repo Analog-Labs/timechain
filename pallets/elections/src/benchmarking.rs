@@ -52,7 +52,7 @@ benchmarks! {
 		// ShardSize # of unassigned were elected to a shard
 		assert_eq!(
 			pre_unassigned_count - post_unassigned_count,
-			(b as u16).saturating_mul(NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(3)),
+			(b as u16).saturating_mul(NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(SHARD_SIZE)),
 		);
 		let unassigned = Unassigned::<T>::get(ETHEREUM);
 		// New shard members were removed from Unassigned

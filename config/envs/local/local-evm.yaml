@@ -27,8 +27,6 @@ networks:
     token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    shard_size: 3
-    shard_threshold: 2
   3:
     backend: "evm"
     blockchain: "ethereum"
@@ -45,8 +43,6 @@ networks:
     token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    shard_size: 3
-    shard_threshold: 2
 chronicles: 
   - http://chronicle-2:8080
   - http://chronicle-3:8080

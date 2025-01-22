@@ -29,8 +29,6 @@ networks:
     # In short it queries the fee history for some past blocks 10/15 and takes median of it.
     # TODO remove from here and fetch from connector when evm backend is functional
     route_base_fee: 1400000000
-    shard_size: 3
-    shard_threshold: 2
   1:
     backend: "grpc"
     blockchain: "rust"
@@ -45,8 +43,6 @@ networks:
     shard_task_limit: 50
     route_gas_limit: 10000
     route_base_fee: 1715000000000
-    shard_size: 3
-    shard_threshold: 2
 chronicles: 
   - http://timechain-chronicle-0-1:8080
   - http://timechain-chronicle-0-2:8080

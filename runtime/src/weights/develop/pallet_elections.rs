@@ -39,7 +39,7 @@ impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
 	/// Proof: `Elections::ShardSize` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Elections::ShardThreshold` (r:0 w:1)
 	/// Proof: `Elections::ShardThreshold` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn set_shard_config() -> Weight {
+	fn set_network_shard_config() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `117`
 		//  Estimated: `3582`

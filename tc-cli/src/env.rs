@@ -5,13 +5,15 @@ pub struct Mnemonics {
 	pub target_mnemonic: String,
 }
 
+const DEFAULT_MNEMONIC: &str = "calm trial chicken bachelor where nice hen liberty access differ motion carpet eye strong light";
+
 impl Mnemonics {
 	pub fn from_env() -> Result<Self> {
 		Ok(Self {
 			timechain_mnemonic: std::env::var("TIMECHAIN_MNEMONIC")
-				.context("missing var `TIMECHAIN_MNEMONIC`")?,
+				.unwrap_or_else(|_| DEFAULT_MNEMONIC.to_string()),
 			target_mnemonic: std::env::var("TARGET_MNEMONIC")
-				.context("missing var `TARGET_MNEMONIC`")?,
+				.unwrap_or_else(|_| DEFAULT_MNEMONIC.to_string()),
 		})
 	}
 }

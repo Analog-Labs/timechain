@@ -35,7 +35,7 @@ benchmarks! {
 			Into::<AccountId>::into(acc)
 		};
 		for i in 0..b {
-			for j in 0..NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(3) {
+			for j in 0..NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(SHARD_SIZE) {
 				let member = account(i, j);
 				MemberOnline::<T>::insert(member.clone(), ());
 				Pallet::<T>::member_online(&member, ETHEREUM);

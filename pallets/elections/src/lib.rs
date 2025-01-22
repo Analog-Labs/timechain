@@ -72,6 +72,9 @@ pub mod pallet {
 		}
 	}
 
+	pub const SHARD_SIZE: u16 = 3u16;
+	pub const SHARD_THRESHOLD: u16 = 2u16;
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 
@@ -254,7 +257,7 @@ pub mod pallet {
 
 		///  Retrieves the default shard size.
 		fn default_shard_size() -> u16 {
-			3u16
+			SHARD_SIZE
 		}
 
 		///  Handles the event when a member comes online.
@@ -295,8 +298,9 @@ pub mod pallet {
 		/// Elects as many as `max_elections` number of new shards for `networks`
 		/// Returns # of Shards Elected
 		pub(crate) fn try_elect_shards(network: NetworkId, max_elections: u32) -> u32 {
-			let shard_size: u32 = NetworkShardSize::<T>::get(network).unwrap_or(3).into();
-			let shard_threshold = NetworkShardThreshold::<T>::get(network).unwrap_or(2);
+			let shard_size: u32 = NetworkShardSize::<T>::get(network).unwrap_or(SHARD_SIZE).into();
+			let shard_threshold =
+				NetworkShardThreshold::<T>::get(network).unwrap_or(SHARD_THRESHOLD);
 			let mut unassigned = Unassigned::<T>::get(network);
 			let num_elected =
 				sp_std::cmp::min((unassigned.len() as u32) / shard_size, max_elections)

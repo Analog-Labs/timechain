@@ -107,7 +107,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 fn test_register_shard() {
 	let shards = shards();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
+		assert_ok!(Elections::set_network_shard_config(RawOrigin::Root.into(), ETHEREUM, 3, 2));
 		for shard in &shards {
 			assert_ok!(Shards::create_shard(
 				ETHEREUM,
@@ -163,7 +163,7 @@ fn test_register_shard() {
 #[test]
 fn dkg_times_out() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, 2));
+		assert_ok!(Elections::set_network_shard_config(RawOrigin::Root.into(), ETHEREUM, 3, 2));
 		assert_ok!(Shards::create_shard(
 			ETHEREUM,
 			shard().iter().map(|m| m.account_id.clone()).collect(),
@@ -183,7 +183,12 @@ fn member_offline_above_threshold_sets_online_shard_offline() {
 	let shard_id = 0;
 	let threshold = 2;
 	new_test_ext().execute_with(|| {
-		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 3, threshold));
+		assert_ok!(Elections::set_network_shard_config(
+			RawOrigin::Root.into(),
+			ETHEREUM,
+			3,
+			threshold
+		));
 		create_shard(shard_id, &shard, 2);
 		// Send heartbeat for 3 members
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(shard[0].account_id.clone()).into()));

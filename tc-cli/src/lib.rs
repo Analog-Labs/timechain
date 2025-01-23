@@ -633,19 +633,6 @@ impl Tc {
 }
 
 impl Tc {
-	async fn set_shard_config(&self) -> Result<()> {
-		let set_shard_size = self.config.global().shard_size;
-		let shard_size = self.runtime.shard_size_config().await?;
-		let set_shard_threshold = self.config.global().shard_threshold;
-		let shard_threshold = self.runtime.shard_threshold_config().await?;
-		if shard_size == set_shard_size && shard_threshold == set_shard_threshold {
-			return Ok(());
-		}
-		tracing::info!("set_shard_config");
-		self.runtime.set_shard_config(set_shard_size, set_shard_threshold).await?;
-		Ok(())
-	}
-
 	async fn register_network(&self, network: NetworkId) -> Result<Gateway> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
@@ -671,6 +658,8 @@ impl Tc {
 						batch_offset: config.batch_offset,
 						batch_gas_limit: config.batch_gas_limit,
 						shard_task_limit: config.shard_task_limit,
+						shard_size: config.shard_size,
+						shard_threshold: config.shard_threshold,
 					},
 				})
 				.await?;
@@ -687,16 +676,22 @@ impl Tc {
 			batch_offset: config.batch_offset,
 			batch_gas_limit: config.batch_gas_limit,
 			shard_task_limit: config.shard_task_limit,
+			shard_size: config.shard_size,
+			shard_threshold: config.shard_threshold,
 		};
 
 		let batch_size = self.runtime.network_batch_size(network).await?;
 		let batch_offset = self.runtime.network_batch_offset(network).await?;
 		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
 		let shard_task_limit = self.runtime.network_shard_task_limit(network).await?;
+		let shard_size = self.runtime.network_shard_size(network).await?;
+		let shard_threshold = self.runtime.network_shard_threshold(network).await?;
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset
 			&& batch_gas_limit == config.batch_gas_limit
 			&& shard_task_limit == config.shard_task_limit
+			&& shard_size == config.shard_size
+			&& shard_threshold == config.shard_threshold
 		{
 			return Ok(());
 		}
@@ -844,7 +839,6 @@ impl Tc {
 
 	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
 		let networks: std::collections::HashSet<NetworkId> = networks.into_iter().collect();
-		self.set_shard_config().await?;
 		let mut gateways = HashMap::new();
 		let networks =
 			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };

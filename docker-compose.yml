@@ -17,7 +17,7 @@ services:
     ports:
       - 9944:9944
 
-  gmp-grpc-0:
+  chain-0-grpc:
     image: 'analoglabs/gmp-grpc-develop'
     command:
     - '--network-id=0'
@@ -26,8 +26,10 @@ services:
     environment:
       RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
       RUST_BACKTRACE: 1
+    profiles:
+    - grpc
 
-  chronicle-0:
+  chronicle-0-grpc:
     image: 'analoglabs/chronicle-develop'
     command:
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -35,14 +37,16 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=http://gmp-grpc-0:3000'
+    - '--target-url=http://chain-0-grpc:3000'
     - '--network-id=0'
     - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+    profiles:
+    - grpc
 
-  gmp-grpc-1:
+  chain-1-grpc:
     image: 'analoglabs/gmp-grpc-develop'
     command:
     - '--network-id=1'
@@ -51,8 +55,10 @@ services:
     environment:
       RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
       RUST_BACKTRACE: 1
+    profiles:
+    - grpc
 
-  chronicle-1:
+  chronicle-1-grpc:
     image: 'analoglabs/chronicle-develop'
     command:
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -60,14 +66,42 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=http://gmp-grpc-1:3000'
+    - '--target-url=http://chain-1-grpc:3000'
     - '--network-id=1'
     - '--backend=grpc'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+    profiles:
+    - grpc
 
-  chronicle-2:
+  chain-2-evm:
+    image: 'ethereum/client-go:v1.14.11'
+    command:
+    - '--dev'
+    - '--dev.gaslimit=30000000'
+    - '--ipcdisable'
+    - '--dev.period=2'
+    - '--rpc.txfeecap=0'
+    - '--rpc.allow-unprotected-txs=true'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
+    - '--ws'
+    - '--ws.addr=0.0.0.0'
+    - '--ws.port=8545'
+    - '--ws.origins=*'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
+    - '--verbosity=4'
+    profiles:
+    - evm
+    ports:
+    - 8545:8545
+
+  chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
     command:
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -75,16 +109,42 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum-1:8545'
+    - '--target-url=ws://chain-2-evm:8545'
     - '--network-id=2'
     - '--backend=evm'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
     profiles:
-    - ethereum
+    - evm
 
-  chronicle-3:
+  chain-3-evm:
+    image: 'ethereum/client-go:v1.14.11'
+    command:
+    - '--dev'
+    - '--dev.gaslimit=30000000'
+    - '--ipcdisable'
+    - '--dev.period=2'
+    - '--rpc.txfeecap=0'
+    - '--rpc.allow-unprotected-txs=true'
+    - '--http'
+    - '--http.addr=0.0.0.0'
+    - '--http.port=8545'
+    - '--http.vhosts=*'
+    - '--http.corsdomain=*'
+    - '--http.api=eth,debug,admin,txpool,web3,net'
+    - '--ws'
+    - '--ws.addr=0.0.0.0'
+    - '--ws.port=8545'
+    - '--ws.origins=*'
+    - '--ws.api=eth,debug,admin,txpool,web3,net'
+    - '--verbosity=4'
+    profiles:
+    - evm
+    ports:
+    - 8546:8545
+
+  chronicle-3-evm:
     image: 'analoglabs/chronicle-develop'
     command:
     - '--timechain-keyfile=/etc/timechain_keyfile'
@@ -92,66 +152,14 @@ services:
     - '--target-keyfile=/etc/target_keyfile'
     - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
-    - '--target-url=ws://ethereum-2:8545'
+    - '--target-url=ws://chain-3-evm:8545'
     - '--network-id=3'
     - '--backend=evm'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
     profiles:
-    - ethereum
-
-  ethereum-1:
-    image: 'ethereum/client-go:v1.14.11'
-    command:
-    - '--dev'
-    - '--dev.gaslimit=30000000'
-    - '--ipcdisable'
-    - '--dev.period=2'
-    - '--rpc.txfeecap=0'
-    - '--rpc.allow-unprotected-txs=true'
-    - '--http'
-    - '--http.addr=0.0.0.0'
-    - '--http.port=8545'
-    - '--http.vhosts=*'
-    - '--http.corsdomain=*'
-    - '--http.api=eth,debug,admin,txpool,web3,net'
-    - '--ws'
-    - '--ws.addr=0.0.0.0'
-    - '--ws.port=8545'
-    - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3,net'
-    - '--verbosity=4'
-    profiles:
-    - ethereum
-    ports:
-    - 8545:8545
-
-  ethereum-2:
-    image: 'ethereum/client-go:v1.14.11'
-    command:
-    - '--dev'
-    - '--dev.gaslimit=30000000'
-    - '--ipcdisable'
-    - '--dev.period=2'
-    - '--rpc.txfeecap=0'
-    - '--rpc.allow-unprotected-txs=true'
-    - '--http'
-    - '--http.addr=0.0.0.0'
-    - '--http.port=8545'
-    - '--http.vhosts=*'
-    - '--http.corsdomain=*'
-    - '--http.api=eth,debug,admin,txpool,web3,net'
-    - '--ws'
-    - '--ws.addr=0.0.0.0'
-    - '--ws.port=8545'
-    - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3,net'
-    - '--verbosity=4'
-    profiles:
-    - ethereum
-    ports:
-    - 8546:8545
+    - evm
 
   tc-cli:
     image: 'analoglabs/tc-cli-develop'

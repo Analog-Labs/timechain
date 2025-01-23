@@ -29,4 +29,6 @@ pub struct NetworkConfig {
 	pub batch_offset: u32,
 	pub batch_gas_limit: u128,
 	pub shard_task_limit: u32,
+	pub shard_size: u16,
+	pub shard_threshold: u16,
 }

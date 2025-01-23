@@ -1,11 +1,11 @@
-use crate::{mock::*, Error, Event, ShardSize, ShardThreshold, Unassigned};
+use crate::{mock::*, Unassigned};
 
 use polkadot_sdk::*;
 
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_members::MemberOnline;
-use time_primitives::{ElectionsInterface, NetworkId, MAX_SHARD_SIZE};
+use time_primitives::{ElectionsInterface, NetworkId};
 
 const ETHEREUM: NetworkId = 0;
 
@@ -40,10 +40,6 @@ fn shard_size_new_members_online_creates_shard() {
 		for member in [a, b, c] {
 			assert!(!Unassigned::<Test>::get(ETHEREUM).contains(&member));
 		}
-		assert_eq!(
-			pallet_shards::ShardThreshold::<Test>::get(0),
-			Some(ShardThreshold::<Test>::get())
-		);
 	});
 }
 
@@ -169,27 +165,5 @@ fn shard_selection_in_order_of_member_stake() {
 			// lowest 2/8 balances are unassigned
 			assert!(Unassigned::<Test>::get(ETHEREUM).contains(&member));
 		}
-	});
-}
-
-#[test]
-fn set_shard_config_works() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(ShardSize::<Test>::get(), 3);
-		assert_eq!(ShardThreshold::<Test>::get(), 2);
-		assert_ok!(Elections::set_shard_config(RawOrigin::Root.into(), 2, 1));
-		System::assert_last_event(Event::<Test>::ShardConfigSet(2, 1).into());
-		assert_eq!(ShardSize::<Test>::get(), 2);
-		assert_eq!(ShardThreshold::<Test>::get(), 1);
-		assert_noop!(
-			Elections::set_shard_config(RawOrigin::Root.into(), 1, 2),
-			Error::<Test>::ThresholdLargerThanSize
-		);
-		let max_shard_size_plus_one: u16 =
-			1u16.saturating_add(MAX_SHARD_SIZE.try_into().unwrap_or_default());
-		assert_noop!(
-			Elections::set_shard_config(RawOrigin::Root.into(), max_shard_size_plus_one, 1),
-			Error::<Test>::ShardSizeAboveMax
-		);
 	});
 }

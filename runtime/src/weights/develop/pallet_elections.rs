@@ -33,22 +33,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_elections`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_elections::WeightInfo for WeightInfo<T> {
-	/// Storage: `Networks::NetworkName` (r:1 w:0)
-	/// Proof: `Networks::NetworkName` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Elections::ShardSize` (r:0 w:1)
-	/// Proof: `Elections::ShardSize` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `Elections::ShardThreshold` (r:0 w:1)
-	/// Proof: `Elections::ShardThreshold` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn set_shard_config() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `117`
-		//  Estimated: `3582`
-		// Minimum execution time: 13_777_000 picoseconds.
-		Weight::from_parts(15_428_000, 0)
-			.saturating_add(Weight::from_parts(0, 3582))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	/// Storage: `Elections::ShardSize` (r:1 w:0)
 	/// Proof: `Elections::ShardSize` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Elections::ShardThreshold` (r:1 w:0)

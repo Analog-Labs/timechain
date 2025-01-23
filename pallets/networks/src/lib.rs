@@ -89,6 +89,10 @@ pub mod pallet {
 		NetworkExists,
 		/// Network doesn't exist.
 		NetworkNotFound,
+		/// Network shard size is too large.
+		ShardSizeAboveMax,
+		/// Network threshold is invalid.
+		ThresholdLargerThanSize,
 	}
 
 	/// Workaround for subxt not supporting iterating over the decoded keys.
@@ -127,6 +131,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NetworkShardTaskLimit<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u32, OptionQuery>;
+
+	/// Map storage for shard size.
+	#[pallet::storage]
+	pub type NetworkShardSize<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
+
+	/// Map storage for shard size.
+	#[pallet::storage]
+	pub type NetworkShardThreshold<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -186,10 +200,20 @@ pub mod pallet {
 			config: NetworkConfig,
 		) -> Result<(), Error<T>> {
 			ensure!(Networks::<T>::get(network).is_some(), Error::<T>::NetworkNotFound);
+			ensure!(
+				time_primitives::MAX_SHARD_SIZE as u16 >= config.shard_size,
+				Error::<T>::ShardSizeAboveMax
+			);
+			ensure!(
+				config.shard_size >= config.shard_threshold,
+				Error::<T>::ThresholdLargerThanSize
+			);
 			NetworkBatchSize::<T>::insert(network, config.batch_size);
 			NetworkBatchOffset::<T>::insert(network, config.batch_offset);
 			NetworkBatchGasLimit::<T>::insert(network, config.batch_gas_limit);
 			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
+			NetworkShardSize::<T>::insert(network, config.shard_size);
+			NetworkShardThreshold::<T>::insert(network, config.shard_threshold);
 			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
 		}
@@ -244,6 +268,8 @@ pub mod pallet {
 			NetworkBatchSize::<T>::remove(network);
 			NetworkBatchGasLimit::<T>::remove(network);
 			NetworkShardTaskLimit::<T>::remove(network);
+			NetworkShardSize::<T>::remove(network);
+			NetworkShardThreshold::<T>::remove(network);
 			Ok(())
 		}
 	}
@@ -281,6 +307,14 @@ pub mod pallet {
 
 		fn shard_task_limit(network: NetworkId) -> u32 {
 			NetworkShardTaskLimit::<T>::get(network).unwrap_or(10)
+		}
+
+		fn shard_size(network: NetworkId) -> u16 {
+			NetworkShardSize::<T>::get(network).unwrap_or(3)
+		}
+
+		fn shard_threshold(network: NetworkId) -> u16 {
+			NetworkShardThreshold::<T>::get(network).unwrap_or(2)
 		}
 	}
 }

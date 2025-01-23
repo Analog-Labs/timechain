@@ -42,6 +42,12 @@ impl NetworksInterface for MockNetworks {
 	fn shard_task_limit(_network: NetworkId) -> u32 {
 		10
 	}
+	fn shard_size(_network: NetworkId) -> u16 {
+		3
+	}
+	fn shard_threshold(_network: NetworkId) -> u16 {
+		2
+	}
 }
 
 frame_support::construct_runtime!(

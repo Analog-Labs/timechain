@@ -1,22 +1,18 @@
 use super::*;
 use crate::Pallet;
 
-use frame_system::RawOrigin;
 use pallet_members::{MemberOnline, MemberStake};
-use pallet_networks::NetworkName;
+use pallet_networks::{NetworkName, NetworkShardSize};
 use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::{frame_support::traits::Get, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::{BoundedVec, Vec};
 use time_primitives::{AccountId, ChainName, ChainNetwork, ElectionsInterface, NetworkId};
 const ETHEREUM: NetworkId = 0;
+const SHARD_SIZE: u16 = 3;
 
 benchmarks! {
 	where_clause { where T: pallet_members::Config + pallet_networks::Config }
-
-	set_shard_config {
-	}: _(RawOrigin::Root, 3u16, 1u16)
-	verify { }
 
 	try_elect_shards {
 		let b in 1..T::MaxElectionsPerBlock::get();
@@ -35,7 +31,7 @@ benchmarks! {
 			Into::<AccountId>::into(acc)
 		};
 		for i in 0..b {
-			for j in 0..ShardSize::<T>::get() {
+			for j in 0..NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(SHARD_SIZE) {
 				let member = account(i, j);
 				MemberOnline::<T>::insert(member.clone(), ());
 				Pallet::<T>::member_online(&member, ETHEREUM);
@@ -52,7 +48,7 @@ benchmarks! {
 		// ShardSize # of unassigned were elected to a shard
 		assert_eq!(
 			pre_unassigned_count - post_unassigned_count,
-			(b as u16).saturating_mul(ShardSize::<T>::get()),
+			(b as u16).saturating_mul(NetworkShardSize::<T>::get(ETHEREUM).unwrap_or(SHARD_SIZE)),
 		);
 		let unassigned = Unassigned::<T>::get(ETHEREUM);
 		// New shard members were removed from Unassigned

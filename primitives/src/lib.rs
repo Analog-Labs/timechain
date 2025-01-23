@@ -145,6 +145,8 @@ pub trait NetworksInterface {
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
 	fn batch_gas_limit(network: NetworkId) -> u128;
 	fn shard_task_limit(network: NetworkId) -> u32;
+	fn shard_size(network: NetworkId) -> u16;
+	fn shard_threshold(network: NetworkId) -> u16;
 }
 
 pub trait MembersInterface {
@@ -161,7 +163,6 @@ pub trait MembersInterface {
 pub trait ElectionsInterface {
 	type MaxElectionsPerBlock: Get<BlockNumber>;
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
-	fn default_shard_size() -> u16;
 	fn member_online(id: &AccountId, network: NetworkId);
 	fn member_offline(id: &AccountId, network: NetworkId);
 }

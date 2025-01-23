@@ -1,6 +1,6 @@
 use crate::worker::Tx;
 use crate::{metadata, SubxtClient};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use futures::channel::oneshot;
 use time_primitives::{
 	AccountId, Commitment, MemberStatus, NetworkId, ShardId, ShardStatus, TssPublicKey,
@@ -101,36 +101,5 @@ impl SubxtClient {
 		self.tx.unbounded_send((Tx::ForceShardOffline { shard_id }, tx))?;
 		rx.await?.wait_for_success().await?;
 		Ok(())
-	}
-
-	pub async fn set_shard_config(&self, shard_size: u16, shard_threshold: u16) -> Result<()> {
-		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::SetShardConfig { shard_size, shard_threshold }, tx))?;
-		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
-		Ok(())
-	}
-
-	pub async fn shard_size_config(&self) -> Result<u16> {
-		let storage_query = metadata::storage().elections().shard_size();
-		self.client
-			.storage()
-			.at_latest()
-			.await?
-			.fetch(&storage_query)
-			.await?
-			.ok_or(anyhow!("Shard size not found"))
-	}
-
-	pub async fn shard_threshold_config(&self) -> Result<u16> {
-		let storage_query = metadata::storage().elections().shard_threshold();
-		self.client
-			.storage()
-			.at_latest()
-			.await?
-			.fetch(&storage_query)
-			.await?
-			.ok_or(anyhow!("Shard size not found"))
 	}
 }

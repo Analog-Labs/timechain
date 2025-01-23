@@ -46,10 +46,6 @@ pub enum Tx {
 	},
 	Heartbeat,
 	// shards
-	SetShardConfig {
-		shard_size: u16,
-		shard_threshold: u16,
-	},
 	Commitment {
 		shard_id: ShardId,
 		commitment: Commitment,
@@ -188,16 +184,6 @@ impl SubxtWorker {
 				self.create_signed_payload(&payload).await
 			},
 			// shards
-			Tx::SetShardConfig { shard_size, shard_threshold } => {
-				let runtime_call = RuntimeCall::Elections(
-					metadata::runtime_types::pallet_elections::pallet::Call::set_shard_config {
-						shard_size,
-						shard_threshold,
-					},
-				);
-				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
-			},
 			Tx::Commitment {
 				shard_id,
 				commitment,

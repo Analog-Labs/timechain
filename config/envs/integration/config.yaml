@@ -1,6 +1,4 @@
 config:
-  shard_size: 3
-  shard_threshold: 2
   chronicle_timechain_funds: 100.
   timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
@@ -27,6 +25,8 @@ networks:
     token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
+    shard_size: 3
+    shard_threshold: 2
   11:
     backend: "evm"
     blockchain: "astar"
@@ -43,6 +43,8 @@ networks:
     token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
+    shard_size: 3
+    shard_threshold: 2
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-2.integration.analog.one

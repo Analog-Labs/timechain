@@ -26,9 +26,6 @@ impl ElectionsInterface for MockElections {
 	fn member_online(_: &AccountId, _: NetworkId) {}
 	fn member_offline(_: &AccountId, _: NetworkId) {}
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
-	fn default_shard_size() -> u16 {
-		0
-	}
 }
 
 pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

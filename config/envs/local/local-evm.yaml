@@ -13,7 +13,7 @@ networks:
     backend: "evm"
     blockchain: "ethereum"
     network: "dev"
-    url: "ws://ethereum-1:8545"
+    url: "ws://chain-2-evm:8545"
     gateway_funds: 1.
     chronicle_target_funds: .1
     batch_size: 64
@@ -31,7 +31,7 @@ networks:
     backend: "evm"
     blockchain: "ethereum"
     network: "dev"
-    url: "ws://ethereum-2:8545"
+    url: "ws://chain-3-evm:8545"
     gateway_funds: 1.
     chronicle_target_funds: .1
     batch_size: 64
@@ -46,5 +46,5 @@ networks:
     shard_size: 1
     shard_threshold: 1
 chronicles: 
-  - http://chronicle-2:8080
-  - http://chronicle-3:8080
+  - http://timechain-chronicle-2-evm-1:8080
+  - http://timechain-chronicle-3-evm-1:8080

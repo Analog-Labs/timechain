@@ -88,6 +88,7 @@ impl pallet_timegraph::Config for Runtime {
 	type InitialRewardPoolAccount = InitialRewardPoolAccount;
 	type InitialTimegraphAccount = InitialTimegraphAccount;
 	type InitialThreshold = InitialThreshold;
+	type AdminOrigin = EnsureRootOrTechnicalMember;
 }
 
 impl pallet_networks::Config for Runtime {

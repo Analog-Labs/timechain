@@ -50,6 +50,7 @@ impl pallet_timegraph::Config for Test {
 	type InitialThreshold = ConstU128<1_000>;
 	type InitialRewardPoolAccount = ConstU64<1>;
 	type InitialTimegraphAccount = ConstU64<2>;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

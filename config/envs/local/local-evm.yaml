@@ -1,5 +1,5 @@
 config:
-  chronicle_timechain_funds: 100.
+  chronicle_timechain_funds: 10.
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
 contracts:
@@ -14,8 +14,8 @@ networks:
     blockchain: "ethereum"
     network: "dev"
     url: "ws://ethereum-1:8545"
-    gateway_funds: 10000000
-    chronicle_target_funds: 1000000000000000000
+    gateway_funds: 1.
+    chronicle_target_funds: .1
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -32,8 +32,8 @@ networks:
     blockchain: "ethereum"
     network: "dev"
     url: "ws://ethereum-2:8545"
-    gateway_funds: 10000000
-    chronicle_target_funds: 1000000000000000000
+    gateway_funds: 1.
+    chronicle_target_funds: .1
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000

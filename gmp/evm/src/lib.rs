@@ -500,7 +500,8 @@ impl IConnector for Connector {
 				topics: vec![],
 				block: FilterBlockOption::Range {
 					from_block: Some(blocks.start.into()),
-					to_block: Some(blocks.end.into()),
+					// Evm fetches logs from both blocks that is provided in range. This makes end block exclusive.
+					to_block: Some((blocks.end - 1).into()),
 				},
 			})
 			.await?;
@@ -836,12 +837,6 @@ impl IConnectorAdmin for Connector {
 			data: vec![].into(),
 		};
 		self.evm_call(gateway, call, 0, None, None).await?;
-		Ok(())
-	}
-	/// Deposit gateway funds.
-	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
-		let call = sol::Gateway::depositCall {};
-		self.evm_call(gateway, call, amount, None, None).await?;
 		Ok(())
 	}
 }

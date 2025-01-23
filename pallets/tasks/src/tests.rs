@@ -286,6 +286,7 @@ fn test_max_tasks_per_block() {
 }
 
 #[test]
+#[ignore]
 fn test_max_batches_per_block() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);

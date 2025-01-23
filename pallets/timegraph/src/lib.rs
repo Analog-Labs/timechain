@@ -85,6 +85,7 @@ pub mod pallet {
 		type InitialTimegraphAccount: Get<Self::AccountId>;
 		#[pallet::constant]
 		type InitialRewardPoolAccount: Get<Self::AccountId>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	///Stores the next deposit sequence number for each account.
@@ -357,7 +358,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			account: T::AccountId,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(
 				account.clone() != TimegraphAccount::<T>::get(),
 				Error::<T>::SameTimegraphAccount
@@ -386,7 +387,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			account: T::AccountId,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			ensure!(
 				account.clone() != RewardPoolAccount::<T>::get(),
@@ -413,7 +414,7 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
 		pub fn set_threshold(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			ensure!(amount != Threshold::<T>::get(), Error::<T>::SameThreshold);
 

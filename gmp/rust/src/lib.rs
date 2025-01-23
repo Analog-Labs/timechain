@@ -507,23 +507,6 @@ impl IConnectorAdmin for Connector {
 	) -> Result<()> {
 		Ok(())
 	}
-
-	/// Deposit gateway funds.
-	async fn deposit_funds(&self, gateway: Address, amount: u128) -> Result<()> {
-		let tx = self.db.begin_write()?;
-		{
-			let mut t = tx.open_table(BALANCE)?;
-			let balance = read_balance(&t, self.address)?;
-			if balance < amount {
-				anyhow::bail!("insufficient balance");
-			}
-			let dest_balance = read_balance(&t, gateway)?;
-			t.insert(self.address, balance - amount)?;
-			t.insert(gateway, dest_balance + amount)?;
-		}
-		tx.commit()?;
-		Ok(())
-	}
 }
 
 #[derive(Debug)]

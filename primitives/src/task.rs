@@ -37,7 +37,7 @@ impl Task {
 	}
 
 	pub fn reward(&self) -> u128 {
-		10 * MILLIANLOG
+		15 * MILLIANLOG
 	}
 
 	pub fn needs_registration(&self) -> bool {

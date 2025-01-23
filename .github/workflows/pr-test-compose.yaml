@@ -35,7 +35,7 @@ jobs:
           EOF
       - name: Setup containers
         run: |
-          docker compose --profile ethereum up -d
+          docker compose --profile evm up -d
       - name: fetch prices
         run: |
           docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml fetch-prices

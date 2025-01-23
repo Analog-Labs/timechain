@@ -42,6 +42,12 @@ impl NetworksInterface for MockNetworks {
 	fn shard_task_limit(_network: NetworkId) -> u32 {
 		10
 	}
+	fn shard_size(_network: NetworkId) -> u16 {
+		3
+	}
+	fn shard_threshold(_network: NetworkId) -> u16 {
+		2
+	}
 }
 
 frame_support::construct_runtime!(
@@ -50,7 +56,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
-		Elections: pallet_elections::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Elections: pallet_elections::{Pallet, Storage, Event<T>},
 		Members: pallet_members,
 		Networks: pallet_networks,
 	}
@@ -163,9 +169,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
-	pallet_elections::GenesisConfig::<Test>::default()
-		.assimilate_storage(&mut storage)
-		.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

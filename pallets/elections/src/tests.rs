@@ -1,11 +1,11 @@
-use crate::{mock::*, Error, Event, NetworkShardSize, NetworkShardThreshold, Unassigned};
+use crate::{mock::*, Unassigned};
 
 use polkadot_sdk::*;
 
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_members::MemberOnline;
-use time_primitives::{ElectionsInterface, NetworkId, MAX_SHARD_SIZE};
+use time_primitives::{ElectionsInterface, NetworkId};
 
 const ETHEREUM: NetworkId = 0;
 
@@ -165,32 +165,5 @@ fn shard_selection_in_order_of_member_stake() {
 			// lowest 2/8 balances are unassigned
 			assert!(Unassigned::<Test>::get(ETHEREUM).contains(&member));
 		}
-	});
-}
-
-#[test]
-fn set_network_shard_config_works() {
-	new_test_ext().execute_with(|| {
-		assert_eq!(NetworkShardSize::<Test>::get(ETHEREUM), None);
-		assert_eq!(NetworkShardThreshold::<Test>::get(ETHEREUM), None);
-		assert_ok!(Elections::set_network_shard_config(RawOrigin::Root.into(), ETHEREUM, 2, 1));
-		System::assert_last_event(Event::<Test>::NetworkShardConfigSet(ETHEREUM, 2, 1).into());
-		assert_eq!(NetworkShardSize::<Test>::get(ETHEREUM), Some(2));
-		assert_eq!(NetworkShardThreshold::<Test>::get(ETHEREUM), Some(1));
-		assert_noop!(
-			Elections::set_network_shard_config(RawOrigin::Root.into(), ETHEREUM, 1, 2),
-			Error::<Test>::ThresholdLargerThanSize
-		);
-		let max_shard_size_plus_one: u16 =
-			1u16.saturating_add(MAX_SHARD_SIZE.try_into().unwrap_or_default());
-		assert_noop!(
-			Elections::set_network_shard_config(
-				RawOrigin::Root.into(),
-				ETHEREUM,
-				max_shard_size_plus_one,
-				1
-			),
-			Error::<Test>::ShardSizeAboveMax
-		);
 	});
 }

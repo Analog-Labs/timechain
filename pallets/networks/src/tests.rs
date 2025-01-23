@@ -13,6 +13,8 @@ fn mock_network_config() -> NetworkConfig {
 		batch_offset: 0,
 		batch_gas_limit: 10_000,
 		shard_task_limit: 10,
+		shard_size: 3,
+		shard_threshold: 2,
 	}
 }
 

@@ -1,22 +1,18 @@
 use super::*;
 use crate::Pallet;
 
-use frame_system::RawOrigin;
 use pallet_members::{MemberOnline, MemberStake};
-use pallet_networks::NetworkName;
+use pallet_networks::{NetworkName, NetworkShardSize};
 use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::{frame_support::traits::Get, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::{BoundedVec, Vec};
 use time_primitives::{AccountId, ChainName, ChainNetwork, ElectionsInterface, NetworkId};
 const ETHEREUM: NetworkId = 0;
+const SHARD_SIZE: u16 = 3;
 
 benchmarks! {
 	where_clause { where T: pallet_members::Config + pallet_networks::Config }
-
-	set_network_shard_config {
-	}: _(RawOrigin::Root, ETHEREUM, 3u16, 1u16)
-	verify { }
 
 	try_elect_shards {
 		let b in 1..T::MaxElectionsPerBlock::get();

@@ -42,6 +42,8 @@ fn network() -> Network {
 			batch_offset: 0,
 			batch_gas_limit: 10000,
 			shard_task_limit: 10,
+			shard_size: 3,
+			shard_threshold: 2,
 		},
 	}
 }
@@ -77,9 +79,6 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
-	pallet_elections::GenesisConfig::<Runtime>::default()
-		.assimilate_storage(&mut storage)
-		.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

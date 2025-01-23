@@ -49,6 +49,12 @@ impl NetworksInterface for MockNetworks {
 	fn shard_task_limit(_network: NetworkId) -> u32 {
 		10
 	}
+	fn shard_size(_network: NetworkId) -> u16 {
+		3
+	}
+	fn shard_threshold(_network: NetworkId) -> u16 {
+		2
+	}
 }
 
 pub struct MockMembers;
@@ -83,9 +89,6 @@ pub struct MockElections;
 impl ElectionsInterface for MockElections {
 	type MaxElectionsPerBlock = ConstU32<10>;
 	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
-	fn default_shard_size() -> u16 {
-		3
-	}
 	fn member_online(member: &AccountId, network: NetworkId) {
 		Shards::member_online(member, network)
 	}

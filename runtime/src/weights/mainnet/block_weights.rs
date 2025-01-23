@@ -1,43 +1,43 @@
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-05-22 (Y/M/D)
-//! HOSTNAME: `ip-172-31-31-43.us-east-2.compute.internal`, CPU: `Intel(R) Xeon(R) Platinum 8151 CPU @ 3.40GHz`
+
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 42.0.1
+//! DATE: 2025-01-23 (Y/M/D)
+//! HOSTNAME: `ns1026992`, CPU: `AMD EPYC 4244P 6-Core Processor`
 //!
-//! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Local Testnet`
+//! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Analog Testnet Local`
 //! WARMUPS: `10`, REPEAT: `100`
 //! WEIGHT-PATH: ``
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
-//   ../target/release/timechain-node
+//   ./target/mainnet/timechain-node
 //   benchmark
 //   overhead
-
-use polkadot_sdk::*;
+//   --dev
 
 use sp_core::parameter_types;
-use sp_weights::{constants, Weight};
+use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
 	/// Time to execute an empty block.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 538_966, 569_416
-	///   Average:  545_181
-	///   Median:   542_327
-	///   Std-Dev:  6865.03
+	///   Min, Max: 159_899, 292_978
+	///   Average:  172_306
+	///   Median:   169_928
+	///   Std-Dev:  13723.16
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 567_949
-	///   95th: 558_789
-	///   75th: 544_671
+	///   99th: 206_947
+	///   95th: 181_560
+	///   75th: 173_335
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(545_181), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(172_306), 0);
 }
 
 #[cfg(test)]
 mod test_weights {
-	use super::*;
+	use sp_weights::constants;
 
 	/// Checks that the weight exists and is sane.
 	// NOTE: If this test fails but you are sure that the generated values are fine,

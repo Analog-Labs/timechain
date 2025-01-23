@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-basic:
-    runs-on: [self-hosted, cache-runner]
+    runs-on: [self-hosted, integration]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

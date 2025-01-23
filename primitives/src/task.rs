@@ -1,4 +1,4 @@
-use crate::{BatchId, GmpEvent, TssSignature, MICROANLOG};
+use crate::{BatchId, GmpEvent, TssSignature, MILLIANLOG};
 use core::ops::Range;
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -37,7 +37,7 @@ impl Task {
 	}
 
 	pub fn reward(&self) -> u128 {
-		MICROANLOG
+		15 * MILLIANLOG
 	}
 
 	pub fn needs_registration(&self) -> bool {
@@ -62,7 +62,8 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 }
 
 //const MAX_GMP_EVENTS: u32 = 1_000;
-const MAX_ERROR_LEN: u32 = 500;
+pub const MAX_ERROR_LEN: u32 = 500;
+
 /// Bounded vec alias for GMP events submitted in results
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]

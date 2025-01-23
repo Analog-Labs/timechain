@@ -98,8 +98,6 @@ services:
     - '--verbosity=4'
     profiles:
     - evm
-    ports:
-    - 8545:8545
 
   chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
@@ -141,8 +139,6 @@ services:
     - '--verbosity=4'
     profiles:
     - evm
-    ports:
-    - 8546:8545
 
   chronicle-3-evm:
     image: 'analoglabs/chronicle-develop'

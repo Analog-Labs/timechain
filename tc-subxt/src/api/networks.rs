@@ -112,4 +112,26 @@ impl SubxtClient {
 			.unwrap_or_default();
 		Ok(data)
 	}
+
+	pub async fn network_shard_size(&self, network: NetworkId) -> Result<u16> {
+		let storage_query = metadata::storage().networks().network_shard_size(network);
+		self.client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&storage_query)
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Shard size not found"))
+	}
+
+	pub async fn network_shard_threshold(&self, network: NetworkId) -> Result<u16> {
+		let storage_query = metadata::storage().networks().network_shard_threshold(network);
+		self.client
+			.storage()
+			.at_latest()
+			.await?
+			.fetch(&storage_query)
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Shard size not found"))
+	}
 }

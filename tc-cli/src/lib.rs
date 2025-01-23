@@ -633,22 +633,6 @@ impl Tc {
 }
 
 impl Tc {
-	async fn set_network_shard_config(&self, network: NetworkId) -> Result<()> {
-		let config = self.config.network(network)?;
-		let set_shard_size = config.shard_size;
-		let shard_size = self.runtime.shard_size_config(network).await?;
-		let set_shard_threshold = config.shard_threshold;
-		let shard_threshold = self.runtime.shard_threshold_config(network).await?;
-		if shard_size == set_shard_size && shard_threshold == set_shard_threshold {
-			return Ok(());
-		}
-		tracing::info!("set_network_shard_config");
-		self.runtime
-			.set_shard_config(network, set_shard_size, set_shard_threshold)
-			.await?;
-		Ok(())
-	}
-
 	async fn register_network(&self, network: NetworkId) -> Result<Gateway> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
@@ -674,6 +658,8 @@ impl Tc {
 						batch_offset: config.batch_offset,
 						batch_gas_limit: config.batch_gas_limit,
 						shard_task_limit: config.shard_task_limit,
+						shard_size: config.shard_size,
+						shard_threshold: config.shard_threshold,
 					},
 				})
 				.await?;
@@ -690,16 +676,22 @@ impl Tc {
 			batch_offset: config.batch_offset,
 			batch_gas_limit: config.batch_gas_limit,
 			shard_task_limit: config.shard_task_limit,
+			shard_size: config.shard_size,
+			shard_threshold: config.shard_threshold,
 		};
 
 		let batch_size = self.runtime.network_batch_size(network).await?;
 		let batch_offset = self.runtime.network_batch_offset(network).await?;
 		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
 		let shard_task_limit = self.runtime.network_shard_task_limit(network).await?;
+		let shard_size = self.runtime.network_shard_size(network).await?;
+		let shard_threshold = self.runtime.network_shard_threshold(network).await?;
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset
 			&& batch_gas_limit == config.batch_gas_limit
 			&& shard_task_limit == config.shard_task_limit
+			&& shard_size == config.shard_size
+			&& shard_threshold == config.shard_threshold
 		{
 			return Ok(());
 		}
@@ -851,7 +843,6 @@ impl Tc {
 		let networks =
 			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
 		for network in networks {
-			self.set_network_shard_config(network).await?;
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
 		}

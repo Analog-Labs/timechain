@@ -9,7 +9,6 @@ concurrency:
 jobs:
   test-basic:
     runs-on: [self-hosted, integration]
-    #if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-test-basic') }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -42,7 +41,7 @@ jobs:
       - name: Smoke test
         run: |
           docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml smoke-test 2 3
-      - name: Restart grpc nodes
+      - name: Restart chronicles
         run: |
           docker compose stop chronicle-2 chronicle-3
           sleep 180s

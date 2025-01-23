@@ -701,17 +701,9 @@ pub mod pallet {
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
-						if num_batches_started == T::MaxBatchesPerBlock::get() {
-							return <T as Config>::WeightInfo::prepare_batches(
-								T::MaxBatchesPerBlock::get(),
-							);
-						}
 						Self::start_batch(network, msg);
 						num_batches_started = num_batches_started.saturating_plus_one();
 					}
-				}
-				if num_batches_started == T::MaxBatchesPerBlock::get() {
-					return <T as Config>::WeightInfo::prepare_batches(T::MaxBatchesPerBlock::get());
 				}
 				if let Some(msg) = batcher.take_batch() {
 					Self::start_batch(network, msg);

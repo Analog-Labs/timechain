@@ -125,10 +125,11 @@ impl TaskParams {
 				let signer =
 					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
 						[0];
-				if let Err(e) =
+				if let Err(mut e) =
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
 					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
+					e.truncate(time_primitives::MAX_ERROR_LEN as _);
 					Some(TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
 					})

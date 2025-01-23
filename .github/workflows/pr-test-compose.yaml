@@ -43,9 +43,9 @@ jobs:
           docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml smoke-test 2 3
       - name: Restart chronicles
         run: |
-          docker compose stop chronicle-2 chronicle-3
+          docker compose stop chronicle-2-evm chronicle-3-evm
           sleep 180s
-          docker compose start chronicle-2 chronicle-3
+          docker compose start chronicle-2-evm chronicle-3-evm
       - name: Still works
         run: |
           docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml smoke-test 2 3

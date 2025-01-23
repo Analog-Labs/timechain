@@ -125,9 +125,9 @@ impl GenesisKeysConfig {
 		);
 
 		if cfg!(feature = "testnet") {
-			self.to_chain_spec("analog-testnet", "TANLOG", ChainType::Live, 3, 2)
+			self.to_chain_spec("analog-testnet", "TANLOG", ChainType::Live)
 		} else {
-			self.to_chain_spec("analog-timechain", "ANLOG", ChainType::Live, 3, 2)
+			self.to_chain_spec("analog-timechain", "ANLOG", ChainType::Live)
 		}
 	}
 
@@ -138,13 +138,13 @@ impl GenesisKeysConfig {
 		}
 
 		let id = "analog-".to_owned() + subid;
-		self.to_chain_spec(id.as_str(), "DANLOG", ChainType::Development, 6, 4)
+		self.to_chain_spec(id.as_str(), "DANLOG", ChainType::Development)
 	}
 
 	/// Generate a local chain spec
 	pub fn to_local(&self) -> Result<ChainSpec, String> {
 		let id = "analog-".to_owned() + RUNTIME_VARIANT + "-local";
-		self.to_chain_spec(id.as_str(), "LANLOG", ChainType::Local, 3, 2)
+		self.to_chain_spec(id.as_str(), "LANLOG", ChainType::Local)
 	}
 
 	/// Generate a chain spec from key config
@@ -153,8 +153,6 @@ impl GenesisKeysConfig {
 		id: &str,
 		token_symbol: &str,
 		chain_type: ChainType,
-		shard_size: u16,
-		shard_threshold: u16,
 	) -> Result<ChainSpec, String> {
 		// Determine name from identifier
 		let name = id.to_case(Case::Title);
@@ -271,10 +269,6 @@ impl GenesisKeysConfig {
 			json_merge(
 				&mut genesis_patch,
 				serde_json::json!({
-					"elections": {
-						"shardSize": shard_size,
-						"shardThreshold": shard_threshold,
-					},
 					"networks": {
 						"networks": [],
 					},

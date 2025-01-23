@@ -129,7 +129,7 @@ impl TaskParams {
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
 					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
-					e.truncate(time_primitives::MAX_ERROR_LEN as _);
+					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
 					Some(TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
 					})

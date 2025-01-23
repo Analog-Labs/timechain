@@ -1,5 +1,5 @@
 use crate::metadata::{self, runtime_types, RuntimeCall};
-use crate::{LegacyRpcMethods, OnlineClient, TxInBlock};
+use crate::{ExtrinsicEvents, LegacyRpcMethods, OnlineClient};
 
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
@@ -110,7 +110,7 @@ impl SubxtWorker {
 		Ok(())
 	}
 
-	pub async fn submit(&mut self, tx: (Tx, oneshot::Sender<TxInBlock>)) {
+	pub async fn submit(&mut self, tx: (Tx, oneshot::Sender<ExtrinsicEvents>)) {
 		let (transaction, sender) = tx;
 		let tx = match transaction {
 			// system
@@ -225,36 +225,53 @@ impl SubxtWorker {
 			},
 		};
 
-		let result: Result<TxInBlock> = async {
-			let mut tx_progress = SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
-				.submit_and_watch()
-				.await
-				.map_err(|e| anyhow::anyhow!("Failed to Submit Tx {:?}", e))?;
-			while let Some(status) = tx_progress.next().await {
-				match status? {
-					// In block, return.
-					TxStatus::InBestBlock(s) | TxStatus::InFinalizedBlock(s) => return Ok(s),
-					// Error scenarios; return the error.
-					TxStatus::Error { message } => {
-						anyhow::bail!("tx error: {message}");
-					},
-					TxStatus::Invalid { message } => {
-						anyhow::bail!("tx invalid: {message}");
-					},
-					TxStatus::Dropped { message } => {
-						anyhow::bail!("tx dropped: {message}");
-					},
-					// Ignore and wait for next status event:
-					_ => continue,
+		let result: Result<ExtrinsicEvents> = async {
+			let submitted_extrinsic_hash =
+				SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
+					.submit()
+					.await
+					.map_err(|e| anyhow::anyhow!("Failed to Submit Tx {:?}", e))?;
+			tracing::info!("extrinsic_hash :{:?}", submitted_extrinsic_hash);
+			let mut finalized_block_stream = self.client.blocks().subscribe_finalized().await?;
+			let finalized_block = tokio::task::spawn(async move {
+				'outer: loop {
+					let Some(block) = finalized_block_stream.next().await else {
+						return Err(subxt::Error::Io(std::io::Error::new(
+							std::io::ErrorKind::BrokenPipe,
+							"stream was closed",
+						)));
+					};
+
+					let block: crate::Block = block?;
+
+					for extrinsic in block.extrinsics().await?.iter() {
+						let extrinsic_hash = extrinsic.hash();
+
+						if submitted_extrinsic_hash == extrinsic_hash {
+							let extrinsic_events = extrinsic.events().await?;
+							break 'outer Ok(extrinsic_events);
+						}
+					}
 				}
+			});
+			let timeout =
+				tokio::time::timeout(std::time::Duration::from_secs(120), finalized_block).await;
+			match timeout {
+				Ok(Ok(result)) => {
+					let result = result?;
+					Ok(result)
+				},
+				Ok(Err(_)) => anyhow::bail!("failed to join tasks"),
+				Err(_) => {
+					anyhow::bail!("timeout while waiting for the extrinsic call to be finalized",)
+				},
 			}
-			anyhow::bail!("tx subscription dropped");
 		}
 		.await;
 
 		match result {
-			Ok(tx_in_block) => {
-				sender.send(tx_in_block).ok();
+			Ok(events) => {
+				sender.send(events).ok();
 				self.nonce += 1;
 			},
 			Err(err) => {
@@ -269,7 +286,7 @@ impl SubxtWorker {
 		}
 	}
 
-	pub fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<TxInBlock>)> {
+	pub fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicEvents>)> {
 		let updater = self.client.updater();
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {

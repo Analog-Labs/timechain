@@ -170,7 +170,7 @@ impl IConnector for Connector {
 			.await
 			.submit_commands(request)
 			.await
-			.map_err(|err| err.to_string())?;
+			.map_err(|err| err.message().to_string())?;
 		Ok(())
 	}
 }

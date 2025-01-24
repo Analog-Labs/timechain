@@ -119,7 +119,6 @@ impl SubxtClient {
 	}
 
 	pub async fn wait_for_success(&self, events: ExtrinsicEvents) -> Result<ExtrinsicEvents> {
-		// Ok(events)
 		type SpRuntimeDispatchError = metadata::runtime_types::sp_runtime::DispatchError;
 
 		for ev in events.iter() {

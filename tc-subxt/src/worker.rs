@@ -1,5 +1,6 @@
 use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{ExtrinsicEvents, LegacyRpcMethods, OnlineClient};
+use std::collections::VecDeque;
 
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
@@ -16,6 +17,7 @@ use time_primitives::{
 
 const MORTALITY: u8 = 15;
 
+#[derive(Clone)]
 pub enum Tx {
 	// system
 	SetCode {
@@ -71,16 +73,33 @@ pub enum Tx {
 	},
 }
 
+pub struct TxStatus {
+	hash: H256,
+	era: u64,
+	event_sender: oneshot::Sender<ExtrinsicEvents>,
+	data: Tx,
+	nonce: u64,
+}
+
 pub struct SubxtWorker {
 	rpc: RpcClient,
 	client: OnlineClient,
 	keypair: Keypair,
 	nonce: u64,
+	latest_block: Option<crate::Block>,
+	pending_tx: VecDeque<TxStatus>,
 }
 
 impl SubxtWorker {
 	pub async fn new(rpc: RpcClient, client: OnlineClient, keypair: Keypair) -> Result<Self> {
-		let mut me = Self { rpc, client, keypair, nonce: 0 };
+		let mut me = Self {
+			rpc,
+			client,
+			keypair,
+			nonce: 0,
+			latest_block: None,
+			pending_tx: Default::default(),
+		};
 		me.resync_nonce().await?;
 		Ok(me)
 	}
@@ -93,13 +112,20 @@ impl SubxtWorker {
 		self.public_key().into_account()
 	}
 
-	async fn create_signed_payload<Call>(&self, call: &Call) -> (u64, Vec<u8>)
+	async fn create_signed_payload<Call>(&self, call: &Call, nonce: Option<u64>) -> (u64, Vec<u8>)
 	where
 		Call: TxPayload,
 	{
-		let latest_block = self.client.blocks().at_latest().await.unwrap();
+		let latest_block = match &self.latest_block {
+			Some(block) => block,
+			None => &self.client.blocks().at_latest().await.unwrap(),
+		};
+		let nonce = match nonce {
+			Some(nonce) => nonce,
+			None => self.nonce,
+		};
 		let params = DefaultExtrinsicParamsBuilder::new()
-			.nonce(self.nonce)
+			.nonce(nonce)
 			.mortal(latest_block.header(), MORTALITY.into())
 			.build();
 		let tx = self
@@ -120,9 +146,9 @@ impl SubxtWorker {
 		Ok(())
 	}
 
-	pub async fn submit(&mut self, tx: (Tx, oneshot::Sender<ExtrinsicEvents>)) {
+	pub async fn submit(&mut self, tx: (Tx, oneshot::Sender<ExtrinsicEvents>), nonce: Option<u64>) {
 		let (transaction, sender) = tx;
-		let (era, tx) = match transaction {
+		let (era, tx) = match transaction.clone() {
 			// system
 			Tx::SetCode { code } => {
 				let runtime_call =
@@ -130,14 +156,14 @@ impl SubxtWorker {
 						code,
 					});
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			// balances
 			Tx::Transfer { account, balance } => {
 				let account = subxt::utils::Static(account);
 				let payload =
 					metadata::tx().balances().transfer_allow_death(account.into(), balance);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			// networks
 			Tx::RegisterNetwork { network } => {
@@ -146,7 +172,7 @@ impl SubxtWorker {
 					runtime_types::pallet_networks::pallet::Call::register_network { network },
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::ForceShardOffline { shard_id } => {
 				let runtime_call = RuntimeCall::Shards(
@@ -155,7 +181,7 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::SetNetworkConfig { network, config } => {
 				let config = subxt::utils::Static(config);
@@ -166,7 +192,7 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			// members
 			Tx::RegisterMember {
@@ -182,16 +208,16 @@ impl SubxtWorker {
 					peer_id,
 					stake_amount,
 				);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::UnregisterMember { member } => {
 				let member = subxt::utils::Static(member);
 				let payload = metadata::tx().members().unregister_member(member);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::Heartbeat => {
 				let payload = metadata::tx().members().send_heartbeat();
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			// shards
 			Tx::Commitment {
@@ -202,17 +228,17 @@ impl SubxtWorker {
 				let commitment = subxt::utils::Static(commitment);
 				let payload =
 					metadata::tx().shards().commit(shard_id, commitment, proof_of_knowledge);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::Ready { shard_id } => {
 				let payload = metadata::tx().shards().ready(shard_id);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			// tasks
 			Tx::SubmitTaskResult { task_id, result } => {
 				let result = subxt::utils::Static(result);
 				let payload = metadata::tx().tasks().submit_task_result(task_id, result);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::SubmitGmpEvents { network, gmp_events } => {
 				let runtime_call = RuntimeCall::Tasks(
@@ -222,7 +248,7 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 			Tx::RemoveTask { task_id } => {
 				let runtime_call = RuntimeCall::Tasks(
@@ -231,78 +257,51 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload).await
+				self.create_signed_payload(&payload, nonce).await
 			},
 		};
 
-		let result: Result<ExtrinsicEvents> = async {
-			let submitted_extrinsic_hash =
-				SubmittableExtrinsic::from_bytes(self.client.clone(), tx)
-					.submit()
-					.await
-					.map_err(|e| anyhow::anyhow!("Failed to Submit Tx {:?}", e))?;
-			tracing::info!("extrinsic_hash :{:?}", submitted_extrinsic_hash);
-
-			loop {
-				match self.watch_tx(submitted_extrinsic_hash, era).await {
-					Ok(Ok(events)) => return Ok(events),
-					Ok(Err(e)) => {
-						tracing::error!(
-							"Error occured while listening tx status: {e}, Retrying..."
-						);
-						tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-						continue;
-					},
-					Err(e) => anyhow::bail!("Error occured with tokio handler: {:?}", e),
-				}
-			}
-		}
-		.await;
-
-		match result {
-			Ok(events) => {
-				sender.send(events).ok();
+		let tx_hash = SubmittableExtrinsic::from_bytes(self.client.clone(), tx).submit().await;
+		match tx_hash {
+			Ok(tx_hash) => {
+				let tx_status = TxStatus {
+					hash: tx_hash,
+					era,
+					event_sender: sender,
+					data: transaction,
+					nonce: self.nonce,
+				};
+				self.pending_tx.push_back(tx_status);
 				self.nonce += 1;
 			},
-			Err(err) => {
-				tracing::error!("Error occured while submitting transaction: {err}");
-				let nonce = self.nonce;
-				if let Err(err) = self.resync_nonce().await {
-					tracing::error!("failed to resync nonce: {err}");
-				} else {
-					tracing::info!("resynced nonce from {} to {}", nonce, self.nonce);
-				}
+			Err(e) => {
+				tracing::error!("Error submitting transaction to timechain {e}");
 			},
 		}
 	}
 
-	async fn watch_tx(
-		&self,
-		submitted_extrinsic_hash: H256,
-		era: u64,
-	) -> Result<Result<ExtrinsicEvents>> {
-		let mut finalized_block_stream = self.client.blocks().subscribe_best().await?;
-		let result = tokio::task::spawn(async move {
-			'outer: loop {
-				let Some(block) = finalized_block_stream.next().await else {
-					anyhow::bail!("Stream was closed")
-				};
-				let block: crate::Block = block?;
-				for extrinsic in block.extrinsics().await?.iter() {
-					let extrinsic_hash = extrinsic.hash();
-					if submitted_extrinsic_hash == extrinsic_hash {
-						let extrinsic_events = extrinsic.events().await?;
-						break 'outer Ok(extrinsic_events);
-					}
-				}
-				let current_block: u64 = block.number().into();
-				if current_block > era {
-					anyhow::bail!("Retry")
+	async fn complete_received_txs(&mut self, finalized_block: crate::Block) -> Result<()> {
+		for extrinsic in finalized_block.extrinsics().await?.iter() {
+			let extrinsic_hash = extrinsic.hash();
+			if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.hash) {
+				let extrinsic_events = extrinsic.events().await?;
+				let tx = self.pending_tx.pop_front().unwrap();
+				tx.event_sender.send(extrinsic_events).ok();
+			}
+		}
+		Ok(())
+	}
+
+	async fn check_outdated_txs(&mut self) {
+		if let Some(latest_block) = &self.latest_block {
+			let block_number: u64 = latest_block.number().into();
+			if let Some(top_pending_tx) = self.pending_tx.front() {
+				if block_number > top_pending_tx.era {
+					let tx_data = self.pending_tx.pop_front().unwrap();
+					self.submit((tx_data.data, tx_data.event_sender), Some(tx_data.nonce)).await;
 				}
 			}
-		})
-		.await;
-		result.map_err(|e| anyhow::anyhow!(e))
+		}
 	}
 
 	pub fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicEvents>)> {
@@ -312,11 +311,29 @@ impl SubxtWorker {
 			tracing::info!("starting subxt worker");
 			let mut update_stream =
 				updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
+			let mut finalized_block_stream =
+				self.client.blocks().subscribe_finalized().await.unwrap();
+			let mut best_block_stream = self.client.blocks().subscribe_best().await.unwrap();
 			loop {
 				futures::select! {
 					tx = rx.next().fuse() => {
 						let Some(tx) = tx else { continue; };
-						self.submit(tx).await;
+						self.submit(tx, None).await;
+					}
+					finalized_block = finalized_block_stream.next().fuse() => {
+						if let Some(finalized_block) = finalized_block {
+							let block = finalized_block.unwrap();
+							if let Err(e) = self.complete_received_txs(block).await{
+								tracing::error!("Error completing transaction {e}");
+							};
+						}
+					}
+					best_block = best_block_stream.next().fuse() => {
+						if let Some(best_block) = best_block {
+							let block = best_block.unwrap();
+							self.latest_block = Some(block);
+							self.check_outdated_txs().await;
+						}
 					}
 					update = update_stream.next().fuse() => {
 						let Some(Ok(update)) = update else { continue; };

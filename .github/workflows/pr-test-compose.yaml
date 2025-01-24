@@ -26,23 +26,26 @@ jobs:
       - name: Build dev containers
         run: |
           ./scripts/build_docker.sh
-      - name: Initialize environment file
+      - name: Initialize tc-cli
+        id: tc-cli
         run: |
-          cat << EOF > ./config/envs/local/.env
-          TIMECHAIN_MNEMONIC="${{ secrets.TIMECHAIN_MNEMONIC }}"
-          TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}"
-          TOKEN_PRICE_URL="${{ secrets.TOKEN_PRICE_URL }}"
-          TOKEN_API_KEY="${{ secrets.TOKEN_API_KEY }}"
+          cat << EOF >> $GITHUB_OUTPUT
+          TC_CLI=docker compose run --rm --remove-orphans \
+            --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
+            --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
+            --env="TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }}" \
+            --env="TOKEN_API_KEY=${{ secrets.TOKEN_API_KEY }}" \
+            tc-cli --env=/etc/envs/local --config=local-evm.yaml
           EOF
       - name: Setup containers
         run: |
           docker compose --profile evm up -d
       - name: fetch prices
         run: |
-          docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml fetch-prices
+          ${{ steps.tc-cli.outputs.TC_CLI }} fetch-prices
       - name: Smoke test
         run: |
-          docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml smoke-test 2 3
+          ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
       - name: Restart chronicles
         run: |
           docker compose stop chronicle-2-evm chronicle-3-evm
@@ -50,7 +53,7 @@ jobs:
           docker compose start chronicle-2-evm chronicle-3-evm
       - name: Still works
         run: |
-          docker compose run --rm --remove-orphans tc-cli --config=/etc/local-evm.yaml smoke-test 2 3
+          ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
       - name: Cleanup
         if: ${{ always() }}
         run: |

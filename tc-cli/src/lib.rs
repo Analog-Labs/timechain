@@ -8,7 +8,7 @@ use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
@@ -43,10 +43,10 @@ pub struct Tc {
 }
 
 impl Tc {
-	pub async fn new(config: &Path) -> Result<Self> {
-		dotenv::from_path(config.parent().unwrap().join(".env")).ok();
+	pub async fn new(env: PathBuf, config: &str) -> Result<Self> {
+		dotenv::from_path(env.join(".env")).ok();
+		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;
-		let config = Config::from_file(config)?;
 		while let Err(err) = SubxtClient::get_client(&config.global().timechain_url).await {
 			tracing::info!("waiting for chain to start: {err:?}");
 			sleep_or_abort(Duration::from_secs(10)).await?;
@@ -225,30 +225,13 @@ impl Tc {
 		network: Option<NetworkId>,
 		address: Address,
 		min_balance: u128,
+		label: &str,
 	) -> Result<()> {
 		let balance = self.balance(network, address).await?;
 		let diff = min_balance.saturating_sub(balance);
 		if diff > 0 {
-			self.deposit(network, address, diff).await?;
-		}
-		Ok(())
-	}
-
-	pub async fn deposit(
-		&self,
-		network: Option<NetworkId>,
-		address: Address,
-		balance: u128,
-	) -> Result<()> {
-		tracing::info!(
-			"transfering {} to {}",
-			self.format_balance(network, balance)?,
-			self.format_address(network, address)?,
-		);
-		if let Some(network) = network {
-			self.connector(network)?.transfer(address, balance).await?;
-		} else {
-			self.runtime.transfer(address.into(), balance).await?;
+			tracing::info!("funding {label}");
+			self.transfer(network, address, diff).await?;
 		}
 		Ok(())
 	}
@@ -815,23 +798,26 @@ impl Tc {
 			tracing::info!("admin target balance is 0, using faucet");
 			self.faucet(network).await?;
 		}
-		tracing::info!("funding gateway");
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
-		self.fund(Some(network), gateway, gateway_funds).await?;
+		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
 		Ok(gateway)
 	}
 
 	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
-		tracing::info!("funding chronicle timechain account");
 		let funds = self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
-		self.fund(None, chronicle.account.clone().into(), funds).await?;
+		self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account")
+			.await?;
 		let config = self.config.network(chronicle.network)?;
-		tracing::info!("funding chronicle target account");
 		let chronicle_target_funds =
 			self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
-		self.fund(Some(chronicle.network), chronicle.address, chronicle_target_funds)
-			.await?;
+		self.fund(
+			Some(chronicle.network),
+			chronicle.address,
+			chronicle_target_funds,
+			"chronicle target account",
+		)
+		.await?;
 		self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
 			.await?;
 		Ok(())

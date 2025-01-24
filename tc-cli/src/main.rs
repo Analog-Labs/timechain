@@ -36,15 +36,17 @@ impl FromStr for RelGasPrice {
 
 #[derive(Parser, Debug)]
 struct Args {
-	#[arg(long, default_value = "/etc/config.yaml")]
-	config: PathBuf,
+	#[arg(long, default_value = "/etc/envs/local")]
+	env: PathBuf,
+	#[arg(long, default_value = "config.yaml")]
+	config: String,
 	#[clap(subcommand)]
 	cmd: Command,
 }
 
 impl Args {
 	async fn tc(&self) -> Result<Tc> {
-		let tc = Tc::new(&self.config).await?;
+		let tc = Tc::new(self.env.clone(), &self.config).await?;
 		Ok(tc)
 	}
 }

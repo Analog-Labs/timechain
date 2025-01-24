@@ -12,14 +12,15 @@ pub struct Config {
 }
 
 impl Config {
-	pub fn from_file(path: &Path) -> Result<Self> {
-		let config = std::fs::read_to_string(path)
-			.with_context(|| format!("failed to read config file {}", path.display()))?;
+	pub fn from_env(path: PathBuf, config: &str) -> Result<Self> {
+		let config = if let Ok(config) = std::env::var("CONFIG") {
+			config
+		} else {
+			std::fs::read_to_string(path.join(config))
+				.with_context(|| format!("failed to read config file {}", path.display()))?
+		};
 		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
-		Ok(Self {
-			path: path.parent().unwrap().to_path_buf(),
-			yaml,
-		})
+		Ok(Self { path, yaml })
 	}
 
 	fn relative_path(&self, other: &Path) -> PathBuf {
@@ -125,7 +126,7 @@ mod tests {
 	#[test]
 	fn make_sure_envs_parse() {
 		let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../config/envs");
-		Config::from_file(&root.join("local/local-grpc.yaml")).unwrap();
-		Config::from_file(&root.join("development/config.yaml")).unwrap();
+		Config::from_env(root.join("local"), "local-grpc.yaml").unwrap();
+		Config::from_env(root.join("development"), "config.yaml").unwrap();
 	}
 }

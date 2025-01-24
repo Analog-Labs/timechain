@@ -10,6 +10,7 @@ runtime/target/srtool
 
 # secrets
 .env
+gcp-key.json
 
 #Temp files
 prices.csv

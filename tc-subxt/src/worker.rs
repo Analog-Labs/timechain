@@ -6,12 +6,15 @@ use futures::channel::{mpsc, oneshot};
 use futures::{FutureExt, StreamExt};
 use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
-use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic, TxStatus};
+use subxt::tx::{Payload as TxPayload, SubmittableExtrinsic};
+use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
 	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
+
+const MORTALITY: u8 = 15;
 
 pub enum Tx {
 	// system
@@ -90,17 +93,24 @@ impl SubxtWorker {
 		self.public_key().into_account()
 	}
 
-	async fn create_signed_payload<Call>(&self, call: &Call) -> Vec<u8>
+	async fn create_signed_payload<Call>(&self, call: &Call) -> (u64, Vec<u8>)
 	where
 		Call: TxPayload,
 	{
-		let params = DefaultExtrinsicParamsBuilder::new().nonce(self.nonce).build();
-		self.client
+		let latest_block = self.client.blocks().at_latest().await.unwrap();
+		let params = DefaultExtrinsicParamsBuilder::new()
+			.nonce(self.nonce)
+			.mortal(latest_block.header(), MORTALITY.into())
+			.build();
+		let tx = self
+			.client
 			.tx()
 			.create_signed(call, &self.keypair, params)
 			.await
 			.unwrap()
-			.into_encoded()
+			.into_encoded();
+		let block_number: u64 = latest_block.number().into();
+		(block_number + MORTALITY as u64, tx)
 	}
 
 	async fn resync_nonce(&mut self) -> Result<()> {
@@ -112,7 +122,7 @@ impl SubxtWorker {
 
 	pub async fn submit(&mut self, tx: (Tx, oneshot::Sender<ExtrinsicEvents>)) {
 		let (transaction, sender) = tx;
-		let tx = match transaction {
+		let (era, tx) = match transaction {
 			// system
 			Tx::SetCode { code } => {
 				let runtime_call =
@@ -232,39 +242,19 @@ impl SubxtWorker {
 					.await
 					.map_err(|e| anyhow::anyhow!("Failed to Submit Tx {:?}", e))?;
 			tracing::info!("extrinsic_hash :{:?}", submitted_extrinsic_hash);
-			let mut finalized_block_stream = self.client.blocks().subscribe_finalized().await?;
-			let finalized_block = tokio::task::spawn(async move {
-				'outer: loop {
-					let Some(block) = finalized_block_stream.next().await else {
-						return Err(subxt::Error::Io(std::io::Error::new(
-							std::io::ErrorKind::BrokenPipe,
-							"stream was closed",
-						)));
-					};
 
-					let block: crate::Block = block?;
-
-					for extrinsic in block.extrinsics().await?.iter() {
-						let extrinsic_hash = extrinsic.hash();
-
-						if submitted_extrinsic_hash == extrinsic_hash {
-							let extrinsic_events = extrinsic.events().await?;
-							break 'outer Ok(extrinsic_events);
-						}
-					}
+			loop {
+				match self.watch_tx(submitted_extrinsic_hash, era).await {
+					Ok(Ok(events)) => return Ok(events),
+					Ok(Err(e)) => {
+						tracing::error!(
+							"Error occured while listening tx status: {e}, Retrying..."
+						);
+						tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+						continue;
+					},
+					Err(e) => anyhow::bail!("Error occured with tokio handler: {:?}", e),
 				}
-			});
-			let timeout =
-				tokio::time::timeout(std::time::Duration::from_secs(120), finalized_block).await;
-			match timeout {
-				Ok(Ok(result)) => {
-					let result = result?;
-					Ok(result)
-				},
-				Ok(Err(_)) => anyhow::bail!("failed to join tasks"),
-				Err(_) => {
-					anyhow::bail!("timeout while waiting for the extrinsic call to be finalized",)
-				},
 			}
 		}
 		.await;
@@ -284,6 +274,35 @@ impl SubxtWorker {
 				}
 			},
 		}
+	}
+
+	async fn watch_tx(
+		&self,
+		submitted_extrinsic_hash: H256,
+		era: u64,
+	) -> Result<Result<ExtrinsicEvents>> {
+		let mut finalized_block_stream = self.client.blocks().subscribe_best().await?;
+		let result = tokio::task::spawn(async move {
+			'outer: loop {
+				let Some(block) = finalized_block_stream.next().await else {
+					anyhow::bail!("Stream was closed")
+				};
+				let block: crate::Block = block?;
+				for extrinsic in block.extrinsics().await?.iter() {
+					let extrinsic_hash = extrinsic.hash();
+					if submitted_extrinsic_hash == extrinsic_hash {
+						let extrinsic_events = extrinsic.events().await?;
+						break 'outer Ok(extrinsic_events);
+					}
+				}
+				let current_block: u64 = block.number().into();
+				if current_block > era {
+					anyhow::bail!("Retry")
+				}
+			}
+		})
+		.await;
+		result.map_err(|e| anyhow::anyhow!(e))
 	}
 
 	pub fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicEvents>)> {

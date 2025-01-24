@@ -2,7 +2,7 @@ use crate as pallet_launch;
 
 use polkadot_sdk::*;
 
-use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
+use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons, PalletId};
 use sp_core::ConstU128;
 use sp_runtime::{
 	traits::{ConvertInto, IdentityLookup},
@@ -62,6 +62,7 @@ impl pallet_vesting::Config for Test {
 
 parameter_types! {
 	pub RawPrefix: &'static [u8] = b"Airdrop DANLOG to the test account: ";
+	pub LaunchId: PalletId = PalletId(*b"testlnch");
 }
 
 impl pallet_airdrop::Config for Test {
@@ -75,6 +76,7 @@ impl pallet_airdrop::Config for Test {
 
 impl pallet_launch::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = LaunchId;
 	type VestingSchedule = Vesting;
 	// Use mainnet existential deposit to ensure appropriate testing
 	type MinimumDeposit = ConstU128<ANLOG>;

@@ -2,13 +2,12 @@
 //!
 //! The goal of this migration is to end the softlaunch and
 //! start the token genesis phase.
-
-use crate::RawGenesisMigration;
+use crate::deposits::RawVirtualDepositStage;
 
 use time_primitives::MILLIANLOG as mANLOG;
 
 // Token Genesis Event Allocations
-pub const DEPOSITS_TOKEN_GENESIS_EVENT: RawGenesisMigration = &[
+pub const DEPOSITS_TOKEN_GENESIS_EVENT: RawVirtualDepositStage = &[
 	(
 		b"seed",
 		2_116_870_581_830 * mANLOG,

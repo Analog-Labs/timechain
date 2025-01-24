@@ -1,83 +1,60 @@
-//use crate::{mock::*, Error, Event, Something};
-//use frame_support::{assert_noop, assert_ok};
-#![allow(dead_code)]
-
 use crate::mock::*;
+use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION};
 
-use crate::{AirdropMigration, DepositMigration};
+use polkadot_sdk::frame_support::traits::StorageVersion;
 
-use time_primitives::{Balance, ANLOG};
+/// Current expected on-chain stage version to test
+const ON_CHAIN_STAGE: u16 = 8;
+/// Wrapped expected on-chain stage version to test
+const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
-// Operation allocation (launch budget) to pay for fees and test early integrations
-const GENESIS: Balance = 3100 * ANLOG;
+/// The number of expected migrations to run and test
+const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;
 
-// First exchange allocations in preparation for TGE (v1 + v5)
-const STAGE_1: Balance = (53_030_500 + 39_328_063) * ANLOG;
-
-// First airdrop snapshot (v2 + v3 + v4)
-const STAGE_2: Balance = 410_168_624 * ANLOG;
-const STAGE_2_DIFF: Balance = STAGE_2 - 410_168_623_085_944_989_935;
-
-// FIXME: Make this a check before deployment
-const TOTAL_DEPLOYED: Balance = GENESIS + STAGE_1 + STAGE_2;
-const TOTAL_TREASURY: Balance = STAGE_2_DIFF;
-
+/// Runs and verify current launch plan based on assumed on-chain version
 #[test]
-fn data_v9_validation() {
+fn launch_ledger_validation() {
 	new_test_ext().execute_with(|| {
+		// Set expected on-chain version as configured above
+		ON_CHAIN_VERSION.put::<Pallet<Test>>();
+
+		// Start new block to collect events
 		System::set_block_number(1);
 
-		// Parse raw data of migration and check for any error event
-		let v9 = DepositMigration::<Test>::new(crate::data::v9::DEPOSITS_PRELAUNCH_4);
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
+		// Ensure ledger can be parsed without error events
+		let plan = LaunchLedger::<Test>::compile(LAUNCH_LEDGER)
+			.expect("Included launch ledger should always be valid");
+		assert_eq!(System::read_events_for_pallet::<Event::<Test>>().len(), 0);
 
-		// Ensure correct sum of endowment
-		assert_eq!(v9.sum(), 113_200_000 * ANLOG);
+		// Ensure each of the migrations can be run succesful
+		let _w = plan.run();
+		let events = System::read_events_for_pallet::<Event<Test>>();
 
-		// Ensure non of the endowments causes an error event
-		let _w = v9.execute();
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
+		assert_eq!(events.len(), NUM_MIGRATIONS as usize);
+		for event in events.iter() {
+			assert!(matches!(event, Event::StageExecuted { version: _, hash: _ }));
+		}
 
 		// TODO: Check weight
+
+		// Ensure update to the expected stage happend
+		assert_eq!(StorageVersion::get::<Pallet::<Test>>(), STORAGE_VERSION);
 	});
 }
 
+/// Verify launch ledger logic independent of default parser
 #[test]
-fn data_v10_validation() {
+fn launch_plan_parsing() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
-		// Parse raw data of migration and check for any error event
-		let v7 = AirdropMigration::<Test>::new(crate::data::v10::AIRDROPS_VALIDATORS);
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// Ensure correct sum of endowment
-		assert_eq!(v7.sum(), 0);
-
-		// Ensure non of the endowments causes an error event
-		let _w = v7.execute();
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// TODO: Check weight
-	});
-}
-
-#[test]
-fn data_v11_validation() {
-	new_test_ext().execute_with(|| {
-		System::set_block_number(1);
-
-		// Parse raw data of migration and check for any error event
-		let v7 = DepositMigration::<Test>::new(crate::data::v11::DEPOSITS_TOKEN_GENESIS_EVENT);
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// Ensure correct sum of endowment
-		assert_eq!(v7.sum(), 0);
-
-		// Ensure non of the endowments causes an error event
-		let _w = v7.execute();
-		assert_eq!(System::read_events_for_pallet::<crate::Event::<Test>>().len(), 0);
-
-		// TODO: Check weight
+		for (index, (version, amount, stage)) in LAUNCH_LEDGER.iter().enumerate() {
+			assert_eq!(index, *version as usize);
+			if stage.is_executable() {
+				assert_eq!(stage.sum::<Test>(), *amount);
+				stage.check::<Test>();
+			}
+		}
+		assert_eq!(System::read_events_for_pallet::<Event::<Test>>().len(), 0);
 	});
 }

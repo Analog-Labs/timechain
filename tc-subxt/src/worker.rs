@@ -15,7 +15,7 @@ use time_primitives::{
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
-const MORTALITY: u8 = 15;
+const MORTALITY: u8 = 30;
 
 #[derive(Clone)]
 pub enum Tx {

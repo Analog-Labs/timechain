@@ -1,21 +1,12 @@
-//! This file describes the migrations to be run at stage 6.
+//! This file describes the migrations to be run at stage 11.
 //!
-//! The goal of this migration is to end the softlaunch and
-//! start the token genesis phase.
-#![allow(dead_code)]
+//! The goal of this migration is to provide more tokens to operations.
+use crate::deposits::RawDepositMigration;
 
-use crate::RawEndowmentMigration;
+use time_primitives::ANLOG;
 
-type RawVestingInMonths = (u16, u16);
-
-/// TODO: Needs conversion into block and per-block values
-const V_0_6: RawVestingInMonths = (0, 6);
-const V_0_9: RawVestingInMonths = (0, 9);
-const V_3_18: RawVestingInMonths = (3, 18);
-const V_6_18: RawVestingInMonths = (6, 18);
-const V_6_24: RawVestingInMonths = (6, 24);
-const V_9_27: RawVestingInMonths = (9, 27);
-const V_9_36: RawVestingInMonths = (9, 36);
-
-// Token Genesis Event Allocations
-pub const DEPOSITS_TOKEN_GENESIS_EVENT: RawEndowmentMigration = &[];
+// Additional operational funding
+pub const DEPOSITS_OPERATIONS: RawDepositMigration = &[
+	("anAGnR5SUY3ZMSo6gnwbeQhNb7wvqo3bdjNE96QooDgqEeLhR", 1000 * ANLOG, None),
+	("an9ee5sqqKNuTvu6aky1odRhqBB2zEK5Ye9MSKDHcvcEqDvVJ", 1500 * ANLOG, None),
+];

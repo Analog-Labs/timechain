@@ -43,10 +43,10 @@ impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Task { task } => {
-				write!(f, r#"{{app="chronicle"}} |~ `(task_id|session)={task}`"#)
+				write!(f, r#"{{app="chronicle"}} |~ `task_id: {task}`"#)
 			},
 			Self::Shard { shard } => {
-				write!(f, r#"{{app="chronicle"}} |= `shard_id={shard}`"#)
+				write!(f, r#"{{app="chronicle"}} |= `shard_id: {shard}`"#)
 			},
 			Self::Raw { query } => f.write_str(query),
 		}
@@ -81,6 +81,6 @@ pub async fn logs(query: Query) -> Result<Vec<String>> {
 		.result
 		.into_iter()
 		.flat_map(|v| v.values)
-		.map(|(_, log)| log)
+		.flat_map(|(_, log)| log.split("   ").map(|s| s.to_string()).collect::<Vec<_>>())
 		.collect())
 }

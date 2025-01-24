@@ -1,0 +1,74 @@
+# tc-cli workflow
+#
+# HOW IT WORKS
+#
+
+name: tc-cli
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "tc-cli image tag (sha8 commit)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment for running (K8s cluster)"
+        required: true
+        type: choice
+        options:
+          - development
+          - integration
+      args:
+        description: "tc-cli args"
+        required: true
+        type: string
+
+env:
+  TC_CLI_IMAGE: analoglabs/tc-cli
+
+jobs:
+  tc-cli:
+    name: Run tc-cli on cluster
+    runs-on: ubuntu-latest
+    environment: ${{ github.even.inputs.environment }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: GKE Setup
+      uses: ./.github/actions/gke-common
+      with:
+        cluster: ${{ github.event.inputs.environment }}
+        key-file: ${{ secrets.GCP_SA_KEY }}
+        project-id: ${{ secrets.GCP_PROJECT_ID }}
+        region: us-east1
+
+    - name: Check tc-cli image
+      id: check-image
+      run: |
+        TAG=${{ github.event.inputs.version }}
+        IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
+        echo "Checking if the image $IMAGE exists..."
+        if ! docker pull "$IMAGE" &>/dev/null; then
+            echo "Error: Image $IMAGE does not exist or is behind a private repo."
+            exit 1
+        fi
+        echo "Image $IMAGE exists. Proceeding with deployment..."
+        echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+
+    - name: Run tc-cli
+      run: |
+        NAMESPACE="timechain"
+        IMAGE=${{ steps.check-image.outputs.IMAGE }}
+        CONFIG="$(cat ./config/envs/${{ github.event.inputs.environment }}/config.yaml)"
+        kubectl -n $NAMESPACE run tc-cli --image=$IMAGE --attach --rm --restart=Never \
+          --env="CONFIG=$CONFIG" \
+          --env=TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }} \
+          --env=TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }} \
+          --env=TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }} \
+          --env=TOKEN_API_KEY=${{ secrets.TOKEN_API_KEY }} \
+          --env=LOKI_URL=${{ secrets.LOKI_URL }} \
+          --env=LOKI_USERNAME=${{ secrets.LOKI_USERNAME }} \
+          --env=LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }} \
+          -- ${{ github.event.inputs.args}}

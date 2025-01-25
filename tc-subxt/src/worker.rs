@@ -81,12 +81,17 @@ pub struct TxStatus {
 	nonce: u64,
 }
 
+pub struct BlockDetail {
+	number: u64,
+	hash: H256,
+}
+
 pub struct SubxtWorker {
 	rpc: RpcClient,
 	client: OnlineClient,
 	keypair: Keypair,
 	nonce: u64,
-	latest_block: Option<crate::Block>,
+	latest_block: Option<BlockDetail>,
 	pending_tx: VecDeque<TxStatus>,
 }
 
@@ -116,9 +121,12 @@ impl SubxtWorker {
 	where
 		Call: TxPayload,
 	{
-		let latest_block = match &self.latest_block {
-			Some(block) => block,
-			None => &self.client.blocks().at_latest().await.unwrap(),
+		let (block_number, block_hash) = match &self.latest_block {
+			Some(block) => (block.number, block.hash),
+			None => {
+				let block = self.client.blocks().at_latest().await.unwrap();
+				(block.number().into(), block.hash().into())
+			},
 		};
 		let nonce = match nonce {
 			Some(nonce) => nonce,
@@ -126,7 +134,7 @@ impl SubxtWorker {
 		};
 		let params = DefaultExtrinsicParamsBuilder::new()
 			.nonce(nonce)
-			.mortal(latest_block.header(), MORTALITY.into())
+			.mortal_unchecked(block_number, block_hash, MORTALITY.into())
 			.build();
 		let tx = self
 			.client
@@ -135,7 +143,6 @@ impl SubxtWorker {
 			.await
 			.unwrap()
 			.into_encoded();
-		let block_number: u64 = latest_block.number().into();
 		(block_number + MORTALITY as u64, tx)
 	}
 
@@ -304,14 +311,16 @@ impl SubxtWorker {
 	}
 
 	async fn check_outdated_txs(&mut self) {
-		if let Some(latest_block) = &self.latest_block {
-			let block_number: u64 = latest_block.number().into();
-			if let Some(top_pending_tx) = self.pending_tx.front() {
-				if block_number > top_pending_tx.era {
-					let tx_data = self.pending_tx.pop_front().unwrap();
-					self.submit((tx_data.data, tx_data.event_sender), Some(tx_data.nonce)).await;
-				}
-			}
+		let Some(latest_block) = &self.latest_block else {
+			tracing::warn!("Error checking outdated tx, latest block is not available");
+			return;
+		};
+		let Some(top_pending_tx) = self.pending_tx.front() else {
+			return;
+		};
+		if latest_block.number > top_pending_tx.era {
+			let tx_data = self.pending_tx.pop_front().unwrap();
+			self.submit((tx_data.data, tx_data.event_sender), Some(tx_data.nonce)).await;
 		}
 	}
 
@@ -342,7 +351,10 @@ impl SubxtWorker {
 					best_block = best_block_stream.next().fuse() => {
 						if let Some(best_block) = best_block {
 							let block = best_block.unwrap();
-							self.latest_block = Some(block);
+							self.latest_block = Some(BlockDetail {
+								number: block.number().into(),
+								hash: block.hash().into()
+							});
 							self.check_outdated_txs().await;
 						}
 					}

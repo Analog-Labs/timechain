@@ -15,7 +15,7 @@ use time_primitives::{
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
-const MORTALITY: u8 = 30;
+const MORTALITY: u8 = 32;
 
 #[derive(Clone)]
 pub enum Tx {
@@ -271,11 +271,22 @@ impl SubxtWorker {
 					data: transaction,
 					nonce: self.nonce,
 				};
-				self.pending_tx.push_back(tx_status);
-				self.nonce += 1;
+				if nonce.is_some() {
+					// if nonce is received that means its a retry due to mortality outage
+					self.pending_tx.push_front(tx_status);
+				} else {
+					self.pending_tx.push_back(tx_status);
+					self.nonce += 1;
+				}
 			},
 			Err(e) => {
 				tracing::error!("Error submitting transaction to timechain {e}");
+				let nonce = self.nonce;
+				if let Err(err) = self.resync_nonce().await {
+					tracing::error!("failed to resync nonce: {err}");
+				} else {
+					tracing::info!("resynced nonce from {} to {}", nonce, self.nonce);
+				}
 			},
 		}
 	}

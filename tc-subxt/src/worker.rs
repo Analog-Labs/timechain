@@ -75,12 +75,16 @@ pub enum Tx {
 	},
 }
 
-pub struct TxStatus {
-	hash: H256,
+pub struct TxData {
+	transaction: Tx,
 	era: u64,
-	event_sender: oneshot::Sender<ExtrinsicEvents>,
-	data: Tx,
+	hash: H256,
 	nonce: u64,
+}
+
+pub struct TxStatus {
+	data: TxData,
+	event_sender: oneshot::Sender<ExtrinsicEvents>,
 	best_block: Option<u64>,
 }
 
@@ -276,11 +280,13 @@ impl SubxtWorker {
 			Ok(tx_hash) => {
 				let mut pending_tx = self.pending_tx.lock().await;
 				let tx_status = TxStatus {
-					hash: tx_hash,
-					era,
+					data: TxData {
+						transaction,
+						era,
+						hash: tx_hash,
+						nonce: self.nonce,
+					},
 					event_sender: sender,
-					data: transaction,
-					nonce: self.nonce,
 					best_block: None,
 				};
 				if nonce.is_some() {
@@ -310,7 +316,7 @@ impl SubxtWorker {
 		}
 		for extrinsic in finalized_block.extrinsics().await?.iter() {
 			let extrinsic_hash = extrinsic.hash();
-			if Some(extrinsic_hash) == pending_tx.front().map(|tx| tx.hash) {
+			if Some(extrinsic_hash) == pending_tx.front().map(|tx| tx.data.hash) {
 				let extrinsic_events = extrinsic.events().await?;
 				let tx = pending_tx.pop_front().unwrap();
 				tx.event_sender.send(extrinsic_events).ok();
@@ -335,7 +341,7 @@ impl SubxtWorker {
 		let block_number: u64 = best_block.number().into();
 
 		for tx in pending_tx.iter_mut() {
-			if extrinsic_hashes.contains(&tx.hash) {
+			if extrinsic_hashes.contains(&tx.data.hash) {
 				tx.best_block = Some(block_number);
 			}
 		}
@@ -343,7 +349,7 @@ impl SubxtWorker {
 		let mut outdated_txs = vec![];
 		let mut i = 0;
 		while i < pending_tx.len() {
-			if pending_tx[i].best_block.is_none() && block_number > pending_tx[i].era {
+			if pending_tx[i].best_block.is_none() && block_number > pending_tx[i].data.era {
 				let Some(tx_data) = pending_tx.remove(i) else {
 					continue;
 				};
@@ -355,7 +361,7 @@ impl SubxtWorker {
 
 		drop(pending_tx);
 		for tx in outdated_txs {
-			self.submit((tx.data, tx.event_sender), Some(tx.nonce)).await;
+			self.submit((tx.data.transaction, tx.event_sender), Some(tx.data.nonce)).await;
 		}
 		Ok(())
 	}

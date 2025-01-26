@@ -1,6 +1,7 @@
 use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{ExtrinsicEvents, LegacyRpcMethods, OnlineClient};
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
@@ -14,6 +15,7 @@ use time_primitives::{
 	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
+use tokio::sync::Mutex;
 
 const MORTALITY: u8 = 32;
 
@@ -79,6 +81,7 @@ pub struct TxStatus {
 	event_sender: oneshot::Sender<ExtrinsicEvents>,
 	data: Tx,
 	nonce: u64,
+	best_block: Option<u64>,
 }
 
 pub struct BlockDetail {
@@ -92,7 +95,7 @@ pub struct SubxtWorker {
 	keypair: Keypair,
 	nonce: u64,
 	latest_block: Option<BlockDetail>,
-	pending_tx: VecDeque<TxStatus>,
+	pending_tx: Arc<Mutex<VecDeque<TxStatus>>>,
 }
 
 impl SubxtWorker {
@@ -125,7 +128,7 @@ impl SubxtWorker {
 			Some(block) => (block.number, block.hash),
 			None => {
 				let block = self.client.blocks().at_latest().await.unwrap();
-				(block.number().into(), block.hash().into())
+				(block.number().into(), block.hash())
 			},
 		};
 		let nonce = match nonce {
@@ -271,18 +274,20 @@ impl SubxtWorker {
 		let tx_hash = SubmittableExtrinsic::from_bytes(self.client.clone(), tx).submit().await;
 		match tx_hash {
 			Ok(tx_hash) => {
+				let mut pending_tx = self.pending_tx.lock().await;
 				let tx_status = TxStatus {
 					hash: tx_hash,
 					era,
 					event_sender: sender,
 					data: transaction,
 					nonce: self.nonce,
+					best_block: None,
 				};
 				if nonce.is_some() {
 					// if nonce is received that means its a retry due to mortality outage
-					self.pending_tx.push_front(tx_status);
+					pending_tx.push_front(tx_status);
 				} else {
-					self.pending_tx.push_back(tx_status);
+					pending_tx.push_back(tx_status);
 					self.nonce += 1;
 				}
 			},
@@ -299,29 +304,60 @@ impl SubxtWorker {
 	}
 
 	async fn complete_received_txs(&mut self, finalized_block: crate::Block) -> Result<()> {
+		let mut pending_tx = self.pending_tx.lock().await;
+		if pending_tx.is_empty() {
+			return Ok(());
+		}
 		for extrinsic in finalized_block.extrinsics().await?.iter() {
 			let extrinsic_hash = extrinsic.hash();
-			if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.hash) {
+			if Some(extrinsic_hash) == pending_tx.front().map(|tx| tx.hash) {
 				let extrinsic_events = extrinsic.events().await?;
-				let tx = self.pending_tx.pop_front().unwrap();
+				let tx = pending_tx.pop_front().unwrap();
 				tx.event_sender.send(extrinsic_events).ok();
 			}
 		}
 		Ok(())
 	}
 
-	async fn check_outdated_txs(&mut self) {
-		let Some(latest_block) = &self.latest_block else {
-			tracing::warn!("Error checking outdated tx, latest block is not available");
-			return;
-		};
-		let Some(top_pending_tx) = self.pending_tx.front() else {
-			return;
-		};
-		if latest_block.number > top_pending_tx.era {
-			let tx_data = self.pending_tx.pop_front().unwrap();
-			self.submit((tx_data.data, tx_data.event_sender), Some(tx_data.nonce)).await;
+	async fn check_outdated_txs(&mut self, best_block: crate::Block) -> Result<()> {
+		let mut pending_tx = self.pending_tx.lock().await;
+		if pending_tx.is_empty() {
+			return Ok(());
 		}
+
+		let extrinsic_hashes: Vec<_> = best_block
+			.extrinsics()
+			.await?
+			.iter()
+			.map(|extrinsic| extrinsic.hash())
+			.collect();
+
+		let block_number: u64 = best_block.number().into();
+
+		for tx in pending_tx.iter_mut() {
+			if extrinsic_hashes.contains(&tx.hash) {
+				tx.best_block = Some(block_number);
+			}
+		}
+
+		let mut outdated_txs = vec![];
+		let mut i = 0;
+		while i < pending_tx.len() {
+			if pending_tx[i].best_block.is_none() && block_number > pending_tx[i].era {
+				let Some(tx_data) = pending_tx.remove(i) else {
+					continue;
+				};
+				outdated_txs.push(tx_data);
+			} else {
+				i += 1;
+			}
+		}
+
+		drop(pending_tx);
+		for tx in outdated_txs {
+			self.submit((tx.data, tx.event_sender), Some(tx.nonce)).await;
+		}
+		Ok(())
 	}
 
 	pub fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicEvents>)> {
@@ -353,9 +389,11 @@ impl SubxtWorker {
 							let block = best_block.unwrap();
 							self.latest_block = Some(BlockDetail {
 								number: block.number().into(),
-								hash: block.hash().into()
+								hash: block.hash()
 							});
-							self.check_outdated_txs().await;
+							if let Err(e) = self.check_outdated_txs(block).await {
+								tracing::error!("Error while retrying transactions: {e}");
+							};
 						}
 					}
 					update = update_stream.next().fuse() => {

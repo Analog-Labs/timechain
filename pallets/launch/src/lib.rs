@@ -74,9 +74,9 @@ pub mod pallet {
 		// Airdrop Snapshot 3
 		(10, 1_373_347_559_383_359_315, Stage::Airdrop(data::v10::AIRDROPS_SNAPSHOT_3)),
 		// Additional mint to onboard new operators
-		(11, 2_500 * ANLOG, Stage::Deposit(data::v11::DEPOSITS_OPERATIONS)),
+		(11, 4200 * ANLOG, Stage::Deposit(data::v11::DEPOSITS_OPERATIONS)),
 		// Virtual Token Genesis Event
-		(12, 8_280_152_691 * ANLOG, Stage::VirtualDeposit(data::v12::DEPOSITS_TOKEN_GENESIS_EVENT)),
+		(12, 8_280_150_991 * ANLOG, Stage::VirtualDeposit(data::v12::DEPOSITS_TOKEN_GENESIS_EVENT)),
 	];
 
 	/// TODO: Difference to go to treasury:

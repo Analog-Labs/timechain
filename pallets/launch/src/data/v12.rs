@@ -56,7 +56,7 @@ pub const DEPOSITS_TOKEN_GENESIS_EVENT: RawVirtualDepositStage = &[
 	),
 	(
 		b"ecosystem",
-		1_013_118_879_190 * mANLOG,
+		1_013_117_179_190 * mANLOG,
 		Some((679_553_171_595 * mANLOG, 32_234 * mANLOG, 631_120)),
 	),
 ];

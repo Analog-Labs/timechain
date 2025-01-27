@@ -47,7 +47,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "0"
-    url: "https://gmp-grpc-1.development.analog.one:443"
+    url: "https://gmp-grpc-3.development.analog.one:443"
     gateway_funds: 10.
     chronicle_target_funds: 10.
     batch_size: 64
@@ -64,7 +64,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "1"
-    url: "https://gmp-grpc-2.development.analog.one:443"
+    url: "https://gmp-grpc-4.development.analog.one:443"
     gateway_funds: 10.
     chronicle_target_funds: 10.
     batch_size: 64
@@ -116,7 +116,6 @@ networks:
     shard_threshold: 1
 
 chronicles:
-- https://chronicle-0.development.analog.one
 - https://chronicle-1.development.analog.one
 - https://chronicle-2.development.analog.one
 - https://chronicle-3.development.analog.one
@@ -126,3 +125,6 @@ chronicles:
 - https://chronicle-7.development.analog.one
 - https://chronicle-8.development.analog.one
 - https://chronicle-9.development.analog.one
+- https://chronicle-10.development.analog.one
+- https://chronicle-11.development.analog.one
+- https://chronicle-12.development.analog.one

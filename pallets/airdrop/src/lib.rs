@@ -358,7 +358,6 @@ impl<T: Config> Pallet<T> {
 
 			if let Some(vesting) = Vesting::<T>::take(&from) {
 				Vesting::<T>::insert(&to, vesting);
-				
 			}
 
 			// Deposit event on success.

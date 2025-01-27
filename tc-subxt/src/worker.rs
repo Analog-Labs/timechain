@@ -320,6 +320,7 @@ impl SubxtWorker {
 				let extrinsic_events = extrinsic.events().await?;
 				let tx = pending_tx.pop_front().unwrap();
 				tx.event_sender.send(extrinsic_events).ok();
+				tracing::debug!("Transaction completed: {}", extrinsic_hash);
 			}
 		}
 		Ok(())
@@ -351,6 +352,9 @@ impl SubxtWorker {
 		while i < pending_tx.len() {
 			if pending_tx[i].best_block.is_none() && block_number > pending_tx[i].data.era {
 				let Some(tx_data) = pending_tx.remove(i) else {
+					tracing::warn!(
+						"Outdated transaction found, but removal from cache failed: index: {i} len: {}", pending_tx.len()
+					);
 					continue;
 				};
 				outdated_txs.push(tx_data);
@@ -361,6 +365,7 @@ impl SubxtWorker {
 
 		drop(pending_tx);
 		for tx in outdated_txs {
+			tracing::debug!("Transaction outdated, resubmitting: {}", tx.data.hash);
 			self.submit((tx.data.transaction, tx.event_sender), Some(tx.data.nonce)).await;
 		}
 		Ok(())

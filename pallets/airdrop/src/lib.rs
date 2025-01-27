@@ -42,6 +42,7 @@ pub type RawSignature = [u8; 64];
 pub trait WeightInfo {
 	fn claim_raw() -> Weight;
 	fn mint() -> Weight;
+	fn transfer() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -50,6 +51,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn mint() -> Weight {
+		Weight::zero()
+	}
+	fn transfer() -> Weight {
 		Weight::zero()
 	}
 }
@@ -86,6 +90,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new airdrop eligibility has been created.
 		Minted { owner: AccountId32, amount: BalanceOf<T> },
+		/// An airdrop was moved to a new owner
+		Moved { from: AccountId32, to: AccountId32 },
 		/// Someone claimed their airdrop.
 		Claimed { source: AccountId32, target: T::AccountId, amount: BalanceOf<T> },
 	}
@@ -217,6 +223,32 @@ pub mod pallet {
 
 			Self::mint_airdrop(owner, value, vesting)
 		}
+
+		/// Transfer a token airdrop claim to a new owner.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Parameters:
+		/// - `from`: The address from which to move the claim.
+		/// - `to`: The address to which to move the claim. Only addresses with no existing claims are allowed.
+		///
+		/// <weight>
+		/// The weight of this call is invariant over the input parameters.
+		/// We assume worst case that claim and vesting needs to be moved.
+		///
+		/// Total Complexity: O(1)
+		/// </weight>
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::transfer())]
+		pub fn transfer(
+			origin: OriginFor<T>,
+			from: AccountId32,
+			to: AccountId32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::move_airdrop(from, to)
+		}
 	}
 
 	/// Ensure that only valid unsigned extrinsics are handled by our nodes
@@ -312,6 +344,30 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::Minted { owner, amount });
 
 		Ok(())
+	}
+
+	/// Internal function to mint additional airdrops
+	fn move_airdrop(from: AccountId32, to: AccountId32) -> sp_runtime::DispatchResult {
+		// Check from and to are valid
+		if let Some(amount) = Claims::<T>::get(&from) {
+			ensure!(Claims::<T>::get(&to).is_none(), Error::<T>::AlreadyHasClaim);
+
+			// Move claim and its vesting schedule
+			Claims::<T>::insert(&to, amount);
+			Claims::<T>::remove(&from);
+
+			if let Some(vesting) = Vesting::<T>::take(&from) {
+				Vesting::<T>::insert(&to, vesting);
+				
+			}
+
+			// Deposit event on success.
+			Self::deposit_event(Event::<T>::Moved { from, to });
+
+			Ok(())
+		} else {
+			Err(Error::<T>::HasNoClaim.into())
+		}
 	}
 
 	/// Internal processing function that executes an airdrop

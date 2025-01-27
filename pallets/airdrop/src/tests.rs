@@ -29,12 +29,12 @@ fn basic_setup_works() {
 
 		assert_eq!(
 			pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Alice.into()),
-			Some((50, 10, 1))
+			Some((800, 10, 1))
 		);
 		assert_eq!(pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Bob.into()), None);
 		assert_eq!(
 			pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Dave.into()),
-			Some((50, 10, 1))
+			Some((2400, 10, 1))
 		);
 		assert_eq!(pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Eve.into()), None);
 	});
@@ -52,7 +52,7 @@ fn claim_raw_schnorr_works() {
 			Alice.into(),
 		));
 		assert_eq!(Balances::free_balance(&alice), 1000);
-		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(50));
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(800));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 1000);
 	});
 }
@@ -69,7 +69,7 @@ fn claim_raw_edwards_works() {
 			Alice.into(),
 		));
 		assert_eq!(Balances::free_balance(&alice), 3000);
-		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(50));
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(2400));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 3000);
 	});
 }
@@ -189,7 +189,6 @@ fn mint_works() {
 #[test]
 fn mint_with_vesting_works() {
 	new_test_ext().execute_with(|| {
-		let alice = Alice.into();
 		// Non-root user is not able to add claim
 		assert_noop!(
 			Airdrop::mint(
@@ -200,7 +199,7 @@ fn mint_with_vesting_works() {
 			),
 			sp_runtime::traits::BadOrigin,
 		);
-		assert_eq!(Balances::free_balance(&alice), 0);
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
@@ -218,7 +217,7 @@ fn mint_with_vesting_works() {
 			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&alice), 500);
+		assert_eq!(Balances::free_balance(&Alice.into()), 500);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(500));
 
 		// Make sure we can not transfer the vested balance.
@@ -230,6 +229,68 @@ fn mint_with_vesting_works() {
 				ExistenceRequirement::AllowDeath
 			),
 			TokenError::Frozen,
+		);
+	});
+}
+#[test]
+fn move_with_vesting_works() {
+	new_test_ext().execute_with(|| {
+		// Non-root user is not able move claim
+		assert_noop!(
+			Airdrop::transfer(RuntimeOrigin::signed(Alice.into()), Alice.into(), Charlie.into()),
+			sp_runtime::traits::BadOrigin,
+		);
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&Charlie.into())[..]).0,
+				Charlie.into(),
+			),
+			Error::<Test>::HasNoClaim,
+		);
+		// Root user can not use claim that does not exist
+		assert_noop!(
+			Airdrop::transfer(RuntimeOrigin::root(), Charlie.into(), Ferdie.into()),
+			Error::<Test>::HasNoClaim
+		);
+		// Root user is able to move claim and vesting is honored
+		assert_ok!(Airdrop::transfer(RuntimeOrigin::root(), Alice.into(), Charlie.into()));
+
+		// Alice transferred her airdrop to Charlie
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), None);
+
+		// Charlie claims it to be paid out back to Alice
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Charlie.into(),
+			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+			Alice.into(),
+		));
+		assert_eq!(Balances::free_balance(&Alice.into()), 1000);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(800));
+
+		// Make sure we can not transfer the vested balance.
+		assert_err!(
+			<Balances as Currency<_>>::transfer(
+				&Alice.into(),
+				&Bob.into(),
+				480,
+				ExistenceRequirement::AllowDeath
+			),
+			TokenError::Frozen,
+		);
+
+		// Old claim does not exist anymore
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Alice.into(),
+				Alice.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+				Alice.into(),
+			),
+			Error::<Test>::HasNoClaim,
 		);
 	});
 }

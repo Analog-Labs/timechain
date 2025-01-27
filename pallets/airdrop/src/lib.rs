@@ -221,7 +221,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::mint_airdrop(owner, value, vesting)
+			Ok(Self::mint_airdrop(owner, value, vesting)?)
 		}
 
 		/// Transfer a token airdrop claim to a new owner.
@@ -247,7 +247,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::move_airdrop(from, to)
+			Ok(Self::move_airdrop(from, to)?)
 		}
 	}
 
@@ -323,11 +323,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Internal function to mint additional airdrops
-	fn mint_airdrop(
+	pub fn mint_airdrop(
 		owner: AccountId32,
 		amount: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
-	) -> sp_runtime::DispatchResult {
+	) -> Result<(), Error<T>> {
 		// Ensure amount is large enough and mint does not overwrite existing claim
 		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
 		ensure!(Claims::<T>::get(&owner).is_none(), Error::<T>::AlreadyHasClaim);
@@ -347,18 +347,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Internal function to mint additional airdrops
-	fn move_airdrop(from: AccountId32, to: AccountId32) -> sp_runtime::DispatchResult {
-		// Check from and to are valid
-		if let Some(amount) = Claims::<T>::get(&from) {
-			ensure!(Claims::<T>::get(&to).is_none(), Error::<T>::AlreadyHasClaim);
-
+	pub fn move_airdrop(from: AccountId32, to: AccountId32) -> Result<(), Error<T>> {
+		// Check to and from are valid
+		ensure!(Claims::<T>::get(&to).is_none(), Error::<T>::AlreadyHasClaim);
+		if let Some(amount) = Claims::<T>::take(&from) {
 			// Move claim and its vesting schedule
 			Claims::<T>::insert(&to, amount);
-			Claims::<T>::remove(&from);
-
 			if let Some(vesting) = Vesting::<T>::take(&from) {
 				Vesting::<T>::insert(&to, vesting);
-				
 			}
 
 			// Deposit event on success.
@@ -366,7 +362,7 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		} else {
-			Err(Error::<T>::HasNoClaim.into())
+			Err(Error::<T>::HasNoClaim)
 		}
 	}
 

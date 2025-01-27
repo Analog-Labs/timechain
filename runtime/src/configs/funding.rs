@@ -5,15 +5,12 @@ use polkadot_sdk::*;
 #[cfg(feature = "testnet")]
 use frame_system::{EnsureRoot, EnsureWithSuccess};
 
-use frame_support::parameter_types;
 #[cfg(feature = "testnet")]
-use frame_support::{
-	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		EitherOfDiverse,
-	},
-	PalletId,
+use frame_support::traits::{
+	tokens::{PayFromAccount, UnityAssetBalanceConversion},
+	EitherOfDiverse,
 };
+use frame_support::{parameter_types, PalletId};
 
 #[cfg(feature = "testnet")]
 use sp_runtime::{traits::IdentityLookup, Percent, Permill};
@@ -75,6 +72,7 @@ impl pallet_treasury::Config for Runtime {
 
 parameter_types! {
 	pub RawPrefix: &'static [u8] = main_or_test!(b"Airdrop ANLOG to the Timechain account: ", b"Airdrop TANLOG to the Testnet account: ");
+	pub LaunchId: PalletId = PalletId(*b"timelnch");
 }
 
 impl pallet_airdrop::Config for Runtime {
@@ -88,6 +86,7 @@ impl pallet_airdrop::Config for Runtime {
 #[cfg(not(feature = "testnet"))]
 impl pallet_launch::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = LaunchId;
 	type VestingSchedule = Vesting;
 	type MinimumDeposit = ExistentialDeposit;
 }

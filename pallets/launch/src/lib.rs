@@ -8,11 +8,9 @@
 
 pub use pallet::*;
 
-use time_primitives::{AccountId, Balance, BlockNumber};
+use time_primitives::{AccountId, Balance, BlockNumber, ANLOG};
 
 use polkadot_sdk::*;
-
-use sp_runtime::traits::Zero;
 
 /// Underlying migration data
 mod data;
@@ -23,7 +21,20 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-// All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
+mod airdrops;
+mod deposits;
+mod ledger;
+mod stage;
+
+use airdrops::AirdropBalanceOf;
+use deposits::{BalanceOf, CurrencyOf};
+use ledger::{LaunchLedger, RawLaunchLedger};
+use stage::Stage;
+
+/// Vesting schedule embedded in code, but not yet parsed and verified
+pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
+
+/// All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
@@ -31,23 +42,55 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	use frame_support::traits::{
-		Currency, OriginTrait, PalletInfoAccess, StorageVersion, VestingSchedule,
-	};
-	use sp_core::crypto::Ss58Codec;
-	use sp_runtime::traits::CheckedConversion;
+	use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
+	use frame_support::PalletId;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	const LAUNCH_STAGE: StorageVersion = StorageVersion::new(9);
+	pub const LAUNCH_VERSION: u16 = 12;
+	/// Wrapped version to support sustrate interface as well
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
-	/// Workaround to get raw storage version
-	pub fn on_chain_launch_stage<P: PalletInfoAccess>() -> u16 {
-		frame_support::storage::unhashed::get_or_default(&StorageVersion::storage_key::<P>()[..])
-	}
+	/// The official mainnet launch ledger
+	pub const LAUNCH_LEDGER: RawLaunchLedger = &[
+		// Genesis
+		(0, 3100 * ANLOG, Stage::Retired),
+		// Prelaunch Deposit 1
+		(1, 53_030_500 * ANLOG, Stage::Retired),
+		// Airdrop Snapshot 1
+		(2, 410_168_623_085_944_989_935, Stage::Retired),
+		(3, 0, Stage::Retired),
+		(4, 0, Stage::Retired),
+		// Prelaunch Deposit 2
+		(5, 39_328_063 * ANLOG, Stage::Retired),
+		// Airdrop Testing
+		(6, 50 * ANLOG, Stage::Retired),
+		// Prelaunch Deposit 3
+		(7, 226_449_338 * ANLOG, Stage::Retired),
+		// Airdrop Snapshot 2
+		(8, 20_288_872_847_294_611_363, Stage::Retired),
+		// Validator Airdrop
+		(9, 27_173_913 * ANLOG, Stage::AirdropMint(data::v9::AIRDROPS_VALIDATORS)),
+		// Airdrop Snapshot 3
+		(10, 1_373_347_559_383_359_315, Stage::AirdropMint(data::v10::AIRDROPS_SNAPSHOT_3)),
+		// Airdrop address updates
+		(11, 0, Stage::AirdropTransfer(data::v11::AIRDROPS_WALLET_TRANSFERS)),
+		// Airdrop Snapshot 1 - Missing EVM wallet
+		(12, 105_316_962_722_110_899, Stage::AirdropMint(data::v12::AIRDROPS_SNAPSHOT_1_EVM)),
+		// Prelaunch Deposit 4
+		(13, 113_204_200 * ANLOG, Stage::Deposit(data::v13::DEPOSITS_PRELAUNCH_4)),
+		// Virtual Token Genesis Event
+		(14, 8_166_845_674 * ANLOG, Stage::VirtualDeposit(data::v14::DEPOSITS_TOKEN_GENESIS_EVENT)),
+	];
+
+	/// TODO: Difference to go to treasury:
+	/// stage_2 = 410_168_624 * ANLOG;
+	/// stage_8 = 20_288_873 * ANLOG;
+	/// stage_10 = 1_373_348 * ANLOG;
+	/// stage_11 = 105_317 * ANLOG;
 
 	#[pallet::pallet]
-	#[pallet::storage_version(LAUNCH_STAGE)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -55,6 +98,8 @@ pub mod pallet {
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
+		/// Identifier to use for pallet-owned wallets
+		type PalletId: Get<PalletId>;
 		/// The vesting backend to use to enforce provided vesting schedules.
 		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
 		/// The minimum size a deposit has to have to be considered valid.
@@ -62,259 +107,83 @@ pub mod pallet {
 		type MinimumDeposit: Get<BalanceOf<Self>>;
 	}
 
+	/// All error are a result of the "compile" step and do not allow execution.
+	#[pallet::error]
+	#[derive(Clone, PartialEq)]
+	pub enum Error<T> {
+		/// A required stage version is missing from the ledger.
+		StageMissing,
+		/// The version numbers of the stages in the ledger are inconsistent.
+		StageVersionMissmatch,
+		/// The current total issuance exceeds the current planned allocation.
+		TotalIssuanceExceeded,
+		/// Migrations needed, but retired from this runtime.
+		StageRetired,
+		/// Migrations needed and know, but missing in this runtime.
+		StageIssuanceMissmatch,
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An new migration stage was entered
-		MigrationStarted { stage: u16 },
-		/// Missing or retired migration to reach latest stage.
-		MigrationMissing { stage: u16 },
-		/// A deposit migration could not be parsed
+		/// Internal launch ledger invalid, no migration executed.
+		LedgerInvalid { error: Error<T> },
+		/// The migration to a new launch stage was executed, but exceeded the expected issuance.
+		StageExceededIssuance { version: u16, hash: T::Hash },
+		/// The migration to a new launch stage was successfully executed.
+		StageExecuted { version: u16, hash: T::Hash },
+		/// A deposit migration could not be parsed.
 		DepositInvalid { id: Vec<u8> },
 		/// Deposit does not exceed existential deposit
 		DepositTooSmall { target: T::AccountId },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
-		/// An airdrop migration could not be parsed
-		AirdropInvalid { id: Vec<u8> },
-		/// An airdrop migration failed due to a vesting schedule conflict.
-		AirdropFailed { target: T::AccountId },
+		/// An airdrop mint could not be parsed
+		AirdropMintInvalid { id: Vec<u8> },
+		/// An airdrop mint failed due to an existing claim.
+		AirdropMintExists { target: T::AccountId },
+		/// An airdrop mint failed due to an internal error.
+		AirdropMintFailed,
+		/// An airdrop move could not be parsed
+		AirdropTransferInvalid { id: Vec<u8> },
+		/// An airdrop move has failed due to no claim existing or having already been claimed.
+		AirdropTransferMissing { from: T::AccountId },
+		/// An airdrop move has failed due to an claim existing already.
+		AirdropTransferExists { to: T::AccountId },
+		/// An airdrop move has failed for an unknown reason.
+		AirdropTransferFailed,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
-		<T as polkadot_sdk::frame_system::Config>::AccountId: From<AccountId>,
+		T::AccountId: From<AccountId>,
+		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			let mut weight = Weight::zero();
-
-			while Pallet::<T>::on_chain_storage_version() < LAUNCH_STAGE {
-				let stage = on_chain_launch_stage::<Pallet<T>>();
-
-				Pallet::<T>::deposit_event(Event::<T>::MigrationStarted { stage });
-
-				weight += match stage {
-					8 => DepositMigration::<T>::new(data::v9::DEPOSITS_PRELAUNCH_4).execute(),
-					//9 => AirdropMigration::<T>::new(data::v10::AIRDROPS_VALIDATORS).execute(),
-					//10 => DepositMigration::<T>::new(data::v11::DEPOSITS_TOKEN_GENESIS_EVENT).execute(),
-					_ => break,
-				};
-
-				StorageVersion::new(stage + 1).put::<Pallet<T>>();
+			match LaunchLedger::compile(LAUNCH_LEDGER) {
+				Ok(plan) => return plan.run(),
+				Err(error) => Pallet::<T>::deposit_event(Event::<T>::LedgerInvalid { error }),
 			}
-
-			if Pallet::<T>::on_chain_storage_version() < LAUNCH_STAGE {
-				Self::deposit_event(Event::<T>::MigrationMissing {
-					stage: on_chain_launch_stage::<Pallet<T>>(),
-				});
-			}
-
-			weight
+			Weight::zero()
 		}
 	}
 
-	/// Vesting schedule embedded in code, but not yet parsed and verified
-	pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
-
-	/// Endowment detailsembedded in code, but not yet parsed and verified
-	pub type RawEndowmentDetails = (&'static str, Balance, Option<RawVestingSchedule>);
-
-	/// Endowment migration embedded in code, but not yet parsed and verified
-	pub type RawEndowmentMigration = &'static [RawEndowmentDetails];
-
-	/// Type aliases for currency used by the vesting schedule
-	type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
-		<T as frame_system::Config>::AccountId,
-	>>::Currency;
-
-	/// Type aliases for balance used by the vesting schedule
-	type BalanceOf<T> =
-		<CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-	/// Parsed vesting details
-	type VestingDetails<T> = (BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>);
-
-	/// Parsed deposit details
-	type DepositDetails<A, T> = (A, BalanceOf<T>, Option<VestingDetails<T>>);
-
-	/// Parsed and verified migration that endows account
-	pub struct DepositMigration<T: Config>(Vec<DepositDetails<T::AccountId, T>>);
-
-	impl<T: Config> DepositMigration<T>
+	impl<T: Config> Pallet<T>
 	where
-		T::AccountId: From<AccountId>,
+		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
-		/// Create new deposit migration by parsing and converting raw info
-		pub fn new(data: RawEndowmentMigration) -> Self {
-			let mut checked = vec![];
-			for details in data.iter() {
-				if let Some(parsed) = Self::parse(details) {
-					if parsed.1 < <T as Config>::MinimumDeposit::get() {
-						Pallet::<T>::deposit_event(Event::<T>::DepositTooSmall {
-							target: parsed.0,
-						});
-						continue;
-					}
-
-					checked.push(parsed)
-				} else {
-					Pallet::<T>::deposit_event(Event::<T>::DepositInvalid { id: details.0.into() });
-				}
-			}
-			Self(checked)
+		/// Workaround to get raw storage version
+		pub fn on_chain_stage_version() -> u16 {
+			frame_support::storage::unhashed::get_or_default(
+				&StorageVersion::storage_key::<Self>()[..],
+			)
 		}
 
-		/// Parse an individual entry of a deposit migration
-		pub fn parse(details: &RawEndowmentDetails) -> Option<DepositDetails<T::AccountId, T>> {
-			Some((
-				AccountId::from_ss58check(details.0).ok()?.into(),
-				BalanceOf::<T>::checked_from(details.1)?,
-				if let Some((locked, per_block, start)) = details.2 {
-					Some((
-						BalanceOf::<T>::checked_from(locked)?,
-						BalanceOf::<T>::checked_from(per_block)?,
-						BlockNumberFor::<T>::checked_from(start)?,
-					))
-				} else {
-					None
-				},
-			))
-		}
-
-		/// Compute the total amount of minted tokens in this migration
-		pub fn sum(&self) -> BalanceOf<T> {
-			self.0.iter().fold(Zero::zero(), |acc: BalanceOf<T>, &(_, b, _)| acc + b)
-		}
-
-		/// Execute deposits as far as possible, log failed deposit as events
-		pub fn execute(self) -> Weight {
-			let mut weight = Weight::zero();
-
-			for (target, amount, schedule) in self.0.iter() {
-				// Check vesting status first...
-				if let Some(vs) = schedule {
-					// (Checking if the target is able to receive a vested transfer is one read)
-					weight += T::DbWeight::get().reads(1);
-
-					if <T as Config>::VestingSchedule::can_add_vesting_schedule(
-						target, vs.0, vs.1, vs.2,
-					)
-					.is_err()
-					{
-						Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
-							target: target.clone(),
-						});
-						continue;
-					}
-				}
-
-				// ...then add balance to ensure that the account exists...
-				let _ = CurrencyOf::<T>::deposit_creating(target, *amount);
-				// (Read existential deposit, followed by reading and writing account store.)
-				weight += T::DbWeight::get().reads_writes(2, 1);
-
-				// ...and finally apply vesting schedule, if there is one.
-				if let Some(vs) = schedule {
-					<T as Config>::VestingSchedule::add_vesting_schedule(target, vs.0, vs.1, vs.2)
-						.expect("No other vesting schedule exists, as checked above; qed");
-					// (Updating the vesting schedule involves reading the info, followed by writing the info, the vesting and the lock.)
-					weight += T::DbWeight::get().reads_writes(1, 3)
-				}
-			}
-
-			weight
-		}
-	}
-
-	/// Type aliases for the currency used in the airdrop vesting scheduler
-	type AirdropCurrencyOf<T> =
-		<<T as pallet_airdrop::Config>::VestingSchedule as VestingSchedule<
-			<T as frame_system::Config>::AccountId,
-		>>::Currency;
-
-	/// Type aliases for the balance used in the airdrop vesting scheduler
-	type AirdropBalanceOf<T> =
-		<AirdropCurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-	/// Parsed vesting details
-	type AirdropVestingDetails<T> = (AirdropBalanceOf<T>, AirdropBalanceOf<T>, BlockNumberFor<T>);
-
-	/// Parsed deposit details
-	type AirdropDetails<T> = (AccountId, AirdropBalanceOf<T>, Option<AirdropVestingDetails<T>>);
-
-	/// Parsed and verified migration that endows account
-	pub struct AirdropMigration<T: Config>(Vec<AirdropDetails<T>>);
-
-	impl<T: Config> AirdropMigration<T>
-	where
-		T::AccountId: From<AccountId>,
-	{
-		/// Create new endowing migration by parsing and converting raw info
-		pub fn new(data: RawEndowmentMigration) -> Self {
-			let mut checked = vec![];
-			for details in data.iter() {
-				if let Some(parsed) = Self::parse(details) {
-					checked.push(parsed)
-				} else {
-					Pallet::<T>::deposit_event(Event::<T>::AirdropInvalid { id: details.0.into() });
-				}
-			}
-			Self(checked)
-		}
-
-		/// Try to parse an individual entry of an airdrop migration
-		pub fn parse(details: &RawEndowmentDetails) -> Option<AirdropDetails<T>> {
-			Some((
-				AccountId::from_ss58check(details.0).ok()?,
-				AirdropBalanceOf::<T>::checked_from(details.1)?,
-				if let Some((locked, per_block, start)) = details.2 {
-					Some((
-						AirdropBalanceOf::<T>::checked_from(locked)?,
-						AirdropBalanceOf::<T>::checked_from(per_block)?,
-						BlockNumberFor::<T>::checked_from(start)?,
-					))
-				} else {
-					None
-				},
-			))
-		}
-
-		/// Compute the total amount of minted tokens in this migration
-		pub fn sum(&self) -> AirdropBalanceOf<T> {
-			self.0.iter().fold(Zero::zero(), |acc: AirdropBalanceOf<T>, &(_, b, _)| acc + b)
-		}
-
-		/// Add all airdrops inside the airdrop migration
-		pub fn execute(self) -> Weight {
-			let mut weight = Weight::zero();
-
-			for (target, amount, schedule) in self.0.iter() {
-				weight += T::DbWeight::get().reads_writes(1, 3);
-
-				// Can fail if claim already exists, so those are logged.
-				if pallet_airdrop::Pallet::<T>::mint(
-					T::RuntimeOrigin::root(),
-					target.clone(),
-					*amount,
-					*schedule,
-				)
-				.is_err()
-				{
-					// (Reading claims was necessary to determine claim exists.)
-					weight += T::DbWeight::get().reads(1);
-
-					Pallet::<T>::deposit_event(Event::<T>::AirdropFailed {
-						target: target.clone().into(),
-					});
-					continue;
-				}
-
-				// (Read and write claims and total and optimal write vesting.)
-				weight += T::DbWeight::get().reads_writes(2, 3);
-			}
-
-			weight
+		/// Estimate current total issuance
+		pub fn total_issuance() -> Balance {
+			Into::<Balance>::into(CurrencyOf::<T>::total_issuance())
+				+ Into::<Balance>::into(pallet_airdrop::Total::<T>::get())
 		}
 	}
 }

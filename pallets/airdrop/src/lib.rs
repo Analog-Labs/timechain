@@ -362,7 +362,7 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		} else {
-			Err(Error::<T>::HasNoClaim.into())
+			Err(Error::<T>::HasNoClaim)
 		}
 	}
 

@@ -2,12 +2,12 @@
 //!
 //! The goal of this migration is to mint the testnet
 //! validator airdrops.
-use crate::airdrops::RawAirdropStage;
+use crate::airdrops::RawAirdropMintStage;
 
 use time_primitives::ANLOG;
 
 // Incentivized testnet validator rewards
-pub const AIRDROPS_VALIDATORS: RawAirdropStage = &[
+pub const AIRDROPS_VALIDATORS: RawAirdropMintStage = &[
 	("an8Evn8LD7svf1z8EiMVRNshLajYWEaj7jk6MgAo4jRUPF8Sv", 1_895_325 * ANLOG, None),
 	("an9LCe2usU8eND2vbnHqX2TgLZaoGHS4ZHb2BxYEiNA8FL8Yw", 1_860_401 * ANLOG, None),
 	("an6iVGebSszTVJmDeWs54dHExuZV7o3YChT6BfYoKTMKUTW4X", 1_577_242 * ANLOG, None),

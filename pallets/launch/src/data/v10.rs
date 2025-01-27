@@ -1,10 +1,10 @@
 //! This file describes the migrations to be run at stage 11.
 //!
 //! The goal of this migration is mint the third airdrop snapshot.
-use crate::airdrops::RawAirdropStage;
+use crate::airdrops::RawAirdropMintStage;
 
 // Incentivized testnet snapshot 3
-pub const AIRDROPS_SNAPSHOT_3: RawAirdropStage = &[
+pub const AIRDROPS_SNAPSHOT_3: RawAirdropMintStage = &[
 	("5FCxRyKQPvJK4XwLU7ygNzXPpb1hYypJpj9r1TshcYMq7HXW", 11_962_187_208_319_800, None),
 	("5GpM2raPhL9hwoMRp3mF9zfYMpDUPjX3g3PgcHjSU27Be7LB", 11_591_924_112_166_800, None),
 	("5H48bWwcnzPJARWLaBtGyJ6mGxTC9q8KBPjVBKXFnWZtJaGZ", 11_247_752_716_100_200, None),

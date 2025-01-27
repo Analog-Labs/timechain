@@ -30,9 +30,12 @@ fn launch_ledger_validation() {
 		let _w = plan.run();
 		let events = System::read_events_for_pallet::<Event<Test>>();
 
-		assert_eq!(events.len(), NUM_MIGRATIONS as usize);
+		const NUM_AIRDROP_TRANSFER: usize = 897;
+		assert_eq!(events.len(), NUM_AIRDROP_TRANSFER + NUM_MIGRATIONS as usize);
 		for event in events.iter() {
-			assert!(matches!(event, Event::StageExecuted { version: _, hash: _ }));
+			if !matches!(event, Event::StageExecuted { version: _, hash: _ }) {
+				assert!(matches!(event, Event::AirdropTransferMissing { from: _ }));
+			}
 		}
 
 		// TODO: Check weight

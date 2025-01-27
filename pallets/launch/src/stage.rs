@@ -7,7 +7,10 @@ use sp_runtime::traits::Hash;
 
 use time_primitives::{AccountId, Balance};
 
-use crate::airdrops::{AirdropBalanceOf, AirdropStage, RawAirdropStage};
+use crate::airdrops::{
+	AirdropBalanceOf, AirdropMintStage, AirdropTransferStage, RawAirdropMintStage,
+	RawAirdropTransferStage,
+};
 use crate::deposits::{BalanceOf, DepositStage, RawDepositStage, RawVirtualDepositStage};
 
 /// Enum describing the migration type and data to use for an individual
@@ -16,7 +19,8 @@ use crate::deposits::{BalanceOf, DepositStage, RawDepositStage, RawVirtualDeposi
 #[derive(PartialEq)]
 pub enum Stage {
 	Retired,
-	Airdrop(RawAirdropStage),
+	AirdropMint(RawAirdropMintStage),
+	AirdropTransfer(RawAirdropTransferStage),
 	Deposit(RawDepositStage),
 	VirtualDeposit(RawVirtualDepositStage),
 }
@@ -40,8 +44,11 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => (),
-			Airdrop(raw) => {
-				AirdropStage::<T>::parse(raw);
+			AirdropMint(raw) => {
+				AirdropMintStage::<T>::parse(raw);
+			},
+			AirdropTransfer(raw) => {
+				AirdropTransferStage::<T>::parse(raw);
 			},
 			Deposit(raw) => {
 				DepositStage::<T>::parse(raw);
@@ -57,7 +64,8 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => T::Hash::default(),
-			Airdrop(raw) => T::Hashing::hash_of(raw),
+			AirdropMint(raw) => T::Hashing::hash_of(raw),
+			AirdropTransfer(raw) => T::Hashing::hash_of(raw),
 			Deposit(raw) => T::Hashing::hash_of(raw),
 			VirtualDeposit(raw) => T::Hashing::hash_of(raw),
 		}
@@ -72,7 +80,8 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => 0,
-			Airdrop(raw) => AirdropStage::<T>::parse(raw).total().into(),
+			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
+			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).total().into(),
 			Deposit(raw) => DepositStage::<T>::parse(raw).total().into(),
 			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).total().into(),
 		}
@@ -86,7 +95,8 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => Weight::zero(),
-			Airdrop(raw) => AirdropStage::<T>::parse(raw).mint(),
+			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).mint(),
+			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).transfer(),
 			Deposit(raw) => DepositStage::<T>::parse(raw).deposit(),
 			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).deposit(),
 		}

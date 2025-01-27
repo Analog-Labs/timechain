@@ -70,19 +70,24 @@ pub mod pallet {
 		// Airdrop Snapshot 2
 		(8, 20_288_872_847_294_611_363, Stage::Retired),
 		// Validator Airdrop
-		(9, 27_173_913 * ANLOG, Stage::Airdrop(data::v9::AIRDROPS_VALIDATORS)),
+		(9, 27_173_913 * ANLOG, Stage::AirdropMint(data::v9::AIRDROPS_VALIDATORS)),
 		// Airdrop Snapshot 3
-		(10, 1_373_347_559_383_359_315, Stage::Airdrop(data::v10::AIRDROPS_SNAPSHOT_3)),
+		(10, 1_373_347_559_383_359_315, Stage::AirdropMint(data::v10::AIRDROPS_SNAPSHOT_3)),
+		// Airdrop address updates
+		(11, 0, Stage::AirdropTransfer(data::v11::AIRDROPS_WALLET_TRANSFERS)),
+		// Airdrop Snapshot 1 - Missing EVM wallet
+		(12, 105_316_962_722_110_899, Stage::AirdropMint(data::v12::AIRDROPS_SNAPSHOT_1_EVM)),
 		// Prelaunch Deposit 4
-		(11, 113_204_200 * ANLOG, Stage::Deposit(data::v11::DEPOSITS_PRELAUNCH_4)),
+		(13, 113_204_200 * ANLOG, Stage::Deposit(data::v13::DEPOSITS_PRELAUNCH_4)),
 		// Virtual Token Genesis Event
-		(12, 8_166_950_991 * ANLOG, Stage::VirtualDeposit(data::v12::DEPOSITS_TOKEN_GENESIS_EVENT)),
+		(14, 8_166_845_674 * ANLOG, Stage::VirtualDeposit(data::v14::DEPOSITS_TOKEN_GENESIS_EVENT)),
 	];
 
 	/// TODO: Difference to go to treasury:
 	/// stage_2 = 410_168_624 * ANLOG;
 	/// stage_8 = 20_288_873 * ANLOG;
 	/// stage_10 = 1_373_348 * ANLOG;
+	/// stage_11 = 105_317 * ANLOG;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -133,11 +138,20 @@ pub mod pallet {
 		DepositTooSmall { target: T::AccountId },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
-		/// An airdrop migration could not be parsed
-		AirdropInvalid { id: Vec<u8> },
-		/// An airdrop migration failed due to an existing claim or a vesting
-		/// schedule conflict.
-		AirdropFailed { target: T::AccountId },
+		/// An airdrop mint could not be parsed
+		AirdropMintInvalid { id: Vec<u8> },
+		/// An airdrop mint failed due to an existing claim.
+		AirdropMintExists { target: T::AccountId },
+		/// An airdrop mint failed due to an internal error.
+		AirdropMintFailed,
+		/// An airdrop move could not be parsed
+		AirdropTransferInvalid { id: Vec<u8> },
+		/// An airdrop move has failed due to no claim existing or having already been claimed.
+		AirdropTransferMissing { from: T::AccountId },
+		/// An airdrop move has failed due to an claim existing already.
+		AirdropTransferExists { to: T::AccountId },
+		/// An airdrop move has failed for an unknown reason.
+		AirdropTransferFailed,
 	}
 
 	#[pallet::hooks]

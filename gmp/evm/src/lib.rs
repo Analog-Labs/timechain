@@ -448,7 +448,8 @@ impl IChain for Connector {
 		self.parse_address(&self.wallet.account().address).unwrap()
 	}
 	fn currency(&self) -> (u32, &str) {
-		(18, "ETH")
+		let config = self.wallet.config();
+		(config.currency_decimals, config.currency_symbol)
 	}
 	/// Uses a faucet to fund the account when possible.
 	async fn faucet(&self) -> Result<()> {

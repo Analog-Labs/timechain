@@ -356,9 +356,9 @@ impl<T: Config> Pallet<T> {
 			Claims::<T>::insert(&to, amount);
 			Claims::<T>::remove(&from);
 
-			if let Some(vesting) = Vesting::<T>::get(&from) {
+			if let Some(vesting) = Vesting::<T>::take(&from) {
 				Vesting::<T>::insert(&to, vesting);
-				Vesting::<T>::remove(&from);
+				
 			}
 
 			// Deposit event on success.

@@ -10,7 +10,7 @@ on:
     inputs:
       version:
         description: "tc-cli image tag (sha8 commit)"
-        required: true
+        required: false
         type: string
       environment:
         description: "Target environment for running (K8s cluster)"
@@ -47,7 +47,7 @@ jobs:
     - name: Check tc-cli image
       id: check-image
       run: |
-        TAG=${{ github.event.inputs.version }}
+        TAG=${{ github.event.inputs.version || 'latest' }}
         IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
         echo "Checking if the image $IMAGE exists..."
         if ! docker pull "$IMAGE" &>/dev/null; then

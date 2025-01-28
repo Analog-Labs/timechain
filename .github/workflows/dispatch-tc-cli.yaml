@@ -73,8 +73,8 @@ jobs:
           --env="LOKI_USERNAME=${{ secrets.LOKI_USERNAME }}" \
           --env="LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }}" \
           -- ${{ github.event.inputs.args}})"
-        echo $OUTPUT
-        echo $OUTPUT >> $GITHUB_OUTPUT
+        echo "$OUTPUT"
+        echo "$OUTPUT" >> $GITHUB_OUTPUT
 
     - name: Post output
       uses: slackapi/slack-github-action@v2.0.0

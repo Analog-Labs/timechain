@@ -702,9 +702,7 @@ pub mod pallet {
 				while let Some(op) = queue.pop() {
 					if num_batches_started == T::MaxBatchesPerBlock::get() {
 						queue.push(op);
-						return <T as Config>::WeightInfo::prepare_batches(
-							T::MaxBatchesPerBlock::get(),
-						);
+						break;
 					}
 					if let Some(msg) = batcher.push(op) {
 						Self::start_batch(network, msg);

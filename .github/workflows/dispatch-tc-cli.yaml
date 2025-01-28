@@ -74,11 +74,7 @@ jobs:
           --env="LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }}" \
           -- ${{ github.event.inputs.args}})"
         echo "$OUTPUT"
-        {
-          echo "OUTPUT<<EOF"
-          echo "${OUTPUT//$'\n'/\\n}"
-          echo EOF
-        } >> $GITHUB_OUTPUT
+        echo "OUTPUT=${OUTPUT//$'\n'/\\n}" >> $GITHUB_OUTPUT
 
     - name: Post output
       uses: slackapi/slack-github-action@v2.0.0
@@ -86,5 +82,5 @@ jobs:
         method: chat.postMessage
         token: ${{ secrets.SLACK_BOT_TOKEN }}
         payload: |
-          channel: env-${{ github.event.inputs.environment }}
+          channel: ${{ secrets.SLACK_CHANNEL_ID }}
           text: "${{ steps.run.outputs.OUTPUT }}"

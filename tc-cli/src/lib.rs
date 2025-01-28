@@ -70,8 +70,6 @@ impl Tc {
 				.connect_admin(&params)
 				.await
 				.context("failed to connect to backend")?;
-
-			let target_address = connector.format_address(connector.address());
 			connectors.insert(id, connector);
 		}
 		Ok(Self { config, runtime, connectors })

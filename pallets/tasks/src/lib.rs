@@ -711,11 +711,18 @@ pub mod pallet {
 						num_batches_started = num_batches_started.saturating_plus_one();
 					}
 				}
-				if num_batches_started == T::MaxBatchesPerBlock::get() {
-					return <T as Config>::WeightInfo::prepare_batches(T::MaxBatchesPerBlock::get());
-				} else if let Some(msg) = batcher.take_batch() {
-					Self::start_batch(network, msg);
-					num_batches_started = num_batches_started.saturating_plus_one();
+				if let Some(msg) = batcher.take_batch() {
+					if num_batches_started == T::MaxBatchesPerBlock::get() {
+						for op in msg.ops {
+							queue.push(op);
+						}
+						return <T as Config>::WeightInfo::prepare_batches(
+							T::MaxBatchesPerBlock::get(),
+						);
+					} else {
+						Self::start_batch(network, msg);
+						num_batches_started = num_batches_started.saturating_plus_one();
+					}
 				}
 			}
 			<T as Config>::WeightInfo::prepare_batches(num_batches_started)

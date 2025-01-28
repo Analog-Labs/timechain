@@ -76,7 +76,7 @@ jobs:
         echo "$OUTPUT"
         {
           echo "OUTPUT<<EOF"
-          echo "$OUTPUT"
+          echo "${OUTPUT//$'\n'/\\n}"
           echo EOF
         } >> $GITHUB_OUTPUT
 

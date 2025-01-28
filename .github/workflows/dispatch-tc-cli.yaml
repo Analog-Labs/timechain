@@ -72,7 +72,7 @@ jobs:
           --env="LOKI_URL=${{ secrets.LOKI_URL }}" \
           --env="LOKI_USERNAME=${{ secrets.LOKI_USERNAME }}" \
           --env="LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }}" \
-          --env="NO_COLOR=1"
+          --env="NO_COLOR=1" \
           -- ${{ github.event.inputs.args}})"
         echo "$OUTPUT"
         echo "OUTPUT=\`\`\`${OUTPUT//$'\n'/\\n}\`\`\`" >> $GITHUB_OUTPUT

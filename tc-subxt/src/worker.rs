@@ -306,10 +306,9 @@ impl SubxtWorker {
 		for extrinsic in extrinsics {
 			let extrinsic_hash = extrinsic.hash();
 			if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
-				let tx = self
-					.pending_tx
-					.pop_front()
-					.ok_or_else(|| anyhow::anyhow!("Failed to pull tx from pending stack"))?;
+				let Some(tx) = self.pending_tx.pop_front() else {
+					continue;
+				};
 				tx.event_sender.send(extrinsic).ok();
 			}
 		}
@@ -396,12 +395,6 @@ impl SubxtWorker {
 							}
 							Err(e) => {
 								tracing::error!("Transaction failed {e}");
-								let nonce = self.nonce;
-								if let Err(err) = self.resync_nonce().await {
-									tracing::error!("failed to resync nonce: {err}");
-								} else {
-									tracing::info!("resynced nonce from {} to {}", nonce, self.nonce);
-								}
 							}
 						}
 					}

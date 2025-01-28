@@ -714,9 +714,6 @@ pub mod pallet {
 						for op in msg.ops {
 							queue.push(op);
 						}
-						return <T as Config>::WeightInfo::prepare_batches(
-							T::MaxBatchesPerBlock::get(),
-						);
 					} else {
 						Self::start_batch(network, msg);
 						num_batches_started = num_batches_started.saturating_plus_one();

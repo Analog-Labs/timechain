@@ -24,6 +24,7 @@ pub use subxt_signer::sr25519::Keypair;
 pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;
 pub type LegacyRpcMethods = subxt::backend::legacy::LegacyRpcMethods<subxt::PolkadotConfig>;
 pub type ExtrinsicEvents = subxt::blocks::ExtrinsicEvents<PolkadotConfig>;
+pub type SubmittableExtrinsic = subxt::tx::SubmittableExtrinsic<PolkadotConfig, OnlineClient>;
 pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient>;
 pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient>;
 

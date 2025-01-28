@@ -15,10 +15,10 @@ networks:
     network: "dev"
     url: "ws://chain-2-evm:8545"
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_target_funds: 1.
     batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 10000000
     gmp_margin: 0.0
     shard_task_limit: 50
     symbol: "ETH"
@@ -33,10 +33,10 @@ networks:
     network: "dev"
     url: "ws://chain-3-evm:8545"
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_target_funds: 1.
     batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 10000000
     gmp_margin: 0.0
     shard_task_limit: 50
     symbol: "ETH"

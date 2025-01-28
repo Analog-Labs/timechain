@@ -72,7 +72,6 @@ impl Tc {
 				.context("failed to connect to backend")?;
 
 			let target_address = connector.format_address(connector.address());
-			tracing::info!("target address: {}", target_address);
 			connectors.insert(id, connector);
 		}
 		Ok(Self { config, runtime, connectors })

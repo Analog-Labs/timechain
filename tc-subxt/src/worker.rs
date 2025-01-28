@@ -299,9 +299,9 @@ impl SubxtWorker {
 		self.transaction_pool.push(fut);
 	}
 
-	fn complete_received_txs(&mut self, extrinsics: Vec<ExtrinsicDetails>) -> Result<()> {
+	fn complete_received_txs(&mut self, extrinsics: Vec<ExtrinsicDetails>) {
 		if self.pending_tx.is_empty() {
-			return Ok(());
+			return;
 		}
 		for extrinsic in extrinsics {
 			let extrinsic_hash = extrinsic.hash();
@@ -313,7 +313,6 @@ impl SubxtWorker {
 				tx.event_sender.send(extrinsic).ok();
 			}
 		}
-		Ok(())
 	}
 
 	fn check_outdated_txs(&mut self, block: u64, extrinsics: Vec<H256>) {
@@ -370,9 +369,7 @@ impl SubxtWorker {
 								continue;
 							};
 							let extrinsics = extrinsics.iter().collect::<Vec<_>>();
-							if let Err(e) = self.complete_received_txs(extrinsics) {
-								tracing::error!("Error completing transaction {e}");
-							};
+							self.complete_received_txs(extrinsics);
 						}
 					}
 					best_block = best_block_stream.next().fuse() => {

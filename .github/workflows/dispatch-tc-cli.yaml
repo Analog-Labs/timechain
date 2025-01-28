@@ -87,4 +87,4 @@ jobs:
         token: ${{ secrets.SLACK_BOT_TOKEN }}
         payload: |
           channel: env-${{ github.event.inputs.environment }}
-          text: ${{ steps.run.outputs.OUTPUT }}
+          text: "${{ steps.run.outputs.OUTPUT }}"

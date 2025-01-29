@@ -8,7 +8,7 @@ use std::pin::Pin;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesUnordered;
-use futures::{Future, FutureExt, StreamExt};
+use futures::{Future, FutureExt, StreamExt, TryStreamExt};
 use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::Payload as TxPayload;
@@ -122,7 +122,9 @@ impl SubxtWorker {
 			pending_tx: Default::default(),
 			transaction_pool: FuturesUnordered::new(),
 		};
-		me.resync_nonce().await?;
+		let account_id: subxt::utils::AccountId32 = me.keypair.public_key().into();
+		let rpc = LegacyRpcMethods::new(me.rpc.clone());
+		me.nonce = rpc.system_account_next_index(&account_id).await?;
 		Ok(me)
 	}
 
@@ -143,13 +145,6 @@ impl SubxtWorker {
 			.create_signed_offline(call, &self.keypair, params)
 			.expect("Metadata is invalid")
 			.into_encoded()
-	}
-
-	async fn resync_nonce(&mut self) -> Result<()> {
-		let account_id: subxt::utils::AccountId32 = self.keypair.public_key().into();
-		let rpc = LegacyRpcMethods::new(self.rpc.clone());
-		self.nonce = rpc.system_account_next_index(&account_id).await?;
-		Ok(())
 	}
 
 	fn build_tx(&mut self, tx: Tx, params: ExtrinsicParams) -> Vec<u8> {
@@ -267,25 +262,25 @@ impl SubxtWorker {
 		}
 	}
 
-	fn get_params(&self, nonce: Option<u64>) -> ExtrinsicParams {
-		let block = &self.latest_block;
-		let nonce = match nonce {
-			Some(nonce) => nonce,
-			None => self.nonce,
-		};
-		DefaultExtrinsicParamsBuilder::new()
-			.nonce(nonce)
-			.mortal_unchecked(block.number, block.hash, MORTALITY.into())
-			.build()
-	}
-
 	fn add_tx_to_pool(
 		&mut self,
 		transaction: Tx,
 		sender: oneshot::Sender<ExtrinsicDetails>,
 		nonce: Option<u64>,
 	) {
-		let params = self.get_params(nonce);
+		let mut is_new_tx = true;
+		let block = &self.latest_block;
+		let nonce = match nonce {
+			Some(nonce) => {
+				is_new_tx = false;
+				nonce
+			},
+			None => self.nonce,
+		};
+		let params: ExtrinsicParams = DefaultExtrinsicParamsBuilder::new()
+			.nonce(nonce)
+			.mortal_unchecked(block.number, block.hash, MORTALITY.into())
+			.build();
 		let tx = self.build_tx(transaction.clone(), params);
 		let tx = SubmittableExtrinsic::from_bytes(self.client.clone(), tx.clone());
 		let hash = tx.hash();
@@ -299,12 +294,11 @@ impl SubxtWorker {
 			event_sender: sender,
 			best_block: None,
 		};
-		if nonce.is_some() {
-			// if nonce is received that means its a retry due to mortality outage
-			self.pending_tx.push_front(tx_status);
-		} else {
+		if is_new_tx {
 			self.pending_tx.push_back(tx_status);
 			self.nonce += 1;
+		} else {
+			self.pending_tx.push_front(tx_status);
 		}
 		let fut = async move { tx.submit().await }.boxed();
 		self.transaction_pool.push(fut);
@@ -317,79 +311,85 @@ impl SubxtWorker {
 			tracing::info!("starting subxt worker");
 			let mut update_stream =
 				updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
-			let mut finalized_block_stream =
-				self.client.blocks().subscribe_finalized().await.unwrap();
-			let mut best_block_stream = self.client.blocks().subscribe_best().await.unwrap();
+			let finalized_block_stream = self.client.blocks().subscribe_finalized().await.unwrap();
+			let mut finalized_blocks = finalized_block_stream
+				.and_then(|block| async {
+					let ex = block.extrinsics().await?;
+					Ok((block, ex))
+				})
+				.boxed();
+			let best_block_stream = self.client.blocks().subscribe_best().await.unwrap();
+			let mut best_blocks = best_block_stream
+				.and_then(|block| async {
+					let ex = block.extrinsics().await?;
+					Ok((block, ex))
+				})
+				.boxed();
 			loop {
 				futures::select! {
 					tx = rx.next().fuse() => {
 						let Some((command, channel)) = tx else { continue; };
 						self.add_tx_to_pool(command, channel, None);
 					}
-					finalized_block = finalized_block_stream.next().fuse() => {
-						if let Some(finalized_block) = finalized_block {
-							if self.pending_tx.is_empty() {
-								return;
-							}
+					block_data = finalized_blocks.next().fuse() => {
+						let Some(Ok((_, extrinsics))) = block_data else {
+							continue;
+						};
+						if self.pending_tx.is_empty() {
+							return;
+						}
 
-							let Ok(block) = finalized_block else {
-								tracing::info!("Error while getting finalized block");
-								continue;
-							};
+						let extrinsics = extrinsics.iter().collect::<Vec<_>>();
 
-							let Ok(extrinsics) = block.extrinsics().await else {
-								tracing::error!("Block Extrinsics not found");
-								continue;
-							};
-
-							let extrinsics = extrinsics.iter().collect::<Vec<_>>();
-
-							for extrinsic in extrinsics {
-								let extrinsic_hash = extrinsic.hash();
-								if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
-									let Some(tx) = self.pending_tx.pop_front() else {
-										continue;
-									};
-									tx.event_sender.send(extrinsic).ok();
-								}
+						for extrinsic in extrinsics {
+							let extrinsic_hash = extrinsic.hash();
+							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
+								let Some(tx) = self.pending_tx.pop_front() else {
+									continue;
+								};
+								tx.event_sender.send(extrinsic).ok();
 							}
 						}
 					}
-					best_block = best_block_stream.next().fuse() => {
-						if let Some(Ok(block)) = best_block {
-							self.latest_block = BlockDetail {
-								number: block.number().into(),
-								hash: block.hash()
-							};
+					block_data = best_blocks.next().fuse() => {
+						let Some(block_res) = block_data else {
+							tracing::error!("Latest block stream terminated");
+							continue;
+						};
 
-							if self.pending_tx.is_empty() {
-								return;
+						let Ok((block, extrinsics)) = block_res else {
+							tracing::error!("Error processing block: {:?}", block_res.err());
+							continue;
+						};
+
+						self.latest_block = BlockDetail {
+							number: block.number().into(),
+							hash: block.hash()
+						};
+
+						if self.pending_tx.is_empty() {
+							return;
+						}
+
+						let hashes: Vec<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
+						for tx in self.pending_tx.iter_mut() {
+							if hashes.contains(&tx.data.hash) {
+								tx.best_block = Some(self.latest_block.number);
 							}
+						}
 
-							let Ok(extrinsics) = block.extrinsics().await else {
-								tracing::error!("Block Extrinsics not found");
-								continue;
-							};
-							let hashes: Vec<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
-							for tx in self.pending_tx.iter_mut() {
-								if hashes.contains(&tx.data.hash) {
-									tx.best_block = Some(self.latest_block.number);
-								}
-							}
-
-							let mut i = 0;
-							while i < self.pending_tx.len() {
-								if self.pending_tx[i].best_block.is_none() && self.latest_block.number > self.pending_tx[i].data.era {
-									let Some(tx) = self.pending_tx.remove(i) else {
-										tracing::warn!(
-											"Outdated transaction found, but removal from cache failed: index: {i} len: {}", self.pending_tx.len()
-										);
-										continue;
-									};
-									self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
-								} else {
-									i += 1;
-								}
+						let mut i = 0;
+						while i < self.pending_tx.len() {
+							if self.pending_tx[i].best_block.is_none() && self.latest_block.number > self.pending_tx[i].data.era {
+								let Some(tx) = self.pending_tx.remove(i) else {
+									tracing::warn!(
+										"Outdated transaction found, but removal from cache failed: index: {i} len: {}", self.pending_tx.len()
+									);
+									continue;
+								};
+								self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
+							} else {
+								i += 1;
 							}
 						}
 					}

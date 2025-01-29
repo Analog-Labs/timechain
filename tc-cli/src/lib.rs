@@ -1,8 +1,9 @@
 use crate::config::Config;
 use crate::env::Mnemonics;
 use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
+use crate::table::IntoRow;
 use anyhow::{Context, Result};
-use futures::stream::BoxStream;
+use futures::stream::{BoxStream, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -12,19 +13,23 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
-use time_primitives::GmpEvents;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address, BatchId, BlockHash,
 	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
-	GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
-	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	GmpEvents, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId,
+	PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use tokio::time::sleep;
 
 mod config;
 mod env;
 mod gas_price_calculator;
-pub mod loki;
+mod loki;
+mod slack;
+mod table;
+
+pub use crate::loki::Query;
+pub use crate::slack::Sender;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -40,10 +45,11 @@ pub struct Tc {
 	config: Config,
 	runtime: SubxtClient,
 	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
+	msg: Sender,
 }
 
 impl Tc {
-	pub async fn new(env: PathBuf, config: &str) -> Result<Self> {
+	pub async fn new(env: PathBuf, config: &str, msg: Sender) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;
@@ -72,7 +78,12 @@ impl Tc {
 				.context("failed to connect to backend")?;
 			connectors.insert(id, connector);
 		}
-		Ok(Self { config, runtime, connectors })
+		Ok(Self {
+			config,
+			runtime,
+			connectors,
+			msg,
+		})
 	}
 
 	fn connector(&self, network: NetworkId) -> Result<&dyn IConnectorAdmin> {
@@ -97,6 +108,7 @@ impl Tc {
 	}
 
 	pub async fn runtime_upgrade(&self, path: &Path) -> Result<()> {
+		self.println("runtime-upgrade").await?;
 		let bytecode = std::fs::read(path)?;
 		self.runtime.set_code(bytecode).await
 	}
@@ -204,11 +216,12 @@ impl Tc {
 		address: Address,
 		balance: u128,
 	) -> Result<()> {
-		tracing::info!(
+		self.println(format!(
 			"transfering {} to {}",
 			self.format_balance(network, balance)?,
 			self.format_address(network, address)?,
-		);
+		))
+		.await?;
 		if let Some(network) = network {
 			self.connector(network)?.transfer(address, balance).await?;
 		} else {
@@ -227,7 +240,7 @@ impl Tc {
 		let balance = self.balance(network, address).await?;
 		let diff = min_balance.saturating_sub(balance);
 		if diff > 0 {
-			tracing::info!("funding {label}");
+			self.println(format!("funding {label}")).await?;
 			self.transfer(network, address, diff).await?;
 		}
 		Ok(())
@@ -621,11 +634,11 @@ impl Tc {
 			self.set_network_config(network).await?;
 			gateway
 		} else {
-			tracing::info!("deploying gateway");
+			self.println("deploying gateway").await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
-			tracing::info!("register_network {network}");
+			self.println(format!("register_network {network}")).await?;
 			self.runtime
 				.register_network(time_primitives::Network {
 					id: network,
@@ -645,7 +658,8 @@ impl Tc {
 				.await?;
 			gateway
 		};
-		tracing::info!("gateway address {}", self.format_address(Some(network), gateway)?);
+		self.println(format!("gateway address {}", self.format_address(Some(network), gateway)?))
+			.await?;
 		Ok(gateway)
 	}
 
@@ -675,7 +689,7 @@ impl Tc {
 		{
 			return Ok(());
 		}
-		tracing::info!("set_network_config {network}");
+		self.println(format!("set_network_config {network}")).await?;
 		self.runtime.set_network_config(network, config).await?;
 		Ok(())
 	}
@@ -702,7 +716,7 @@ impl Tc {
 				if routes.contains(&route) {
 					continue;
 				}
-				tracing::info!("register_route {src} {dest}");
+				self.println(format!("register_route {src} {dest}")).await?;
 				connector.set_route(src_gateway, route).await?;
 			}
 		}
@@ -761,7 +775,11 @@ impl Tc {
 		if self.runtime.member_stake(&member).await? > 0 {
 			return Ok(());
 		}
-		tracing::info!("register_member {}", self.format_address(None, member.clone().into())?);
+		self.println(format!(
+			"register_member {}",
+			self.format_address(None, member.clone().into())?
+		))
+		.await?;
 		let min_stake = self.runtime.min_stake().await?;
 		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
 		sleep(Duration::from_secs(20)).await;
@@ -772,7 +790,11 @@ impl Tc {
 		if !self.runtime.member_registered(&member).await? {
 			return Ok(());
 		}
-		tracing::info!("unregister_member {}", self.format_address(None, member.clone().into())?);
+		self.println(format!(
+			"unregister_member {}",
+			self.format_address(None, member.clone().into())?
+		))
+		.await?;
 		self.runtime.unregister_member(member).await?;
 		Ok(())
 	}
@@ -781,7 +803,7 @@ impl Tc {
 		if matches!(self.runtime.shard_status(shard).await?, ShardStatus::Offline) {
 			return Ok(());
 		}
-		tracing::info!("force_shard_offline {}", shard);
+		self.println(format!("force_shard_offline {}", shard)).await?;
 		self.runtime.force_shard_offline(shard).await?;
 		Ok(())
 	}
@@ -792,7 +814,7 @@ impl Tc {
 		let config = self.config.network(network)?;
 		let gateway = self.register_network(network).await?;
 		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-			tracing::info!("admin target balance is 0, using faucet");
+			self.println("admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
@@ -820,12 +842,9 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn deploy(&self, networks: Vec<NetworkId>) -> Result<()> {
-		let networks: std::collections::HashSet<NetworkId> = networks.into_iter().collect();
+	pub async fn deploy(&self) -> Result<()> {
 		let mut gateways = HashMap::new();
-		let networks =
-			if networks.is_empty() { self.connectors.keys().copied().collect() } else { networks };
-		for network in networks {
+		for network in self.connectors.keys().copied() {
 			let gateway = self.deploy_network(network).await?;
 			gateways.insert(network, gateway);
 		}
@@ -843,7 +862,7 @@ impl Tc {
 		if same(&keys, &shards) {
 			return Ok(());
 		}
-		tracing::info!("register_shards {network} {}", keys.len());
+		self.println(format!("register_shards {network} {}", keys.len())).await?;
 		connector.set_shards(gateway, &keys).await
 	}
 
@@ -852,10 +871,11 @@ impl Tc {
 		if connector.admin(gateway).await? == admin {
 			return Ok(());
 		}
-		tracing::info!(
+		self.println(format!(
 			"set_gateway_admin {network} {}",
 			self.format_address(Some(network), admin)?
-		);
+		))
+		.await?;
 		connector.set_admin(gateway, admin).await?;
 		Ok(())
 	}
@@ -863,7 +883,7 @@ impl Tc {
 	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
-		tracing::info!("redeploying gateway");
+		self.println(format!("redeploying gateway {network}")).await?;
 		connector
 			.redeploy_gateway(&contracts.additional_params, gateway, &contracts.gateway)
 			.await?;
@@ -873,6 +893,7 @@ impl Tc {
 	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network).await?;
+		self.println(format!("deploy tester {network}")).await?;
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
@@ -912,10 +933,101 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		amount: u128,
-		address: String,
+		address: Address,
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
-		let address = self.parse_address(Some(network), &address)?;
+		self.println(format!(
+			"withdrawing funds {network} {} to {}",
+			self.format_balance(Some(network), amount)?,
+			self.format_address(Some(network), address)?,
+		))
+		.await?;
 		connector.withdraw_funds(gateway, amount, address).await
+	}
+
+	pub async fn setup_test(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
+		// networks
+		self.deploy().await?;
+		let (src_addr, src_block) = self.deploy_tester(src).await?;
+		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
+		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
+		let networks = self.networks().await?;
+		self.print_table(networks.clone()).await?;
+		for network in networks {
+			let routes = self.routes(network.network).await?;
+			self.print_table(routes).await?;
+		}
+		// chronicles
+		let mut blocks = self.finality_notification_stream();
+		while blocks.next().await.is_some() {
+			let chronicles = self.chronicles().await?;
+			let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
+			tracing::info!("waiting for chronicles to be registered");
+			self.print_table(chronicles).await?;
+			if !not_registered {
+				break;
+			}
+		}
+		// shards
+		while blocks.next().await.is_some() {
+			let src_keys = self.find_online_shard_keys(src).await?;
+			let dest_keys = self.find_online_shard_keys(dest).await?;
+			if !src_keys.is_empty() && !dest_keys.is_empty() {
+				break;
+			}
+			tracing::info!("waiting for shards to come online");
+			let shards = self.shards().await?;
+			self.print_table(shards).await?;
+		}
+		// registered shards
+		self.register_shards(src).await?;
+		self.register_shards(dest).await?;
+		while blocks.next().await.is_some() {
+			let shards = self.shards().await?;
+			let is_registered =
+				shards.iter().any(|shard| shard.registered && shard.network == dest);
+			tracing::info!("waiting for shard to be registered");
+			self.print_table(shards).await?;
+			if is_registered {
+				break;
+			}
+		}
+		Ok((src_addr, dest_addr))
+	}
+
+	pub async fn wait_for_sync(&self, network: NetworkId) -> Result<()> {
+		let mut blocks = self.finality_notification_stream();
+		while blocks.next().await.is_some() {
+			let status = self.sync_status(network).await?;
+			tracing::info!(
+				"waiting for network {network} to sync {} / {}",
+				status.sync,
+				status.block
+			);
+			if status.next_sync > status.block {
+				break;
+			}
+		}
+		Ok(())
+	}
+
+	pub async fn print_table<R: IntoRow>(&self, table: Vec<R>) -> Result<()> {
+		let mut out = Vec::new();
+		{
+			let mut wtr = csv::Writer::from_writer(&mut out);
+			for row in table {
+				wtr.serialize(row.into_row(self)?)?;
+			}
+			wtr.flush()?;
+		}
+		self.msg.csv(&out).await
+	}
+
+	pub async fn println(&self, line: impl Into<String>) -> Result<()> {
+		self.msg.text(&line.into()).await
+	}
+
+	pub async fn log(&self, query: Query) -> Result<()> {
+		self.msg.log(&loki::logs(query).await?).await
 	}
 }

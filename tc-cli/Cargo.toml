@@ -32,6 +32,7 @@ time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
 tracing.workspace = true
 tracing-subscriber = "0.3.18"
+csv_to_table = "0.6.0"
 
 [features]
 testnet = [

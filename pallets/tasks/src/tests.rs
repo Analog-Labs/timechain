@@ -306,25 +306,29 @@ fn test_max_tasks_per_block() {
 fn test_no_ops_lost_when_max_batches_per_block() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		let shard = create_shard(ETHEREUM, 3, 1);
-		register_shard(shard);
-		assert!(Tasks::is_shard_registered(shard));
-		// check state of ops_queue
-		for i in 0..=10 {
+		assert_eq!(queue_size::<Test>(ETHEREUM), 0);
+		// Initialize TaskQueue with 10 SendMessage ops
+		for i in 0..10 {
 			Tasks::ops_queue(ETHEREUM).push(GatewayOp::SendMessage(mock_gmp_msg(i)));
 		}
-		assert_eq!(queue_size::<Test>(ETHEREUM), 12);
+		// Assert TaskQueue contains 10 ops
+		assert_eq!(queue_size::<Test>(ETHEREUM), 10);
+		// Assert no batches prepared
+		assert_eq!(BatchIdCounter::<Test>::get(), 0);
 		roll(1);
-		// Max 4 batches per block
+		// Max 4 batches prepared per block
 		assert_eq!(BatchIdCounter::<Test>::get(), 4);
-		assert_eq!(queue_size::<Test>(ETHEREUM), 7);
-		// Max 4 batches per block
+		// Assert Queue size decreased by # batches prepared = 10 - 4 = 6
+		assert_eq!(queue_size::<Test>(ETHEREUM), 6);
 		roll(1);
+		// Max 4 batches prepared per block
 		assert_eq!(BatchIdCounter::<Test>::get(), 8);
+		// Assert Queue size decreased by # batches prepared = 6 - 4 = 2
 		assert_eq!(queue_size::<Test>(ETHEREUM), 2);
-		// Final batch
 		roll(1);
+		// Assert batch counter increased by # of ops in queue size = 8 + 2 = 10
 		assert_eq!(BatchIdCounter::<Test>::get(), 10);
+		// Assert Queue size decreased by # batches prepared = 2 - 2 = 0
 		assert_eq!(queue_size::<Test>(ETHEREUM), 0);
 	})
 }

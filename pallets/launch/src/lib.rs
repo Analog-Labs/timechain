@@ -47,7 +47,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 14;
+	pub const LAUNCH_VERSION: u16 = 15;
 	/// Wrapped version to support sustrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -70,17 +70,19 @@ pub mod pallet {
 		// Airdrop Snapshot 2
 		(8, 20_288_872_847_294_611_363, Stage::Retired),
 		// Validator Airdrop
-		(9, 27_173_913 * ANLOG, Stage::AirdropMint(data::v9::AIRDROPS_VALIDATORS)),
+		(9, 21_111_617 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 3
-		(10, 1_373_347_559_383_359_315, Stage::AirdropMint(data::v10::AIRDROPS_SNAPSHOT_3)),
+		(10, 1_373_347_559_383_359_315, Stage::Retired),
 		// Airdrop address updates
-		(11, 0, Stage::AirdropTransfer(data::v11::AIRDROPS_WALLET_TRANSFERS)),
+		(11, 0, Stage::Retired),
 		// Airdrop Snapshot 1 - Missing EVM wallet
-		(12, 105_316_962_722_110_899, Stage::AirdropMint(data::v12::AIRDROPS_SNAPSHOT_1_EVM)),
+		(12, 105_316_962_722_110_899, Stage::Retired),
 		// Prelaunch Deposit 4
-		(13, 113_204_200 * ANLOG, Stage::Deposit(data::v13::DEPOSITS_PRELAUNCH_4)),
+		(13, 113_204_200 * ANLOG, Stage::Retired),
 		// Virtual Token Genesis Event
-		(14, 8_166_845_674 * ANLOG, Stage::VirtualDeposit(data::v14::DEPOSITS_TOKEN_GENESIS_EVENT)),
+		(14, 8_166_845_674 * ANLOG, Stage::Retired),
+		// Retry failed mints in stage 11
+		(15, 6_062_296 * ANLOG, Stage::AirdropMintOrAdd(data::v15::AIRDROPS_VALIDATORS_FAILED)),
 	];
 
 	/// TODO: Difference to go to treasury:

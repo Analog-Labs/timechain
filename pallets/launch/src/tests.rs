@@ -4,7 +4,7 @@ use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, 
 use polkadot_sdk::frame_support::traits::StorageVersion;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 8;
+const ON_CHAIN_STAGE: u16 = 14;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -30,12 +30,9 @@ fn launch_ledger_validation() {
 		let _w = plan.run();
 		let events = System::read_events_for_pallet::<Event<Test>>();
 
-		const NUM_AIRDROP_TRANSFER: usize = 897;
-		assert_eq!(events.len(), NUM_AIRDROP_TRANSFER + NUM_MIGRATIONS as usize);
+		assert_eq!(events.len(), NUM_MIGRATIONS as usize);
 		for event in events.iter() {
-			if !matches!(event, Event::StageExecuted { version: _, hash: _ }) {
-				assert!(matches!(event, Event::AirdropTransferMissing { from: _ }));
-			}
+			assert!(matches!(event, Event::StageExecuted { version: _, hash: _ }))
 		}
 
 		// TODO: Check weight

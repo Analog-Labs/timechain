@@ -20,6 +20,7 @@ use crate::deposits::{BalanceOf, DepositStage, RawDepositStage, RawVirtualDeposi
 pub enum Stage {
 	Retired,
 	AirdropMint(RawAirdropMintStage),
+	AirdropMintOrAdd(RawAirdropMintStage),
 	AirdropTransfer(RawAirdropTransferStage),
 	Deposit(RawDepositStage),
 	VirtualDeposit(RawVirtualDepositStage),
@@ -47,6 +48,9 @@ impl Stage {
 			AirdropMint(raw) => {
 				AirdropMintStage::<T>::parse(raw);
 			},
+			AirdropMintOrAdd(raw) => {
+				AirdropMintStage::<T>::parse(raw);
+			},
 			AirdropTransfer(raw) => {
 				AirdropTransferStage::<T>::parse(raw);
 			},
@@ -65,6 +69,7 @@ impl Stage {
 		match self {
 			Retired => T::Hash::default(),
 			AirdropMint(raw) => T::Hashing::hash_of(raw),
+			AirdropMintOrAdd(raw) => T::Hashing::hash_of(raw),
 			AirdropTransfer(raw) => T::Hashing::hash_of(raw),
 			Deposit(raw) => T::Hashing::hash_of(raw),
 			VirtualDeposit(raw) => T::Hashing::hash_of(raw),
@@ -81,6 +86,7 @@ impl Stage {
 		match self {
 			Retired => 0,
 			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
+			AirdropMintOrAdd(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).total().into(),
 			Deposit(raw) => DepositStage::<T>::parse(raw).total().into(),
 			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).total().into(),
@@ -96,6 +102,7 @@ impl Stage {
 		match self {
 			Retired => Weight::zero(),
 			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).mint(),
+			AirdropMintOrAdd(raw) => AirdropMintStage::<T>::parse(raw).mint_or_add(),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).transfer(),
 			Deposit(raw) => DepositStage::<T>::parse(raw).deposit(),
 			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).deposit(),

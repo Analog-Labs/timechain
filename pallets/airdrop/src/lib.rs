@@ -355,7 +355,10 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), Error<T>> {
 		// Ensure amount is large enough and vesting can be accurately represented claim
 		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
-		ensure!(vesting.is_none() || Vesting::<T>::get(&owner).is_none(), Error::<T>::VestingNotPossible);
+		ensure!(
+			vesting.is_none() || Vesting::<T>::get(&owner).is_none(),
+			Error::<T>::VestingNotPossible
+		);
 
 		// Update total, add amount and optional vesting schedule
 		Total::<T>::mutate(|t| *t += amount);

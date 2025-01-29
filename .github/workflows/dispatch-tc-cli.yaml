@@ -75,7 +75,7 @@ jobs:
           --env="NO_COLOR=1" \
           -- ${{ github.event.inputs.args}})"
         echo "$OUTPUT"
-        echo "OUTPUT=\`\`\`${OUTPUT//$'\n'/\\n}\`\`\`" >> $GITHUB_OUTPUT
+        echo "OUTPUT=$(echo "\`\`\`$OUTPUT\`\`\`" | jq -Rsa)" >> $GITHUB_OUTPUT
 
     - name: Post output
       uses: slackapi/slack-github-action@v2.0.0
@@ -84,4 +84,4 @@ jobs:
         token: ${{ secrets.SLACK_BOT_TOKEN }}
         payload: |
           channel: ${{ secrets.SLACK_CHANNEL_ID }}
-          text: "${{ steps.run.outputs.OUTPUT }}"
+          text: ${{ steps.run.outputs.OUTPUT }}

@@ -310,9 +310,9 @@ impl SubxtWorker {
 				updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
 			let finalized_block_stream = self.client.blocks().subscribe_finalized().await.unwrap();
 			let mut finalized_blocks = finalized_block_stream
-				.and_then(|block| async {
+				.and_then(|block| async move {
 					let ex = block.extrinsics().await?;
-					Ok((block, ex))
+					Ok(ex)
 				})
 				.boxed();
 			let best_block_stream = self.client.blocks().subscribe_best().await.unwrap();
@@ -329,11 +329,18 @@ impl SubxtWorker {
 						self.add_tx_to_pool(command, channel, None);
 					}
 					block_data = finalized_blocks.next().fuse() => {
-						let Some(Ok((_, extrinsics))) = block_data else {
+						let Some(block_res) = block_data else {
+							tracing::error!("Finalized block strem terminated");
 							continue;
 						};
+
+						let Ok(extrinsics) = block_res else {
+							tracing::error!("Error processing finalized blocks: {:?}", block_res.err());
+							continue;
+						};
+
 						if self.pending_tx.is_empty() {
-							return;
+							continue;
 						}
 
 						let extrinsics = extrinsics.iter().collect::<Vec<_>>();
@@ -365,7 +372,7 @@ impl SubxtWorker {
 						};
 
 						if self.pending_tx.is_empty() {
-							return;
+							continue;
 						}
 
 						let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();

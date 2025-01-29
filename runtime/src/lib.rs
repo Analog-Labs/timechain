@@ -118,7 +118,7 @@ mod weights;
 pub use weights::{BlockExecutionWeight, ExtrinsicBaseWeight};
 
 /// Automatically generated nomination bag boundaries
-#[cfg(feature = "testnet")]
+//#[cfg(feature = "testnet")]
 mod staking_bags;
 
 // Make the WASM binary available.
@@ -436,6 +436,26 @@ mod runtime {
 	#[runtime::pallet_index(14)]
 	pub type Multisig = pallet_multisig;
 
+	// Nominated proof of stake
+
+	#[runtime::pallet_index(15)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
+
+	#[runtime::pallet_index(16)]
+	pub type Staking = pallet_staking;
+
+	#[runtime::pallet_index(17)]
+	pub type VoterList = pallet_bags_list<Instance1>;
+
+	#[runtime::pallet_index(18)]
+	pub type Offences = pallet_offences;
+
+	#[runtime::pallet_index(28)]
+	pub type NominationPools = pallet_nomination_pools;
+
+	#[runtime::pallet_index(29)]
+	pub type DelegatedStaking = pallet_delegated_staking;
+
 	// On-chain governance
 
 	#[runtime::pallet_index(22)]
@@ -446,9 +466,6 @@ mod runtime {
 
 	#[runtime::pallet_index(24)]
 	pub type SafeMode = pallet_safe_mode;
-
-	#[runtime::pallet_index(25)]
-	pub type ValidatorManager = pallet_validators;
 
 	// Custom governance
 
@@ -570,6 +587,12 @@ mod runtime {
 
 	#[runtime::pallet_index(18)]
 	pub type Offences = pallet_offences;
+
+	#[runtime::pallet_index(28)]
+	pub type NominationPools = pallet_nomination_pools;
+
+	#[runtime::pallet_index(29)]
+	pub type DelegatedStaking = pallet_delegated_staking;
 
 	// On-chain identity,storage and scheduler
 

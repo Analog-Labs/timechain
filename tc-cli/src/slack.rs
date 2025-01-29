@@ -50,6 +50,9 @@ impl Slack {
 		let token = SlackApiToken::new(token_value);
 		let channel = std::env::var("SLACK_CHANNEL_ID")?;
 		let channel = SlackChannelId::new(channel);
+		rustls::crypto::ring::default_provider()
+			.install_default()
+			.expect("Failed to install rustls crypto provider");
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
 		Ok(Self { client, token, channel })
 	}

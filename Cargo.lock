@@ -19830,6 +19830,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk 0.6.0",
  "reqwest",
+ "rustls 0.23.20",
  "serde",
  "serde_yaml",
  "slack-morphism",

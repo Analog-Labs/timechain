@@ -700,12 +700,12 @@ pub mod pallet {
 				let mut batcher = BatchBuilder::new(batch_gas_limit);
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
-					if num_batches_started == T::MaxBatchesPerBlock::get().saturating_less_one() {
-						break;
-					}
 					if let Some(msg) = batcher.push(op) {
 						Self::start_batch(network, msg);
 						num_batches_started = num_batches_started.saturating_plus_one();
+					}
+					if num_batches_started == T::MaxBatchesPerBlock::get().saturating_less_one() {
+						break;
 					}
 				}
 				if let Some(msg) = batcher.take_batch() {

@@ -567,7 +567,7 @@ pub mod pallet {
 			)
 		}
 
-		fn ops_queue(network: NetworkId) -> Box<dyn QueueT<T, GatewayOp>> {
+		pub(crate) fn ops_queue(network: NetworkId) -> Box<dyn QueueT<T, GatewayOp>> {
 			Box::new(QueueImpl::<T, GatewayOp, OpsInsertIndex<T>, OpsRemoveIndex<T>, Ops<T>>::new(
 				network,
 			))

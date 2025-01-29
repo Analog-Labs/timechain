@@ -382,20 +382,16 @@ impl SubxtWorker {
 							}
 						}
 
-						let mut i = 0;
-						while i < self.pending_tx.len() {
-							if self.pending_tx[i].best_block.is_none() && self.latest_block.number > self.pending_tx[i].data.era {
-								let Some(tx) = self.pending_tx.remove(i) else {
-									tracing::warn!(
-										"Outdated transaction found, but removal from cache failed: index: {i} len: {}", self.pending_tx.len()
-									);
-									continue;
-								};
+						let mut new_pending: VecDeque<TxStatus> = VecDeque::new();
+						while let Some(tx) = self.pending_tx.pop_front() {
+							if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
+								tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
 								self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
-							} else {
-								i += 1;
+							}else {
+								new_pending.push_back(tx);
 							}
 						}
+						self.pending_tx = new_pending;
 					}
 					tx_result = self.transaction_pool.next().fuse() => {
 						let Some(result) = tx_result else {

@@ -112,6 +112,9 @@ impl SubxtWorker {
 		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
 		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
 		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+		let tx_pool = FuturesUnordered::new();
+		// adding a never ending future to avoid tx_pool flood of None in select! loop
+		tx_pool.push(futures::future::pending().boxed());
 		Ok(Self {
 			client,
 			keypair,
@@ -121,7 +124,7 @@ impl SubxtWorker {
 				hash: block.hash(),
 			},
 			pending_tx: Default::default(),
-			transaction_pool: FuturesUnordered::new(),
+			transaction_pool: tx_pool,
 		})
 	}
 

@@ -289,7 +289,7 @@ impl SubxtWorker {
 				transaction,
 				era: self.latest_block.number + MORTALITY as u64,
 				hash,
-				nonce: self.nonce,
+				nonce,
 			},
 			event_sender: sender,
 			best_block: None,

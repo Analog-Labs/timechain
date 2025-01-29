@@ -711,9 +711,6 @@ pub mod pallet {
 				if let Some(msg) = batcher.take_batch() {
 					Self::start_batch(network, msg);
 					num_batches_started = num_batches_started.saturating_plus_one();
-					if num_batches_started == T::MaxBatchesPerBlock::get() {
-						break;
-					}
 				}
 			}
 			<T as Config>::WeightInfo::prepare_batches(num_batches_started)

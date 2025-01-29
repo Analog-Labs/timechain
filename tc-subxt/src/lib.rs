@@ -8,6 +8,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use subxt::backend::rpc::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as Client};
 use subxt::backend::rpc::RpcClient;
+use subxt::config::DefaultExtrinsicParams;
 use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
 
@@ -26,6 +27,8 @@ pub type LegacyRpcMethods = subxt::backend::legacy::LegacyRpcMethods<subxt::Polk
 pub type ExtrinsicEvents = subxt::blocks::ExtrinsicEvents<PolkadotConfig>;
 pub type ExtrinsicDetails = subxt::blocks::ExtrinsicDetails<PolkadotConfig, OnlineClient>;
 pub type SubmittableExtrinsic = subxt::tx::SubmittableExtrinsic<PolkadotConfig, OnlineClient>;
+pub type ExtrinsicParams =
+	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
 pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient>;
 pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient>;
 

@@ -1020,14 +1020,14 @@ impl Tc {
 			}
 			wtr.flush()?;
 		}
-		self.msg.csv(&out).await
+		self.msg.csv(out).await
 	}
 
 	pub async fn println(&self, line: impl Into<String>) -> Result<()> {
-		self.msg.text(&line.into()).await
+		self.msg.text(line.into()).await
 	}
 
 	pub async fn log(&self, query: Query) -> Result<()> {
-		self.msg.log(&loki::logs(query).await?).await
+		self.msg.log(loki::logs(query).await?).await
 	}
 }

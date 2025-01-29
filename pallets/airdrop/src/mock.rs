@@ -98,7 +98,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(Dave.into(), 3000),
 			(Eve.into(), 4000),
 		],
-		vesting: vec![(Alice.into(), 50, 10, 1), (Dave.into(), 50, 10, 1)],
+		vesting: vec![(Alice.into(), 800, 10, 1), (Dave.into(), 2400, 10, 1)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

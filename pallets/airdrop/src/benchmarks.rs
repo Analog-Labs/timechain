@@ -18,14 +18,14 @@ use time_primitives::AccountId;
 
 const SEED: u32 = 0;
 
-const MAX_CLAIMS: u32 = 100_000;
+const MAX_CLAIMS: u32 = 200_000;
 const VALUE: u32 = 100_000;
 const VESTING: (u32, u32, u32) = (10_000u32, 1_000u32, 10u32);
 
-fn create_claim<T: Config>(ctx: &'static str, src: u32) -> DispatchResult {
+fn create_claim<T: Config>(account: &AccountId) -> DispatchResult {
 	Pallet::<T>::mint(
 		RawOrigin::Root.into(),
-		account::<AccountId>(ctx, src, SEED),
+		account.clone(),
 		VALUE.into(),
 		Some((VESTING.0.into(), VESTING.1.into(), VESTING.2.into())),
 	)?;
@@ -50,17 +50,11 @@ benchmarks! {
 	// Benchmark `claim_raw` including `validate_unsigned` logic.
 	claim_raw {
 		for i in 0 .. MAX_CLAIMS {
-			create_claim::<T>("source", i)?;
+			create_claim::<T>(&account::<AccountId>("source", i, SEED))?
 		}
 
 		let source: AccountId = SrClaimer.into();
-
-		Pallet::<T>::mint(
-			RawOrigin::Root.into(),
-			source.clone(),
-			VALUE.into(),
-			Some((VESTING.0.into(), VESTING.1.into(), VESTING.2.into())),
-		)?;
+		create_claim::<T>(&source)?;
 		assert_eq!(Claims::<T>::get(source.clone()), Some(VALUE.into()));
 
 		let target: T::AccountId = account("target", 0, SEED);
@@ -84,16 +78,10 @@ benchmarks! {
 	#[extra]
 	claim_raw_edwards {
 		for i in 0 .. MAX_CLAIMS {
-			create_claim::<T>("source", i)?;
+			create_claim::<T>(&account::<AccountId>("source", i, SEED))?
 		}
 		let source: AccountId = EdClaimer.into();
-
-		Pallet::<T>::mint(
-			RawOrigin::Root.into(),
-			source.clone(),
-			VALUE.into(),
-			Some((VESTING.0.into(), VESTING.1.into(), VESTING.2.into())),
-		)?;
+		create_claim::<T>(&source)?;
 		assert_eq!(Claims::<T>::get(source.clone()), Some(VALUE.into()));
 
 		let target: T::AccountId = account("target", 0, SEED);
@@ -113,16 +101,34 @@ benchmarks! {
 		assert_eq!(Claims::<T>::get(source), None);
 	}
 
-	// Benchmark `mint_claim` when there already exists `MAX_CLAIMS` claims in storage.
+	// Benchmark `mint` when there already exists `MAX_CLAIMS` claims in storage.
 	mint {
 		for i in 0 .. MAX_CLAIMS {
-			create_claim::<T>("owner", i)?;
+			create_claim::<T>(&account::<AccountId>("owner", i, SEED))?
 		}
 
 		let owner: AccountId = account("owner", MAX_CLAIMS, SEED);
 	}: _(RawOrigin::Root, owner.clone(), VALUE.into(), Some((VESTING.0.into(), VESTING.1.into(), VESTING.2.into())))
 	verify {
 		assert_eq!(Claims::<T>::get(owner), Some(VALUE.into()));
+	}
+
+	// Benchmark `transfer` when there already exists `MAX_CLAIMS` claims in storage.
+	transfer {
+		for i in 0 .. MAX_CLAIMS {
+			create_claim::<T>(&account::<AccountId>("others", i, SEED))?
+		}
+
+		let from: AccountId = account("from", 0, SEED);
+		let to: AccountId = account("to", 0, SEED);
+		create_claim::<T>(&from)?;
+
+		assert_eq!(Claims::<T>::get(from.clone()), Some(VALUE.into()));
+		assert_eq!(Claims::<T>::get(to.clone()), None);
+	}: _(RawOrigin::Root, from.clone(), to.clone())
+	verify {
+		assert_eq!(Claims::<T>::get(from), None);
+		assert_eq!(Claims::<T>::get(to), Some(VALUE.into()));
 	}
 
 	impl_benchmark_test_suite!(

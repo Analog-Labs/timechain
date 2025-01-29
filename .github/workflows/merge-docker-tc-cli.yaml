@@ -66,7 +66,7 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/buildah-action
         with:
-          image_name: ${{ env.DOCKER_REPO }}:${{ needs.set-tags.outputs.commit_hash8 }}
+          image_name: ${{ env.DOCKER_REPO }}
           containerfile: ./config/docker/Dockerfile.tc-cli-release
           context: .
           volume: ${{ github.workspace }}/target:/build/target
@@ -74,3 +74,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           registry: docker.io
           push: 'true'
+          tags: ${{ needs.set-tags.outputs.commit_hash8 }},latest

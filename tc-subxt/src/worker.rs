@@ -346,9 +346,7 @@ impl SubxtWorker {
 							continue;
 						}
 
-						let extrinsics = extrinsics.iter().collect::<Vec<_>>();
-
-						for extrinsic in extrinsics {
+						for extrinsic in extrinsics.iter() {
 							let extrinsic_hash = extrinsic.hash();
 							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
 								let Some(tx) = self.pending_tx.pop_front() else {
@@ -390,7 +388,7 @@ impl SubxtWorker {
 							if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
 								tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
 								self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
-							}else {
+							} else {
 								new_pending.push_back(tx);
 							}
 						}

@@ -9,18 +9,18 @@ use frame_support::parameter_types;
 use sp_runtime::{impl_opaque_keys, traits::OpaqueKeys, transaction_validity::TransactionPriority};
 
 // Local module imports
-#[cfg(not(feature = "testnet"))]
-use crate::ValidatorManager;
+//#[cfg(not(feature = "testnet"))]
+//use crate::ValidatorManager;
 use crate::{
 	weights, AccountId, AuthorityDiscovery, Babe, BondingDuration, EpochDuration,
 	ExpectedBlockTime, Grandpa, Historical, ImOnline, MaxAuthorities, MaxNominators, Runtime,
 	RuntimeEvent, SessionsPerEra,
 };
-#[cfg(feature = "testnet")]
+//#[cfg(feature = "testnet")]
 use crate::{Balance, Offences, Session, Staking};
-#[cfg(feature = "testnet")]
+//#[cfg(feature = "testnet")]
 use frame_support::traits::KeyOwnerProofSystem;
-#[cfg(feature = "testnet")]
+//#[cfg(feature = "testnet")]
 use sp_core::crypto::KeyTypeId;
 
 /// ## <a id="config.Authorship">`Authorship` Config</a>
@@ -28,9 +28,6 @@ use sp_core::crypto::KeyTypeId;
 /// Tracks block authorship
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	#[cfg(not(feature = "testnet"))]
-	type EventHandler = ImOnline;
-	#[cfg(feature = "testnet")]
 	type EventHandler = (Staking, ImOnline);
 }
 
@@ -57,15 +54,9 @@ impl<T> sp_runtime::traits::Convert<T, Option<T>> for IdentityValidator {
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
-	#[cfg(not(feature = "testnet"))]
-	type ValidatorIdOf = IdentityValidator;
-	#[cfg(feature = "testnet")]
 	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	#[cfg(not(feature = "testnet"))]
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, ValidatorManager>;
-	#[cfg(feature = "testnet")]
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -82,13 +73,12 @@ impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf
 /// ## <a id="config.Historical">[`Historical`] Config</a>
 ///
 /// Tracks historical session
-#[cfg(not(feature = "testnet"))]
+/*#[cfg(not(feature = "testnet"))]
 impl pallet_session::historical::Config for Runtime {
 	type FullIdentification = ();
 	type FullIdentificationOf = FullIdentificationOf;
-}
+}*/
 
-#[cfg(feature = "testnet")]
 impl pallet_session::historical::Config for Runtime {
 	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;
@@ -110,21 +100,12 @@ impl pallet_babe::Config for Runtime {
 	type EpochDuration = EpochDuration;
 	type ExpectedBlockTime = ExpectedBlockTime;
 	type EpochChangeTrigger = pallet_babe::ExternalTrigger;
-	#[cfg(not(feature = "testnet"))]
-	type DisabledValidators = ();
-	#[cfg(feature = "testnet")]
 	type DisabledValidators = Session;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
-	#[cfg(not(feature = "testnet"))]
-	type KeyOwnerProof = sp_core::Void;
-	#[cfg(feature = "testnet")]
 	type KeyOwnerProof =
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
-	#[cfg(not(feature = "testnet"))]
-	type EquivocationReportSystem = ();
-	#[cfg(feature = "testnet")]
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -142,14 +123,8 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
-	#[cfg(not(feature = "testnet"))]
-	type KeyOwnerProof = sp_core::Void;
-	#[cfg(feature = "testnet")]
 	type KeyOwnerProof =
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, sp_consensus_grandpa::AuthorityId)>>::Proof;
-	#[cfg(not(feature = "testnet"))]
-	type EquivocationReportSystem = ();
-	#[cfg(feature = "testnet")]
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -169,9 +144,6 @@ impl pallet_im_online::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type NextSessionRotation = Babe;
 	type ValidatorSet = Historical;
-	#[cfg(not(feature = "testnet"))]
-	type ReportUnresponsiveness = ();
-	#[cfg(feature = "testnet")]
 	type ReportUnresponsiveness = Offences;
 	type UnsignedPriority = ImOnlineUnsignedPriority;
 	type WeightInfo = weights::pallet_im_online::WeightInfo<Runtime>;

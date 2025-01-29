@@ -12,13 +12,15 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
+	//traits::tokens::imbalance::ResolveTo,
 	traits::{ConstU32, EitherOfDiverse},
 	weights::Weight,
+	PalletId,
 };
 use frame_system::EnsureRoot;
 
 use sp_runtime::{
-	curve::PiecewiseLinear, transaction_validity::TransactionPriority, Perbill, Percent,
+	curve::PiecewiseLinear, transaction_validity::TransactionPriority, FixedU128, Perbill, Percent,
 };
 use sp_std::prelude::*;
 
@@ -28,9 +30,10 @@ use time_primitives::BlockNumber;
 // Local module imports
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
-	ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration, Runtime,
-	RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent, Session, SessionsPerEra, Staking,
-	TechnicalCollective, Timestamp, TransactionPayment, Treasury, VoterList, ANLOG,
+	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
+	Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, Session, SessionsPerEra, Staking, TechnicalCollective, Timestamp,
+	TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {
@@ -267,9 +270,9 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = Treasury;
+	type RewardRemainder = (); //Treasury;
 	type RuntimeEvent = RuntimeEvent;
-	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Slash = (); //Treasury; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -323,6 +326,63 @@ impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
+}
+
+parameter_types! {
+	pub const PostUnbondPoolsWindow: u32 = 4;
+	pub const NominationPoolsPalletId: PalletId = PalletId(*b"py/nopls");
+	pub const MaxPointsToBalance: u8 = 10;
+}
+
+use sp_runtime::traits::Convert;
+pub struct BalanceToU256;
+impl Convert<Balance, sp_core::U256> for BalanceToU256 {
+	fn convert(balance: Balance) -> sp_core::U256 {
+		sp_core::U256::from(balance)
+	}
+}
+pub struct U256ToBalance;
+impl Convert<sp_core::U256, Balance> for U256ToBalance {
+	fn convert(n: sp_core::U256) -> Balance {
+		n.try_into().unwrap_or(Balance::MAX)
+	}
+}
+
+impl pallet_nomination_pools::Config for Runtime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type PostUnbondingPoolsWindow = PostUnbondPoolsWindow;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = ConstU32<8>;
+	type PalletId = NominationPoolsPalletId;
+	type MaxPointsToBalance = MaxPointsToBalance;
+	type AdminOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 3, 4>,
+	>;
+}
+
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
+}
+
+impl pallet_delegated_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
+	type Currency = Balances;
+	// slashes are sent to the treasury.
+	type OnSlash = (); //ResolveTo<TreasuryAccountId<Self>, Balances>;
+	type SlashRewardFraction = SlashRewardFraction;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CoreStaking = Staking;
 }
 
 #[cfg(test)]

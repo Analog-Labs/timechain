@@ -24,7 +24,7 @@ pub mod pallet {
 
 	use polkadot_sdk::pallet_balances;
 	use polkadot_sdk::{frame_support, frame_system};
-	//use polkadot_sdk::{pallet_staking, sp_runtime};
+	use polkadot_sdk::{pallet_staking, sp_runtime};
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -32,23 +32,23 @@ pub mod pallet {
 	// Additional custom imports
 	use frame_system::{RawOrigin, WeightInfo as SystemWeights};
 
-	//use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
-	//use sp_runtime::{Perbill, Percent};
+	use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
+	use sp_runtime::{Perbill, Percent};
 
 	// Useful coupling shorthands
-	//type CurrencyBalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
+	type CurrencyBalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk::frame_system::Config + pallet_balances::Config
-	//+ pallet_staking::Config
+	pub trait Config:
+		polkadot_sdk::frame_system::Config + pallet_balances::Config + pallet_staking::Config
 	{
 		/// Allowed origin for system calls
 		type SystemAdmin: EnsureOrigin<Self::RuntimeOrigin>;
 		// Allowed origin for staking calls
-		//type StakingAdmin: EnsureOrigin<Self::RuntimeOrigin>;
+		type StakingAdmin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::call]
@@ -61,7 +61,6 @@ pub mod pallet {
 			frame_system::Pallet::<T>::authorize_upgrade(RawOrigin::Root.into(), code_hash)
 		}
 
-		/*
 		// Wrapper around staking pallet calls
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet_staking::Config>::WeightInfo::set_validator_count())]
@@ -101,6 +100,5 @@ pub mod pallet {
 				max_staked_rewards,
 			)
 		}
-		*/
 	}
 }

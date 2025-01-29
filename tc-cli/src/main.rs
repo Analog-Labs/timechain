@@ -196,7 +196,7 @@ async fn real_main() -> Result<()> {
 		Command::Address { network } => {
 			let address = tc.address(network)?;
 			let address = tc.format_address(network, address)?;
-			tc.println(format!("{address}")).await?;
+			tc.println(address).await?;
 		},
 		Command::Balance { network, address } => {
 			let address = if let Some(address) = address {
@@ -206,7 +206,7 @@ async fn real_main() -> Result<()> {
 			};
 			let balance = tc.balance(network, address).await?;
 			let balance = tc.format_balance(network, balance)?;
-			tc.println(format!("{balance}")).await?;
+			tc.println(balance).await?;
 		},
 		Command::Transfer { network, address, amount } => {
 			let address = tc.parse_address(network, &address)?;

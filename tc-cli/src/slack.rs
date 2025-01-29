@@ -1,6 +1,7 @@
 use anyhow::Result;
 use slack_morphism::prelude::*;
 
+#[derive(Default)]
 pub struct Sender {
 	slack: Option<Slack>,
 }
@@ -66,11 +67,10 @@ impl Slack {
 	pub async fn upload_file(&self, mime: String, name: String, content: Vec<u8>) -> Result<()> {
 		let session = self.client.open_session(&self.token);
 
-		let req = SlackApiFilesGetUploadUrlExternalRequest::new(name.into(), content.len());
+		let req = SlackApiFilesGetUploadUrlExternalRequest::new(name, content.len());
 		let resp = session.get_upload_url_external(&req).await?;
 
-		let req =
-			SlackApiFilesUploadViaUrlRequest::new(resp.upload_url, content.into(), mime.into());
+		let req = SlackApiFilesUploadViaUrlRequest::new(resp.upload_url, content, mime);
 		session.files_upload_via_url(&req).await?;
 
 		let req =

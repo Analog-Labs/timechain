@@ -2,7 +2,7 @@ use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{
 	ExtrinsicDetails, ExtrinsicParams, LegacyRpcMethods, OnlineClient, SubmittableExtrinsic,
 };
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::pin::Pin;
 
 use anyhow::{Context, Result};
@@ -98,7 +98,6 @@ pub struct BlockDetail {
 }
 
 pub struct SubxtWorker {
-	rpc: RpcClient,
 	client: OnlineClient,
 	keypair: Keypair,
 	nonce: u64,
@@ -110,22 +109,20 @@ pub struct SubxtWorker {
 impl SubxtWorker {
 	pub async fn new(rpc: RpcClient, client: OnlineClient, keypair: Keypair) -> Result<Self> {
 		let block = client.blocks().at_latest().await?;
-		let mut me = Self {
-			rpc,
+		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
+		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
+		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+		Ok(Self {
 			client,
 			keypair,
-			nonce: 0,
+			nonce,
 			latest_block: BlockDetail {
 				number: block.number().into(),
 				hash: block.hash(),
 			},
 			pending_tx: Default::default(),
 			transaction_pool: FuturesUnordered::new(),
-		};
-		let account_id: subxt::utils::AccountId32 = me.keypair.public_key().into();
-		let rpc = LegacyRpcMethods::new(me.rpc.clone());
-		me.nonce = rpc.system_account_next_index(&account_id).await?;
-		Ok(me)
+		})
 	}
 
 	pub fn public_key(&self) -> PublicKey {
@@ -371,7 +368,7 @@ impl SubxtWorker {
 							return;
 						}
 
-						let hashes: Vec<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
+						let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
 						for tx in self.pending_tx.iter_mut() {
 							if hashes.contains(&tx.data.hash) {
 								tx.best_block = Some(self.latest_block.number);

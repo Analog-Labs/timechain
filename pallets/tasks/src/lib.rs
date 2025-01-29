@@ -567,7 +567,7 @@ pub mod pallet {
 			)
 		}
 
-		fn ops_queue(network: NetworkId) -> Box<dyn QueueT<T, GatewayOp>> {
+		pub(crate) fn ops_queue(network: NetworkId) -> Box<dyn QueueT<T, GatewayOp>> {
 			Box::new(QueueImpl::<T, GatewayOp, OpsInsertIndex<T>, OpsRemoveIndex<T>, Ops<T>>::new(
 				network,
 			))
@@ -703,6 +703,9 @@ pub mod pallet {
 					if let Some(msg) = batcher.push(op) {
 						Self::start_batch(network, msg);
 						num_batches_started = num_batches_started.saturating_plus_one();
+					}
+					if num_batches_started == T::MaxBatchesPerBlock::get().saturating_less_one() {
+						break;
 					}
 				}
 				if let Some(msg) = batcher.take_batch() {

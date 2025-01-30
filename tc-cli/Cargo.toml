@@ -33,8 +33,9 @@ tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]
 tracing.workspace = true
 tracing-subscriber = "0.3.18"
 csv_to_table = "0.6.0"
-slack-morphism = { version = "2.8.0", features = ["hyper"] }
+slack-morphism = { version = "2.8.0", features = ["axum", "hyper"] }
 rustls = { version = "0.23", features = ["ring"], default-features = false }
+axum = "0.8.1"
 
 [features]
 testnet = [

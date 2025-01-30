@@ -19,10 +19,10 @@ impl Sender {
 		Ok(())
 	}
 
-	pub async fn csv(&self, csv: Vec<u8>) -> Result<()> {
+	pub async fn csv(&self, title: &str, csv: Vec<u8>) -> Result<()> {
 		println!("{}", csv_to_table::from_reader(&mut &csv[..])?);
 		if let Some(slack) = self.slack.as_ref() {
-			slack.upload_file("text/csv".into(), "table.csv".into(), csv).await?;
+			slack.upload_file("text/csv".into(), format!("{title}.csv"), csv).await?;
 		}
 		Ok(())
 	}

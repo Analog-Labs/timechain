@@ -8,7 +8,14 @@ pub struct Sender {
 
 impl Sender {
 	pub fn new() -> Self {
-		Self { slack: Slack::new().ok() }
+		let slack = match Slack::new() {
+			Ok(slack) => Some(slack),
+			Err(err) => {
+				log::info!("not logging to slack: {err}");
+				None
+			},
+		};
+		Self { slack }
 	}
 
 	pub async fn text(&self, text: String) -> Result<()> {

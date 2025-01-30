@@ -31,6 +31,9 @@ use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
 
+/// Pallet log target constant
+const LOG_TARGET: &str = "launch";
+
 /// Vesting schedule embedded in code, but not yet parsed and verified
 pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 
@@ -165,7 +168,14 @@ pub mod pallet {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
-				Err(error) => Pallet::<T>::deposit_event(Event::<T>::LedgerInvalid { error }),
+				Err(error) => {
+					log::error!(
+						target: LOG_TARGET,
+						"🪦 Failed to parse launch ledger: {:?}", error
+					);
+
+					Pallet::<T>::deposit_event(Event::<T>::LedgerInvalid { error })
+				},
 			}
 			Weight::zero()
 		}

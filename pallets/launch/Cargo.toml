@@ -25,6 +25,9 @@ time-primitives.workspace = true
 
 pallet-airdrop.workspace = true
 
+[dev-dependencies]
+env_logger.workspace = true
+
 [features]
 default = [ "std" ]
 std = [

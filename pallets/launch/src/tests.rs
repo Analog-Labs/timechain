@@ -14,6 +14,8 @@ const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;
 /// Runs and verify current launch plan based on assumed on-chain version
 #[test]
 fn launch_ledger_validation() {
+	let _ = env_logger::builder().is_test(true).try_init();
+
 	new_test_ext().execute_with(|| {
 		// Set expected on-chain version as configured above
 		ON_CHAIN_VERSION.put::<Pallet<Test>>();

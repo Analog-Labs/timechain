@@ -99,6 +99,31 @@ where
 
 		weight
 	}
+
+	/// Add all airdrops inside the airdrop migration
+	pub fn mint_or_add(self) -> Weight {
+		let mut weight = Weight::zero();
+
+		for (target, amount, schedule) in self.0.iter() {
+			// Can fail if claim already exists, so those are logged.
+			match pallet_airdrop::Pallet::<T>::add_airdrop(target.clone(), *amount, *schedule) {
+				Ok(_) => (),
+				// Give detailed feedback on common failures
+				Err(AirdropError::<T>::VestingNotPossible) => {
+					Pallet::<T>::deposit_event(Event::<T>::AirdropMintExists {
+						target: target.clone().into(),
+					})
+				},
+				// Amount is below allowed minimum, should never happen
+				Err(_) => Pallet::<T>::deposit_event(Event::<T>::AirdropMintFailed),
+			}
+
+			// (Read and write claims and total, read and optional write vesting.)
+			weight += T::DbWeight::get().reads_writes(3, 3);
+		}
+
+		weight
+	}
 }
 
 type AirdropError<T> = pallet_airdrop::Error<T>;

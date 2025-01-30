@@ -361,7 +361,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// Update total, add amount and optional vesting schedule
-		Total::<T>::mutate(|t| *t = *t.saturating_add(amount));
+		Total::<T>::mutate(|t| *t = t.saturating_add(amount));
 
 		let combined = amount.saturating_add(Claims::<T>::take(&owner).unwrap_or_default());
 		Claims::<T>::insert(&owner, combined);

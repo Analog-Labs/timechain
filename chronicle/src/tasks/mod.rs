@@ -113,12 +113,12 @@ impl TaskParams {
 				}
 				const MAX_EVENTS: usize = time_primitives::task::MAX_GMP_EVENTS as usize;
 				let total_events = events.len();
-				tracing::info!(parent: &span, "read {} events", total_events);
 				let mut event_chunks: Vec<Vec<_>> =
 					events.chunks(MAX_EVENTS).map(|chunk| chunk.to_vec()).collect();
 				let first_chunk = event_chunks.remove(0);
+				tracing::info!(parent: &span, "read {} events", first_chunk.len());
 				if !event_chunks.is_empty() {
-					tracing::info!(parent: &span, "storing events for tx", total_events);
+					tracing::info!(parent: &span, "store {} events", total_events - first_chunk.len());
 					// TODO: impl this method to store pending events with the task_id
 					// self.store_pending_events(task_id, event_chunks)
 					// 	.await

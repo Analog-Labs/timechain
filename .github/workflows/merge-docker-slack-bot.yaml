@@ -1,0 +1,72 @@
+name: Build Docker slack bot
+on:
+  push:
+    paths:
+      - '.github/workflows/merge-docker-slack-bot.yaml'
+      - 'analog-gmp/**'
+      - 'config/subxt/**'
+      - 'primitives/**'
+      - 'tc-subxt/**'
+      - 'tc-cli/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+    branches:
+      - 'development'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  DOCKER_REPO: analoglabs/slack-bot
+jobs:
+  set-tags:
+    name: Get & set tags
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get-sha.outputs.sha }}
+      commit_hash8: ${{ steps.get-sha.outputs.sha8 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Get SHA
+        id: get-sha
+        run: |
+          sha=$(git log -1 --format='%H')
+          echo "sha=$sha" >> $GITHUB_OUTPUT
+          echo "sha8=$(git log -1 --format='%H' | cut -c1-8)" >> $GITHUB_OUTPUT
+          echo "SHA commit:" $sha
+  build-binary:
+    name: Build Docker image
+    needs: ["set-tags"]
+    runs-on: ["self-hosted", "container"]
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Setup Cargo
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-musl,wasm32-unknown-unknown
+          components: rust-src
+      - name: Install musl deps
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Build slack-bot
+        run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
+      - name: Copy bin
+        run: cp -r target/x86_64-unknown-linux-musl/testnet/slack_bot slack-bot-bin
+      - name: Build and push
+        uses: ./.github/actions/buildah-action
+        with:
+          image_name: ${{ env.DOCKER_REPO }}
+          containerfile: ./config/docker/Dockerfile.slack-bot-release
+          context: .
+          volume: ${{ github.workspace }}/target:/build/target
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: docker.io
+          push: 'true'
+          tags: ${{ needs.set-tags.outputs.commit_hash8 }},latest

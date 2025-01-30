@@ -10,6 +10,9 @@ async fn main() -> Result<()> {
 		.with_env_filter("axum_events_api_server=debug,slack_morphism=debug")
 		.finish();
 	tracing::subscriber::set_global_default(subscriber)?;
+	rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
 	server().await?;
 	Ok(())
 }

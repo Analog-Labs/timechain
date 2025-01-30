@@ -103,7 +103,7 @@ impl TaskParams {
 		task: Task,
 		span: Span,
 	) -> Result<()> {
-		let result = match task {
+		match task {
 			Task::ReadGatewayEvents { blocks } => {
 				let events =
 					self.connector.read_events(gateway, blocks).await.context("read_events")?;
@@ -113,24 +113,27 @@ impl TaskParams {
 				}
 				const MAX_EVENTS: usize = time_primitives::task::MAX_GMP_EVENTS as usize;
 				let total_events = events.len();
+				tracing::info!(parent: &span, "read {} events", total_events.len());
 				let mut event_chunks: Vec<Vec<_>> =
 					events.chunks(MAX_EVENTS).map(|chunk| chunk.to_vec()).collect();
-				let first_chunk = event_chunks.remove(0);
-				tracing::info!(parent: &span, "read {} events", first_chunk.len());
-				if !event_chunks.is_empty() {
-					tracing::info!(parent: &span, "store {} events", total_events - first_chunk.len());
-					// TODO: impl this method to store pending events with the task_id
-					// self.store_pending_events(task_id, event_chunks)
-					// 	.await
-					// 	.context("Failed to store remaining event chunks")?;
+				let total_chunks = event_chunks.len();
+				for (i, chunk) in event_chunks.iter().enumerate() {
+					let payload = time_primitives::encode_gmp_events(task_id, &chunk);
+					let signature =
+						self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
+					let result = TaskResult::ReadGatewayEvents {
+						events: GmpEvents(chunk),
+						signature,
+						remaining: i != total_chunks - 1,
+					};
+					if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
+						tracing::error!(
+							parent: &span,
+							"error submitting task result: {:?}",
+							e
+						);
+					}
 				}
-				let payload = time_primitives::encode_gmp_events(task_id, &first_chunk);
-				let signature =
-					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
-				Some(TaskResult::ReadGatewayEvents {
-					events: GmpEvents(first_chunk),
-					signature,
-				})
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
@@ -146,23 +149,19 @@ impl TaskParams {
 				{
 					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
 					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-					Some(TaskResult::SubmitGatewayMessage {
+					tracing::debug!(parent: &span, "submitting task result",);
+					let result = TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-					})
-				} else {
-					None
+					};
+					if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
+						tracing::error!(
+							parent: &span,
+							"error submitting task result: {:?}",
+							e
+						);
+					}
 				}
 			},
-		};
-		if let Some(result) = result {
-			tracing::debug!(parent: &span, "submitting task result",);
-			if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
-				tracing::error!(
-					parent: &span,
-					"error submitting task result: {:?}",
-					e
-				);
-			}
 		}
 		Ok(())
 	}

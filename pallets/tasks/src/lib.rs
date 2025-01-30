@@ -345,7 +345,7 @@ pub mod pallet {
 			let result = match (task, result) {
 				(
 					Task::ReadGatewayEvents { blocks },
-					TaskResult::ReadGatewayEvents { events, signature },
+					TaskResult::ReadGatewayEvents { events, signature, remaining },
 				) => {
 					// verify signature
 					let bytes = time_primitives::encode_gmp_events(task_id, &events.0);
@@ -361,6 +361,11 @@ pub mod pallet {
 					}
 					// process events
 					Self::process_events(network, task_id, events);
+					if remaining {
+						// more events to submit in future transactions so task
+						// is NOT finished yet
+						return Ok(());
+					}
 					Ok(())
 				},
 				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {

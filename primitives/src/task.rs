@@ -80,6 +80,7 @@ pub enum TaskResult {
 		events: GmpEvents,
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
 		signature: TssSignature,
+		remaining: bool,
 	},
 	SubmitGatewayMessage {
 		error: ErrorMsg,

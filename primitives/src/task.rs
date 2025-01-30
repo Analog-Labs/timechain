@@ -61,8 +61,8 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 	(task_id, events).encode()
 }
 
-//const MAX_GMP_EVENTS: u32 = 1_000;
-pub const MAX_ERROR_LEN: u32 = 500;
+pub const MAX_GMP_EVENTS: u32 = 10_000;
+pub const MAX_ERROR_LEN: u32 = 10_000;
 
 /// Bounded vec alias for GMP events submitted in results
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

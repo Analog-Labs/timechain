@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use subxt::backend::rpc::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as Client};
 use subxt::backend::rpc::RpcClient;
-use subxt::blocks::ExtrinsicEvents;
+use subxt::config::DefaultExtrinsicParams;
 use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
 
@@ -24,13 +24,18 @@ pub use subxt_signer::sr25519::Keypair;
 
 pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;
 pub type LegacyRpcMethods = subxt::backend::legacy::LegacyRpcMethods<subxt::PolkadotConfig>;
+pub type ExtrinsicEvents = subxt::blocks::ExtrinsicEvents<PolkadotConfig>;
+pub type ExtrinsicDetails = subxt::blocks::ExtrinsicDetails<PolkadotConfig, OnlineClient>;
+pub type SubmittableExtrinsic = subxt::tx::SubmittableExtrinsic<PolkadotConfig, OnlineClient>;
+pub type ExtrinsicParams =
+	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
 pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient>;
 pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient>;
 
 #[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient,
-	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<TxInBlock>)>,
+	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicDetails>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
@@ -118,9 +123,9 @@ impl SubxtClient {
 		Ok(if let Some(info) = result { info.data.free } else { 0 })
 	}
 
-	pub async fn wait_for_success(&self, tx: TxInBlock) -> Result<ExtrinsicEvents<PolkadotConfig>> {
+	pub async fn wait_for_success(&self, extrinsic: ExtrinsicDetails) -> Result<ExtrinsicEvents> {
 		type SpRuntimeDispatchError = metadata::runtime_types::sp_runtime::DispatchError;
-		let events = tx.fetch_events().await?;
+		let events = extrinsic.events().await?;
 
 		for ev in events.iter() {
 			let ev = ev?;

@@ -99,7 +99,8 @@ impl SubxtClient {
 	pub async fn force_shard_offline(&self, shard_id: ShardId) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::ForceShardOffline { shard_id }, tx))?;
-		rx.await?.wait_for_success().await?;
+		let tx = rx.await?;
+		self.wait_for_success(tx).await?;
 		Ok(())
 	}
 }

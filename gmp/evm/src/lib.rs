@@ -547,12 +547,17 @@ impl IConnector for Connector {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));
 						} else {
+							tracing::info!(
+								"GMP Created: {:?}",
+								hex::encode(gmp_message.message_id())
+							);
 							events.push(GmpEvent::MessageReceived(gmp_message));
 						}
 						break;
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log, true)?;
+						tracing::info!("GMP Executed: {:?}", hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 						break;
 					},

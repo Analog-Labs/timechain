@@ -102,4 +102,11 @@ jobs:
         echo "Successfully updated all chronicles!"
         exit 0
 
-    
+    - name: Notify on slack
+      uses: slackapi/slack-github-action@v2.0.0
+      with:
+        method: chat.postMessage
+        token: ${{ secrets.SLACK_BOT_TOKEN }}
+        payload: |
+          channel: ${{ secrets.SLACK_CHANNEL_ID }}
+          text: "redeployed chronicles from ${{ steps.check-image.outputs.IMAGE }}"

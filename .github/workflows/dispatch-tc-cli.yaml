@@ -63,7 +63,7 @@ jobs:
         NAMESPACE="timechain"
         IMAGE=${{ steps.check-image.outputs.IMAGE }}
         CONFIG="$(cat ./config/envs/${{ github.event.inputs.environment }}/config.yaml)"
-        OUTPUT="$(kubectl -n $NAMESPACE run tc-cli --image=$IMAGE --attach --rm --restart=Never \
+        kubectl -n $NAMESPACE run tc-cli --image=$IMAGE --attach --rm --restart=Never \
           --env="CONFIG=$CONFIG" \
           --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
           --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
@@ -73,15 +73,6 @@ jobs:
           --env="LOKI_USERNAME=${{ secrets.LOKI_USERNAME }}" \
           --env="LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }}" \
           --env="NO_COLOR=1" \
-          -- ${{ github.event.inputs.args}})"
-        echo "$OUTPUT"
-        echo "OUTPUT=$(echo "\`\`\`$OUTPUT\`\`\`" | jq -Rsa)" >> $GITHUB_OUTPUT
-
-    - name: Post output
-      uses: slackapi/slack-github-action@v2.0.0
-      with:
-        method: chat.postMessage
-        token: ${{ secrets.SLACK_BOT_TOKEN }}
-        payload: |
-          channel: ${{ secrets.SLACK_CHANNEL_ID }}
-          text: ${{ steps.run.outputs.OUTPUT }}
+          --env="SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}" \
+          --env="SLACK_CHANNEL_ID=${{ secrets.SLACK_CHANNEL_ID }}" \
+          -- ${{ github.event.inputs.args}}

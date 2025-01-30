@@ -952,10 +952,10 @@ impl Tc {
 		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
 		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
 		let networks = self.networks().await?;
-		self.print_table(networks.clone()).await?;
+		self.print_table("networks", networks.clone()).await?;
 		for network in networks {
 			let routes = self.routes(network.network).await?;
-			self.print_table(routes).await?;
+			self.print_table("routes", routes).await?;
 		}
 		// chronicles
 		let mut blocks = self.finality_notification_stream();
@@ -963,7 +963,7 @@ impl Tc {
 			let chronicles = self.chronicles().await?;
 			let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
 			tracing::info!("waiting for chronicles to be registered");
-			self.print_table(chronicles).await?;
+			self.print_table("chronicles", chronicles).await?;
 			if !not_registered {
 				break;
 			}
@@ -977,7 +977,7 @@ impl Tc {
 			}
 			tracing::info!("waiting for shards to come online");
 			let shards = self.shards().await?;
-			self.print_table(shards).await?;
+			self.print_table("shards", shards).await?;
 		}
 		// registered shards
 		self.register_shards(src).await?;
@@ -987,7 +987,7 @@ impl Tc {
 			let is_registered =
 				shards.iter().any(|shard| shard.registered && shard.network == dest);
 			tracing::info!("waiting for shard to be registered");
-			self.print_table(shards).await?;
+			self.print_table("shards", shards).await?;
 			if is_registered {
 				break;
 			}
@@ -1011,7 +1011,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn print_table<R: IntoRow>(&self, table: Vec<R>) -> Result<()> {
+	pub async fn print_table<R: IntoRow>(&self, title: &str, table: Vec<R>) -> Result<()> {
 		let mut out = Vec::new();
 		{
 			let mut wtr = csv::Writer::from_writer(&mut out);
@@ -1020,7 +1020,7 @@ impl Tc {
 			}
 			wtr.flush()?;
 		}
-		self.msg.csv(out).await
+		self.msg.csv(title, out).await
 	}
 
 	pub async fn println(&self, line: impl Into<String>) -> Result<()> {

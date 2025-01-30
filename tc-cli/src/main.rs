@@ -219,40 +219,40 @@ async fn real_main() -> Result<()> {
 		},
 		Command::Networks => {
 			let networks = tc.networks().await?;
-			tc.print_table(networks).await?;
+			tc.print_table("networks", networks).await?;
 		},
 		Command::Chronicles => {
 			let chronicles = tc.chronicles().await?;
-			tc.print_table(chronicles).await?;
+			tc.print_table("chronicles", chronicles).await?;
 		},
 		Command::Shards => {
 			let shards = tc.shards().await?;
-			tc.print_table(shards).await?;
+			tc.print_table("shards", shards).await?;
 		},
 		Command::Members { shard } => {
 			let members = tc.members(shard).await?;
-			tc.print_table(members).await?;
+			tc.print_table("members", members).await?;
 		},
 		Command::Routes { network } => {
 			let routes = tc.routes(network).await?;
-			tc.print_table(routes).await?;
+			tc.print_table("routes", routes).await?;
 		},
 		Command::Events { network, start, end } => {
 			let events = tc.events(network, start..end).await?;
-			tc.print_table(events).await?;
+			tc.print_table("events", events).await?;
 		},
 		Command::Messages { network, tester, start, end } => {
 			let tester = tc.parse_address(Some(network), &tester)?;
 			let msgs = tc.messages(network, tester, start..end).await?;
-			tc.print_table(msgs).await?;
+			tc.print_table("messages", msgs).await?;
 		},
 		Command::Task { task } => {
 			let task = tc.task(task).await?;
-			tc.print_table(vec![task]).await?;
+			tc.print_table("task", vec![task]).await?;
 		},
 		Command::AssignedTasks { shard } => {
 			let tasks = tc.assigned_tasks(shard).await?;
-			tc.print_table(tasks).await?;
+			tc.print_table("assigned-tasks", tasks).await?;
 		},
 		Command::TransactionBaseFee { network } => {
 			let base_fee = tc.transaction_base_fee(network).await?;
@@ -262,8 +262,8 @@ async fn real_main() -> Result<()> {
 		Command::Batch { batch } => {
 			let mut batch = tc.batch(batch).await?;
 			let ops = std::mem::take(&mut batch.msg.ops);
-			tc.print_table(vec![batch]).await?;
-			tc.print_table(ops).await?;
+			tc.print_table("batch", vec![batch]).await?;
+			tc.print_table("ops", ops).await?;
 		},
 
 		Command::BlockGasLimit { network } => {
@@ -276,14 +276,14 @@ async fn real_main() -> Result<()> {
 				.try_into()
 				.map_err(|_| anyhow::anyhow!("invalid message id"))?;
 			let message = tc.message(message).await?;
-			tc.print_table(vec![message]).await?;
+			tc.print_table("messages", vec![message]).await?;
 		},
 		Command::MessageTrace { network, message } => {
 			let message = hex::decode(message)?
 				.try_into()
 				.map_err(|_| anyhow::anyhow!("invalid message id"))?;
 			let trace = tc.message_trace(network, message).await?;
-			tc.print_table(vec![trace]).await?;
+			tc.print_table("message", vec![trace]).await?;
 		},
 		// management
 		Command::RuntimeUpgrade { path } => {
@@ -344,7 +344,7 @@ async fn real_main() -> Result<()> {
 				let trace = tc.message_trace(src, msg_id).await?;
 				let exec = trace.exec.as_ref().map(|t| t.task);
 				tracing::info!("waiting for message {}", hex::encode(msg_id));
-				tc.print_table(vec![trace]).await?;
+				tc.print_table("message", vec![trace]).await?;
 				if let Some(exec) = exec {
 					break (exec, end);
 				}
@@ -355,7 +355,7 @@ async fn real_main() -> Result<()> {
 				.into_iter()
 				.find(|msg| msg.message_id() == msg_id)
 				.context("failed to find message")?;
-			tc.print_table(vec![msg]).await?;
+			tc.print_table("message", vec![msg]).await?;
 			tc.println(format!("received message after {} blocks", end - start)).await?;
 		},
 		Command::Benchmark { src, dest, num_messages } => {

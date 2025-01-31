@@ -4,10 +4,10 @@ config:
   prices_path: 'prices.csv'
 contracts:
   evm:
-    additional_params: "../../../gmp/evm/factory/additional_config.json"
-    proxy: "../../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
-    gateway: "../../../analog-gmp/out/Gateway.sol/Gateway.json"
-    tester: "../../../analog-gmp/out/GmpProxy.sol/GmpProxy.json"
+    additional_params: "factory/additional_config.json"
+    proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
+    gateway: "contracts/Gateway.sol/Gateway.json"
+    tester: "contracts/GmpProxy.sol/GmpProxy.json"
 networks:
   10:
     backend: "evm"

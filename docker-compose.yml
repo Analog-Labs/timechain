@@ -164,7 +164,5 @@ services:
       RUST_BACKTRACE: 1
     volumes:
     - './config/envs:/etc/envs'
-    - './analog-gmp/out:/etc/contracts:ro'
-    - './gmp/evm/factory/additional_config.json:/etc/deployer/additional_config.json:ro'
     profiles:
     - never

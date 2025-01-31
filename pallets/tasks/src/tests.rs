@@ -46,6 +46,7 @@ fn submit_gateway_events(shard: ShardId, task_id: TaskId, events: &[GmpEvent]) {
 	let result = TaskResult::ReadGatewayEvents {
 		events: GmpEvents(events.to_vec()),
 		signature,
+		remaining: false,
 	};
 	assert_ok!(Tasks::submit_task_result(
 		RawOrigin::Signed([0; 32].into()).into(),

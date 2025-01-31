@@ -126,7 +126,7 @@ impl TaskParams {
 						signature,
 						remaining: i != total_chunks - 1,
 					};
-                    tracing::debug!(parent: &span, "submitting task result",);
+					tracing::debug!(parent: &span, "submitting task result",);
 					if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
 						tracing::error!(
 							parent: &span,

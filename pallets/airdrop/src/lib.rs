@@ -26,7 +26,7 @@ use sp_core::{
 	sr25519::{Public as SchnorrPublic, Signature as SchnorrSignature},
 };
 use sp_runtime::{
-	traits::{CheckedSub, Verify, Zero},
+	traits::{CheckedSub, Saturating, Verify, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	AccountId32,
 };
@@ -96,6 +96,7 @@ pub mod pallet {
 		Claimed { source: AccountId32, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
+	#[derive(PartialEq)]
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Account ID sending transaction has no claim.
@@ -338,6 +339,35 @@ impl<T: Config> Pallet<T> {
 		Claims::<T>::insert(&owner, amount);
 		if let Some(vs) = vesting {
 			Vesting::<T>::insert(owner.clone(), vs);
+		}
+
+		// Deposit event on success.
+		Self::deposit_event(Event::<T>::Minted { owner, amount });
+
+		Ok(())
+	}
+
+	/// Internal function to mint additional airdrops, adding to existing airdrops if necessary
+	pub fn add_airdrop(
+		owner: AccountId32,
+		amount: BalanceOf<T>,
+		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
+	) -> Result<(), Error<T>> {
+		// Ensure amount is large enough and vesting can be accurately represented claim
+		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
+		ensure!(
+			vesting.is_none() || Vesting::<T>::get(&owner).is_none(),
+			Error::<T>::VestingNotPossible
+		);
+
+		// Update total, add amount and optional vesting schedule
+		Total::<T>::mutate(|t| *t = t.saturating_add(amount));
+
+		let combined = amount.saturating_add(Claims::<T>::take(&owner).unwrap_or_default());
+		Claims::<T>::insert(&owner, combined);
+		if let Some(vs) = vesting {
+			debug_assert!(Vesting::<T>::get(&owner).is_none());
+			Vesting::<T>::insert(&owner, vs);
 		}
 
 		// Deposit event on success.

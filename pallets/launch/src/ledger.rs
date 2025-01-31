@@ -1,7 +1,7 @@
 use crate::airdrops::AirdropBalanceOf;
 use crate::deposits::BalanceOf;
 use crate::stage::Stage;
-use crate::{Config, Error, Event, Pallet, LAUNCH_VERSION};
+use crate::{Config, Error, Event, Pallet, LAUNCH_VERSION, LOG_TARGET};
 
 use polkadot_sdk::*;
 
@@ -89,19 +89,27 @@ where
 			StorageVersion::new(*version).put::<Pallet<T>>();
 
 			// Abort if the stage execution exceeded its allocation
+			let hash = stage.hash::<T>();
 			if *amount < (Pallet::<T>::total_issuance() - current) {
+				log::error!(
+					target: LOG_TARGET,
+					"💥 Launch stage v{} exceeded issuance: {:?}", version, hash
+				);
+
 				Pallet::<T>::deposit_event(Event::<T>::StageExceededIssuance {
 					version: *version,
-					hash: stage.hash::<T>(),
+					hash,
 				});
 				break;
 			}
 
+			log::info!(
+				target: LOG_TARGET,
+				"🚀 Successfully executed launch stage v{}: {:?}", version, hash
+			);
+
 			// On success deposit event and continue
-			Pallet::<T>::deposit_event(Event::<T>::StageExecuted {
-				version: *version,
-				hash: stage.hash::<T>(),
-			});
+			Pallet::<T>::deposit_event(Event::<T>::StageExecuted { version: *version, hash });
 		}
 		weights
 	}

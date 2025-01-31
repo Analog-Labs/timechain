@@ -29,10 +29,7 @@ pub type ExtrinsicDetails = subxt::blocks::ExtrinsicDetails<PolkadotConfig, Onli
 pub type SubmittableExtrinsic = subxt::tx::SubmittableExtrinsic<PolkadotConfig, OnlineClient>;
 pub type ExtrinsicParams =
 	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
-pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient>;
-pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient>;
 
-#[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient,
 	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicDetails>)>,
@@ -46,7 +43,10 @@ impl SubxtClient {
 		let client = OnlineClient::from_rpc_client(rpc.clone())
 			.await
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))?;
-		let worker = SubxtWorker::new(rpc, client.clone(), keypair).await?;
+		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
+		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
+		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+		let worker = SubxtWorker::new(nonce, client.clone(), keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
@@ -203,4 +203,12 @@ fn block_stream<
 		}
 	};
 	Box::pin(stream)
+}
+
+#[async_trait::async_trait]
+trait TimechainClient {
+	async fn get_latest_block() -> Result<BlockDetail>;
+	async fn build_transaction() -> Vec<u8>;
+	async fn submit_transaction() -> Result<H256>;
+	async fn client_updater() -> Result<H256>;
 }

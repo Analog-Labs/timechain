@@ -107,11 +107,8 @@ pub struct SubxtWorker {
 }
 
 impl SubxtWorker {
-	pub async fn new(rpc: RpcClient, client: OnlineClient, keypair: Keypair) -> Result<Self> {
+	pub async fn new(nonce: u64, client: OnlineClient, keypair: Keypair) -> Result<Self> {
 		let block = client.blocks().at_latest().await?;
-		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
-		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
-		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
 		let tx_pool = FuturesUnordered::new();
 		// adding a never ending future to avoid tx_pool flood of None in select! loop
 		tx_pool.push(futures::future::pending().boxed());

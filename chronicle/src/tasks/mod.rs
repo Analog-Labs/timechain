@@ -113,11 +113,11 @@ impl TaskParams {
 				}
 				const MAX_EVENTS: usize = time_primitives::task::MAX_GMP_EVENTS as usize;
 				let total_events = events.len();
-				tracing::info!(parent: &span, "read {} events", total_events.len());
+				tracing::info!(parent: &span, "read {} events", total_events);
 				let mut event_chunks: Vec<Vec<_>> =
 					events.chunks(MAX_EVENTS).map(|chunk| chunk.to_vec()).collect();
 				let total_chunks = event_chunks.len();
-				for (i, chunk) in event_chunks.iter().enumerate() {
+				for (i, chunk) in event_chunks.into_iter().enumerate() {
 					let payload = time_primitives::encode_gmp_events(task_id, &chunk);
 					let signature =
 						self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;

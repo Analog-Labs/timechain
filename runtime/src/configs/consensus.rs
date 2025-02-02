@@ -9,18 +9,13 @@ use frame_support::parameter_types;
 use sp_runtime::{impl_opaque_keys, traits::OpaqueKeys, transaction_validity::TransactionPriority};
 
 // Local module imports
-//#[cfg(not(feature = "testnet"))]
-//use crate::ValidatorManager;
 use crate::{
 	weights, AccountId, AuthorityDiscovery, Babe, BondingDuration, EpochDuration,
 	ExpectedBlockTime, Grandpa, Historical, ImOnline, MaxAuthorities, MaxNominators, Runtime,
 	RuntimeEvent, SessionsPerEra,
 };
-//#[cfg(feature = "testnet")]
 use crate::{Balance, Offences, Session, Staking};
-//#[cfg(feature = "testnet")]
 use frame_support::traits::KeyOwnerProofSystem;
-//#[cfg(feature = "testnet")]
 use sp_core::crypto::KeyTypeId;
 
 /// ## <a id="config.Authorship">`Authorship` Config</a>
@@ -48,7 +43,7 @@ impl<T> sp_runtime::traits::Convert<T, Option<T>> for IdentityValidator {
 	}
 }
 
-/// ## <a id="config.Session">`Session`] Config</a>
+/// ## <a id="config.Session">[`Session`] Config</a>
 ///
 /// Tracks session keys
 impl pallet_session::Config for Runtime {
@@ -63,22 +58,9 @@ impl pallet_session::Config for Runtime {
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
-pub struct FullIdentificationOf;
-impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf {
-	fn convert(_: AccountId) -> Option<()> {
-		Some(())
-	}
-}
-
 /// ## <a id="config.Historical">[`Historical`] Config</a>
 ///
 /// Tracks historical session
-/*#[cfg(not(feature = "testnet"))]
-impl pallet_session::historical::Config for Runtime {
-	type FullIdentification = ();
-	type FullIdentificationOf = FullIdentificationOf;
-}*/
-
 impl pallet_session::historical::Config for Runtime {
 	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = pallet_staking::ExposureOf<Runtime>;

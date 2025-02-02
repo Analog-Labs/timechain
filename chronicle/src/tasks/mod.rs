@@ -121,8 +121,13 @@ impl TaskParams {
 					let payload = time_primitives::encode_gmp_events(task_id, &chunk);
 					let signature =
 						self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
+					debug_assert!(
+						chunk.len() <= MAX_EVENTS,
+						"WARNING: Truncation threw out {} read gateway events!",
+						chunk.len() - MAX_EVENTS
+					);
 					let result = TaskResult::ReadGatewayEvents {
-						events: GmpEvents(chunk),
+						events: GmpEvents(BoundedVec::truncate_from(chunk)),
 						signature,
 						remaining: i != total_chunks - 1,
 					};
@@ -150,10 +155,10 @@ impl TaskParams {
 				{
 					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
 					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-					tracing::debug!(parent: &span, "submitting task result",);
 					let result = TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
 					};
+					tracing::debug!(parent: &span, "submitting task result",);
 					if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
 						tracing::error!(
 							parent: &span,

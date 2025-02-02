@@ -21,4 +21,4 @@ pub const NANOANLOG: Balance = MICROANLOG / 1000; // 10^3
 pub const TOCK: Balance = NANOANLOG / 1000; // 1
 
 /// Total issuance at genesis
-pub const TOTAL_ISSUANCE: Balance = 90_570_710 * ANLOG;
+pub const TOTAL_ISSUANCE: Balance = 90_570_710_000 * ANLOG;

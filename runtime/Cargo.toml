@@ -153,6 +153,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/frame-benchmarking",
 	"polkadot-sdk/frame-system-benchmarking",
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
+	"polkadot-sdk/pallet-nomination-pools-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
 

@@ -323,13 +323,13 @@ where
 							continue;
 						}
 
-						for extrinsic in extrinsics.iter() {
+						for extrinsic in extrinsics.into_iter() {
 							let extrinsic_hash = extrinsic.hash();
 							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
 								let Some(tx) = self.pending_tx.pop_front() else {
 									continue;
 								};
-								// tx.event_sender.send(extrinsic).ok();
+								tx.event_sender.send(extrinsic).ok();
 							}
 						}
 					}

@@ -116,6 +116,9 @@ enum Command {
 		path: PathBuf,
 	},
 	Deploy,
+	DeployChronicle {
+		url: String,
+	},
 	UnregisterMember {
 		member: String,
 	},
@@ -291,6 +294,9 @@ async fn real_main() -> Result<()> {
 		},
 		Command::Deploy => {
 			tc.deploy().await?;
+		},
+		Command::DeployChronicle { url } => {
+			tc.deploy_chronicle(&url).await?;
 		},
 		Command::UnregisterMember { member } => {
 			let member = tc.parse_address(None, &member)?;

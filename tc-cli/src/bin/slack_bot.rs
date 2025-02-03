@@ -166,7 +166,7 @@ async fn command_event(
 			return slack_error(format!("unknown channel {}", &event.channel_id.0));
 		},
 	};
-	if let Err(err) = gh.trigger_workflow(&command, &branch, env).await {
+	if let Err(err) = gh.trigger_workflow(&command, branch, env).await {
 		return slack_error(format!("triggering workflow failed: {err}"));
 	}
 	axum::Json(

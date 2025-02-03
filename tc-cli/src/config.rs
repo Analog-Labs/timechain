@@ -16,8 +16,9 @@ impl Config {
 		let config = if let Ok(config) = std::env::var("CONFIG") {
 			config
 		} else {
-			std::fs::read_to_string(path.join(config))
-				.with_context(|| format!("failed to read config file {}", path.display()))?
+			let config = path.join(config);
+			std::fs::read_to_string(&config)
+				.with_context(|| format!("failed to read config file {}", config.display()))?
 		};
 		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
 		Ok(Self { path, yaml })
@@ -46,14 +47,30 @@ impl Config {
 		let network = self.network(network)?;
 		Ok(if let Some(contracts) = self.yaml.contracts.get(&network.backend) {
 			Contracts {
-				proxy: std::fs::read(self.relative_path(&contracts.proxy))
-					.context("failed to read proxy contract")?,
-				gateway: std::fs::read(self.relative_path(&contracts.gateway))
-					.context("failed to read gateway contract")?,
-				tester: std::fs::read(self.relative_path(&contracts.tester))
-					.context("failed to read tester contract")?,
-				additional_params: std::fs::read(self.relative_path(&contracts.additional_params))
-					.context("Failed to convert additional params")?,
+				proxy: {
+					let path = self.relative_path(&contracts.proxy);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read proxy contract from {}", path.display())
+					})?
+				},
+				gateway: {
+					let path = self.relative_path(&contracts.gateway);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read gateway contract from {}", path.display())
+					})?
+				},
+				tester: {
+					let path = self.relative_path(&contracts.tester);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read tester contract from {}", path.display())
+					})?
+				},
+				additional_params: {
+					let path = self.relative_path(&contracts.additional_params);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read additional params from {}", path.display())
+					})?
+				},
 			}
 		} else {
 			Contracts::default()

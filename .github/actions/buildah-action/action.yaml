@@ -81,5 +81,12 @@ runs:
       shell: bash
       if: ${{ inputs.push == 'true' }} 
       run: |
-        buildah push ${{ inputs.image_name }} ${{ inputs.registry }}/${{ inputs.image_name }}
+        if [ -n "${{ inputs.tags }}" ]; then
+          IFS=',' read -ra TAG_ARRAY <<< "${{ inputs.tags }}"
+          for TAG in "${TAG_ARRAY[@]}"; do
+            buildah push ${{ inputs.image_name }} ${{ inputs.registry }}/${{ inputs.image_name }}:$TAG
+          done
+        else
+            buildah push ${{ inputs.image_name }} ${{ inputs.registry }}/${{ inputs.image_name }}
+        fi
 

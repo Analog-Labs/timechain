@@ -1,3 +1,4 @@
+use crate::timechain_client::ITimechainClient;
 use crate::worker::Tx;
 use crate::{metadata, SubxtClient};
 use anyhow::Result;
@@ -84,7 +85,7 @@ impl SubxtClient {
 			tx,
 		))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.wait_for_success(&tx).await?;
 		Ok(())
 	}
 
@@ -92,7 +93,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Ready { shard_id }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.wait_for_success(&tx).await?;
 		Ok(())
 	}
 
@@ -100,7 +101,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::ForceShardOffline { shard_id }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.wait_for_success(&tx).await?;
 		Ok(())
 	}
 }

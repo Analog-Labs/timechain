@@ -21,8 +21,6 @@ networks:
     batch_gas_limit: 10000000
     gmp_margin: 0.0
     shard_task_limit: 50
-    symbol: "ETH"
-    token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1
@@ -39,8 +37,6 @@ networks:
     batch_gas_limit: 10000000
     gmp_margin: 0.0
     shard_task_limit: 50
-    symbol: "ETH"
-    token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1

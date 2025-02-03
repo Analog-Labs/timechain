@@ -13,14 +13,11 @@ pub struct Config {
 
 impl Config {
 	pub fn from_env(path: PathBuf, config: &str) -> Result<Self> {
-		let config = if let Ok(config) = std::env::var("CONFIG") {
-			config
-		} else {
-			let config = path.join(config);
-			std::fs::read_to_string(&config)
-				.with_context(|| format!("failed to read config file {}", config.display()))?
-		};
-		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
+		let config_path = path.join(config);
+		let config = std::fs::read_to_string(&config_path)
+			.with_context(|| format!("failed to read config file {}", config_path.display()))?;
+		let yaml = serde_yaml::from_str(&config)
+			.with_context(|| format!("failed to parse config file {}", config_path.display()))?;
 		Ok(Self { path, yaml })
 	}
 
@@ -87,6 +84,7 @@ impl Config {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ConfigYaml {
 	config: GlobalConfig,
 	contracts: HashMap<Backend, ContractsConfig>,
@@ -95,6 +93,7 @@ struct ConfigYaml {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	prices_path: PathBuf,
 	pub chronicle_timechain_funds: String,
@@ -102,6 +101,7 @@ pub struct GlobalConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ContractsConfig {
 	additional_params: PathBuf,
 	proxy: PathBuf,
@@ -118,6 +118,7 @@ pub struct Contracts {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NetworkConfig {
 	pub backend: Backend,
 	pub blockchain: String,
@@ -141,9 +142,26 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn make_sure_envs_parse() {
+	fn make_sure_envs_parse() -> Result<()> {
 		let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../config/envs");
-		Config::from_env(root.join("local"), "local-grpc.yaml").unwrap();
-		Config::from_env(root.join("development"), "config.yaml").unwrap();
+		let envs = std::fs::read_dir(&root)?;
+		for env in envs {
+			let env_dir = env?;
+			if !env_dir.file_type()?.is_dir() {
+				continue;
+			}
+			for config in std::fs::read_dir(env_dir.path())? {
+				let config = config?;
+				if !config.file_type()?.is_file() {
+					continue;
+				}
+				let config = config.file_name().into_string().unwrap();
+				if !config.ends_with(".yaml") {
+					continue;
+				}
+				Config::from_env(env_dir.path(), &config).unwrap();
+			}
+		}
+		Ok(())
 	}
 }

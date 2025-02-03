@@ -132,7 +132,7 @@ pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 }
 
 pub fn read_csv_token_prices(price_path: &Path) -> Result<HashMap<NetworkId, (String, f64)>> {
-	let mut rdr = Reader::from_path(&price_path)
+	let mut rdr = Reader::from_path(price_path)
 		.with_context(|| format!("failed to open {}", price_path.display()))?;
 
 	let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();

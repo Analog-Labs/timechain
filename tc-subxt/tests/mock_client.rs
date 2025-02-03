@@ -52,6 +52,12 @@ impl ITimechainClient for MockClient {
 	{
 		todo!()
 	}
+	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
+		todo!()
+	}
+	async fn apply_update(&self, update: Self::Update) -> Result<()> {
+		todo!()
+	}
 }
 
 #[async_trait::async_trait]

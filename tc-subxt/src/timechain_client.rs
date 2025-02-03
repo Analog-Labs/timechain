@@ -1,7 +1,7 @@
 use anyhow::Result;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
-use subxt::tx::Payload;
 use subxt::utils::H256;
+use subxt::{client::Update, tx::Payload};
 pub use subxt_signer::sr25519::Keypair;
 
 use crate::{metadata, CommitteeEvent, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
@@ -15,6 +15,7 @@ pub struct BlockDetail {
 pub trait ITimechainClient {
 	type Submitter: ITransactionSubmitter + Send + Sync;
 	type Block: IBlock + Send + Sync;
+	type Update: Send + Sync;
 	async fn get_latest_block(&self) -> Result<BlockDetail>;
 	fn sign_payload<Call>(&self, call: &Call, params: ExtrinsicParams) -> Vec<u8>
 	where
@@ -26,6 +27,8 @@ pub trait ITimechainClient {
 	async fn best_block_stream(
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>;
+	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>>;
+	async fn apply_update(&self, update: Self::Update) -> Result<()>;
 }
 
 #[async_trait::async_trait]
@@ -80,6 +83,7 @@ pub struct TimechainEvents {
 impl ITimechainClient for TimechainOnlineClient {
 	type Submitter = SignedTransaction;
 	type Block = TimechainBlock;
+	type Update = Update;
 
 	async fn get_latest_block(&self) -> Result<BlockDetail> {
 		let block = self.client.blocks().at_latest().await?;
@@ -132,6 +136,22 @@ impl ITimechainClient for TimechainOnlineClient {
 					Ok((block, extrinsics))
 				});
 		Ok(stream_with_txs.boxed())
+	}
+	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
+		let client = self.client.updater();
+		let mut stream = client.runtime_updates().await?;
+		let stream = futures::stream::try_unfold(stream, |mut stream| async move {
+			match stream.next().await {
+				Some(Ok(update)) => Ok(Some(update)),
+				Some(Err(e)) => Err(e.into()),
+				None => Ok(None),
+			}
+		});
+
+		Ok(stream.boxed())
+	}
+	async fn apply_update(&self, update: Self::Update) -> Result<()> {
+		todo!()
 	}
 
 	// async fn runtime_updates(&self) {

@@ -62,9 +62,7 @@ jobs:
       run: |
         NAMESPACE="timechain"
         IMAGE=${{ steps.check-image.outputs.IMAGE }}
-        CONFIG="$(cat ./config/envs/${{ github.event.inputs.environment }}/config.yaml)"
         kubectl -n $NAMESPACE run tc-cli --image=$IMAGE --attach --rm --restart=Never \
-          --env="CONFIG=$CONFIG" \
           --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
           --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
           --env="TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }}" \
@@ -75,4 +73,4 @@ jobs:
           --env="NO_COLOR=1" \
           --env="SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}" \
           --env="SLACK_CHANNEL_ID=${{ secrets.SLACK_CHANNEL_ID }}" \
-          -- ${{ github.event.inputs.args}}
+          -- --env /etc/envs/${{ github.event.inputs.environment }} ${{ github.event.inputs.args}}

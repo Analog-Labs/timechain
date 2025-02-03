@@ -4,4 +4,5 @@ RUN apk --update add ca-certificates
 FROM scratch
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY tc-cli tc-cli
+COPY envs /etc/envs
 ENTRYPOINT ["/tc-cli"]

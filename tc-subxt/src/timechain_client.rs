@@ -138,11 +138,11 @@ impl ITimechainClient for TimechainOnlineClient {
 		Ok(stream_with_txs.boxed())
 	}
 	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
-		let client = self.client.updater();
-		let mut stream = client.runtime_updates().await?;
+		let updater = self.client.updater();
+		let mut stream = updater.runtime_updates().await?;
 		let stream = futures::stream::try_unfold(stream, |mut stream| async move {
 			match stream.next().await {
-				Some(Ok(update)) => Ok(Some(update)),
+				Some(Ok(update)) => Ok(Some((update, stream))),
 				Some(Err(e)) => Err(e.into()),
 				None => Ok(None),
 			}
@@ -150,15 +150,17 @@ impl ITimechainClient for TimechainOnlineClient {
 
 		Ok(stream.boxed())
 	}
-	async fn apply_update(&self, update: Self::Update) -> Result<()> {
-		todo!()
-	}
 
-	// async fn runtime_updates(&self) {
-	// 	todo!()
-	// 	let updater= self.client.updater();
-	// 	let updates = updater.runtime_updates();
-	// }
+	async fn apply_update(&self, update: Self::Update) -> Result<()> {
+		let updater = self.client.updater();
+		let version = update.runtime_version().spec_version;
+		if let Err(e) = updater.apply_update(update) {
+			tracing::error!("Update to version {} failed: {:?}", version, e);
+		} else {
+			tracing::info!("Updating to version {}", version);
+		};
+		Ok(())
+	}
 }
 
 #[async_trait::async_trait]

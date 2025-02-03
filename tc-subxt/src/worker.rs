@@ -293,12 +293,10 @@ where
 	pub fn into_sender(
 		mut self,
 	) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<<C::Block as IBlock>::Extrinsic>)> {
-		// let updater = self.client.updater();
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			tracing::info!("starting subxt worker");
-			// let mut update_stream =
-			// 	updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
+			let mut update_stream = self.client.runtime_updates().await.unwrap().boxed();
 			let mut finalized_blocks = self.client.finalized_block_stream().await.unwrap().boxed();
 			let mut best_blocks = self.client.best_block_stream().await.unwrap().boxed();
 			loop {
@@ -385,19 +383,10 @@ where
 							}
 						}
 					}
-					// update = update_stream.next().fuse() => {
-					// 	let Some(Ok(update)) = update else { continue; };
-					// 	let version = update.runtime_version().spec_version;
-					// 	match updater.apply_update(update) {
-					// 		Ok(()) => {
-					// 			tracing::info!("Upgrade to version: {} successful", version)
-					// 		},
-					// 		Err(subxt::client::UpgradeError::SameVersion) => {}
-					// 		Err(e) => {
-					// 			tracing::error!("Upgrade to version {} failed {:?}", version, e);
-					// 		},
-					// 	};
-					// }
+					update = update_stream.next().fuse() => {
+						let Some(Ok(update)) = update else {continue};
+						self.client.apply_update(update);
+					}
 				}
 			}
 		});

@@ -28,6 +28,7 @@ impl ITransactionSubmitter for MockTransaction {
 impl ITimechainClient for MockClient {
 	type Submitter = MockTransaction;
 	type Block = MockBlock;
+	type Update = ();
 	async fn get_latest_block(&self) -> Result<BlockDetail> {
 		todo!()
 	}

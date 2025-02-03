@@ -16,8 +16,9 @@ impl Config {
 		let config = if let Ok(config) = std::env::var("CONFIG") {
 			config
 		} else {
-			std::fs::read_to_string(path.join(config))
-				.with_context(|| format!("failed to read config file {}", path.display()))?
+			let config = path.join(config);
+			std::fs::read_to_string(&config)
+				.with_context(|| format!("failed to read config file {}", config.display()))?
 		};
 		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
 		Ok(Self { path, yaml })

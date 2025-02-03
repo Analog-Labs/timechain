@@ -162,7 +162,5 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,tc_cli=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    volumes:
-    - './config/envs:/etc/envs'
     profiles:
     - never

@@ -86,6 +86,10 @@ pub mod pallet {
 		(14, 8_166_845_674 * ANLOG, Stage::Retired),
 		// Retry failed mints in stage 11
 		(15, 6_062_296 * ANLOG, Stage::AirdropMintOrAdd(data::v15::AIRDROPS_VALIDATORS_FAILED)),
+		// Airdrop Snapshot 4
+		(16, 1_336_147_462_613_682_971, Stage::AirdropMint(data::v16::AIRDROPS_SNAPSHOT_4)),
+		// Airdrop Move 2
+		(17, 0, Stage::AirdropTransfer(data::v17::AIRDROPS_MOVE_2)),
 	];
 
 	/// TODO: Difference to go to treasury:
@@ -93,6 +97,7 @@ pub mod pallet {
 	/// stage_8 = 20_288_873 * ANLOG;
 	/// stage_10 = 1_373_348 * ANLOG;
 	/// stage_11 = 105_317 * ANLOG;
+	/// stage_16 = 1_336_148 * ANLOG;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

@@ -140,6 +140,7 @@ pub struct NetworkConfig {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::collections::HashSet;
 
 	#[test]
 	fn make_sure_envs_parse() -> Result<()> {
@@ -150,6 +151,8 @@ mod tests {
 			if !env_dir.file_type()?.is_dir() {
 				continue;
 			}
+			let mut networks = HashSet::new();
+			let mut prices = HashSet::new();
 			for config in std::fs::read_dir(env_dir.path())? {
 				let config = config?;
 				if !config.file_type()?.is_file() {
@@ -159,8 +162,14 @@ mod tests {
 				if !config.ends_with(".yaml") {
 					continue;
 				}
-				Config::from_env(env_dir.path(), &config).unwrap();
+				let config = Config::from_env(env_dir.path(), &config).unwrap();
+				networks.extend(config.networks().keys().copied());
+				let prices_path = config.prices();
+				let prices_csv =
+					crate::gas_price_calculator::read_csv_token_prices(&prices_path).unwrap();
+				prices.extend(prices_csv.keys().copied());
 			}
+			assert_eq!(prices, networks, "{}", env_dir.path().display());
 		}
 		Ok(())
 	}

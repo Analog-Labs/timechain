@@ -11,6 +11,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::Path;
 use time_primitives::NetworkId;
 
 #[derive(Clone, Deserialize)]
@@ -130,6 +131,18 @@ pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 		.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
 }
 
+pub fn read_csv_token_prices(price_path: &Path) -> Result<HashMap<NetworkId, (String, f64)>> {
+	let mut rdr = Reader::from_path(&price_path)
+		.with_context(|| format!("failed to open {}", price_path.display()))?;
+
+	let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
+	for result in rdr.deserialize() {
+		let record: NetworkPrice = result?;
+		network_map.insert(record.network_id, (record.symbol, record.usd_price));
+	}
+	Ok(network_map)
+}
+
 impl Tc {
 	pub async fn fetch_token_prices(&self) -> Result<()> {
 		let env = CoinMarketCap::from_env()?;
@@ -170,16 +183,7 @@ impl Tc {
 	}
 
 	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		let price_path = self.config.prices();
-		let mut rdr = Reader::from_path(&price_path)
-			.with_context(|| format!("failed to open {}", price_path.display()))?;
-
-		let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
-		for result in rdr.deserialize() {
-			let record: NetworkPrice = result?;
-			network_map.insert(record.network_id, (record.symbol, record.usd_price));
-		}
-		Ok(network_map)
+		read_csv_token_prices(&self.config.prices())
 	}
 
 	pub fn calculate_relative_price(

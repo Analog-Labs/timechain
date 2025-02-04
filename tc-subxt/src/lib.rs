@@ -3,21 +3,15 @@ use crate::worker::{SubxtWorker, Tx};
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::stream::BoxStream;
-use futures::StreamExt;
 use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
-use subxt::backend::legacy::rpc_methods::BlockStats;
 use subxt::backend::rpc::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as Client};
 use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParams;
-use subxt::tx::Payload as TxPayload;
-use subxt::utils::H256 as SubxtH256;
 use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
-use timechain_client::{
-	IBlock, IExtrinsic, ITimechainClient, TimechainExtrinsic, TimechainOnlineClient,
-};
+use timechain_client::{IExtrinsic, TimechainExtrinsic, TimechainOnlineClient};
 
 use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
 

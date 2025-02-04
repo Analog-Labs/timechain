@@ -15,16 +15,6 @@ pub struct MockExtrinsic;
 pub struct MockEvent;
 
 #[async_trait::async_trait]
-impl ITransactionSubmitter for MockTransaction {
-	fn hash(&self) -> H256 {
-		self.hash
-	}
-	async fn submit(&self) -> Result<H256> {
-		Ok(self.hash)
-	}
-}
-
-#[async_trait::async_trait]
 impl ITimechainClient for MockClient {
 	type Submitter = MockTransaction;
 	type Block = MockBlock;
@@ -56,8 +46,18 @@ impl ITimechainClient for MockClient {
 	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
 		todo!()
 	}
-	async fn apply_update(&self, update: Self::Update) -> Result<()> {
+	fn apply_update(&self, update: Self::Update) -> Result<()> {
 		todo!()
+	}
+}
+
+#[async_trait::async_trait]
+impl ITransactionSubmitter for MockTransaction {
+	fn hash(&self) -> H256 {
+		self.hash
+	}
+	async fn submit(&self) -> Result<H256> {
+		Ok(self.hash)
 	}
 }
 

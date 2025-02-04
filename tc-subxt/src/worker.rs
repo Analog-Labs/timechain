@@ -11,7 +11,6 @@ use std::pin::Pin;
 use std::time::Duration;
 use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
-use subxt::tx::Payload as TxPayload;
 use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
@@ -344,7 +343,7 @@ where
 						};
 
 						self.latest_block = BlockDetail {
-							number: block.number().into(),
+							number: block.number(),
 							hash: block.hash()
 						};
 
@@ -385,7 +384,7 @@ where
 					}
 					update = update_stream.next().fuse() => {
 						let Some(Ok(update)) = update else {continue};
-						self.client.apply_update(update);
+						self.client.apply_update(update).ok();
 					}
 				}
 			}

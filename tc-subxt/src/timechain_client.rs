@@ -28,7 +28,7 @@ pub trait ITimechainClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>;
 	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>>;
-	async fn apply_update(&self, update: Self::Update) -> Result<()>;
+	fn apply_update(&self, update: Self::Update) -> Result<()>;
 }
 
 #[async_trait::async_trait]
@@ -139,7 +139,7 @@ impl ITimechainClient for TimechainOnlineClient {
 	}
 	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
 		let updater = self.client.updater();
-		let mut stream = updater.runtime_updates().await?;
+		let stream = updater.runtime_updates().await?;
 		let stream = futures::stream::try_unfold(stream, |mut stream| async move {
 			match stream.next().await {
 				Some(Ok(update)) => Ok(Some((update, stream))),
@@ -151,7 +151,7 @@ impl ITimechainClient for TimechainOnlineClient {
 		Ok(stream.boxed())
 	}
 
-	async fn apply_update(&self, update: Self::Update) -> Result<()> {
+	fn apply_update(&self, update: Self::Update) -> Result<()> {
 		let updater = self.client.updater();
 		let version = update.runtime_version().spec_version;
 		if let Err(e) = updater.apply_update(update) {

@@ -1,4 +1,3 @@
-use crate::timechain_client::ITimechainClient;
 use crate::worker::Tx;
 use crate::{metadata, SubxtClient};
 use anyhow::Result;

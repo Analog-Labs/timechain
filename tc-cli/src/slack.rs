@@ -1,5 +1,6 @@
 use anyhow::Result;
 use slack_morphism::prelude::*;
+use std::cell::OnceCell;
 
 #[derive(Default)]
 pub struct Sender {
@@ -48,6 +49,7 @@ struct Slack {
 	client: SlackHyperClient,
 	token: SlackApiToken,
 	channel: SlackChannelId,
+	thread: OnceCell<SlackTs>,
 }
 
 impl Slack {
@@ -57,20 +59,26 @@ impl Slack {
 		let token = SlackApiToken::new(token_value);
 		let channel = std::env::var("SLACK_CHANNEL_ID")?;
 		let channel = SlackChannelId::new(channel);
+		let thread = OnceCell::new();
+		if let Ok(ts) = std::env::var("SLACK_THREAD_TS") {
+			thread.set(SlackTs::new(ts)).ok();
+		}
 		rustls::crypto::ring::default_provider()
 			.install_default()
 			.expect("Failed to install rustls crypto provider");
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
-		Ok(Self { client, token, channel })
+		Ok(Self { client, token, channel, thread })
 	}
 
 	pub async fn post_message(&self, message: String) -> Result<()> {
 		let session = self.client.open_session(&self.token);
-		let req = SlackApiChatPostMessageRequest::new(
+		let mut req = SlackApiChatPostMessageRequest::new(
 			self.channel.clone(),
 			SlackMessageContent::new().with_text(message),
 		);
-		session.chat_post_message(&req).await?;
+		req.mopt_thread_ts(self.thread.get().cloned());
+		let resp = session.chat_post_message(&req).await?;
+		self.thread.set(resp.ts).ok();
 		Ok(())
 	}
 

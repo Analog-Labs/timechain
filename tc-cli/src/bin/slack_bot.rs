@@ -1,5 +1,4 @@
 use anyhow::Result;
-use axum::extract::State;
 use axum::Extension;
 use reqwest::Client;
 use serde_json::json;
@@ -41,31 +40,34 @@ impl Command {
 		format!("https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches")
 	}
 
-	fn inputs(&self, env: Env) -> serde_json::Value {
+	fn inputs(&self, env: Env, thread: SlackTs) -> serde_json::Value {
 		match self {
 			Self::TcCli { tag, args } => {
 				json!({
 					"environment": env.to_string(),
 					"version": tag,
 					"args": args,
+					"thread": thread.0,
 				})
 			},
 			Self::RuntimeUpgrade => {
 				json!({
 					"environment": env.to_string(),
+					"thread": thread.0,
 				})
 			},
 			Self::DeployChronicles { tag } => {
 				json!({
 					"environment": env.to_string(),
 					"version": tag,
+					"thread": thread.0,
 				})
 			},
 		}
 	}
 
-	fn json(&self, branch: &str, env: Env) -> serde_json::Value {
-		let inputs = self.inputs(env);
+	fn json(&self, branch: &str, env: Env, thread: SlackTs) -> serde_json::Value {
+		let inputs = self.inputs(env, thread);
 		serde_json::json!({
 			"ref": branch,
 			"inputs": inputs,
@@ -107,12 +109,18 @@ impl GithubState {
 		Ok(Self { client, token, user_agent })
 	}
 
-	async fn trigger_workflow(&self, command: &Command, branch: &str, env: Env) -> Result<()> {
+	async fn trigger_workflow(
+		&self,
+		command: &Command,
+		branch: &str,
+		env: Env,
+		ts: SlackTs,
+	) -> Result<()> {
 		tracing::info!("triggering {command} in {env}");
 		let request = self
 			.client
 			.post(command.url())
-			.json(&command.json(branch, env))
+			.json(&command.json(branch, env, ts))
 			.bearer_auth(&self.token)
 			.header("Accept", "application/vnd.github+json")
 			.header("X-Github-Api-Version", "2022-11-28")
@@ -128,13 +136,40 @@ impl GithubState {
 	}
 }
 
+#[derive(Clone)]
+struct SlackState {
+	client: SlackHyperClient,
+	token: SlackApiToken,
+}
+
+impl SlackState {
+	fn new() -> Result<Self> {
+		let token = std::env::var("SLACK_BOT_TOKEN")?;
+		let token_value = SlackApiTokenValue::new(token);
+		let token = SlackApiToken::new(token_value);
+		let client = SlackClient::new(SlackClientHyperConnector::new()?);
+		Ok(Self { client, token })
+	}
+
+	async fn post_command(&self, channel: SlackChannelId, command: &Command) -> Result<SlackTs> {
+		let session = self.client.open_session(&self.token);
+		let req = SlackApiChatPostMessageRequest::new(
+			channel,
+			SlackMessageContent::new().with_text(command.to_string()),
+		);
+		let resp = session.chat_post_message(&req).await?;
+		Ok(resp.ts)
+	}
+}
+
 fn slack_error(error: String) -> axum::Json<SlackCommandEventResponse> {
 	tracing::error!("{error}");
 	axum::Json(SlackCommandEventResponse::new(SlackMessageContent::new().with_text(error)))
 }
 
 async fn command_event(
-	State(gh): State<GithubState>,
+	Extension(gh): Extension<GithubState>,
+	Extension(slack): Extension<SlackState>,
 	Extension(_environment): Extension<Arc<SlackHyperListenerEnvironment>>,
 	Extension(event): Extension<SlackCommandEvent>,
 ) -> axum::Json<SlackCommandEventResponse> {
@@ -166,13 +201,17 @@ async fn command_event(
 			return slack_error(format!("unknown channel {}", &event.channel_id.0));
 		},
 	};
-	if let Err(err) = gh.trigger_workflow(&command, branch, env).await {
+
+	let ts = match slack.post_command(event.channel_id, &command).await {
+		Ok(ts) => ts,
+		Err(err) => return slack_error(format!("starting slack thread failed: {err}")),
+	};
+	if let Err(err) = gh.trigger_workflow(&command, branch, env, ts).await {
 		return slack_error(format!("triggering workflow failed: {err}"));
 	}
-	axum::Json(
-		SlackCommandEventResponse::new(SlackMessageContent::new().with_text(command.to_string()))
-			.with_response_type(SlackMessageResponseType::InChannel),
-	)
+	axum::Json(SlackCommandEventResponse::new(
+		SlackMessageContent::new().with_text(command.to_string()),
+	))
 }
 
 fn error_handler(
@@ -202,16 +241,17 @@ async fn server() -> Result<()> {
 		SlackEventsAxumListener::new(listener_environment.clone());
 
 	// build our application route with OAuth nested router and Push/Command/Interaction events
-	let app = axum::routing::Router::new().route(
-		"/command",
-		axum::routing::post(command_event)
-			.layer(
+	let app = axum::routing::Router::new()
+		.route(
+			"/command",
+			axum::routing::post(command_event).layer(
 				listener
 					.events_layer(&signing_secret)
 					.with_event_extractor(SlackEventsExtractors::command_event()),
-			)
-			.with_state(GithubState::new()?),
-	);
+			),
+		)
+		.layer(Extension(GithubState::new()?))
+		.layer(Extension(SlackState::new()?));
 
 	axum::serve(TcpListener::bind(&addr).await.unwrap(), app).await.unwrap();
 

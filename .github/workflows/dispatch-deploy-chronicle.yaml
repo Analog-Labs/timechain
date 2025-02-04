@@ -24,6 +24,10 @@ on:
         options:
           - development
           - integration
+      thread:
+        description: "Slack thread id"
+        required: false
+        type: string
 
 env:
   # NOTE: chronicle-dev image is hardcoded (works for current envs now)
@@ -109,4 +113,5 @@ jobs:
         token: ${{ secrets.SLACK_BOT_TOKEN }}
         payload: |
           channel: ${{ secrets.SLACK_CHANNEL_ID }}
+          thread_ts: ${{ github.event.inputs.thread }}
           text: "redeployed chronicles from ${{ steps.check-image.outputs.IMAGE }}"

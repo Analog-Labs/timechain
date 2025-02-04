@@ -16,9 +16,9 @@ use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	storage::unhashed,
+	traits::Currency,
 	//traits::tokens::imbalance::ResolveTo,
 	traits::{ConstU32, OnRuntimeUpgrade},
-	traits::Currency,
 	weights::Weight,
 	PalletId,
 };
@@ -71,19 +71,16 @@ impl OnRuntimeUpgrade for StakingMigration {
 
 		// Migrate validators to new pallet
 		for validator in Session::validators() {
-
 			// Provide minimum stake
 			// FIXME: Add source and vesting here!
 			let _ = Balances::deposit_creating(&validator, MIN_STAKE);
 
 			// Setup staking by bonding and signaling intent
 			let origin = RuntimeOrigin::from(Some(validator.clone()));
-			if Staking::bond(origin.clone(), MIN_STAKE, RewardDestination::Staked).is_err()
-			{
+			if Staking::bond(origin.clone(), MIN_STAKE, RewardDestination::Staked).is_err() {
 				log::error!("😵 Failed to bond validator: {:?}", validator.clone());
 			}
-			if Staking::validate(origin, Default::default()).is_err()
-			{
+			if Staking::validate(origin, Default::default()).is_err() {
 				log::error!("😵‍💫 Failed to enable validator: {:?}", validator.clone());
 			}
 		}

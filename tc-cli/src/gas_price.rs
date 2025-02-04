@@ -224,10 +224,7 @@ impl Tc {
 		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
 
 		log::info!(
-			r#"src to dest relative gas price (rational): {}/{}
-src to dest relative gas price (decimal) : {}"#,
-			src_to_dest.numer(),
-			src_to_dest.denom(),
+			"relative gas price {src_network} -> {dest_network}: {}",
 			to_fixed(src_to_dest.clone(), None),
 		);
 		Ok(src_to_dest)

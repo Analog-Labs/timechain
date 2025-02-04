@@ -167,8 +167,7 @@ mod tests {
 				let config = Config::from_env(env_dir.path(), &config).unwrap();
 				networks.extend(config.networks().keys().copied());
 				let prices_path = config.prices();
-				let prices_csv =
-					crate::gas_price_calculator::read_csv_token_prices(&prices_path).unwrap();
+				let prices_csv = crate::gas_price::read_csv_token_prices(&prices_path).unwrap();
 				prices.extend(prices_csv.keys().copied());
 			}
 			assert_eq!(prices, networks, "{}", env_dir.path().display());

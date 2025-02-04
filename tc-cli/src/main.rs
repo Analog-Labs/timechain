@@ -39,8 +39,8 @@ struct Args {
 }
 
 impl Args {
-	async fn tc(&self) -> Result<Tc> {
-		let tc = Tc::new(self.env.clone(), &self.config, Sender::new()).await?;
+	async fn tc(&self, sender: Sender) -> Result<Tc> {
+		let tc = Tc::new(self.env.clone(), &self.config, sender).await?;
 		Ok(tc)
 	}
 }
@@ -185,10 +185,11 @@ async fn main() {
 async fn real_main() -> Result<()> {
 	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
+	let sender = Sender::new();
 	let args = Args::parse();
 	tracing::info!("main");
 	let now = std::time::SystemTime::now();
-	let tc = args.tc().await?;
+	let tc = args.tc(sender).await?;
 	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
 	match args.cmd {

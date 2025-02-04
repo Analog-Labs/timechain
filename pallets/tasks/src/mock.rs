@@ -13,7 +13,7 @@ use frame_support::traits::{
 };
 use frame_support::PalletId;
 
-use sp_core::{ConstU128, ConstU32, ConstU64};
+use sp_core::{ConstU128, ConstU32, ConstU64, ConstU16};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, DispatchResult, MultiSignature, Permill,
@@ -102,7 +102,7 @@ frame_support::construct_runtime!(
 	pub struct Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
+		Tasks: pallet_tasks,
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Members: pallet_members,
 		Elections: pallet_elections,
@@ -267,6 +267,7 @@ impl pallet_networks::Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Tasks = Tasks;
+	type TimechainNetworkId = ConstU16<1000>;
 }
 
 impl pallet_tasks::Config for Test {

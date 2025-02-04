@@ -1,28 +1,35 @@
-use crate as pallet_assets_bridge;
-
-use polkadot_sdk::*;
-
+use crate::{self as pallet_assets_bridge};
 use core::marker::PhantomData;
-use frame_support::traits::{Get,
+
+use polkadot_sdk::{
+	frame_support, frame_system, pallet_balances, pallet_treasury, sp_core, sp_io, sp_runtime,
+	sp_std,
+};
+
+use frame_support::derive_impl;
+use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnInitialize,
 };
-use frame_support::{derive_impl, PalletId};
-use sp_core::{ConstU128, ConstU32, ConstU64};
+use frame_support::PalletId;
+
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
 use sp_runtime::{
-	traits::{parameter_types, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchError, MultiSignature, Permill,
+	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
+	BuildStorage, DispatchResult, MultiSignature, Permill,
+};
+use sp_std::cell::RefCell;
+use sp_std::collections::btree_map::BTreeMap;
+
+use time_primitives::{
+	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
+	PublicKey, ShardsInterface,
 };
 
-use time_primitives::{Address, ElectionsInterface, NetworkId, NetworksInterface, PublicKey};
-
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Signature = MultiSignature;
-
-pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
-}
 
 pub struct MockNetworks;
 
@@ -50,14 +57,57 @@ impl NetworksInterface for MockNetworks {
 	}
 }
 
+pub struct MockMembers;
+
+impl MembersInterface for MockMembers {
+	fn member_stake(_: &AccountId) -> Balance {
+		0u128
+	}
+	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
+		None
+	}
+	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
+		Some(sp_runtime::MultiSigner::Sr25519(sp_core::sr25519::Public::from_raw([0u8; 32])))
+	}
+	fn is_member_online(_: &AccountId) -> bool {
+		true
+	}
+	fn total_stake() -> u128 {
+		0u128
+	}
+	fn transfer_stake(_: &AccountId, _: &AccountId, _: Balance) -> DispatchResult {
+		Ok(())
+	}
+	fn unstake_member(_account: &AccountId) {}
+	fn is_member_registered(_account: &AccountId) -> bool {
+		true
+	}
+}
+
+pub struct MockElections;
+
+impl ElectionsInterface for MockElections {
+	type MaxElectionsPerBlock = ConstU32<10>;
+	fn shard_offline(_: NetworkId, _: Vec<AccountId>) {}
+	fn member_online(member: &AccountId, network: NetworkId) {
+		Shards::member_online(member, network)
+	}
+	fn member_offline(member: &AccountId, network: NetworkId) {
+		Shards::member_offline(member, network)
+	}
+}
+
+// Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub struct Test
-	{
+	pub struct Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		Treasury: pallet_treasury,
 		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
+		Members: pallet_members,
+		Elections: pallet_elections,
+		Treasury: pallet_treasury,
+		Networks: pallet_networks,
 	}
 );
 
@@ -66,9 +116,9 @@ impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeTask = RuntimeTask;
-	type Block = Block;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type PalletInfo = PalletInfo;
@@ -82,6 +132,49 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+}
+
+thread_local! {
+	pub static PAID: RefCell<BTreeMap<(u128, u32), u128>> = const { RefCell::new(BTreeMap::new()) };
+	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = const { RefCell::new(BTreeMap::new()) };
+	pub static LAST_ID: RefCell<u64> = const { RefCell::new(0u64) };
+}
+
+/// set status for a given payment id
+#[allow(dead_code)]
+fn set_status(id: u64, s: PaymentStatus) {
+	STATUS.with(|m| m.borrow_mut().insert(id, s));
+}
+
+pub struct TestPay;
+impl Pay for TestPay {
+	type Beneficiary = u128;
+	type Balance = u128;
+	type Id = u64;
+	type AssetKind = u32;
+	type Error = ();
+
+	fn pay(
+		who: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		PAID.with(|paid| *paid.borrow_mut().entry((*who, asset_kind)).or_default() += amount);
+		Ok(LAST_ID.with(|lid| {
+			let x = *lid.borrow();
+			lid.replace(x + 1);
+			x
+		}))
+	}
+	fn check_payment(id: Self::Id) -> PaymentStatus {
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id) {
+		set_status(id, PaymentStatus::Failure)
+	}
 }
 
 parameter_types! {
@@ -139,14 +232,42 @@ impl pallet_treasury::Config for Test {
 	type BenchmarkHelper = ();
 }
 
+impl pallet_members::Config for Test {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Elections = MockElections;
+	type Shards = Shards;
+	type MinStake = ConstU128<5>;
+	type HeartbeatTimeout = ConstU64<10>;
+	type MaxTimeoutsPerBlock = ConstU32<100>;
+}
+
+impl pallet_elections::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Shards = Shards;
+	type Members = Members;
+	type Networks = MockNetworks;
+	type MaxElectionsPerBlock = ConstU32<10>;
+}
+
 impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
-	type Tasks = Tasks;
-	type Members = ();
-	type Elections = ();
+	type Tasks = pallet_tasks::Pallet<Test>;
+	type Members = MockMembers;
+	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
+}
+
+impl pallet_networks::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+	type Tasks = Tasks;
+	type TimechainNetworkId = ConstU16<1000>;
 }
 
 impl pallet_tasks::Config for Test {
@@ -159,19 +280,68 @@ impl pallet_tasks::Config for Test {
 	type MaxBatchesPerBlock = ConstU32<4>;
 }
 
-pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: RuntimeCall,
+		_public: <Signature as Verify>::Signer,
+		account: AccountId,
+		_nonce: u32,
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+	)> {
+		Some((call, (account, (), ())))
+	}
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type Extrinsic = UncheckedExtrinsic;
+	type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	let _ = env_logger::try_init();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	// pallet_balances::GenesisConfig::<Test> {
-	// 	balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
-	// }
-	// .assimilate_storage(&mut storage)
-	// .unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![
+			(acc_pub(0).into(), 10_000_000_000),
+			(acc_pub(1).into(), 20_000_000_000),
+			(TreasuryAccount::get(), 30_000_000_000),
+		],
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
+	sp_core::sr25519::Public::from_raw([acc_num; 32])
+}
+
+pub fn roll(n: u64) {
+	for _ in 0..n {
+		next_block();
+	}
+}
+
+fn next_block() {
+	let mut now = System::block_number();
+	now += 1;
+	System::set_block_number(now);
+	Shards::on_initialize(now);
+	Tasks::on_initialize(now);
 }

@@ -1,4 +1,7 @@
-use crate::{self as pallet_assets_bridge};
+use crate::{
+	self as pallet_assets_bridge, AssetTeleporter, BalanceOf, BeneficiaryOf, NetworkDataOf,
+	NetworkIdOf,
+};
 use core::marker::PhantomData;
 
 use polkadot_sdk::{
@@ -97,6 +100,27 @@ impl ElectionsInterface for MockElections {
 	}
 }
 
+impl AssetTeleporter<Test> for Tasks {
+	/// Attempt to register `network_id` with `data`.
+	fn handle_register(
+		_network_id: NetworkIdOf<Test>,
+		_data: &mut NetworkDataOf<Test>,
+	) -> DispatchResult {
+		Ok(())
+	}
+
+	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
+	/// This method is called only after the asset get successfully locked in this pallet.
+	fn handle_teleport(
+		_network_id: NetworkIdOf<Test>,
+		_details: &mut NetworkDataOf<Test>,
+		_beneficiary: BeneficiaryOf<Test>,
+		_amount: BalanceOf<Test>,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub struct Test {
@@ -108,6 +132,7 @@ frame_support::construct_runtime!(
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
 		Networks: pallet_networks,
+		Bridge: pallet_assets_bridge,
 	}
 );
 
@@ -123,6 +148,24 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
+}
+
+parameter_types! {
+	pub const BridgePalletId: PalletId = PalletId(*b"py/trsry");
+}
+
+impl pallet_assets_bridge::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+
+	type TeleportBaseFee = ConstU128<100>;
+	type PalletId = BridgePalletId;
+	type Currency = pallet_balances::Pallet<Test>;
+	type FeeDestination = Treasury;
+	type NetworkId = ();
+	type NetworkData = ();
+	type Beneficiary = ();
+	type Teleporter = Tasks;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

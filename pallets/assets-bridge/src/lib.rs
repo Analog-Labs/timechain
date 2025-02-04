@@ -39,19 +39,20 @@ pub type BalanceOf<T> =
 
 pub type NetworkDataOf<T> = <T as Config>::NetworkData;
 pub type NetworkDetailsOf<T> = NetworkDetails<BalanceOf<T>, NetworkDataOf<T>>;
+pub type BeneficiaryOf<T> = <T as Config>::Beneficiary;
 
 /// Teleport handlers.
-pub trait AssetTeleporter<NetworkId, NetworkData, Beneficiary, Balance> {
+pub trait AssetTeleporter<T: Config> {
 	/// Attempt to register `network_id` with `data`.
-	fn handle_register(network_id: NetworkId, data: &mut NetworkData) -> DispatchResult;
+	fn handle_register(network_id: NetworkIdOf<T>, data: &mut NetworkDataOf<T>) -> DispatchResult;
 
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
 	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
-		network_id: NetworkId,
-		details: &mut NetworkData,
-		beneficiary: Beneficiary,
-		amount: Balance,
+		network_id: NetworkIdOf<T>,
+		details: &mut NetworkDataOf<T>,
+		beneficiary: BeneficiaryOf<T>,
+		amount: BalanceOf<T>,
 	) -> DispatchResult;
 }
 
@@ -104,12 +105,7 @@ pub mod pallet {
 		type FeeDestination: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		/// Handler responsible to teleport the assets.
-		type Teleporter: AssetTeleporter<
-			Self::NetworkId,
-			Self::NetworkData,
-			Self::Beneficiary,
-			BalanceOf<Self>,
-		>;
+		type Teleporter: AssetTeleporter<Self>;
 
 		/// Network unique identifier
 		type NetworkId: Parameter + MaxEncodedLen;
@@ -120,8 +116,8 @@ pub mod pallet {
 		/// Type parameter used to identify the beneficiaries eligible to receive treasury spends.
 		type Beneficiary: Parameter + MaxEncodedLen;
 
-		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
-		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
+		//		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
+		//		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>

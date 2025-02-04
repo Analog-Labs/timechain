@@ -164,8 +164,6 @@ impl Connector {
 		let deployer_address = self.parse_address(&config.factory_deployer)?;
 
 		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		self.faucet().await?;
-		tracing::info!("wallet balance: {:?}", self.balance(self.address()).await);
 		self.transfer(deployer_address, config.required_balance).await?;
 
 		//Step2: load transaction from config

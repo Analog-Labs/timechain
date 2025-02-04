@@ -164,8 +164,6 @@ impl Connector {
 		let deployer_address = self.parse_address(&config.factory_deployer)?;
 
 		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		self.faucet().await?;
-		tracing::info!("wallet balance: {:?}", self.balance(self.address()).await);
 		self.transfer(deployer_address, config.required_balance).await?;
 
 		//Step2: load transaction from config
@@ -174,7 +172,7 @@ impl Connector {
 		//Step3: send eth_rawTransaction
 		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
-		tracing::info!("Deployed factory with hash: {:?}", tx_hash);
+		tracing::info!("factory deployed with tx: {:?}", tx_hash);
 		Ok(())
 	}
 
@@ -200,8 +198,6 @@ impl Connector {
 			creationCode: gateway_init_code.into(),
 		}
 		.abi_encode();
-
-		tracing::info!("Deploying gateway ...");
 
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let (gateway_address, _) =
@@ -295,7 +291,6 @@ impl Connector {
 		}
 		.abi_encode();
 
-		tracing::info!("Deploying proxy ...");
 		let (proxy_address, block) =
 			self.deploy_contract_with_factory(factory_address, proxy_init_call).await?;
 
@@ -306,7 +301,7 @@ impl Connector {
 				proxy_address
 			);
 		}
-		tracing::info!("Proxy deployed at: {}", proxy_address);
+		tracing::info!("proxy deployed at: {}", proxy_address);
 		Ok((proxy_address, block))
 	}
 
@@ -548,7 +543,7 @@ impl IConnector for Connector {
 							cctp_queue.push((gmp_message.clone(), 0));
 						} else {
 							tracing::info!(
-								"GMP Created: {:?}",
+								"gmp created: {:?}",
 								hex::encode(gmp_message.message_id())
 							);
 							events.push(GmpEvent::MessageReceived(gmp_message));
@@ -557,7 +552,7 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log, true)?;
-						tracing::info!("GMP Executed: {:?}", hex::encode(log.id));
+						tracing::info!("gmp executed: {:?}", hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 						break;
 					},
@@ -571,7 +566,6 @@ impl IConnector for Connector {
 					},
 					_ => {},
 				}
-				tracing::info!("logsiter 3");
 			}
 		}
 		// CCTP calls processing
@@ -610,10 +604,10 @@ impl IConnector for Connector {
 				ops,
 			},
 		};
-		tracing::info!("Submitting batch: {batch} to gateway with gas: {gas_limit}");
+		tracing::info!("submitting batch {batch} with {gas_limit} gas");
 		let _guard = self.wallet_guard.lock().await;
 		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
-			tracing::info!("Error occured on gmp call: {:?}", err);
+			tracing::info!("failed to submit batch: {:?}", err);
 			err.to_string()
 		})?;
 		Ok(())
@@ -638,10 +632,7 @@ impl IConnectorAdmin for Connector {
 			.await?;
 
 		if is_factory_deployed.is_empty() {
-			tracing::info!("Factory is not deployed");
 			self.deploy_factory(&config).await?;
-		} else {
-			tracing::info!("Factory is deployed: {:?}", is_factory_deployed.len());
 		}
 
 		// proxy address computation

@@ -711,8 +711,13 @@ impl Tc {
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};
-				if routes.contains(&route) {
-					continue;
+				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
+					if r.gas_limit == route.gas_limit
+						&& r.base_fee == route.base_fee
+						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
+					{
+						continue;
+					}
 				}
 				self.println(format!("register_route {src} {dest}")).await?;
 				connector.set_route(src_gateway, route).await?;
@@ -810,11 +815,11 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		let gateway = self.register_network(network).await?;
 		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
 			self.println("admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}
+		let gateway = self.register_network(network).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
 		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
 		Ok(gateway)

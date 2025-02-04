@@ -153,6 +153,7 @@ mod tests {
 			}
 			let mut networks = HashSet::new();
 			let mut prices = HashSet::new();
+			println!("env {}", env_dir.file_name().into_string().unwrap());
 			for config in std::fs::read_dir(env_dir.path())? {
 				let config = config?;
 				if !config.file_type()?.is_file() {
@@ -162,6 +163,7 @@ mod tests {
 				if !config.ends_with(".yaml") {
 					continue;
 				}
+				println!("  config {}", config);
 				let config = Config::from_env(env_dir.path(), &config).unwrap();
 				networks.extend(config.networks().keys().copied());
 				let prices_path = config.prices();

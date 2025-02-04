@@ -21,6 +21,7 @@ separator = "0.4.1"
 [dependencies]
 log = { workspace = true }
 
+hex-literal = "0.4.1"
 smallvec = "1.8.0"
 
 scale-codec = { workspace = true, features = [ "max-encoded-len" ] }

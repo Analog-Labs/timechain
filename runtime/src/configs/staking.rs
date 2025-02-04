@@ -1,5 +1,8 @@
 //! Nominated Proof of Stake Config
 
+use frame_system::RawOrigin;
+use pallet_nomination_pools::ConfigOp as PoolOp;
+use pallet_staking::{ConfigOp as StakingOp, RewardDestination};
 use scale_codec::Decode;
 
 use polkadot_sdk::*;
@@ -12,8 +15,10 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
+	storage::unhashed,
 	//traits::tokens::imbalance::ResolveTo,
-	traits::ConstU32,
+	traits::{ConstU32, OnRuntimeUpgrade},
+	traits::Currency,
 	weights::Weight,
 	PalletId,
 };
@@ -31,9 +36,130 @@ use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
 	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
+	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, Session, SessionsPerEra, Staking,
 	Timestamp, TransactionPayment, VoterList, ANLOG,
 };
+
+const POOL_ADMIN: [u8; 32] =
+	hex_literal::hex!["36af0a8a854c8e20275474d6de2a5d29c34fa62896847850b6f09b58eb8d6c06"];
+const MIN_STAKE: Balance = 100_000 * ANLOG;
+
+pub struct StakingMigration();
+
+impl OnRuntimeUpgrade for StakingMigration {
+	/// Set some sensible defaults during the staking update.
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		// Ensure there are always at least a minimum amount of validators
+		pallet_staking::MinimumValidatorCount::<Runtime>::put(4);
+
+		// Lock down nominations
+		if let Err(error) = Staking::set_staking_configs(
+			RawOrigin::Root.into(),
+			// min nominator and validator bond
+			StakingOp::Set(MIN_STAKE),
+			StakingOp::Set(MIN_STAKE),
+			// max nominator and validator count
+			StakingOp::Set(1),
+			StakingOp::Set(100),
+			// others
+			StakingOp::Noop,
+			StakingOp::Noop,
+			StakingOp::Noop,
+		) {
+			log::error!("🤒 Failed to configure staking: {:?}", error);
+		}
+
+		// Migrate validators to new pallet
+		for validator in Session::validators() {
+
+			// Provide minimum stake
+			// FIXME: Add source and vesting here!
+			let _ = Balances::deposit_creating(&validator, MIN_STAKE);
+
+			// Setup staking by bonding and signaling intent
+			let origin = RuntimeOrigin::from(Some(validator.clone()));
+			if Staking::bond(origin.clone(), MIN_STAKE, RewardDestination::Staked).is_err()
+			{
+				log::error!("😵 Failed to bond validator: {:?}", validator.clone());
+			}
+			if Staking::validate(origin, Default::default()).is_err()
+			{
+				log::error!("😵‍💫 Failed to enable validator: {:?}", validator.clone());
+			}
+		}
+
+		// Limit validator set to current count
+		let count: u32 = Session::validators()
+			.len()
+			.try_into()
+			.expect("Validator count does fit into u32.");
+		if Staking::set_validator_count(RawOrigin::Root.into(), count).is_err() {
+			log::error!("🤕 Failed to set validator count: {count}");
+		}
+
+		// Allow only one pool
+		if let Err(error) = NominationPools::set_configs(
+			RawOrigin::Root.into(),
+			PoolOp::Noop,
+			PoolOp::Set(MIN_STAKE),
+			PoolOp::Set(1),
+			// Remove all member limits
+			PoolOp::Remove,
+			PoolOp::Remove,
+			// No max commission
+			PoolOp::Noop,
+		) {
+			log::error!("🥴 Failed to configure nomination pools: {:?}", error);
+		}
+
+		// Setup default staking pool
+		let pool_admin: AccountId = POOL_ADMIN.into();
+		// FIXME: Add source and vesting here!
+		let _ = Balances::deposit_creating(&pool_admin, MIN_STAKE + 10 * ANLOG);
+
+		if let Err(error) = NominationPools::create(
+			RawOrigin::Signed(pool_admin.clone()).into(),
+			MIN_STAKE,
+			pool_admin.clone().into(),
+			pool_admin.clone().into(),
+			pool_admin.clone().into(),
+		) {
+			log::error!("🫨 Failed to setup staking pool: {:?}", error);
+		}
+
+		if NominationPools::set_metadata(
+			RawOrigin::Signed(pool_admin.clone()).into(),
+			1,
+			b"Analog One - Bootstaking".to_vec(),
+		)
+		.is_err()
+		{
+			log::error!("🤧 Failed to setup staking pool metadata");
+		}
+
+		// Nominate all validators
+		if let Err(error) = NominationPools::nominate(
+			RawOrigin::Signed(pool_admin.clone()).into(),
+			1,
+			Session::validators(),
+		) {
+			log::error!("🤯 Failed to nominate validators: {error:?}");
+		}
+
+		// Clear old validator manager
+		let deleted = unhashed::clear_prefix(
+			&hex_literal::hex!["084e7f70a295a190e2e33fd3f8cdfcc2"],
+			None,
+			None,
+		)
+		.backend;
+		log::info!("☠ Cleared old validator manager: {deleted}");
+
+		log::info!("🖖 Completed migration to proof of stake");
+
+		Weight::zero()
+	}
+}
 
 parameter_types! {
 	/// This phase determines the time window, in blocks, during which signed

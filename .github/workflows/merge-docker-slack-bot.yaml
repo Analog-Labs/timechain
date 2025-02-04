@@ -1,8 +1,8 @@
-name: Build Docker tc-cli
+name: Build Docker slack bot
 on:
   push:
     paths:
-      - '.github/workflows/merge-docker-tc-cli.yaml'
+      - '.github/workflows/merge-docker-slack-bot.yaml'
       - 'analog-gmp/**'
       - 'config/subxt/**'
       - 'primitives/**'
@@ -17,7 +17,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 env:
-  DOCKER_REPO: analoglabs/tc-cli
+  DOCKER_REPO: analoglabs/slack-bot
 jobs:
   set-tags:
     name: Get & set tags
@@ -54,24 +54,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      - name: Build contracts
-        run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
-      # At the moment mainnet doesn't support GMP, so the only compatible metadata is the testnet one
-      - name: Build tc-cli
+      - name: Build slack-bot
         run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
-      - name: Prepare context
-        run: |
-          mkdir docker
-          cp target/x86_64-unknown-linux-musl/testnet/tc-cli docker/tc-cli
-          cp -rL config/envs docker/envs
+      - name: Copy bin
+        run: cp -r target/x86_64-unknown-linux-musl/testnet/slack_bot slack-bot-bin
       - name: Build and push
         uses: ./.github/actions/buildah-action
         with:
           image_name: ${{ env.DOCKER_REPO }}
-          containerfile: ./config/docker/Dockerfile.tc-cli-release
-          context: docker
+          containerfile: ./config/docker/Dockerfile.slack-bot-release
+          context: .
+          volume: ${{ github.workspace }}/target:/build/target
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           registry: docker.io

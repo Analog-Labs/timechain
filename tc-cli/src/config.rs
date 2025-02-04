@@ -13,13 +13,11 @@ pub struct Config {
 
 impl Config {
 	pub fn from_env(path: PathBuf, config: &str) -> Result<Self> {
-		let config = if let Ok(config) = std::env::var("CONFIG") {
-			config
-		} else {
-			std::fs::read_to_string(path.join(config))
-				.with_context(|| format!("failed to read config file {}", path.display()))?
-		};
-		let yaml = serde_yaml::from_str(&config).context("failed to parse config file")?;
+		let config_path = path.join(config);
+		let config = std::fs::read_to_string(&config_path)
+			.with_context(|| format!("failed to read config file {}", config_path.display()))?;
+		let yaml = serde_yaml::from_str(&config)
+			.with_context(|| format!("failed to parse config file {}", config_path.display()))?;
 		Ok(Self { path, yaml })
 	}
 
@@ -46,14 +44,30 @@ impl Config {
 		let network = self.network(network)?;
 		Ok(if let Some(contracts) = self.yaml.contracts.get(&network.backend) {
 			Contracts {
-				proxy: std::fs::read(self.relative_path(&contracts.proxy))
-					.context("failed to read proxy contract")?,
-				gateway: std::fs::read(self.relative_path(&contracts.gateway))
-					.context("failed to read gateway contract")?,
-				tester: std::fs::read(self.relative_path(&contracts.tester))
-					.context("failed to read tester contract")?,
-				additional_params: std::fs::read(self.relative_path(&contracts.additional_params))
-					.context("Failed to convert additional params")?,
+				proxy: {
+					let path = self.relative_path(&contracts.proxy);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read proxy contract from {}", path.display())
+					})?
+				},
+				gateway: {
+					let path = self.relative_path(&contracts.gateway);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read gateway contract from {}", path.display())
+					})?
+				},
+				tester: {
+					let path = self.relative_path(&contracts.tester);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read tester contract from {}", path.display())
+					})?
+				},
+				additional_params: {
+					let path = self.relative_path(&contracts.additional_params);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read additional params from {}", path.display())
+					})?
+				},
 			}
 		} else {
 			Contracts::default()
@@ -70,6 +84,7 @@ impl Config {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ConfigYaml {
 	config: GlobalConfig,
 	contracts: HashMap<Backend, ContractsConfig>,
@@ -78,6 +93,7 @@ struct ConfigYaml {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	prices_path: PathBuf,
 	pub chronicle_timechain_funds: String,
@@ -85,6 +101,7 @@ pub struct GlobalConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ContractsConfig {
 	additional_params: PathBuf,
 	proxy: PathBuf,
@@ -101,6 +118,7 @@ pub struct Contracts {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NetworkConfig {
 	pub backend: Backend,
 	pub blockchain: String,
@@ -122,11 +140,38 @@ pub struct NetworkConfig {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use std::collections::HashSet;
 
 	#[test]
-	fn make_sure_envs_parse() {
+	fn make_sure_envs_parse() -> Result<()> {
 		let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../config/envs");
-		Config::from_env(root.join("local"), "local-grpc.yaml").unwrap();
-		Config::from_env(root.join("development"), "config.yaml").unwrap();
+		let envs = std::fs::read_dir(&root)?;
+		for env in envs {
+			let env_dir = env?;
+			if !env_dir.file_type()?.is_dir() {
+				continue;
+			}
+			let mut networks = HashSet::new();
+			let mut prices = HashSet::new();
+			println!("env {}", env_dir.file_name().into_string().unwrap());
+			for config in std::fs::read_dir(env_dir.path())? {
+				let config = config?;
+				if !config.file_type()?.is_file() {
+					continue;
+				}
+				let config = config.file_name().into_string().unwrap();
+				if !config.ends_with(".yaml") {
+					continue;
+				}
+				println!("  config {}", config);
+				let config = Config::from_env(env_dir.path(), &config).unwrap();
+				networks.extend(config.networks().keys().copied());
+				let prices_path = config.prices();
+				let prices_csv = crate::gas_price::read_csv_token_prices(&prices_path).unwrap();
+				prices.extend(prices_csv.keys().copied());
+			}
+			assert_eq!(prices, networks, "{}", env_dir.path().display());
+		}
+		Ok(())
 	}
 }

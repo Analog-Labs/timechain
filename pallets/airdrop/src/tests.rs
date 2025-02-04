@@ -29,12 +29,12 @@ fn basic_setup_works() {
 
 		assert_eq!(
 			pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Alice.into()),
-			Some((50, 10, 1))
+			Some((800, 10, 1))
 		);
 		assert_eq!(pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Bob.into()), None);
 		assert_eq!(
 			pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Dave.into()),
-			Some((50, 10, 1))
+			Some((2400, 10, 1))
 		);
 		assert_eq!(pallet_airdrop::Vesting::<Test>::get::<AccountId32>(Eve.into()), None);
 	});
@@ -43,40 +43,37 @@ fn basic_setup_works() {
 #[test]
 fn claim_raw_schnorr_works() {
 	new_test_ext().execute_with(|| {
-		let alice = Alice.into();
-		assert_eq!(Balances::free_balance(&alice), 0);
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
 		assert_ok!(Airdrop::claim_raw(
 			RuntimeOrigin::none(),
 			Alice.into(),
 			Alice.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&alice), 1000);
-		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(50));
+		assert_eq!(Balances::free_balance(&Alice.into()), 1000);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(800));
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 1000);
-	});
-}
 
-#[test]
-fn claim_raw_edwards_works() {
-	new_test_ext().execute_with(|| {
-		let alice = Alice.into();
-		assert_eq!(Balances::free_balance(&alice), 0);
+		assert_eq!(Balances::free_balance(&Charlie.into()), 0);
 		assert_ok!(Airdrop::claim_raw(
 			RuntimeOrigin::none(),
-			Dave.into(),
-			Dave.sign(&Airdrop::to_message(&Alice.into())[..]).0,
-			Alice.into(),
+			Bob.into(),
+			Bob.sign(&Airdrop::to_message(&Charlie.into())[..]).0,
+			Charlie.into(),
 		));
-		assert_eq!(Balances::free_balance(&alice), 3000);
-		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(50));
+		assert_eq!(Balances::free_balance(&Charlie.into()), 2000);
+		assert_eq!(Vesting::vesting_balance(&Charlie.into()), None);
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 3000);
 	});
 }
 
 #[test]
-fn signer_missmatch_fails() {
+fn invalid_signature_schnorr_fails() {
 	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Airdrop::claim_raw(RuntimeOrigin::none(), Alice.into(), [0u8; 64], Alice.into(),),
+			Error::<Test>::InvalidSignature,
+		);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
@@ -86,11 +83,17 @@ fn signer_missmatch_fails() {
 			),
 			Error::<Test>::InvalidSignature,
 		);
+	});
+}
+
+#[test]
+fn target_missmatch_schnorr_fails() {
+	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
-				Dave.into(),
-				Eve.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+				Alice.into(),
+				Alice.sign(&Airdrop::to_message(&Bob.into())[..]).0,
 				Alice.into(),
 			),
 			Error::<Test>::InvalidSignature,
@@ -99,23 +102,60 @@ fn signer_missmatch_fails() {
 }
 
 #[test]
-fn target_missmatch_fails() {
+fn claim_raw_edwards_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(&Dave.into()), 0);
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Dave.into(),
+			Dave.sign(&Airdrop::to_message(&Dave.into())[..]).0,
+			Dave.into(),
+		));
+		assert_eq!(Balances::free_balance(&Dave.into()), 3000);
+		assert_eq!(Vesting::vesting_balance(&Dave.into()), Some(2400));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 3000);
+
+		assert_eq!(Balances::free_balance(&Ferdie.into()), 0);
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Eve.into(),
+			Eve.sign(&Airdrop::to_message(&Ferdie.into())[..]).0,
+			Ferdie.into(),
+		));
+		assert_eq!(Balances::free_balance(&Ferdie.into()), 4000);
+		assert_eq!(Vesting::vesting_balance(&Ferdie.into()), None);
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() - 7000);
+	});
+}
+
+#[test]
+fn invalid_signature_edwards_fails() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			Airdrop::claim_raw(
-				RuntimeOrigin::none(),
-				Alice.into(),
-				Alice.sign(&Airdrop::to_message(&Bob.into())[..]).0,
-				Charlie.into(),
-			),
+			Airdrop::claim_raw(RuntimeOrigin::none(), Dave.into(), [0u8; 64], Dave.into(),),
 			Error::<Test>::InvalidSignature,
 		);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
 				Dave.into(),
+				Eve.sign(&Airdrop::to_message(&Dave.into())[..]).0,
+				Dave.into(),
+			),
+			Error::<Test>::InvalidSignature,
+		);
+	});
+}
+
+#[test]
+fn target_missmatch_edwards_fails() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Dave.into(),
 				Dave.sign(&Airdrop::to_message(&Eve.into())[..]).0,
-				Ferdie.into(),
+				Dave.into(),
 			),
 			Error::<Test>::InvalidSignature,
 		);
@@ -129,8 +169,8 @@ fn without_claim_fails() {
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
 				Charlie.into(),
-				Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
-				Alice.into(),
+				Charlie.sign(&Airdrop::to_message(&Charlie.into())[..]).0,
+				Charlie.into(),
 			),
 			Error::<Test>::HasNoClaim
 		);
@@ -138,8 +178,8 @@ fn without_claim_fails() {
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
 				Ferdie.into(),
-				Ferdie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
-				Alice.into(),
+				Ferdie.sign(&Airdrop::to_message(&Ferdie.into())[..]).0,
+				Ferdie.into(),
 			),
 			Error::<Test>::HasNoClaim
 		);
@@ -149,13 +189,8 @@ fn without_claim_fails() {
 #[test]
 fn mint_works() {
 	new_test_ext().execute_with(|| {
-		let alice = Alice.into();
 		// Non-root are not allowed to add new claims
-		assert_noop!(
-			Airdrop::mint(RuntimeOrigin::signed(Alice.into()), Charlie.into(), 1000, None),
-			sp_runtime::traits::BadOrigin,
-		);
-		assert_eq!(Balances::free_balance(&alice), 0);
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
@@ -180,27 +215,17 @@ fn mint_works() {
 			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&alice), 1000);
+		assert_eq!(Balances::free_balance(&Alice.into()), 1000);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), None);
 		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
 	});
 }
 
 #[test]
-fn mint_with_vesting_works() {
+fn add_works() {
 	new_test_ext().execute_with(|| {
-		let alice = Alice.into();
-		// Non-root user is not able to add claim
-		assert_noop!(
-			Airdrop::mint(
-				RuntimeOrigin::signed(Alice.into()),
-				Charlie.into(),
-				1000,
-				Some((50, 10, 1)),
-			),
-			sp_runtime::traits::BadOrigin,
-		);
-		assert_eq!(Balances::free_balance(&alice), 0);
+		// Non-root are not allowed to add new claims
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
 		assert_noop!(
 			Airdrop::claim_raw(
 				RuntimeOrigin::none(),
@@ -210,15 +235,124 @@ fn mint_with_vesting_works() {
 			),
 			Error::<Test>::HasNoClaim,
 		);
-		// Root user is able to add claim and vestign is honored
-		assert_ok!(Airdrop::mint(RuntimeOrigin::root(), Charlie.into(), 500, Some((500, 10, 1)),));
+		// Root is allowed to add claim
+		assert_ok!(Airdrop::add_airdrop(Charlie.into(), 1000, None));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 1000);
+		// Add combines with existing claim
+		assert_ok!(Airdrop::add_airdrop(Charlie.into(), 1000, None));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 2000);
+		// Added claim can be processed
 		assert_ok!(Airdrop::claim_raw(
 			RuntimeOrigin::none(),
 			Charlie.into(),
 			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 			Alice.into(),
 		));
-		assert_eq!(Balances::free_balance(&alice), 500);
+		assert_eq!(Balances::free_balance(&Alice.into()), 2000);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), None);
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
+	});
+}
+
+#[test]
+fn add_vested_works() {
+	new_test_ext().execute_with(|| {
+		// Non-root are not allowed to add new claims
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+				Alice.into(),
+			),
+			Error::<Test>::HasNoClaim,
+		);
+		// Root is allowed to add claim
+		assert_ok!(Airdrop::add_airdrop(Charlie.into(), 1000, None));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 1000);
+		// Additional claims can be added
+		assert_ok!(Airdrop::add_airdrop(Charlie.into(), 1000, None));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 2000);
+		// Vesting can be added once
+		assert_ok!(Airdrop::add_airdrop(Charlie.into(), 1000, Some((800, 80, 10))));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 3000);
+		// Second vesting does not overwrite existing claim
+		assert_noop!(
+			Airdrop::add_airdrop(Charlie.into(), 1000, Some((800, 80, 10))),
+			Error::<Test>::VestingNotPossible
+		);
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims() + 3000);
+		// Added claim can be processed
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Charlie.into(),
+			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+			Alice.into(),
+		));
+		assert_eq!(Balances::free_balance(&Alice.into()), 3000);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(800));
+		assert_eq!(pallet_airdrop::Total::<Test>::get(), total_claims());
+	});
+}
+
+#[test]
+fn rootless_mint_move_fail() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Airdrop::mint(RuntimeOrigin::signed(Alice.into()), Charlie.into(), 1000, None),
+			sp_runtime::traits::BadOrigin,
+		);
+
+		assert_noop!(
+			Airdrop::mint(
+				RuntimeOrigin::signed(Bob.into()),
+				Charlie.into(),
+				1000,
+				Some((800, 10, 1)),
+			),
+			sp_runtime::traits::BadOrigin,
+		);
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+				Alice.into(),
+			),
+			Error::<Test>::HasNoClaim,
+		);
+
+		assert_noop!(
+			Airdrop::transfer(RuntimeOrigin::signed(Alice.into()), Alice.into(), Charlie.into()),
+			sp_runtime::traits::BadOrigin,
+		);
+
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Charlie.into(),
+				Charlie.sign(&Airdrop::to_message(&Charlie.into())[..]).0,
+				Charlie.into(),
+			),
+			Error::<Test>::HasNoClaim,
+		);
+	})
+}
+
+#[test]
+fn mint_with_vesting_works() {
+	new_test_ext().execute_with(|| {
+		// Root user is able to add claim and vestign is honored
+		assert_ok!(Airdrop::mint(RuntimeOrigin::root(), Charlie.into(), 500, Some((500, 10, 1)),));
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Charlie.into(),
+			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+			Alice.into(),
+		));
+		assert_eq!(Balances::free_balance(&Alice.into()), 500);
 		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(500));
 
 		// Make sure we can not transfer the vested balance.
@@ -230,6 +364,55 @@ fn mint_with_vesting_works() {
 				ExistenceRequirement::AllowDeath
 			),
 			TokenError::Frozen,
+		);
+	});
+}
+
+#[test]
+fn move_with_vesting_works() {
+	new_test_ext().execute_with(|| {
+		// Root user can not use claim that does not exist
+		assert_noop!(
+			Airdrop::transfer(RuntimeOrigin::root(), Charlie.into(), Ferdie.into()),
+			Error::<Test>::HasNoClaim
+		);
+		// Root user is able to move claim and vesting is honored
+		assert_ok!(Airdrop::transfer(RuntimeOrigin::root(), Alice.into(), Charlie.into()));
+
+		// Alice transferred her airdrop to Charlie
+		assert_eq!(Balances::free_balance(&Alice.into()), 0);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), None);
+
+		// Charlie claims it to be paid out back to Alice
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Charlie.into(),
+			Charlie.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+			Alice.into(),
+		));
+		assert_eq!(Balances::free_balance(&Alice.into()), 1000);
+		assert_eq!(Vesting::vesting_balance(&Alice.into()), Some(800));
+
+		// Make sure we can not transfer the vested balance.
+		assert_err!(
+			<Balances as Currency<_>>::transfer(
+				&Alice.into(),
+				&Bob.into(),
+				480,
+				ExistenceRequirement::AllowDeath
+			),
+			TokenError::Frozen,
+		);
+
+		// Old claim does not exist anymore
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Alice.into(),
+				Alice.sign(&Airdrop::to_message(&Alice.into())[..]).0,
+				Alice.into(),
+			),
+			Error::<Test>::HasNoClaim,
 		);
 	});
 }
@@ -264,6 +447,21 @@ fn double_claiming_fails() {
 				Alice.into(),
 				Alice.sign(&Airdrop::to_message(&Alice.into())[..]).0,
 				Alice.into(),
+			),
+			Error::<Test>::HasNoClaim
+		);
+		assert_ok!(Airdrop::claim_raw(
+			RuntimeOrigin::none(),
+			Dave.into(),
+			Dave.sign(&Airdrop::to_message(&Dave.into())[..]).0,
+			Dave.into(),
+		));
+		assert_noop!(
+			Airdrop::claim_raw(
+				RuntimeOrigin::none(),
+				Dave.into(),
+				Dave.sign(&Airdrop::to_message(&Dave.into())[..]).0,
+				Dave.into(),
 			),
 			Error::<Test>::HasNoClaim
 		);

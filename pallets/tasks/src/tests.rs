@@ -77,6 +77,23 @@ fn mock_gmp_msg(nonce: u64) -> GmpMessage {
 	}
 }
 
+fn queue_size<T: crate::Config>(network: NetworkId) -> usize {
+	let insert_i = crate::OpsInsertIndex::<T>::get(network).unwrap_or_default();
+	let remove_i = crate::OpsRemoveIndex::<T>::get(network).unwrap_or_default();
+
+	if remove_i >= insert_i {
+		return 0;
+	}
+
+	let mut count = 0;
+	for index in remove_i..insert_i {
+		if crate::Ops::<T>::contains_key(network, index) {
+			count += 1;
+		}
+	}
+	count
+}
+
 #[test]
 fn test_read_events_starts_when_gateway_is_registered() {
 	new_test_ext().execute_with(|| {
@@ -286,21 +303,33 @@ fn test_max_tasks_per_block() {
 }
 
 #[test]
-#[ignore]
-fn test_max_batches_per_block() {
+fn test_no_ops_lost_when_max_batches_per_block() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		for _ in 0..10 {
-			let shard = create_shard(ETHEREUM, 3, 1);
-			register_shard(shard);
-			assert!(Tasks::is_shard_registered(shard));
+		assert_eq!(queue_size::<Test>(ETHEREUM), 0);
+		// Initialize TaskQueue with 10 SendMessage ops
+		for i in 0..10 {
+			Tasks::ops_queue(ETHEREUM).push(GatewayOp::SendMessage(mock_gmp_msg(i)));
 		}
+		// Assert TaskQueue contains 10 ops
+		assert_eq!(queue_size::<Test>(ETHEREUM), 10);
+		// Assert no batches prepared
+		assert_eq!(BatchIdCounter::<Test>::get(), 0);
 		roll(1);
-		// Max 4 batches per block
+		// Max 4 batches prepared per block
 		assert_eq!(BatchIdCounter::<Test>::get(), 4);
-		// Max 4 batches per block
+		// Assert Queue size decreased by # batches prepared = 10 - 4 = 6
+		assert_eq!(queue_size::<Test>(ETHEREUM), 6);
 		roll(1);
+		// Max 4 batches prepared per block
 		assert_eq!(BatchIdCounter::<Test>::get(), 8);
+		// Assert Queue size decreased by # batches prepared = 6 - 4 = 2
+		assert_eq!(queue_size::<Test>(ETHEREUM), 2);
+		roll(1);
+		// Assert batch counter increased by # of ops in queue size = 8 + 2 = 10
+		assert_eq!(BatchIdCounter::<Test>::get(), 10);
+		// Assert Queue size decreased by # batches prepared = 2 - 2 = 0
+		assert_eq!(queue_size::<Test>(ETHEREUM), 0);
 	})
 }
 

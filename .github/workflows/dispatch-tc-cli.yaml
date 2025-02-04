@@ -10,7 +10,7 @@ on:
     inputs:
       version:
         description: "tc-cli image tag (sha8 commit)"
-        required: true
+        required: false
         type: string
       environment:
         description: "Target environment for running (K8s cluster)"
@@ -23,6 +23,10 @@ on:
         description: "tc-cli args"
         required: true
         type: string
+      thread:
+        description: "Slack thread id"
+        required: false
+        type: string
 
 env:
   TC_CLI_IMAGE: analoglabs/tc-cli
@@ -31,7 +35,7 @@ jobs:
   tc-cli:
     name: Run tc-cli on cluster
     runs-on: ubuntu-latest
-    environment: ${{ github.even.inputs.environment }}
+    environment: ${{ github.event.inputs.environment }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -47,7 +51,7 @@ jobs:
     - name: Check tc-cli image
       id: check-image
       run: |
-        TAG=${{ github.event.inputs.version }}
+        TAG=${{ github.event.inputs.version || 'latest' }}
         IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
         echo "Checking if the image $IMAGE exists..."
         if ! docker pull "$IMAGE" &>/dev/null; then
@@ -58,17 +62,20 @@ jobs:
         echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
 
     - name: Run tc-cli
+      id: run
       run: |
         NAMESPACE="timechain"
         IMAGE=${{ steps.check-image.outputs.IMAGE }}
-        CONFIG="$(cat ./config/envs/${{ github.event.inputs.environment }}/config.yaml)"
         kubectl -n $NAMESPACE run tc-cli --image=$IMAGE --attach --rm --restart=Never \
-          --env="CONFIG=$CONFIG" \
-          --env=TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }} \
-          --env=TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }} \
-          --env=TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }} \
-          --env=TOKEN_API_KEY=${{ secrets.TOKEN_API_KEY }} \
-          --env=LOKI_URL=${{ secrets.LOKI_URL }} \
-          --env=LOKI_USERNAME=${{ secrets.LOKI_USERNAME }} \
-          --env=LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }} \
-          -- ${{ github.event.inputs.args}}
+          --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
+          --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
+          --env="TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }}" \
+          --env="TOKEN_API_KEY=${{ secrets.TOKEN_API_KEY }}" \
+          --env="LOKI_URL=${{ secrets.LOKI_URL }}" \
+          --env="LOKI_USERNAME=${{ secrets.LOKI_USERNAME }}" \
+          --env="LOKI_PASSWORD=${{ secrets.LOKI_PASSWORD }}" \
+          --env="NO_COLOR=1" \
+          --env="SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}" \
+          --env="SLACK_CHANNEL_ID=${{ secrets.SLACK_CHANNEL_ID }}" \
+          --env="SLACK_THREAD_TS=${{ github.event.inputs.thread }}" \
+          -- --env /etc/envs/${{ github.event.inputs.environment }} ${{ github.event.inputs.args}}

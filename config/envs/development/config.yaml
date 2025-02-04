@@ -4,10 +4,10 @@ config:
   prices_path: 'prices.csv'
 contracts:
   evm:
-    additional_params: "../../../gmp/evm/factory/additional_config.json"
-    proxy: "../../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
-    gateway: "../../../analog-gmp/out/Gateway.sol/Gateway.json"
-    tester: "../../../analog-gmp/out/GmpProxy.sol/GmpProxy.json"
+    additional_params: "factory/additional_config.json"
+    proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
+    gateway: "contracts/Gateway.sol/Gateway.json"
+    tester: "contracts/GmpProxy.sol/GmpProxy.json"
 networks:
   0:
     backend: "grpc"
@@ -47,7 +47,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "0"
-    url: "https://gmp-grpc-1.development.analog.one:443"
+    url: "https://gmp-grpc-3.development.analog.one:443"
     gateway_funds: 10.
     chronicle_target_funds: 10.
     batch_size: 64
@@ -64,7 +64,7 @@ networks:
     backend: "grpc"
     blockchain: "rust"
     network: "1"
-    url: "https://gmp-grpc-2.development.analog.one:443"
+    url: "https://gmp-grpc-4.development.analog.one:443"
     gateway_funds: 10.
     chronicle_target_funds: 10.
     batch_size: 64
@@ -89,8 +89,6 @@ networks:
     batch_gas_limit: 10000
     gmp_margin: 0.0
     shard_task_limit: 50
-    symbol: "ETH"
-    token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1
@@ -108,15 +106,12 @@ networks:
     batch_gas_limit: 10000
     gmp_margin: 0.0
     shard_task_limit: 50
-    symbol: "SBY"
-    token_decimals: 18
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
 
 chronicles:
-- https://chronicle-0.development.analog.one
 - https://chronicle-1.development.analog.one
 - https://chronicle-2.development.analog.one
 - https://chronicle-3.development.analog.one
@@ -126,3 +121,6 @@ chronicles:
 - https://chronicle-7.development.analog.one
 - https://chronicle-8.development.analog.one
 - https://chronicle-9.development.analog.one
+- https://chronicle-10.development.analog.one
+- https://chronicle-11.development.analog.one
+- https://chronicle-12.development.analog.one

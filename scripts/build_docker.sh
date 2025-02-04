@@ -65,7 +65,9 @@ cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rust
 
 forge build --root analog-gmp
 
-mkdir -p target/docker
+mkdir -p target/docker/tc-cli
+rm -rf target/docker/tc-cli/envs
+cp -rL config/envs target/docker/tc-cli/envs
 
 build_image () {
 	local TARGET="target/$rustTarget/$profile/$1"

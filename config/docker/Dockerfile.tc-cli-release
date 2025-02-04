@@ -1,8 +1,8 @@
 FROM ubuntu:22.04
 WORKDIR /app
 
-COPY tc-cli-bin tc-cli
-COPY analog-gmp/out/ /etc/contracts
+COPY tc-cli tc-cli
+COPY envs /etc/envs
 
 RUN apt update && apt install -y wget
 

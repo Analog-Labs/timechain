@@ -26,7 +26,7 @@ use sp_core::{
 	sr25519::{Public as SchnorrPublic, Signature as SchnorrSignature},
 };
 use sp_runtime::{
-	traits::{CheckedSub, Verify, Zero},
+	traits::{CheckedSub, Saturating, Verify, Zero},
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	AccountId32,
 };
@@ -42,6 +42,7 @@ pub type RawSignature = [u8; 64];
 pub trait WeightInfo {
 	fn claim_raw() -> Weight;
 	fn mint() -> Weight;
+	fn transfer() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -50,6 +51,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn mint() -> Weight {
+		Weight::zero()
+	}
+	fn transfer() -> Weight {
 		Weight::zero()
 	}
 }
@@ -86,10 +90,13 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new airdrop eligibility has been created.
 		Minted { owner: AccountId32, amount: BalanceOf<T> },
+		/// An airdrop was moved to a new owner
+		Moved { from: AccountId32, to: AccountId32 },
 		/// Someone claimed their airdrop.
 		Claimed { source: AccountId32, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
+	#[derive(PartialEq)]
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Account ID sending transaction has no claim.
@@ -215,7 +222,33 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::mint_airdrop(owner, value, vesting)
+			Ok(Self::mint_airdrop(owner, value, vesting)?)
+		}
+
+		/// Transfer a token airdrop claim to a new owner.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Parameters:
+		/// - `from`: The address from which to move the claim.
+		/// - `to`: The address to which to move the claim. Only addresses with no existing claims are allowed.
+		///
+		/// <weight>
+		/// The weight of this call is invariant over the input parameters.
+		/// We assume worst case that claim and vesting needs to be moved.
+		///
+		/// Total Complexity: O(1)
+		/// </weight>
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::transfer())]
+		pub fn transfer(
+			origin: OriginFor<T>,
+			from: AccountId32,
+			to: AccountId32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Ok(Self::move_airdrop(from, to)?)
 		}
 	}
 
@@ -291,11 +324,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Internal function to mint additional airdrops
-	fn mint_airdrop(
+	pub fn mint_airdrop(
 		owner: AccountId32,
 		amount: BalanceOf<T>,
 		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
-	) -> sp_runtime::DispatchResult {
+	) -> Result<(), Error<T>> {
 		// Ensure amount is large enough and mint does not overwrite existing claim
 		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
 		ensure!(Claims::<T>::get(&owner).is_none(), Error::<T>::AlreadyHasClaim);
@@ -312,6 +345,55 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::Minted { owner, amount });
 
 		Ok(())
+	}
+
+	/// Internal function to mint additional airdrops, adding to existing airdrops if necessary
+	pub fn add_airdrop(
+		owner: AccountId32,
+		amount: BalanceOf<T>,
+		vesting: Option<(BalanceOf<T>, BalanceOf<T>, BlockNumberFor<T>)>,
+	) -> Result<(), Error<T>> {
+		// Ensure amount is large enough and vesting can be accurately represented claim
+		ensure!(amount >= T::MinimumBalance::get(), Error::<T>::BalanceTooSmall);
+		ensure!(
+			vesting.is_none() || Vesting::<T>::get(&owner).is_none(),
+			Error::<T>::VestingNotPossible
+		);
+
+		// Update total, add amount and optional vesting schedule
+		Total::<T>::mutate(|t| *t = t.saturating_add(amount));
+
+		let combined = amount.saturating_add(Claims::<T>::take(&owner).unwrap_or_default());
+		Claims::<T>::insert(&owner, combined);
+		if let Some(vs) = vesting {
+			debug_assert!(Vesting::<T>::get(&owner).is_none());
+			Vesting::<T>::insert(&owner, vs);
+		}
+
+		// Deposit event on success.
+		Self::deposit_event(Event::<T>::Minted { owner, amount });
+
+		Ok(())
+	}
+
+	/// Internal function to mint additional airdrops
+	pub fn move_airdrop(from: AccountId32, to: AccountId32) -> Result<(), Error<T>> {
+		// Check to and from are valid
+		ensure!(Claims::<T>::get(&to).is_none(), Error::<T>::AlreadyHasClaim);
+		if let Some(amount) = Claims::<T>::take(&from) {
+			// Move claim and its vesting schedule
+			Claims::<T>::insert(&to, amount);
+			if let Some(vesting) = Vesting::<T>::take(&from) {
+				Vesting::<T>::insert(&to, vesting);
+			}
+
+			// Deposit event on success.
+			Self::deposit_event(Event::<T>::Moved { from, to });
+
+			Ok(())
+		} else {
+			Err(Error::<T>::HasNoClaim)
+		}
 	}
 
 	/// Internal processing function that executes an airdrop

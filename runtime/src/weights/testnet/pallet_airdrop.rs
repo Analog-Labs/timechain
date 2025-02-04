@@ -75,4 +75,12 @@ impl<T: frame_system::Config> pallet_airdrop::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// FIXME Measure me!
+	fn transfer() -> Weight {
+		// FIXME Measure me!
+		Weight::from_parts(42_430_000, 0)
+			.saturating_add(Weight::from_parts(0, 5491))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }

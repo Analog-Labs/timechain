@@ -157,8 +157,6 @@ parameter_types! {
 impl pallet_assets_bridge::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-
-	type TeleportBaseFee = ConstU128<100>;
 	type PalletId = BridgePalletId;
 	type Currency = pallet_balances::Pallet<Test>;
 	type FeeDestination = Treasury;

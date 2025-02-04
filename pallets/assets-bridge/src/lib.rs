@@ -26,7 +26,7 @@ use polkadot_sdk::{
 };
 
 pub use pallet::*;
-pub use types::{ExistenceRequirement, NetworkChannel, NetworkDetails};
+pub use types::{ExistenceRequirement, NetworkDetails};
 
 pub type NetworkIdOf<T> = <T as Config>::NetworkId;
 
@@ -90,10 +90,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: polkadot_sdk::frame_system::Config {
-		/// The basic amount of funds that will be charged for cover the teleport costs.
-		#[pallet::constant]
-		type TeleportBaseFee: Get<BalanceOf<Self>>;
-
 		/// The bridge pallet id, used for deriving its sovereign account ID.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -110,10 +106,14 @@ pub mod pallet {
 		/// Network unique identifier
 		type NetworkId: Parameter + MaxEncodedLen;
 
-		/// Network unique identifier
+		/// Network Data, akin to pallet_balances::AccountData
+		/// should have
+		/// + nonce for the GMP message
+		/// + destination address for the token contract
 		type NetworkData: Parameter + MaxEncodedLen;
 
-		/// Type parameter used to identify the beneficiaries eligible to receive treasury spends.
+		/// Identifier the account getting the teleported funds on the target chain,
+		/// currently this should be set to AccountId20
 		type Beneficiary: Parameter + MaxEncodedLen;
 
 		//		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].

@@ -44,6 +44,8 @@ pub type BeneficiaryOf<T> = <T as Config>::Beneficiary;
 /// Teleport handlers.
 pub trait AssetTeleporter<T: Config> {
 	/// Attempt to register `network_id` with `data`.
+	/// This we need to have guarantee that network is active, i.e. actually has some
+	/// chronicle sards working with it.
 	fn handle_register(network_id: NetworkIdOf<T>, data: &mut NetworkDataOf<T>) -> DispatchResult;
 
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.

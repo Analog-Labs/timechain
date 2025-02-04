@@ -209,9 +209,7 @@ async fn command_event(
 	if let Err(err) = gh.trigger_workflow(&command, branch, env, ts).await {
 		return slack_error(format!("triggering workflow failed: {err}"));
 	}
-	axum::Json(SlackCommandEventResponse::new(
-		SlackMessageContent::new().with_text(command.to_string()),
-	))
+	axum::Json(SlackCommandEventResponse::new(SlackMessageContent::new()))
 }
 
 fn error_handler(

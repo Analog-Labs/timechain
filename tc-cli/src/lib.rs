@@ -658,8 +658,6 @@ impl Tc {
 				.await?;
 			gateway
 		};
-		self.println(format!("gateway address {}", self.format_address(Some(network), gateway)?))
-			.await?;
 		Ok(gateway)
 	}
 

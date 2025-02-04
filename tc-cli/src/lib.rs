@@ -810,11 +810,11 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		let gateway = self.register_network(network).await?;
 		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
 			self.println("admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}
+		let gateway = self.register_network(network).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
 		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
 		Ok(gateway)

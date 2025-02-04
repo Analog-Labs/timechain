@@ -9,22 +9,34 @@ use tokio::net::TcpListener;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum Command {
-	TcCli { tag: String, args: String },
-	RuntimeUpgrade,
-	DeployChronicles { tag: String },
+	TcCli { branch: String, tag: String, args: String },
+	RuntimeUpgrade { branch: String },
+	DeployChronicles { branch: String, tag: String },
 }
 
 impl std::fmt::Display for Command {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Self::TcCli { tag, args } => write!(f, "/tc-cli tag={tag} {args}"),
-			Self::RuntimeUpgrade => write!(f, "/runtime-upgrade"),
-			Self::DeployChronicles { tag } => write!(f, "/deploy-chronicles tag={tag}"),
+			Self::TcCli { branch, tag, args } => {
+				write!(f, "/tc-cli branch={branch} tag={tag} {args}")
+			},
+			Self::RuntimeUpgrade { branch } => write!(f, "/runtime-upgrade branch={branch}"),
+			Self::DeployChronicles { branch, tag } => {
+				write!(f, "/deploy-chronicles branch={branch} tag={tag}")
+			},
 		}
 	}
 }
 
 impl Command {
+	fn branch(&self) -> &str {
+		match self {
+			Self::TcCli { branch, .. } => branch,
+			Self::RuntimeUpgrade { branch } => branch,
+			Self::DeployChronicles { branch, .. } => branch,
+		}
+	}
+
 	fn workflow_id(&self) -> &str {
 		match self {
 			Self::TcCli { .. } => "140077716",
@@ -42,7 +54,7 @@ impl Command {
 
 	fn inputs(&self, env: Env, thread: SlackTs) -> serde_json::Value {
 		match self {
-			Self::TcCli { tag, args } => {
+			Self::TcCli { tag, args, .. } => {
 				json!({
 					"environment": env.to_string(),
 					"version": tag,
@@ -50,13 +62,13 @@ impl Command {
 					"thread": thread.0,
 				})
 			},
-			Self::RuntimeUpgrade => {
+			Self::RuntimeUpgrade { .. } => {
 				json!({
 					"environment": env.to_string(),
 					"thread": thread.0,
 				})
 			},
-			Self::DeployChronicles { tag } => {
+			Self::DeployChronicles { tag, .. } => {
 				json!({
 					"environment": env.to_string(),
 					"version": tag,
@@ -66,10 +78,10 @@ impl Command {
 		}
 	}
 
-	fn json(&self, branch: &str, env: Env, thread: SlackTs) -> serde_json::Value {
+	fn json(&self, env: Env, thread: SlackTs) -> serde_json::Value {
 		let inputs = self.inputs(env, thread);
 		serde_json::json!({
-			"ref": branch,
+			"ref": self.branch(),
 			"inputs": inputs,
 		})
 	}
@@ -109,18 +121,12 @@ impl GithubState {
 		Ok(Self { client, token, user_agent })
 	}
 
-	async fn trigger_workflow(
-		&self,
-		command: &Command,
-		branch: &str,
-		env: Env,
-		ts: SlackTs,
-	) -> Result<()> {
+	async fn trigger_workflow(&self, command: &Command, env: Env, ts: SlackTs) -> Result<()> {
 		tracing::info!("triggering {command} in {env}");
 		let request = self
 			.client
 			.post(command.url())
-			.json(&command.json(branch, env, ts))
+			.json(&command.json(env, ts))
 			.bearer_auth(&self.token)
 			.header("Accept", "application/vnd.github+json")
 			.header("X-Github-Api-Version", "2022-11-28")
@@ -186,9 +192,16 @@ async fn command_event(
 		.as_slice()
 		.join(" ");
 	let command = match event.command.0.as_str() {
-		"/tc-cli" => Command::TcCli { tag: tag.into(), args },
-		"/runtime-upgrade" => Command::RuntimeUpgrade,
-		"/deploy-chronicles" => Command::DeployChronicles { tag: tag.into() },
+		"/tc-cli" => Command::TcCli {
+			branch: branch.into(),
+			tag: tag.into(),
+			args,
+		},
+		"/runtime-upgrade" => Command::RuntimeUpgrade { branch: branch.into() },
+		"/deploy-chronicles" => Command::DeployChronicles {
+			branch: branch.into(),
+			tag: tag.into(),
+		},
 		_ => {
 			return slack_error(format!("unknown command {}", &event.command.0));
 		},
@@ -207,7 +220,7 @@ async fn command_event(
 		Ok(ts) => ts,
 		Err(err) => return slack_error(format!("starting slack thread failed: {err}")),
 	};
-	if let Err(err) = gh.trigger_workflow(&command, branch, env, ts).await {
+	if let Err(err) = gh.trigger_workflow(&command, env, ts).await {
 		return slack_error(format!("triggering workflow failed: {err}"));
 	}
 	axum::Json(SlackCommandEventResponse::new(SlackMessageContent::new()))

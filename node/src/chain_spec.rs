@@ -81,10 +81,6 @@ impl Default for GenesisKeysConfig {
 
 		GenesisKeysConfig {
 			admins: vec![
-				Alice.into(),
-				Bob.into(),
-				Charlie.into(),
-				Dave.into(),
 				Eve.into(),
 				Ferdie.into(),
 			],
@@ -99,12 +95,10 @@ impl Default for GenesisKeysConfig {
 			controller: None,
 			endowments: vec![],
 			stakes: vec![
-				AliceStash.into(),
-				BobStash.into(),
-				CharlieStash.into(),
-				DaveStash.into(),
-				EveStash.into(),
-				FerdieStash.into(),
+				Alice.into(),
+				Bob.into(),
+				Charlie.into(),
+				Dave.into(),
 			],
 		}
 	}

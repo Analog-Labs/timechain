@@ -1,11 +1,12 @@
 use crate::{self as pallet_networks};
 use crate::{mock::*, Error};
+use frame_support::pallet_prelude::Get;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
-use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig, NetworkId};
+use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -50,7 +51,7 @@ fn test_register_network() {
 #[test]
 fn test_cannot_register_tc_network() {
 	let mut network = mock_network();
-	network.id = NetworkId::MAX;
+	network.id = <Test as pallet_networks::Config>::TimechainNetworkId::get();
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Networks::register_network(RawOrigin::Root.into(), network),

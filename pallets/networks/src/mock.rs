@@ -1,7 +1,7 @@
 use crate::{self as pallet_networks};
 
 use polkadot_sdk::frame_support::derive_impl;
-use polkadot_sdk::sp_core::{ConstU128, ConstU64};
+use polkadot_sdk::sp_core::{ConstU128, ConstU16, ConstU64};
 use polkadot_sdk::sp_runtime::{traits::IdentityLookup, BuildStorage};
 use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_io};
 use time_primitives::{NetworkId, ShardId, TasksInterface};
@@ -52,6 +52,7 @@ impl pallet_networks::Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Tasks = MockTasks;
+	type TimechainNetworkId = ConstU16<1000>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -96,6 +96,8 @@ services:
     - '--ws.origins=*'
     - '--ws.api=eth,debug,admin,txpool,web3,net'
     - '--verbosity=4'
+    ports:
+    - 8545:8545
     profiles:
     - evm
 
@@ -137,6 +139,8 @@ services:
     - '--ws.origins=*'
     - '--ws.api=eth,debug,admin,txpool,web3,net'
     - '--verbosity=4'
+    ports:
+    - 8546:8545
     profiles:
     - evm
 

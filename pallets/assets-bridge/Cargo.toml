@@ -34,12 +34,14 @@ time-primitives.workspace = true
 env_logger.workspace = true
 lazy_static = "1.4.0"
 pallet-tasks.workspace = true
+pallet-shards.workspace = true
 
 polkadot-sdk = { workspace = true, features = [
 	 "sp-io",
 	 "sp-keystore",
 
 	 "pallet-treasury",
+	 "pallet-balances",
 ]}
 
 [features]

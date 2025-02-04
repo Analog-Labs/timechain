@@ -1,4 +1,5 @@
 use anyhow::Result;
+use axum::response::{IntoResponse, Response};
 use axum::Extension;
 use reqwest::Client;
 use serde_json::json;
@@ -168,9 +169,10 @@ impl SlackState {
 	}
 }
 
-fn slack_error(error: String) -> axum::Json<SlackCommandEventResponse> {
+fn slack_error(error: String) -> Response {
 	tracing::error!("{error}");
 	axum::Json(SlackCommandEventResponse::new(SlackMessageContent::new().with_text(error)))
+		.into_response()
 }
 
 async fn command_event(
@@ -178,7 +180,7 @@ async fn command_event(
 	Extension(slack): Extension<SlackState>,
 	Extension(_environment): Extension<Arc<SlackHyperListenerEnvironment>>,
 	Extension(event): Extension<SlackCommandEvent>,
-) -> axum::Json<SlackCommandEventResponse> {
+) -> Response {
 	tracing::info!("Received command event: {:?}", event);
 	let text = event.text.unwrap_or_default();
 	let kv: HashMap<&str, &str> = text.split(' ').filter_map(|kv| kv.split_once('=')).collect();
@@ -223,7 +225,7 @@ async fn command_event(
 	if let Err(err) = gh.trigger_workflow(&command, env, ts).await {
 		return slack_error(format!("triggering workflow failed: {err}"));
 	}
-	axum::Json(SlackCommandEventResponse::new(SlackMessageContent::new()))
+	axum::body::Body::empty().into_response()
 }
 
 fn error_handler(

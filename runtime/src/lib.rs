@@ -629,6 +629,14 @@ mod runtime {
 
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
+
+	// HASHI Bridge
+
+	#[runtime::pallet_index(50)]
+	pub type EthBridge = eth_bridge;
+
+	#[runtime::pallet_index(51)]
+	pub type BridgeMultisig = bridge_multisig;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

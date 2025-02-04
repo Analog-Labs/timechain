@@ -12,4 +12,6 @@ pub mod tokenomics;
 pub mod utilities;
 
 #[cfg(feature = "testnet")]
+pub mod bridge;
+#[cfg(feature = "testnet")]
 pub mod custom;

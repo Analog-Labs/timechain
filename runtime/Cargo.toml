@@ -72,7 +72,7 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-vesting",
 	"pallet-safe-mode",
 
- 	"sp-api",
+	"sp-api",
 	"sp-block-builder",
 	"sp-authority-discovery",
 	"sp-consensus-babe",
@@ -107,6 +107,10 @@ pallet-validators.workspace = true
 
 # shared code between runtimes and/or node
 time-primitives.workspace = true
+
+# HASHI Bridge
+eth-bridge.workspace = true
+bridge-multisig.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
@@ -143,6 +147,9 @@ std = [
 	"time-primitives/std",
 
 	"substrate-wasm-builder",
+
+	"eth-bridge/std",
+	"bridge-multisig/std",
 ]
 genesis-builder = [ "polkadot-sdk/sp-genesis-builder" ]
 runtime-benchmarks = [
@@ -164,6 +171,9 @@ runtime-benchmarks = [
 	"pallet-tasks/runtime-benchmarks",
 	"pallet-timegraph/runtime-benchmarks",
 	"pallet-validators/runtime-benchmarks",
+
+	"eth-bridge/runtime-benchmarks",
+	"bridge-multisig/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-sdk/try-runtime",
@@ -180,4 +190,7 @@ try-runtime = [
 	"pallet-tasks/try-runtime",
 	"pallet-timegraph/try-runtime",
 	"pallet-validators/try-runtime",
+
+	"eth-bridge/try-runtime",
+	"bridge-multisig/try-runtime",
 ]

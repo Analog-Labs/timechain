@@ -23,7 +23,7 @@ frame_support::construct_runtime!(
 	pub struct Test
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+//		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 //		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 //		Treasury: pallet_treasury,
 	}
@@ -43,14 +43,14 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-	type Balance = u128;
-	type RuntimeEvent = ();
-	type ExistentialDeposit = ConstU128<1>;
-	type AccountStore = ();
-	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
-}
+// #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+// impl pallet_balances::Config for Test {
+// 	type Balance = u128;
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type ExistentialDeposit = ConstU128<1>;
+// 	type AccountStore = ();
+// 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
+// }
 
 // impl pallet_tasks::Config for Test {
 // 	type RuntimeEvent = RuntimeEvent;
@@ -69,11 +69,11 @@ pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
-	}
-	.assimilate_storage(&mut storage)
-	.unwrap();
+	// pallet_balances::GenesisConfig::<Test> {
+	// 	balances: vec![(acc_pub(1).into(), 10_000_000_000), (acc_pub(2).into(), 20_000_000_000)],
+	// }
+	// .assimilate_storage(&mut storage)
+	// .unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| System::set_block_number(1));
 	ext

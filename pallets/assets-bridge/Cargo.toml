@@ -25,9 +25,6 @@ polkadot-sdk = { workspace = true, features = [
 	"sp-core",
 	"sp-runtime",
 	"sp-std",
-
-	"pallet-balances",
-
 ]}
 
 

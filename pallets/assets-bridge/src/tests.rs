@@ -9,6 +9,6 @@ use sp_runtime::{DispatchError, DispatchResult, ModuleError};
 use time_primitives::{AccountId, NetworkId};
 
 #[test]
-fn first_testregister_member_works() {
+fn first_test() {
 	todo!()
 }

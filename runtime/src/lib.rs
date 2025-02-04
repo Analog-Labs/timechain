@@ -313,7 +313,7 @@ parameter_types! {
 	/// An epoch is a unit of time used for key operations in the consensus mechanism, such as validator
 	/// rotations and randomness generation. Once set at genesis, this value cannot be changed without
 	/// breaking block production.
-	pub const EpochDuration: u64 = main_test_or_dev!(3 * HOURS, 30 * MINUTES, 5 * MINUTES) as u64;
+	pub const EpochDuration: u64 = 5 * MINUTES as u64;
 
 	/// This defines the interval at which new blocks are produced in the blockchain. It impacts
 	/// the speed of transaction processing and finality, as well as the load on the network

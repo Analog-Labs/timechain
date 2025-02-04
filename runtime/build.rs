@@ -8,7 +8,7 @@ fn main() {
 	#[cfg(not(any(feature = "testnet", feature = "develop")))]
 	WasmBuilder::init_with_defaults()
 		.enable_metadata()
-		.enable_metadata_hash("ANLOG", 12)
+		.enable_metadata_hash("DANLOG", 12)
 		.build();
 
 	// Build testnet runtime

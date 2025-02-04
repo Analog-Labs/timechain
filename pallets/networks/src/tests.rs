@@ -5,7 +5,7 @@ use frame_system::RawOrigin;
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
-use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig};
+use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig, NetworkId};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -43,6 +43,18 @@ fn test_register_network() {
 		assert_eq!(
 			pallet_networks::NetworkGatewayBlock::<Test>::get(42),
 			Some(network.gateway_block)
+		);
+	});
+}
+
+#[test]
+fn test_cannot_register_tc_network() {
+	let mut network = mock_network();
+	network.id = NetworkId::MAX;
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Networks::register_network(RawOrigin::Root.into(), network),
+			<Error<Test>>::NetworkExists
 		);
 	});
 }

@@ -711,8 +711,14 @@ impl Tc {
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};
-				if routes.contains(&route) {
-					continue;
+				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
+					if r.gateway == route.gateway
+						&& r.gas_limit == route.gas_limit
+						&& r.base_fee == route.base_fee
+						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
+					{
+						continue;
+					}
 				}
 				self.println(format!("register_route {src} {dest}")).await?;
 				connector.set_route(src_gateway, route).await?;

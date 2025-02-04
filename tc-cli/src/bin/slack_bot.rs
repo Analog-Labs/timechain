@@ -181,6 +181,7 @@ async fn command_event(
 	let args = text
 		.split(' ')
 		.filter(|s| !s.starts_with("tag="))
+		.filter(|s| !s.starts_with("branch="))
 		.collect::<Vec<_>>()
 		.as_slice()
 		.join(" ");

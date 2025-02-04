@@ -25,8 +25,8 @@ use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
 
 use time_primitives::{
-	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
-	PublicKey, ShardsInterface,
+	Address, Balance, ElectionsInterface, GmpMessage, MembersInterface, NetworkId,
+	NetworksInterface, PeerId, PublicKey, ShardsInterface, U256,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -112,11 +112,36 @@ impl AssetTeleporter<Test> for Tasks {
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
 	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
-		_network_id: NetworkIdOf<Test>,
-		_details: &mut NetworkDataOf<Test>,
-		_beneficiary: BeneficiaryOf<Test>,
-		_amount: BalanceOf<Test>,
+		network_id: NetworkIdOf<Test>,
+		details: &mut NetworkDataOf<Test>,
+		beneficiary: BeneficiaryOf<Test>,
+		amount: BalanceOf<Test>,
 	) -> DispatchResult {
+		// TODO better to store somewhere
+		let src: Address = Bridge::account_id().into();
+		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
+		// TODO refactor with alloy
+		let teleport_command =
+			[&src[..], &beneficiary[..], &U256::from(amount).to_big_endian()[..]]
+				.concat()
+				.to_vec();
+		let msg = GmpMessage {
+			src_network: <Test as pallet_networks::Config>::TimechainNetworkId::get(),
+			dest_network: network_id,
+			src,
+			// GMP backend truncates this to AccountId20
+			dest: details.1,
+			nonce: details.0,
+			// must be sufficient to exec OnGmpRecieved
+			gas_limit: 100_000u128,
+			// ussually used for cronicles refund
+			gas_cost: 0u128,
+			// calldata for our OnGmpRecieved
+			bytes: teleport_command,
+		};
+
+		//		Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
+
 		Ok(())
 	}
 }
@@ -160,9 +185,9 @@ impl pallet_assets_bridge::Config for Test {
 	type PalletId = BridgePalletId;
 	type Currency = pallet_balances::Pallet<Test>;
 	type FeeDestination = Treasury;
-	type NetworkId = ();
-	type NetworkData = ();
-	type Beneficiary = ();
+	type NetworkId = u16;
+	type NetworkData = (u64, Address);
+	type Beneficiary = Address;
 	type Teleporter = Tasks;
 }
 

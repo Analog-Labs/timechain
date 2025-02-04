@@ -1,5 +1,5 @@
 use anyhow::Result;
-use futures::stream::BoxStream;
+use futures::stream::{self, BoxStream};
 use subxt::{tx::Payload as TxPayload, utils::H256};
 use tc_subxt::timechain_client::{
 	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionSubmitter,
@@ -22,32 +22,37 @@ impl ITimechainClient for MockClient {
 	async fn get_latest_block(&self) -> Result<BlockDetail> {
 		todo!()
 	}
+
 	fn sign_payload<Call>(&self, call: &Call, params: ExtrinsicParams) -> Vec<u8>
 	where
 		Call: TxPayload + Send + Sync,
 	{
-		todo!()
 	}
+
 	fn submittable_transaction(&self, tx: Vec<u8>) -> Self::Submitter {
 		MockTransaction { hash: H256::random() }
 	}
+
 	async fn finalized_block_stream(
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
 		todo!()
 	}
+
 	async fn best_block_stream(
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
 		todo!()
 	}
+
 	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
-		todo!()
+		let stream: BoxStream<'static, Result<Self::Update>> = stream.empty().boxed;
+		Ok(stream)
 	}
 	fn apply_update(&self, update: Self::Update) -> Result<()> {
-		todo!()
+		Ok(())
 	}
 }
 

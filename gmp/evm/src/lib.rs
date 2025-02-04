@@ -172,7 +172,7 @@ impl Connector {
 		//Step3: send eth_rawTransaction
 		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
-		tracing::info!("deployed factory with tx: {:?}", tx_hash);
+		tracing::info!("factory deployed with tx: {:?}", tx_hash);
 		Ok(())
 	}
 
@@ -543,7 +543,7 @@ impl IConnector for Connector {
 							cctp_queue.push((gmp_message.clone(), 0));
 						} else {
 							tracing::info!(
-								"GMP Created: {:?}",
+								"gmp created: {:?}",
 								hex::encode(gmp_message.message_id())
 							);
 							events.push(GmpEvent::MessageReceived(gmp_message));
@@ -552,7 +552,7 @@ impl IConnector for Connector {
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log, true)?;
-						tracing::info!("GMP Executed: {:?}", hex::encode(log.id));
+						tracing::info!("gmp executed: {:?}", hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 						break;
 					},
@@ -566,7 +566,6 @@ impl IConnector for Connector {
 					},
 					_ => {},
 				}
-				tracing::info!("logsiter 3");
 			}
 		}
 		// CCTP calls processing
@@ -605,10 +604,10 @@ impl IConnector for Connector {
 				ops,
 			},
 		};
-		tracing::info!("Submitting batch: {batch} to gateway with gas: {gas_limit}");
+		tracing::info!("submitting batch {batch} with {gas_limit} gas");
 		let _guard = self.wallet_guard.lock().await;
 		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
-			tracing::info!("Error occured on gmp call: {:?}", err);
+			tracing::info!("failed to submit batch: {:?}", err);
 			err.to_string()
 		})?;
 		Ok(())
@@ -633,10 +632,7 @@ impl IConnectorAdmin for Connector {
 			.await?;
 
 		if is_factory_deployed.is_empty() {
-			tracing::info!("Factory is not deployed");
 			self.deploy_factory(&config).await?;
-		} else {
-			tracing::info!("Factory is deployed: {:?}", is_factory_deployed.len());
 		}
 
 		// proxy address computation

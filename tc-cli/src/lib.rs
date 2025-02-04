@@ -712,8 +712,7 @@ impl Tc {
 					base_fee: config.route_base_fee,
 				};
 				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
-					if r.gateway == route.gateway
-						&& r.gas_limit == route.gas_limit
+					if r.gas_limit == route.gas_limit
 						&& r.base_fee == route.base_fee
 						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
 					{

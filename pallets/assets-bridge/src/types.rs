@@ -7,13 +7,13 @@ use scale_info::TypeInfo;
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct NetworkDetails<Balance, NetworkData> {
 	/// If this network is currently accepting teleports.
-    pub active: bool,
+	pub active: bool,
 	/// How much the base cost to teleport assets.
-    pub teleport_base_fee: Balance,
+	pub teleport_base_fee: Balance,
 	/// Total amount of assets locked in this network.
-    pub total_locked: Balance,
+	pub total_locked: Balance,
 	/// Custom network data.
-    pub data: NetworkData,
+	pub data: NetworkData,
 }
 
 pub trait NetworkChannel<NetworkId, AccountId, Beneficiary, Balance> {
@@ -24,8 +24,9 @@ pub trait NetworkChannel<NetworkId, AccountId, Beneficiary, Balance> {
 		network: NetworkId,
 		beneficiary: Beneficiary,
 		amount: Balance,
-		liveness: ExistenceRequirement
+		liveness: ExistenceRequirement,
 	) -> DispatchResult;
 
-	fn unlock_funds(networkd: NetworkId, beneficiary: AccountId, amount: Balance) -> DispatchResult;
+	fn unlock_funds(networkd: NetworkId, beneficiary: AccountId, amount: Balance)
+		-> DispatchResult;
 }

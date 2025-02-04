@@ -11,48 +11,39 @@ mod types;
 
 extern crate alloc;
 
-use core::marker::PhantomData;
-use scale_codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
+use scale_codec::MaxEncodedLen;
 
 use polkadot_sdk::{
 	frame_support::{
 		self,
-		dispatch::{DispatchResult, DispatchResultWithPostInfo},
-		traits::{
-			Currency, Get, ReservableCurrency, OnUnbalanced, WithdrawReasons,
-			Imbalance
-		},
+		dispatch::DispatchResult,
+		traits::{Currency, Get, Imbalance, OnUnbalanced, WithdrawReasons},
 		weights::Weight,
-		BoundedVec, PalletId,
+		PalletId,
 	},
-	frame_system::{
-		self,
-		pallet_prelude::BlockNumberFor,
-	},
-	sp_runtime::traits::{StaticLookup, Zero, AccountIdConversion, CheckedAdd, Saturating},
+	frame_system::{self},
+	sp_runtime::traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 };
-pub use pallet::*;
-pub use types::{NetworkChannel, NetworkDetails, ExistenceRequirement};
 
-pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type NetworkIdOf<T, I = ()> = <T as Config<I>>::NetworkId;
-pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
+pub use pallet::*;
+pub use types::{ExistenceRequirement, NetworkChannel, NetworkDetails};
+
+pub type NetworkIdOf<T> = <T as Config>::NetworkId;
+
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
-pub type NetworkDataOf<T, I = ()> = <T as Config<I>>::NetworkData;
-pub type NetworkDetailsOf<T, I = ()> = NetworkDetails<BalanceOf<T, I>, NetworkDataOf<T, I>>;
+
+pub type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type NetworkDataOf<T> = <T as Config>::NetworkData;
+pub type NetworkDetailsOf<T> = NetworkDetails<BalanceOf<T>, NetworkDataOf<T>>;
 
 /// Teleport handlers.
 pub trait AssetTeleporter<NetworkId, NetworkData, Beneficiary, Balance> {
 	/// Attempt to register `network_id` with `data`.
-	fn handle_register(
-		network_id: NetworkId,
-		data: &mut NetworkData,
-	) -> DispatchResult;
+	fn handle_register(network_id: NetworkId, data: &mut NetworkData) -> DispatchResult;
 
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
 	/// This method is called only after the asset get successfully locked in this pallet.
@@ -68,10 +59,11 @@ pub trait AssetTeleporter<NetworkId, NetworkData, Beneficiary, Balance> {
 pub mod pallet {
 	use super::*;
 	use frame_support::{
-		dispatch_context::with_context, pallet_prelude::*, traits::{Currency, DefensiveSaturating, ExistenceRequirement, ReservableCurrency}
+		pallet_prelude::*,
+		traits::{Currency, ExistenceRequirement, ReservableCurrency},
 	};
 
-	use frame_system::pallet_prelude::{ensure_signed, ensure_root, OriginFor};
+	use frame_system::pallet_prelude::{ensure_root, ensure_signed, OriginFor};
 
 	pub trait WeightInfo {
 		fn teleport_keep_alive() -> Weight;
@@ -92,14 +84,14 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+	#[pallet::without_storage_info]
+	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: polkadot_sdk::frame_system::Config
-	{
+	pub trait Config: polkadot_sdk::frame_system::Config {
 		/// The basic amount of funds that will be charged for cover the teleport costs.
 		#[pallet::constant]
-		type TeleportBaseFee: Get<BalanceOf<Self, I>>;
+		type TeleportBaseFee: Get<BalanceOf<Self>>;
 
 		/// The bridge pallet id, used for deriving its sovereign account ID.
 		#[pallet::constant]
@@ -109,10 +101,15 @@ pub mod pallet {
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
 		/// Handler for the unbalanced decrease when teleport fees are paid.
-		type FeeDestination: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+		type FeeDestination: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
 		/// Handler responsible to teleport the assets.
-		type Teleporter: AssetTeleporter<Self::NetworkId, Self::NetworkData, Self::Beneficiary, BalanceOf<Self, I>>;
+		type Teleporter: AssetTeleporter<
+			Self::NetworkId,
+			Self::NetworkData,
+			Self::Beneficiary,
+			BalanceOf<Self>,
+		>;
 
 		/// Network unique identifier
 		type NetworkId: Parameter + MaxEncodedLen;
@@ -127,7 +124,7 @@ pub mod pallet {
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self, I>>
+		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 
 		// type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -136,41 +133,22 @@ pub mod pallet {
 
 	/// Get network for member
 	#[pallet::storage]
-	pub type Network<T, I = ()> =
-		StorageMap<_, Blake2_128Concat, NetworkIdOf<T, I>, NetworkDetailsOf<T, I>, OptionQuery>;
-
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-		#[serde(skip)]
-		_config: core::marker::PhantomData<(T, I)>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
-		fn build(&self) {
-			// Create Treasury account
-			let account_id = Pallet::<T, I>::account_id();
-			let min = T::Currency::minimum_balance();
-			if T::Currency::free_balance(&account_id) < min {
-				let _ = T::Currency::make_free_balance_be(&account_id, min);
-			}
-		}
-	}
+	pub type Network<T> =
+		StorageMap<_, Blake2_128Concat, NetworkIdOf<T>, NetworkDetailsOf<T>, OptionQuery>;
 
 	/// Define events emitted by the pallet.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config<I>, I: 'static = ()> {
+	pub enum Event<T: Config> {
 		/// We have ended a spend period and will now allocate funds.
-		Teleported { account: T::AccountId, amount: BalanceOf<T, I> },
+		Teleported { account: T::AccountId, amount: BalanceOf<T> },
 		/// We have ended a spend period and will now allocate funds.
 		BridgeStatusChanged { network: T::NetworkId, open: bool },
 	}
 
 	///  Define possible errors that can occur during pallet operations.
 	#[pallet::error]
-	pub enum Error<T, I = ()> {
+	pub enum Error<T> {
 		/// Network Not Found or disabled.
 		NetworkDisabled,
 		/// No sufficient funds for pay for the teleportation.
@@ -183,20 +161,16 @@ pub mod pallet {
 		NetworkAlreadyExists,
 	}
 
-	/// Implements hooks for pallet initialization and block processing.
-	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {}
-
 	/// Exposes callable functions to interact with the pallet.
 	#[pallet::call]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::teleport_keep_alive())]
 		pub fn teleport_keep_alive(
 			origin: OriginFor<T>,
 			network: T::NetworkId,
 			beneficiary: T::Beneficiary,
-			amount: BalanceOf<T, I>,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
 			Self::do_teleport(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
@@ -209,7 +183,7 @@ pub mod pallet {
 			source: T::AccountId,
 			network: T::NetworkId,
 			beneficiary: T::Beneficiary,
-			amount: BalanceOf<T, I>,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_teleport(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
@@ -220,25 +194,22 @@ pub mod pallet {
 		pub fn register_network(
 			origin: OriginFor<T>,
 			network: T::NetworkId,
-			base_fee: BalanceOf<T, I>,
+			base_fee: BalanceOf<T>,
 			mut data: T::NetworkData,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(!Network::<T, I>::contains_key(&network), Error::<T, I>::NetworkAlreadyExists);
+			ensure!(!Network::<T>::contains_key(&network), Error::<T>::NetworkAlreadyExists);
 			T::Teleporter::handle_register(network.clone(), &mut data)?;
 			let details = NetworkDetails {
 				active: true,
 				teleport_base_fee: base_fee,
-				total_locked: BalanceOf::<T, I>::zero(),
+				total_locked: BalanceOf::<T>::zero(),
 				data,
 			};
-			Network::<T, I>::insert(network.clone(), details);
+			Network::<T>::insert(network.clone(), details);
 
 			// Emit `BridgeStatusChanged` event.
-			Self::deposit_event(Event::BridgeStatusChanged {
-				network: network,
-				open: true,
-			});
+			Self::deposit_event(Event::BridgeStatusChanged { network, open: true });
 
 			Ok(())
 		}
@@ -253,9 +224,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let network_ref = &network;
-			Network::<T, I>::try_mutate_exists(network_ref, move |maybe_network| -> DispatchResult {
+			Network::<T>::try_mutate_exists(network_ref, move |maybe_network| -> DispatchResult {
 				// Check if the network exists.
-				let details = maybe_network.as_mut().ok_or(Error::<T, I>::NetworkDisabled)?;
+				let details = maybe_network.as_mut().ok_or(Error::<T>::NetworkDisabled)?;
 
 				if details.active != active {
 					// Emit `BridgeStatusChanged` event.
@@ -274,7 +245,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	impl<T: Config> Pallet<T> {
 		/// The account ID of the bridge pot.
 		///
 		/// This actually does computation. If you need to keep using it, then make sure you cache the
@@ -285,7 +256,7 @@ pub mod pallet {
 
 		/// Return the amount of money reserved by the bridge account.
 		/// The existential deposit is not part of the reserve so the bridge account never gets deleted.
-		pub fn reserved() -> BalanceOf<T, I> {
+		pub fn reserved() -> BalanceOf<T> {
 			T::Currency::free_balance(&Self::account_id())
 				// Must never be less than 0 but better be safe.
 				.saturating_sub(T::Currency::minimum_balance())
@@ -297,20 +268,20 @@ pub mod pallet {
 			source: T::AccountId,
 			network_id: T::NetworkId,
 			beneficiary: T::Beneficiary,
-			amount: BalanceOf<T, I>,
+			amount: BalanceOf<T>,
 			liveness: ExistenceRequirement,
 		) -> DispatchResult {
-			ensure!(!amount.is_zero(), Error::<T, I>::AmountZero);
+			ensure!(!amount.is_zero(), Error::<T>::AmountZero);
 
-			Network::<T, I>::try_mutate_exists(&network_id, |maybe_network| -> DispatchResult {
+			Network::<T>::try_mutate_exists(&network_id, |maybe_network| -> DispatchResult {
 				// Check if the network exists.
-				let details = maybe_network.as_mut().ok_or(Error::<T, I>::NetworkDisabled)?;
-				ensure!(details.active, Error::<T, I>::NetworkDisabled);
+				let details = maybe_network.as_mut().ok_or(Error::<T>::NetworkDisabled)?;
+				ensure!(details.active, Error::<T>::NetworkDisabled);
 
 				// total = amount + network_details.teleport_base_fee
 				let total = amount
 					.checked_add(&details.teleport_base_fee)
-					.ok_or(Error::<T, I>::InsufficientFunds)?;
+					.ok_or(Error::<T>::InsufficientFunds)?;
 
 				// Withdraw `total` from `source`
 				let reason = WithdrawReasons::TRANSFER | WithdrawReasons::FEE;
@@ -332,18 +303,20 @@ pub mod pallet {
 					// Must never be an error, but better to be safe.
 					frame_support::print("Inconsistent state - couldn't reserve imbalance for funds teleported by source");
 					drop(problem);
-					return Err(Error::<T, I>::CannotReserveFunds.into());
+					return Err(Error::<T>::CannotReserveFunds.into());
 				}
 
 				// Perform the teleport
-				T::Teleporter::handle_teleport(network_id.clone(), &mut details.data, beneficiary, amount)
+				T::Teleporter::handle_teleport(
+					network_id.clone(),
+					&mut details.data,
+					beneficiary,
+					amount,
+				)
 			})?;
 
 			// Emit `Teleported` event.
-			Self::deposit_event(Event::Teleported {
-				account: source,
-				amount,
-			});
+			Self::deposit_event(Event::Teleported { account: source, amount });
 
 			Ok(())
 		}

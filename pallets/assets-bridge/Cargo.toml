@@ -1,6 +1,6 @@
 [package]
 name = "pallet-assets-bridge"
-description = "A pallet that bridge assets"
+description = "A pallet that bridges assets"
 publish = false
 
 version.workspace = true
@@ -25,15 +25,25 @@ polkadot-sdk = { workspace = true, features = [
 	"sp-core",
 	"sp-runtime",
 	"sp-std",
+
+	"pallet-balances",
+
 ]}
+
 
 time-primitives.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true
 lazy_static = "1.4.0"
+pallet-tasks.workspace = true
 
-polkadot-sdk = { workspace = true, features = [ "sp-io", "sp-keystore" ]}
+polkadot-sdk = { workspace = true, features = [
+	 "sp-io",
+	 "sp-keystore",
+
+	 "pallet-treasury",
+]}
 
 [features]
 default = [ "std" ]

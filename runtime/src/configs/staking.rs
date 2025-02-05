@@ -49,6 +49,14 @@ pub struct StakingMigration();
 impl OnRuntimeUpgrade for StakingMigration {
 	/// Set some sensible defaults during the staking update.
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		// Fetch current validator count
+		let count: u32 = Session::validators()
+			.len()
+			.try_into()
+			.expect("Validator count does fit into u32.");
+
+		log::error!("✋ Starting the migration of {count} validators to proof of stake");
+
 		// Ensure there are always at least a minimum amount of validators
 		pallet_staking::MinimumValidatorCount::<Runtime>::put(4);
 
@@ -60,7 +68,7 @@ impl OnRuntimeUpgrade for StakingMigration {
 			StakingOp::Set(MIN_STAKE),
 			// max nominator and validator count
 			StakingOp::Set(1),
-			StakingOp::Set(100),
+			StakingOp::Set(count),
 			// others
 			StakingOp::Noop,
 			StakingOp::Noop,
@@ -85,11 +93,7 @@ impl OnRuntimeUpgrade for StakingMigration {
 			}
 		}
 
-		// Limit validator set to current count
-		let count: u32 = Session::validators()
-			.len()
-			.try_into()
-			.expect("Validator count does fit into u32.");
+		// Limit validator set size to current count
 		if Staking::set_validator_count(RawOrigin::Root.into(), count).is_err() {
 			log::error!("🤕 Failed to set validator count: {count}");
 		}

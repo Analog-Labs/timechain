@@ -32,7 +32,7 @@ use super::mock::*;
 use crate::common::AssetId;
 use crate::requests::{OffchainRequest, OutgoingRequest, OutgoingTransfer};
 use crate::tests::{
-    approve_last_request, last_outgoing_request, last_request, Assets, ETH_NETWORK_ID,
+	approve_last_request, last_outgoing_request, last_request, Assets, ETH_NETWORK_ID,
 };
 use crate::{AssetConfig, BridgeSignatureVersion, EthAddress};
 use frame_support::assert_ok;
@@ -45,248 +45,215 @@ use std::str::FromStr;
 
 #[test]
 fn should_approve_outgoing_transfer() {
-    let (mut ext, state) = ExtBuilder::default().build();
+	let (mut ext, state) = ExtBuilder::default().build();
 
-    ext.execute_with(|| {
-        let net_id = ETH_NETWORK_ID;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        Assets::mint_to(&AssetId::Balances, &alice, &alice, 99999u32.into()).unwrap();
-        assert_eq!(
-            Assets::total_balance(&AssetId::Balances, &alice).unwrap(),
-            100000u32.into()
-        );
-        assert_ok!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-            100_u32.into(),
-            net_id,
-        ));
-        assert_eq!(
-            Assets::total_balance(&AssetId::Balances, &alice).unwrap(),
-            99900u32.into()
-        );
-        approve_last_request(&state, net_id).expect("request wasn't approved");
-    });
+	ext.execute_with(|| {
+		let net_id = ETH_NETWORK_ID;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		Assets::mint_to(&AssetId::Balances, &alice, &alice, 99999u32.into()).unwrap();
+		assert_eq!(Assets::total_balance(&AssetId::Balances, &alice).unwrap(), 100000u32.into());
+		assert_ok!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+			100_u32.into(),
+			net_id,
+		));
+		assert_eq!(Assets::total_balance(&AssetId::Balances, &alice).unwrap(), 99900u32.into());
+		approve_last_request(&state, net_id).expect("request wasn't approved");
+	});
 }
 
 #[test]
 fn should_reserve_and_burn_sidechain_asset_in_outgoing_transfer() {
-    let net_id = ETH_NETWORK_ID;
-    let mut builder = ExtBuilder::new();
-    builder.add_network(
-        vec![AssetConfig::Reservable {
-            id: AssetId::Balances,
-            sidechain_id: H160(hex!("dAC17F958D2ee523a2206206994597C13D831ec7")),
-        }],
-        None,
-        None,
-        Default::default(),
-    );
-    let (mut ext, state) = builder.build();
+	let net_id = ETH_NETWORK_ID;
+	let mut builder = ExtBuilder::new();
+	builder.add_network(
+		vec![AssetConfig::Reservable {
+			id: AssetId::Balances,
+			sidechain_id: H160(hex!("dAC17F958D2ee523a2206206994597C13D831ec7")),
+		}],
+		None,
+		None,
+		Default::default(),
+	);
+	let (mut ext, state) = builder.build();
 
-    ext.execute_with(|| {
-        let bridge_acc = &state.networks[&net_id].config.bridge_account_id;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        Assets::mint_to(&AssetId::Balances, &alice, &alice, 100000u32.into()).unwrap();
-        assert_ok!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-            100_u32.into(),
-            net_id,
-        ));
-        assert_eq!(
-            Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            1
-        );
-        // Sidechain asset was reserved.
-        assert_eq!(
-            Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            101u32.into()
-        );
-        approve_last_request(&state, net_id).expect("request wasn't approved");
-        // Sidechain asset was unreserved.
-        assert_eq!(
-            Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            101
-        );
-        assert_eq!(
-            Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap()
-        );
-    });
+	ext.execute_with(|| {
+		let bridge_acc = &state.networks[&net_id].config.bridge_account_id;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		Assets::mint_to(&AssetId::Balances, &alice, &alice, 100000u32.into()).unwrap();
+		assert_ok!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+			100_u32.into(),
+			net_id,
+		));
+		assert_eq!(Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(), 1);
+		// Sidechain asset was reserved.
+		assert_eq!(Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(), 101u32.into());
+		approve_last_request(&state, net_id).expect("request wasn't approved");
+		// Sidechain asset was unreserved.
+		assert_eq!(Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(), 101);
+		assert_eq!(
+			Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(),
+			Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap()
+		);
+	});
 }
 
 #[test]
 fn should_reserve_and_unreserve_thischain_asset_in_outgoing_transfer() {
-    let net_id = ETH_NETWORK_ID;
-    let mut builder = ExtBuilder::new();
-    builder.add_network(
-        vec![AssetConfig::Reservable {
-            id: AssetId::Balances,
-            sidechain_id: H160::repeat_byte(2),
-        }],
-        None,
-        None,
-        Default::default(),
-    );
-    let (mut ext, state) = builder.build();
+	let net_id = ETH_NETWORK_ID;
+	let mut builder = ExtBuilder::new();
+	builder.add_network(
+		vec![AssetConfig::Reservable {
+			id: AssetId::Balances,
+			sidechain_id: H160::repeat_byte(2),
+		}],
+		None,
+		None,
+		Default::default(),
+	);
+	let (mut ext, state) = builder.build();
 
-    ext.execute_with(|| {
-        let bridge_acc = &state.networks[&net_id].config.bridge_account_id;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        Assets::mint_to(&AssetId::Balances, &alice, &alice, 100000u32.into()).unwrap();
-        assert_ok!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-            100_u32.into(),
-            net_id,
-        ));
-        assert_eq!(
-            Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            1
-        );
-        // Thischain asset was reserved.
-        assert_eq!(
-            Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            101u32.into()
-        );
-        approve_last_request(&state, net_id).expect("request wasn't approved");
-        // Thischain asset was unreserved.
-        assert_eq!(
-            Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            101u32.into()
-        );
-        assert_eq!(
-            Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(),
-            Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap()
-        );
-    });
+	ext.execute_with(|| {
+		let bridge_acc = &state.networks[&net_id].config.bridge_account_id;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		Assets::mint_to(&AssetId::Balances, &alice, &alice, 100000u32.into()).unwrap();
+		assert_ok!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+			100_u32.into(),
+			net_id,
+		));
+		assert_eq!(Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(), 1);
+		// Thischain asset was reserved.
+		assert_eq!(Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(), 101u32.into());
+		approve_last_request(&state, net_id).expect("request wasn't approved");
+		// Thischain asset was unreserved.
+		assert_eq!(Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap(), 101u32.into());
+		assert_eq!(
+			Assets::free_balance(&AssetId::Balances, &bridge_acc).unwrap(),
+			Assets::total_balance(&AssetId::Balances, &bridge_acc).unwrap()
+		);
+	});
 }
 
 #[test]
 fn should_not_transfer() {
-    let (mut ext, _) = ExtBuilder::new().build();
+	let (mut ext, _) = ExtBuilder::new().build();
 
-    ext.execute_with(|| {
-        let net_id = ETH_NETWORK_ID;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        let mut peers = gen_peers_keys("peers", 4)
-            .into_iter()
-            .map(|(_, account, _)| account)
-            .collect::<Vec<_>>();
-        peers.sort();
-        EthBridge::register_bridge(
-            RuntimeOrigin::root(),
-            H160::repeat_byte(3),
-            peers,
-            BridgeSignatureVersion::V3,
-        )
-        .unwrap();
-        frame_support::assert_err!(
-            EthBridge::transfer_to_sidechain(
-                RuntimeOrigin::signed(alice.clone()),
-                AssetId::Balances,
-                EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-                100_u32.into(),
-                net_id,
-            ),
-            super::Error::UnsupportedToken
-        );
-        assert!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-            100_000_000_u32.into(),
-            net_id,
-        )
-        .is_err());
-    });
+	ext.execute_with(|| {
+		let net_id = ETH_NETWORK_ID;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		let mut peers = gen_peers_keys("peers", 4)
+			.into_iter()
+			.map(|(_, account, _)| account)
+			.collect::<Vec<_>>();
+		peers.sort();
+		EthBridge::register_bridge(
+			RuntimeOrigin::root(),
+			H160::repeat_byte(3),
+			peers,
+			BridgeSignatureVersion::V3,
+		)
+		.unwrap();
+		frame_support::assert_err!(
+			EthBridge::transfer_to_sidechain(
+				RuntimeOrigin::signed(alice.clone()),
+				AssetId::Balances,
+				EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+				100_u32.into(),
+				net_id,
+			),
+			super::Error::UnsupportedToken
+		);
+		assert!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+			100_000_000_u32.into(),
+			net_id,
+		)
+		.is_err());
+	});
 }
 
 #[test]
 fn should_register_outgoing_transfer() {
-    let (mut ext, _state) = ExtBuilder::default().build();
+	let (mut ext, _state) = ExtBuilder::default().build();
 
-    ext.execute_with(|| {
-        let net_id = ETH_NETWORK_ID;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        Assets::mint_to(&AssetId::Balances, &alice, &alice, 100000u32.into()).unwrap();
-        assert_ok!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from([1; 20]),
-            100u32.into(),
-            net_id,
-        ));
-        let outgoing_transfer = OutgoingTransfer::<Runtime> {
-            from: alice.clone(),
-            to: EthAddress::from([1; 20]),
-            asset_id: AssetId::Balances,
-            amount: 100_u32.into(),
-            nonce: 0,
-            network_id: ETH_NETWORK_ID,
-            timepoint: bridge_multisig::Pallet::<Runtime>::thischain_timepoint(),
-        };
-        let last_request = last_request(net_id).unwrap();
-        match last_request {
-            OffchainRequest::Outgoing(OutgoingRequest::Transfer(r), _) => {
-                assert_eq!(r, outgoing_transfer)
-            }
-            _ => panic!("Invalid off-chain request"),
-        }
-    });
+	ext.execute_with(|| {
+		let net_id = ETH_NETWORK_ID;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		Assets::mint_to(&AssetId::Balances, &alice, &alice, 100000u32.into()).unwrap();
+		assert_ok!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from([1; 20]),
+			100u32.into(),
+			net_id,
+		));
+		let outgoing_transfer = OutgoingTransfer::<Runtime> {
+			from: alice.clone(),
+			to: EthAddress::from([1; 20]),
+			asset_id: AssetId::Balances,
+			amount: 100_u32.into(),
+			nonce: 0,
+			network_id: ETH_NETWORK_ID,
+			timepoint: bridge_multisig::Pallet::<Runtime>::thischain_timepoint(),
+		};
+		let last_request = last_request(net_id).unwrap();
+		match last_request {
+			OffchainRequest::Outgoing(OutgoingRequest::Transfer(r), _) => {
+				assert_eq!(r, outgoing_transfer)
+			},
+			_ => panic!("Invalid off-chain request"),
+		}
+	});
 }
 
 #[test]
 fn ocw_should_handle_outgoing_request() {
-    let (mut ext, mut state) = ExtBuilder::default().build();
-    ext.execute_with(|| {
-        let net_id = ETH_NETWORK_ID;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        Assets::mint_to(&AssetId::Balances, &alice, &alice, 100).unwrap();
-        assert_ok!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-            100,
-            net_id,
-        ));
-        state.run_next_offchain_and_dispatch_txs();
-        let hash = last_outgoing_request(net_id).unwrap().1;
-        assert_eq!(
-            crate::RequestApprovals::<Runtime>::get(net_id, hash).len(),
-            1
-        );
-    });
+	let (mut ext, mut state) = ExtBuilder::default().build();
+	ext.execute_with(|| {
+		let net_id = ETH_NETWORK_ID;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		Assets::mint_to(&AssetId::Balances, &alice, &alice, 100).unwrap();
+		assert_ok!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+			100,
+			net_id,
+		));
+		state.run_next_offchain_and_dispatch_txs();
+		let hash = last_outgoing_request(net_id).unwrap().1;
+		assert_eq!(crate::RequestApprovals::<Runtime>::get(net_id, hash).len(), 1);
+	});
 }
 
 #[test]
 fn ocw_should_not_handle_outgoing_request_twice() {
-    let (mut ext, mut state) = ExtBuilder::default().build();
-    ext.execute_with(|| {
-        let net_id = ETH_NETWORK_ID;
-        let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
-        Assets::mint_to(&AssetId::Balances, &alice, &alice, 100).unwrap();
-        assert_ok!(EthBridge::transfer_to_sidechain(
-            RuntimeOrigin::signed(alice.clone()),
-            AssetId::Balances,
-            EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
-            100,
-            net_id,
-        ));
-        state.run_next_offchain_and_dispatch_txs();
-        let hash = last_outgoing_request(net_id).unwrap().1;
-        assert_eq!(
-            crate::RequestApprovals::<Runtime>::get(net_id, hash).len(),
-            1
-        );
-        state.run_next_offchain_and_dispatch_txs();
-        assert_eq!(
-            crate::RequestApprovals::<Runtime>::get(net_id, hash).len(),
-            1
-        );
-    });
+	let (mut ext, mut state) = ExtBuilder::default().build();
+	ext.execute_with(|| {
+		let net_id = ETH_NETWORK_ID;
+		let alice = get_account_id_from_seed::<sr25519::Public>("Alice");
+		Assets::mint_to(&AssetId::Balances, &alice, &alice, 100).unwrap();
+		assert_ok!(EthBridge::transfer_to_sidechain(
+			RuntimeOrigin::signed(alice.clone()),
+			AssetId::Balances,
+			EthAddress::from_str("19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A").unwrap(),
+			100,
+			net_id,
+		));
+		state.run_next_offchain_and_dispatch_txs();
+		let hash = last_outgoing_request(net_id).unwrap().1;
+		assert_eq!(crate::RequestApprovals::<Runtime>::get(net_id, hash).len(), 1);
+		state.run_next_offchain_and_dispatch_txs();
+		assert_eq!(crate::RequestApprovals::<Runtime>::get(net_id, hash).len(), 1);
+	});
 }

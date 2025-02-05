@@ -40,20 +40,20 @@ use sp_std::collections::btree_map::BTreeMap;
 /// Avoid of Contract struct never used warning
 #[allow(dead_code)]
 pub mod eth_bridge_contract {
-    use super::sp_std::prelude::*;
-    use alloc::string::String;
+	use super::sp_std::prelude::*;
+	use alloc::string::String;
 
-    #[derive(ethabi_derive::EthabiContract)]
-    #[ethabi_contract_options(path = "src/res/contract.abi")]
-    struct Contract;
+	#[derive(ethabi_derive::EthabiContract)]
+	#[ethabi_contract_options(path = "src/res/contract.abi")]
+	struct Contract;
 }
 
 pub const METHOD_ID_SIZE: usize = 4;
 pub type MethodId = [u8; METHOD_ID_SIZE];
 
 pub fn calculate_method_id(function: &Function) -> MethodId {
-    let id = function.short_signature();
-    id
+	let id = function.short_signature();
+	id
 }
 
 pub static ADD_ETH_NATIVE_TOKEN_FN: OnceBox<Function> = OnceBox::new();
@@ -81,133 +81,124 @@ pub static RECEIVE_BY_SIDECHAIN_ASSET_ID_ID: OnceBox<MethodId> = OnceBox::new();
 pub static RECEIVE_BY_SIDECHAIN_ASSET_ID_TX_HASH_ARG_POS: usize = 4;
 
 pub struct FunctionMeta {
-    pub function: Function,
-    pub tx_hash_arg_pos: usize,
+	pub function: Function,
+	pub tx_hash_arg_pos: usize,
 }
 
 impl FunctionMeta {
-    pub fn new(function: Function, tx_hash_arg_pos: usize) -> Self {
-        FunctionMeta {
-            function,
-            tx_hash_arg_pos,
-        }
-    }
+	pub fn new(function: Function, tx_hash_arg_pos: usize) -> Self {
+		FunctionMeta { function, tx_hash_arg_pos }
+	}
 }
 
 pub static FUNCTIONS: OnceBox<BTreeMap<MethodId, FunctionMeta>> = OnceBox::new();
 
 pub fn init_add_peer_by_peer_fn() -> Box<MethodId> {
-    let add_peer_by_peer_fn = ADD_PEER_BY_PEER_FN
-        .get_or_init(|| Box::new(eth_bridge_contract::functions::add_peer_by_peer::function()));
-    Box::new(calculate_method_id(&add_peer_by_peer_fn))
+	let add_peer_by_peer_fn = ADD_PEER_BY_PEER_FN
+		.get_or_init(|| Box::new(eth_bridge_contract::functions::add_peer_by_peer::function()));
+	Box::new(calculate_method_id(&add_peer_by_peer_fn))
 }
 
 pub fn init_remove_peer_by_peer_fn() -> Box<MethodId> {
-    let remove_peer_by_peer_fn = REMOVE_PEER_BY_PEER_FN
-        .get_or_init(|| Box::new(eth_bridge_contract::functions::remove_peer_by_peer::function()));
-    Box::new(calculate_method_id(&remove_peer_by_peer_fn))
+	let remove_peer_by_peer_fn = REMOVE_PEER_BY_PEER_FN
+		.get_or_init(|| Box::new(eth_bridge_contract::functions::remove_peer_by_peer::function()));
+	Box::new(calculate_method_id(&remove_peer_by_peer_fn))
 }
 
 pub fn functions() -> Box<BTreeMap<MethodId, FunctionMeta>> {
-    let add_eth_native_token_fn = ADD_ETH_NATIVE_TOKEN_FN
-        .get_or_init(|| Box::new(eth_bridge_contract::functions::add_eth_native_token::function()));
-    let add_new_sidechain_token_fn = ADD_NEW_SIDECHAIN_TOKEN_FN.get_or_init(|| {
-        Box::new(eth_bridge_contract::functions::add_new_sidechain_token::function())
-    });
-    let add_peer_by_peer_fn = ADD_PEER_BY_PEER_FN
-        .get_or_init(|| Box::new(eth_bridge_contract::functions::add_peer_by_peer::function()));
-    let remove_peer_by_peer_fn = REMOVE_PEER_BY_PEER_FN
-        .get_or_init(|| Box::new(eth_bridge_contract::functions::remove_peer_by_peer::function()));
-    let receive_by_eth_asset_address_fn = RECEIVE_BY_ETHEREUM_ASSET_ADDRESS_FN.get_or_init(|| {
-        Box::new(eth_bridge_contract::functions::receive_by_ethereum_asset_address::function())
-    });
-    let receive_by_sidechain_asset_id_fn = RECEIVE_BY_SIDECHAIN_ASSET_ID_FN.get_or_init(|| {
-        Box::new(eth_bridge_contract::functions::receive_by_sidechain_asset_id::function())
-    });
-    let map = vec![
-        (
-            *ADD_ETH_NATIVE_TOKEN_ID
-                .get_or_init(|| Box::new(calculate_method_id(&add_eth_native_token_fn))),
-            FunctionMeta::new(
-                add_eth_native_token_fn.clone(),
-                ADD_ETH_NATIVE_TOKEN_TX_HASH_ARG_POS,
-            ),
-        ),
-        (
-            *ADD_NEW_SIDECHAIN_TOKEN_ID
-                .get_or_init(|| Box::new(calculate_method_id(&add_new_sidechain_token_fn))),
-            FunctionMeta::new(
-                add_new_sidechain_token_fn.clone(),
-                ADD_NEW_SIDECHAIN_TOKEN_TX_HASH_ARG_POS,
-            ),
-        ),
-        (
-            *ADD_PEER_BY_PEER_ID.get_or_init(init_add_peer_by_peer_fn),
-            FunctionMeta::new(
-                add_peer_by_peer_fn.clone(),
-                ADD_PEER_BY_PEER_TX_HASH_ARG_POS,
-            ),
-        ),
-        (
-            *REMOVE_PEER_BY_PEER_ID.get_or_init(init_remove_peer_by_peer_fn),
-            FunctionMeta::new(
-                remove_peer_by_peer_fn.clone(),
-                REMOVE_PEER_BY_PEER_TX_HASH_ARG_POS,
-            ),
-        ),
-        (
-            *RECEIVE_BY_ETHEREUM_ASSET_ADDRESS_ID
-                .get_or_init(|| Box::new(calculate_method_id(&receive_by_eth_asset_address_fn))),
-            FunctionMeta::new(
-                receive_by_eth_asset_address_fn.clone(),
-                RECEIVE_BY_ETHEREUM_ASSET_ADDRESS_TX_HASH_ARG_POS,
-            ),
-        ),
-        (
-            *RECEIVE_BY_SIDECHAIN_ASSET_ID_ID
-                .get_or_init(|| Box::new(calculate_method_id(&receive_by_sidechain_asset_id_fn))),
-            FunctionMeta::new(
-                receive_by_sidechain_asset_id_fn.clone(),
-                RECEIVE_BY_SIDECHAIN_ASSET_ID_TX_HASH_ARG_POS,
-            ),
-        ),
-    ]
-    .into_iter()
-    .collect();
-    Box::new(map)
+	let add_eth_native_token_fn = ADD_ETH_NATIVE_TOKEN_FN
+		.get_or_init(|| Box::new(eth_bridge_contract::functions::add_eth_native_token::function()));
+	let add_new_sidechain_token_fn = ADD_NEW_SIDECHAIN_TOKEN_FN.get_or_init(|| {
+		Box::new(eth_bridge_contract::functions::add_new_sidechain_token::function())
+	});
+	let add_peer_by_peer_fn = ADD_PEER_BY_PEER_FN
+		.get_or_init(|| Box::new(eth_bridge_contract::functions::add_peer_by_peer::function()));
+	let remove_peer_by_peer_fn = REMOVE_PEER_BY_PEER_FN
+		.get_or_init(|| Box::new(eth_bridge_contract::functions::remove_peer_by_peer::function()));
+	let receive_by_eth_asset_address_fn = RECEIVE_BY_ETHEREUM_ASSET_ADDRESS_FN.get_or_init(|| {
+		Box::new(eth_bridge_contract::functions::receive_by_ethereum_asset_address::function())
+	});
+	let receive_by_sidechain_asset_id_fn = RECEIVE_BY_SIDECHAIN_ASSET_ID_FN.get_or_init(|| {
+		Box::new(eth_bridge_contract::functions::receive_by_sidechain_asset_id::function())
+	});
+	let map = vec![
+		(
+			*ADD_ETH_NATIVE_TOKEN_ID
+				.get_or_init(|| Box::new(calculate_method_id(&add_eth_native_token_fn))),
+			FunctionMeta::new(
+				add_eth_native_token_fn.clone(),
+				ADD_ETH_NATIVE_TOKEN_TX_HASH_ARG_POS,
+			),
+		),
+		(
+			*ADD_NEW_SIDECHAIN_TOKEN_ID
+				.get_or_init(|| Box::new(calculate_method_id(&add_new_sidechain_token_fn))),
+			FunctionMeta::new(
+				add_new_sidechain_token_fn.clone(),
+				ADD_NEW_SIDECHAIN_TOKEN_TX_HASH_ARG_POS,
+			),
+		),
+		(
+			*ADD_PEER_BY_PEER_ID.get_or_init(init_add_peer_by_peer_fn),
+			FunctionMeta::new(add_peer_by_peer_fn.clone(), ADD_PEER_BY_PEER_TX_HASH_ARG_POS),
+		),
+		(
+			*REMOVE_PEER_BY_PEER_ID.get_or_init(init_remove_peer_by_peer_fn),
+			FunctionMeta::new(remove_peer_by_peer_fn.clone(), REMOVE_PEER_BY_PEER_TX_HASH_ARG_POS),
+		),
+		(
+			*RECEIVE_BY_ETHEREUM_ASSET_ADDRESS_ID
+				.get_or_init(|| Box::new(calculate_method_id(&receive_by_eth_asset_address_fn))),
+			FunctionMeta::new(
+				receive_by_eth_asset_address_fn.clone(),
+				RECEIVE_BY_ETHEREUM_ASSET_ADDRESS_TX_HASH_ARG_POS,
+			),
+		),
+		(
+			*RECEIVE_BY_SIDECHAIN_ASSET_ID_ID
+				.get_or_init(|| Box::new(calculate_method_id(&receive_by_sidechain_asset_id_fn))),
+			FunctionMeta::new(
+				receive_by_sidechain_asset_id_fn.clone(),
+				RECEIVE_BY_SIDECHAIN_ASSET_ID_TX_HASH_ARG_POS,
+			),
+		),
+	]
+	.into_iter()
+	.collect();
+	Box::new(map)
 }
 
 /// Contract's deposit event, means that someone transferred some amount of the token/asset to the
 /// bridge contract.
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, RuntimeDebug))]
 pub struct DepositEvent<EthAddress, AccountId, Balance> {
-    pub(crate) destination: AccountId,
-    pub(crate) amount: Balance,
-    pub(crate) token: EthAddress,
-    pub(crate) sidechain_asset: H256,
+	pub(crate) destination: AccountId,
+	pub(crate) amount: Balance,
+	pub(crate) token: EthAddress,
+	pub(crate) sidechain_asset: H256,
 }
 
 impl<EthAddress, AccountId, Balance> DepositEvent<EthAddress, AccountId, Balance> {
-    pub fn new(
-        destination: AccountId,
-        amount: Balance,
-        token: EthAddress,
-        sidechain_asset: H256,
-    ) -> Self {
-        DepositEvent {
-            destination,
-            amount,
-            token,
-            sidechain_asset,
-        }
-    }
+	pub fn new(
+		destination: AccountId,
+		amount: Balance,
+		token: EthAddress,
+		sidechain_asset: H256,
+	) -> Self {
+		DepositEvent {
+			destination,
+			amount,
+			token,
+			sidechain_asset,
+		}
+	}
 }
 
 /// Events that can be emitted by Sidechain smart-contract.
 #[cfg_attr(feature = "std", derive(PartialEq, Eq, RuntimeDebug))]
 pub enum ContractEvent<EthAddress, AccountId, Balance> {
-    Deposit(DepositEvent<EthAddress, AccountId, Balance>),
-    ChangePeers(EthAddress, bool),
-    PreparedForMigration,
-    Migrated(EthAddress),
+	Deposit(DepositEvent<EthAddress, AccountId, Balance>),
+	ChangePeers(EthAddress, bool),
+	PreparedForMigration,
+	Migrated(EthAddress),
 }

@@ -4295,11 +4295,21 @@ dependencies = [
  "log",
  "once_cell",
  "parity-scale-codec",
+ "parking_lot 0.12.3",
  "polkadot-sdk 0.6.0",
  "rustc-hex",
  "scale-info",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "eth-bridge-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk 0.6.0",
+ "scale-info",
 ]
 
 [[package]]
@@ -20354,6 +20364,7 @@ dependencies = [
  "bridge-multisig",
  "env_logger 0.11.6",
  "eth-bridge",
+ "eth-bridge-runtime-api",
  "log",
  "pallet-airdrop",
  "pallet-dmail",

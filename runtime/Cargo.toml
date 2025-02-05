@@ -110,6 +110,7 @@ time-primitives.workspace = true
 
 # HASHI Bridge
 eth-bridge.workspace = true
+eth-bridge-runtime-api.workspace = true
 bridge-multisig.workspace = true
 
 [build-dependencies]
@@ -149,6 +150,7 @@ std = [
 	"substrate-wasm-builder",
 
 	"eth-bridge/std",
+	"eth-bridge-runtime-api/std",
 	"bridge-multisig/std",
 ]
 genesis-builder = [ "polkadot-sdk/sp-genesis-builder" ]

@@ -99,8 +99,9 @@ tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
 
 # HASHI Bridge
-eth-bridge = { path = "../analog-bridge/eth-bridge", default-features = false }
-bridge-multisig = { path = "../analog-bridge/bridge-multisig", default-features = false }
+eth-bridge-runtime-api = { path = "pallets/eth-bridge/runtime-api", default-features = false }
+eth-bridge = { path = "pallets/eth-bridge", default-features = false }
+bridge-multisig = { path = "pallets/bridge-multisig", default-features = false }
 
 [profile.release]
 # Runtime requires unwinding.

@@ -1,7 +1,7 @@
 use polkadot_sdk::*;
 
 use frame_support::{
-	parameter_types,
+	ensure, parameter_types,
 	traits::{ConstU128, ConstU32},
 	PalletId,
 };
@@ -111,7 +111,7 @@ impl pallet_dmail::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BridgePalletId: PalletId = PalletId(*b"py/trsry");
+	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
 }
 
 type NetworkData = (u64, Address);
@@ -129,13 +129,18 @@ impl pallet_assets_bridge::Config for Runtime {
 }
 
 impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
-	/// Attempt to register `network_id` with `data`.
-	fn handle_register(_network_id: NetworkId, _data: &mut NetworkData) -> DispatchResult {
+	fn handle_register(network_id: NetworkId, _data: &mut NetworkData) -> DispatchResult {
+		ensure!(
+			network_id.ne(&<Runtime as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
+			pallet_assets_bridge::Error::<Runtime>::NetworkAlreadyExists
+		);
+
+		// TODO check that network is active, i.e. actually has some
+		// chronicle sards working with it.
+
 		Ok(())
 	}
 
-	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
-	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
 		network_id: NetworkId,
 		details: &mut NetworkData,

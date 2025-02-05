@@ -101,7 +101,6 @@ impl ElectionsInterface for MockElections {
 }
 
 impl AssetTeleporter<Test> for Tasks {
-	/// Attempt to register `network_id` with `data`.
 	fn handle_register(
 		network_id: NetworkIdOf<Test>,
 		_data: &mut NetworkDataOf<Test>,
@@ -114,8 +113,6 @@ impl AssetTeleporter<Test> for Tasks {
 		Ok(())
 	}
 
-	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
-	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
 		network_id: NetworkIdOf<Test>,
 		details: &mut NetworkDataOf<Test>,

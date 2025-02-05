@@ -1,5 +1,8 @@
 //! Nominated Proof of Stake Config
 
+use frame_system::RawOrigin;
+use pallet_nomination_pools::ConfigOp as PoolOp;
+use pallet_staking::{ConfigOp as StakingOp, RewardDestination};
 use scale_codec::Decode;
 
 use polkadot_sdk::*;
@@ -12,13 +15,16 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	traits::{ConstU32, EitherOfDiverse},
+	storage::unhashed,
+	traits::Currency,
+	//traits::tokens::imbalance::ResolveTo,
+	traits::{ConstU32, OnRuntimeUpgrade},
 	weights::Weight,
+	PalletId,
 };
-use frame_system::EnsureRoot;
 
 use sp_runtime::{
-	curve::PiecewiseLinear, transaction_validity::TransactionPriority, Perbill, Percent,
+	curve::PiecewiseLinear, transaction_validity::TransactionPriority, FixedU128, Perbill, Percent,
 };
 use sp_std::prelude::*;
 
@@ -28,30 +34,152 @@ use time_primitives::BlockNumber;
 // Local module imports
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
-	ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration, Runtime,
-	RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent, Session, SessionsPerEra, Staking,
-	TechnicalCollective, Timestamp, TransactionPayment, Treasury, VoterList, ANLOG,
+	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
+	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
+	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, Session, SessionsPerEra, Staking,
+	Timestamp, TransactionPayment, VoterList, ANLOG,
 };
 
+const POOL_ADMIN: [u8; 32] =
+	hex_literal::hex!["36af0a8a854c8e20275474d6de2a5d29c34fa62896847850b6f09b58eb8d6c06"];
+const MIN_STAKE: Balance = 100_000 * ANLOG;
+
+pub struct StakingMigration();
+
+impl OnRuntimeUpgrade for StakingMigration {
+	/// Set some sensible defaults during the staking update.
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		// Fetch current validator count
+		let count: u32 = Session::validators()
+			.len()
+			.try_into()
+			.expect("Validator count does fit into u32.");
+
+		log::info!("✋ Starting the migration of {count} validators to proof of stake");
+
+		// Ensure there are always at least a minimum amount of validators
+		pallet_staking::MinimumValidatorCount::<Runtime>::put(4);
+
+		// Lock down nominations
+		if let Err(error) = Staking::set_staking_configs(
+			RawOrigin::Root.into(),
+			// min nominator and validator bond
+			StakingOp::Set(MIN_STAKE),
+			StakingOp::Set(MIN_STAKE),
+			// max nominator and validator count
+			StakingOp::Set(1),
+			StakingOp::Set(count),
+			// others
+			StakingOp::Noop,
+			StakingOp::Noop,
+			StakingOp::Noop,
+		) {
+			log::error!("🤒 Failed to configure staking: {:?}", error);
+		}
+
+		// Migrate validators to new pallet
+		for validator in Session::validators() {
+			// Provide minimum stake
+			// FIXME: Add source and vesting here!
+			let _ = Balances::deposit_creating(&validator, MIN_STAKE);
+
+			// Setup staking by bonding and signaling intent
+			let origin = RuntimeOrigin::from(Some(validator.clone()));
+			if Staking::bond(origin.clone(), MIN_STAKE, RewardDestination::Staked).is_err() {
+				log::error!("😵 Failed to bond validator: {:?}", validator.clone());
+			}
+			if Staking::validate(origin, Default::default()).is_err() {
+				log::error!("😵‍💫 Failed to enable validator: {:?}", validator.clone());
+			}
+		}
+
+		// Limit validator set size to current count
+		if Staking::set_validator_count(RawOrigin::Root.into(), count).is_err() {
+			log::error!("🤕 Failed to set validator count: {count}");
+		}
+
+		// Allow only one pool
+		if let Err(error) = NominationPools::set_configs(
+			RawOrigin::Root.into(),
+			PoolOp::Noop,
+			PoolOp::Set(MIN_STAKE),
+			PoolOp::Set(1),
+			// Remove all member limits
+			PoolOp::Remove,
+			PoolOp::Remove,
+			// No max commission
+			PoolOp::Noop,
+		) {
+			log::error!("🥴 Failed to configure nomination pools: {:?}", error);
+		}
+
+		// Setup default staking pool
+		let pool_admin: AccountId = POOL_ADMIN.into();
+		// FIXME: Add source and vesting here!
+		let _ = Balances::deposit_creating(&pool_admin, MIN_STAKE + 10 * ANLOG);
+
+		if let Err(error) = NominationPools::create(
+			RawOrigin::Signed(pool_admin.clone()).into(),
+			MIN_STAKE,
+			pool_admin.clone().into(),
+			pool_admin.clone().into(),
+			pool_admin.clone().into(),
+		) {
+			log::error!("🫨 Failed to setup staking pool: {:?}", error);
+		}
+
+		if NominationPools::set_metadata(
+			RawOrigin::Signed(pool_admin.clone()).into(),
+			1,
+			b"Analog One - Bootstaking".to_vec(),
+		)
+		.is_err()
+		{
+			log::error!("🤧 Failed to setup staking pool metadata");
+		}
+
+		// Nominate all validators
+		if let Err(error) = NominationPools::nominate(
+			RawOrigin::Signed(pool_admin.clone()).into(),
+			1,
+			Session::validators(),
+		) {
+			log::error!("🤯 Failed to nominate validators: {error:?}");
+		}
+
+		// Clear old validator manager
+		let deleted = unhashed::clear_prefix(
+			&hex_literal::hex!["084e7f70a295a190e2e33fd3f8cdfcc2"],
+			None,
+			None,
+		)
+		.backend;
+		log::info!("☠ Cleared old validator manager: {deleted}");
+
+		log::info!("🖖 Completed migration to proof of stake");
+
+		Weight::zero()
+	}
+}
+
 parameter_types! {
-	/// This phase determines the time window, in blocks, during which signed transactions (those that
-	/// are authorized by users with private keys, usually nominators or council members) can be submitted.
-	/// It is calculated as 1/3 of the total epoch duration, ensuring that signed
-	/// transactions are allowed for a quarter of the epoch.
+	/// This phase determines the time window, in blocks, during which signed
+	/// transactions can be submitted. It is calculated as the duration of one
+	/// the four epochs during an era.
 	pub const SignedPhase: u32 = EpochDuration::get() as u32;
-	/// This phase determines the time window, in blocks, during which unsigned transactions (those
-	/// without authorization, usually by offchain workers) can be submitted. Like the signed phase,
-	/// it occupies 1/3 of the total epoch duration.
+	/// This phase determines the time window, in blocks, during which unsigned
+	/// off-chain transactions can be submitted. Like the signed phase, it is
+	/// calculated as the duration of one the four epochs during an era.
 	pub const UnsignedPhase: u32 = EpochDuration::get() as u32;
 
 	// Signed Config
 	/// This represents the fixed reward given to participants for submitting valid signed
 	/// transactions. It is set to 1 ANLOG token, meaning that any participant who successfully
 	/// submits a signed transaction will receive this base reward.
-	pub const SignedRewardBase: Balance = 1 * ANLOG;
+	pub const SignedRewardBase: Balance = 100 * ANLOG;
 	/// This deposit ensures that users have economic stakes in the submission of valid signed
 	/// transactions. It is currently set to 1 ANLOG, meaning participants must lock 1 ANLOG as
-	pub const SignedFixedDeposit: Balance = 1 * ANLOG;
+	pub const SignedFixedDeposit: Balance = 100 * ANLOG;
 	/// This percentage increase applies to deposits for multiple or repeated signed transactions.
 	/// It is set to 10%, meaning that each additional submission after the first will increase the
 	/// required deposit by 10%. This serves as a disincentive to spamming the system with repeated
@@ -96,9 +224,9 @@ parameter_types! {
 	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
 	// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(10_000.into()).targets_count(1_500.into()).build();
+		.voters_count(10_000.into()).targets_count(1_000.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
-		.voters_count(5_000.into()).targets_count(1_250.into()).build();
+		.voters_count(5_000.into()).targets_count(1_000.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub MaxElectingVotersSolution: u32 = 40_000;
@@ -237,7 +365,7 @@ parameter_types! {
 	/// The maximum number of controllers that can be included in a deprecation batch when deprecated staking controllers
 	/// are being phased out. This helps manage the process of retiring controllers to prevent overwhelming the system
 	/// during upgrades.
-	pub const MaxControllersInDeprecationBatch: u32 = 5900;
+	pub const MaxControllersInDeprecationBatch: u32 = 4096;
 
 	/// The number of blocks before an off-chain worker repeats a task. Off-chain workers handle tasks that are performed
 	/// outside the main blockchain execution, such as fetching data or performing computation-heavy operations. This value
@@ -267,35 +395,31 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = Treasury;
+	type RewardRemainder = (); //Treasury;
 	type RuntimeEvent = RuntimeEvent;
-	type Slash = Treasury; // send the slashed funds to the treasury.
+	type Slash = (); //Treasury; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	/// A super-majority of the council can cancel the slash.
-	type AdminOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 3, 4>,
-	>;
+	/// A majority of the council can cancel the slash.
+	type AdminOrigin = EnsureRootOrHalfTechnical;
 	type SessionInterface = Self;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type NextNewSession = Session;
+	type EraPayout = (); //pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = ConstU32<256>;
+	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
-	// This a placeholder, to be introduced in the next PR as an instance of bags-list
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
-	type EventListeners = ();
-	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
+	type EventListeners = NominationPools;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 }
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &crate::staking_bags::THRESHOLDS;
@@ -323,6 +447,60 @@ impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
+}
+
+parameter_types! {
+	pub const PostUnbondPoolsWindow: u32 = 4;
+	pub const NominationPoolsPalletId: PalletId = PalletId(*b"timenmpl");
+	pub const MaxPointsToBalance: u8 = 10;
+}
+
+use sp_runtime::traits::Convert;
+pub struct BalanceToU256;
+impl Convert<Balance, sp_core::U256> for BalanceToU256 {
+	fn convert(balance: Balance) -> sp_core::U256 {
+		sp_core::U256::from(balance)
+	}
+}
+pub struct U256ToBalance;
+impl Convert<sp_core::U256, Balance> for U256ToBalance {
+	fn convert(n: sp_core::U256) -> Balance {
+		n.try_into().unwrap_or(Balance::MAX)
+	}
+}
+
+impl pallet_nomination_pools::Config for Runtime {
+	type WeightInfo = pallet_nomination_pools::weights::SubstrateWeight<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type PostUnbondingPoolsWindow = PostUnbondPoolsWindow;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
+	type PalletId = NominationPoolsPalletId;
+	type MaxPointsToBalance = MaxPointsToBalance;
+	type AdminOrigin = EnsureRootOrHalfTechnical;
+}
+
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"timedgsk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
+}
+
+impl pallet_delegated_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
+	type Currency = Balances;
+	// slashes are sent to the treasury.
+	type OnSlash = (); //ResolveTo<TreasuryAccountId<Self>, Balances>;
+	type SlashRewardFraction = SlashRewardFraction;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CoreStaking = Staking;
 }
 
 #[cfg(test)]

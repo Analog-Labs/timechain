@@ -80,14 +80,7 @@ impl Default for GenesisKeysConfig {
 		use AccountKeyring::*;
 
 		GenesisKeysConfig {
-			admins: vec![
-				Alice.into(),
-				Bob.into(),
-				Charlie.into(),
-				Dave.into(),
-				Eve.into(),
-				Ferdie.into(),
-			],
+			admins: vec![Eve.into(), Ferdie.into()],
 			bootstraps: vec![(
 				Alice.to_raw_public().unchecked_into(),
 				Ed25519Keyring::Alice.to_raw_public().unchecked_into(),
@@ -98,14 +91,7 @@ impl Default for GenesisKeysConfig {
 			// TODO: Would be better to assign individual controllers
 			controller: None,
 			endowments: vec![],
-			stakes: vec![
-				AliceStash.into(),
-				BobStash.into(),
-				CharlieStash.into(),
-				DaveStash.into(),
-				EveStash.into(),
-				FerdieStash.into(),
-			],
+			stakes: vec![Alice.into(), Bob.into(), Charlie.into(), Dave.into()],
 		}
 	}
 }

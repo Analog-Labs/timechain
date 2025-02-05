@@ -44,10 +44,52 @@ impl<T: frame_system::Config> pallet_assets_bridge::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `275`
 		//  Estimated: `3740`
-		// Minimum execution time: 54_012_000 picoseconds.
-		Weight::from_parts(55_645_000, 0)
+		// Minimum execution time: 50_736_000 picoseconds.
+		Weight::from_parts(52_058_000, 0)
 			.saturating_add(Weight::from_parts(0, 3740))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	/// Storage: `AssetsBridge::Network` (r:1 w:1)
+	/// Proof: `AssetsBridge::Network` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Tasks::OpsInsertIndex` (r:1 w:1)
+	/// Proof: `Tasks::OpsInsertIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::Ops` (r:0 w:1)
+	/// Proof: `Tasks::Ops` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn force_teleport() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `275`
+		//  Estimated: `3740`
+		// Minimum execution time: 50_726_000 picoseconds.
+		Weight::from_parts(52_139_000, 0)
+			.saturating_add(Weight::from_parts(0, 3740))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
+	/// Storage: `AssetsBridge::Network` (r:1 w:1)
+	/// Proof: `AssetsBridge::Network` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn register_network() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `76`
+		//  Estimated: `3541`
+		// Minimum execution time: 9_979_000 picoseconds.
+		Weight::from_parts(10_490_000, 0)
+			.saturating_add(Weight::from_parts(0, 3541))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `AssetsBridge::Network` (r:1 w:1)
+	/// Proof: `AssetsBridge::Network` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn force_update_network() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `195`
+		//  Estimated: `3660`
+		// Minimum execution time: 10_540_000 picoseconds.
+		Weight::from_parts(10_921_000, 0)
+			.saturating_add(Weight::from_parts(0, 3660))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

@@ -1,12 +1,12 @@
-use crate::{mock::*, Config, Error};
+use crate::{mock::*, BalanceOf, Config, Error};
 
 use polkadot_sdk::{
 	frame_support::{self, traits::ExistenceRequirement},
-	sp_runtime,
+	pallet_balances, sp_runtime,
 };
 
-use frame_support::{assert_noop, assert_ok};
-use sp_runtime::traits::Get;
+use frame_support::{assert_err, assert_noop, assert_ok};
+use sp_runtime::traits::{Get, Zero};
 
 use time_primitives::{NetworkId, Task, TasksInterface};
 
@@ -16,6 +16,32 @@ const TELEPORT_AMOUNT: u128 = 123_000;
 
 fn register_gateway(network: NetworkId, block: u64) {
 	Tasks::gateway_registered(network, block);
+}
+
+#[test]
+fn first_teleport_below_ed() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, Default::default(),));
+
+		let bridge_bal_before = <Test as Config>::Currency::free_balance(BridgeAccount::get());
+		assert!(bridge_bal_before.is_zero());
+
+		let ed: BalanceOf<Test> = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+		let below_ed = ed.saturating_sub(1);
+
+		assert!(!below_ed.is_zero());
+
+		assert_err!(
+			Bridge::do_teleport(
+				acc(1).into(),
+				ETHEREUM,
+				acc(2).into(),
+				below_ed,
+				ExistenceRequirement::KeepAlive
+			),
+			Error::<Test>::CannotReserveFunds,
+		);
+	})
 }
 
 #[test]

@@ -314,7 +314,7 @@ pub mod pallet {
 				details.total_locked = details.total_locked.saturating_add(reserve);
 				let dest = Self::account_id();
 				let locked = T::Currency::deposit_creating(&dest, reserve);
-				// This happens only when transferred < ED on an empty bridge account
+				// This happens only when transferred < ED and bridge account is empty
 				ensure!(!locked.peek().is_zero(), Error::<T>::CannotReserveFunds);
 				drop(imbalance.offset(locked));
 

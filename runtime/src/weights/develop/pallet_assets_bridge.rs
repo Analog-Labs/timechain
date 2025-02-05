@@ -44,8 +44,8 @@ impl<T: frame_system::Config> pallet_assets_bridge::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `275`
 		//  Estimated: `3740`
-		// Minimum execution time: 53_080_000 picoseconds.
-		Weight::from_parts(54_393_000, 0)
+		// Minimum execution time: 50_746_000 picoseconds.
+		Weight::from_parts(51_828_000, 0)
 			.saturating_add(Weight::from_parts(0, 3740))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -62,8 +62,8 @@ impl<T: frame_system::Config> pallet_assets_bridge::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `275`
 		//  Estimated: `3740`
-		// Minimum execution time: 53_451_000 picoseconds.
-		Weight::from_parts(54_813_000, 0)
+		// Minimum execution time: 50_746_000 picoseconds.
+		Weight::from_parts(52_219_000, 0)
 			.saturating_add(Weight::from_parts(0, 3740))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -74,8 +74,8 @@ impl<T: frame_system::Config> pallet_assets_bridge::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `76`
 		//  Estimated: `3541`
-		// Minimum execution time: 10_340_000 picoseconds.
-		Weight::from_parts(10_700_000, 0)
+		// Minimum execution time: 9_899_000 picoseconds.
+		Weight::from_parts(10_399_000, 0)
 			.saturating_add(Weight::from_parts(0, 3541))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -86,8 +86,8 @@ impl<T: frame_system::Config> pallet_assets_bridge::WeightInfo for WeightInfo<T>
 		// Proof Size summary in bytes:
 		//  Measured:  `195`
 		//  Estimated: `3660`
-		// Minimum execution time: 10_580_000 picoseconds.
-		Weight::from_parts(10_931_000, 0)
+		// Minimum execution time: 10_450_000 picoseconds.
+		Weight::from_parts(10_920_000, 0)
 			.saturating_add(Weight::from_parts(0, 3660))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))

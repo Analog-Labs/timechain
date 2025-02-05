@@ -18,13 +18,14 @@ fn register_gateway(network: NetworkId, block: u64) {
 }
 
 #[test]
-fn test_teleport_creates_gmp_message() {
+fn teleport_creates_gmp_message() {
 	new_test_ext().execute_with(|| {
 		assert!(Tasks::get_task(0).is_none());
 		register_gateway(ETHEREUM, 42);
 		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
-
 		assert!(Tasks::get_task(2).is_none());
+
+		assert_ok!(Bridge::do_register_network(ETHEREUM, Default::default(), Default::default(),));
 
 		assert_ok!(Bridge::do_teleport(
 			acc_pub(0).into(),
@@ -34,7 +35,9 @@ fn test_teleport_creates_gmp_message() {
 			ExistenceRequirement::KeepAlive
 		));
 
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
+		roll(1);
+
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 	})
 }
 

@@ -16,7 +16,7 @@ use frame_support::traits::{
 };
 use frame_support::PalletId;
 
-use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64, U256};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, DispatchResult, MultiSignature, Permill,
@@ -140,7 +140,7 @@ impl AssetTeleporter<Test> for Tasks {
 			bytes: teleport_command,
 		};
 
-		// Push GMP message to queue
+		// Push GMP message to gateway ops queue
 		Tasks::push_gmp_message(msg);
 
 		Ok(())

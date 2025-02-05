@@ -136,7 +136,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 		);
 
 		// TODO check that network is active, i.e. actually has some
-		// chronicle sards working with it.
+		// chronicle shards working with it.
 
 		Ok(())
 	}

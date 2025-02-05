@@ -45,7 +45,7 @@ pub type BeneficiaryOf<T> = <T as Config>::Beneficiary;
 pub trait AssetTeleporter<T: Config> {
 	/// Attempt to register `network_id` with `data` for assets teleportation.
 	/// This we need to have guarantee that network is active, i.e. actually has some
-	/// chronicle sards working with it.
+	/// chronicle shards working with it.
 	fn handle_register(network_id: NetworkIdOf<T>, data: &mut NetworkDataOf<T>) -> DispatchResult;
 
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
@@ -193,7 +193,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			network: T::NetworkId,
 			base_fee: BalanceOf<T>,
-			mut data: T::NetworkData,
+			data: T::NetworkData,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_register_network(network, base_fee, data)

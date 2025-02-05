@@ -82,16 +82,21 @@ impl ITimechainClient for MockClient {
 		Ok(self.latest_block.lock().await.clone())
 	}
 
-	fn sign_payload<Call>(&self, _call: &Call, _params: ExtrinsicParams) -> Vec<u8>
+	fn sign_payload<Call>(&self, _call: &Call, params: ExtrinsicParams) -> Vec<u8>
 	where
 		Call: TxPayload + Send + Sync,
 	{
-		vec![]
+		let nonce = params.2 .0.unwrap_or_default();
+		let mut bytes = [0u8; 32];
+		bytes[24..].copy_from_slice(&nonce.to_le_bytes());
+		bytes.to_vec()
 	}
 
-	fn submittable_transaction(&self, _tx: Vec<u8>) -> Self::Submitter {
+	fn submittable_transaction(&self, tx: Vec<u8>) -> Self::Submitter {
+		let mut bytes = [0u8; 32];
+		bytes.copy_from_slice(&tx[..32]);
 		MockTransaction {
-			hash: H256::random(),
+			hash: H256::from(bytes),
 			submitted_hashes: self.submitted_hashes.clone(),
 		}
 	}

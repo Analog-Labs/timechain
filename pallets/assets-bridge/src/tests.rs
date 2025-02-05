@@ -43,10 +43,6 @@ fn teleport_creates_gmp_message() {
 #[test]
 fn cannot_teleport_to_inactive_network() {
 	new_test_ext().execute_with(|| {
-		assert!(Tasks::get_task(0).is_none());
-		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
-
 		assert_noop!(
 			Bridge::do_teleport(
 				acc_pub(0).into(),

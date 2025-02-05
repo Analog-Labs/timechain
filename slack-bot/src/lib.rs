@@ -1,7 +1,7 @@
 mod github;
 mod slack;
 
-pub use crate::github::{Command, GithubState};
+pub use crate::github::{Color, Command, CommandInfo, GithubEvent, GithubState};
 pub use crate::slack::SlackState;
 use anyhow::Result;
 use slack_morphism::prelude::*;
@@ -48,5 +48,15 @@ impl Env {
 			"C08BV777PG9" => Env::Mainnet,
 			_ => return None,
 		})
+	}
+
+	pub fn channel(&self) -> SlackChannelId {
+		let ch = match self {
+			Self::Development => "C08A621SKRR",
+			Env::Integration => "C08BK21RPHA",
+			Env::Testnet => "C08B20E4NEB",
+			Env::Mainnet => "C08BV777PG9",
+		};
+		SlackChannelId(ch.into())
 	}
 }

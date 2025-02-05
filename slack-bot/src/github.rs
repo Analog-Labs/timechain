@@ -1,6 +1,7 @@
 use crate::Env;
 use anyhow::{Context, Result};
 use reqwest::Client;
+use serde::Deserialize;
 use serde_json::json;
 use slack_morphism::prelude::*;
 use std::collections::HashMap;
@@ -15,12 +16,12 @@ pub enum Command {
 impl std::fmt::Display for Command {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Self::TcCli { branch, tag, args } => {
-				write!(f, "/tc-cli branch={branch} tag={tag} {args}")
+			Self::TcCli { args, .. } => {
+				write!(f, "/tc-cli {args}")
 			},
-			Self::RuntimeUpgrade { branch } => write!(f, "/runtime-upgrade branch={branch}"),
-			Self::DeployChronicles { branch, tag } => {
-				write!(f, "/deploy-chronicles branch={branch} tag={tag}")
+			Self::RuntimeUpgrade { .. } => write!(f, "/runtime-upgrade"),
+			Self::DeployChronicles { .. } => {
+				write!(f, "/deploy-chronicles")
 			},
 		}
 	}
@@ -55,11 +56,27 @@ impl Command {
 		})
 	}
 
-	fn branch(&self) -> &str {
+	pub fn short(&self) -> &str {
+		match self {
+			Self::TcCli { .. } => "tc-cli",
+			Self::RuntimeUpgrade { .. } => "upgrade-runtime",
+			Self::DeployChronicles { .. } => "deploy-chronicles",
+		}
+	}
+
+	pub fn branch(&self) -> &str {
 		match self {
 			Self::TcCli { branch, .. } => branch,
 			Self::RuntimeUpgrade { branch } => branch,
 			Self::DeployChronicles { branch, .. } => branch,
+		}
+	}
+
+	pub fn tag(&self) -> Option<&str> {
+		match self {
+			Self::TcCli { tag, .. } => Some(tag),
+			Self::RuntimeUpgrade { .. } => None,
+			Self::DeployChronicles { tag, .. } => Some(tag),
 		}
 	}
 
@@ -117,6 +134,79 @@ impl Command {
 		serde_json::json!({
 			"ref": self.branch(),
 			"inputs": inputs,
+		})
+	}
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GithubEvent {
+	workflow_job: WorkflowJob,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct WorkflowJob {
+	run_attempt: u32,
+	name: String,
+	status: String,
+	conclusion: Option<String>,
+	html_url: String,
+	head_branch: String,
+	head_sha: String,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Color {
+	Black,
+	Green,
+	Red,
+}
+
+impl std::fmt::Display for Color {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::Black => write!(f, "#6c757d"),
+			Self::Green => write!(f, "#28a745"),
+			Self::Red => write!(f, "#dc3545"),
+		}
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct CommandInfo {
+	pub thread: SlackTs,
+	pub command: Command,
+	pub env: Env,
+	pub run_attempt: u32,
+	pub commit: String,
+	pub status: String,
+	pub color: Color,
+	pub url: String,
+}
+
+impl CommandInfo {
+	pub fn parse(event: GithubEvent) -> Option<Self> {
+		let job = event.workflow_job;
+		let cmd = job.name.split_once("Run")?.1.trim();
+		let (cmd, rest) = cmd.split_once(" on ")?;
+		let (cmd, text) = cmd.split_once(' ')?;
+		let (env, thread) = rest.split_once('#')?;
+		let mut command = Command::parse(&SlackCommandId(cmd.into()), text)?;
+		let env = env.trim().parse().ok()?;
+		let thread = SlackTs(thread.trim().into());
+		command.set_branch(job.head_branch);
+		Some(Self {
+			thread,
+			command,
+			env,
+			run_attempt: job.run_attempt,
+			commit: job.head_sha,
+			color: job
+				.conclusion
+				.as_ref()
+				.map(|c| if c == "success" { Color::Green } else { Color::Red })
+				.unwrap_or(Color::Black),
+			status: job.conclusion.unwrap_or(job.status),
+			url: job.html_url,
 		})
 	}
 }

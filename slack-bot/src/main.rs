@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
+use axum::extract::{FromRef, State};
 use axum::response::{IntoResponse, Response};
 use axum::Extension;
 use axum_github_webhook_extract::{GithubEvent, GithubToken};
-use serde::Deserialize;
-use slack_bot::{Command, Env, GithubState, SlackState};
+use slack_bot::{Command, CommandInfo, Env, GithubState, SlackState};
 use slack_morphism::prelude::*;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -21,13 +21,14 @@ async fn slack_command_event(
 	Extension(event): Extension<SlackCommandEvent>,
 ) -> Response {
 	tracing::info!("received slack command event: {:?}", event);
-	let Some(command) = Command::parse(&event.command, &event.text.unwrap_or_default()) else {
+	let text = event.text.unwrap_or_default();
+	let Some(command) = Command::parse(&event.command, &text) else {
 		return slack_error(format!("unknown command {}", &event.command.0));
 	};
 	let Some(env) = Env::from_channel(&event.channel_id) else {
 		return slack_error(format!("unknown channel {}", &event.channel_id.0));
 	};
-	let ts = match slack.post_command(event.channel_id, &command).await {
+	let ts = match slack.post_command(event.channel_id, event.command, text).await {
 		Ok(ts) => ts,
 		Err(err) => return slack_error(format!("starting slack thread failed: {err}")),
 	};
@@ -37,72 +38,16 @@ async fn slack_command_event(
 	axum::body::Body::empty().into_response()
 }
 
-#[derive(Clone, Debug, Deserialize)]
-struct Event {
-	workflow_job: WorkflowJob,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct WorkflowJob {
-	run_attempt: u32,
-	name: String,
-	status: String,
-	conclusion: Option<String>,
-	html_url: String,
-	head_branch: String,
-	head_sha: String,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Color {
-	Black,
-	Green,
-	Red,
-}
-
-#[derive(Clone, Debug)]
-pub struct CommandInfo {
-	pub thread: SlackTs,
-	pub command: Command,
-	pub env: Env,
-	pub run_attempt: u32,
-	pub commit: String,
-	pub status: String,
-	pub color: Color,
-	pub url: String,
-}
-
-impl CommandInfo {
-	fn parse(job: WorkflowJob) -> Option<Self> {
-		let cmd = job.name.split_once("Run")?.1.trim();
-		let (cmd, rest) = cmd.split_once("on")?;
-		let (cmd, text) = cmd.split_once(' ')?;
-		let (env, thread) = rest.split_once('#')?;
-		let mut command = Command::parse(&SlackCommandId(cmd.into()), text)?;
-		let env = env.trim().parse().ok()?;
-		let thread = SlackTs(thread.trim().into());
-		command.set_branch(job.head_branch);
-		Some(Self {
-			thread,
-			command,
-			env,
-			run_attempt: job.run_attempt,
-			commit: job.head_sha,
-			color: job
-				.conclusion
-				.as_ref()
-				.map(|c| if c == "success" { Color::Green } else { Color::Red })
-				.unwrap_or(Color::Black),
-			status: job.conclusion.unwrap_or(job.status),
-			url: job.html_url,
-		})
-	}
-}
-
-async fn github_webhook_event(GithubEvent(event): GithubEvent<Event>) -> Response {
+async fn github_webhook_event(
+	State(state): State<AppState>,
+	GithubEvent(event): GithubEvent<slack_bot::GithubEvent>,
+) -> Response {
 	tracing::info!("received github webhook event: {:?}", event);
-	if let Some(info) = CommandInfo::parse(event.workflow_job) {
+	if let Some(info) = CommandInfo::parse(event) {
 		tracing::info!("{info:?}");
+		if let Err(err) = state.slack.update_command_info(info).await {
+			tracing::error!("failed to update command info: {err}");
+		}
 	}
 	axum::body::Body::empty().into_response()
 }
@@ -116,6 +61,12 @@ fn error_handler(
 
 	// Defines what we return Slack server
 	HttpStatusCode::BAD_REQUEST
+}
+
+#[derive(Clone, FromRef)]
+struct AppState {
+	slack: SlackState,
+	token: GithubToken,
 }
 
 async fn server() -> Result<()> {
@@ -138,6 +89,9 @@ async fn server() -> Result<()> {
 	let github_webhook_secret =
 		std::env::var("GITHUB_WEBHOOK_SECRET").context("failed to read GITHUB_WEBHOOK_SECRET")?;
 
+	let github = GithubState::new()?;
+	let slack = SlackState::new()?;
+
 	// build our application route with OAuth nested router and Push/Command/Interaction events
 	let app = axum::routing::Router::new()
 		.route(
@@ -150,11 +104,13 @@ async fn server() -> Result<()> {
 		)
 		.route(
 			"/github",
-			axum::routing::post(github_webhook_event)
-				.with_state(GithubToken(Arc::new(github_webhook_secret))),
+			axum::routing::post(github_webhook_event).with_state(AppState {
+				slack: slack.clone(),
+				token: GithubToken(Arc::new(github_webhook_secret)),
+			}),
 		)
-		.layer(Extension(GithubState::new()?))
-		.layer(Extension(SlackState::new()?));
+		.layer(Extension(github))
+		.layer(Extension(slack));
 
 	axum::serve(TcpListener::bind(&addr).await.unwrap(), app).await.unwrap();
 

@@ -20049,6 +20049,7 @@ dependencies = [
  "tc-subxt-metadata",
  "time-primitives",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 

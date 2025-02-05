@@ -28,6 +28,8 @@ subxt-signer.workspace = true
 
 time-primitives = { workspace = true, default-features = true }
 tc-subxt-metadata = { path = "metadata" }
+tokio-stream = { version = "0.1", features = ["sync"]}
+
 
 [features]
 testnet = [

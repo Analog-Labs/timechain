@@ -6,6 +6,7 @@ pub use subxt_signer::sr25519::Keypair;
 
 use crate::{metadata, CommitteeEvent, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
 
+#[derive(Clone)]
 pub struct BlockDetail {
 	pub number: u64,
 	pub hash: H256,

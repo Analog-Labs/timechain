@@ -55,7 +55,7 @@ impl OnRuntimeUpgrade for StakingMigration {
 			.try_into()
 			.expect("Validator count does fit into u32.");
 
-		log::error!("✋ Starting the migration of {count} validators to proof of stake");
+		log::info!("✋ Starting the migration of {count} validators to proof of stake");
 
 		// Ensure there are always at least a minimum amount of validators
 		pallet_staking::MinimumValidatorCount::<Runtime>::put(4);

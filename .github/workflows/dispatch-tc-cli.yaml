@@ -33,7 +33,7 @@ env:
 
 jobs:
   tc-cli:
-    name: Run /tc-cli tag=${{ github.event.inputs.version }} ${{ github.event.inputs.args }} on ${{ github.event.inputs.environment}} \#${{ github.event.inputs.thread }}
+    name: 'Run /tc-cli tag=${{ github.event.inputs.version }} ${{ github.event.inputs.args }} on ${{ github.event.inputs.environment}} #${{ github.event.inputs.thread }}'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:

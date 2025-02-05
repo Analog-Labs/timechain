@@ -85,7 +85,7 @@ jobs:
             ${{ steps.srtool_build.outputs.wasm_compressed }}
             timechain-srtool-digest.json
   upgrade-runtime:
-    name: Run /upgrade-runtime on ${{ github.event.inputs.environment }} \#${{ github.event.inputs.thread }}
+    name: 'Run /upgrade-runtime on ${{ github.event.inputs.environment }} #${{ github.event.inputs.thread }}'
     # Only running when manually triggered
     if: github.event_name == 'workflow_dispatch'
     environment: ${{ github.event.inputs.environment }}

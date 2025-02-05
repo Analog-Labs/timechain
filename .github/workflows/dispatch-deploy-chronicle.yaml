@@ -35,7 +35,7 @@ env:
 
 jobs:
   deploy-chronicles:
-    name: Run /deploy-chronicles tag=${{ github.event.inputs.version }} on ${{ github.event.inputs.environment }} \#${{ github.event.inputs.thread }}
+    name: 'Run /deploy-chronicles tag=${{ github.event.inputs.version }} on ${{ github.event.inputs.environment }} #${{ github.event.inputs.thread }}'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:

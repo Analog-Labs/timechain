@@ -26,7 +26,7 @@ impl SlackState {
 		let session = self.client.open_session(&self.token);
 		let req = SlackApiChatPostMessageRequest::new(
 			channel,
-			SlackMessageContent::new().with_text(format!("{}{}", command.0, text).trim().into()),
+			SlackMessageContent::new().with_text(format!("{} {}", command.0, text).trim().into()),
 		);
 		let resp = session.chat_post_message(&req).await?;
 		Ok(resp.ts)
@@ -42,7 +42,7 @@ impl SlackState {
 				.with_blocks(vec![SlackBlock::Section(SlackSectionBlock::new().with_fields(
 					vec![
 						SlackBlockMarkDownText::new(format!(
-							"*Status*\n{}\n\n*Workflow*\n<{}|{}#{}>",
+							"*Status*\n{}\n\n*Workflow*\n<{}|{} #{}>",
 							info.status,
 							info.url,
 							info.command.short(),

@@ -1,6 +1,6 @@
 use crate::{
 	self as pallet_assets_bridge, AssetTeleporter, BalanceOf, BeneficiaryOf, Error, NetworkDataOf,
-	NetworkIdOf,
+	NetworkIdOf, Pallet,
 };
 use core::marker::PhantomData;
 
@@ -19,7 +19,7 @@ use frame_support::{derive_impl, ensure};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature, Permill,
+	AccountId32, BuildStorage, DispatchResult, MultiSignature, Permill,
 };
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
@@ -385,8 +385,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
-			(acc_pub(0).into(), 10_000_000_000),
-			(acc_pub(1).into(), 20_000_000_000),
+			(acc(0).into(), 10_000_000_000),
+			(acc(1).into(), 20_000_000_000),
 			(TreasuryAccount::get(), 30_000_000_000),
 		],
 	}
@@ -397,8 +397,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
+pub fn acc(acc_num: u8) -> AccountId32 {
+	AccountId32::new([acc_num; 32])
+}
+
+pub fn pallet_acc() -> AccountId32 {
+	Pallet::<Test>::account_id().clone()
 }
 
 pub fn roll(n: u64) {

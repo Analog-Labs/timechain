@@ -97,7 +97,6 @@ pub use configs::governance::{
 	EnsureRootOrHalfTechnical, TechnicalMember, TechnicalQualifiedMajority, TechnicalSuperMajority,
 	TechnicalUnanimity,
 };
-use configs::staking::StakingMigration;
 pub use configs::tokenomics::{ExistentialDeposit, LengthToFee, WeightToFee};
 
 /// Helpers to handle variant flags
@@ -657,7 +656,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = StakingMigration;
+type Migrations = ();
 
 #[cfg(test)]
 mod core_tests {

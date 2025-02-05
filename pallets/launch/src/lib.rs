@@ -53,7 +53,7 @@ pub mod pallet {
 
 	/// Updating this number will automatically execute the next launch stages on update
 	pub const LAUNCH_VERSION: u16 = 18;
-	/// Wrapped version to support sustrate interface as well
+	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
 	/// The official mainnet launch ledger
@@ -89,19 +89,11 @@ pub mod pallet {
 		// Retry failed mints in stage 11
 		(15, 6_062_296 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 4
-		(
-			16,
-			1_336_147_462_613_682_971,
-			Stage::AirdropFromVirtual(b"airdrop", data::v16::AIRDROPS_SNAPSHOT_4),
-		),
+		(16, 1_336_147_462_613_682_971, Stage::Retired),
 		// Airdrop Move 2
-		(17, 0, Stage::AirdropTransfer(data::v17::AIRDROPS_MOVE_2)),
+		(17, 0, Stage::Retired),
 		// Prelaunch Deposit 4
-		(
-			18,
-			3_636_364 * ANLOG,
-			Stage::DepositFromVirtual(b"ecosystem", data::v18::DEPOSITS_PRELAUNCH_4),
-		),
+		(18, 3_636_364 * ANLOG, Stage::Retired),
 	];
 
 	/// TODO: Difference to go to treasury:
@@ -178,7 +170,7 @@ pub mod pallet {
 		AirdropTransferExists { to: T::AccountId },
 		/// An airdrop move has failed for an unknown reason.
 		AirdropTransferFailed,
-		/// A virtual withdrawl was successful.
+		/// A virtual transfer was successful.
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 

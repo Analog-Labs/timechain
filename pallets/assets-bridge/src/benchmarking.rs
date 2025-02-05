@@ -61,5 +61,17 @@ mod benchmarks {
 		_(RawOrigin::Root, ETHEREUM.into(), (1 * ANLOG).into(), (0, [0u8; 32]).into());
 	}
 
+	#[benchmark]
+	fn force_update_network() {
+		let _ = Pallet::<T>::do_register_network(
+			ETHEREUM.into(),
+			(1 * ANLOG).into(),
+			(0, [0u8; 32]).into(),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, ETHEREUM.into(), false, Some((1, [0u8; 32]).into()));
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

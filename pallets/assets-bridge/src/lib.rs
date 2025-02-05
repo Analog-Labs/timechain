@@ -158,6 +158,8 @@ pub mod pallet {
 		NetworkDisabled,
 		/// No sufficient funds for pay for the teleportation.
 		InsufficientFunds,
+		/// Failed to lock teleport amount.
+		CannotReserveFunds,
 		/// The teleport amount cannot be zero.
 		AmountZero,
 		/// Attempt to use a network_id already in use.
@@ -298,7 +300,7 @@ pub mod pallet {
 				let imbalance = T::Currency::withdraw(&source, total, reason, liveness)?;
 
 				// If `network_details.teleport_base_fee` is greater than zero, pay the fee to destination
-				let reserve = if !details.teleport_base_fee.is_zero() {
+				let imbalance = if !details.teleport_base_fee.is_zero() {
 					let (fee, reserve) = imbalance.split(details.teleport_base_fee);
 					T::FeeDestination::on_unbalanced(fee);
 					reserve
@@ -306,10 +308,15 @@ pub mod pallet {
 					imbalance
 				};
 
-				// Lock `amount` into the bridge pot.
-				details.total_locked = details.total_locked.saturating_add(reserve.peek());
+				let reserve = imbalance.peek();
+
+				// Lock: put `amount` into the bridge pot.
+				details.total_locked = details.total_locked.saturating_add(reserve);
 				let dest = Self::account_id();
-				T::Currency::resolve_creating(&dest, reserve);
+				let locked = T::Currency::deposit_creating(&dest, reserve);
+				// This happens only when transferred < ED on an empty bridge account
+				ensure!(!locked.peek().is_zero(), Error::<T>::CannotReserveFunds);
+				drop(imbalance.offset(locked));
 
 				// Perform the teleport
 				T::Teleporter::handle_teleport(

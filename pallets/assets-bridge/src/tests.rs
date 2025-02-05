@@ -7,7 +7,7 @@ use polkadot_sdk::{
 
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use sp_runtime::{DispatchError, DispatchResult, ModuleError};
+use sp_runtime::{traits::Get, DispatchError, DispatchResult, ModuleError};
 
 use time_primitives::{AccountId, NetworkId, Task, TasksInterface};
 
@@ -45,16 +45,29 @@ fn cannot_teleport_to_inactive_network() {
 		register_gateway(ETHEREUM, 42);
 		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 
-		assert_noop!(Bridge::do_teleport(
-			acc_pub(0).into(),
-			ETHEREUM,
-			acc_pub(1).into(),
-			123_000,
-			ExistenceRequirement::KeepAlive
-		),
-        Error::<Test>::NetworkDisabled,
-        );
+		assert_noop!(
+			Bridge::do_teleport(
+				acc_pub(0).into(),
+				ETHEREUM,
+				acc_pub(1).into(),
+				123_000,
+				ExistenceRequirement::KeepAlive
+			),
+			Error::<Test>::NetworkDisabled,
+		);
 	})
+}
 
-
+#[test]
+fn cannot_register_timechain_network() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Bridge::do_register_network(
+				<Test as pallet_networks::Config>::TimechainNetworkId::get(),
+				Default::default(),
+				Default::default(),
+			),
+			Error::<Test>::NetworkAlreadyExists,
+		);
+	})
 }

@@ -196,20 +196,7 @@ pub mod pallet {
 			mut data: T::NetworkData,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(!Network::<T>::contains_key(&network), Error::<T>::NetworkAlreadyExists);
-			T::Teleporter::handle_register(network.clone(), &mut data)?;
-			let details = NetworkDetails {
-				active: true,
-				teleport_base_fee: base_fee,
-				total_locked: BalanceOf::<T>::zero(),
-				data,
-			};
-			Network::<T>::insert(network.clone(), details);
-
-			// Emit `BridgeStatusChanged` event.
-			Self::deposit_event(Event::BridgeStatusChanged { network, open: true });
-
-			Ok(())
+			Self::do_register_network(network, base_fee, data)
 		}
 
 		#[pallet::call_index(3)]
@@ -260,6 +247,26 @@ pub mod pallet {
 				.saturating_sub(T::Currency::minimum_balance())
 		}
 
+		pub fn do_register_network(
+			network: T::NetworkId,
+			base_fee: BalanceOf<T>,
+			mut data: T::NetworkData,
+		) -> DispatchResult {
+			ensure!(!Network::<T>::contains_key(&network), Error::<T>::NetworkAlreadyExists);
+			T::Teleporter::handle_register(network.clone(), &mut data)?;
+			let details = NetworkDetails {
+				active: true,
+				teleport_base_fee: base_fee,
+				total_locked: BalanceOf::<T>::zero(),
+				data,
+			};
+			Network::<T>::insert(network.clone(), details);
+
+			// Emit `BridgeStatusChanged` event.
+			Self::deposit_event(Event::BridgeStatusChanged { network, open: true });
+
+			Ok(())
+		}
 		/// Perform the asset teleportation
 		/// emits `Event::Teleported`.
 		pub fn do_teleport(

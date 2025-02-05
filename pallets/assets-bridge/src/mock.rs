@@ -1,5 +1,5 @@
 use crate::{
-	self as pallet_assets_bridge, AssetTeleporter, BalanceOf, BeneficiaryOf, NetworkDataOf,
+	self as pallet_assets_bridge, AssetTeleporter, BalanceOf, BeneficiaryOf, Error, NetworkDataOf,
 	NetworkIdOf,
 };
 use core::marker::PhantomData;
@@ -9,12 +9,12 @@ use polkadot_sdk::{
 	sp_std,
 };
 
-use frame_support::derive_impl;
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnInitialize,
 };
 use frame_support::PalletId;
+use frame_support::{derive_impl, ensure};
 
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
 use sp_runtime::{
@@ -103,9 +103,14 @@ impl ElectionsInterface for MockElections {
 impl AssetTeleporter<Test> for Tasks {
 	/// Attempt to register `network_id` with `data`.
 	fn handle_register(
-		_network_id: NetworkIdOf<Test>,
+		network_id: NetworkIdOf<Test>,
 		_data: &mut NetworkDataOf<Test>,
 	) -> DispatchResult {
+		ensure!(
+			network_id.ne(&<Test as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
+			Error::<Test>::NetworkAlreadyExists
+		);
+
 		Ok(())
 	}
 

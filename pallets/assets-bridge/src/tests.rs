@@ -1,4 +1,4 @@
-use crate::{mock::*, Config, Error, Pallet};
+use crate::{mock::*, Config, Error};
 
 use polkadot_sdk::{
 	frame_support::{self, traits::ExistenceRequirement},
@@ -12,6 +12,7 @@ use time_primitives::{NetworkId, Task, TasksInterface};
 
 const ETHEREUM: NetworkId = 0;
 const TELEPORT_FEE: u128 = 12_500;
+const TELEPORT_AMOUNT: u128 = 123_000;
 
 fn register_gateway(network: NetworkId, block: u64) {
 	Tasks::gateway_registered(network, block);
@@ -23,22 +24,21 @@ fn teleport_reserve_and_fee() {
 		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, Default::default(),));
 
 		let user_bal_before = <Test as Config>::Currency::free_balance(acc(1));
-		let pallet_bal_before = <Test as Config>::Currency::free_balance(pallet_acc());
-		println!("ALITH bal before: {}", user_bal_before);
-
-		todo!();
+		let bridge_bal_before = <Test as Config>::Currency::free_balance(BridgeAccount::get());
 
 		assert_ok!(Bridge::do_teleport(
 			acc(1).into(),
 			ETHEREUM,
 			acc(2).into(),
-			123_000,
+			TELEPORT_AMOUNT,
 			ExistenceRequirement::KeepAlive
 		));
 
-		roll(1);
+		let user_bal_after = <Test as Config>::Currency::free_balance(acc(1));
+		let bridge_bal_after = <Test as Config>::Currency::free_balance(BridgeAccount::get());
 
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(user_bal_after, user_bal_before.saturating_sub(TELEPORT_AMOUNT + TELEPORT_FEE));
+		assert_eq!(bridge_bal_after, bridge_bal_before.saturating_add(TELEPORT_AMOUNT));
 	})
 }
 

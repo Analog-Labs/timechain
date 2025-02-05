@@ -1,6 +1,6 @@
 use crate::{
 	self as pallet_assets_bridge, AssetTeleporter, BalanceOf, BeneficiaryOf, Error, NetworkDataOf,
-	NetworkIdOf, Pallet,
+	NetworkIdOf,
 };
 use core::marker::PhantomData;
 
@@ -178,10 +178,6 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-parameter_types! {
-	pub const BridgePalletId: PalletId = PalletId(*b"py/trsry");
-}
-
 impl pallet_assets_bridge::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -253,6 +249,8 @@ parameter_types! {
 	// 5EYCAe5ijiYfyeZ2JJCGq56LmPyNRAKzpG4QkoQkkQNB5e6Z
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
+	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
+	pub BridgeAccount: AccountId = Bridge::account_id();
 }
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
@@ -384,11 +382,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let _ = env_logger::try_init();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![
-			(acc(0).into(), 10_000_000_000),
-			(acc(1).into(), 20_000_000_000),
-			(TreasuryAccount::get(), 30_000_000_000),
-		],
+		balances: vec![(acc(0).into(), 10_000_000_000), (acc(1).into(), 20_000_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
@@ -399,10 +393,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn acc(acc_num: u8) -> AccountId32 {
 	AccountId32::new([acc_num; 32])
-}
-
-pub fn pallet_acc() -> AccountId32 {
-	Pallet::<Test>::account_id().clone()
 }
 
 pub fn roll(n: u64) {

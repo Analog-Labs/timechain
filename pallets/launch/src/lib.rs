@@ -45,12 +45,15 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
+	use frame_support::traits::{
+		AccountIdConversion, Currency, ExistenceRequirement, StorageVersion, VestingSchedule,
+		WithdrawReasons,
+	};
 	use frame_support::PalletId;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 15;
+	pub const LAUNCH_VERSION: u16 = 18;
 	/// Wrapped version to support sustrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -85,11 +88,13 @@ pub mod pallet {
 		// Virtual Token Genesis Event
 		(14, 8_166_845_674 * ANLOG, Stage::Retired),
 		// Retry failed mints in stage 11
-		(15, 6_062_296 * ANLOG, Stage::AirdropMintOrAdd(data::v15::AIRDROPS_VALIDATORS_FAILED)),
+		(15, 6_062_296 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 4
 		(16, 1_336_147_462_613_682_971, Stage::AirdropMint(data::v16::AIRDROPS_SNAPSHOT_4)),
 		// Airdrop Move 2
 		(17, 0, Stage::AirdropTransfer(data::v17::AIRDROPS_MOVE_2)),
+  		// Prelaunch Deposit 5
+		(18, 3_636_364 * ANLOG, Stage::Deposit(data::v18::DEPOSITS_PRELAUNCH_5)),
 	];
 
 	/// TODO: Difference to go to treasury:

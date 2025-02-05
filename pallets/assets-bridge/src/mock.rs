@@ -140,7 +140,8 @@ impl AssetTeleporter<Test> for Tasks {
 			bytes: teleport_command,
 		};
 
-		//		Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
+		// Push GMP message to queue
+		Tasks::push_gmp_message(msg);
 
 		Ok(())
 	}

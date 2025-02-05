@@ -38,4 +38,6 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), ETHEREUM.into(), BOB.into(), amount);
 	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

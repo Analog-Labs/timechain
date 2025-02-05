@@ -22,11 +22,11 @@ use polkadot_sdk::{
 		PalletId,
 	},
 	frame_system::{self},
-	sp_runtime::traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
+	sp_runtime::traits::{AccountIdConversion, CheckedAdd, Saturating, Zero},
 };
 
 pub use pallet::*;
-pub use types::{ExistenceRequirement, NetworkDetails};
+pub use types::NetworkDetails;
 
 pub type NetworkIdOf<T> = <T as Config>::NetworkId;
 

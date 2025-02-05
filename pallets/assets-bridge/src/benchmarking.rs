@@ -28,6 +28,8 @@ mod benchmarks {
 		let amount_teleport: BalanceOf<T> = (1 * ANLOG).into();
 		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_init));
 
+		T::Currency::resolve_creating(&Pallet::<T>::account_id(), T::Currency::issue(amount_init));
+
 		let _ = Pallet::<T>::do_register_network(
 			ETHEREUM.into(),
 			// TODO add fee here

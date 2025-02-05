@@ -151,8 +151,6 @@ pub mod pallet {
 		NetworkDisabled,
 		/// No sufficient funds for pay for the teleportation.
 		InsufficientFunds,
-		/// Failed to lock funds paid by the account, should never happen.
-		CannotReserveFunds,
 		/// The teleport amount cannot be zero.
 		AmountZero,
 		/// Attempt to use a network_id already in use.
@@ -304,12 +302,7 @@ pub mod pallet {
 				// Lock `amount` into the bridge pot.
 				details.total_locked = details.total_locked.saturating_add(reserve.peek());
 				let dest = Self::account_id();
-				if let Err(problem) = T::Currency::resolve_into_existing(&dest, reserve) {
-					// Must never be an error, but better to be safe.
-					frame_support::print("Inconsistent state - couldn't reserve imbalance for funds teleported by source");
-					drop(problem);
-					return Err(Error::<T>::CannotReserveFunds.into());
-				}
+				T::Currency::resolve_creating(&dest, reserve);
 
 				// Perform the teleport
 				T::Teleporter::handle_teleport(

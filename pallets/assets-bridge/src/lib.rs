@@ -312,7 +312,7 @@ pub mod pallet {
 
 				// Lock: put `amount` into the bridge pot.
 				details.total_locked = details.total_locked.saturating_add(reserve);
-				let dest = Self::account_id();
+				let dest = T::BridgeAccount::get();
 				let locked = T::Currency::deposit_creating(&dest, reserve);
 				// This happens only when transferred < ED and bridge account is empty
 				ensure!(!locked.peek().is_zero(), Error::<T>::CannotReserveFunds);

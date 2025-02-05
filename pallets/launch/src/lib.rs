@@ -46,7 +46,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
+	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
 	use sp_runtime::traits::AccountIdConversion;
 	use sp_std::{vec, vec::Vec};
@@ -174,6 +174,8 @@ pub mod pallet {
 		AirdropTransferExists { to: T::AccountId },
 		/// An airdrop move has failed for an unknown reason.
 		AirdropTransferFailed,
+		/// A virtual withdrawl was successful
+		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -218,6 +220,22 @@ pub mod pallet {
 		pub fn total_issuance() -> Balance {
 			Into::<Balance>::into(CurrencyOf::<T>::total_issuance())
 				+ Into::<Balance>::into(pallet_airdrop::Total::<T>::get())
+		}
+
+		/// Withdraw balance from virtual account
+		pub fn transfer_virtual(
+			source: RawVirtualSource,
+			target: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let account = Self::account_id(source);
+			CurrencyOf::<T>::transfer(&account, &target, amount, ExistenceRequirement::AllowDeath)?;
+			Pallet::<T>::deposit_event(Event::<T>::TransferFromVirtual {
+				source: source.to_vec(),
+				target,
+				amount,
+			});
+			Ok(())
 		}
 	}
 }

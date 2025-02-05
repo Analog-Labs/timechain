@@ -42,14 +42,13 @@ pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
+	use deposits::RawVirtualSource;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	use frame_support::traits::{
-		AccountIdConversion, Currency, ExistenceRequirement, StorageVersion, VestingSchedule,
-		WithdrawReasons,
-	};
+	use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
+	use sp_runtime::traits::AccountIdConversion;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
@@ -90,11 +89,19 @@ pub mod pallet {
 		// Retry failed mints in stage 11
 		(15, 6_062_296 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 4
-		(16, 1_336_147_462_613_682_971, Stage::AirdropMint(data::v16::AIRDROPS_SNAPSHOT_4)),
+		(
+			16,
+			1_336_147_462_613_682_971,
+			Stage::AirdropFromVirtual(b"airdrop", data::v16::AIRDROPS_SNAPSHOT_4),
+		),
 		// Airdrop Move 2
 		(17, 0, Stage::AirdropTransfer(data::v17::AIRDROPS_MOVE_2)),
-  		// Prelaunch Deposit 5
-		(18, 3_636_364 * ANLOG, Stage::Deposit(data::v18::DEPOSITS_PRELAUNCH_5)),
+		// Prelaunch Deposit 4
+		(
+			18,
+			3_636_364 * ANLOG,
+			Stage::DepositFromVirtual(b"ecosystem", data::v18::DEPOSITS_PRELAUNCH_4),
+		),
 	];
 
 	/// TODO: Difference to go to treasury:
@@ -195,6 +202,11 @@ pub mod pallet {
 	where
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
+		/// Compute the account ID of any virtual source wallet.
+		pub fn account_id(source: RawVirtualSource) -> T::AccountId {
+			T::PalletId::get().into_sub_account_truncating(source)
+		}
+
 		/// Workaround to get raw storage version
 		pub fn on_chain_stage_version() -> u16 {
 			frame_support::storage::unhashed::get_or_default(

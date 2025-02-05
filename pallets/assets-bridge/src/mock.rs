@@ -134,7 +134,7 @@ impl AssetTeleporter<Test> for Tasks {
 			nonce: details.0,
 			// must be sufficient to exec OnGmpRecieved
 			gas_limit: 100_000u128,
-			// ussually used for cronicles refund
+			// ussually used for chronicles refund
 			gas_cost: 0u128,
 			// calldata for our OnGmpRecieved
 			bytes: teleport_command,

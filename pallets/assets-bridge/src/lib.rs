@@ -262,7 +262,7 @@ pub mod pallet {
 
 		/// Perform the asset teleportation
 		/// emits `Event::Teleported`.
-		fn do_teleport(
+		pub fn do_teleport(
 			source: T::AccountId,
 			network_id: T::NetworkId,
 			beneficiary: T::Beneficiary,

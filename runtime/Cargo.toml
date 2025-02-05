@@ -130,6 +130,7 @@ std = [
 	"polkadot-sdk/std",
 
 	"pallet-airdrop/std",
+	"pallet-assets-bridge/std",
 	"pallet-dmail/std",
 	"pallet-elections/std",
 	"pallet-governance/std",
@@ -156,6 +157,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/pallet-session-benchmarking",
 
 	"pallet-airdrop/runtime-benchmarks",
+	"pallet-assets-bridge/runtime-benchmarks",
 	"pallet-dmail/runtime-benchmarks",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",
@@ -171,6 +173,7 @@ try-runtime = [
 	"polkadot-sdk/frame-try-runtime",
 
 	"pallet-airdrop/try-runtime",
+	"pallet-assets-bridge/try-runtime",
 	"pallet-dmail/try-runtime",
 	"pallet-elections/try-runtime",
 	"pallet-governance/try-runtime",

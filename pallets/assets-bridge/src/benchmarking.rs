@@ -24,12 +24,13 @@ mod benchmarks {
 	#[benchmark]
 	fn teleport_keep_alive() {
 		let caller = whitelisted_caller();
-		let amount_init: BalanceOf<T> = (100_000 * ANLOG).into();
-		let amount_teleport: BalanceOf<T> = (10_000 * ANLOG).into();
+		let amount_init: BalanceOf<T> = (1_000_000_000_000 * ANLOG).into();
+		let amount_teleport: BalanceOf<T> = (1 * ANLOG).into();
 		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_init));
 
 		let _ = Pallet::<T>::do_register_network(
 			ETHEREUM.into(),
+			// TODO add fee here
 			Default::default(),
 			(0, [0u8; 32]).into(),
 		);

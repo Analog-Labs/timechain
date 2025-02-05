@@ -188,6 +188,7 @@ impl pallet_assets_bridge::Config for Test {
 	type NetworkData = (u64, Address);
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
+	type BridgeAccount = BridgeAccount;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

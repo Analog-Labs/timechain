@@ -100,6 +100,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
+		#[pallet::constant]
+		type BridgeAccount: Get<Self::AccountId>;
+
 		/// The bridge balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 

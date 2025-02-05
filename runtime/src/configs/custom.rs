@@ -15,6 +15,7 @@ use time_primitives::{Address, GmpMessage, NetworkId, ANLOG};
 // Local module imports
 use super::tokenomics::DealWithFees;
 use crate::{
+	AssetsBridge,
 	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
 	Shards, Tasks,
 };
@@ -112,6 +113,7 @@ impl pallet_dmail::Config for Runtime {
 
 parameter_types! {
 	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
+	pub BridgeAccount: AccountId = AssetsBridge::account_id();
 }
 
 type NetworkData = (u64, Address);
@@ -126,6 +128,7 @@ impl pallet_assets_bridge::Config for Runtime {
 	type NetworkData = NetworkData;
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
+	type BridgeAccount = BridgeAccount;
 }
 
 impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
@@ -147,8 +150,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 		beneficiary: Address,
 		amount: Balance,
 	) -> DispatchResult {
-		// TODO better to store somewhere
-		let src: Address = pallet_assets_bridge::Pallet::<Runtime>::account_id().into();
+		let src: Address = <Runtime as pallet_assets_bridge::Config>::BridgeAccount::get().into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let mut teleport_command = [0u8; 96];

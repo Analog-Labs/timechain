@@ -63,6 +63,13 @@ pub mod pallet {
 
 		// Wrapper around staking pallet calls
 		#[pallet::call_index(1)]
+		#[pallet::weight(<T as pallet_staking::Config>::WeightInfo::force_new_era())]
+		pub fn force_new_era(origin: OriginFor<T>) -> DispatchResult {
+			T::StakingAdmin::ensure_origin(origin)?;
+			pallet_staking::Pallet::<T>::force_new_era(RawOrigin::Root.into())
+		}
+
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet_staking::Config>::WeightInfo::set_validator_count())]
 		pub fn set_validator_count(
 			origin: OriginFor<T>,
@@ -73,7 +80,7 @@ pub mod pallet {
 		}
 
 		#[allow(clippy::too_many_arguments)]
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(
 			<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_set()
 				.max(<T as pallet_staking::Config>::WeightInfo::set_staking_configs_all_remove())

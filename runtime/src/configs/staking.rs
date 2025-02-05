@@ -31,8 +31,8 @@ use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
 	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
-	Timestamp, TransactionPayment, VoterList, ANLOG,
+	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
+	TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {

@@ -117,7 +117,7 @@ where
 				Err(_) => {
 					// Virtual wallet has run out of funds
 					Pallet::<T>::deposit_event(Event::<T>::AirdropMintTooLarge {
-						target: target.clone().into()
+						target: target.clone().into(),
 					});
 					continue;
 				},

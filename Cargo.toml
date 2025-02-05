@@ -30,6 +30,7 @@ members = [
 	"pallets/validators",
 	"primitives",
 	"runtime",
+	"slack-bot",
 	"tc-cli",
 	"tc-subxt",
 	"tc-subxt/metadata",

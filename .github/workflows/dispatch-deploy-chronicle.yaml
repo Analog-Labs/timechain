@@ -8,7 +8,7 @@
 #    c. If the rollout is successful, confirms the deployment; if it fails, performs rollback.
 # 3. If rollback succeeds after a failure, it exits with an error; otherwise a manual intervention is needed.
 
-name: Chronicle Deployment
+name: deploy-chronicles
 
 on:
   workflow_dispatch:
@@ -34,8 +34,8 @@ env:
   CHRONICLE_IMAGE: analoglabs/chronicle-dev
 
 jobs:
-  deploy:
-    name: Deploy to cluster
+  deploy-chronicles:
+    name: Run /deploy-chronicles tag=${{ github.event.inputs.version }} on ${{ github.event.inputs.environment }} \#${{ github.event.inputs.thread }}
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:

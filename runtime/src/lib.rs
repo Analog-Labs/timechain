@@ -625,9 +625,6 @@ mod runtime {
 	#[runtime::pallet_index(39)]
 	pub type Dmail = pallet_dmail;
 
-	#[runtime::pallet_index(40)]
-	pub type AssetsBridge = pallet_assets_bridge;
-
 	// Custom funding pallets
 
 	#[runtime::pallet_index(42)]

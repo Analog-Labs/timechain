@@ -192,7 +192,7 @@ where
 			if CurrencyOf::<T>::transfer(&source, target, *amount, ExistenceRequirement::AllowDeath)
 				.is_err()
 			{
-				Pallet::<T>::deposit_event(Event::<T>::DepositFailed { target: target.clone() });
+				Pallet::<T>::deposit_event(Event::<T>::DepositTooLarge { target: target.clone() });
 				continue;
 			}
 

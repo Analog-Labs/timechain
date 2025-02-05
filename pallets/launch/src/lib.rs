@@ -156,17 +156,21 @@ pub mod pallet {
 		StageExecuted { version: u16, hash: T::Hash },
 		/// A deposit migration could not be parsed.
 		DepositInvalid { id: Vec<u8> },
-		/// Deposit does not exceed existential deposit
+		/// Deposit does not exceed existential deposit.
 		DepositTooSmall { target: T::AccountId },
+		/// Deposit exceeds available virtual funds.
+		DepositTooLarge { target: T::AccountId },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
-		/// An airdrop mint could not be parsed
+		/// An airdrop mint could not be parsed.
 		AirdropMintInvalid { id: Vec<u8> },
 		/// An airdrop mint failed due to an existing claim.
 		AirdropMintExists { target: T::AccountId },
+		/// An airdrop mint exceeds available virtual funds.
+		AirdropMintTooLarge { target: T::AccountId },
 		/// An airdrop mint failed due to an internal error.
 		AirdropMintFailed,
-		/// An airdrop move could not be parsed
+		/// An airdrop move could not be parsed.
 		AirdropTransferInvalid { id: Vec<u8> },
 		/// An airdrop move has failed due to no claim existing or having already been claimed.
 		AirdropTransferMissing { from: T::AccountId },
@@ -174,7 +178,7 @@ pub mod pallet {
 		AirdropTransferExists { to: T::AccountId },
 		/// An airdrop move has failed for an unknown reason.
 		AirdropTransferFailed,
-		/// A virtual withdrawl was successful
+		/// A virtual withdrawl was successful.
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 

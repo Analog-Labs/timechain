@@ -51,7 +51,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Build slack-bot
-        run: cargo build --profile testnet -p slack-bot --target x86_64-unknown-linux-musl --features testnet,develop
+        run: cargo build --profile testnet -p slack-bot --target x86_64-unknown-linux-musl
       - name: Copy bin
         run: cp -r target/x86_64-unknown-linux-musl/testnet/slack_bot slack-bot-bin
       - name: Build and push

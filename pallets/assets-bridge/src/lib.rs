@@ -71,6 +71,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn teleport_keep_alive() -> Weight;
 		fn force_teleport() -> Weight;
+		fn force_update_network() -> Weight;
 		fn register_network() -> Weight;
 	}
 
@@ -79,6 +80,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn force_teleport() -> Weight {
+			Weight::default()
+		}
+		fn force_update_network() -> Weight {
 			Weight::default()
 		}
 		fn register_network() -> Weight {

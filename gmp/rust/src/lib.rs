@@ -528,13 +528,15 @@ impl<T> Value for Bincode<T>
 where
 	T: Debug + Serialize + for<'a> Deserialize<'a>,
 {
-	type SelfType<'a> = T
-    where
-        Self: 'a;
+	type SelfType<'a>
+		= T
+	where
+		Self: 'a;
 
-	type AsBytes<'a> = Vec<u8>
-    where
-        Self: 'a;
+	type AsBytes<'a>
+		= Vec<u8>
+	where
+		Self: 'a;
 
 	fn fixed_width() -> Option<usize> {
 		None

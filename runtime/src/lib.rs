@@ -80,6 +80,7 @@
 #![recursion_limit = "1024"]
 // Allow more readable constants
 #![allow(clippy::identity_op)]
+#![allow(non_local_definitions)]
 
 /// The runtime is split into its components
 pub mod apis;

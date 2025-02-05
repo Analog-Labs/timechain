@@ -20365,6 +20365,7 @@ dependencies = [
  "env_logger 0.11.6",
  "eth-bridge",
  "eth-bridge-runtime-api",
+ "hex-literal",
  "log",
  "pallet-airdrop",
  "pallet-dmail",

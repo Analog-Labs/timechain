@@ -21,6 +21,7 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_members, Members]
 	[pallet_multisig, Multisig]
 	[pallet_networks, Networks]
+	[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 	[pallet_offences, OffencesBench::<Runtime>]
 	[pallet_preimage, Preimage]
 	[pallet_proxy, Proxy]

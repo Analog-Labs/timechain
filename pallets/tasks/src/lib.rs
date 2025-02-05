@@ -69,8 +69,9 @@ pub mod pallet {
 
 	use time_primitives::{
 		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		GmpEvents, Hash as TxHash, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId,
-		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+		GmpEvents, GmpMessage, Hash as TxHash, MessageId, NetworkId, NetworksInterface, PublicKey,
+		ShardId, ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey,
+		TssSignature,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -531,6 +532,21 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskCreated(task_id));
 			log::debug!("create task {task_id} (network {network})");
 			task_id
+		}
+
+		/// This method must be used only when the message is sent by the timechain.
+		pub fn push_gmp_message(msg: GmpMessage) -> MessageId {
+			// TODO: must check if the network exists.
+			let network = msg.dest_network;
+			let msg_id = msg.message_id();
+			Self::ops_queue(network).push(GatewayOp::SendMessage(msg));
+			Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+			// TODO: fixme - hack to format [u8;32] into a hexadecimal string.
+			log::debug!(
+				"push gmp message {:x?} (network {network})",
+				polkadot_sdk::sp_core::U256::from_big_endian(&msg_id[..])
+			);
+			msg_id
 		}
 
 		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {

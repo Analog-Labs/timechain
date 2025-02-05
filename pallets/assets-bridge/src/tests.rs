@@ -1,164 +1,75 @@
-use crate::mock::*;
-use crate::{Error, Event, Heartbeat, MemberNetwork, MemberOnline, MemberPeerId, MemberStake};
+use crate::{mock::*, Error};
 
-use polkadot_sdk::{frame_support, frame_system, sp_runtime};
+use polkadot_sdk::{
+	frame_support::{self, traits::ExistenceRequirement},
+	sp_runtime,
+};
 
 use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
-use sp_runtime::{DispatchError, DispatchResult, ModuleError};
+use sp_runtime::traits::Get;
 
-use time_primitives::{AccountId, MembersInterface, NetworkId};
+use time_primitives::{NetworkId, Task, TasksInterface};
 
-const A: [u8; 32] = [1u8; 32];
-const C: [u8; 32] = [3u8; 32];
 const ETHEREUM: NetworkId = 0;
 
-fn register_member(staker: AccountId, pubkey: [u8; 32], stake: u128) -> DispatchResult {
-	Members::register_member(
-		RawOrigin::Signed(staker).into(),
-		ETHEREUM,
-		pubkey_from_bytes(pubkey),
-		pubkey,
-		stake,
-	)
-}
-
-fn unregister_member(staker: AccountId, pubkey: [u8; 32]) -> DispatchResult {
-	Members::unregister_member(RawOrigin::Signed(staker).into(), pubkey.into())
-}
-
-fn send_heartbeat(pubkey: [u8; 32]) -> DispatchResult {
-	Members::send_heartbeat(RawOrigin::Signed(pubkey.into()).into())
+fn register_gateway(network: NetworkId, block: u64) {
+	Tasks::gateway_registered(network, block);
 }
 
 #[test]
-fn register_member_works() {
-	let a: AccountId = A.into();
+fn teleport_creates_gmp_message() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(register_member(a.clone(), A, 5));
-		System::assert_last_event(Event::<Test>::RegisteredMember(a.clone(), ETHEREUM, A).into());
-		assert_eq!(Members::member_peer_id(&a), Some(A));
-		assert_eq!(MemberStake::<Test>::get(&a), 5);
-		assert_eq!(Balances::reserved_balance(&a), 5);
-		assert_eq!(Balances::free_balance(&a), 9999999995);
-		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
-		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
-	});
+		assert!(Tasks::get_task(0).is_none());
+		register_gateway(ETHEREUM, 42);
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert!(Tasks::get_task(2).is_none());
+
+		assert_ok!(Bridge::do_register_network(ETHEREUM, Default::default(), Default::default(),));
+
+		assert_ok!(Bridge::do_teleport(
+			acc_pub(0).into(),
+			ETHEREUM,
+			acc_pub(1).into(),
+			123_000,
+			ExistenceRequirement::KeepAlive
+		));
+
+		roll(1);
+
+		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+	})
 }
 
 #[test]
-fn cannot_register_member_without_balance() {
+fn cannot_teleport_to_inactive_network() {
+	new_test_ext().execute_with(|| {
+		assert!(Tasks::get_task(0).is_none());
+		register_gateway(ETHEREUM, 42);
+		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+
+		assert_noop!(
+			Bridge::do_teleport(
+				acc_pub(0).into(),
+				ETHEREUM,
+				acc_pub(1).into(),
+				123_000,
+				ExistenceRequirement::KeepAlive
+			),
+			Error::<Test>::NetworkDisabled,
+		);
+	})
+}
+
+#[test]
+fn cannot_register_timechain_network() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			register_member(C.into(), C, 5),
-			DispatchError::Module(ModuleError {
-				index: 1,
-				error: [2, 0, 0, 0],
-				message: Some("InsufficientBalance")
-			})
+			Bridge::do_register_network(
+				<Test as pallet_networks::Config>::TimechainNetworkId::get(),
+				Default::default(),
+				Default::default(),
+			),
+			Error::<Test>::NetworkAlreadyExists,
 		);
-	});
-}
-
-#[test]
-fn cannot_register_member_below_min_stake_bond() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(register_member(A.into(), A, 4), Error::<Test>::BondBelowMinStake);
-	});
-}
-
-#[test]
-fn register_member_replaces_previous_call() {
-	let a: AccountId = A.into();
-	new_test_ext().execute_with(|| {
-		assert_ok!(register_member(a.clone(), A, 5));
-		assert_eq!(Members::member_peer_id(&a), Some(A));
-		assert_eq!(MemberStake::<Test>::get(&a), 5);
-		assert_eq!(Balances::reserved_balance(&a), 5);
-		assert_eq!(Balances::free_balance(&a), 9999999995);
-		assert_eq!(MemberPeerId::<Test>::get(&a), Some(A));
-		assert_eq!(MemberNetwork::<Test>::get(&a), Some(ETHEREUM));
-		assert_noop!(register_member(a.clone(), A, 10), Error::<Test>::StillStaked);
-	});
-}
-
-#[test]
-fn send_heartbeat_works() {
-	new_test_ext().execute_with(|| {
-		let a: AccountId = A.into();
-		assert_ok!(register_member(a.clone(), A, 5));
-		roll_to(5);
-		assert_ok!(send_heartbeat(A));
-		assert_ok!(send_heartbeat(A));
-		System::assert_last_event(Event::<Test>::HeartbeatReceived(a.clone()).into());
-		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert!(Heartbeat::<Test>::get(&a).is_some());
-	});
-}
-
-#[test]
-fn no_heartbeat_sets_member_offline_after_timeout() {
-	new_test_ext().execute_with(|| {
-		let a: AccountId = A.into();
-		assert_ok!(register_member(a.clone(), A, 5));
-		assert_ok!(send_heartbeat(A));
-		roll_to(10);
-		assert!(MemberOnline::<Test>::get(&a).is_some());
-		roll_to(20);
-		assert!(MemberOnline::<Test>::get(&a).is_none());
-	});
-}
-
-#[test]
-fn send_heartbeat_sets_member_back_online_after_timeout() {
-	new_test_ext().execute_with(|| {
-		let a: AccountId = A.into();
-		assert_ok!(register_member(a.clone(), A, 5));
-		roll_to(20);
-		assert!(MemberOnline::<Test>::get(&a).is_none());
-		assert_ok!(send_heartbeat(A));
-		assert!(MemberOnline::<Test>::get(&a).is_some());
-		assert!(Heartbeat::<Test>::get(&a).is_some());
-	});
-}
-
-#[test]
-fn cannot_send_heartbeat_if_not_registered() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(send_heartbeat(A), Error::<Test>::BondBelowMinStake);
-	});
-}
-
-#[test]
-fn cannot_unregister_if_not_registered() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(unregister_member(A.into(), A), Error::<Test>::NotStaker);
-	});
-}
-
-#[test]
-fn cannot_unregister_twice() {
-	new_test_ext().execute_with(|| {
-		let a: AccountId = A.into();
-		assert_ok!(register_member(a.clone(), A, 5));
-		assert_ok!(unregister_member(a.clone(), A));
-		assert_noop!(unregister_member(a, A), Error::<Test>::NotStaker);
-	});
-}
-
-#[test]
-fn unregister_member_works() {
-	new_test_ext().execute_with(|| {
-		let a: AccountId = A.into();
-		assert_ok!(register_member(a.clone(), A, 5));
-		assert_ok!(unregister_member(a.clone(), A));
-		System::assert_last_event(Event::<Test>::UnRegisteredMember(a.clone(), ETHEREUM).into());
-		assert_eq!(Members::member_peer_id(&a), None);
-		assert_eq!(MemberStake::<Test>::get(&a), 0);
-		assert_eq!(Balances::reserved_balance(&a), 0);
-		assert_eq!(Balances::free_balance(&a), 10000000000);
-		assert_eq!(MemberPeerId::<Test>::get(&a), None);
-		assert_eq!(MemberNetwork::<Test>::get(&a), None);
-		assert!(Heartbeat::<Test>::get(&a).is_none());
-	});
+	})
 }

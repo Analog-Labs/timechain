@@ -94,6 +94,7 @@ polkadot-sdk = { workspace = true, features = [
 
 # Custom local pallets
 pallet-airdrop.workspace = true
+pallet-assets-bridge.workspace = true
 pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-governance.workspace = true

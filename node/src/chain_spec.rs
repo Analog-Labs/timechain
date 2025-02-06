@@ -1,6 +1,7 @@
 use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
 
+use frame_support::PalletId;
 use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -34,6 +35,9 @@ const MIN_VALIDATOR_COUNT: u32 = 1;
 /// Default telemetry server for all networks
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
+
+const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
+const ED: Balance = 1 * ANLOG;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -76,11 +80,10 @@ pub struct GenesisKeysConfig {
 }
 
 impl Default for GenesisKeysConfig {
-	/// Default configuration using know development keys
+	/// Default configuration using known development keys
 	fn default() -> Self {
 		use AccountKeyring::*;
 
-		let bridge_account = polkadot_sdk::frame_support::PalletId(*b"py/bridg").into_account_truncating();
 		GenesisKeysConfig {
 			admins: vec![
 				Alice.into(),
@@ -99,9 +102,7 @@ impl Default for GenesisKeysConfig {
 			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
-			endowments: vec![
-				(bridge_account, 1000),
-			],
+			endowments: vec![(BRIDGE_PALLET_ID.into_account_truncating(), ED)],
 			stakes: vec![
 				AliceStash.into(),
 				BobStash.into(),

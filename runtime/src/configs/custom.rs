@@ -4,6 +4,7 @@ use frame_support::{
 	ensure, parameter_types,
 	traits::{ConstU128, ConstU32},
 };
+use pallet_assets_bridge::NetworkDataOf;
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -125,7 +126,10 @@ impl pallet_assets_bridge::Config for Runtime {
 }
 
 impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
-	fn handle_register(network_id: NetworkId, _data: &mut NetworkDataOf<Runtime>) -> DispatchResult {
+	fn handle_register(
+		network_id: NetworkId,
+		_data: &mut NetworkDataOf<Runtime>,
+	) -> DispatchResult {
 		ensure!(
 			network_id.ne(&<Runtime as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
 			pallet_assets_bridge::Error::<Runtime>::NetworkAlreadyExists
@@ -167,14 +171,9 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			bytes: teleport_command.to_vec(),
 		};
 
-		// Increment nonce
-		// TODO put into NetworkDataOf<Runtime
-		details.0 = details
-			.0
-			.checked_add(1)
-			.ok_or(pallet_assets_bridge::Pallet::<Runtime>::Error::FailedDispatchGmpMesaage)?;
-		// Push GMP message to gateway ops queue
-		pallet_tasks::Pallet::<Runtime>::push_gmp_message(msg);
+		data.incr_nonce()
+			.ok_or(pallet_assets_bridge::Error::<Runtime>::NetworkNonceOverflow)?;
+		Tasks::push_gmp_message(msg);
 
 		Ok(())
 	}

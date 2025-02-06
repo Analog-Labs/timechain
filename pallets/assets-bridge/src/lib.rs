@@ -43,17 +43,18 @@ pub type BeneficiaryOf<T> = <T as Config>::Beneficiary;
 
 /// Teleport handlers.
 pub trait AssetTeleporter<T: Config> {
-	/// Attempt to register `network_id` with `data`.
+	/// Attempt to register `network_id` with `data` for assets teleportation.
 	/// This we need to have guarantee that network is active, i.e. actually has some
-	/// chronicle sards working with it.
+	/// chronicle shards working with it.
 	fn handle_register(network_id: NetworkIdOf<T>, data: &mut NetworkDataOf<T>) -> DispatchResult;
 
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
 	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
+		source: &T::AccountId,
 		network_id: NetworkIdOf<T>,
 		details: &mut NetworkDataOf<T>,
-		beneficiary: BeneficiaryOf<T>,
+		beneficiary: &BeneficiaryOf<T>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
 }
@@ -71,6 +72,7 @@ pub mod pallet {
 	pub trait WeightInfo {
 		fn teleport_keep_alive() -> Weight;
 		fn force_teleport() -> Weight;
+		fn force_update_network() -> Weight;
 		fn register_network() -> Weight;
 	}
 
@@ -79,6 +81,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn force_teleport() -> Weight {
+			Weight::default()
+		}
+		fn force_update_network() -> Weight {
 			Weight::default()
 		}
 		fn register_network() -> Weight {
@@ -92,9 +97,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: polkadot_sdk::frame_system::Config {
-		/// The bridge pallet id, used for deriving its sovereign account ID.
+		/// Account for holding the teleported assets.
+		/// This is advised to be set to inaccesible Account ID, e.g. the one provided by `Self::account_id()`.
 		#[pallet::constant]
-		type PalletId: Get<PalletId>;
+		type BridgePot: Get<Self::AccountId>;
 
 		/// The bridge balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
@@ -151,7 +157,7 @@ pub mod pallet {
 		NetworkDisabled,
 		/// No sufficient funds for pay for the teleportation.
 		InsufficientFunds,
-		/// Failed to lock funds paid by the account, should never happen.
+		/// Failed to lock teleport amount.
 		CannotReserveFunds,
 		/// The teleport amount cannot be zero.
 		AmountZero,
@@ -193,7 +199,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			network: T::NetworkId,
 			base_fee: BalanceOf<T>,
-			mut data: T::NetworkData,
+			data: T::NetworkData,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_register_network(network, base_fee, data)
@@ -236,13 +242,15 @@ pub mod pallet {
 		/// This actually does computation. If you need to keep using it, then make sure you cache the
 		/// value and only call this once.
 		pub fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account_truncating()
+			const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
+
+			BRIDGE_PALLET_ID.into_account_truncating()
 		}
 
 		/// Return the amount of money reserved by the bridge account.
 		/// The existential deposit is not part of the reserve so the bridge account never gets deleted.
 		pub fn reserved() -> BalanceOf<T> {
-			T::Currency::free_balance(&Self::account_id())
+			T::Currency::free_balance(&T::BridgePot::get())
 				// Must never be less than 0 but better be safe.
 				.saturating_sub(T::Currency::minimum_balance())
 		}
@@ -293,7 +301,7 @@ pub mod pallet {
 				let imbalance = T::Currency::withdraw(&source, total, reason, liveness)?;
 
 				// If `network_details.teleport_base_fee` is greater than zero, pay the fee to destination
-				let reserve = if !details.teleport_base_fee.is_zero() {
+				let imbalance = if !details.teleport_base_fee.is_zero() {
 					let (fee, reserve) = imbalance.split(details.teleport_base_fee);
 					T::FeeDestination::on_unbalanced(fee);
 					reserve
@@ -301,21 +309,21 @@ pub mod pallet {
 					imbalance
 				};
 
-				// Lock `amount` into the bridge pot.
-				details.total_locked = details.total_locked.saturating_add(reserve.peek());
-				let dest = Self::account_id();
-				if let Err(problem) = T::Currency::resolve_into_existing(&dest, reserve) {
-					// Must never be an error, but better to be safe.
-					frame_support::print("Inconsistent state - couldn't reserve imbalance for funds teleported by source");
-					drop(problem);
-					return Err(Error::<T>::CannotReserveFunds.into());
-				}
+				let reserve = imbalance.peek();
+
+				// Lock: put `amount` into the bridge pot.
+				details.total_locked = details.total_locked.saturating_add(reserve);
+				let locked = T::Currency::deposit_creating(&T::BridgePot::get(), reserve);
+				// This happens only when transferred < ED and bridge account is empty
+				ensure!(!locked.peek().is_zero(), Error::<T>::CannotReserveFunds);
+				drop(imbalance.offset(locked));
 
 				// Perform the teleport
 				T::Teleporter::handle_teleport(
+					&source,
 					network_id.clone(),
 					&mut details.data,
-					beneficiary,
+					&beneficiary,
 					amount,
 				)
 			})?;

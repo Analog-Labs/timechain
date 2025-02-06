@@ -3,79 +3,65 @@ use crate::Pallet;
 
 use polkadot_sdk::*;
 
-use frame_benchmarking::benchmarks;
-use frame_support::traits::{Currency, Get};
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use time_primitives::{traits::IdentifyAccount, AccountId, NetworkId, PublicKey};
+use time_primitives::{NetworkId, ANLOG};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
 
-fn public_key() -> PublicKey {
-	pk_from_account(ALICE)
-}
+#[benchmarks(
+	where
+		<T as pallet::Config>::NetworkId: From<u16>,
+		<T as pallet::Config>::NetworkData: From<(u64, [u8; 32])>,
+		<T as pallet::Config>::Beneficiary: From<[u8; 32]>,
+		<<T as pallet::Config>::Currency as Currency<<T as polkadot_sdk::frame_system::Config>::AccountId>>::Balance: From<u128>,
+)]
+mod benchmarks {
+	use super::*;
+	use frame_support::traits::Currency;
 
-fn pk_from_account(r: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(r))
-}
+	#[benchmark]
+	fn teleport_keep_alive() {
+		let caller = whitelisted_caller();
+		let amount_init: BalanceOf<T> = (1_000_000_000_000 * ANLOG).into();
+		let amount_teleport: BalanceOf<T> = (10 * ANLOG).into();
+		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_init));
 
-benchmarks! {
-	register_member {
-		let caller: AccountId = ALICE.into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-		);
-	}: _(RawOrigin::Signed(caller), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get())
-	verify { }
+		let _ =
+			Pallet::<T>::do_register_network(ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
 
-	send_heartbeat {
-		let caller: AccountId = ALICE.into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-		);
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(caller))
-	verify { }
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), ETHEREUM.into(), ALICE.into(), amount_teleport);
+	}
 
-	unregister_member {
-		let caller: AccountId = ALICE.into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-		);
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(caller), public_key().into_account())
-	verify { }
+	#[benchmark]
+	fn force_teleport() {
+		let caller = whitelisted_caller();
+		let amount_init: BalanceOf<T> = (1_000_000_000_000 * ANLOG).into();
+		let amount_teleport: BalanceOf<T> = (10 * ANLOG).into();
+		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_init));
 
-	timeout_heartbeats {
-		let b in 1..T::MaxTimeoutsPerBlock::get();
-		for i in 0..b {
-			let raw = [i as u8; 32];
-			let caller: AccountId = raw.into();
-			pallet_balances::Pallet::<T>::resolve_creating(
-				&caller,
-				pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-			);
-			Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
-			// Send heartbeat to set caller online and set heartbeat
-			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
-			assert!(MemberOnline::<T>::get(&caller).is_some());
-			assert!(Heartbeat::<T>::get(&caller).is_some());
-			// Add to timed out as if heartbeat was never submitted
-			TimedOut::<T>::mutate(|x| x.push(caller.clone()));
-		}
-	}: {
-		Pallet::<T>::timeout_heartbeats();
-	} verify {
-		for i in 0..b {
-			let caller: AccountId = [i as u8; 32].into();
-			assert!(MemberOnline::<T>::get(&caller).is_none());
-			assert!(Heartbeat::<T>::get(&caller).is_none());
-			// Next timed out set is derived from heartbeats previously in storage
-			assert!(TimedOut::<T>::get().contains(&caller));
-		}
+		let _ =
+			Pallet::<T>::do_register_network(ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, caller, ETHEREUM.into(), ALICE.into(), amount_teleport);
+	}
+
+	#[benchmark]
+	fn register_network() {
+		#[extrinsic_call]
+		_(RawOrigin::Root, ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
+	}
+
+	#[benchmark]
+	fn force_update_network() {
+		let _ =
+			Pallet::<T>::do_register_network(ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, ETHEREUM.into(), false, Some((1, [0u8; 32]).into()));
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

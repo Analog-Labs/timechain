@@ -19,7 +19,7 @@ use frame_support::{derive_impl, ensure};
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature, Permill,
+	AccountId32, BuildStorage, DispatchResult, MultiSignature, Permill,
 };
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
@@ -101,7 +101,6 @@ impl ElectionsInterface for MockElections {
 }
 
 impl AssetTeleporter<Test> for Tasks {
-	/// Attempt to register `network_id` with `data`.
 	fn handle_register(
 		network_id: NetworkIdOf<Test>,
 		_data: &mut NetworkDataOf<Test>,
@@ -114,16 +113,15 @@ impl AssetTeleporter<Test> for Tasks {
 		Ok(())
 	}
 
-	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
-	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
+		source: &AccountId,
 		network_id: NetworkIdOf<Test>,
 		details: &mut NetworkDataOf<Test>,
-		beneficiary: BeneficiaryOf<Test>,
+		beneficiary: &BeneficiaryOf<Test>,
 		amount: BalanceOf<Test>,
 	) -> DispatchResult {
 		// TODO better to store somewhere
-		let src: Address = Bridge::account_id().into();
+		let src: Address = source.clone().into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let teleport_command =
@@ -137,11 +135,11 @@ impl AssetTeleporter<Test> for Tasks {
 			// GMP backend truncates this to AccountId20
 			dest: details.1,
 			nonce: details.0,
-			// must be sufficient to exec OnGmpRecieved
+			// Must be sufficient to execute onGmpReceived
 			gas_limit: 100_000u128,
 			// ussually used for chronicles refund
 			gas_cost: 0u128,
-			// calldata for our OnGmpRecieved
+			// calldata for our onGmpReceived
 			bytes: teleport_command,
 		};
 
@@ -181,14 +179,10 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-parameter_types! {
-	pub const BridgePalletId: PalletId = PalletId(*b"py/trsry");
-}
-
 impl pallet_assets_bridge::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type PalletId = BridgePalletId;
+	type BridgePot = BridgePot;
 	type Currency = pallet_balances::Pallet<Test>;
 	type FeeDestination = Treasury;
 	type NetworkId = u16;
@@ -201,7 +195,7 @@ impl pallet_assets_bridge::Config for Test {
 impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU128<1>;
+	type ExistentialDeposit = ConstU128<2>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
@@ -256,6 +250,7 @@ parameter_types! {
 	// 5EYCAe5ijiYfyeZ2JJCGq56LmPyNRAKzpG4QkoQkkQNB5e6Z
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
+	pub BridgePot: AccountId = Bridge::account_id();
 }
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
@@ -387,11 +382,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let _ = env_logger::try_init();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![
-			(acc_pub(0).into(), 10_000_000_000),
-			(acc_pub(1).into(), 20_000_000_000),
-			(TreasuryAccount::get(), 30_000_000_000),
-		],
+		balances: vec![(acc(0), 10_000_000_000), (acc(1), 20_000_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
@@ -400,8 +391,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
+pub fn acc(acc_num: u8) -> AccountId32 {
+	AccountId32::new([acc_num; 32])
 }
 
 pub fn roll(n: u64) {

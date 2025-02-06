@@ -1,7 +1,7 @@
 use polkadot_sdk::*;
 
 use frame_support::{
-	parameter_types,
+	ensure, parameter_types,
 	traits::{ConstU128, ConstU32},
 };
 
@@ -10,11 +10,16 @@ use frame_support::{
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
-use time_primitives::ANLOG;
+use time_primitives::{Address, GmpMessage, NetworkId, ANLOG};
 // Local module imports
+use super::tokenomics::DealWithFees;
 use crate::{
-	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
-	Shards, Tasks,
+	weights, AccountId, Balance, Balances, Bridge, Elections, Members, Networks, Runtime,
+	RuntimeEvent, Shards, Tasks,
+};
+use sp_runtime::{
+	traits::{ConstU16, Get},
+	DispatchResult,
 };
 
 #[cfg(not(feature = "testnet"))]
@@ -96,11 +101,80 @@ impl pallet_networks::Config for Runtime {
 	type AdminOrigin = ChronicleAdmin;
 	type WeightInfo = weights::pallet_networks::WeightInfo<Runtime>;
 	type Tasks = Tasks;
+	type TimechainNetworkId = ConstU16<1000>;
 }
 
 impl pallet_dmail::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_dmail::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub BridgePot: AccountId = Bridge::account_id();
+}
+
+type NetworkData = (u64, Address);
+
+impl pallet_assets_bridge::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type BridgePot = BridgePot;
+	type Currency = pallet_balances::Pallet<Runtime>;
+	type FeeDestination = DealWithFees;
+	type NetworkId = NetworkId;
+	type NetworkData = NetworkData;
+	type Beneficiary = Address;
+	type Teleporter = Tasks;
+}
+
+impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
+	fn handle_register(network_id: NetworkId, _data: &mut NetworkData) -> DispatchResult {
+		ensure!(
+			network_id.ne(&<Runtime as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
+			pallet_assets_bridge::Error::<Runtime>::NetworkAlreadyExists
+		);
+
+		// TODO check that network is active, i.e. actually has some
+		// chronicle shards working with it.
+
+		Ok(())
+	}
+
+	fn handle_teleport(
+		source: &AccountId,
+		network_id: NetworkId,
+		details: &mut NetworkData,
+		beneficiary: &Address,
+		amount: Balance,
+	) -> DispatchResult {
+		let src: Address = source.clone().into();
+		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
+		// TODO refactor with alloy
+		let mut teleport_command = [0u8; 96];
+		teleport_command[0..32].copy_from_slice(&src[..]);
+		teleport_command[32..64].copy_from_slice(&beneficiary[..]);
+		teleport_command[80..].copy_from_slice(&amount.to_be_bytes());
+
+		let msg = GmpMessage {
+			src_network: <Runtime as pallet_networks::Config>::TimechainNetworkId::get(),
+			dest_network: network_id,
+			src,
+			// GMP backend truncates this to AccountId20
+			dest: details.1,
+			nonce: details.0,
+			// must be sufficient to exec onGmpReceived
+			gas_limit: 100_000u128,
+			// usually used for cronicles refund
+			gas_cost: 0u128,
+			// calldata for our onGmpReceived
+			bytes: teleport_command.to_vec(),
+		};
+
+		// Push GMP message to gateway ops queue
+		pallet_tasks::Pallet::<Runtime>::push_gmp_message(msg);
+
+		Ok(())
+	}
 }
 
 #[cfg(test)]

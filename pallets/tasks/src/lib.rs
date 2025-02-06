@@ -448,21 +448,15 @@ pub mod pallet {
 						ShardRegistered::<T>::remove(pubkey);
 					},
 					GmpEvent::MessageReceived(msg) => {
-						use polkadot_sdk::sp_core::U256;
 						use frame_support::PalletId;
+						use polkadot_sdk::sp_core::U256;
 						use sp_runtime::traits::AccountIdConversion;
 						let msg_id = msg.message_id();
 						if msg.dest_network == 1000 && msg.bytes.len() == 96 {
-							let bridge_account = PalletId(*b"py/bridg").into_account_truncating();
 							let mut recipient = time_primitives::Address::default();
 							recipient.copy_from_slice(&msg.bytes[32..64]);
 							let amount = U256::from_big_endian(&msg.bytes[64..]).low_u128();
-							let _ = pallet_balances::Pallet::<T>::transfer(
-								&bridge_account,
-								&recipient.into(),
-								amount,
-								ExistenceRequirement::KeepAlive,
-							);
+							// TODO
 						} else {
 							Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 						}

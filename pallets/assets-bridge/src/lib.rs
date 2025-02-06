@@ -169,7 +169,13 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			Self::do_teleport_out(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
+			Self::do_teleport_out(
+				source,
+				network,
+				beneficiary,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)
 		}
 
 		#[pallet::call_index(1)]
@@ -182,7 +188,13 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_teleport_out(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
+			Self::do_teleport_out(
+				source,
+				network,
+				beneficiary,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)
 		}
 
 		#[pallet::call_index(2)]
@@ -267,10 +279,10 @@ pub mod pallet {
 
 			Ok(())
 		}
-		/// Perform the asset teleportation
+		/// Perform the asset teleportation to other network
 		/// emits `Event::Teleported`.
 		pub fn do_teleport_out(
-			source: T::AccountId,
+			sender: T::AccountId,
 			network_id: T::NetworkId,
 			beneficiary: T::Beneficiary,
 			amount: BalanceOf<T>,
@@ -288,9 +300,9 @@ pub mod pallet {
 					.checked_add(&details.teleport_base_fee)
 					.ok_or(Error::<T>::InsufficientFunds)?;
 
-				// Withdraw `total` from `source`
+				// Withdraw `total` from `sender`
 				let reason = WithdrawReasons::TRANSFER | WithdrawReasons::FEE;
-				let imbalance = T::Currency::withdraw(&source, total, reason, liveness)?;
+				let imbalance = T::Currency::withdraw(&sender, total, reason, liveness)?;
 
 				// If `network_details.teleport_base_fee` is greater than zero, pay the fee to destination
 				let imbalance = if !details.teleport_base_fee.is_zero() {
@@ -312,7 +324,7 @@ pub mod pallet {
 
 				// Perform the teleport
 				T::Teleporter::handle_teleport(
-					&source,
+					&sender,
 					network_id.clone(),
 					&mut details.data,
 					&beneficiary,
@@ -321,9 +333,19 @@ pub mod pallet {
 			})?;
 
 			// Emit `Teleported` event.
-			Self::deposit_event(Event::Teleported { account: source, amount });
+			Self::deposit_event(Event::Teleported { account: sender, amount });
 
 			Ok(())
+		}
+
+		/// Process assets teleported from other network
+		pub fn do_teleport_in(recipient: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			T::Currency::transfer(
+				&T::BridgePot::get(),
+				&recipient,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)
 		}
 	}
 }

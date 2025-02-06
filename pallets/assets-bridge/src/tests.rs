@@ -1,11 +1,12 @@
-use crate::{mock::*, BalanceOf, Config, Error};
+use crate::{mock::*, BalanceOf, Config, Error, NetworkDataOf};
 
 use polkadot_sdk::{
 	frame_support::{self, traits::ExistenceRequirement},
-	pallet_balances, sp_runtime,
+	pallet_balances, sp_core, sp_runtime,
 };
 
 use frame_support::{assert_err, assert_noop, assert_ok};
+use sp_core::crypto::AccountId32;
 use sp_runtime::traits::{Get, Zero};
 
 use time_primitives::{NetworkId, Task, TasksInterface};
@@ -13,6 +14,10 @@ use time_primitives::{NetworkId, Task, TasksInterface};
 const ETHEREUM: NetworkId = 0;
 const TELEPORT_FEE: u128 = 12_500;
 const TELEPORT_AMOUNT: u128 = 123_000;
+const NETWORK_DATA: NetworkDataOf<Test> = NetworkDataOf::<Test> {
+	nonce: 0,
+	dest: AccountId32::new([0u8; 32]),
+};
 
 fn register_gateway(network: NetworkId, block: u64) {
 	Tasks::gateway_registered(network, block);
@@ -21,7 +26,7 @@ fn register_gateway(network: NetworkId, block: u64) {
 #[test]
 fn first_teleport_below_ed() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, Default::default(),));
+		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, NETWORK_DATA));
 
 		let bridge_bal_before =
 			<Test as Config>::Currency::free_balance(<Test as Config>::BridgePot::get());
@@ -48,7 +53,7 @@ fn first_teleport_below_ed() {
 #[test]
 fn teleport_reserve_and_fee() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, Default::default(),));
+		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, NETWORK_DATA));
 
 		let user_bal_before = <Test as Config>::Currency::free_balance(acc(1));
 		let bridge_bal_before =
@@ -79,7 +84,7 @@ fn teleport_creates_gmp_message() {
 		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		assert!(Tasks::get_task(2).is_none());
 
-		assert_ok!(Bridge::do_register_network(ETHEREUM, Default::default(), Default::default(),));
+		assert_ok!(Bridge::do_register_network(ETHEREUM, Default::default(), NETWORK_DATA));
 
 		assert_ok!(Bridge::do_teleport(
 			acc(1),
@@ -118,7 +123,7 @@ fn cannot_register_timechain_network() {
 			Bridge::do_register_network(
 				<Test as pallet_networks::Config>::TimechainNetworkId::get(),
 				Default::default(),
-				Default::default(),
+				NETWORK_DATA
 			),
 			Error::<Test>::NetworkAlreadyExists,
 		);

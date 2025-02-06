@@ -133,8 +133,8 @@ impl AssetTeleporter<Test> for Tasks {
 			dest_network: network_id,
 			src,
 			// GMP backend truncates this to AccountId20
-			dest: details.1,
-			nonce: details.0,
+			dest: details.dest.clone().into(),
+			nonce: details.nonce,
 			// Must be sufficient to execute onGmpReceived
 			gas_limit: 100_000u128,
 			// ussually used for chronicles refund
@@ -186,7 +186,6 @@ impl pallet_assets_bridge::Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type FeeDestination = Treasury;
 	type NetworkId = u16;
-	type NetworkData = (u64, Address);
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
 }

@@ -171,8 +171,11 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 		};
 
 		// Increment nonce
-		details.0 += 1;
-
+		// TODO put into NetworkData
+		details.0 = details
+			.0
+			.checked_add(1)
+			.ok_or(pallet_assets_bridge::Pallet::<Runtime>::Error::FailedDispatchGmpMesaage)?;
 		// Push GMP message to gateway ops queue
 		pallet_tasks::Pallet::<Runtime>::push_gmp_message(msg);
 

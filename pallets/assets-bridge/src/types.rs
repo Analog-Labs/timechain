@@ -4,7 +4,7 @@ use scale_info::TypeInfo;
 
 /// NetworkDetails holds the current config of the network.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct NetworkDetails<Balance, NetworkData> {
+pub struct NetworkDetails<Balance, AccountId> {
 	/// If this network is currently accepting teleports.
 	pub active: bool,
 	/// How much the base cost to teleport assets to this network.
@@ -12,5 +12,14 @@ pub struct NetworkDetails<Balance, NetworkData> {
 	/// Total amount of assets locked in this network.
 	pub total_locked: Balance,
 	/// Custom network data.
-	pub data: NetworkData,
+	pub data: NetworkData<AccountId>,
+}
+
+/// Network Data, akin to pallet_balances::AccountData
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct NetworkData<AccountId> {
+	/// Nonce for the GMP message
+	pub nonce: u64,
+	/// Destination address for the token contract
+	pub dest: AccountId,
 }

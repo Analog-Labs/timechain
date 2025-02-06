@@ -49,9 +49,27 @@ pub mod queue;
 #[cfg(test)]
 mod tests;
 
+use polkadot_sdk::{
+	frame_support::{dispatch::DispatchResult, traits::Currency},
+	frame_system,
+};
+use time_primitives::{AccountId, Balance};
+
+/// Teleport handlers.
+pub trait TeleportReciever {
+	fn handle_teleport(recipient: &AccountId, amount: Balance) -> DispatchResult;
+}
+
+impl TeleportReciever for () {
+	fn handle_teleport(_recipient: &AccountId, _amount: Balance) -> DispatchResult {
+		Ok(())
+	}
+}
+
 #[polkadot_sdk::frame_support::pallet]
 pub mod pallet {
 	use crate::queue::*;
+	use crate::TeleportReciever;
 
 	use polkadot_sdk::{
 		frame_support, frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
@@ -125,6 +143,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Networks: NetworksInterface;
+		type Teleporter: TeleportReciever;
 		/// Maximum number of tasks scheduled per block in `on_initialize`
 		type MaxTasksPerBlock: Get<u32>;
 		/// Maximum number of batches started per block in `on_initialize`
@@ -456,7 +475,7 @@ pub mod pallet {
 							let mut recipient = time_primitives::Address::default();
 							recipient.copy_from_slice(&msg.bytes[32..64]);
 							let amount = U256::from_big_endian(&msg.bytes[64..]).low_u128();
-							// TODO
+							let _ = T::Teleporter::handle_teleport(&recipient.into(), amount);
 						} else {
 							Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 						}

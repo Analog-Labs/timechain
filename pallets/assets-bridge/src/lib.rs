@@ -339,10 +339,10 @@ pub mod pallet {
 		}
 
 		/// Process assets teleported from other network
-		pub fn do_teleport_in(recipient: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn do_teleport_in(recipient: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 			T::Currency::transfer(
 				&T::BridgePot::get(),
-				&recipient,
+				recipient,
 				amount,
 				ExistenceRequirement::KeepAlive,
 			)

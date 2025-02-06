@@ -79,6 +79,7 @@ impl pallet_tasks::Config for Runtime {
 	type Shards = Shards;
 	type MaxTasksPerBlock = ConstU32<50>;
 	type MaxBatchesPerBlock = ConstU32<10>;
+	type Teleporter = Bridge;
 }
 
 parameter_types! {
@@ -173,9 +174,15 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 
 		data.incr_nonce()
 			.ok_or(pallet_assets_bridge::Error::<Runtime>::NetworkNonceOverflow)?;
-		Tasks::push_gmp_message(msg);
+		Self::push_gmp_message(msg);
 
 		Ok(())
+	}
+}
+
+impl pallet_tasks::TeleportReciever<Runtime> for Bridge {
+	fn handle_teleport(recipient: &AccountId, amount: Balance) -> DispatchResult {
+		Self::do_teleport_in(recipient.into(), amount.into())
 	}
 }
 

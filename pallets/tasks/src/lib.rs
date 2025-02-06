@@ -49,18 +49,15 @@ pub mod queue;
 #[cfg(test)]
 mod tests;
 
-use polkadot_sdk::{
-	frame_support::{dispatch::DispatchResult, traits::Currency},
-	frame_system,
-};
+use polkadot_sdk::frame_support::dispatch::DispatchResult;
 use time_primitives::{AccountId, Balance};
 
 /// Teleport handlers.
-pub trait TeleportReciever {
+pub trait TeleportReciever<T> {
 	fn handle_teleport(recipient: &AccountId, amount: Balance) -> DispatchResult;
 }
 
-impl TeleportReciever for () {
+impl<T> TeleportReciever<T> for () {
 	fn handle_teleport(_recipient: &AccountId, _amount: Balance) -> DispatchResult {
 		Ok(())
 	}
@@ -143,7 +140,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Networks: NetworksInterface;
-		type Teleporter: TeleportReciever;
+		type Teleporter: TeleportReciever<Self>;
 		/// Maximum number of tasks scheduled per block in `on_initialize`
 		type MaxTasksPerBlock: Get<u32>;
 		/// Maximum number of batches started per block in `on_initialize`
@@ -467,9 +464,7 @@ pub mod pallet {
 						ShardRegistered::<T>::remove(pubkey);
 					},
 					GmpEvent::MessageReceived(msg) => {
-						use frame_support::PalletId;
 						use polkadot_sdk::sp_core::U256;
-						use sp_runtime::traits::AccountIdConversion;
 						let msg_id = msg.message_id();
 						if msg.dest_network == 1000 && msg.bytes.len() == 96 {
 							let mut recipient = time_primitives::Address::default();

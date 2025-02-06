@@ -223,7 +223,7 @@ pub type Executive = frame_executive::Executive<
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
-pub const CALL_PARAMS_MAX_SIZE: usize = 244;
+pub const CALL_PARAMS_MAX_SIZE: usize = 448;
 
 /// Mainnet runtime version
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
@@ -653,6 +653,14 @@ mod runtime {
 
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
+
+	// HASHI Bridge
+
+	#[runtime::pallet_index(50)]
+	pub type EthBridge = eth_bridge;
+
+	#[runtime::pallet_index(51)]
+	pub type BridgeMultisig = bridge_multisig;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

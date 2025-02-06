@@ -43,6 +43,23 @@ use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
 use crate::{Members, Networks, Shards, Staking, Tasks};
 
+// HASHI Bridge
+#[cfg(feature = "testnet")]
+use crate::configs::bridge::NetworkId as BridgeNetworkId;
+#[cfg(feature = "testnet")]
+use crate::EthBridge;
+#[cfg(feature = "testnet")]
+use eth_bridge::{
+	common::{AssetId as BridgeAssetId, BalancePrecision as BridgeBalancePrecision},
+	offchain::SignatureParams as BridgeSignatureParams,
+	requests::{
+		AssetKind as BridgeAssetKind, OffchainRequest, OutgoingRequestEncoded,
+		RequestStatus as BridgeRequestStatus,
+	},
+};
+#[cfg(feature = "testnet")]
+use sp_runtime::DispatchError;
+
 // Original Author: ntn-x2 @ KILTprotocol
 // Workaround for runtime API impls not exposed in metadata if implemented in a
 // different file than the runtime's `lib.rs`. Related issue (subxt) -> https://github.com/paritytech/subxt/issues/1873.
@@ -357,6 +374,72 @@ impl_runtime_apis! {
 	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
 		fn submit_transaction(encoded_transaction: Vec<u8>) -> Result<(), ()> {
 			sp_io::offchain::submit_transaction(encoded_transaction)
+		}
+	}
+
+	#[cfg(feature = "testnet")]
+	impl
+		eth_bridge_runtime_api::EthBridgeRuntimeApi<
+			Block,
+			sp_core::H256,
+			BridgeSignatureParams,
+			AccountId,
+			BridgeAssetKind,
+			BridgeAssetId,
+			sp_core::H160,
+			OffchainRequest<Runtime>,
+			BridgeRequestStatus,
+			OutgoingRequestEncoded,
+			BridgeNetworkId,
+			BridgeBalancePrecision,
+		> for Runtime
+	{
+		fn get_requests(
+			hashes: Vec<sp_core::H256>,
+			network_id: Option<BridgeNetworkId>,
+			redirect_finished_load_requests: bool,
+		) -> Result<
+			Vec<(
+				OffchainRequest<Runtime>,
+				BridgeRequestStatus,
+			)>,
+			DispatchError,
+		> {
+			EthBridge::get_requests(&hashes, network_id, redirect_finished_load_requests)
+		}
+
+		fn get_approved_requests(
+			hashes: Vec<sp_core::H256>,
+			network_id: Option<BridgeNetworkId>
+		) -> Result<
+			Vec<(
+				OutgoingRequestEncoded,
+				Vec<BridgeSignatureParams>,
+			)>,
+			DispatchError,
+		> {
+			EthBridge::get_approved_requests(&hashes, network_id)
+		}
+
+		fn get_approvals(
+			hashes: Vec<sp_core::H256>,
+			network_id: Option<BridgeNetworkId>
+		) -> Result<Vec<Vec<BridgeSignatureParams>>, DispatchError> {
+			EthBridge::get_approvals(&hashes, network_id)
+		}
+
+		fn get_account_requests(account_id: AccountId, status_filter: Option<BridgeRequestStatus>) -> Result<Vec<(BridgeNetworkId, sp_core::H256)>, DispatchError> {
+			EthBridge::get_account_requests(&account_id, status_filter)
+		}
+
+		fn get_registered_assets(
+			network_id: Option<BridgeNetworkId>
+		) -> Result<Vec<(
+				BridgeAssetKind,
+				(BridgeAssetId, BridgeBalancePrecision),
+				Option<(sp_core::H160, BridgeBalancePrecision)
+		>)>, DispatchError> {
+			EthBridge::get_registered_assets(network_id)
 		}
 	}
 

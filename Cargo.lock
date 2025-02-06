@@ -2162,6 +2162,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-multisig"
+version = "3.2.3"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk 0.6.0",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
 name = "bridge-runtime-common"
 version = "0.17.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.5-anlog0#1b04a0ba68dc4cd979cdd9f2e3ce6aed67d5db18"
@@ -4248,13 +4259,72 @@ dependencies = [
 ]
 
 [[package]]
+name = "eth-bridge"
+version = "0.2.0"
+dependencies = [
+ "bridge-multisig",
+ "ethabi",
+ "ethabi-derive",
+ "ethereum-types 0.15.1",
+ "hex-literal",
+ "jsonrpc-core",
+ "libsecp256k1",
+ "log",
+ "once_cell",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "polkadot-sdk 0.6.0",
+ "rustc-hex",
+ "scale-info",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "eth-bridge-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk 0.6.0",
+ "scale-info",
+]
+
+[[package]]
+name = "ethabi"
+version = "17.2.0"
+source = "git+https://github.com/sora-xor/ethabi.git?branch=sora-v1.6.0#d4e99f047dfd525afa1a64992644727c89bdc368"
+dependencies = [
+ "ethereum-types 0.14.1",
+ "hex",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha3",
+ "thiserror 1.0.69",
+ "uint 0.9.5",
+]
+
+[[package]]
 name = "ethabi-decode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d398648d65820a727d6a81e58b962f874473396a047e4c30bafe3240953417"
 dependencies = [
- "ethereum-types",
+ "ethereum-types 0.14.1",
  "tiny-keccak",
+]
+
+[[package]]
+name = "ethabi-derive"
+version = "17.2.0"
+source = "git+https://github.com/sora-xor/ethabi.git?branch=sora-v1.6.0#d4e99f047dfd525afa1a64992644727c89bdc368"
+dependencies = [
+ "ethabi",
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -4273,12 +4343,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethbloom"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c321610643004cf908ec0f5f2aa0d8f1f8e14b540562a2887a1111ff1ecbf7b"
+dependencies = [
+ "crunchy",
+ "fixed-hash",
+ "impl-codec 0.7.0",
+ "impl-serde 0.5.0",
+ "scale-info",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "ethereum-types"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
 dependencies = [
- "ethbloom",
+ "ethbloom 0.13.0",
  "fixed-hash",
  "impl-codec 0.6.0",
  "impl-rlp",
@@ -4286,6 +4370,21 @@ dependencies = [
  "primitive-types 0.12.2",
  "scale-info",
  "uint 0.9.5",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ab15ed80916029f878e0267c3a9f92b67df55e79af370bf66199059ae2b4ee3"
+dependencies = [
+ "ethbloom 0.14.1",
+ "fixed-hash",
+ "impl-codec 0.7.0",
+ "impl-serde 0.5.0",
+ "primitive-types 0.13.1",
+ "scale-info",
+ "uint 0.10.0",
 ]
 
 [[package]]
@@ -6876,6 +6975,18 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "jsonrpc-core"
+version = "17.0.0"
+source = "git+https://github.com/sora-xor/jsonrpc.git?branch=no-std#ef5d2846b52f7d7202b381be4936a75dd34fed49"
+dependencies = [
+ "futures",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
 ]
 
 [[package]]
@@ -11227,7 +11338,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d32c34f4f5ca7f9196001c0aba5a1f9a5a12382c8944b8b0f90233282d1e8f8"
 dependencies = [
  "cfg-if",
- "ethereum-types",
+ "ethereum-types 0.14.1",
  "hashbrown 0.12.3",
  "impl-trait-for-tuples",
  "lru 0.8.1",
@@ -14184,7 +14295,7 @@ dependencies = [
  "bytes",
  "const-hex",
  "derivative",
- "ethbloom",
+ "ethbloom 0.13.0",
  "fixed-hash",
  "hash256-std-hasher",
  "hex-literal",
@@ -17313,8 +17424,8 @@ version = "0.9.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.5-anlog0#1b04a0ba68dc4cd979cdd9f2e3ce6aed67d5db18"
 dependencies = [
  "ethabi-decode",
- "ethbloom",
- "ethereum-types",
+ "ethbloom 0.13.0",
+ "ethereum-types 0.14.1",
  "hex-literal",
  "parity-bytes",
  "parity-scale-codec",
@@ -20191,10 +20302,13 @@ dependencies = [
  "clap",
  "clap_complete",
  "convert_case 0.6.0",
+ "eth-bridge",
  "futures",
  "hex-literal",
  "jsonrpsee 0.23.2",
+ "libsecp256k1",
  "log",
+ "parity-scale-codec",
  "polkadot-sdk 0.6.0",
  "serde",
  "serde_json",
@@ -20208,7 +20322,10 @@ dependencies = [
 name = "timechain-runtime"
 version = "0.8.0"
 dependencies = [
+ "bridge-multisig",
  "env_logger 0.11.6",
+ "eth-bridge",
+ "eth-bridge-runtime-api",
  "hex-literal",
  "log",
  "pallet-airdrop",

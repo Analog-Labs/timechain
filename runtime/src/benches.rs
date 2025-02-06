@@ -35,4 +35,6 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_treasury, Treasury]
 	[pallet_utility, Utility]
 	[pallet_vesting, Vesting]
+	[eth_bridge, EthBridge]
+	[bridge_multisig, BridgeMultisig]
 );

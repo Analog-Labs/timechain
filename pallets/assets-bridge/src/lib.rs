@@ -169,7 +169,7 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			Self::do_teleport(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
+			Self::do_teleport_out(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
 		}
 
 		#[pallet::call_index(1)]
@@ -182,7 +182,7 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_teleport(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
+			Self::do_teleport_out(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
 		}
 
 		#[pallet::call_index(2)]
@@ -269,7 +269,7 @@ pub mod pallet {
 		}
 		/// Perform the asset teleportation
 		/// emits `Event::Teleported`.
-		pub fn do_teleport(
+		pub fn do_teleport_out(
 			source: T::AccountId,
 			network_id: T::NetworkId,
 			beneficiary: T::Beneficiary,

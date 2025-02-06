@@ -38,7 +38,7 @@ fn first_teleport_below_ed() {
 		assert!(!below_ed.is_zero());
 
 		assert_err!(
-			Bridge::do_teleport(
+			Bridge::do_teleport_out(
 				acc(1),
 				ETHEREUM,
 				acc(2).into(),
@@ -59,7 +59,7 @@ fn teleport_reserve_and_fee() {
 		let bridge_bal_before =
 			<Test as Config>::Currency::free_balance(<Test as Config>::BridgePot::get());
 
-		assert_ok!(Bridge::do_teleport(
+		assert_ok!(Bridge::do_teleport_out(
 			acc(1),
 			ETHEREUM,
 			acc(2).into(),
@@ -86,7 +86,7 @@ fn teleport_creates_gmp_message() {
 
 		assert_ok!(Bridge::do_register_network(ETHEREUM, Default::default(), NETWORK_DATA));
 
-		assert_ok!(Bridge::do_teleport(
+		assert_ok!(Bridge::do_teleport_out(
 			acc(1),
 			ETHEREUM,
 			acc(2).into(),
@@ -104,7 +104,7 @@ fn teleport_creates_gmp_message() {
 fn cannot_teleport_to_inactive_network() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			Bridge::do_teleport(
+			Bridge::do_teleport_out(
 				acc(1),
 				ETHEREUM,
 				acc(2).into(),

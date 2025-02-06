@@ -63,10 +63,7 @@ fn fail_other() {
 			Governance::authorize_upgrade(RuntimeOrigin::signed(Other::get()), H256::random()),
 			BadOrigin
 		);
-		assert_noop!(
-			Governance::force_new_era(RuntimeOrigin::signed(Other::get())),
-			BadOrigin
-		);
+		assert_noop!(Governance::force_new_era(RuntimeOrigin::signed(Other::get())), BadOrigin);
 		assert_noop!(
 			Governance::set_validator_count(RuntimeOrigin::signed(Other::get()), 42),
 			BadOrigin

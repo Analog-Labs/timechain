@@ -35,6 +35,7 @@ pub type NegativeImbalanceOf<T> =
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Currency<AccountIdOf<T>>>::Balance;
 
+// TODO change to AccountId20
 pub type NetworkDataOf<T> = NetworkData<AccountIdOf<T>>;
 pub type NetworkDetailsOf<T> = NetworkDetails<BalanceOf<T>, AccountIdOf<T>>;
 pub type BeneficiaryOf<T> = <T as Config>::Beneficiary;
@@ -51,7 +52,7 @@ pub trait AssetTeleporter<T: Config> {
 	fn handle_teleport(
 		source: &T::AccountId,
 		network_id: NetworkIdOf<T>,
-		details: &mut NetworkDataOf<T>,
+		data: &mut NetworkDataOf<T>,
 		beneficiary: &BeneficiaryOf<T>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
@@ -152,8 +153,8 @@ pub mod pallet {
 		AmountZero,
 		/// Attempt to use a network_id already in use.
 		NetworkAlreadyExists,
-		/// Teleport handler failed to dispatch GMP message.
-		FailedDispatchGmpMesaage,
+		/// Network data nonce onverflow.
+		NetworkNonceOverflow,
 	}
 
 	/// Exposes callable functions to interact with the pallet.

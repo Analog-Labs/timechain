@@ -116,7 +116,7 @@ impl AssetTeleporter<Test> for Tasks {
 	fn handle_teleport(
 		source: &AccountId,
 		network_id: NetworkIdOf<Test>,
-		details: &mut NetworkDataOf<Test>,
+		data: &mut NetworkDataOf<Test>,
 		beneficiary: &BeneficiaryOf<Test>,
 		amount: BalanceOf<Test>,
 	) -> DispatchResult {
@@ -133,8 +133,8 @@ impl AssetTeleporter<Test> for Tasks {
 			dest_network: network_id,
 			src,
 			// GMP backend truncates this to AccountId20
-			dest: details.dest.clone().into(),
-			nonce: details.nonce,
+			dest: data.dest().into(),
+			nonce: data.nonce,
 			// Must be sufficient to execute onGmpReceived
 			gas_limit: 100_000u128,
 			// ussually used for chronicles refund
@@ -143,6 +143,7 @@ impl AssetTeleporter<Test> for Tasks {
 			bytes: teleport_command,
 		};
 
+		data.incr_nonce().ok_or(Error::<Test>::NetworkNonceOverflow)?;
 		// Push GMP message to gateway ops queue
 		Tasks::push_gmp_message(msg);
 

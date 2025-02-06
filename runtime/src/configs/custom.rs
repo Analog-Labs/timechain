@@ -113,8 +113,6 @@ parameter_types! {
 	pub BridgePot: AccountId = Bridge::account_id();
 }
 
-type NetworkData = (u64, Address);
-
 impl pallet_assets_bridge::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -122,13 +120,12 @@ impl pallet_assets_bridge::Config for Runtime {
 	type Currency = pallet_balances::Pallet<Runtime>;
 	type FeeDestination = DealWithFees;
 	type NetworkId = NetworkId;
-	type NetworkData = NetworkData;
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
 }
 
 impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
-	fn handle_register(network_id: NetworkId, _data: &mut NetworkData) -> DispatchResult {
+	fn handle_register(network_id: NetworkId, _data: &mut NetworkDataOf<Runtime>) -> DispatchResult {
 		ensure!(
 			network_id.ne(&<Runtime as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
 			pallet_assets_bridge::Error::<Runtime>::NetworkAlreadyExists
@@ -143,7 +140,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 	fn handle_teleport(
 		source: &AccountId,
 		network_id: NetworkId,
-		details: &mut NetworkData,
+		data: &mut NetworkDataOf<Runtime>,
 		beneficiary: &Address,
 		amount: Balance,
 	) -> DispatchResult {
@@ -160,8 +157,8 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			dest_network: network_id,
 			src,
 			// GMP backend truncates this to AccountId20
-			dest: details.1,
-			nonce: details.0,
+			dest: data.dest().into(),
+			nonce: data.nonce,
 			// must be sufficient to exec onGmpReceived
 			gas_limit: 100_000u128,
 			// usually used for cronicles refund
@@ -171,7 +168,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 		};
 
 		// Increment nonce
-		// TODO put into NetworkData
+		// TODO put into NetworkDataOf<Runtime
 		details.0 = details
 			.0
 			.checked_add(1)

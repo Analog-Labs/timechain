@@ -23,3 +23,16 @@ pub struct NetworkData<AccountId> {
 	/// Destination address for the token contract
 	pub dest: AccountId,
 }
+
+impl<AccountId: Clone> NetworkData<AccountId> {
+	pub fn dest(&self) -> AccountId {
+		self.dest.clone()
+	}
+
+	pub fn incr_nonce(&mut self) -> Option<u64> {
+		self.nonce.checked_add(1).and_then(|n| {
+			self.nonce = n;
+			Some(n)
+		})
+	}
+}

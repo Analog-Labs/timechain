@@ -1,15 +1,24 @@
+use crate::deposits::{BalanceOf, CurrencyOf, RawVirtualSource};
 use crate::mock::*;
 use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION};
 
+use polkadot_sdk::frame_support::traits::Currency;
 use polkadot_sdk::frame_support::traits::StorageVersion;
 
+use time_primitives::ANLOG;
+
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 14;
+const ON_CHAIN_STAGE: u16 = 15;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
 /// The number of expected migrations to run and test
 const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;
+
+fn mint_virtual(source: RawVirtualSource, amount: BalanceOf<Test>) {
+	let account = Pallet::<Test>::account_id(source);
+	let _ = CurrencyOf::<Test>::deposit_creating(&account, amount);
+}
 
 /// Runs and verify current launch plan based on assumed on-chain version
 #[test]
@@ -19,6 +28,10 @@ fn launch_ledger_validation() {
 	new_test_ext().execute_with(|| {
 		// Set expected on-chain version as configured above
 		ON_CHAIN_VERSION.put::<Pallet<Test>>();
+
+		// Mint necessary virtual funds
+		mint_virtual(b"airdrop", 1_336_147_462_613_682_971);
+		mint_virtual(b"ecosystem", 3_636_364 * ANLOG);
 
 		// Start new block to collect events
 		System::set_block_number(1);
@@ -32,9 +45,12 @@ fn launch_ledger_validation() {
 		let _w = plan.run();
 		let events = System::read_events_for_pallet::<Event<Test>>();
 
-		assert_eq!(events.len(), NUM_MIGRATIONS as usize);
+		const NUM_AIRDROP_TRANSFER: usize = 254;
+		assert_eq!(events.len(), NUM_AIRDROP_TRANSFER + NUM_MIGRATIONS as usize);
 		for event in events.iter() {
-			assert!(matches!(event, Event::StageExecuted { version: _, hash: _ }))
+			if !matches!(event, Event::StageExecuted { version: _, hash: _ }) {
+				assert!(matches!(event, Event::AirdropTransferMissing { from: _ }));
+			}
 		}
 
 		// TODO: Check weight

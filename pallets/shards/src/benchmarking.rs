@@ -30,9 +30,9 @@ fn public_key(acc: [u8; 32]) -> PublicKey {
 	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
 }
 
-/// Since benchmarks are no-std and we need std computation on constructing proof so
-/// these values are taken by running the code in pallets/shards/src/tests.rs
-/// in a seperate tests and then taking the data from commitment and pok and using them here.
+// Since benchmarks are no-std and we need std computation on constructing proof so
+// these values are taken by running the code in pallets/shards/src/tests.rs
+// in a seperate tests and then taking the data from commitment and pok and using them here.
 
 pub const ALICE_COMMITMENT: [u8; 33] = [
 	3, 27, 132, 197, 86, 123, 18, 100, 64, 153, 93, 62, 213, 170, 186, 5, 101, 215, 30, 24, 52, 96,

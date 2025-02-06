@@ -3,11 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/merge-docker-slack-bot.yaml'
-      - 'analog-gmp/**'
-      - 'config/subxt/**'
-      - 'primitives/**'
-      - 'tc-subxt/**'
-      - 'tc-cli/**'
+      - 'slack-bot/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
@@ -55,9 +51,9 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Build slack-bot
-        run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
+        run: cargo build --profile testnet -p slack-bot --target x86_64-unknown-linux-musl
       - name: Copy bin
-        run: cp -r target/x86_64-unknown-linux-musl/testnet/slack_bot slack-bot-bin
+        run: cp -r target/x86_64-unknown-linux-musl/testnet/slack-bot slack-bot-bin
       - name: Build and push
         uses: ./.github/actions/buildah-action
         with:

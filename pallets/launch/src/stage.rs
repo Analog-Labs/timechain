@@ -11,7 +11,9 @@ use crate::airdrops::{
 	AirdropBalanceOf, AirdropMintStage, AirdropTransferStage, RawAirdropMintStage,
 	RawAirdropTransferStage,
 };
-use crate::deposits::{BalanceOf, DepositStage, RawDepositStage, RawVirtualDepositStage};
+use crate::deposits::{
+	BalanceOf, DepositStage, RawDepositStage, RawVirtualDepositStage, RawVirtualSource,
+};
 
 /// Enum describing the migration type and data to use for an individual
 /// launch stage. Uses static and 'raw' typing to allow for the use of
@@ -20,9 +22,11 @@ use crate::deposits::{BalanceOf, DepositStage, RawDepositStage, RawVirtualDeposi
 pub enum Stage {
 	Retired,
 	AirdropMint(RawAirdropMintStage),
+	AirdropFromVirtual(RawVirtualSource, RawAirdropMintStage),
 	AirdropMintOrAdd(RawAirdropMintStage),
 	AirdropTransfer(RawAirdropTransferStage),
 	Deposit(RawDepositStage),
+	DepositFromVirtual(RawVirtualSource, RawDepositStage),
 	VirtualDeposit(RawVirtualDepositStage),
 }
 
@@ -45,7 +49,7 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => (),
-			AirdropMint(raw) => {
+			AirdropMint(raw) | AirdropFromVirtual(_, raw) => {
 				AirdropMintStage::<T>::parse(raw);
 			},
 			AirdropMintOrAdd(raw) => {
@@ -54,7 +58,7 @@ impl Stage {
 			AirdropTransfer(raw) => {
 				AirdropTransferStage::<T>::parse(raw);
 			},
-			Deposit(raw) => {
+			Deposit(raw) | DepositFromVirtual(_, raw) => {
 				DepositStage::<T>::parse(raw);
 			},
 			VirtualDeposit(raw) => {
@@ -68,10 +72,10 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => T::Hash::default(),
-			AirdropMint(raw) => T::Hashing::hash_of(raw),
+			AirdropMint(raw) | AirdropFromVirtual(_, raw) => T::Hashing::hash_of(raw),
 			AirdropMintOrAdd(raw) => T::Hashing::hash_of(raw),
 			AirdropTransfer(raw) => T::Hashing::hash_of(raw),
-			Deposit(raw) => T::Hashing::hash_of(raw),
+			Deposit(raw) | DepositFromVirtual(_, raw) => T::Hashing::hash_of(raw),
 			VirtualDeposit(raw) => T::Hashing::hash_of(raw),
 		}
 	}
@@ -85,10 +89,14 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => 0,
-			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
+			AirdropMint(raw) | AirdropFromVirtual(_, raw) => {
+				AirdropMintStage::<T>::parse(raw).total().into()
+			},
 			AirdropMintOrAdd(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).total().into(),
-			Deposit(raw) => DepositStage::<T>::parse(raw).total().into(),
+			Deposit(raw) | DepositFromVirtual(_, raw) => {
+				DepositStage::<T>::parse(raw).total().into()
+			},
 			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).total().into(),
 		}
 	}
@@ -102,9 +110,11 @@ impl Stage {
 		match self {
 			Retired => Weight::zero(),
 			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).mint(),
+			AirdropFromVirtual(src, raw) => AirdropMintStage::<T>::parse(raw).withdraw(src),
 			AirdropMintOrAdd(raw) => AirdropMintStage::<T>::parse(raw).mint_or_add(),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).transfer(),
 			Deposit(raw) => DepositStage::<T>::parse(raw).deposit(),
+			DepositFromVirtual(src, raw) => DepositStage::<T>::parse(raw).withdraw(src),
 			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).deposit(),
 		}
 	}

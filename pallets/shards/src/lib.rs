@@ -573,7 +573,6 @@ pub mod pallet {
 		///
 		/// # Flow
 		///   1. Retrieves and returns the network ID stored in [`ShardNetwork`] for the given `shard_id`.
-
 		fn shard_network(shard_id: ShardId) -> Option<NetworkId> {
 			ShardNetwork::<T>::get(shard_id)
 		}

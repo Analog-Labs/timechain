@@ -132,7 +132,7 @@ impl pallet_governance::Config for Runtime {
 	/// Default admin origin for system related governance
 	type SystemAdmin = EnsureRootOrHalfTechnical;
 	// Default admin origin for staking related governance
-	//type StakingAdmin = EnsureRootOrHalfTechnical;
+	type StakingAdmin = EnsureRootOrHalfTechnical;
 }
 
 #[cfg(feature = "testnet")]
@@ -140,11 +140,5 @@ impl pallet_governance::Config for Runtime {
 	/// Development admin origin for all system calls
 	type SystemAdmin = EnsureRootOrTechnicalMember;
 	// Development admin origin for all staking calls
-	//type StakingAdmin = EnsureRootOrTechnicalMember;
-}
-
-#[cfg(not(feature = "testnet"))]
-impl pallet_validators::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type PrivilegedOrigin = EnsureRootOrHalfTechnical;
+	type StakingAdmin = EnsureRootOrTechnicalMember;
 }

@@ -21,6 +21,7 @@ pub enum TssAction {
 	Signature(TaskId, [u8; 32], Signature),
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Tss {
 	Enabled(tss::Tss<TaskId, TssPeerId>),
 	Disabled(SigningKey, Option<TssAction>, bool),

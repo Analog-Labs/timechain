@@ -21,6 +21,7 @@ separator = "0.4.1"
 [dependencies]
 log = { workspace = true }
 
+hex-literal = "0.4.1"
 smallvec = "1.8.0"
 
 scale-codec = { workspace = true, features = [ "max-encoded-len" ] }
@@ -48,11 +49,13 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-child-bounties",
 	"pallet-collective",
 	"pallet-election-provider-multi-phase",
+	"pallet-delegated-staking",
 	"pallet-grandpa",
 	"pallet-identity",
 	"pallet-im-online",
 	"pallet-membership",
 	"pallet-multisig",
+	"pallet-nomination-pools",
 	"pallet-offences",
 	"pallet-preimage",
 	"pallet-proxy",
@@ -151,6 +154,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/frame-benchmarking",
 	"polkadot-sdk/frame-system-benchmarking",
 	"polkadot-sdk/pallet-election-provider-support-benchmarking",
+	"polkadot-sdk/pallet-nomination-pools-benchmarking",
 	"polkadot-sdk/pallet-offences-benchmarking",
 	"polkadot-sdk/pallet-session-benchmarking",
 

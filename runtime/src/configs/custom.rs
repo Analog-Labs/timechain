@@ -15,8 +15,8 @@ use time_primitives::{Address, GmpMessage, NetworkId, ANLOG};
 // Local module imports
 use super::tokenomics::DealWithFees;
 use crate::{
-	weights, AccountId, AssetsBridge, Balance, Balances, Elections, Members, Networks, Runtime,
-	RuntimeEvent, Shards, Tasks,
+	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
+	Shards, Tasks,
 };
 use sp_runtime::{
 	traits::{ConstU16, Get},
@@ -142,7 +142,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 	}
 
 	fn handle_teleport(
-		source: T::AccountId,
+		source: AccountId,
 		network_id: NetworkId,
 		details: &mut NetworkData,
 		beneficiary: Address,

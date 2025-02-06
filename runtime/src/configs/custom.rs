@@ -3,7 +3,6 @@ use polkadot_sdk::*;
 use frame_support::{
 	ensure, parameter_types,
 	traits::{ConstU128, ConstU32},
-	PalletId,
 };
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
@@ -15,8 +14,8 @@ use time_primitives::{Address, GmpMessage, NetworkId, ANLOG};
 // Local module imports
 use super::tokenomics::DealWithFees;
 use crate::{
-	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
-	Shards, Tasks,
+	weights, AccountId, Balance, Balances, Bridge, Elections, Members, Networks, Runtime,
+	RuntimeEvent, Shards, Tasks,
 };
 use sp_runtime::{
 	traits::{ConstU16, Get},
@@ -111,7 +110,7 @@ impl pallet_dmail::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
+	pub BridgePot: AccountId = Bridge::account_id();
 }
 
 type NetworkData = (u64, Address);
@@ -119,7 +118,7 @@ type NetworkData = (u64, Address);
 impl pallet_assets_bridge::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type PalletId = BridgePalletId;
+	type BridgePot = BridgePot;
 	type Currency = pallet_balances::Pallet<Runtime>;
 	type FeeDestination = DealWithFees;
 	type NetworkId = NetworkId;
@@ -170,7 +169,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			// calldata for our onGmpReceived
 			bytes: teleport_command.to_vec(),
 		};
-		
+
 		// Increment nonce
 		details.0 += 1;
 

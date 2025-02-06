@@ -182,7 +182,7 @@ impl frame_system::Config for Test {
 impl pallet_assets_bridge::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type PalletId = BridgePalletId;
+	type BridgePot = BridgePot;
 	type Currency = pallet_balances::Pallet<Test>;
 	type FeeDestination = Treasury;
 	type NetworkId = u16;
@@ -250,7 +250,7 @@ parameter_types! {
 	// 5EYCAe5ijiYfyeZ2JJCGq56LmPyNRAKzpG4QkoQkkQNB5e6Z
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
-	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
+	pub BridgePot: AccountId = Bridge::account_id();
 }
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {

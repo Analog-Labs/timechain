@@ -99,6 +99,11 @@ gmp = { path = "gmp" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
 
+# HASHI Bridge
+eth-bridge-runtime-api = { path = "pallets/eth-bridge/runtime-api", default-features = false }
+eth-bridge = { path = "pallets/eth-bridge", default-features = false }
+bridge-multisig = { path = "pallets/bridge-multisig", default-features = false }
+
 [profile.release]
 # Runtime requires unwinding.
 panic = "unwind"

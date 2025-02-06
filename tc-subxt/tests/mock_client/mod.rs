@@ -73,6 +73,25 @@ impl MockClient {
 		self.push_best_block(&block).await;
 		self.push_finalized_block(&block).await;
 	}
+
+	pub async fn inc_empty_blocks(&self, num: u8) {
+		let mut current_block = {
+			let current_block = self.latest_block.lock().await;
+			current_block.number
+		};
+		tracing::info!("Inserting empty blocks: {}", num);
+		for _ in 0..num {
+			current_block += 1;
+			let block = MockBlock {
+				number: current_block,
+				hash: H256::random(),
+				extrinsics: vec![],
+			};
+			self.push_best_block(&block).await;
+			self.push_finalized_block(&block).await;
+		}
+		tracing::info!("Done inserting blocks");
+	}
 }
 
 pub struct MockTransaction {

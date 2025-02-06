@@ -18,7 +18,7 @@ use time_primitives::{
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
-const MORTALITY: u8 = 32;
+pub const MORTALITY: u8 = 32;
 type TransactionFuture = Pin<Box<dyn Future<Output = Result<H256>> + Send>>;
 type TransactionsUnordered = FuturesUnordered<TransactionFuture>;
 

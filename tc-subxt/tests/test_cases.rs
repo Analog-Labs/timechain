@@ -9,7 +9,7 @@ use subxt::utils::H256;
 pub use subxt_signer::sr25519::Keypair;
 use subxt_signer::SecretUri;
 use tc_subxt::timechain_client::IBlock;
-use tc_subxt::worker::{SubxtWorker, Tx};
+use tc_subxt::worker::{SubxtWorker, Tx, MORTALITY};
 use tokio::time::sleep;
 
 use crate::mock_client::MockClient;
@@ -23,21 +23,38 @@ async fn test_transaction_flow() {
 	let (client, tx_sender) = new_env().await;
 	let (tx, rx) = oneshot::channel();
 	tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
-	let tx_hash = wait_for_submission(&client).await;
-	client.inc_block(Some(tx_hash)).await;
+	let hashes = wait_for_submission(&client, 1).await;
+	assert_eq!(hashes.len(), 1);
+	client.inc_block(Some(hashes[0])).await;
 	let tx = rx.await.unwrap();
-	assert_eq!(tx_hash, tx.hash);
+	assert_eq!(hashes[0], tx.hash);
+}
+
+#[tokio::test]
+async fn test_transaction_mortality_outage_flow() {
+	let (client, tx_sender) = new_env().await;
+	let (tx, rx) = oneshot::channel();
+	tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	wait_for_submission(&client, 1).await;
+	client.inc_empty_blocks(MORTALITY + 1).await;
+	let hashes = wait_for_submission(&client, 2).await;
+	assert_eq!(hashes.len(), 2);
+	// one received in initial execution then again received from mortality outage
+	assert_eq!(hashes[0], hashes[1]);
+	client.inc_block(Some(hashes[0])).await;
+	let tx = rx.await.unwrap();
+	assert_eq!(hashes[0], tx.hash);
 }
 
 /////////////////////////////////////////////
 /// Utils
 ////////////////////////////////////////////
-async fn wait_for_submission(client: &MockClient) -> H256 {
+async fn wait_for_submission(client: &MockClient, len: u8) -> Vec<H256> {
 	loop {
 		{
 			let submitted = client.submitted_transactions().await;
-			if !submitted.is_empty() {
-				return submitted[0];
+			if submitted.len() >= len.into() {
+				return submitted;
 			}
 		}
 		tracing::info!("didnt find any submitted hash retrying");
@@ -54,7 +71,6 @@ async fn new_env() -> (MockClient, TxSender) {
 	let uri = SecretUri::from_str("//Alice").unwrap();
 	let keypair = Keypair::from_uri(&uri).unwrap();
 	let worker = SubxtWorker::new(0, mock_client.clone(), keypair).await.unwrap();
-
 	let (tx_sender_tx, tx_sender_rx) = oneshot::channel::<TxSender>();
 
 	// spawning into_sender in seperate thread because into_sender goes into busy waiting which blocks every other operation in testing.

@@ -341,6 +341,14 @@ parameter_types! {
 
 pub type TechnicalCollective = pallet_collective::Instance1;
 
+/// Testnet and develop runtime assembly
+#[cfg(feature = "testnet")]
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
 /// Mainnet runtime assembly
 #[cfg(not(feature = "testnet"))]
 #[frame_support::runtime]
@@ -632,6 +640,9 @@ mod runtime {
 
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
+
+	#[runtime::pallet_index(50)]
+	pub type Sudo = pallet_sudo;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

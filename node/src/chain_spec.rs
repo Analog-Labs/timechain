@@ -13,6 +13,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 
+use sp_runtime::traits::AccountIdConversion;
 use time_primitives::{AccountId, Balance, Block, BlockNumber, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
@@ -79,6 +80,7 @@ impl Default for GenesisKeysConfig {
 	fn default() -> Self {
 		use AccountKeyring::*;
 
+		let bridge_account = polkadot_sdk::frame_support::PalletId(*b"py/bridg").into_account_truncating();
 		GenesisKeysConfig {
 			admins: vec![
 				Alice.into(),
@@ -97,7 +99,9 @@ impl Default for GenesisKeysConfig {
 			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
-			endowments: vec![],
+			endowments: vec![
+				(bridge_account, 1000),
+			],
 			stakes: vec![
 				AliceStash.into(),
 				BobStash.into(),
@@ -236,6 +240,7 @@ impl GenesisKeysConfig {
 			})
 			.collect();
 
+		let root_account = self.admins.first().cloned().unwrap();
 		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
@@ -249,6 +254,9 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
+			"sudo": {
+				"key": root_account,
+			}
 		});
 
 		if cfg!(feature = "testnet") {

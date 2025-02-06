@@ -170,6 +170,9 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			// calldata for our onGmpReceived
 			bytes: teleport_command.to_vec(),
 		};
+		
+		// Increment nonce
+		details.0 += 1;
 
 		// Push GMP message to gateway ops queue
 		pallet_tasks::Pallet::<Runtime>::push_gmp_message(msg);

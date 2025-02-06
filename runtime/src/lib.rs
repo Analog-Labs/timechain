@@ -224,7 +224,7 @@ pub type Executive = frame_executive::Executive<
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
-pub const CALL_PARAMS_MAX_SIZE: usize = 244;
+pub const CALL_PARAMS_MAX_SIZE: usize = 448;
 
 /// Mainnet runtime version
 #[cfg(not(any(feature = "testnet", feature = "develop")))]

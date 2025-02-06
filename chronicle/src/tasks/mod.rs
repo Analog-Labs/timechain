@@ -264,3 +264,24 @@ impl TaskExecutor {
 		Ok((start_sessions, completed_sessions, failed_tasks))
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn test_event_chunking_preserves_all_events() {
+		const MAX_EVENTS: usize = 4;
+
+		// Create a sample list of events
+		let events: Vec<u32> = (1..=11).collect();
+
+		// Perform chunking
+		let event_chunks: Vec<Vec<_>> =
+			events.chunks(MAX_EVENTS).map(|chunk| chunk.to_vec()).collect();
+
+		// Flatten the chunks back into a single vector
+		let flattened_events: Vec<_> = event_chunks.iter().flatten().copied().collect();
+
+		// Ensure the original and reconstructed lists match
+		assert_eq!(events, flattened_events, "Chunking should not lose any events");
+	}
+}

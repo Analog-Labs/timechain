@@ -142,13 +142,13 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 	}
 
 	fn handle_teleport(
-		source: AccountId,
+		source: &AccountId,
 		network_id: NetworkId,
 		details: &mut NetworkData,
-		beneficiary: Address,
+		beneficiary: &Address,
 		amount: Balance,
 	) -> DispatchResult {
-		let src: Address = source.into();
+		let src: Address = source.clone().into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let mut teleport_command = [0u8; 96];

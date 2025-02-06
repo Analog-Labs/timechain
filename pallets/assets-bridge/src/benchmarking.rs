@@ -28,11 +28,8 @@ mod benchmarks {
 		let amount_teleport: BalanceOf<T> = (10 * ANLOG).into();
 		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_init));
 
-		let _ = Pallet::<T>::do_register_network(
-			ETHEREUM.into(),
-			(1 * ANLOG).into(),
-			(0, [0u8; 32]).into(),
-		);
+		let _ =
+			Pallet::<T>::do_register_network(ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), ETHEREUM.into(), ALICE.into(), amount_teleport);
@@ -45,29 +42,23 @@ mod benchmarks {
 		let amount_teleport: BalanceOf<T> = (10 * ANLOG).into();
 		T::Currency::resolve_creating(&caller, T::Currency::issue(amount_init));
 
-		let _ = Pallet::<T>::do_register_network(
-			ETHEREUM.into(),
-			(1 * ANLOG).into(),
-			(0, [0u8; 32]).into(),
-		);
+		let _ =
+			Pallet::<T>::do_register_network(ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, caller.into(), ETHEREUM.into(), ALICE.into(), amount_teleport);
+		_(RawOrigin::Root, caller, ETHEREUM.into(), ALICE.into(), amount_teleport);
 	}
 
 	#[benchmark]
 	fn register_network() {
 		#[extrinsic_call]
-		_(RawOrigin::Root, ETHEREUM.into(), (1 * ANLOG).into(), (0, [0u8; 32]).into());
+		_(RawOrigin::Root, ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
 	}
 
 	#[benchmark]
 	fn force_update_network() {
-		let _ = Pallet::<T>::do_register_network(
-			ETHEREUM.into(),
-			(1 * ANLOG).into(),
-			(0, [0u8; 32]).into(),
-		);
+		let _ =
+			Pallet::<T>::do_register_network(ETHEREUM.into(), ANLOG.into(), (0, [0u8; 32]).into());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, ETHEREUM.into(), false, Some((1, [0u8; 32]).into()));

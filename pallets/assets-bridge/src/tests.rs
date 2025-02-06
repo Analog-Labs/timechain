@@ -34,7 +34,7 @@ fn first_teleport_below_ed() {
 
 		assert_err!(
 			Bridge::do_teleport(
-				acc(1).into(),
+				acc(1),
 				ETHEREUM,
 				acc(2).into(),
 				below_ed,
@@ -55,7 +55,7 @@ fn teleport_reserve_and_fee() {
 		let bridge_bal_before = <Test as Config>::Currency::free_balance(&account);
 
 		assert_ok!(Bridge::do_teleport(
-			acc(1).into(),
+			acc(1),
 			ETHEREUM,
 			acc(2).into(),
 			TELEPORT_AMOUNT,
@@ -81,9 +81,9 @@ fn teleport_creates_gmp_message() {
 		assert_ok!(Bridge::do_register_network(ETHEREUM, Default::default(), Default::default(),));
 
 		assert_ok!(Bridge::do_teleport(
-			acc(1).into(),
+			acc(1),
 			ETHEREUM,
-			acc(2).clone().into(),
+			acc(2).into(),
 			123_000,
 			ExistenceRequirement::KeepAlive
 		));
@@ -99,9 +99,9 @@ fn cannot_teleport_to_inactive_network() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Bridge::do_teleport(
-				acc(1).into(),
+				acc(1),
 				ETHEREUM,
-				acc(2).clone().into(),
+				acc(2).into(),
 				123_000,
 				ExistenceRequirement::KeepAlive
 			),

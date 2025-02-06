@@ -114,14 +114,14 @@ impl AssetTeleporter<Test> for Tasks {
 	}
 
 	fn handle_teleport(
-		source: AccountId,
+		source: &AccountId,
 		network_id: NetworkIdOf<Test>,
 		details: &mut NetworkDataOf<Test>,
-		beneficiary: BeneficiaryOf<Test>,
+		beneficiary: &BeneficiaryOf<Test>,
 		amount: BalanceOf<Test>,
 	) -> DispatchResult {
 		// TODO better to store somewhere
-		let src: Address = source.into();
+		let src: Address = source.clone().into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let teleport_command =
@@ -382,7 +382,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let _ = env_logger::try_init();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(acc(0).into(), 10_000_000_000), (acc(1).into(), 20_000_000_000)],
+		balances: vec![(acc(0), 10_000_000_000), (acc(1), 20_000_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

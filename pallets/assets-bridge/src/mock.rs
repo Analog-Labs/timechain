@@ -114,13 +114,14 @@ impl AssetTeleporter<Test> for Tasks {
 	}
 
 	fn handle_teleport(
+		source: AccountId,
 		network_id: NetworkIdOf<Test>,
 		details: &mut NetworkDataOf<Test>,
 		beneficiary: BeneficiaryOf<Test>,
 		amount: BalanceOf<Test>,
 	) -> DispatchResult {
 		// TODO better to store somewhere
-		let src: Address = Bridge::account_id().into();
+		let src: Address = source.into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let teleport_command =
@@ -134,11 +135,11 @@ impl AssetTeleporter<Test> for Tasks {
 			// GMP backend truncates this to AccountId20
 			dest: details.1,
 			nonce: details.0,
-			// must be sufficient to exec OnGmpRecieved
+			// Must be sufficient to execute onGmpReceived
 			gas_limit: 100_000u128,
 			// ussually used for chronicles refund
 			gas_cost: 0u128,
-			// calldata for our OnGmpRecieved
+			// calldata for our onGmpReceived
 			bytes: teleport_command,
 		};
 

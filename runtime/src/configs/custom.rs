@@ -112,7 +112,6 @@ impl pallet_dmail::Config for Runtime {
 
 parameter_types! {
 	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
-	pub BridgeAccount: AccountId = AssetsBridge::account_id();
 }
 
 type NetworkData = (u64, Address);
@@ -143,12 +142,13 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 	}
 
 	fn handle_teleport(
+		source: T::AccountId,
 		network_id: NetworkId,
 		details: &mut NetworkData,
 		beneficiary: Address,
 		amount: Balance,
 	) -> DispatchResult {
-		let src: Address = BridgeAccount::get().into();
+		let src: Address = source.into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let mut teleport_command = [0u8; 96];
@@ -163,11 +163,11 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			// GMP backend truncates this to AccountId20
 			dest: details.1,
 			nonce: details.0,
-			// must be sufficient to exec OnGmpRecieved
+			// must be sufficient to exec onGmpReceived
 			gas_limit: 100_000u128,
-			// ussually used for cronicles refund
+			// usually used for cronicles refund
 			gas_cost: 0u128,
-			// calldata for our OnGmpRecieved
+			// calldata for our onGmpReceived
 			bytes: teleport_command.to_vec(),
 		};
 

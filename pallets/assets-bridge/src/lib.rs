@@ -51,6 +51,7 @@ pub trait AssetTeleporter<T: Config> {
 	/// Teleport `amount` of tokens to `network_id` for `beneficiary` account.
 	/// This method is called only after the asset get successfully locked in this pallet.
 	fn handle_teleport(
+		source: T::AccountId,
 		network_id: NetworkIdOf<T>,
 		details: &mut NetworkDataOf<T>,
 		beneficiary: BeneficiaryOf<T>,
@@ -317,6 +318,7 @@ pub mod pallet {
 
 				// Perform the teleport
 				T::Teleporter::handle_teleport(
+					source.clone(),
 					network_id.clone(),
 					&mut details.data,
 					beneficiary,

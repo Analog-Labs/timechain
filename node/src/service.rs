@@ -48,7 +48,7 @@ type FullGrandpaBlockImport<RuntimeApi> = sc_consensus_grandpa::GrandpaBlockImpo
 >;
 
 /// RuntimeApi Api type
-
+///
 /// The transaction pool type definition.
 pub type TransactionPool<RuntimeApi> = sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>;
 

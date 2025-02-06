@@ -42,17 +42,15 @@ pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use deposits::RawVirtualSource;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
+	use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
-	use sp_runtime::traits::AccountIdConversion;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 18;
+	pub const LAUNCH_VERSION: u16 = 15;
 	/// Wrapped version to support sustrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -87,21 +85,7 @@ pub mod pallet {
 		// Virtual Token Genesis Event
 		(14, 8_166_845_674 * ANLOG, Stage::Retired),
 		// Retry failed mints in stage 11
-		(15, 6_062_296 * ANLOG, Stage::Retired),
-		// Airdrop Snapshot 4
-		(
-			16,
-			1_336_147_462_613_682_971,
-			Stage::AirdropFromVirtual(b"airdrop", data::v16::AIRDROPS_SNAPSHOT_4),
-		),
-		// Airdrop Move 2
-		(17, 0, Stage::AirdropTransfer(data::v17::AIRDROPS_MOVE_2)),
-		// Prelaunch Deposit 4
-		(
-			18,
-			3_636_364 * ANLOG,
-			Stage::DepositFromVirtual(b"ecosystem", data::v18::DEPOSITS_PRELAUNCH_4),
-		),
+		(15, 6_062_296 * ANLOG, Stage::AirdropMintOrAdd(data::v15::AIRDROPS_VALIDATORS_FAILED)),
 	];
 
 	/// TODO: Difference to go to treasury:
@@ -109,7 +93,6 @@ pub mod pallet {
 	/// stage_8 = 20_288_873 * ANLOG;
 	/// stage_10 = 1_373_348 * ANLOG;
 	/// stage_11 = 105_317 * ANLOG;
-	/// stage_16 = 1_336_148 * ANLOG;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -156,21 +139,17 @@ pub mod pallet {
 		StageExecuted { version: u16, hash: T::Hash },
 		/// A deposit migration could not be parsed.
 		DepositInvalid { id: Vec<u8> },
-		/// Deposit does not exceed existential deposit.
+		/// Deposit does not exceed existential deposit
 		DepositTooSmall { target: T::AccountId },
-		/// Deposit exceeds available virtual funds.
-		DepositTooLarge { target: T::AccountId },
 		/// A deposit migration failed due to a vesting schedule conflict.
 		DepositFailed { target: T::AccountId },
-		/// An airdrop mint could not be parsed.
+		/// An airdrop mint could not be parsed
 		AirdropMintInvalid { id: Vec<u8> },
 		/// An airdrop mint failed due to an existing claim.
 		AirdropMintExists { target: T::AccountId },
-		/// An airdrop mint exceeds available virtual funds.
-		AirdropMintTooLarge { target: T::AccountId },
 		/// An airdrop mint failed due to an internal error.
 		AirdropMintFailed,
-		/// An airdrop move could not be parsed.
+		/// An airdrop move could not be parsed
 		AirdropTransferInvalid { id: Vec<u8> },
 		/// An airdrop move has failed due to no claim existing or having already been claimed.
 		AirdropTransferMissing { from: T::AccountId },
@@ -178,8 +157,6 @@ pub mod pallet {
 		AirdropTransferExists { to: T::AccountId },
 		/// An airdrop move has failed for an unknown reason.
 		AirdropTransferFailed,
-		/// A virtual withdrawl was successful.
-		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -208,11 +185,6 @@ pub mod pallet {
 	where
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
-		/// Compute the account ID of any virtual source wallet.
-		pub fn account_id(source: RawVirtualSource) -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(source)
-		}
-
 		/// Workaround to get raw storage version
 		pub fn on_chain_stage_version() -> u16 {
 			frame_support::storage::unhashed::get_or_default(
@@ -224,22 +196,6 @@ pub mod pallet {
 		pub fn total_issuance() -> Balance {
 			Into::<Balance>::into(CurrencyOf::<T>::total_issuance())
 				+ Into::<Balance>::into(pallet_airdrop::Total::<T>::get())
-		}
-
-		/// Withdraw balance from virtual account
-		pub fn transfer_virtual(
-			source: RawVirtualSource,
-			target: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			let account = Self::account_id(source);
-			CurrencyOf::<T>::transfer(&account, &target, amount, ExistenceRequirement::AllowDeath)?;
-			Pallet::<T>::deposit_event(Event::<T>::TransferFromVirtual {
-				source: source.to_vec(),
-				target,
-				amount,
-			});
-			Ok(())
 		}
 	}
 }

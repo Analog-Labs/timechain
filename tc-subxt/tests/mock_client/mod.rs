@@ -11,8 +11,10 @@ use tc_subxt::ExtrinsicParams;
 use tokio::sync::{broadcast, Mutex};
 use tokio_stream::wrappers::BroadcastStream;
 
+#[derive(Clone)]
 pub struct MockClient {
-	latest_block: Arc<Mutex<BlockDetail>>,
+	pub subscription_counter: Arc<Mutex<u8>>,
+	pub latest_block: Arc<Mutex<BlockDetail>>,
 	submitted_hashes: Arc<Mutex<Vec<H256>>>,
 	finalized_sender: broadcast::Sender<MockBlock>,
 	best_sender: broadcast::Sender<MockBlock>,
@@ -29,6 +31,7 @@ impl MockClient {
 		let (finalized_sender, _) = broadcast::channel(1000);
 		let (best_sender, _) = broadcast::channel(1000);
 		Self {
+			subscription_counter: Default::default(),
 			finalized_sender,
 			best_sender,
 			latest_block: Arc::new(Mutex::new(BlockDetail {
@@ -39,19 +42,36 @@ impl MockClient {
 		}
 	}
 
-	pub async fn push_finalized_block(&self, block: MockBlock) {
-		self.finalized_sender.send(block).ok();
+	async fn push_finalized_block(&self, block: &MockBlock) {
+		self.finalized_sender.send(block.clone()).ok();
 	}
 
-	pub async fn push_best_block(&self, block: MockBlock) {
-		let mut latest = self.latest_block.lock().await;
-		latest.number = block.number;
-		latest.hash = block.hash;
-		self.best_sender.send(block).ok();
+	async fn push_best_block(&self, block: &MockBlock) {
+		{
+			let mut latest = self.latest_block.lock().await;
+			latest.number = block.number;
+			latest.hash = block.hash;
+		}
+		self.best_sender.send(block.clone()).ok();
 	}
 
 	pub async fn submitted_transactions(&self) -> Vec<H256> {
 		self.submitted_hashes.lock().await.clone()
+	}
+
+	pub async fn inc_block(&self, tx_hash: Option<H256>) {
+		let current_block = {
+			let current_block = self.latest_block.lock().await;
+			current_block.number
+		};
+		let mut block = MockBlock {
+			number: current_block + 1,
+			hash: H256::random(),
+			extrinsics: vec![],
+		};
+		tx_hash.map(|hash| block.extrinsics.push(MockExtrinsic::new(hash)));
+		self.push_best_block(&block).await;
+		self.push_finalized_block(&block).await;
 	}
 }
 
@@ -71,6 +91,12 @@ pub struct MockBlock {
 pub struct MockExtrinsic {
 	pub hash: H256,
 	pub is_success: bool,
+}
+
+impl MockExtrinsic {
+	pub fn new(hash: H256) -> Self {
+		Self { hash, is_success: true }
+	}
 }
 
 #[async_trait::async_trait]
@@ -106,10 +132,15 @@ impl ITimechainClient for MockClient {
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
 		let rx = self.finalized_sender.subscribe();
+		{
+			let mut counter = self.subscription_counter.lock().await;
+			*counter += 1;
+		}
 		let stream = BroadcastStream::new(rx)
 			.map(|res| res.map_err(|e| anyhow::anyhow!(e)))
 			.map(|block_result| block_result.map(|block| (block.clone(), block.extrinsics.clone())))
 			.boxed();
+
 		Ok(stream)
 	}
 
@@ -118,6 +149,10 @@ impl ITimechainClient for MockClient {
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
 		let rx = self.best_sender.subscribe();
+		{
+			let mut counter = self.subscription_counter.lock().await;
+			*counter += 1;
+		}
 		let stream = BroadcastStream::new(rx)
 			.map(|res| res.map_err(|e| anyhow::anyhow!(e)))
 			.map(|block_result| block_result.map(|block| (block.clone(), block.extrinsics.clone())))
@@ -140,7 +175,8 @@ impl ITransactionSubmitter for MockTransaction {
 		self.hash
 	}
 	async fn submit(&self) -> Result<H256> {
-		self.submitted_hashes.lock().await.push(self.hash);
+		let mut hashes = self.submitted_hashes.lock().await;
+		hashes.push(self.hash);
 		Ok(self.hash)
 	}
 }
@@ -170,6 +206,10 @@ impl IExtrinsic for MockExtrinsic {
 		self.hash
 	}
 	async fn is_success(&self) -> Result<()> {
-		Ok(())
+		if self.is_success {
+			Ok(())
+		} else {
+			anyhow::bail!("tx is failed")
+		}
 	}
 }

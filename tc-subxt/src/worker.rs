@@ -302,9 +302,11 @@ where
 				futures::select! {
 					tx = rx.next().fuse() => {
 						let Some((command, channel)) = tx else { continue; };
+						tracing::info!("worker.rs tx added to pool");
 						self.add_tx_to_pool(command, channel, None);
 					}
 					block_data = finalized_blocks.next().fuse() => {
+						tracing::info!("worker.rs finlaized block stream hit");
 						let Some(block_res) = block_data else {
 							tracing::error!("Finalized block strem terminated");
 							tokio::time::sleep(Duration::from_secs(1)).await;
@@ -323,6 +325,7 @@ where
 						for extrinsic in extrinsics.into_iter() {
 							let extrinsic_hash = extrinsic.hash();
 							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
+								tracing::info!("tx found in finalied queue");
 								let Some(tx) = self.pending_tx.pop_front() else {
 									continue;
 								};
@@ -331,6 +334,7 @@ where
 						}
 					}
 					block_data = best_blocks.next().fuse() => {
+						tracing::info!("worker.rs best block stream hit");
 						let Some(block_res) = block_data else {
 							tracing::error!("Latest block stream terminated");
 							tokio::time::sleep(Duration::from_secs(1)).await;
@@ -354,6 +358,7 @@ where
 						let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
 						for tx in self.pending_tx.iter_mut() {
 							if hashes.contains(&tx.data.hash) {
+								tracing::info!("worker.rs tx found in block {}", self.latest_block.number);
 								tx.best_block = Some(self.latest_block.number);
 							}
 						}

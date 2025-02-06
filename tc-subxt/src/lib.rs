@@ -18,7 +18,7 @@ use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
 mod api;
 pub mod metadata;
 pub mod timechain_client;
-mod worker;
+pub mod worker;
 
 use metadata::technical_committee::events as CommitteeEvent;
 

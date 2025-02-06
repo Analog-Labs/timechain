@@ -97,9 +97,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: polkadot_sdk::frame_system::Config {
-		/// The bridge pallet id, used for deriving its sovereign account ID.
+		/// Account for holding the teleported assets.
+		/// This is advised to be set to inaccesible Account ID, e.g. the one provided by `Self::account_id()`.
 		#[pallet::constant]
-		type PalletId: Get<PalletId>;
+		type BridgePot: Get<Self::AccountId>;
 
 		/// The bridge balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
@@ -241,13 +242,15 @@ pub mod pallet {
 		/// This actually does computation. If you need to keep using it, then make sure you cache the
 		/// value and only call this once.
 		pub fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account_truncating()
+			const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
+
+			BRIDGE_PALLET_ID.into_account_truncating()
 		}
 
 		/// Return the amount of money reserved by the bridge account.
 		/// The existential deposit is not part of the reserve so the bridge account never gets deleted.
 		pub fn reserved() -> BalanceOf<T> {
-			T::Currency::free_balance(&Self::account_id())
+			T::Currency::free_balance(&T::BridgePot::get())
 				// Must never be less than 0 but better be safe.
 				.saturating_sub(T::Currency::minimum_balance())
 		}
@@ -310,8 +313,7 @@ pub mod pallet {
 
 				// Lock: put `amount` into the bridge pot.
 				details.total_locked = details.total_locked.saturating_add(reserve);
-				let dest = Self::account_id();
-				let locked = T::Currency::deposit_creating(&dest, reserve);
+				let locked = T::Currency::deposit_creating(&T::BridgePot::get(), reserve);
 				// This happens only when transferred < ED and bridge account is empty
 				ensure!(!locked.peek().is_zero(), Error::<T>::CannotReserveFunds);
 				drop(imbalance.offset(locked));

@@ -23,7 +23,8 @@ fn first_teleport_below_ed() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, Default::default(),));
 
-		let bridge_bal_before = <Test as Config>::Currency::free_balance(BridgeAccount::get());
+		let account = crate::Pallet::<Test>::account_id();
+		let bridge_bal_before = <Test as Config>::Currency::free_balance(account);
 		assert!(bridge_bal_before.is_zero());
 
 		let ed: BalanceOf<Test> = <Test as pallet_balances::Config>::ExistentialDeposit::get();
@@ -49,8 +50,9 @@ fn teleport_reserve_and_fee() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Bridge::do_register_network(ETHEREUM, TELEPORT_FEE, Default::default(),));
 
+		let account = crate::Pallet::<Test>::account_id();
 		let user_bal_before = <Test as Config>::Currency::free_balance(acc(1));
-		let bridge_bal_before = <Test as Config>::Currency::free_balance(BridgeAccount::get());
+		let bridge_bal_before = <Test as Config>::Currency::free_balance(&account);
 
 		assert_ok!(Bridge::do_teleport(
 			acc(1).into(),
@@ -61,7 +63,7 @@ fn teleport_reserve_and_fee() {
 		));
 
 		let user_bal_after = <Test as Config>::Currency::free_balance(acc(1));
-		let bridge_bal_after = <Test as Config>::Currency::free_balance(BridgeAccount::get());
+		let bridge_bal_after = <Test as Config>::Currency::free_balance(account);
 
 		assert_eq!(user_bal_after, user_bal_before.saturating_sub(TELEPORT_AMOUNT + TELEPORT_FEE));
 		assert_eq!(bridge_bal_after, bridge_bal_before.saturating_add(TELEPORT_AMOUNT));

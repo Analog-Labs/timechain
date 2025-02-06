@@ -188,7 +188,6 @@ impl pallet_assets_bridge::Config for Test {
 	type NetworkData = (u64, Address);
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
-	type BridgeAccount = BridgeAccount;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -251,7 +250,6 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
 	pub const BridgePalletId: PalletId = PalletId(*b"py/bridg");
-	pub BridgeAccount: AccountId = Bridge::account_id();
 }
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {

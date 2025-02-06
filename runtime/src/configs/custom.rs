@@ -15,9 +15,8 @@ use time_primitives::{Address, GmpMessage, NetworkId, ANLOG};
 // Local module imports
 use super::tokenomics::DealWithFees;
 use crate::{
-	AssetsBridge,
-	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
-	Shards, Tasks,
+	weights, AccountId, AssetsBridge, Balance, Balances, Elections, Members, Networks, Runtime,
+	RuntimeEvent, Shards, Tasks,
 };
 use sp_runtime::{
 	traits::{ConstU16, Get},
@@ -128,7 +127,6 @@ impl pallet_assets_bridge::Config for Runtime {
 	type NetworkData = NetworkData;
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
-	type BridgeAccount = BridgeAccount;
 }
 
 impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
@@ -150,7 +148,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 		beneficiary: Address,
 		amount: Balance,
 	) -> DispatchResult {
-		let src: Address = <Runtime as pallet_assets_bridge::Config>::BridgeAccount::get().into();
+		let src: Address = BridgeAccount::get().into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let mut teleport_command = [0u8; 96];

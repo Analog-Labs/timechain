@@ -100,9 +100,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		#[pallet::constant]
-		type BridgeAccount: Get<Self::AccountId>;
-
 		/// The bridge balance.
 		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
@@ -312,7 +309,7 @@ pub mod pallet {
 
 				// Lock: put `amount` into the bridge pot.
 				details.total_locked = details.total_locked.saturating_add(reserve);
-				let dest = T::BridgeAccount::get();
+				let dest = Self::account_id();
 				let locked = T::Currency::deposit_creating(&dest, reserve);
 				// This happens only when transferred < ED and bridge account is empty
 				ensure!(!locked.peek().is_zero(), Error::<T>::CannotReserveFunds);

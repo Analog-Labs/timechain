@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Command {
 	TcCli { branch: String, tag: String, args: String },
-	RuntimeUpgrade { branch: String },
+	RuntimeUpgrade { branch: String, tag: String },
 	DeployChronicles { branch: String, tag: String },
 }
 
@@ -47,7 +47,10 @@ impl Command {
 				tag: tag.into(),
 				args,
 			},
-			"/runtime-upgrade" => Command::RuntimeUpgrade { branch: branch.into() },
+			"/runtime-upgrade" => Command::RuntimeUpgrade {
+				branch: branch.into(),
+				tag: tag.into(),
+			},
 			"/deploy-chronicles" => Command::DeployChronicles {
 				branch: branch.into(),
 				tag: tag.into(),
@@ -67,7 +70,7 @@ impl Command {
 	pub fn branch(&self) -> &str {
 		match self {
 			Self::TcCli { branch, .. } => branch,
-			Self::RuntimeUpgrade { branch } => branch,
+			Self::RuntimeUpgrade { branch, .. } => branch,
 			Self::DeployChronicles { branch, .. } => branch,
 		}
 	}
@@ -83,7 +86,7 @@ impl Command {
 	pub fn set_branch(&mut self, b: String) {
 		match self {
 			Self::TcCli { branch, .. } => *branch = b,
-			Self::RuntimeUpgrade { branch } => *branch = b,
+			Self::RuntimeUpgrade { branch, .. } => *branch = b,
 			Self::DeployChronicles { branch, .. } => *branch = b,
 		}
 	}
@@ -114,9 +117,10 @@ impl Command {
 					"user": user,
 				})
 			},
-			Self::RuntimeUpgrade { .. } => {
+			Self::RuntimeUpgrade { tag, .. } => {
 				json!({
 					"environment": env.to_string(),
+					"version": tag,
 					"thread": thread.0,
 					"user": user,
 				})

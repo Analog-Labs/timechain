@@ -32,6 +32,13 @@ impl SlackState {
 		Ok(resp.ts)
 	}
 
+	pub async fn user_name(&self, user: SlackUserId) -> Result<String> {
+		let session = self.client.open_session(&self.token);
+		let req = SlackApiUsersInfoRequest::new(user);
+		let resp = session.users_info(&req).await?;
+		Ok(resp.user.name.context("no name returned")?)
+	}
+
 	pub async fn update_command_info(&self, info: CommandInfo) -> Result<()> {
 		let session = self.client.open_session(&self.token);
 		let channel = info.env.channel();
@@ -42,11 +49,12 @@ impl SlackState {
 				.with_blocks(vec![SlackBlock::Section(SlackSectionBlock::new().with_fields(
 					vec![
 						SlackBlockMarkDownText::new(format!(
-							"*Status*\n{}\n\n*Workflow*\n<{}|{} #{}>",
+							"*Status*\n{}\n\n*Workflow*\n<{}|{} #{}>\n\n*User*\n@{}",
 							info.status,
 							info.url,
 							info.command.short(),
 							info.run_attempt,
+							info.user,
 						))
 						.into(),
 						SlackBlockMarkDownText::new(format!(

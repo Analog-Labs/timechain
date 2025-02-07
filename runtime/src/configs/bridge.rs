@@ -30,7 +30,6 @@ impl eth_bridge::Config for Runtime {
 	type AdminOrigin = ChronicleAdmin;
 }
 
-// TODO: update deposits to sensible values
 parameter_types! {
 	/// Base deposit required for storing a multisig execution, covering the cost of a single storage item.
 	// One storage item; key size is 32; value is size 4+4(block number)+16(balance)+32(account ID) bytes = 56 bytes.

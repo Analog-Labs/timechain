@@ -29,7 +29,7 @@ mod slack;
 mod table;
 
 pub use crate::loki::Query;
-pub use crate::slack::Sender;
+pub use crate::slack::{Sender, TableRef, TextRef};
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -1014,7 +1014,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn print_table<R: IntoRow>(&self, title: &str, table: Vec<R>) -> Result<()> {
+	pub async fn print_table<R: IntoRow>(&self, title: &str, table: Vec<R>) -> Result<TableRef> {
 		let mut out = Vec::new();
 		{
 			let mut wtr = csv::Writer::from_writer(&mut out);
@@ -1023,14 +1023,14 @@ impl Tc {
 			}
 			wtr.flush()?;
 		}
-		self.msg.csv(title, out).await
+		self.msg.csv(None, title, out).await
 	}
 
-	pub async fn println(&self, line: impl Into<String>) -> Result<()> {
-		self.msg.text(line.into()).await
+	pub async fn println(&self, line: impl Into<String>) -> Result<TextRef> {
+		self.msg.text(None, line.into()).await
 	}
 
-	pub async fn log(&self, query: Query) -> Result<()> {
-		self.msg.log(loki::logs(query).await?).await
+	pub async fn log(&self, query: Query) -> Result<TextRef> {
+		self.msg.log(None, loki::logs(query).await?).await
 	}
 }

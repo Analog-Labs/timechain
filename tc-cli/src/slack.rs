@@ -1,5 +1,29 @@
 use anyhow::Result;
+use crossterm::cursor::{RestorePosition, SavePosition};
+use crossterm::ExecutableCommand;
 use slack_morphism::prelude::*;
+
+#[derive(Default)]
+pub struct TextRef {
+	slack: Option<SlackTs>,
+}
+
+impl From<SlackTs> for TextRef {
+	fn from(ts: SlackTs) -> Self {
+		Self { slack: Some(ts) }
+	}
+}
+
+#[derive(Default)]
+pub struct TableRef {
+	slack: Option<SlackFileId>,
+}
+
+impl From<SlackFileId> for TableRef {
+	fn from(file: SlackFileId) -> Self {
+		Self { slack: Some(file) }
+	}
+}
 
 #[derive(Default)]
 pub struct Sender {
@@ -18,37 +42,52 @@ impl Sender {
 		Self { slack }
 	}
 
-	pub async fn text(&self, text: String) -> Result<()> {
+	fn println(&self, restore: bool, text: &str) {
+		if restore {
+			std::io::stdout().execute(RestorePosition).ok();
+		}
+		std::io::stdout().execute(SavePosition).ok();
 		println!("{text}");
-		if let Some(slack) = self.slack.as_ref() {
-			slack.post_message(None, SlackMessageContent::new().with_text(text)).await?;
-		}
-		Ok(())
 	}
 
-	pub async fn csv(&self, title: &str, csv: Vec<u8>) -> Result<()> {
-		println!("{}", csv_to_table::from_reader(&mut &csv[..])?);
+	pub async fn text(&self, id: Option<TextRef>, text: String) -> Result<TextRef> {
+		self.println(id.is_some(), &text);
 		if let Some(slack) = self.slack.as_ref() {
-			slack.post_table(None, title.into(), csv).await?;
+			let id = id.map(|id| id.slack).unwrap_or_default();
+			let ts = slack.post_message(id, SlackMessageContent::new().with_text(text)).await?;
+			return Ok(ts.into());
 		}
-		Ok(())
+		Ok(Default::default())
 	}
 
-	pub async fn log(&self, logs: Vec<String>) -> Result<()> {
+	pub async fn csv(&self, id: Option<TableRef>, title: &str, csv: Vec<u8>) -> Result<TableRef> {
+		let table = csv_to_table::from_reader(&mut &csv[..])?;
+		self.println(id.is_some(), &format!("{table}"));
+		if let Some(slack) = self.slack.as_ref() {
+			let id = id.map(|id| id.slack).unwrap_or_default();
+			let file = slack.post_table(id, title.into(), csv).await?;
+			return Ok(file.into());
+		}
+		Ok(Default::default())
+	}
+
+	pub async fn log(&self, id: Option<TextRef>, logs: Vec<String>) -> Result<TextRef> {
 		let logs: String = logs.join("\n");
-		println!("{logs}");
+		self.println(id.is_some(), &logs);
 		if let Some(slack) = self.slack.as_ref() {
+			let id = id.map(|id| id.slack).unwrap_or_default();
 			let text = SlackBlockMarkDownText::new(format!("```{logs}```"));
-			slack
+			let ts = slack
 				.post_message(
-					None,
+					id,
 					SlackMessageContent::new().with_blocks(vec![SlackBlock::Section(
 						SlackSectionBlock::new().with_text(text.into()),
 					)]),
 				)
 				.await?;
+			return Ok(ts.into());
 		}
-		Ok(())
+		Ok(Default::default())
 	}
 }
 

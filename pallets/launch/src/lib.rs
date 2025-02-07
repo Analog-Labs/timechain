@@ -52,7 +52,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 18;
+	pub const LAUNCH_VERSION: u16 = 19;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -94,6 +94,12 @@ pub mod pallet {
 		(17, 0, Stage::Retired),
 		// Prelaunch Deposit 4
 		(18, 3_636_364 * ANLOG, Stage::Retired),
+		// Bootstaking Month 1
+		(
+			19,
+			60_386_473 * ANLOG,
+			Stage::DepositFromVirtual(b"initiatives", data::v19::DEPOSIT_REWARD_POOL),
+		),
 	];
 
 	/// TODO: Difference to go to treasury:

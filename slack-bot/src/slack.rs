@@ -36,7 +36,7 @@ impl SlackState {
 		let session = self.client.open_session(&self.token);
 		let req = SlackApiUsersInfoRequest::new(user);
 		let resp = session.users_info(&req).await?;
-		Ok(resp.user.name.context("no name returned")?)
+		resp.user.name.context("no name returned")
 	}
 
 	pub async fn update_command_info(&self, info: CommandInfo) -> Result<()> {

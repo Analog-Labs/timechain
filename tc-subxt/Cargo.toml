@@ -35,11 +35,6 @@ testnet = [
   "tc-subxt-metadata/testnet"
 ]
 develop = [
-  "testnet",
   "time-primitives/develop",
   "tc-subxt-metadata/develop"
-]
-bridge-demo = [
-  "develop",
-  "tc-subxt-metadata/bridge-demo",
 ]

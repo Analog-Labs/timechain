@@ -13,12 +13,18 @@ name: Runtime build/upgrade
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: "tc-cli image tag (sha8 commit)"
+        required: false
+        type: string
       environment:
         description: "Target timechain environment"
         required: true
         type: choice
         options:
           - development
+      version:
+        description: ""
       thread:
         description: "Slack thread id"
         required: false
@@ -89,7 +95,7 @@ jobs:
             ${{ steps.srtool_build.outputs.wasm_compressed }}
             timechain-srtool-digest.json
   upgrade-runtime:
-    name: 'Run /runtime-upgrade on ${{ github.event.inputs.environment }} #${{ github.event.inputs.thread }} @${{ github.event.inputs.user }}'
+    name: 'Run /runtime-upgrade tag=${{ github.event.inputs.version }} on ${{ github.event.inputs.environment }} #${{ github.event.inputs.thread }} @${{ github.event.inputs.user }}'
     # Only running when manually triggered
     if: github.event_name == 'workflow_dispatch'
     environment: ${{ github.event.inputs.environment }}
@@ -116,7 +122,7 @@ jobs:
           -v ./development-runtime.wasm:/etc/development-runtime.wasm \
           -e TIMECHAIN_MNEMONIC="${{ secrets.TIMECHAIN_MNEMONIC }}" \
           -e TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}" \
-          analoglabs/tc-cli:latest \
+          analoglabs/tc-cli:${{ github.event.inputs.version || 'latest' }} \
           --config /etc/config.yaml runtime-upgrade /etc/development-runtime.wasm
 
     - name: Notify on slack

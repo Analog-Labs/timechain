@@ -9,6 +9,12 @@ use std::{path::Path, sync::Arc};
 
 use polkadot_sdk::*;
 
+use eth_bridge::common;
+use eth_bridge::PeerConfig;
+use eth_bridge::STORAGE_ETH_NODE_PARAMS;
+use eth_bridge::STORAGE_NETWORK_IDS_KEY;
+use eth_bridge::STORAGE_PEER_SECRET_KEY;
+use eth_bridge::STORAGE_SUB_NODE_URL_KEY;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
@@ -19,7 +25,16 @@ use sc_network_sync::{strategy::warp::WarpSyncParams, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use scale_codec::Encode;
+use sp_core::offchain::OffchainStorage;
+use sp_core::ByteArray;
+use sp_core::Pair;
+use sp_runtime::offchain::STORAGE_PREFIX;
 use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::IdentifyAccount;
+use sp_std::collections::btree_set::BTreeSet;
+use std::fs::File;
+use timechain_runtime::Runtime;
 
 use time_primitives::{AccountId, Balance, Block, Nonce};
 

@@ -59,7 +59,7 @@ impl Command {
 	pub fn short(&self) -> &str {
 		match self {
 			Self::TcCli { .. } => "tc-cli",
-			Self::RuntimeUpgrade { .. } => "upgrade-runtime",
+			Self::RuntimeUpgrade { .. } => "runtime-upgrade",
 			Self::DeployChronicles { .. } => "deploy-chronicles",
 		}
 	}

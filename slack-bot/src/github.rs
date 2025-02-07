@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Command {
 	TcCli { branch: String, tag: String, args: String },
-	RuntimeUpgrade { branch: String },
+	RuntimeUpgrade { branch: String, tag: String },
 	DeployChronicles { branch: String, tag: String },
 }
 
@@ -47,7 +47,10 @@ impl Command {
 				tag: tag.into(),
 				args,
 			},
-			"/runtime-upgrade" => Command::RuntimeUpgrade { branch: branch.into() },
+			"/runtime-upgrade" => Command::RuntimeUpgrade {
+				branch: branch.into(),
+				tag: tag.into(),
+			},
 			"/deploy-chronicles" => Command::DeployChronicles {
 				branch: branch.into(),
 				tag: tag.into(),
@@ -59,7 +62,7 @@ impl Command {
 	pub fn short(&self) -> &str {
 		match self {
 			Self::TcCli { .. } => "tc-cli",
-			Self::RuntimeUpgrade { .. } => "upgrade-runtime",
+			Self::RuntimeUpgrade { .. } => "runtime-upgrade",
 			Self::DeployChronicles { .. } => "deploy-chronicles",
 		}
 	}
@@ -67,7 +70,7 @@ impl Command {
 	pub fn branch(&self) -> &str {
 		match self {
 			Self::TcCli { branch, .. } => branch,
-			Self::RuntimeUpgrade { branch } => branch,
+			Self::RuntimeUpgrade { branch, .. } => branch,
 			Self::DeployChronicles { branch, .. } => branch,
 		}
 	}
@@ -83,7 +86,7 @@ impl Command {
 	pub fn set_branch(&mut self, b: String) {
 		match self {
 			Self::TcCli { branch, .. } => *branch = b,
-			Self::RuntimeUpgrade { branch } => *branch = b,
+			Self::RuntimeUpgrade { branch, .. } => *branch = b,
 			Self::DeployChronicles { branch, .. } => *branch = b,
 		}
 	}
@@ -103,7 +106,7 @@ impl Command {
 		format!("https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches")
 	}
 
-	fn inputs(&self, env: Env, thread: SlackTs) -> serde_json::Value {
+	fn inputs(&self, env: Env, thread: SlackTs, user: String) -> serde_json::Value {
 		match self {
 			Self::TcCli { tag, args, .. } => {
 				json!({
@@ -111,12 +114,15 @@ impl Command {
 					"version": tag,
 					"args": args,
 					"thread": thread.0,
+					"user": user,
 				})
 			},
-			Self::RuntimeUpgrade { .. } => {
+			Self::RuntimeUpgrade { tag, .. } => {
 				json!({
 					"environment": env.to_string(),
+					"version": tag,
 					"thread": thread.0,
+					"user": user,
 				})
 			},
 			Self::DeployChronicles { tag, .. } => {
@@ -124,13 +130,14 @@ impl Command {
 					"environment": env.to_string(),
 					"version": tag,
 					"thread": thread.0,
+					"user": user,
 				})
 			},
 		}
 	}
 
-	fn json(&self, env: Env, thread: SlackTs) -> serde_json::Value {
-		let inputs = self.inputs(env, thread);
+	fn json(&self, env: Env, thread: SlackTs, user: String) -> serde_json::Value {
+		let inputs = self.inputs(env, thread, user);
 		serde_json::json!({
 			"ref": self.branch(),
 			"inputs": inputs,
@@ -176,6 +183,7 @@ pub struct CommandInfo {
 	pub thread: SlackTs,
 	pub command: Command,
 	pub env: Env,
+	pub user: String,
 	pub run_attempt: u32,
 	pub commit: String,
 	pub status: String,
@@ -189,15 +197,18 @@ impl CommandInfo {
 		let cmd = job.name.split_once("Run")?.1.trim();
 		let (cmd, rest) = cmd.split_once(" on ")?;
 		let (cmd, text) = cmd.split_once(' ')?;
-		let (env, thread) = rest.split_once('#')?;
+		let (env, rest) = rest.split_once('#')?;
+		let (thread, user) = rest.split_once('@')?;
 		let mut command = Command::parse(&SlackCommandId(cmd.into()), text)?;
 		let env = env.trim().parse().ok()?;
 		let thread = SlackTs(thread.trim().into());
+		let user = user.trim().into();
 		command.set_branch(job.head_branch);
 		Some(Self {
 			thread,
 			command,
 			env,
+			user,
 			run_attempt: job.run_attempt,
 			commit: job.head_sha,
 			color: job
@@ -227,12 +238,18 @@ impl GithubState {
 		Ok(Self { client, token, user_agent })
 	}
 
-	pub async fn trigger_workflow(&self, command: &Command, env: Env, ts: SlackTs) -> Result<()> {
+	pub async fn trigger_workflow(
+		&self,
+		command: &Command,
+		env: Env,
+		ts: SlackTs,
+		user: String,
+	) -> Result<()> {
 		tracing::info!("triggering {command} in {env}");
 		let request = self
 			.client
 			.post(command.url())
-			.json(&command.json(env, ts))
+			.json(&command.json(env, ts, user))
 			.bearer_auth(&self.token)
 			.header("Accept", "application/vnd.github+json")
 			.header("X-Github-Api-Version", "2022-11-28")

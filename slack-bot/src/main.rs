@@ -28,11 +28,15 @@ async fn slack_command_event(
 	let Some(env) = Env::from_channel(&event.channel_id) else {
 		return slack_error(format!("unknown channel {}", &event.channel_id.0));
 	};
+	let user = match slack.user_name(event.user_id).await {
+		Ok(user) => user,
+		Err(err) => return slack_error(format!("failed to get user name: {err}")),
+	};
 	let ts = match slack.post_command(event.channel_id, event.command, text).await {
 		Ok(ts) => ts,
 		Err(err) => return slack_error(format!("starting slack thread failed: {err}")),
 	};
-	if let Err(err) = gh.trigger_workflow(&command, env, ts).await {
+	if let Err(err) = gh.trigger_workflow(&command, env, ts, user).await {
 		return slack_error(format!("triggering workflow failed: {err}"));
 	}
 	axum::body::Body::empty().into_response()

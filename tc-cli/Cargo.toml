@@ -47,3 +47,7 @@ develop = [
   "time-primitives/develop",
   "tc-subxt/develop",
 ]
+bridge-demo = [
+  "develop",
+  "tc-subxt/bridge-demo",
+]

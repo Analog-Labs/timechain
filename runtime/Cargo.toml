@@ -121,7 +121,6 @@ develop = [
   "genesis-builder",
   "time-primitives/develop",
 ]
-bridge-demo = [ "develop" ]
 with-tracing = [ "polkadot-sdk/with-tracing" ]
 std = [
 	"log/std",

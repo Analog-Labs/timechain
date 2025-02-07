@@ -136,11 +136,6 @@ develop = [
     "time-primitives/develop",
 	"timechain-runtime/develop",
 ]
-bridge-demo = [
-	"develop",
-	"timechain-runtime/bridge-demo",
-
-]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",

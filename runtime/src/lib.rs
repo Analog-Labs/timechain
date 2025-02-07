@@ -341,7 +341,7 @@ parameter_types! {
 
 pub type TechnicalCollective = pallet_collective::Instance1;
 
-#[cfg(feature = "bridge-demo")]
+#[cfg(feature = "testnet")]
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -640,7 +640,6 @@ mod runtime {
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
 
-	#[cfg(feature = "bridge-demo")]
 	#[runtime::pallet_index(50)]
 	pub type Sudo = pallet_sudo;
 }

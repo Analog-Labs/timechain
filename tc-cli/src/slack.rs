@@ -1,6 +1,27 @@
 use anyhow::Result;
 use slack_morphism::prelude::*;
-use std::cell::OnceCell;
+
+#[derive(Default)]
+pub struct TextRef {
+	slack: Option<SlackTs>,
+}
+
+impl From<SlackTs> for TextRef {
+	fn from(ts: SlackTs) -> Self {
+		Self { slack: Some(ts) }
+	}
+}
+
+#[derive(Default)]
+pub struct TableRef {
+	slack: Option<SlackFileId>,
+}
+
+impl From<SlackFileId> for TableRef {
+	fn from(file: SlackFileId) -> Self {
+		Self { slack: Some(file) }
+	}
+}
 
 #[derive(Default)]
 pub struct Sender {
@@ -19,29 +40,52 @@ impl Sender {
 		Self { slack }
 	}
 
-	pub async fn text(&self, text: String) -> Result<()> {
+	fn println(&self, restore: bool, text: &str) {
+		if restore {
+			print!("\x1B8");
+		}
+		print!("\x1B7");
 		println!("{text}");
-		if let Some(slack) = self.slack.as_ref() {
-			slack.post_message(text).await?;
-		}
-		Ok(())
 	}
 
-	pub async fn csv(&self, title: &str, csv: Vec<u8>) -> Result<()> {
-		println!("{}", csv_to_table::from_reader(&mut &csv[..])?);
+	pub async fn text(&self, id: Option<TextRef>, text: String) -> Result<TextRef> {
+		self.println(id.is_some(), &text);
 		if let Some(slack) = self.slack.as_ref() {
-			slack.upload_file("text/csv".into(), format!("{title}.csv"), csv).await?;
+			let id = id.map(|id| id.slack).unwrap_or_default();
+			let ts = slack.post_message(id, SlackMessageContent::new().with_text(text)).await?;
+			return Ok(ts.into());
 		}
-		Ok(())
+		Ok(Default::default())
 	}
 
-	pub async fn log(&self, logs: Vec<String>) -> Result<()> {
+	pub async fn csv(&self, id: Option<TableRef>, title: &str, csv: Vec<u8>) -> Result<TableRef> {
+		let table = csv_to_table::from_reader(&mut &csv[..])?;
+		self.println(id.is_some(), &format!("{table}"));
+		if let Some(slack) = self.slack.as_ref() {
+			let id = id.map(|id| id.slack).unwrap_or_default();
+			let file = slack.post_table(id, title.into(), csv).await?;
+			return Ok(file.into());
+		}
+		Ok(Default::default())
+	}
+
+	pub async fn log(&self, id: Option<TextRef>, logs: Vec<String>) -> Result<TextRef> {
 		let logs: String = logs.join("\n");
-		println!("{logs}");
+		self.println(id.is_some(), &logs);
 		if let Some(slack) = self.slack.as_ref() {
-			slack.post_message(format!("```{logs}```")).await?;
+			let id = id.map(|id| id.slack).unwrap_or_default();
+			let text = SlackBlockMarkDownText::new(format!("```{logs}```"));
+			let ts = slack
+				.post_message(
+					id,
+					SlackMessageContent::new().with_blocks(vec![SlackBlock::Section(
+						SlackSectionBlock::new().with_text(text.into()),
+					)]),
+				)
+				.await?;
+			return Ok(ts.into());
 		}
-		Ok(())
+		Ok(Default::default())
 	}
 }
 
@@ -49,7 +93,7 @@ struct Slack {
 	client: SlackHyperClient,
 	token: SlackApiToken,
 	channel: SlackChannelId,
-	thread: OnceCell<SlackTs>,
+	thread: SlackTs,
 }
 
 impl Slack {
@@ -59,10 +103,8 @@ impl Slack {
 		let token = SlackApiToken::new(token_value);
 		let channel = std::env::var("SLACK_CHANNEL_ID")?;
 		let channel = SlackChannelId::new(channel);
-		let thread = OnceCell::new();
-		if let Ok(ts) = std::env::var("SLACK_THREAD_TS") {
-			thread.set(SlackTs::new(ts)).ok();
-		}
+		let thread = std::env::var("SLACK_THREAD_TS")?;
+		let thread = SlackTs::new(thread);
 		rustls::crypto::ring::default_provider()
 			.install_default()
 			.expect("Failed to install rustls crypto provider");
@@ -70,33 +112,50 @@ impl Slack {
 		Ok(Self { client, token, channel, thread })
 	}
 
-	pub async fn post_message(&self, message: String) -> Result<()> {
+	pub async fn post_message(
+		&self,
+		id: Option<SlackTs>,
+		msg: SlackMessageContent,
+	) -> Result<SlackTs> {
 		let session = self.client.open_session(&self.token);
-		let mut req = SlackApiChatPostMessageRequest::new(
-			self.channel.clone(),
-			SlackMessageContent::new().with_text(message),
-		);
-		req.mopt_thread_ts(self.thread.get().cloned());
-		let resp = session.chat_post_message(&req).await?;
-		self.thread.set(resp.ts).ok();
-		Ok(())
+		if let Some(id) = id {
+			let req = SlackApiChatUpdateRequest::new(self.channel.clone(), msg, id.clone());
+			session.chat_update(&req).await?;
+			Ok(id)
+		} else {
+			let req = SlackApiChatPostMessageRequest::new(self.channel.clone(), msg)
+				.with_thread_ts(self.thread.clone());
+			let resp = session.chat_post_message(&req).await?;
+			Ok(resp.ts)
+		}
 	}
 
-	pub async fn upload_file(&self, mime: String, name: String, content: Vec<u8>) -> Result<()> {
+	pub async fn post_table(
+		&self,
+		id: Option<SlackFileId>,
+		name: String,
+		content: Vec<u8>,
+	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
 
 		let req = SlackApiFilesGetUploadUrlExternalRequest::new(name, content.len());
 		let resp = session.get_upload_url_external(&req).await?;
 
-		let req = SlackApiFilesUploadViaUrlRequest::new(resp.upload_url, content, mime);
+		let req =
+			SlackApiFilesUploadViaUrlRequest::new(resp.upload_url, content, "text/csv".into());
 		session.files_upload_via_url(&req).await?;
 
+		if let Some(id) = id {
+			let req = SlackApiFilesDeleteRequest::new(id);
+			session.files_delete(&req).await?;
+		}
 		let req =
 			SlackApiFilesCompleteUploadExternalRequest::new(vec![SlackApiFilesComplete::new(
 				resp.file_id,
 			)])
-			.with_channel_id(self.channel.clone());
-		session.files_complete_upload_external(&req).await?;
-		Ok(())
+			.with_channel_id(self.channel.clone())
+			.with_thread_ts(self.thread.clone());
+		let resp = session.files_complete_upload_external(&req).await?;
+		Ok(resp.files[0].id.clone())
 	}
 }

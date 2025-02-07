@@ -43,10 +43,6 @@ case "${environment}" in
 		profile=testnet
 		features=develop
 		;;
-	bridge)
-		profile=testnet
-		features=bridge-demo,develop
-		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"
 		echo >&2 "      - options: mainnet testnet develop"

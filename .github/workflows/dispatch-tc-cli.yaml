@@ -27,13 +27,17 @@ on:
         description: "Slack thread id"
         required: false
         type: string
+      user:
+        description: "Slack user"
+        required: false
+        type: string
 
 env:
   TC_CLI_IMAGE: analoglabs/tc-cli
 
 jobs:
   tc-cli:
-    name: 'Run /tc-cli tag=${{ github.event.inputs.version }} ${{ github.event.inputs.args }} on ${{ github.event.inputs.environment}} #${{ github.event.inputs.thread }}'
+    name: 'Run /tc-cli tag=${{ github.event.inputs.version }} ${{ github.event.inputs.args }} on ${{ github.event.inputs.environment}} #${{ github.event.inputs.thread }} @${{ github.event.inputs.user }}'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:

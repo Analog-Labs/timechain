@@ -61,9 +61,10 @@ pub const MAXIMUM_BLOCK_WEIGHT_SECONDS: u64 = 2;
 impl WeightToFeePolynomial for WeightToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		// Quadratic term maps max weight to max quadratic fee
 		let q_2: Balance = MAX_QUADRATIC_WEIGHT_FEE * MAX_QUADRATIC_WEIGHT_FEE;
 		let p_2 = WEIGHT_REF_TIME_PER_SECOND.saturating_mul(MAXIMUM_BLOCK_WEIGHT_SECONDS) as u128;
-		// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
+		// Linear term map linear minimum to base weight
 		let p_1 = MIN_LINEAR_WEIGHT_FEE;
 		let q_1 = Balance::from(ExtrinsicBaseWeight::get().ref_time());
 		smallvec![
@@ -90,11 +91,12 @@ pub struct LengthToFee;
 impl WeightToFeePolynomial for LengthToFee {
 	type Balance = Balance;
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		// Quadratic term maps max weight to max quadratic fee
 		let q_2 = MAX_QUADRATIC_LENGTH_FEE * MAX_QUADRATIC_WEIGHT_FEE;
 		let p_2 = MAX_BLOCK_LENGTH as u128;
-		// in Timechain, extrinsic base weight (smallest non-zero weight) is mapped to MILLIANLOG:
+		// Linear minimum is mapped to size of smallest transaction
 		let p_1 = MIN_LINEAR_LENGTH_FEE;
-		let q_1 = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+		let q_1 = 2;
 		smallvec![
 			WeightToFeeCoefficient {
 				degree: 2,

@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use futures::{Stream, StreamExt};
 use redb::{
 	Database, Key, MultimapTableDefinition, ReadableTable, TableDefinition, TypeName, Value,
+	WriteTransaction,
 };
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -55,6 +56,33 @@ impl Connector {
 		let mut clone = Clone::clone(self);
 		clone.address = address;
 		clone
+	}
+
+	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address) -> Result<()> {
+		let t = tx.open_table(ADMIN)?;
+		let admin = read_admin(&t, gateway)?;
+		if admin != self.address {
+			anyhow::bail!("not admin");
+		}
+		Ok(())
+	}
+
+	fn transfer_from(
+		&self,
+		tx: &WriteTransaction,
+		from: Address,
+		to: Address,
+		amount: u128,
+	) -> Result<()> {
+		let mut t = tx.open_table(BALANCE)?;
+		let balance = read_balance(&t, from)?;
+		if balance < amount {
+			anyhow::bail!("insufficient balance");
+		}
+		let dest_balance = read_balance(&t, to)?;
+		t.insert(from, balance - amount)?;
+		t.insert(to, dest_balance + amount)?;
+		Ok(())
 	}
 }
 
@@ -188,16 +216,7 @@ impl IChain for Connector {
 
 	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		{
-			let mut t = tx.open_table(BALANCE)?;
-			let balance = read_balance(&t, self.address)?;
-			if balance < amount {
-				anyhow::bail!("insufficient balance");
-			}
-			let dest_balance = read_balance(&t, address)?;
-			t.insert(self.address, balance - amount)?;
-			t.insert(address, dest_balance + amount)?;
-		}
+		self.transfer_from(&tx, self.address, address, amount)?;
 		tx.commit()?;
 		Ok(())
 	}
@@ -314,13 +333,8 @@ impl IConnectorAdmin for Connector {
 		gateway: Address,
 		_gateway_impl: &[u8],
 	) -> Result<()> {
-		let tx = self.db.begin_read()?;
-		let t = tx.open_table(ADMIN)?;
-		let admin = read_admin(&t, gateway)?;
-		if admin != self.address {
-			anyhow::bail!("not admin");
-		}
-		Ok(())
+		let tx = self.db.begin_write()?;
+		self.ensure_admin(&tx, gateway)
 	}
 
 	async fn admin(&self, gateway: Address) -> Result<Address> {
@@ -332,11 +346,8 @@ impl IConnectorAdmin for Connector {
 
 	async fn set_admin(&self, gateway: Address, new_admin: Address) -> Result<()> {
 		let tx = self.db.begin_write()?;
+		self.ensure_admin(&tx, gateway)?;
 		let mut t = tx.open_table(ADMIN)?;
-		let admin = read_admin(&t, gateway)?;
-		if admin != self.address {
-			anyhow::bail!("not admin");
-		}
 		t.insert(gateway, new_admin)?;
 		Ok(())
 	}
@@ -356,6 +367,7 @@ impl IConnectorAdmin for Connector {
 	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
+			self.ensure_admin(&tx, gateway)?;
 			let mut events = tx.open_multimap_table(EVENTS)?;
 			let mut shards = tx.open_multimap_table(SHARDS)?;
 			let block = block(self.genesis);
@@ -398,6 +410,7 @@ impl IConnectorAdmin for Connector {
 	async fn set_route(&self, gateway: Address, new_route: Route) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
+			self.ensure_admin(&tx, gateway)?;
 			let mut t = tx.open_table(ROUTES)?;
 			let mut route = t
 				.remove((gateway, new_route.network_id))?
@@ -499,12 +512,11 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(
-		&self,
-		_gateway: Address,
-		_amount: u128,
-		_address: Address,
-	) -> Result<()> {
+	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		self.ensure_admin(&tx, gateway)?;
+		self.transfer_from(&tx, gateway, address, amount)?;
+		tx.commit()?;
 		Ok(())
 	}
 }
@@ -516,13 +528,15 @@ impl<T> Value for Bincode<T>
 where
 	T: Debug + Serialize + for<'a> Deserialize<'a>,
 {
-	type SelfType<'a> = T
-    where
-        Self: 'a;
+	type SelfType<'a>
+		= T
+	where
+		Self: 'a;
 
-	type AsBytes<'a> = Vec<u8>
-    where
-        Self: 'a;
+	type AsBytes<'a>
+		= Vec<u8>
+	where
+		Self: 'a;
 
 	fn fixed_width() -> Option<usize> {
 		None

@@ -109,7 +109,7 @@ impl pallet_staking::Config for Test {
 
 impl pallet_governance::Config for Test {
 	type SystemAdmin = EnsureSignedBy<SystemAdmin, AccountId>;
-	//type StakingAdmin = EnsureSignedBy<StakingAdmin, AccountId>;
+	type StakingAdmin = EnsureSignedBy<StakingAdmin, AccountId>;
 }
 
 // Build genesis storage according to the mock runtime.

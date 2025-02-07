@@ -1,0 +1,54 @@
+[package]
+name = "bridge-multisig"
+version = "3.2.3"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://substrate.dev"
+repository = "https://github.com/paritytech/substrate/"
+description = "FRAME multi-signature dispatch pallet"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+scale-codec = { workspace = true, features = ["max-encoded-len", "derive"] }
+scale-info = { workspace = true, features = ["serde"] }
+log = { workspace = true }
+serde = { workspace = true }
+polkadot-sdk = { workspace = true, features = [
+	"frame-support",
+	"frame-system",
+
+	"sp-core",
+	"sp-io",
+	"sp-runtime",
+	"sp-std",
+] }
+
+[dev-dependencies]
+polkadot-sdk = { workspace = true, features = [
+	"frame-support",
+	"frame-system",
+
+	"sp-core",
+	"sp-io",
+	"sp-runtime",
+	"sp-std",
+
+	"pallet-balances",
+] }
+# sp-core = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0" }
+# pallet-balances = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0" }
+# env_logger = "0.7.1"
+
+[features]
+default = ["std"]
+std = ["serde/std", "scale-codec/std", "scale-info/std", 'polkadot-sdk/std']
+runtime-benchmarks = [
+	"polkadot-sdk/frame-benchmarking",
+	"polkadot-sdk/frame-system-benchmarking",
+	"polkadot-sdk/runtime-benchmarks",
+]
+
+try-runtime = ["polkadot-sdk/try-runtime", "polkadot-sdk/frame-try-runtime"]

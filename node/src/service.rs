@@ -48,7 +48,7 @@ type FullGrandpaBlockImport<RuntimeApi> = sc_consensus_grandpa::GrandpaBlockImpo
 >;
 
 /// RuntimeApi Api type
-
+///
 /// The transaction pool type definition.
 pub type TransactionPool<RuntimeApi> = sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>;
 
@@ -115,6 +115,99 @@ where
 			executor,
 		)?;
 	let client = Arc::new(client);
+
+	// HASHI Bridge support
+	#[cfg(feature = "testnet")]
+	{
+		use eth_bridge::common;
+		use eth_bridge::PeerConfig;
+		use eth_bridge::STORAGE_ETH_NODE_PARAMS;
+		use eth_bridge::STORAGE_NETWORK_IDS_KEY;
+		use eth_bridge::STORAGE_PEER_SECRET_KEY;
+		use eth_bridge::STORAGE_SUB_NODE_URL_KEY;
+		use scale_codec::Encode;
+		use sp_core::offchain::OffchainStorage;
+		use sp_core::ByteArray;
+		use sp_core::Pair;
+		use sp_runtime::offchain::STORAGE_PREFIX;
+		use sp_runtime::traits::IdentifyAccount;
+		use sp_std::collections::btree_set::BTreeSet;
+		use std::fs::File;
+		use timechain_runtime::Runtime;
+		let mut bridge_peer_secret_key = None;
+
+		if let Some(first_pk_raw) = keystore_container
+			.keystore()
+			.keys(eth_bridge::KEY_TYPE)
+			.unwrap()
+			.first()
+			.cloned()
+		{
+			let pk = eth_bridge::offchain::crypto::Public::from_slice(&first_pk_raw[..])
+				.expect("should have correct size");
+			let sub_public = sp_core::ecdsa::Public::from(pk.clone());
+			let public = secp256k1::PublicKey::parse_compressed(&sub_public.0).unwrap();
+			let address = common::eth::public_key_to_eth_address(&public);
+			let account = sp_runtime::MultiSigner::Ecdsa(sub_public).into_account();
+			log::warn!(
+				"Peer info: address: {:?}, account: {:?}, {}, public: {:?}",
+				address,
+				account,
+				account,
+				sub_public
+			);
+			let keystore = keystore_container.local_keystore();
+			if let Ok(Some(kep)) = keystore.key_pair::<eth_bridge::offchain::crypto::Pair>(&pk) {
+				let seed = kep.to_raw_vec();
+				bridge_peer_secret_key = Some(seed);
+			}
+		} else {
+			log::debug!("Ethereum bridge peer key not found.")
+		}
+
+		if let Some(sk) = bridge_peer_secret_key {
+			let mut storage = backend.offchain_storage().unwrap();
+			storage.set(STORAGE_PREFIX, STORAGE_PEER_SECRET_KEY, &sk.encode());
+
+			let path = config
+				.network
+				.net_config_path
+				.clone()
+				.or(config.database.path().map(|x| x.to_owned()))
+				.expect("Expected network or database path.");
+			let bridge_path = path
+				.ancestors()
+				.nth(1)
+				.map(|x| {
+					let mut x = x.to_owned();
+					x.push("bridge/eth.json");
+					x
+				})
+				.unwrap();
+			let file = File::open(&bridge_path).map_err(|_| {
+				ServiceError::Other(format!(
+					"Ethereum bridge node config not found. Expected path: {:?}",
+					bridge_path
+				))
+			})?;
+			let peer_config: PeerConfig<<Runtime as eth_bridge::Config>::NetworkId> =
+				serde_json::from_reader(&file).expect("Invalid ethereum bridge node config.");
+			let mut network_ids = BTreeSet::new();
+			for (net_id, params) in peer_config.networks {
+				let string = format!("{}-{:?}", STORAGE_ETH_NODE_PARAMS, net_id);
+				storage.set(STORAGE_PREFIX, string.as_bytes(), &params.encode());
+				network_ids.insert(net_id);
+			}
+			storage.set(STORAGE_PREFIX, STORAGE_NETWORK_IDS_KEY, &network_ids.encode());
+			let addr = config.rpc_addr.unwrap_or_else(|| ([127, 0, 0, 1], config.rpc_port).into());
+			log::warn!("RPC Address: {addr}");
+			storage.set(
+				STORAGE_PREFIX,
+				STORAGE_SUB_NODE_URL_KEY,
+				&format!("http://{}", addr).encode(),
+			);
+		}
+	}
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
 		task_manager.spawn_handle().spawn("telemetry", None, worker.run());

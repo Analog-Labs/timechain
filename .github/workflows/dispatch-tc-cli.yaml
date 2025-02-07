@@ -23,13 +23,21 @@ on:
         description: "tc-cli args"
         required: true
         type: string
+      thread:
+        description: "Slack thread id"
+        required: false
+        type: string
+      user:
+        description: "Slack user"
+        required: false
+        type: string
 
 env:
   TC_CLI_IMAGE: analoglabs/tc-cli
 
 jobs:
   tc-cli:
-    name: Run tc-cli on cluster
+    name: 'Run /tc-cli tag=${{ github.event.inputs.version }} ${{ github.event.inputs.args }} on ${{ github.event.inputs.environment}} #${{ github.event.inputs.thread }} @${{ github.event.inputs.user }}'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
@@ -73,4 +81,5 @@ jobs:
           --env="NO_COLOR=1" \
           --env="SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}" \
           --env="SLACK_CHANNEL_ID=${{ secrets.SLACK_CHANNEL_ID }}" \
+          --env="SLACK_THREAD_TS=${{ github.event.inputs.thread }}" \
           -- --env /etc/envs/${{ github.event.inputs.environment }} ${{ github.event.inputs.args}}

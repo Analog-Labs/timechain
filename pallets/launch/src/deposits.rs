@@ -3,7 +3,7 @@ use crate::{Config, Event, Pallet, RawVestingSchedule};
 use polkadot_sdk::*;
 
 use frame_support::pallet_prelude::*;
-use frame_support::traits::{Currency, VestingSchedule};
+use frame_support::traits::{Currency, ExistenceRequirement, VestingSchedule};
 use frame_system::pallet_prelude::*;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::{AccountIdConversion, CheckedConversion, Zero};
@@ -25,6 +25,9 @@ pub type RawDepositDetails = (&'static str, Balance, Option<RawVestingSchedule>)
 
 /// List of deposit migrations embedded in code, but not yet parsed and verified
 pub type RawDepositStage = &'static [RawDepositDetails];
+
+/// Virtual wallet identifier
+pub type RawVirtualSource = &'static [u8];
 
 /// Individual virtual deposit to pallet wallet, embedded in code, but not yet parsed and verified
 pub type RawVirtualDepositDetails = (&'static [u8], Balance, Option<RawVestingSchedule>);
@@ -154,6 +157,52 @@ where
 					.expect("No other vesting schedule exists, as checked above; qed");
 				// (Updating the vesting schedule involves reading the info, followed by writing the info, the vesting and the lock.)
 				weight += T::DbWeight::get().reads_writes(1, 3)
+			}
+		}
+		weight
+	}
+
+	/// Execute deposits as far as possible, log failed deposit as events
+	pub fn withdraw(self, source: RawVirtualSource) -> Weight {
+		let mut weight = Weight::zero();
+
+		for (target, amount, schedule) in self.0.iter() {
+			// Check vesting status first...
+			if let Some(vs) = schedule {
+				// (Checking if the target is able to receive a vested transfer is one read)
+				weight += T::DbWeight::get().reads(1);
+
+				if <T as Config>::VestingSchedule::can_add_vesting_schedule(
+					target, vs.0, vs.1, vs.2,
+				)
+				.is_err()
+				{
+					Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
+						target: target.clone(),
+					});
+					continue;
+				}
+			}
+
+			// (Read and write source, read existential deposit, followed by reading and writing target.)
+			weight += T::DbWeight::get().reads_writes(3, 2);
+
+			// ... then attempt to transfer tokens directly from virtual deposit
+			let source: T::AccountId = T::PalletId::get().into_sub_account_truncating(source);
+			if CurrencyOf::<T>::transfer(&source, target, *amount, ExistenceRequirement::AllowDeath)
+				.is_err()
+			{
+				Pallet::<T>::deposit_event(Event::<T>::DepositTooLarge { target: target.clone() });
+				continue;
+			}
+
+			// ...and finally apply vesting schedule, if there is one.
+			if let Some(vs) = schedule {
+				// (Updating the vesting schedule involves reading the info, followed by writing the info, the vesting and the lock.)
+				weight += T::DbWeight::get().reads_writes(1, 3);
+
+				<T as Config>::VestingSchedule::add_vesting_schedule(target, vs.0, vs.1, vs.2)
+					.expect("No other vesting schedule exists, as checked above; qed");
 			}
 		}
 		weight

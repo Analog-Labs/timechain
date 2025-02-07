@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::env::Mnemonics;
-use crate::gas_price_calculator::{convert_bigint_to_u128, get_network_price};
+use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, StreamExt};
@@ -23,13 +23,13 @@ use tokio::time::sleep;
 
 mod config;
 mod env;
-mod gas_price_calculator;
+mod gas_price;
 mod loki;
 mod slack;
 mod table;
 
 pub use crate::loki::Query;
-pub use crate::slack::Sender;
+pub use crate::slack::{Sender, TableRef, TextRef};
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -108,7 +108,7 @@ impl Tc {
 	}
 
 	pub async fn runtime_upgrade(&self, path: &Path) -> Result<()> {
-		self.println("runtime-upgrade").await?;
+		self.println(None, "runtime-upgrade").await?;
 		let bytecode = std::fs::read(path)?;
 		self.runtime.set_code(bytecode).await
 	}
@@ -216,11 +216,14 @@ impl Tc {
 		address: Address,
 		balance: u128,
 	) -> Result<()> {
-		self.println(format!(
-			"transfering {} to {}",
-			self.format_balance(network, balance)?,
-			self.format_address(network, address)?,
-		))
+		self.println(
+			None,
+			format!(
+				"transfering {} to {}",
+				self.format_balance(network, balance)?,
+				self.format_address(network, address)?,
+			),
+		)
 		.await?;
 		if let Some(network) = network {
 			self.connector(network)?.transfer(address, balance).await?;
@@ -240,7 +243,7 @@ impl Tc {
 		let balance = self.balance(network, address).await?;
 		let diff = min_balance.saturating_sub(balance);
 		if diff > 0 {
-			self.println(format!("funding {label}")).await?;
+			self.println(None, format!("funding {label}")).await?;
 			self.transfer(network, address, diff).await?;
 		}
 		Ok(())
@@ -634,11 +637,11 @@ impl Tc {
 			self.set_network_config(network).await?;
 			gateway
 		} else {
-			self.println("deploying gateway").await?;
+			self.println(None, "deploying gateway").await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
-			self.println(format!("register_network {network}")).await?;
+			self.println(None, format!("register_network {network}")).await?;
 			self.runtime
 				.register_network(time_primitives::Network {
 					id: network,
@@ -658,8 +661,6 @@ impl Tc {
 				.await?;
 			gateway
 		};
-		self.println(format!("gateway address {}", self.format_address(Some(network), gateway)?))
-			.await?;
 		Ok(gateway)
 	}
 
@@ -689,7 +690,7 @@ impl Tc {
 		{
 			return Ok(());
 		}
-		self.println(format!("set_network_config {network}")).await?;
+		self.println(None, format!("set_network_config {network}")).await?;
 		self.runtime.set_network_config(network, config).await?;
 		Ok(())
 	}
@@ -701,7 +702,7 @@ impl Tc {
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
-				let src_price = gas_price_calculator::get_network_price(&network_prices, &src)?;
+				let src_price = gas_price::get_network_price(&network_prices, &src)?;
 				let dest_price = get_network_price(&network_prices, &dest)?;
 				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
 				let numerator = convert_bigint_to_u128(ratio.numer())?;
@@ -713,10 +714,15 @@ impl Tc {
 					gas_limit: config.route_gas_limit,
 					base_fee: config.route_base_fee,
 				};
-				if routes.contains(&route) {
-					continue;
+				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
+					if r.gas_limit == route.gas_limit
+						&& r.base_fee == route.base_fee
+						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
+					{
+						continue;
+					}
 				}
-				self.println(format!("register_route {src} {dest}")).await?;
+				self.println(None, format!("register_route {src} {dest}")).await?;
 				connector.set_route(src_gateway, route).await?;
 			}
 		}
@@ -775,10 +781,10 @@ impl Tc {
 		if self.runtime.member_stake(&member).await? > 0 {
 			return Ok(());
 		}
-		self.println(format!(
-			"register_member {}",
-			self.format_address(None, member.clone().into())?
-		))
+		self.println(
+			None,
+			format!("register_member {}", self.format_address(None, member.clone().into())?),
+		)
 		.await?;
 		let min_stake = self.runtime.min_stake().await?;
 		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
@@ -790,10 +796,10 @@ impl Tc {
 		if !self.runtime.member_registered(&member).await? {
 			return Ok(());
 		}
-		self.println(format!(
-			"unregister_member {}",
-			self.format_address(None, member.clone().into())?
-		))
+		self.println(
+			None,
+			format!("unregister_member {}", self.format_address(None, member.clone().into())?),
+		)
 		.await?;
 		self.runtime.unregister_member(member).await?;
 		Ok(())
@@ -803,7 +809,7 @@ impl Tc {
 		if matches!(self.runtime.shard_status(shard).await?, ShardStatus::Offline) {
 			return Ok(());
 		}
-		self.println(format!("force_shard_offline {}", shard)).await?;
+		self.println(None, format!("force_shard_offline {}", shard)).await?;
 		self.runtime.force_shard_offline(shard).await?;
 		Ok(())
 	}
@@ -812,11 +818,11 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		let gateway = self.register_network(network).await?;
 		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-			self.println("admin target balance is 0, using faucet").await?;
+			self.println(None, "admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}
+		let gateway = self.register_network(network).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
 		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
 		Ok(gateway)
@@ -862,7 +868,7 @@ impl Tc {
 		if same(&keys, &shards) {
 			return Ok(());
 		}
-		self.println(format!("register_shards {network} {}", keys.len())).await?;
+		self.println(None, format!("register_shards {network} {}", keys.len())).await?;
 		connector.set_shards(gateway, &keys).await
 	}
 
@@ -871,10 +877,10 @@ impl Tc {
 		if connector.admin(gateway).await? == admin {
 			return Ok(());
 		}
-		self.println(format!(
-			"set_gateway_admin {network} {}",
-			self.format_address(Some(network), admin)?
-		))
+		self.println(
+			None,
+			format!("set_gateway_admin {network} {}", self.format_address(Some(network), admin)?),
+		)
 		.await?;
 		connector.set_admin(gateway, admin).await?;
 		Ok(())
@@ -883,7 +889,7 @@ impl Tc {
 	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
 		let contracts = self.config.contracts(network)?;
-		self.println(format!("redeploying gateway {network}")).await?;
+		self.println(None, format!("redeploying gateway {network}")).await?;
 		connector
 			.redeploy_gateway(&contracts.additional_params, gateway, &contracts.gateway)
 			.await?;
@@ -893,7 +899,7 @@ impl Tc {
 	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network).await?;
-		self.println(format!("deploy tester {network}")).await?;
+		self.println(None, format!("deploy tester {network}")).await?;
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
@@ -936,11 +942,14 @@ impl Tc {
 		address: Address,
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network).await?;
-		self.println(format!(
-			"withdrawing funds {network} {} to {}",
-			self.format_balance(Some(network), amount)?,
-			self.format_address(Some(network), address)?,
-		))
+		self.println(
+			None,
+			format!(
+				"withdrawing funds {network} {} to {}",
+				self.format_balance(Some(network), amount)?,
+				self.format_address(Some(network), address)?,
+			),
+		)
 		.await?;
 		connector.withdraw_funds(gateway, amount, address).await
 	}
@@ -951,24 +960,26 @@ impl Tc {
 		let (src_addr, src_block) = self.deploy_tester(src).await?;
 		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
 		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
-		let networks = self.networks().await?;
-		self.print_table("networks", networks.clone()).await?;
+		/*let networks = self.networks().await?;
+		self.print_table(None, "networks", networks.clone()).await?;
 		for network in networks {
 			let routes = self.routes(network.network).await?;
-			self.print_table("routes", routes).await?;
-		}
+			self.print_table(None, "routes", routes).await?;
+		}*/
 		// chronicles
 		let mut blocks = self.finality_notification_stream();
+		let mut id = None;
 		while blocks.next().await.is_some() {
 			let chronicles = self.chronicles().await?;
 			let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
 			tracing::info!("waiting for chronicles to be registered");
-			self.print_table("chronicles", chronicles).await?;
+			id = Some(self.print_table(id, "chronicles", chronicles).await?);
 			if !not_registered {
 				break;
 			}
 		}
 		// shards
+		let mut id = None;
 		while blocks.next().await.is_some() {
 			let src_keys = self.find_online_shard_keys(src).await?;
 			let dest_keys = self.find_online_shard_keys(dest).await?;
@@ -977,7 +988,7 @@ impl Tc {
 			}
 			tracing::info!("waiting for shards to come online");
 			let shards = self.shards().await?;
-			self.print_table("shards", shards).await?;
+			id = Some(self.print_table(id, "shards", shards).await?);
 		}
 		// registered shards
 		self.register_shards(src).await?;
@@ -987,7 +998,7 @@ impl Tc {
 			let is_registered =
 				shards.iter().any(|shard| shard.registered && shard.network == dest);
 			tracing::info!("waiting for shard to be registered");
-			self.print_table("shards", shards).await?;
+			id = Some(self.print_table(id, "shards", shards).await?);
 			if is_registered {
 				break;
 			}
@@ -1011,7 +1022,12 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn print_table<R: IntoRow>(&self, title: &str, table: Vec<R>) -> Result<()> {
+	pub async fn print_table<R: IntoRow>(
+		&self,
+		id: Option<TableRef>,
+		title: &str,
+		table: Vec<R>,
+	) -> Result<TableRef> {
 		let mut out = Vec::new();
 		{
 			let mut wtr = csv::Writer::from_writer(&mut out);
@@ -1020,14 +1036,14 @@ impl Tc {
 			}
 			wtr.flush()?;
 		}
-		self.msg.csv(title, out).await
+		self.msg.csv(id, title, out).await
 	}
 
-	pub async fn println(&self, line: impl Into<String>) -> Result<()> {
-		self.msg.text(line.into()).await
+	pub async fn println(&self, id: Option<TextRef>, line: impl Into<String>) -> Result<TextRef> {
+		self.msg.text(id, line.into()).await
 	}
 
-	pub async fn log(&self, query: Query) -> Result<()> {
-		self.msg.log(loki::logs(query).await?).await
+	pub async fn log(&self, query: Query) -> Result<TextRef> {
+		self.msg.log(None, loki::logs(query).await?).await
 	}
 }

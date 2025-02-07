@@ -1,0 +1,104 @@
+[package]
+name = "eth-bridge"
+version = "0.2.0"
+edition = "2021"
+authors = ['Polka Biome Ltd. <jihoon@tutanota.de>']
+license = "BSD-4-Clause"
+homepage = 'https://sora.org'
+repository = 'https://github.com/sora-xor/sora2-network'
+
+[dependencies]
+scale-codec = { workspace = true, features = ["max-encoded-len", "derive"] }
+scale-info = { workspace = true, features = ["serde"] }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+polkadot-sdk = { workspace = true, features = [
+    "frame-support",
+    "frame-system",
+
+    "sp-core",
+    "sp-io",
+    "sp-runtime",
+    "sp-std",
+] }
+hex-literal = "0.4.1"
+secp256k1 = { version = "0.7", features = [
+    'hmac',
+], default-features = false, package = "libsecp256k1" }
+once_cell = { version = "1.5.2", default-features = false, features = [
+    'alloc',
+    'unstable',
+] }
+rustc-hex = { version = "2.1.0", default-features = false }
+
+bridge-multisig = { workspace = true, default-features = false }
+ethabi = { git = "https://github.com/sora-xor/ethabi.git", branch = "sora-v1.6.0", package = "ethabi", default-features = false }
+ethabi-derive = { git = "https://github.com/sora-xor/ethabi.git", branch = "sora-v1.6.0", package = "ethabi-derive", default-features = false }
+ethereum-types = { version = "0.15.1", default-features = false, features = [
+    'serialize',
+    'codec',
+] }
+jsonrpc-core = { git = "https://github.com/sora-xor/jsonrpc.git", branch = "no-std", package = "jsonrpc-core", default-features = false }
+
+# assets = { path = "../assets", default-features = false }
+# common = { path = "../../common", default-features = false }
+# permissions = { path = "../permissions", default-features = false }
+# bridge-types = { git = "https://github.com/sora-xor/sora2-common.git", branch = "polkadotsdk_1.1.0", default-features = false }
+
+[dev-dependencies]
+# async-std = { version = "1.5", features = ["attributes", "unstable"] }
+# currencies = { git = "https://github.com/open-web3-stack/open-runtime-module-library.git", package = "orml-currencies", default-features = false }
+# env_logger = "0.10.0"
+# frame-executive = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0", default-features = false }
+# orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library.git", package = "orml-traits", default-features = false }
+# pallet-balances = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0" }
+# pallet-sudo = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0" }
+# parity-util-mem = { version = "0.12.0", default-features = false, features = [
+#     "primitive-types",
+# ] }
+parking_lot = "0.12.0"
+# sp-core = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0", default-features = false, features = [
+#     "full_crypto",
+# ] }
+# sp-keystore = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0", default-features = false }
+# tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library.git", package = "orml-tokens" }
+# tokio = { version = "1.10.1", default-features = false, features = ["macros"] }
+polkadot-sdk = { workspace = true, features = [
+    "frame-support",
+    "frame-system",
+
+    "sp-core",
+    "sp-io",
+    "sp-runtime",
+    "sp-std",
+    "sp-keystore",
+
+    "pallet-balances",
+    "pallet-sudo",
+] }
+
+[features]
+default = ['std']
+std = [
+    "scale-codec/std",
+    "scale-info/std",
+    "log/std",
+    "serde/std",
+    "serde_json/std",
+    "polkadot-sdk/std",
+    "secp256k1/std",
+    "once_cell/std",
+    "rustc-hex/std",
+    "bridge-multisig/std",
+    "ethabi/std",
+    "ethereum-types/std",
+    "jsonrpc-core/std",
+]
+runtime-benchmarks = [
+    "polkadot-sdk/frame-benchmarking",
+    "polkadot-sdk/frame-system-benchmarking",
+    "polkadot-sdk/runtime-benchmarks",
+]
+
+try-runtime = ["polkadot-sdk/try-runtime", "polkadot-sdk/frame-try-runtime"]

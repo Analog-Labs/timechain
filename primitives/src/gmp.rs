@@ -324,6 +324,13 @@ pub struct Route {
 }
 
 #[cfg(feature = "std")]
+impl Route {
+	pub fn relative_gas_price(&self) -> f64 {
+		self.relative_gas_price.0 as f64 / self.relative_gas_price.1 as f64
+	}
+}
+
+#[cfg(feature = "std")]
 #[async_trait::async_trait]
 pub trait IChain: Send + Sync + 'static {
 	/// Formats an address into a string.

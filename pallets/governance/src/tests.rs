@@ -2,11 +2,11 @@ use crate::mock::*;
 
 use polkadot_sdk::*;
 
+use frame_support::assert_noop;
 use frame_support::assert_ok;
-//use frame_support::assert_noop;
-//use pallet_staking::ConfigOp;
-//use sp_runtime::traits::BadOrigin;
-//use sp_runtime::{Perbill, Percent};
+use pallet_staking::ConfigOp;
+use sp_runtime::traits::BadOrigin;
+use sp_runtime::{Perbill, Percent};
 
 use time_primitives::H256;
 
@@ -29,14 +29,17 @@ fn success_system_admin() {
 	});
 }
 
-/*
 #[test]
-#[cfg(feature = "broken")]
 fn success_staking_admin() {
 	new_test_ext().execute_with(|| {
 		// Set and check validator count
 		assert_ok!(Governance::set_validator_count(RuntimeOrigin::signed(StakingAdmin::get()), 42));
 		assert_eq!(Staking::validator_count(), 42);
+	});
+	new_test_ext().execute_with(|| {
+		// Set and check force new
+		assert_ok!(Governance::force_new_era(RuntimeOrigin::signed(StakingAdmin::get())));
+		assert_eq!(Staking::force_era(), pallet_staking::Forcing::ForceNew);
 	});
 	new_test_ext().execute_with(|| {
 		assert_ok!(Governance::set_staking_configs(
@@ -54,13 +57,13 @@ fn success_staking_admin() {
 }
 
 #[test]
-#[cfg(feature = "broken")]
 fn fail_other() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
 			Governance::authorize_upgrade(RuntimeOrigin::signed(Other::get()), H256::random()),
 			BadOrigin
 		);
+		assert_noop!(Governance::force_new_era(RuntimeOrigin::signed(Other::get())), BadOrigin);
 		assert_noop!(
 			Governance::set_validator_count(RuntimeOrigin::signed(Other::get()), 42),
 			BadOrigin
@@ -80,4 +83,3 @@ fn fail_other() {
 		);
 	});
 }
-*/

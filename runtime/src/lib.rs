@@ -80,6 +80,7 @@
 #![recursion_limit = "1024"]
 // Allow more readable constants
 #![allow(clippy::identity_op)]
+#![allow(non_local_definitions)]
 
 /// The runtime is split into its components
 pub mod apis;
@@ -118,7 +119,7 @@ mod weights;
 pub use weights::{BlockExecutionWeight, ExtrinsicBaseWeight};
 
 /// Automatically generated nomination bag boundaries
-#[cfg(feature = "testnet")]
+//#[cfg(feature = "testnet")]
 mod staking_bags;
 
 // Make the WASM binary available.
@@ -222,7 +223,7 @@ pub type Executive = frame_executive::Executive<
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
-pub const CALL_PARAMS_MAX_SIZE: usize = 244;
+pub const CALL_PARAMS_MAX_SIZE: usize = 448;
 
 /// Mainnet runtime version
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
@@ -231,7 +232,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-timechain"),
 	impl_name: create_runtime_str!("analog-timechain"),
 	authoring_version: 0,
-	spec_version: 11,
+	spec_version: 12,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -245,7 +246,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-testnet"),
 	impl_name: create_runtime_str!("analog-testnet"),
 	authoring_version: 0,
-	spec_version: 11,
+	spec_version: 12,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -259,7 +260,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-develop"),
 	impl_name: create_runtime_str!("analog-develop"),
 	authoring_version: 0,
-	spec_version: 11,
+	spec_version: 12,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -443,6 +444,26 @@ mod runtime {
 	#[runtime::pallet_index(14)]
 	pub type Multisig = pallet_multisig;
 
+	// Nominated proof of stake
+
+	#[runtime::pallet_index(15)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
+
+	#[runtime::pallet_index(16)]
+	pub type Staking = pallet_staking;
+
+	#[runtime::pallet_index(17)]
+	pub type VoterList = pallet_bags_list<Instance1>;
+
+	#[runtime::pallet_index(18)]
+	pub type Offences = pallet_offences;
+
+	#[runtime::pallet_index(28)]
+	pub type NominationPools = pallet_nomination_pools;
+
+	#[runtime::pallet_index(29)]
+	pub type DelegatedStaking = pallet_delegated_staking;
+
 	// On-chain governance
 
 	#[runtime::pallet_index(22)]
@@ -453,9 +474,6 @@ mod runtime {
 
 	#[runtime::pallet_index(24)]
 	pub type SafeMode = pallet_safe_mode;
-
-	#[runtime::pallet_index(25)]
-	pub type ValidatorManager = pallet_validators;
 
 	// Custom governance
 
@@ -578,6 +596,12 @@ mod runtime {
 	#[runtime::pallet_index(18)]
 	pub type Offences = pallet_offences;
 
+	#[runtime::pallet_index(28)]
+	pub type NominationPools = pallet_nomination_pools;
+
+	#[runtime::pallet_index(29)]
+	pub type DelegatedStaking = pallet_delegated_staking;
+
 	// On-chain identity,storage and scheduler
 
 	#[runtime::pallet_index(19)]
@@ -640,8 +664,17 @@ mod runtime {
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
 
-	#[runtime::pallet_index(50)]
+	// TODO: remove
+	#[runtime::pallet_index(49)]
 	pub type Sudo = pallet_sudo;
+
+	// HASHI Bridge
+
+	#[runtime::pallet_index(50)]
+	pub type EthBridge = eth_bridge;
+
+	#[runtime::pallet_index(51)]
+	pub type BridgeMultisig = bridge_multisig;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

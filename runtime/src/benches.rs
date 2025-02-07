@@ -22,6 +22,7 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_membership, TechnicalMembership]
 	[pallet_multisig, Multisig]
 	[pallet_networks, Networks]
+	[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 	[pallet_offences, OffencesBench::<Runtime>]
 	[pallet_preimage, Preimage]
 	[pallet_proxy, Proxy]
@@ -35,4 +36,6 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_treasury, Treasury]
 	[pallet_utility, Utility]
 	[pallet_vesting, Vesting]
+	[eth_bridge, EthBridge]
+	[bridge_multisig, BridgeMultisig]
 );

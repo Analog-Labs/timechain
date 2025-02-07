@@ -35,7 +35,7 @@
           # Download associated rust toolchain from mozilla
           toolchain = fpkgs.fromToolchainName {
             name = toml.toolchain.channel;
-            sha256 = "VZZnlyP69+Y3crrLHQyJirqlHrTtGTsyiSnZB8jEvVo=";
+            sha256 = "s1RPtyvDGJaX/BisLT+ifVfuhDT1nZkZ1NcK8sbwELM=";
           };
 
           # Determine profile or use default

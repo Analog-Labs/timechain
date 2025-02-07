@@ -3,10 +3,10 @@ use crate::{Config, Event, Pallet, RawVestingSchedule};
 use polkadot_sdk::*;
 
 use frame_support::pallet_prelude::*;
-use frame_support::traits::{Currency, VestingSchedule};
+use frame_support::traits::{Currency, ExistenceRequirement, VestingSchedule, WithdrawReasons};
 use frame_system::pallet_prelude::*;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::traits::{CheckedConversion, Zero};
+use sp_runtime::traits::{AccountIdConversion, CheckedConversion, Zero};
 
 use sp_std::{vec, vec::Vec};
 
@@ -80,6 +80,49 @@ where
 		let mut weight = Weight::zero();
 
 		for (target, amount, schedule) in self.0.iter() {
+			// Can fail if claim already exists, so those are logged.
+			match pallet_airdrop::Pallet::<T>::mint_airdrop(target.clone(), *amount, *schedule) {
+				Ok(_) => (),
+				// Give detailed feedback on common failures
+				Err(AirdropError::<T>::AlreadyHasClaim) => {
+					Pallet::<T>::deposit_event(Event::<T>::AirdropMintExists {
+						target: target.clone().into(),
+					})
+				},
+				// Amount is below allowed minimum, should never happen
+				Err(_) => Pallet::<T>::deposit_event(Event::<T>::AirdropMintFailed),
+			}
+
+			// (Read and write claims and total and optional write vesting.)
+			weight += T::DbWeight::get().reads_writes(2, 3);
+		}
+
+		weight
+	}
+
+	/// Add all airdrops inside the airdrop migration
+	pub fn withdraw(self, source: &[u8]) -> Weight {
+		let mut weight = Weight::zero();
+
+		for (target, amount, schedule) in self.0.iter() {
+			// Burn tokens from the specified virtual wallet
+			let account: T::AccountId = T::PalletId::get().into_sub_account_truncating(source);
+			match AirdropCurrencyOf::<T>::withdraw(
+				&account,
+				*amount,
+				WithdrawReasons::TRANSFER,
+				ExistenceRequirement::AllowDeath,
+			) {
+				Ok(_) => (),
+				Err(_) => {
+					// Virtual wallet has run out of funds
+					Pallet::<T>::deposit_event(Event::<T>::AirdropMintTooLarge {
+						target: target.clone().into(),
+					});
+					continue;
+				},
+			}
+
 			// Can fail if claim already exists, so those are logged.
 			match pallet_airdrop::Pallet::<T>::mint_airdrop(target.clone(), *amount, *schedule) {
 				Ok(_) => (),

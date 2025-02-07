@@ -463,10 +463,12 @@ pub mod pallet {
 					GmpEvent::ShardUnregistered(pubkey) => {
 						ShardRegistered::<T>::remove(pubkey);
 					},
-					GmpEvent::MessageReceived(msg) => {
+					GmpEvent::MessageReceived(msg)
+						if msg.dest_network.eq(&T::Networks::tc_network()) =>
+					{
 						use polkadot_sdk::sp_core::U256;
 						let msg_id = msg.message_id();
-						if msg.dest_network == 1000 && msg.bytes.len() == 96 {
+						if msg.bytes.len() == 96 {
 							let mut recipient = time_primitives::Address::default();
 							recipient.copy_from_slice(&msg.bytes[32..64]);
 							let amount = U256::from_big_endian(&msg.bytes[64..]).low_u128();
@@ -474,6 +476,12 @@ pub mod pallet {
 						} else {
 							Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 						}
+						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+					},
+					GmpEvent::MessageReceived(msg) => {
+						let msg_id = msg.message_id();
+						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
 						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
 						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
 					},

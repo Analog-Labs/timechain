@@ -95,6 +95,8 @@ pub const SS58_PREFIX: u16 = 12851;
 #[cfg(feature = "develop")]
 pub const SS58_PREFIX: u16 = 42;
 
+pub const DEFAULT_TC_NETWORK_ID: NetworkId = 1000;
+
 /// Helper to format address with correct prefix
 pub fn format_address(account: &AccountId) -> String {
 	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS58_PREFIX))
@@ -140,6 +142,9 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait NetworksInterface {
+	fn tc_network() -> NetworkId {
+		DEFAULT_TC_NETWORK_ID
+	}
 	fn get_networks() -> Vec<NetworkId>;
 	fn gateway(network: NetworkId) -> Option<Address>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;

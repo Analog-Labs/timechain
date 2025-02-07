@@ -1,6 +1,5 @@
 use anyhow::Result;
 use slack_morphism::prelude::*;
-use std::cell::OnceCell;
 
 #[derive(Default)]
 pub struct Sender {
@@ -22,7 +21,7 @@ impl Sender {
 	pub async fn text(&self, text: String) -> Result<()> {
 		println!("{text}");
 		if let Some(slack) = self.slack.as_ref() {
-			slack.post_message(text).await?;
+			slack.post_message(None, SlackMessageContent::new().with_text(text)).await?;
 		}
 		Ok(())
 	}
@@ -30,7 +29,7 @@ impl Sender {
 	pub async fn csv(&self, title: &str, csv: Vec<u8>) -> Result<()> {
 		println!("{}", csv_to_table::from_reader(&mut &csv[..])?);
 		if let Some(slack) = self.slack.as_ref() {
-			slack.upload_file("text/csv".into(), format!("{title}.csv"), csv).await?;
+			slack.post_table(None, title.into(), csv).await?;
 		}
 		Ok(())
 	}
@@ -39,7 +38,15 @@ impl Sender {
 		let logs: String = logs.join("\n");
 		println!("{logs}");
 		if let Some(slack) = self.slack.as_ref() {
-			slack.post_message(format!("```{logs}```")).await?;
+			let text = SlackBlockMarkDownText::new(format!("```{logs}```"));
+			slack
+				.post_message(
+					None,
+					SlackMessageContent::new().with_blocks(vec![SlackBlock::Section(
+						SlackSectionBlock::new().with_text(text.into()),
+					)]),
+				)
+				.await?;
 		}
 		Ok(())
 	}
@@ -49,7 +56,7 @@ struct Slack {
 	client: SlackHyperClient,
 	token: SlackApiToken,
 	channel: SlackChannelId,
-	thread: OnceCell<SlackTs>,
+	thread: SlackTs,
 }
 
 impl Slack {
@@ -59,10 +66,8 @@ impl Slack {
 		let token = SlackApiToken::new(token_value);
 		let channel = std::env::var("SLACK_CHANNEL_ID")?;
 		let channel = SlackChannelId::new(channel);
-		let thread = OnceCell::new();
-		if let Ok(ts) = std::env::var("SLACK_THREAD_TS") {
-			thread.set(SlackTs::new(ts)).ok();
-		}
+		let thread = std::env::var("SLACK_THREAD_TS")?;
+		let thread = SlackTs::new(thread);
 		rustls::crypto::ring::default_provider()
 			.install_default()
 			.expect("Failed to install rustls crypto provider");
@@ -70,33 +75,50 @@ impl Slack {
 		Ok(Self { client, token, channel, thread })
 	}
 
-	pub async fn post_message(&self, message: String) -> Result<()> {
+	pub async fn post_message(
+		&self,
+		id: Option<SlackTs>,
+		msg: SlackMessageContent,
+	) -> Result<SlackTs> {
 		let session = self.client.open_session(&self.token);
-		let mut req = SlackApiChatPostMessageRequest::new(
-			self.channel.clone(),
-			SlackMessageContent::new().with_text(message),
-		);
-		req.mopt_thread_ts(self.thread.get().cloned());
-		let resp = session.chat_post_message(&req).await?;
-		self.thread.set(resp.ts).ok();
-		Ok(())
+		if let Some(id) = id {
+			let req = SlackApiChatUpdateRequest::new(self.channel.clone(), msg, id.clone());
+			session.chat_update(&req).await?;
+			Ok(id)
+		} else {
+			let req = SlackApiChatPostMessageRequest::new(self.channel.clone(), msg)
+				.with_thread_ts(self.thread.clone());
+			let resp = session.chat_post_message(&req).await?;
+			Ok(resp.ts)
+		}
 	}
 
-	pub async fn upload_file(&self, mime: String, name: String, content: Vec<u8>) -> Result<()> {
+	pub async fn post_table(
+		&self,
+		id: Option<SlackFileId>,
+		name: String,
+		content: Vec<u8>,
+	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
 
 		let req = SlackApiFilesGetUploadUrlExternalRequest::new(name, content.len());
 		let resp = session.get_upload_url_external(&req).await?;
 
-		let req = SlackApiFilesUploadViaUrlRequest::new(resp.upload_url, content, mime);
+		let req =
+			SlackApiFilesUploadViaUrlRequest::new(resp.upload_url, content, "text/csv".into());
 		session.files_upload_via_url(&req).await?;
 
+		if let Some(id) = id {
+			let req = SlackApiFilesDeleteRequest::new(id);
+			session.files_delete(&req).await?;
+		}
 		let req =
 			SlackApiFilesCompleteUploadExternalRequest::new(vec![SlackApiFilesComplete::new(
 				resp.file_id,
 			)])
-			.with_channel_id(self.channel.clone());
-		session.files_complete_upload_external(&req).await?;
-		Ok(())
+			.with_channel_id(self.channel.clone())
+			.with_thread_ts(self.thread.clone());
+		let resp = session.files_complete_upload_external(&req).await?;
+		Ok(resp.files[0].id.clone())
 	}
 }

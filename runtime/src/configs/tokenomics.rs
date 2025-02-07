@@ -31,7 +31,7 @@ use crate::{
 	RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
 };
 #[cfg(feature = "testnet")]
-use crate::{AccountId, Authorship, Treasury};
+use crate::{Authorship, NegativeImbalance, Treasury};
 #[cfg(feature = "testnet")]
 use frame_support::traits::Currency;
 use time_primitives::{MICROANLOG, MILLIANLOG};
@@ -135,9 +135,6 @@ impl OnUnbalanced<NegativeImbalance> for Author {
 		}
 	}
 }
-
-#[cfg(feature = "testnet")]
-type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 pub struct DealWithFees;
 #[cfg(feature = "testnet")]

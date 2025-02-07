@@ -62,7 +62,7 @@ impl SlackState {
 							&info.commit[..8],
 							info.command.branch(),
 							info.command.tag()
-							.map(|tag| format!("\n\n*Version*\n`{}`", tag)).unwrap_or_default()
+							.map(|tag| format!("\n\n*Version*\n`{}`", &tag[..8])).unwrap_or_default()
 						))
 						.into(),
 					],

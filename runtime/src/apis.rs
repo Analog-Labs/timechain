@@ -44,8 +44,11 @@ use crate::RuntimeGenesisConfig;
 use crate::{Members, Networks, Shards, Staking, Tasks};
 
 // HASHI Bridge
+#[cfg(feature = "testnet")]
 use crate::configs::bridge::NetworkId as BridgeNetworkId;
+#[cfg(feature = "testnet")]
 use crate::EthBridge;
+#[cfg(feature = "testnet")]
 use eth_bridge::{
 	common::{AssetId as BridgeAssetId, BalancePrecision as BridgeBalancePrecision},
 	offchain::SignatureParams as BridgeSignatureParams,

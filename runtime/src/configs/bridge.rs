@@ -3,7 +3,7 @@ use polkadot_sdk::*;
 use frame_support::parameter_types;
 
 // Local module imports
-use crate::{Balances, Runtime, RuntimeCall, RuntimeEvent};
+use crate::{deposit, Balance, Balances, Runtime, RuntimeCall, RuntimeEvent};
 
 pub type NetworkId = u32;
 
@@ -32,8 +32,11 @@ impl eth_bridge::Config for Runtime {
 
 // TODO: update deposits to sensible values
 parameter_types! {
-	pub const DepositBase: u64 = 1;
-	pub const DepositFactor: u64 = 1;
+	/// Base deposit required for storing a multisig execution, covering the cost of a single storage item.
+	// One storage item; key size is 32; value is size 4+4(block number)+16(balance)+32(account ID) bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
 	pub const MaxSignatories: u16 = 100;
 }
 

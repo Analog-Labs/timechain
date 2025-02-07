@@ -154,7 +154,6 @@ pub use time_primitives::{
 	ErrorMsg, Gateway, GatewayMessage, Header, MemberStatus, MembersInterface, Moment, NetworkId,
 	NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
 	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG, MICROANLOG, MILLIANLOG,
-	SS58_PREFIX,
 };
 
 // A few exports that help ease life for downstream crates.

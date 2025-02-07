@@ -174,6 +174,7 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
+	time_primitives::init_ss58_version();
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
 		std::process::exit(1);

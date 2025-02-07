@@ -30,6 +30,7 @@ impl eth_bridge::Config for Runtime {
 	type AdminOrigin = ChronicleAdmin;
 }
 
+// TODO: update deposits to sensible values
 parameter_types! {
 	pub const DepositBase: u64 = 1;
 	pub const DepositFactor: u64 = 1;
@@ -43,5 +44,5 @@ impl bridge_multisig::Config for Runtime {
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
-	type WeightInfo = ();
+	type WeightInfo = bridge_multisig::weights::SubstrateWeight<Runtime>;
 }

@@ -69,7 +69,9 @@ impl MockClient {
 			hash: H256::random(),
 			extrinsics: vec![],
 		};
-		tx_hash.map(|hash| block.extrinsics.push(MockExtrinsic::new(hash)));
+		if let Some(hash) = tx_hash {
+			block.extrinsics.push(MockExtrinsic::new(hash));
+		}
 		self.push_best_block(&block).await;
 		self.push_finalized_block(&block).await;
 	}

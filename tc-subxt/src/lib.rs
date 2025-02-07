@@ -16,6 +16,7 @@ use timechain_client::{IExtrinsic, TimechainExtrinsic, TimechainOnlineClient};
 use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
 
 mod api;
+mod db;
 pub mod metadata;
 pub mod timechain_client;
 pub mod worker;

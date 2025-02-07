@@ -1,5 +1,6 @@
 mod mock_client;
 
+use std::collections::VecDeque;
 use std::{str::FromStr, time::Duration};
 
 use futures::channel::oneshot;
@@ -46,14 +47,44 @@ async fn test_transaction_mortality_outage_flow() {
 	assert_eq!(hashes[0], tx.hash);
 }
 
+#[tokio::test]
+#[ignore]
+// not working tbf
+async fn test_transaction_mortality_outage_flow_100() {
+	let total_tasks: usize = 100;
+	let (client, tx_sender) = new_env().await;
+	let mut receivers = VecDeque::new();
+	// init 100 transactions
+	for _ in 0..total_tasks {
+		let (tx, rx) = oneshot::channel();
+		tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+		receivers.push_back(rx);
+	}
+	let hashes = wait_for_submission(&client, total_tasks).await;
+	assert!(hashes.len() == total_tasks);
+	client.inc_empty_blocks(MORTALITY / 2).await;
+	tokio::time::sleep(Duration::from_millis(100)).await;
+	client.inc_empty_blocks(MORTALITY / 2).await;
+	tokio::time::sleep(Duration::from_millis(100)).await;
+	client.inc_empty_blocks(1).await;
+	let hashes = wait_for_submission(&client, total_tasks + total_tasks).await;
+	assert_eq!(hashes[0], hashes[total_tasks + 1]);
+	client.inc_block(Some(hashes[0])).await;
+	let rx = receivers.pop_back().unwrap();
+	let tx = rx.await.unwrap();
+	tracing::info!("hashes lenght: {}", hashes.len());
+	assert_eq!(*hashes.last().unwrap(), tx.hash);
+}
+
 /////////////////////////////////////////////
 /// Utils
 ////////////////////////////////////////////
-async fn wait_for_submission(client: &MockClient, len: u8) -> Vec<H256> {
+async fn wait_for_submission(client: &MockClient, len: usize) -> Vec<H256> {
 	loop {
 		{
 			let submitted = client.submitted_transactions().await;
-			if submitted.len() >= len.into() {
+			tracing::info!("Submitted hashes length: {}", submitted.len());
+			if submitted.len() >= len {
 				return submitted;
 			}
 		}

@@ -1,3 +1,4 @@
+use crate::db::TransactionsDB;
 use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{
 	ExtrinsicDetails, ExtrinsicParams, LegacyRpcMethods, OnlineClient, SubmittableExtrinsic,
@@ -14,15 +15,16 @@ use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
-	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
+	serde_proof_of_knowledge, traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network,
+	NetworkConfig, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
+pub const DB_PATH: &str = "cached_tx.redb";
 pub const MORTALITY: u8 = 32;
 type TransactionFuture = Pin<Box<dyn Future<Output = Result<H256>> + Send>>;
 type TransactionsUnordered = FuturesUnordered<TransactionFuture>;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Tx {
 	// system
 	SetCode {
@@ -59,6 +61,7 @@ pub enum Tx {
 	Commitment {
 		shard_id: ShardId,
 		commitment: Commitment,
+		#[serde(with = "serde_proof_of_knowledge")]
 		proof_of_knowledge: ProofOfKnowledge,
 	},
 	Ready {
@@ -78,16 +81,17 @@ pub enum Tx {
 	},
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct TxData {
+	pub hash: H256,
 	transaction: Tx,
 	era: u64,
-	hash: H256,
 	nonce: u64,
 }
 
 pub struct TxStatus<C: ITimechainClient> {
 	data: TxData,
-	event_sender: oneshot::Sender<<C::Block as IBlock>::Extrinsic>,
+	event_sender: Option<oneshot::Sender<<C::Block as IBlock>::Extrinsic>>,
 	best_block: Option<u64>,
 }
 
@@ -101,6 +105,7 @@ where
 	latest_block: BlockDetail,
 	pending_tx: VecDeque<TxStatus<C>>,
 	transaction_pool: TransactionsUnordered,
+	db: TransactionsDB,
 }
 
 impl<C> SubxtWorker<C>
@@ -110,17 +115,30 @@ where
 	C::Block: IBlock + Send + Sync + 'static,
 {
 	pub async fn new(nonce: u64, client: C, keypair: Keypair) -> Result<Self> {
-		let block = client.get_latest_block().await?;
-		let tx_pool = FuturesUnordered::new();
-		// adding a never ending future to avoid tx_pool flood of None in select! loop
-		tx_pool.push(futures::future::pending().boxed());
+		let latest_block = client.get_latest_block().await?;
+		let transaction_pool = FuturesUnordered::new();
+		transaction_pool.push(futures::future::pending().boxed());
+
+		let db = TransactionsDB::new(DB_PATH, keypair.public_key().0)?;
+		let txs_data = db.load_pending_txs()?;
+		let pending_tx: VecDeque<TxStatus<C>> = txs_data
+			.into_iter()
+			.filter_map(|tx_data| {
+				(tx_data.nonce >= nonce).then(|| TxStatus {
+					data: tx_data,
+					event_sender: None,
+					best_block: None,
+				})
+			})
+			.collect();
 		Ok(Self {
 			client,
 			keypair,
 			nonce,
-			latest_block: block,
-			pending_tx: Default::default(),
-			transaction_pool: tx_pool,
+			latest_block,
+			pending_tx,
+			transaction_pool,
+			db,
 		})
 	}
 
@@ -250,7 +268,7 @@ where
 	fn add_tx_to_pool(
 		&mut self,
 		transaction: Tx,
-		sender: oneshot::Sender<<C::Block as IBlock>::Extrinsic>,
+		event_sender: Option<oneshot::Sender<<C::Block as IBlock>::Extrinsic>>,
 		nonce: Option<u64>,
 	) {
 		let mut is_new_tx = true;
@@ -276,9 +294,14 @@ where
 				hash,
 				nonce,
 			},
-			event_sender: sender,
+			event_sender,
 			best_block: None,
 		};
+
+		if let Err(e) = self.db.store_tx(&tx_status.data) {
+			tracing::error!("Unable to add transaction into cache: {e}");
+		};
+
 		if is_new_tx {
 			self.pending_tx.push_back(tx_status);
 			self.nonce += 1;
@@ -303,7 +326,7 @@ where
 					tx = rx.next().fuse() => {
 						let Some((command, channel)) = tx else { continue; };
 						tracing::info!("worker.rs tx added to pool");
-						self.add_tx_to_pool(command, channel, None);
+						self.add_tx_to_pool(command, Some(channel), None);
 					}
 					block_data = finalized_blocks.next().fuse() => {
 						tracing::info!("worker.rs finlaized block stream hit");
@@ -325,16 +348,20 @@ where
 						for extrinsic in extrinsics.into_iter() {
 							let extrinsic_hash = extrinsic.hash();
 							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
-								tracing::info!("tx found in finalied queue");
+								tracing::info!("tx found in finalized queue");
 								let Some(tx) = self.pending_tx.pop_front() else {
 									continue;
 								};
-								tx.event_sender.send(extrinsic).ok();
+								if let Some(sender) = tx.event_sender {
+									sender.send(extrinsic).ok();
+								}
+								if let Err(e) = self.db.remove_tx(tx.data.hash){
+									tracing::error!("Unable to remove tx from db {e}");
+								};
 							}
 						}
 					}
 					block_data = best_blocks.next().fuse() => {
-						tracing::info!("worker.rs best block stream hit");
 						let Some(block_res) = block_data else {
 							tracing::error!("Latest block stream terminated");
 							tokio::time::sleep(Duration::from_secs(1)).await;
@@ -350,6 +377,7 @@ where
 							number: block.number(),
 							hash: block.hash()
 						};
+						tracing::info!("worker.rs best block stream hit: {}", self.latest_block.number);
 
 						if self.pending_tx.is_empty() {
 							continue;

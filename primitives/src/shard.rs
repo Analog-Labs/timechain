@@ -23,8 +23,83 @@ pub type TssHash = [u8; 32];
 pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
+
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
-pub struct Commitment(pub BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>);
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", serde(transparent))]
+pub struct Commitment(
+	#[cfg_attr(feature = "std", serde(with = "serde_commitment"))]
+	pub  BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>,
+);
+
+#[cfg(feature = "std")]
+pub mod serde_commitment {
+	use super::{BoundedVec, ConstU32, TssPublicKey, MAX_SHARD_SIZE};
+	use serde::{de::Error as DeError, ser::SerializeSeq, Deserialize, Deserializer, Serializer};
+
+	pub fn serialize<S>(
+		bounded_vec: &BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>,
+		serializer: S,
+	) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let vec: &Vec<TssPublicKey> = bounded_vec.as_ref();
+		let mut seq = serializer.serialize_seq(Some(vec.len()))?;
+		for key in vec {
+			seq.serialize_element(&key[..])?;
+		}
+		seq.end()
+	}
+
+	pub fn deserialize<'de, D>(
+		deserializer: D,
+	) -> Result<BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let raw_keys: Vec<Vec<u8>> = Vec::deserialize(deserializer)?;
+		let mut bounded = BoundedVec::<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>::new();
+		for raw in raw_keys {
+			if raw.len() != 33 {
+				return Err(D::Error::custom(format!(
+					"Invalid TssPublicKey length: expected 33, got {}",
+					raw.len()
+				)));
+			}
+			let key: TssPublicKey =
+				raw.try_into().map_err(|_| D::Error::custom("Conversion to [u8;33] failed"))?;
+
+			bounded
+				.try_push(key)
+				.map_err(|_| D::Error::custom("Exceeds maximum shard size"))?;
+		}
+
+		Ok(bounded)
+	}
+}
+
+#[cfg(feature = "std")]
+pub mod serde_proof_of_knowledge {
+	use super::ProofOfKnowledge;
+	use serde::de::Error;
+	use serde::{Deserialize, Deserializer, Serializer};
+
+	pub fn serialize<S>(proof: &ProofOfKnowledge, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_bytes(&proof[..])
+	}
+
+	pub fn deserialize<'de, D>(deserializer: D) -> Result<ProofOfKnowledge, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		let bytes = <Vec<u8>>::deserialize(deserializer)?;
+		ProofOfKnowledge::try_from(bytes).map_err(|_| D::Error::custom("invalid public key length"))
+	}
+}
 
 #[cfg(feature = "std")]
 pub mod serde_tss_public_key {

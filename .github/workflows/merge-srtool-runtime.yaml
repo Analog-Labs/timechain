@@ -23,6 +23,10 @@ on:
         description: "Slack thread id"
         required: false
         type: string
+      user:
+        description: "Slack user"
+        required: false
+        type: string
   push:
     branches:
       - "ci/runtime/**"
@@ -85,7 +89,7 @@ jobs:
             ${{ steps.srtool_build.outputs.wasm_compressed }}
             timechain-srtool-digest.json
   upgrade-runtime:
-    name: 'Run /upgrade-runtime on ${{ github.event.inputs.environment }} #${{ github.event.inputs.thread }}'
+    name: 'Run /upgrade-runtime on ${{ github.event.inputs.environment }} #${{ github.event.inputs.thread }} @${{ github.event.inputs.user }}'
     # Only running when manually triggered
     if: github.event_name == 'workflow_dispatch'
     environment: ${{ github.event.inputs.environment }}

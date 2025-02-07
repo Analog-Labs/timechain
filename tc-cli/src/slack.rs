@@ -1,6 +1,4 @@
 use anyhow::Result;
-use crossterm::cursor::{RestorePosition, SavePosition};
-use crossterm::ExecutableCommand;
 use slack_morphism::prelude::*;
 
 #[derive(Default)]
@@ -44,9 +42,9 @@ impl Sender {
 
 	fn println(&self, restore: bool, text: &str) {
 		if restore {
-			std::io::stdout().execute(RestorePosition).ok();
+			print!("\x1B8");
 		}
-		std::io::stdout().execute(SavePosition).ok();
+		print!("\x1B7");
 		println!("{text}");
 	}
 

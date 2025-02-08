@@ -5596,7 +5596,6 @@ dependencies = [
  "hex",
  "reqwest",
  "rosetta-client",
- "rosetta-crypto",
  "rosetta-ethereum-backend",
  "rosetta-ethereum-types",
  "rosetta-server",

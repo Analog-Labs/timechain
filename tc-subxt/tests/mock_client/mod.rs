@@ -1,12 +1,17 @@
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::Result;
 use futures::stream::{self, BoxStream};
 use futures::StreamExt;
+use serde::Serialize;
 use subxt::{tx::Payload as TxPayload, utils::H256};
 use tc_subxt::timechain_client::{
-	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionSubmitter,
+	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
 };
+use tc_subxt::worker::TxData;
 use tc_subxt::ExtrinsicParams;
 use tokio::sync::{broadcast, Mutex};
 use tokio_stream::wrappers::BroadcastStream;
@@ -232,5 +237,29 @@ impl IExtrinsic for MockExtrinsic {
 		} else {
 			anyhow::bail!("tx is failed")
 		}
+	}
+}
+
+#[derive(Default, Clone)]
+pub struct MockDb {
+	data: std::sync::Arc<std::sync::Mutex<HashMap<[u8; 32], TxData>>>,
+}
+
+impl ITransactionDbOps for MockDb {
+	fn store_tx(&self, tx_data: &TxData) -> Result<()> {
+		self.data.lock().unwrap().insert(tx_data.hash.0, tx_data.clone());
+		Ok(())
+	}
+
+	fn remove_tx(&self, hash: H256) -> Result<()> {
+		self.data.lock().unwrap().remove(&hash.0);
+		Ok(())
+	}
+
+	fn load_pending_txs(&self) -> Result<VecDeque<TxData>> {
+		let data = self.data.lock().unwrap();
+		let mut txs: Vec<TxData> = data.values().cloned().collect();
+		txs.sort_by_key(|tx| tx.nonce);
+		Ok(txs.into())
 	}
 }

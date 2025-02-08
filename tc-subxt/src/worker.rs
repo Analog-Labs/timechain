@@ -19,7 +19,6 @@ use time_primitives::{
 	NetworkConfig, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
-pub const DB_PATH: &str = "cached_tx.redb";
 pub const MORTALITY: u8 = 32;
 type TransactionFuture = Pin<Box<dyn Future<Output = Result<H256>> + Send>>;
 type TransactionsUnordered = FuturesUnordered<TransactionFuture>;
@@ -84,9 +83,9 @@ pub enum Tx {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TxData {
 	pub hash: H256,
-	transaction: Tx,
-	era: u64,
-	nonce: u64,
+	pub era: u64,
+	pub nonce: u64,
+	pub transaction: Tx,
 }
 
 pub struct TxStatus<C: ITimechainClient> {
@@ -95,9 +94,10 @@ pub struct TxStatus<C: ITimechainClient> {
 	best_block: Option<u64>,
 }
 
-pub struct SubxtWorker<C>
+pub struct SubxtWorker<C, D>
 where
 	C: ITimechainClient + Send + Sync + 'static,
+	D: ITransactionDbOps + Send + Sync + 'static,
 {
 	client: C,
 	keypair: Keypair,
@@ -105,21 +105,21 @@ where
 	latest_block: BlockDetail,
 	pending_tx: VecDeque<TxStatus<C>>,
 	transaction_pool: TransactionsUnordered,
-	db: TransactionsDB,
+	db: D,
 }
 
-impl<C> SubxtWorker<C>
+impl<C, D> SubxtWorker<C, D>
 where
 	C: ITimechainClient + Send + Sync + 'static,
 	C::Submitter: ITransactionSubmitter + Send + Sync + 'static,
 	C::Block: IBlock + Send + Sync + 'static,
+	D: ITransactionDbOps + Send + Sync + 'static,
 {
-	pub async fn new(nonce: u64, client: C, keypair: Keypair) -> Result<Self> {
+	pub async fn new(nonce: u64, client: C, db: D, keypair: Keypair) -> Result<Self> {
 		let latest_block = client.get_latest_block().await?;
 		let transaction_pool = FuturesUnordered::new();
 		transaction_pool.push(futures::future::pending().boxed());
 
-		let db = TransactionsDB::new(DB_PATH, keypair.public_key().0)?;
 		let txs_data = db.load_pending_txs()?;
 		let pending_tx: VecDeque<TxStatus<C>> = txs_data
 			.into_iter()

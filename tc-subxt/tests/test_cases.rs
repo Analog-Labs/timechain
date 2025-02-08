@@ -4,12 +4,13 @@ use std::collections::VecDeque;
 use std::{str::FromStr, time::Duration};
 
 use futures::channel::oneshot;
-use mock_client::MockBlock;
+use mock_client::{MockBlock, MockDb};
 use std::thread;
 use subxt::utils::H256;
 pub use subxt_signer::sr25519::Keypair;
 use subxt_signer::SecretUri;
-use tc_subxt::timechain_client::IBlock;
+use tc_subxt::db::TransactionsDB;
+use tc_subxt::timechain_client::{IBlock, ITransactionDbOps};
 use tc_subxt::worker::{SubxtWorker, Tx, MORTALITY};
 use tokio::time::sleep;
 
@@ -21,28 +22,28 @@ type TxSender = futures::channel::mpsc::UnboundedSender<(
 
 #[tokio::test]
 async fn test_transaction_flow() {
-	let (client, tx_sender) = new_env().await;
+	let env = new_env().await;
 	let (tx, rx) = oneshot::channel();
-	tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
-	let hashes = wait_for_submission(&client, 1).await;
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	let hashes = wait_for_submission(&env.client, 1).await;
 	assert_eq!(hashes.len(), 1);
-	client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block(Some(hashes[0])).await;
 	let tx = rx.await.unwrap();
 	assert_eq!(hashes[0], tx.hash);
 }
 
 #[tokio::test]
 async fn test_transaction_mortality_outage_flow() {
-	let (client, tx_sender) = new_env().await;
+	let env = new_env().await;
 	let (tx, rx) = oneshot::channel();
-	tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
-	wait_for_submission(&client, 1).await;
-	client.inc_empty_blocks(MORTALITY + 1).await;
-	let hashes = wait_for_submission(&client, 2).await;
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	wait_for_submission(&env.client, 1).await;
+	env.client.inc_empty_blocks(MORTALITY + 1).await;
+	let hashes = wait_for_submission(&env.client, 2).await;
 	assert_eq!(hashes.len(), 2);
 	// one received in initial execution then again received from mortality outage
 	assert_eq!(hashes[0], hashes[1]);
-	client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block(Some(hashes[0])).await;
 	let tx = rx.await.unwrap();
 	assert_eq!(hashes[0], tx.hash);
 }
@@ -52,28 +53,41 @@ async fn test_transaction_mortality_outage_flow() {
 // not working tbf
 async fn test_transaction_mortality_outage_flow_100() {
 	let total_tasks: usize = 100;
-	let (client, tx_sender) = new_env().await;
+	let env = new_env().await;
 	let mut receivers = VecDeque::new();
 	// init 100 transactions
 	for _ in 0..total_tasks {
 		let (tx, rx) = oneshot::channel();
-		tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+		env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
 		receivers.push_back(rx);
 	}
-	let hashes = wait_for_submission(&client, total_tasks).await;
+	let hashes = wait_for_submission(&env.client, total_tasks).await;
 	assert!(hashes.len() == total_tasks);
-	client.inc_empty_blocks(MORTALITY / 2).await;
+	env.client.inc_empty_blocks(MORTALITY / 2).await;
 	tokio::time::sleep(Duration::from_millis(100)).await;
-	client.inc_empty_blocks(MORTALITY / 2).await;
+	env.client.inc_empty_blocks(MORTALITY / 2).await;
 	tokio::time::sleep(Duration::from_millis(100)).await;
-	client.inc_empty_blocks(1).await;
-	let hashes = wait_for_submission(&client, total_tasks + total_tasks).await;
+	env.client.inc_empty_blocks(1).await;
+	let hashes = wait_for_submission(&env.client, total_tasks + total_tasks).await;
 	assert_eq!(hashes[0], hashes[total_tasks + 1]);
-	client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block(Some(hashes[0])).await;
 	let rx = receivers.pop_back().unwrap();
 	let tx = rx.await.unwrap();
 	tracing::info!("hashes lenght: {}", hashes.len());
 	assert_eq!(*hashes.last().unwrap(), tx.hash);
+}
+
+async fn test_chronicle_restart_tx_recover() {
+	let total_tasks: usize = 100;
+	let env = new_env().await;
+	let (tx, rx) = oneshot::channel();
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	let hashes = wait_for_submission(&env.client, total_tasks).await;
+	assert!(hashes.len() == 1);
+	// check db insertion
+	let txs = env.db.load_pending_txs().unwrap();
+	assert!(txs.len() == 1);
+	assert_eq!(txs[0].hash, hashes[0]);
 }
 
 /////////////////////////////////////////////
@@ -93,15 +107,26 @@ async fn wait_for_submission(client: &MockClient, len: usize) -> Vec<H256> {
 	}
 }
 
+fn get_keypair() -> Keypair {
+	let uri = SecretUri::from_str("//Alice").unwrap();
+	Keypair::from_uri(&uri).unwrap()
+}
+
 /////////////////////////////////////////////
 /// ENV setup
 ////////////////////////////////////////////
-async fn new_env() -> (MockClient, TxSender) {
+
+struct TestingEnv {
+	client: MockClient,
+	tx_sender: TxSender,
+	db: MockDb,
+}
+async fn new_env() -> TestingEnv {
 	env_logger::try_init().ok();
 	let mock_client = MockClient::new();
-	let uri = SecretUri::from_str("//Alice").unwrap();
-	let keypair = Keypair::from_uri(&uri).unwrap();
-	let worker = SubxtWorker::new(0, mock_client.clone(), keypair).await.unwrap();
+	let keypair = get_keypair();
+	let db = MockDb::default();
+	let worker = SubxtWorker::new(0, mock_client.clone(), db.clone(), keypair).await.unwrap();
 	let (tx_sender_tx, tx_sender_rx) = oneshot::channel::<TxSender>();
 
 	// spawning into_sender in seperate thread because into_sender goes into busy waiting which blocks every other operation in testing.
@@ -126,5 +151,10 @@ async fn new_env() -> (MockClient, TxSender) {
 		tracing::info!("Waiting on subscriptions..");
 		sleep(Duration::from_millis(500)).await;
 	}
-	(mock_client, tx_sender)
+
+	TestingEnv {
+		client: mock_client,
+		tx_sender,
+		db,
+	}
 }

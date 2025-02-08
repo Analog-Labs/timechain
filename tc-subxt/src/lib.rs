@@ -1,6 +1,7 @@
 #![allow(clippy::missing_transmute_annotations)]
 use crate::worker::{SubxtWorker, Tx};
 use anyhow::{Context, Result};
+use db::TransactionsDB;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::BoxStream;
 use std::future::Future;
@@ -16,7 +17,7 @@ use timechain_client::{IExtrinsic, TimechainExtrinsic, TimechainOnlineClient};
 use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
 
 mod api;
-mod db;
+pub mod db;
 pub mod metadata;
 pub mod timechain_client;
 pub mod worker;
@@ -24,6 +25,7 @@ pub mod worker;
 use metadata::technical_committee::events as CommitteeEvent;
 
 pub use subxt_signer::sr25519::Keypair;
+pub const DB_PATH: &str = "cached_tx.redb";
 
 pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;
 pub type LegacyRpcMethods = subxt::backend::legacy::LegacyRpcMethods<subxt::PolkadotConfig>;
@@ -50,7 +52,8 @@ impl SubxtClient {
 		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
 		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
 		let timechain_client = TimechainOnlineClient::new(client.clone(), keypair.clone());
-		let worker = SubxtWorker::new(nonce, timechain_client, keypair).await?;
+		let db = TransactionsDB::new(DB_PATH, keypair.public_key().0)?;
+		let worker = SubxtWorker::new(nonce, timechain_client, db, keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);

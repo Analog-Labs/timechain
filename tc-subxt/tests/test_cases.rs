@@ -77,17 +77,22 @@ async fn test_transaction_mortality_outage_flow_100() {
 	assert_eq!(*hashes.last().unwrap(), tx.hash);
 }
 
-async fn test_chronicle_restart_tx_recover() {
-	let total_tasks: usize = 100;
+// test add tx to db
+#[tokio::test]
+async fn test_tc_subxt_db_ops() {
 	let env = new_env().await;
 	let (tx, rx) = oneshot::channel();
 	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
-	let hashes = wait_for_submission(&env.client, total_tasks).await;
+	let hashes = wait_for_submission(&env.client, 1).await;
 	assert!(hashes.len() == 1);
 	// check db insertion
 	let txs = env.db.load_pending_txs().unwrap();
 	assert!(txs.len() == 1);
 	assert_eq!(txs[0].hash, hashes[0]);
+	env.client.inc_block(Some(hashes[0])).await;
+	let tx = rx.await.unwrap();
+	let txs = env.db.load_pending_txs().unwrap();
+	assert!(txs.len() == 0);
 }
 
 /////////////////////////////////////////////

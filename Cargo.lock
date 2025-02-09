@@ -17121,7 +17121,7 @@ dependencies = [
 [[package]]
 name = "slack-morphism"
 version = "2.9.0"
-source = "git+https://github.com/dvc94ch/slack-morphism-rust?branch=files-delete#f33ead88a58e1f13af007eb51a36d0be0f45386a"
+source = "git+https://github.com/abdolence/slack-morphism-rust#babc68bfed9490545d7e721a58e95d78a71fc171"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -20021,7 +20021,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "slack-morphism 2.9.0 (git+https://github.com/dvc94ch/slack-morphism-rust?branch=files-delete)",
+ "slack-morphism 2.9.0 (git+https://github.com/abdolence/slack-morphism-rust)",
  "tabled 0.16.0",
  "tc-subxt",
  "time-primitives",

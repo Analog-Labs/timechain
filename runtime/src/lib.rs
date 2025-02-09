@@ -131,6 +131,7 @@ use polkadot_sdk::*;
 
 use frame_support::{
 	parameter_types,
+	traits::Currency,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use pallet_session::historical as pallet_session_historical;
@@ -219,6 +220,10 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 	Migrations,
 >;
+
+// Useful types when handeling currency
+pub type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
+pub type PositiveImbalance = <Balances as Currency<AccountId>>::PositiveImbalance;
 
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.

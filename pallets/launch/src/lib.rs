@@ -52,7 +52,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 20;
+	pub const LAUNCH_VERSION: u16 = 21;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -86,9 +86,9 @@ pub mod pallet {
 		(13, 113_204_200 * ANLOG, Stage::Retired),
 		// Virtual Token Genesis Event
 		(14, 8_166_845_674 * ANLOG, Stage::Retired),
-		// FIXME: Minting stopped here: Toke ledger should check virtual wallets, not issuance.
-		// Retry failed mints in stage 11
+		// Retry failed mints in stage 9
 		(15, 6_062_296 * ANLOG, Stage::Retired),
+		// FIXME: Minting stopped here: Toke ledger should check virtual wallets, not issuance.
 		// Airdrop Snapshot 4
 		(16, 1_336_147_462_613_682_971, Stage::Retired),
 		// Airdrop Move 2
@@ -96,15 +96,20 @@ pub mod pallet {
 		// Prelaunch Deposit 4
 		(18, 3_636_364 * ANLOG, Stage::Retired),
 		// Bootstaking Month 1
+		(19, 60_386_473 * ANLOG, Stage::Retired),
+		// Provide fjord sale tokens to claims backend
+		(20, 116_163_163 * ANLOG, Stage::Retired),
+		// Testing vested transfers
 		(
-			19,
-			60_386_473 * ANLOG,
-			Stage::DepositFromVirtual(b"initiatives", data::v19::DEPOSIT_REWARD_POOL),
+			21,
+			45_289_855 * ANLOG,
+			Stage::DepositFromVirtual(b"team", data::v21::VESTED_TRANSFER_TEST),
 		),
+		// Launch transfers
 		(
-			20,
-			116_163_163 * ANLOG,
-			Stage::DepositFromVirtual(b"ecosystem", data::v20::DEPOSIT_FJORD_SALE),
+			22,
+			29_870_602 * ANLOG,
+			Stage::DepositFromVirtual(b"ecosystem", data::v22::DEPOSITS_LAUNCH),
 		),
 	];
 

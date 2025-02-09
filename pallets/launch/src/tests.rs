@@ -8,7 +8,7 @@ use polkadot_sdk::frame_support::traits::StorageVersion;
 use time_primitives::ANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 18;
+const ON_CHAIN_STAGE: u16 = 20;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 

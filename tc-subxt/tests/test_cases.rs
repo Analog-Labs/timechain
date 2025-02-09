@@ -4,12 +4,11 @@ use std::collections::VecDeque;
 use std::{str::FromStr, time::Duration};
 
 use futures::channel::oneshot;
-use mock_client::{MockBlock, MockDb};
+use mock_client::{compute_tx_hash, MockBlock, MockDb};
 use std::thread;
 use subxt::utils::H256;
 pub use subxt_signer::sr25519::Keypair;
 use subxt_signer::SecretUri;
-use tc_subxt::db::TransactionsDB;
 use tc_subxt::timechain_client::{IBlock, ITransactionDbOps};
 use tc_subxt::worker::{SubxtWorker, Tx, MORTALITY};
 use tokio::time::sleep;
@@ -27,9 +26,32 @@ async fn test_transaction_flow() {
 	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
 	let hashes = wait_for_submission(&env.client, 1).await;
 	assert_eq!(hashes.len(), 1);
-	env.client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block_with_tx(hashes[0], true).await;
 	let tx = rx.await.unwrap();
 	assert_eq!(hashes[0], tx.hash);
+}
+
+// test tx failing and next tx being processed.
+#[tokio::test]
+async fn test_transaction_flow_with_error() {
+	let mut env = new_env().await;
+	let first_tx_hash = compute_tx_hash(0);
+	env.client.failing_transactions(&first_tx_hash).await;
+
+	let (tx, rx) = oneshot::channel();
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	let hashes = wait_for_submission(&env.client, 1).await;
+	assert_eq!(hashes.len(), 1);
+	env.client.inc_block_with_tx(hashes[0], false).await;
+
+	let (tx1, rx2) = oneshot::channel();
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 1 }, tx1)).unwrap();
+	let hashes = wait_for_submission(&env.client, 2).await;
+	assert_eq!(hashes.len(), 2);
+	env.client.inc_block_with_tx(hashes[1], true).await;
+
+	let tx = rx2.await.unwrap();
+	assert_eq!(hashes[1], tx.hash);
 }
 
 #[tokio::test]
@@ -43,7 +65,7 @@ async fn test_transaction_mortality_outage_flow() {
 	assert_eq!(hashes.len(), 2);
 	// one received in initial execution then again received from mortality outage
 	assert_eq!(hashes[0], hashes[1]);
-	env.client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block_with_tx(hashes[0], true).await;
 	let tx = rx.await.unwrap();
 	assert_eq!(hashes[0], tx.hash);
 }
@@ -70,7 +92,7 @@ async fn test_transaction_mortality_outage_flow_100() {
 	env.client.inc_empty_blocks(1).await;
 	let hashes = wait_for_submission(&env.client, total_tasks + total_tasks).await;
 	assert_eq!(hashes[0], hashes[total_tasks + 1]);
-	env.client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block_with_tx(hashes[0], true).await;
 	let rx = receivers.pop_back().unwrap();
 	let tx = rx.await.unwrap();
 	tracing::info!("hashes lenght: {}", hashes.len());
@@ -86,14 +108,17 @@ async fn test_tc_subxt_db_ops() {
 	let hashes = wait_for_submission(&env.client, 1).await;
 	assert!(hashes.len() == 1);
 	// check db insertion
-	let txs = env.db.load_pending_txs().unwrap();
+	let txs = env.db.load_pending_txs(0).unwrap();
 	assert!(txs.len() == 1);
 	assert_eq!(txs[0].hash, hashes[0]);
-	env.client.inc_block(Some(hashes[0])).await;
+	env.client.inc_block_with_tx(hashes[0], true).await;
 	let tx = rx.await.unwrap();
-	let txs = env.db.load_pending_txs().unwrap();
+	let txs = env.db.load_pending_txs(0).unwrap();
 	assert!(txs.len() == 0);
 }
+
+// TODO add stream implementation
+// Add test to check stream in case of errors.
 
 /////////////////////////////////////////////
 /// Utils

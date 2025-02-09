@@ -1,5 +1,5 @@
 use anyhow::Result;
-use redb::{Database, TableDefinition};
+use redb::{Database, ReadableTable, TableDefinition};
 use std::collections::VecDeque;
 use subxt::utils::H256;
 
@@ -56,22 +56,38 @@ impl ITransactionDbOps for TransactionsDB {
 		Ok(())
 	}
 
-	fn load_pending_txs(&self) -> Result<VecDeque<TxData>> {
-		let read_tx = self.db.begin_read()?;
-		let table = read_tx.open_table(TX_TABLE)?;
-
-		let mut lower_bound = [0u8; 64];
-		lower_bound[..32].copy_from_slice(&self.public_key);
-
-		let mut upper_bound = [0xffu8; 64];
-		upper_bound[..32].copy_from_slice(&self.public_key);
-
+	fn load_pending_txs(&self, nonce: u64) -> Result<VecDeque<TxData>> {
+		let write_tx = self.db.begin_write()?;
 		let mut pending_txs = Vec::new();
-		for entry in table.range(lower_bound..=upper_bound)? {
-			let (_, value) = entry?;
-			let tx_data: TxData = bincode::deserialize(value.value())?;
-			pending_txs.push(tx_data);
+
+		// Use a scope to contain the table borrow
+		{
+			let mut table = write_tx.open_table(TX_TABLE)?;
+			let mut delete_keys = Vec::new();
+
+			let mut lower_bound = [0u8; 64];
+			lower_bound[..32].copy_from_slice(&self.public_key);
+			let mut upper_bound = [0xffu8; 64];
+			upper_bound[..32].copy_from_slice(&self.public_key);
+
+			for entry in table.range(lower_bound..=upper_bound)? {
+				let (key, value) = entry?;
+				let tx_data: TxData = bincode::deserialize(value.value())?;
+
+				if tx_data.nonce < nonce {
+					let key_bytes: [u8; 64] = key.value();
+					delete_keys.push(key_bytes);
+				} else {
+					pending_txs.push(tx_data);
+				}
+			}
+
+			for key_bytes in delete_keys {
+				table.remove(&key_bytes)?;
+			}
 		}
+
+		write_tx.commit()?;
 
 		pending_txs.sort_by_key(|tx| tx.nonce);
 		Ok(pending_txs.into())

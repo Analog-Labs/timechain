@@ -60,7 +60,7 @@ pub trait IExtrinsic: Send + Sync {
 pub trait ITransactionDbOps: Send + Sync {
 	fn store_tx(&self, tx_data: &TxData) -> Result<()>;
 	fn remove_tx(&self, hash: H256) -> Result<()>;
-	fn load_pending_txs(&self) -> Result<VecDeque<TxData>>;
+	fn load_pending_txs(&self, nonce: u64) -> Result<VecDeque<TxData>>;
 }
 
 pub struct TimechainOnlineClient {

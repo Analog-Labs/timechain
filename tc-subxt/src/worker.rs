@@ -1,4 +1,3 @@
-use crate::db::TransactionsDB;
 use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{
 	ExtrinsicDetails, ExtrinsicParams, LegacyRpcMethods, OnlineClient, SubmittableExtrinsic,
@@ -120,7 +119,7 @@ where
 		let transaction_pool = FuturesUnordered::new();
 		transaction_pool.push(futures::future::pending().boxed());
 
-		let txs_data = db.load_pending_txs()?;
+		let txs_data = db.load_pending_txs(nonce)?;
 		let pending_tx: VecDeque<TxStatus<C>> = txs_data
 			.into_iter()
 			.filter_map(|tx_data| {
@@ -318,6 +317,7 @@ where
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			tracing::info!("starting subxt worker");
+			// TODO implement stream reconnection.
 			let mut update_stream = self.client.runtime_updates().await.unwrap().boxed();
 			let mut finalized_blocks = self.client.finalized_block_stream().await.unwrap().boxed();
 			let mut best_blocks = self.client.best_block_stream().await.unwrap().boxed();
@@ -348,7 +348,6 @@ where
 						for extrinsic in extrinsics.into_iter() {
 							let extrinsic_hash = extrinsic.hash();
 							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
-								tracing::info!("tx found in finalized queue");
 								let Some(tx) = self.pending_tx.pop_front() else {
 									continue;
 								};

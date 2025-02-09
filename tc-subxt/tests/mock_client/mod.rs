@@ -1,12 +1,9 @@
-use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::Result;
 use futures::stream::{self, BoxStream};
 use futures::StreamExt;
-use serde::Serialize;
 use subxt::{tx::Payload as TxPayload, utils::H256};
 use tc_subxt::timechain_client::{
 	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
@@ -21,6 +18,7 @@ pub struct MockClient {
 	pub subscription_counter: Arc<Mutex<u8>>,
 	pub latest_block: Arc<Mutex<BlockDetail>>,
 	submitted_hashes: Arc<Mutex<Vec<H256>>>,
+	failing_hashes: Arc<Mutex<Vec<H256>>>,
 	finalized_sender: broadcast::Sender<MockBlock>,
 	best_sender: broadcast::Sender<MockBlock>,
 }
@@ -44,6 +42,7 @@ impl MockClient {
 				hash: Default::default(),
 			})),
 			submitted_hashes: Arc::new(Mutex::new(Vec::new())),
+			failing_hashes: Arc::new(Mutex::new(Vec::new())),
 		}
 	}
 
@@ -64,7 +63,7 @@ impl MockClient {
 		self.submitted_hashes.lock().await.clone()
 	}
 
-	pub async fn inc_block(&self, tx_hash: Option<H256>) {
+	pub async fn inc_block_with_tx(&self, tx_hash: H256, success: bool) {
 		let current_block = {
 			let current_block = self.latest_block.lock().await;
 			current_block.number
@@ -74,9 +73,7 @@ impl MockClient {
 			hash: H256::random(),
 			extrinsics: vec![],
 		};
-		if let Some(hash) = tx_hash {
-			block.extrinsics.push(MockExtrinsic::new(hash));
-		}
+		block.extrinsics.push(MockExtrinsic::new(tx_hash, success));
 		self.push_best_block(&block).await;
 		self.push_finalized_block(&block).await;
 	}
@@ -99,11 +96,16 @@ impl MockClient {
 		}
 		tracing::info!("Done inserting blocks");
 	}
+
+	pub async fn failing_transactions(&self, hash: &H256) {
+		self.failing_hashes.lock().await.push(*hash);
+	}
 }
 
 pub struct MockTransaction {
 	hash: H256,
 	submitted_hashes: Arc<Mutex<Vec<H256>>>,
+	failing_hashes: Arc<Mutex<Vec<H256>>>,
 }
 
 #[derive(Clone)]
@@ -120,8 +122,8 @@ pub struct MockExtrinsic {
 }
 
 impl MockExtrinsic {
-	pub fn new(hash: H256) -> Self {
-		Self { hash, is_success: true }
+	pub fn new(hash: H256, is_success: bool) -> Self {
+		Self { hash, is_success }
 	}
 }
 
@@ -150,6 +152,7 @@ impl ITimechainClient for MockClient {
 		MockTransaction {
 			hash: H256::from(bytes),
 			submitted_hashes: self.submitted_hashes.clone(),
+			failing_hashes: self.failing_hashes.clone(),
 		}
 	}
 
@@ -201,9 +204,14 @@ impl ITransactionSubmitter for MockTransaction {
 		self.hash
 	}
 	async fn submit(&self) -> Result<H256> {
+		let failing_hashes = self.failing_hashes.lock().await;
 		let mut hashes = self.submitted_hashes.lock().await;
 		hashes.push(self.hash);
-		Ok(self.hash)
+		if failing_hashes.contains(&self.hash) {
+			anyhow::bail!("Tx failed")
+		} else {
+			Ok(self.hash)
+		}
 	}
 }
 
@@ -256,10 +264,16 @@ impl ITransactionDbOps for MockDb {
 		Ok(())
 	}
 
-	fn load_pending_txs(&self) -> Result<VecDeque<TxData>> {
+	fn load_pending_txs(&self, nonce: u64) -> Result<VecDeque<TxData>> {
 		let data = self.data.lock().unwrap();
 		let mut txs: Vec<TxData> = data.values().cloned().collect();
 		txs.sort_by_key(|tx| tx.nonce);
 		Ok(txs.into())
 	}
+}
+
+pub fn compute_tx_hash(index: u64) -> H256 {
+	let mut bytes = [0u8; 32];
+	bytes[24..].copy_from_slice(&index.to_le_bytes());
+	bytes.into()
 }

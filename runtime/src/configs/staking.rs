@@ -13,7 +13,7 @@ use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	//traits::tokens::imbalance::ResolveTo,
-	traits::{ConstU32, Currency, ExistenceRequirement, OnUnbalanced, WithdrawReasons},
+	traits::{ConstU32, Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
 	weights::Weight,
 	PalletId,
 };
@@ -31,7 +31,7 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
-	NegativeImbalance, NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength,
+	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength,
 	RuntimeBlockWeights, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session,
 	SessionsPerEra, Staking, Timestamp, TransactionPayment, VoterList, ANLOG,
 };
@@ -227,21 +227,14 @@ impl RewardPool {
 impl OnUnbalanced<PositiveImbalance> for RewardPool {
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
 	fn on_nonzero_unbalanced(imbalance: PositiveImbalance) {
-		let _ = Balances::settle(
+		if let Err(to_mint) = Balances::settle(
 			&Self::account_id(),
 			imbalance,
 			WithdrawReasons::TRANSFER,
 			ExistenceRequirement::AllowDeath,
-		);
-	}
-}
-
-/// Additional wrapper around reward pool to return funds
-pub struct ToRewardPool;
-impl OnUnbalanced<NegativeImbalance> for ToRewardPool {
-	/// Return unspent reward to reward pool
-	fn on_nonzero_unbalanced(imbalance: NegativeImbalance) {
-		Balances::resolve_creating(&RewardPool::account_id(), imbalance);
+		) {
+			log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
+		}
 	}
 }
 
@@ -300,7 +293,7 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = ToRewardPool;
+	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = (); //Treasury; // send the slashed funds to the treasury.
 	/// Pay rewards from reward pool, otherwise mint them.

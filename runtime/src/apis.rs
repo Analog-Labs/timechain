@@ -54,7 +54,6 @@ use eth_bridge::{
 		RequestStatus as BridgeRequestStatus,
 	},
 };
-#[cfg(feature = "testnet")]
 use sp_runtime::DispatchError;
 
 // Original Author: ntn-x2 @ KILTprotocol

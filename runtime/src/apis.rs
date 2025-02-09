@@ -377,6 +377,7 @@ impl_runtime_apis! {
 		}
 	}
 
+
 	#[cfg(feature = "testnet")]
 	impl
 		eth_bridge_runtime_api::EthBridgeRuntimeApi<

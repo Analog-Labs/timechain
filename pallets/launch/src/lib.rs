@@ -52,7 +52,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 18;
+	pub const LAUNCH_VERSION: u16 = 20;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -86,6 +86,7 @@ pub mod pallet {
 		(13, 113_204_200 * ANLOG, Stage::Retired),
 		// Virtual Token Genesis Event
 		(14, 8_166_845_674 * ANLOG, Stage::Retired),
+		// FIXME: Minting stopped here: Toke ledger should check virtual wallets, not issuance.
 		// Retry failed mints in stage 11
 		(15, 6_062_296 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 4
@@ -94,6 +95,17 @@ pub mod pallet {
 		(17, 0, Stage::Retired),
 		// Prelaunch Deposit 4
 		(18, 3_636_364 * ANLOG, Stage::Retired),
+		// Bootstaking Month 1
+		(
+			19,
+			60_386_473 * ANLOG,
+			Stage::DepositFromVirtual(b"initiatives", data::v19::DEPOSIT_REWARD_POOL),
+		),
+		(
+			20,
+			116_163_163 * ANLOG,
+			Stage::DepositFromVirtual(b"ecosystem", data::v20::DEPOSIT_FJORD_SALE),
+		),
 	];
 
 	/// TODO: Difference to go to treasury:

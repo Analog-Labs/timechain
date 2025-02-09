@@ -23,6 +23,7 @@ on:
         type: choice
         options:
           - development
+          - integration
       thread:
         description: "Slack thread id"
         required: false

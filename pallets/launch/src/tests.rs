@@ -31,7 +31,8 @@ fn launch_ledger_validation() {
 
 		// Mint necessary virtual funds
 		mint_virtual(b"airdrop", 1_336_147_462_613_682_971);
-		mint_virtual(b"ecosystem", 3_636_364 * ANLOG);
+		mint_virtual(b"initiatives", 60_386_473 * ANLOG);
+		mint_virtual(b"ecosystem", 119_799_527 * ANLOG);
 
 		// Start new block to collect events
 		System::set_block_number(1);

@@ -169,6 +169,8 @@ enum Command {
 	Log {
 		#[clap(subcommand)]
 		query: Query,
+		#[arg(long, default_value = "7d")]
+		since: String,
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
@@ -420,8 +422,8 @@ async fn real_main() -> Result<()> {
 				}
 			}
 		},
-		Command::Log { query } => {
-			tc.log(query).await?;
+		Command::Log { query, since } => {
+			tc.log(query, since).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id).await?;

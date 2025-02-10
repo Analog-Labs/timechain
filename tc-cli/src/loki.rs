@@ -176,7 +176,7 @@ impl std::str::FromStr for Log {
 	}
 }
 
-pub async fn logs(query: Query) -> Result<Vec<Log>> {
+pub async fn logs(query: Query, since: String) -> Result<Vec<Log>> {
 	let query = query.to_string();
 	log::info!("{query}");
 	let env = Loki::from_env()?;
@@ -185,7 +185,7 @@ pub async fn logs(query: Query) -> Result<Vec<Log>> {
 	let req = client
 		.get(url)
 		.basic_auth(env.loki_username, Some(env.loki_password))
-		.query(&Request { query, since: "30d".into() })
+		.query(&Request { query, since })
 		.build()
 		.context("invalid request")?;
 	log::debug!("GET {}", req.url());

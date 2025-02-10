@@ -92,6 +92,9 @@ enum Command {
 	Task {
 		task: TaskId,
 	},
+	UnassignedTasks {
+		network: NetworkId,
+	},
 	AssignedTasks {
 		shard: ShardId,
 	},
@@ -166,6 +169,8 @@ enum Command {
 	Log {
 		#[clap(subcommand)]
 		query: Query,
+		#[arg(long, default_value = "7d")]
+		since: String,
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
@@ -174,6 +179,9 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
+	rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
 		std::process::exit(1);
@@ -253,6 +261,10 @@ async fn real_main() -> Result<()> {
 		Command::Task { task } => {
 			let task = tc.task(task).await?;
 			tc.print_table(None, "task", vec![task]).await?;
+		},
+		Command::UnassignedTasks { network } => {
+			let tasks = tc.unassigned_tasks(network).await?;
+			tc.print_table(None, "unassigned-tasks", tasks).await?;
 		},
 		Command::AssignedTasks { shard } => {
 			let tasks = tc.assigned_tasks(shard).await?;
@@ -410,8 +422,8 @@ async fn real_main() -> Result<()> {
 				}
 			}
 		},
-		Command::Log { query } => {
-			tc.log(query).await?;
+		Command::Log { query, since } => {
+			tc.log(query, since).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id).await?;

@@ -20,6 +20,7 @@ pub struct NetworkEntry {
 	admin_balance: String,
 	read_events: TaskId,
 	sync_status: String,
+	unassigned_tasks: u32,
 }
 
 impl IntoRow for Network {
@@ -31,12 +32,14 @@ impl IntoRow for Network {
 		let mut admin = String::new();
 		let mut admin_balance = String::new();
 		let mut read_events = 0;
+		let mut unassigned_tasks = 0;
 		let sync_status = if let Some(info) = self.info.as_ref() {
 			gateway = tc.format_address(Some(self.network), info.gateway)?;
 			gateway_balance = tc.format_balance(Some(self.network), info.gateway_balance)?;
 			admin = tc.format_address(Some(self.network), info.admin)?;
 			admin_balance = tc.format_balance(Some(self.network), info.admin_balance)?;
 			read_events = info.sync_status.task;
+			unassigned_tasks = info.unassigned_tasks;
 			format!("{} / {}", info.sync_status.sync, info.sync_status.block)
 		} else {
 			"no connector configured".to_string()
@@ -51,6 +54,7 @@ impl IntoRow for Network {
 			admin_balance,
 			read_events,
 			sync_status,
+			unassigned_tasks,
 		})
 	}
 }
@@ -320,6 +324,49 @@ impl IntoRow for MessageTrace {
 			recv: self.recv.map(task_to_string).unwrap_or_default(),
 			submit: self.submit.map(task_to_string).unwrap_or_default(),
 			exec: self.exec.map(task_to_string).unwrap_or_default(),
+		})
+	}
+}
+
+#[derive(Serialize)]
+pub struct LogEntry {
+	timestamp: String,
+	level: String,
+	msg: String,
+	location: String,
+	task_id: Option<String>,
+	shard_id: Option<String>,
+	task: Option<String>,
+	account: Option<String>,
+	target_address: Option<String>,
+	peer_id: Option<String>,
+	block: Option<String>,
+	block_hash: Option<String>,
+	target_block: Option<String>,
+	from: Option<String>,
+	to: Option<String>,
+}
+
+impl IntoRow for Log {
+	type Row = LogEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(LogEntry {
+			timestamp: self.timestamp,
+			level: self.level,
+			msg: self.msg,
+			location: self.location,
+			task_id: self.data.get("task_id").cloned(),
+			shard_id: self.data.get("shard_id").cloned(),
+			task: self.data.get("task").cloned(),
+			account: self.data.get("timechain").cloned(),
+			target_address: self.data.get("target").cloned(),
+			peer_id: self.data.get("peer_id").cloned(),
+			block: self.data.get("block").cloned(),
+			block_hash: self.data.get("block_hash").cloned(),
+			target_block: self.data.get("target_block_height").cloned(),
+			from: self.data.get("from").cloned(),
+			to: self.data.get("to").cloned(),
 		})
 	}
 }

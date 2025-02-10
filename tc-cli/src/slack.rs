@@ -33,18 +33,18 @@ impl Sender {
 		let slack = match Slack::new() {
 			Ok(slack) => Some(slack),
 			Err(err) => {
-				log::info!("not logging to slack: {err}");
+				log::debug!("not logging to slack: {err}");
 				None
 			},
 		};
 		Self { slack }
 	}
 
-	fn println(&self, restore: bool, text: &str) {
-		if restore {
+	fn println(&self, _restore: bool, text: &str) {
+		/*if restore {
 			print!("\x1B8");
 		}
-		print!("\x1B7");
+		print!("\x1B7");*/
 		println!("{text}");
 	}
 
@@ -68,25 +68,6 @@ impl Sender {
 		}
 		Ok(Default::default())
 	}
-
-	pub async fn log(&self, id: Option<TextRef>, logs: Vec<String>) -> Result<TextRef> {
-		let logs: String = logs.join("\n");
-		self.println(id.is_some(), &logs);
-		if let Some(slack) = self.slack.as_ref() {
-			let id = id.map(|id| id.slack).unwrap_or_default();
-			let text = SlackBlockMarkDownText::new(format!("```{logs}```"));
-			let ts = slack
-				.post_message(
-					id,
-					SlackMessageContent::new().with_blocks(vec![SlackBlock::Section(
-						SlackSectionBlock::new().with_text(text.into()),
-					)]),
-				)
-				.await?;
-			return Ok(ts.into());
-		}
-		Ok(Default::default())
-	}
 }
 
 struct Slack {
@@ -105,9 +86,6 @@ impl Slack {
 		let channel = SlackChannelId::new(channel);
 		let thread = std::env::var("SLACK_THREAD_TS")?;
 		let thread = SlackTs::new(thread);
-		rustls::crypto::ring::default_provider()
-			.install_default()
-			.expect("Failed to install rustls crypto provider");
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
 		Ok(Self { client, token, channel, thread })
 	}
@@ -138,7 +116,8 @@ impl Slack {
 	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
 
-		let req = SlackApiFilesGetUploadUrlExternalRequest::new(name, content.len());
+		let req =
+			SlackApiFilesGetUploadUrlExternalRequest::new(format!("{name}.csv"), content.len());
 		let resp = session.get_upload_url_external(&req).await?;
 
 		let req =

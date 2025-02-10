@@ -1,4 +1,4 @@
-use super::tss::{Tss, TssAction, VerifiableSecretSharingCommitment};
+use super::tss::{Tss, TssAction, TssPeerId, VerifiableSecretSharingCommitment};
 use crate::admin::AdminMsg;
 use crate::network::{Message, Network, PeerId, TssMessage};
 use crate::runtime::Runtime;
@@ -54,6 +54,13 @@ pub struct TimeWorker<Tx, Rx> {
 	>,
 	tss_keyshare_cache: PathBuf,
 	admin_request: mpsc::Sender<AdminMsg>,
+}
+
+fn display_peer_id(peer_id: PeerId) -> String {
+	let Ok(peer_id) = TssPeerId::new(peer_id) else {
+		return hex::encode(peer_id);
+	};
+	peer_id.to_string()
 }
 
 impl<Tx, Rx> TimeWorker<Tx, Rx>
@@ -254,9 +261,9 @@ where
 						parent: &span,
 						Level::INFO,
 						shard_id,
-						"dropping message {} from {:?}",
+						from = display_peer_id(peer_id),
+						"dropping message {}",
 						msg,
-						peer_id,
 					);
 					continue;
 				};
@@ -335,9 +342,9 @@ where
 			parent: span,
 			Level::DEBUG,
 			shard_id = message.shard_id,
-			"tx {} to {:?}",
+			to = display_peer_id(peer_id),
+			"tx {}",
 			message.payload,
-			peer_id
 		);
 		let endpoint = self.network.clone();
 		self.outgoing_requests.push(Box::pin(async move {
@@ -449,9 +456,9 @@ where
 						Level::DEBUG,
 						shard_id,
 						block,
-						"rx {} from {:?}",
+						from = display_peer_id(peer),
+						"rx {}",
 						payload,
-						peer,
 					);
 					self.messages.entry(block).or_default().push((shard_id, peer, payload));
 				},
@@ -470,8 +477,8 @@ where
 							parent: span,
 							Level::INFO,
 							shard_id,
-							"tx to {:?} network error {:?}",
-							peer,
+							to = display_peer_id(peer),
+							"tx network error {:?}",
 							error,
 						);
 					}

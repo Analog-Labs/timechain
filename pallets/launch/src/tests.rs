@@ -5,14 +5,15 @@ use crate::{
 	ledger::LaunchLedger, Config, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION,
 };
 
-use polkadot_sdk::frame_support::traits::Currency;
-use polkadot_sdk::frame_support::traits::StorageVersion;
-use polkadot_sdk::frame_support::traits::VestingSchedule;
+use polkadot_sdk::*;
 
-use time_primitives::MILLIANLOG as mANLOG;
+use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
+use sp_runtime::traits::CheckedConversion;
+
+use time_primitives::{ANLOG, MILLIANLOG as mANLOG};
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 21;
+const ON_CHAIN_STAGE: u16 = 24;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -48,8 +49,18 @@ fn launch_ledger_validation() {
 		mint_virtual(Allocation::Team, 1_669_384_055_300 * mANLOG);
 
 		mint_virtual(Allocation::Airdrop, 19_626_240_537_386_317_029);
-		mint_virtual(Allocation::Initiatives, 1_750_107_717_000 * mANLOG);
-		mint_virtual(Allocation::Ecosystem, 780_117_652_190 * mANLOG);
+		mint_virtual(Allocation::Initiatives, 1_501_013_514_500 * mANLOG);
+		mint_virtual(Allocation::Ecosystem, 708_390_838_154 * mANLOG);
+
+		Allocation::Initiatives
+			.set_locked::<Test>(BalanceOf::<Test>::checked_from(1_086_956_520 * ANLOG).unwrap());
+
+		assert_eq!(
+			<Test as Config>::VestingSchedule::vesting_balance(
+				&Allocation::Initiatives.account_id::<Test>()
+			),
+			Some(1_086_956_520 * ANLOG)
+		);
 
 		// Start new block to collect events
 		System::set_block_number(1);
@@ -62,6 +73,10 @@ fn launch_ledger_validation() {
 		// Ensure each of the migrations can be run successful
 		let _w = plan.run();
 		let events = System::read_events_for_pallet::<Event<Test>>();
+
+		for event in events.iter() {
+			println!("{event:?}");
+		}
 
 		assert_eq!(events.len(), NUM_MIGRATIONS as usize);
 		for event in events.iter() {

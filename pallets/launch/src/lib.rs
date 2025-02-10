@@ -45,14 +45,14 @@ pub mod pallet {
 	use super::*;
 	use allocation::Allocation;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
 	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
+	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 24;
+	pub const LAUNCH_VERSION: u16 = 26;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -88,7 +88,7 @@ pub mod pallet {
 		(14, Allocation::Ignore, 8_166_845_674 * ANLOG, Stage::Retired),
 		// Retry failed mints in stage 9
 		(15, Allocation::Ecosystem, 6_062_296 * ANLOG, Stage::Retired),
-		// TODO: Minting stopped here: Token ledger should check virtual wallets, not issuance.
+		// NOTE: Minting stopped here, all funds are either in virtual wallets or unclaimed airdrops
 		// Airdrop Snapshot 4
 		(16, Allocation::Airdrop, 1_336_147_462_613_682_971, Stage::Retired),
 		// Airdrop Move 2 (+ accounting for upcoming Staking Allocation)
@@ -101,26 +101,25 @@ pub mod pallet {
 		(20, Allocation::Ecosystem, 116_163_163 * ANLOG, Stage::Retired),
 		// Testing vested transfers
 		(21, Allocation::Team, 45_289_855 * ANLOG, Stage::Retired),
-		// Launch transfers
-		(
-			22,
-			Allocation::Ecosystem,
-			49_081_886_536 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v22::DEPOSITS_LAUNCH),
-		),
+		// Launchday transfers 1
+		(22, Allocation::Ecosystem, 49_081_886_536 * MILLIANLOG, Stage::Retired),
 		// OTC Preparation 1
-		(
-			23,
-			Allocation::Ecosystem,
-			22_644_927_500 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v23::DEPOSITS_OTC_ECOSYSTEM),
-		),
+		(23, Allocation::Ecosystem, 22_644_927_500 * MILLIANLOG, Stage::Retired),
 		// OTC Preparation 2
+		(24, Allocation::Initiatives, 249_094_202_500 * MILLIANLOG, Stage::Retired),
+		// OTC Preparation 3
 		(
-			24,
+			25,
 			Allocation::Initiatives,
-			249_094_202_500 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v24::DEPOSITS_OTC_INITIATIVES),
+			362_318_840 * ANLOG,
+			Stage::DepositFromUnlocked(data::v25::DEPOSITS_OTC_INITIATIVES_2),
+		),
+		// Launchday transfer 2
+		(
+			26,
+			Allocation::Ecosystem,
+			14_449_903_350 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v26::DEPOSITS_LAUNCHDAY_2),
 		),
 	];
 
@@ -213,6 +212,10 @@ pub mod pallet {
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			// Correct token schedule to supply OTC demand, 20% additional unlock.
+			Allocation::Initiatives
+				.set_locked::<T>(BalanceOf::<T>::checked_from(1_086_956_520 * ANLOG).unwrap());
+
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {

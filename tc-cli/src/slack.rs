@@ -40,7 +40,7 @@ impl Sender {
 		Self { slack }
 	}
 
-	fn println(&self, restore: bool, text: &str) {
+	fn println(&self, _restore: bool, text: &str) {
 		/*if restore {
 			print!("\x1B8");
 		}

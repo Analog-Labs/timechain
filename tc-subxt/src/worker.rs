@@ -365,6 +365,7 @@ where
 							},
 							None => {
 								tracing::error!("Finalized block stream terminated");
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 								finalized_blocks = Self::
 									create_stream_with_retry(
 										self.client.clone(),
@@ -414,8 +415,9 @@ where
 								continue;
 							},
 							None => {
-								tracing::error!("Latest block stream terminated");
-								best_blocks = Self::
+								 tracing::error!("Latest block stream terminated");
+								 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+								 best_blocks = Self::
 									create_stream_with_retry(
 										self.client.clone(),
 										|c| async move {
@@ -462,7 +464,10 @@ where
 	{
 		loop {
 			match stream_creator(client.clone()).await {
-				Ok(stream) => return stream.fuse(),
+				Ok(stream) => {
+					tracing::info!("stream created successfully returning");
+					return stream.fuse();
+				},
 				Err(e) => {
 					tracing::warn!("Couldn't create stream, retrying: {:?}", e);
 					tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

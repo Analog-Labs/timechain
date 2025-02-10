@@ -34,11 +34,11 @@ async fn test_transaction_flow() {
 // test tx failing and next tx being processed.
 #[tokio::test]
 async fn test_transaction_flow_with_error() {
-	let mut env = new_env().await;
+	let env = new_env().await;
 	let first_tx_hash = compute_tx_hash(0);
 	env.client.failing_transactions(&first_tx_hash).await;
 
-	let (tx, rx) = oneshot::channel();
+	let (tx, _) = oneshot::channel();
 	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
 	let hashes = wait_for_submission(&env.client, 1).await;
 	assert_eq!(hashes.len(), 1);
@@ -71,7 +71,6 @@ async fn test_transaction_mortality_outage_flow() {
 }
 
 #[tokio::test]
-#[ignore]
 // not working tbf
 async fn test_transaction_mortality_outage_flow_100() {
 	let total_tasks: usize = 100;
@@ -103,7 +102,7 @@ async fn test_transaction_mortality_outage_flow_100() {
 #[tokio::test]
 async fn test_tc_subxt_db_ops() {
 	let env = new_env().await;
-	let (tx, rx) = oneshot::channel();
+	let (tx, _) = oneshot::channel();
 	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
 	let hashes = wait_for_submission(&env.client, 1).await;
 	assert!(hashes.len() == 1);
@@ -112,33 +111,39 @@ async fn test_tc_subxt_db_ops() {
 	assert!(txs.len() == 1);
 	assert_eq!(txs[0].hash, hashes[0]);
 	env.client.inc_block_with_tx(hashes[0], true).await;
-	let tx = rx.await.unwrap();
 	let txs = env.db.load_pending_txs(0).unwrap();
 	assert!(txs.len() == 0);
 }
 
 // Add test to check stream in case of errors.
 #[tokio::test]
-// now working WIP.
 async fn test_finalized_stream_error_and_recovery() {
+	// basic test flow
 	let env = new_env().await;
-	// Force the stream to error.
-	env.client.set_force_stream_error(true).await;
-	sleep(Duration::from_secs(2)).await;
-	// Remove the error condition.
-	env.client.set_force_stream_error(false).await;
-	// Push a new block so that the worker’s subscription (after a retry) receives data.
-	let test_block = MockBlock {
-		number: 1,
-		hash: H256::random(),
-		extrinsics: vec![],
-	};
-	env.client.push_finalized_block(&test_block).await;
+	env.client.inc_empty_blocks(1).await;
+	let (tx, rx) = oneshot::channel();
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	let hashes = wait_for_submission(&env.client, 1).await;
+	assert_eq!(hashes.len(), 1);
+	env.client.inc_block_with_tx(hashes[0], true).await;
+	let tx = rx.await.unwrap();
+	assert_eq!(hashes[0], tx.hash);
+
+	// stream restart
 	sleep(Duration::from_secs(1)).await;
-	// Check that the worker’s subscription counter has increased.
-	// let count = *env.client.subscription_counter.lock().await;
-	// assert!(count >= 2);
-	wait_for_submission(&env.client, 1).await;
+	env.client.set_force_stream_error(true).await;
+	sleep(Duration::from_millis(100)).await;
+	env.client.set_force_stream_error(false).await;
+	env.client.inc_empty_blocks(1).await;
+
+	// adding new
+	let (tx, rx) = oneshot::channel();
+	env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
+	let hashes = wait_for_submission(&env.client, 2).await;
+	assert_eq!(hashes.len(), 2);
+	env.client.inc_block_with_tx(hashes[1], true).await;
+	let tx = rx.await.unwrap();
+	assert_eq!(hashes[1], tx.hash);
 }
 
 /////////////////////////////////////////////

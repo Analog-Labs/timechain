@@ -1,9 +1,11 @@
 use std::collections::{HashMap, VecDeque};
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use anyhow::Result;
 use futures::stream::{self, BoxStream};
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use subxt::{tx::Payload as TxPayload, utils::H256};
 use tc_subxt::timechain_client::{
 	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
@@ -20,8 +22,8 @@ pub struct MockClient {
 	submitted_hashes: Arc<Mutex<Vec<H256>>>,
 	failing_hashes: Arc<Mutex<Vec<H256>>>,
 	force_stream_error: Arc<Mutex<bool>>,
-	finalized_sender: broadcast::Sender<MockBlock>,
-	best_sender: broadcast::Sender<MockBlock>,
+	pub finalized_sender: broadcast::Sender<MockBlock>,
+	pub best_sender: broadcast::Sender<MockBlock>,
 }
 
 impl Default for MockClient {
@@ -52,8 +54,8 @@ impl MockClient {
 		self.finalized_sender.send(block.clone()).ok();
 	}
 
-	pub async fn set_force_stream_error(&self, value: bool) {
-		*self.force_stream_error.lock().await = value;
+	pub async fn set_force_stream_error(&self, flag: bool) {
+		*self.force_stream_error.lock().await = flag;
 	}
 
 	async fn push_best_block(&self, block: &MockBlock) {
@@ -166,13 +168,6 @@ impl ITimechainClient for MockClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
-		if *self.force_stream_error.lock().await {
-			let error_stream: BoxStream<
-				'static,
-				Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>,
-			> = futures::stream::once(async { Err(anyhow::anyhow!("Forced stream error")) }).boxed();
-			return Ok(error_stream);
-		}
 		let rx = self.finalized_sender.subscribe();
 		{
 			let mut counter = self.subscription_counter.lock().await;
@@ -183,6 +178,7 @@ impl ITimechainClient for MockClient {
 			.map(|block_result| block_result.map(|block| (block.clone(), block.extrinsics.clone())))
 			.boxed();
 
+		let stream = ErrorInjectingStream::new(stream, self.force_stream_error.clone()).boxed();
 		Ok(stream)
 	}
 
@@ -190,13 +186,6 @@ impl ITimechainClient for MockClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
-		if *self.force_stream_error.lock().await {
-			let error_stream: BoxStream<
-				'static,
-				Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>,
-			> = futures::stream::once(async { Err(anyhow::anyhow!("Forced stream error")) }).boxed();
-			return Ok(error_stream);
-		}
 		let rx = self.best_sender.subscribe();
 		{
 			let mut counter = self.subscription_counter.lock().await;
@@ -284,7 +273,7 @@ impl ITransactionDbOps for MockDb {
 		Ok(())
 	}
 
-	fn load_pending_txs(&self, nonce: u64) -> Result<VecDeque<TxData>> {
+	fn load_pending_txs(&self, _nonce: u64) -> Result<VecDeque<TxData>> {
 		let data = self.data.lock().unwrap();
 		let mut txs: Vec<TxData> = data.values().cloned().collect();
 		txs.sort_by_key(|tx| tx.nonce);
@@ -296,4 +285,44 @@ pub fn compute_tx_hash(index: u64) -> H256 {
 	let mut bytes = [0u8; 32];
 	bytes[24..].copy_from_slice(&index.to_le_bytes());
 	bytes.into()
+}
+
+struct ErrorInjectingStream<S> {
+	inner: S,
+	flag: Arc<Mutex<bool>>,
+	errored: bool,
+}
+
+impl<S> ErrorInjectingStream<S> {
+	fn new(inner: S, flag: Arc<Mutex<bool>>) -> Self {
+		Self { inner, flag, errored: false }
+	}
+}
+
+impl<S, T> Stream for ErrorInjectingStream<S>
+where
+	S: Stream<Item = Result<T>> + Unpin,
+{
+	type Item = Result<T>;
+
+	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+		let flag_set = {
+			if let Ok(lock) = self.flag.try_lock() {
+				*lock
+			} else {
+				false
+			}
+		};
+
+		if flag_set && !self.errored {
+			self.errored = true;
+			return Poll::Ready(Some(Err(anyhow::anyhow!("Forced stream error for testing"))));
+		}
+
+		let next = Pin::new(&mut self.inner).poll_next(cx);
+		if self.errored {
+			return Poll::Ready(None);
+		}
+		next
+	}
 }

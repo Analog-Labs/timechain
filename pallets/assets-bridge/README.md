@@ -102,20 +102,10 @@ You can track task status with
 docker compose run --remove-orphans tc-cli --config local-evm.yaml task 40
 ```
 
-***Problem**: for some reason that task remains unassigned: 
+***Problem**: task fails w 
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm.yaml task 62
-[+] Creating 1/0
- ✔ Container timechain-tc-cli-run-26d7f993dd06  Removed                                                                                                                                                       0.0s 
-2025-02-07T23:14:24.419835Z  INFO tc_cli::slack: not logging to slack: environment variable not found    
-2025-02-07T23:14:24.420247Z  INFO tc_cli: main
-2025-02-07T23:14:24.458605Z  INFO tc_cli: tc ready in 0s
-+------+---------+-------------------------+-------------+------------+-----------+
-| task | network | descriptor              | output      | shard      | submitter |
-+------+---------+-------------------------+-------------+------------+-----------+
-| 62   | 3       | SubmitGatewayMessage(2) | in progress | unassigned |           |
-+------+---------+-------------------------+-------------+------------+-----------+
+result: Revert("insufficient gas to execute GMP message"), receipt: TransactionReceipt { transaction_hash: 0xf05aa58a31f0206342d09f0dcfee0d27123749323aa747443da183229b234cae, transaction_index: 0, block_hash: 0x85a6f15ff3a28dc0834ecd1043265f0dcb970c72a645722e060b6632d2b9d72e, block_number: Some(377), from: Some(0x1c14e67873358e6ad9a282714a00445c7787a04c), to: Some(0x49877f1e26d523e716d941a424af46b86ecaf09
 ```
 
 

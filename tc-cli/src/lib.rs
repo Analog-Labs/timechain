@@ -3,7 +3,7 @@ use crate::env::Mnemonics;
 use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
-use futures::stream::{BoxStream, StreamExt};
+use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -53,31 +53,47 @@ impl Tc {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;
-		while let Err(err) = SubxtClient::get_client(&config.global().timechain_url).await {
-			tracing::info!("waiting for chain to start: {err:?}");
-			sleep_or_abort(Duration::from_secs(10)).await?;
-		}
-		let runtime =
-			SubxtClient::with_key(&config.global().timechain_url, &env.timechain_mnemonic).await?;
-		let mut connectors = HashMap::default();
-		for (id, network) in config.networks() {
-			let id = *id;
-			let params = ConnectorParams {
-				network_id: id,
-				blockchain: network.blockchain.clone(),
-				network: network.network.clone(),
-				url: network.url.clone(),
-				mnemonic: env.target_mnemonic.clone(),
-				cctp_sender: None,
-				cctp_attestation: None,
-			};
-			let connector = network
-				.backend
-				.connect_admin(&params)
+		let timechain_url = config.global().timechain_url.clone();
+		let runtime = tokio::task::spawn(async move {
+			while let Err(err) = SubxtClient::get_client(&timechain_url).await {
+				tracing::info!("waiting for chain to start: {err:?}");
+				sleep_or_abort(Duration::from_secs(10)).await?;
+			}
+			let runtime = SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic)
 				.await
-				.context("failed to connect to backend")?;
-			connectors.insert(id, connector);
+				.context("failed to connect to timechain")?;
+			Ok::<_, anyhow::Error>(runtime)
+		});
+		let mut connectors = HashMap::new();
+		{
+			let mut connector_futures = FuturesUnordered::new();
+			for (id, network) in config.networks() {
+				let id = *id;
+				let params = ConnectorParams {
+					network_id: id,
+					blockchain: network.blockchain.clone(),
+					network: network.network.clone(),
+					url: network.url.clone(),
+					mnemonic: env.target_mnemonic.clone(),
+					cctp_sender: None,
+					cctp_attestation: None,
+				};
+				let connector = async move {
+					let connector = network
+						.backend
+						.connect_admin(&params)
+						.await
+						.with_context(|| format!("failed to connect to backend {id}"))?;
+					Ok::<_, anyhow::Error>((id, connector))
+				};
+				connector_futures.push(connector);
+			}
+			while let Some(res) = connector_futures.next().await {
+				let (network, connector) = res?;
+				connectors.insert(network, connector);
+			}
 		}
+		let runtime = runtime.await??;
 		Ok(Self {
 			config,
 			runtime,

@@ -85,6 +85,7 @@ services:
     - 8545:8545
     profiles:
     - evm
+    - bridge
 
   chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
@@ -102,6 +103,7 @@ services:
       RUST_BACKTRACE: 1
     profiles:
     - evm
+    - bridge
 
   chain-3-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
@@ -113,7 +115,6 @@ services:
     - 8546:8545
     profiles:
     - evm
-    - bridge
 
   chronicle-3-evm:
     image: 'analoglabs/chronicle-develop'
@@ -131,7 +132,6 @@ services:
       RUST_BACKTRACE: 1
     profiles:
     - evm
-    - bridge
 
   tc-cli:
     image: 'analoglabs/tc-cli-develop'

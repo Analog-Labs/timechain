@@ -9,11 +9,11 @@ contracts:
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"
 networks:
-  3:
+  2:
     backend: "evm"
     blockchain: "ethereum"
     network: "dev"
-    url: "ws://chain-3-evm:8545"
+    url: "ws://chain-2-evm:8545"
     gateway_funds: 1.
     chronicle_target_funds: 1.
     batch_size: 64
@@ -26,4 +26,4 @@ networks:
     shard_size: 1
     shard_threshold: 1
 chronicles: 
-  - http://timechain-chronicle-3-evm-1:8080
+  - http://timechain-chronicle-2-evm-1:8080

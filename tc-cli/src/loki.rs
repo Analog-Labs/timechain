@@ -118,35 +118,60 @@ impl std::str::FromStr for Log {
 
 	fn from_str(log: &str) -> Result<Self> {
 		let mut data = HashMap::new();
-		let (timestamp, rest) = log.split_once(' ').context("no timestamp")?;
+		let (timestamp, rest) = log.trim().split_once(' ').context("no timestamp")?;
 		let (level, rest) = rest.split_once(' ').context("no level")?;
-		let (module, rest) = rest.split_once(':').context("no module")?;
-		let (msg, rest) = rest.split_once(',').context("no msg")?;
-		let (sdata, rest) = rest.split_once("at").context("no data")?;
+		let (module, rest) = rest.split_once(": ").context("no module")?;
+		// Work around when logging raw byte arrays
+		let (part1, rest) = rest.split_once(']').unwrap_or(("", rest));
+		let (part2, rest) = rest.split_once(',').context("no msg")?;
+		let msg = if part1.is_empty() { part2.to_string() } else { format!("{part1}]{part2}") };
+		let (sdata, rest) = rest.split_once("  at ").context("no data")?;
 		for kv in sdata.split(',') {
+			let kv = kv.trim();
+			if kv.is_empty() {
+				continue;
+			}
 			let (k, v) = kv.split_once(':').context("no kv")?;
 			data.insert(k.trim().to_string(), v.trim().to_string());
 		}
 		let (location, rest) = rest.split_once("  ").unwrap_or((rest, ""));
-		for span in rest.split("in") {
-			let (_, sdata) = span.split_once("with").context("no data")?;
+		for span in rest.split("  in ") {
+			let Some((_, sdata)) = span.split_once(" with ") else {
+				continue;
+			};
 			for kv in sdata.split(',') {
-				let (k, v) = kv.split_once(':').context("no kv")?;
-				data.insert(k.trim().to_string(), v.trim().to_string());
+				let kv = kv.trim();
+				if kv.is_empty() {
+					continue;
+				}
+				let (k, v) = kv.split_once(':').context("span no kv")?;
+				data.insert(k.trim().to_string(), v.trim().trim_matches('"').to_string());
 			}
 		}
-		Ok(Self {
+		let me = Self {
 			timestamp: timestamp.trim().into(),
 			level: level.trim().into(),
 			module: module.trim().into(),
 			msg: msg.trim().into(),
 			location: location.trim().into(),
 			data,
-		})
+		};
+		Ok(me)
 	}
 }
 
-pub async fn logs(query: Query) -> Result<Vec<String>> {
+impl std::fmt::Display for Log {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		writeln!(
+			f,
+			"{} {} {}: {} at {}",
+			&self.timestamp, &self.level, &self.module, &self.msg, &self.location
+		)?;
+		writeln!(f, "{:#?}", self.data)
+	}
+}
+
+pub async fn logs(query: Query) -> Result<Vec<Log>> {
 	let env = Loki::from_env()?;
 	let client = reqwest::Client::new();
 	let url: reqwest::Url = format!("{}/loki/api/v1/query_range", &env.loki_url).parse()?;
@@ -159,7 +184,7 @@ pub async fn logs(query: Query) -> Result<Vec<String>> {
 		})
 		.build()
 		.context("invalid request")?;
-	log::info!("GET {}", req.url());
+	log::debug!("GET {}", req.url());
 	let resp = client.execute(req).await?;
 	let status = resp.status();
 	if status != 200 {
@@ -170,13 +195,11 @@ pub async fn logs(query: Query) -> Result<Vec<String>> {
 	anyhow::ensure!(resp.status == "success", "unexpected status");
 	anyhow::ensure!(resp.data.result_type == "streams", "unexpected result type");
 
-	let logs = resp
+	Ok(resp
 		.data
 		.result
 		.into_iter()
 		.flat_map(|v| v.values)
 		.map(|(_, log)| log.parse().unwrap())
-		.collect::<Vec<Log>>();
-	println!("{logs:?}");
-	Ok(vec![])
+		.collect::<Vec<Log>>())
 }

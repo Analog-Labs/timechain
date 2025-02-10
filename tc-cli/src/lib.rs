@@ -28,7 +28,7 @@ mod loki;
 mod slack;
 mod table;
 
-pub use crate::loki::Query;
+pub use crate::loki::{Log, Query};
 pub use crate::slack::{Sender, TableRef, TextRef};
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {

@@ -1,3 +1,4 @@
+use crate::Log;
 use anyhow::Result;
 use slack_morphism::prelude::*;
 
@@ -33,7 +34,7 @@ impl Sender {
 		let slack = match Slack::new() {
 			Ok(slack) => Some(slack),
 			Err(err) => {
-				log::info!("not logging to slack: {err}");
+				log::debug!("not logging to slack: {err}");
 				None
 			},
 		};
@@ -69,8 +70,9 @@ impl Sender {
 		Ok(Default::default())
 	}
 
-	pub async fn log(&self, id: Option<TextRef>, logs: Vec<String>) -> Result<TextRef> {
-		let logs: String = logs.join("\n");
+	pub async fn log(&self, id: Option<TextRef>, logs: Vec<Log>) -> Result<TextRef> {
+		let logs: String =
+			logs.into_iter().map(|log| log.to_string()).collect::<Vec<_>>().join("\n");
 		self.println(id.is_some(), &logs);
 		if let Some(slack) = self.slack.as_ref() {
 			let id = id.map(|id| id.slack).unwrap_or_default();

@@ -1,6 +1,7 @@
 use crate::env::Loki;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use time_primitives::{BlockNumber, ShardId, TaskId};
 
 //const DIRECTION_FORWARD: &'static str = "FORWARD";
@@ -35,13 +36,21 @@ struct StreamValue {
 #[derive(Clone, Debug, clap::Parser)]
 pub enum Query {
 	Chronicle {
+		#[arg(long)]
 		task: Option<TaskId>,
+		#[arg(long)]
 		shard: Option<ShardId>,
+		#[arg(long)]
 		account: Option<String>,
+		#[arg(long)]
 		target_address: Option<String>,
+		#[arg(long)]
 		peer_id: Option<String>,
+		#[arg(long)]
 		block: Option<BlockNumber>,
+		#[arg(long)]
 		block_hash: Option<String>,
+		#[arg(long)]
 		target_block: Option<u64>,
 	},
 	Raw {
@@ -94,6 +103,49 @@ impl std::fmt::Display for Query {
 	}
 }
 
+#[derive(Debug)]
+struct Log {
+	timestamp: String,
+	level: String,
+	module: String,
+	msg: String,
+	location: String,
+	data: HashMap<String, String>,
+}
+
+impl std::str::FromStr for Log {
+	type Err = anyhow::Error;
+
+	fn from_str(log: &str) -> Result<Self> {
+		let mut data = HashMap::new();
+		let (timestamp, rest) = log.split_once(' ').context("no timestamp")?;
+		let (level, rest) = rest.split_once(' ').context("no level")?;
+		let (module, rest) = rest.split_once(':').context("no module")?;
+		let (msg, rest) = rest.split_once(',').context("no msg")?;
+		let (sdata, rest) = rest.split_once("at").context("no data")?;
+		for kv in sdata.split(',') {
+			let (k, v) = kv.split_once(':').context("no kv")?;
+			data.insert(k.trim().to_string(), v.trim().to_string());
+		}
+		let (location, rest) = rest.split_once("  ").unwrap_or((rest, ""));
+		for span in rest.split("in") {
+			let (_, sdata) = span.split_once("with").context("no data")?;
+			for kv in sdata.split(',') {
+				let (k, v) = kv.split_once(':').context("no kv")?;
+				data.insert(k.trim().to_string(), v.trim().to_string());
+			}
+		}
+		Ok(Self {
+			timestamp: timestamp.trim().into(),
+			level: level.trim().into(),
+			module: module.trim().into(),
+			msg: msg.trim().into(),
+			location: location.trim().into(),
+			data,
+		})
+	}
+}
+
 pub async fn logs(query: Query) -> Result<Vec<String>> {
 	let env = Loki::from_env()?;
 	let client = reqwest::Client::new();
@@ -117,11 +169,14 @@ pub async fn logs(query: Query) -> Result<Vec<String>> {
 	let resp: Response = resp.json().await?;
 	anyhow::ensure!(resp.status == "success", "unexpected status");
 	anyhow::ensure!(resp.data.result_type == "streams", "unexpected result type");
-	Ok(resp
+
+	let logs = resp
 		.data
 		.result
 		.into_iter()
 		.flat_map(|v| v.values)
-		.flat_map(|(_, log)| log.split("   ").map(|s| s.to_string()).collect::<Vec<_>>())
-		.collect())
+		.map(|(_, log)| log.parse().unwrap())
+		.collect::<Vec<Log>>();
+	println!("{logs:?}");
+	Ok(vec![])
 }

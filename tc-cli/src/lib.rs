@@ -836,7 +836,10 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
+		let admin_address = self.address(Some(network))?;
+			let msg = format!("admin address is: 0x{}", &hex::encode(&admin_address));
+			self.println(None, msg.as_str()).await?;
+		if self.balance(Some(network), admin_address).await? == 0 {
 			self.println(None, "admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}

@@ -92,6 +92,9 @@ enum Command {
 	Task {
 		task: TaskId,
 	},
+	UnassignedTasks {
+		network: NetworkId,
+	},
 	AssignedTasks {
 		shard: ShardId,
 	},
@@ -253,6 +256,10 @@ async fn real_main() -> Result<()> {
 		Command::Task { task } => {
 			let task = tc.task(task).await?;
 			tc.print_table(None, "task", vec![task]).await?;
+		},
+		Command::UnassignedTasks { network } => {
+			let tasks = tc.unassigned_tasks(network).await?;
+			tc.print_table(None, "unassigned-tasks", tasks).await?;
 		},
 		Command::AssignedTasks { shard } => {
 			let tasks = tc.assigned_tasks(shard).await?;

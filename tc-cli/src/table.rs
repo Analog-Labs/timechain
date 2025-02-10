@@ -20,6 +20,7 @@ pub struct NetworkEntry {
 	admin_balance: String,
 	read_events: TaskId,
 	sync_status: String,
+	unassigned_tasks: u32,
 }
 
 impl IntoRow for Network {
@@ -31,12 +32,14 @@ impl IntoRow for Network {
 		let mut admin = String::new();
 		let mut admin_balance = String::new();
 		let mut read_events = 0;
+		let mut unassigned_tasks = 0;
 		let sync_status = if let Some(info) = self.info.as_ref() {
 			gateway = tc.format_address(Some(self.network), info.gateway)?;
 			gateway_balance = tc.format_balance(Some(self.network), info.gateway_balance)?;
 			admin = tc.format_address(Some(self.network), info.admin)?;
 			admin_balance = tc.format_balance(Some(self.network), info.admin_balance)?;
 			read_events = info.sync_status.task;
+			unassigned_tasks = info.unassigned_tasks;
 			format!("{} / {}", info.sync_status.sync, info.sync_status.block)
 		} else {
 			"no connector configured".to_string()
@@ -51,6 +54,7 @@ impl IntoRow for Network {
 			admin_balance,
 			read_events,
 			sync_status,
+			unassigned_tasks,
 		})
 	}
 }

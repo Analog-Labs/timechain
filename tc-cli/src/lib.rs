@@ -50,9 +50,6 @@ pub struct Tc {
 
 impl Tc {
 	pub async fn new(env: PathBuf, config: &str, msg: Sender) -> Result<Self> {
-		rustls::crypto::ring::default_provider()
-			.install_default()
-			.expect("Failed to install rustls crypto provider");
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;

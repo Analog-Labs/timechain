@@ -177,6 +177,9 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
+	rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
 		std::process::exit(1);

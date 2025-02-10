@@ -47,51 +47,51 @@ We'll deploy it to network `3` which should have rpc exposed at `8545` port
 To deploy it, we use pre-funded dev account of our evm network node, its address can be queried with 
 
 ``` sh
-   curl --header "Content-Type: application/json" \
+curl --header "Content-Type: application/json" \
         --request POST \
         --data '{"jsonrpc": "2.0", "method": "eth_accounts", "params": [], "id": 0}' \
-        http://localhost:8545 | jq ".result"
+        http://localhost:8546 | jq ".result"
         
 [
-  "0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf"
+  "0x5ccb798f63dbafe140bbfb3bc7a6730f228cd9af"
 ] 
 ```
 
 Now we deploy example ERC20 contract 
 
 ``` sh
-forge create -r localhost:8545 --unlocked --from 0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
+forge create -r localhost:8546 --unlocked --from 0x5ccb798f63dbafe140bbfb3bc7a6730f228cd9af --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
 
-Deployed to:  0xa3d519c484554E71Ec1C25de0a5580c12Ae9DbF4
+Deployed to:  0xe7622a00576487E30237004a12ed856A4C2B20Fc
 ```
 
 ### Bridge Pallet 
 
 call register_network extrinsic from sudo with following parameters:
 
-+ network: 3
++ network: `3`
 + baseFee: 0
 + data:
   + nonce: 0
-  + dest: `0x000000000000000000000000a3d519c484554E71Ec1C25de0a5580c12Ae9DbF4` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
+  + dest: `0x0000000000000000000000000e7622a00576487E30237004a12ed856A4C2B20Fc` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
 
 ## Flow 
 
 ### TC -> ERC20 
 
-Let's teleport some ANLOG to `0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf` address.
+Let's teleport some ANLOG to `0x5ccb798f63dbafe140bbfb3bc7a6730f228cd9af` address.
 
 Check that it has zero ANLOG first: 
 
 ``` sh
-cast call 0xa3d519c484554E71Ec1C25de0a5580c12Ae9DbF4 "balanceOf(address)(uint256)" 0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf
+cast call 0xe7622a00576487E30237004a12ed856A4C2B20Fc "balanceOf(address)(uint256)" 0x5ccb798f63dbafe140bbfb3bc7a6730f228cd9af -r localhost:8546
 0
 ```
 
 Send teleport_keep_alive extrinsic from any account having ANLOG (e.g. `//Eve`):
 
 + network_id: `3`
-+ beneficiary: `0x0000000000000000000000004c7daa5b107ff3b5324d7ee659a35ce4e1eeda1b`
++ beneficiary: `0x0000000000000000000000005ccb798f63dbafe140bbfb3bc7a6730f228cd9af`
 + amount: 1000000000000
 
 You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`, note task_id from it for tracking. 

@@ -1071,8 +1071,8 @@ impl Tc {
 		self.msg.text(id, line.into()).await
 	}
 
-	pub async fn log(&self, query: Query) -> Result<TableRef> {
-		let logs = loki::logs(query).await?;
+	pub async fn log(&self, query: Query, since: String) -> Result<TableRef> {
+		let logs = loki::logs(query, since).await?;
 		self.print_table(None, "logs", logs).await
 	}
 }

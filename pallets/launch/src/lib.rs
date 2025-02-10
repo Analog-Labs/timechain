@@ -8,7 +8,7 @@
 
 pub use pallet::*;
 
-use time_primitives::{AccountId, Balance, BlockNumber, ANLOG};
+use time_primitives::{AccountId, Balance, BlockNumber, ANLOG, MILLIANLOG};
 
 use polkadot_sdk::*;
 
@@ -52,7 +52,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 21;
+	pub const LAUNCH_VERSION: u16 = 24;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -100,18 +100,27 @@ pub mod pallet {
 		// Provide fjord sale tokens to claims backend
 		(20, Allocation::Ecosystem, 116_163_163 * ANLOG, Stage::Retired),
 		// Testing vested transfers
-		(
-			21,
-			Allocation::Team,
-			45_289_855 * ANLOG,
-			Stage::DepositAsVested(data::v21::VESTED_TRANSFER_TEST),
-		),
+		(21, Allocation::Team, 45_289_855 * ANLOG, Stage::Retired),
 		// Launch transfers
 		(
 			22,
 			Allocation::Ecosystem,
-			29_870_602 * ANLOG,
+			49_081_886_536 * MILLIANLOG,
 			Stage::DepositFromUnlocked(data::v22::DEPOSITS_LAUNCH),
+		),
+		// OTC Preparation 1
+		(
+			23,
+			Allocation::Ecosystem,
+			22_644_927_500 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v23::DEPOSITS_OTC_ECOSYSTEM),
+		),
+		// OTC Preparation 2
+		(
+			24,
+			Allocation::Initiatives,
+			249_094_202_500 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v24::DEPOSITS_OTC_INITIATIVES),
 		),
 	];
 

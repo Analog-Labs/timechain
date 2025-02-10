@@ -635,8 +635,10 @@ impl Tc {
 			// but GMP GW does not accept 0x here,
 			// hence we set it to src_gateway as well.
 			gateway: src_gateway,
-			relative_gas_price: Default::default(),
-			gas_limit: Default::default(),
+			// TODO ??explain
+			relative_gas_price: (1, 1),
+			// TODO ??explain
+			gas_limit: 15_000_000,
 			base_fee: Default::default(),
 		};
 		self.println(None, format!("set_tc_route {:?}", &route)).await?;

@@ -265,6 +265,7 @@ pub struct NetworkInfo {
 	pub admin: Address,
 	pub admin_balance: u128,
 	pub sync_status: SyncStatus,
+	pub unassigned_tasks: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -426,12 +427,14 @@ impl Tc {
 					let admin = connector.admin(gateway).await?;
 					let admin_balance = connector.balance(admin).await?;
 					let sync_status = self.sync_status(network).await?;
+					let unassigned_tasks = self.runtime.unassigned_tasks(network).await?;
 					Some(NetworkInfo {
 						gateway,
 						gateway_balance,
 						admin,
 						admin_balance,
 						sync_status,
+						unassigned_tasks: unassigned_tasks.len() as _,
 					})
 				},
 				Err(_) => None,
@@ -505,6 +508,15 @@ impl Tc {
 			});
 		}
 		Ok(shards)
+	}
+
+	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<Task>> {
+		let task_ids = self.runtime.unassigned_tasks(network).await?;
+		let mut tasks = Vec::with_capacity(task_ids.len());
+		for id in task_ids {
+			tasks.push(self.task(id).await?);
+		}
+		Ok(tasks)
 	}
 
 	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {

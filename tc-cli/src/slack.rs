@@ -40,11 +40,11 @@ impl Sender {
 		Self { slack }
 	}
 
-	fn println(&self, restore: bool, text: &str) {
-		if restore {
+	fn println(&self, _restore: bool, text: &str) {
+		/*if restore {
 			print!("\x1B8");
 		}
-		print!("\x1B7");
+		print!("\x1B7");*/
 		println!("{text}");
 	}
 
@@ -138,7 +138,8 @@ impl Slack {
 	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
 
-		let req = SlackApiFilesGetUploadUrlExternalRequest::new(name, content.len());
+		let req =
+			SlackApiFilesGetUploadUrlExternalRequest::new(format!("{name}.csv"), content.len());
 		let resp = session.get_upload_url_external(&req).await?;
 
 		let req =

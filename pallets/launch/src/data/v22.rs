@@ -1,8 +1,8 @@
-use crate::deposits::RawDepositStage;
+use crate::deposits::RawVestedDepositStage;
 
 use time_primitives::{ANLOG, MICROANLOG as microANLOG};
 
-pub const DEPOSITS_LAUNCH: RawDepositStage = &[
+pub const DEPOSITS_LAUNCH: RawVestedDepositStage = &[
 	(
 		"an6aJUfPLbDqa92zuKDK4mtPNCiQGXkJDPd5LoDgVkWbPgFor",
 		9_057_971 * ANLOG,

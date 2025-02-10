@@ -1,4 +1,5 @@
 use crate::airdrops::AirdropBalanceOf;
+use crate::allocation::{Allocation, AllocationTracker};
 use crate::deposits::BalanceOf;
 use crate::stage::Stage;
 use crate::{Config, Error, Event, Pallet, LAUNCH_VERSION, LOG_TARGET};
@@ -15,13 +16,13 @@ use sp_std::vec::Vec;
 use time_primitives::{AccountId, Balance};
 
 /// Each launch stage has a version, an issuance and the associated typed data
-pub type LaunchStage = (u16, Balance, Stage);
+pub type LaunchStage = (u16, Allocation, Balance, Stage);
 
 /// Ledger of all launch stages embedded in code.
 pub type RawLaunchLedger = &'static [LaunchStage];
 
 /// Parsed and consistency checked subsection of launch ledger
-pub struct LaunchLedger<T: Config>(Vec<&'static LaunchStage>, PhantomData<T>);
+pub struct LaunchLedger<T: Config>(AllocationTracker, Vec<&'static LaunchStage>, PhantomData<T>);
 
 impl<T: Config> LaunchLedger<T>
 where
@@ -30,27 +31,27 @@ where
 {
 	/// Parse raw launch plan and check it for consistency
 	pub fn compile(ledger: RawLaunchLedger) -> Result<Self, Error<T>> {
-		let mut total: Balance = 0;
+		let mut tracker = AllocationTracker::new();
 		let mut stages = Vec::<&'static LaunchStage>::new();
 
 		// Check all stages from genesis to current launch version
 		let from = Pallet::<T>::on_chain_stage_version();
 		for index in 0..(LAUNCH_VERSION + 1) {
 			if let Some(entry) = ledger.get(index as usize) {
-				let (version, amount, stage) = entry;
-				// Ensure the ledger is using consistent stage numbers.
+				let (version, source, amount, stage) = entry;
+				// Ensure the ledger is using consistent stage numbers and allocation
 				ensure!(*version == index, Error::<T>::StageVersionMissmatch);
+				ensure!(*source != Allocation::SIZE, Error::<T>::StageIssuanceMissmatch);
 
 				match version.cmp(&from) {
 					// Older migrations are just added up for verification
-					Ordering::Less => total += amount,
+					Ordering::Less => {
+						tracker.add(*source, *amount);
+					},
 					// Current stage is used to verify issuance.
 					Ordering::Equal => {
-						total += amount;
-						ensure!(
-							total >= Pallet::<T>::total_issuance(),
-							Error::<T>::TotalIssuanceExceeded
-						);
+						tracker.add(*source, *amount);
+						ensure!(tracker.check::<T>(true), Error::<T>::TotalIssuanceExceeded);
 					},
 					// New migrations are added to launch plan
 					Ordering::Greater => {
@@ -63,7 +64,6 @@ where
 							return Err(Error::<T>::StageIssuanceMissmatch);
 						}
 						stages.push(entry);
-						//stages.push((version, amount, stage));
 					},
 				}
 			} else {
@@ -72,25 +72,26 @@ where
 			}
 		}
 
-		Ok(LaunchLedger(stages, Default::default()))
+		Ok(LaunchLedger(tracker, stages, Default::default()))
 	}
 
 	/// Run a compiled and verified LaunchLedger as far as possible and return
 	/// the weight spent doing so.
 	pub fn run(&self) -> Weight {
 		let mut weights = Weight::zero();
-		for (version, amount, stage) in self.0.iter() {
+		let mut tracker = self.0.clone();
+		for (version, source, amount, stage) in self.1.iter() {
 			// This is an important invariant that we expect compile to help uphold
 			debug_assert!(*version == Pallet::<T>::on_chain_stage_version() + 1);
 
 			// Execute migration, collect weight and update on-chain stage version
-			let current = Pallet::<T>::total_issuance();
-			weights += stage.execute::<T>();
+			weights += stage.execute::<T>(*source);
 			StorageVersion::new(*version).put::<Pallet<T>>();
 
 			// Abort if the stage execution exceeded its allocation
 			let hash = stage.hash::<T>();
-			if *amount < (Pallet::<T>::total_issuance() - current) {
+			tracker.add(*source, *amount);
+			if !tracker.check::<T>(false) {
 				log::error!(
 					target: LOG_TARGET,
 					"💥 Launch stage v{} exceeded issuance: {:?}", version, hash

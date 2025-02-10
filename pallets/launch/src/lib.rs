@@ -45,10 +45,10 @@ pub mod pallet {
 	use super::*;
 	use allocation::Allocation;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
 	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
+	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
@@ -102,25 +102,17 @@ pub mod pallet {
 		// Testing vested transfers
 		(21, Allocation::Team, 45_289_855 * ANLOG, Stage::Retired),
 		// Launch transfers
-		(
-			22,
-			Allocation::Ecosystem,
-			49_081_886_536 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v22::DEPOSITS_LAUNCH),
-		),
+		(22, Allocation::Ecosystem, 49_081_886_536 * MILLIANLOG, Stage::Retired),
 		// OTC Preparation 1
-		(
-			23,
-			Allocation::Ecosystem,
-			22_644_927_500 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v23::DEPOSITS_OTC_ECOSYSTEM),
-		),
+		(23, Allocation::Ecosystem, 22_644_927_500 * MILLIANLOG, Stage::Retired),
 		// OTC Preparation 2
+		(24, Allocation::Initiatives, 249_094_202_500 * MILLIANLOG, Stage::Retired),
+		// OTC Preparation 3
 		(
-			24,
+			25,
 			Allocation::Initiatives,
-			249_094_202_500 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v24::DEPOSITS_OTC_INITIATIVES),
+			362_318_840_000 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v25::DEPOSITS_OTC_INITIATIVES_2),
 		),
 	];
 
@@ -213,6 +205,9 @@ pub mod pallet {
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			Allocation::Initiatives
+				.set_locked::<T>(BalanceOf::<T>::checked_from(1_086_956_520 * ANLOG).unwrap());
+
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {

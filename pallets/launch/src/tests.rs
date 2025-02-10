@@ -12,7 +12,7 @@ use polkadot_sdk::frame_support::traits::VestingSchedule;
 use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 21;
+const ON_CHAIN_STAGE: u16 = 24;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -48,8 +48,8 @@ fn launch_ledger_validation() {
 		mint_virtual(Allocation::Team, 1_669_384_055_300 * mANLOG);
 
 		mint_virtual(Allocation::Airdrop, 19_626_240_537_386_317_029);
-		mint_virtual(Allocation::Initiatives, 1_750_107_717_000 * mANLOG);
-		mint_virtual(Allocation::Ecosystem, 780_117_652_190 * mANLOG);
+		mint_virtual(Allocation::Initiatives, 1_501_013_514_500 * mANLOG);
+		mint_virtual(Allocation::Ecosystem, 708_390_838_154 * mANLOG);
 
 		// Start new block to collect events
 		System::set_block_number(1);

@@ -1,11 +1,12 @@
 use crate::{
 	deposits::{BalanceOf, CurrencyOf, VestingDetails},
-	Config, RawVestingSchedule, LOG_TARGET,
+	Config, Event, Pallet, RawVestingSchedule, LOG_TARGET,
 };
 
 use polkadot_sdk::*;
 
 use frame_support::traits::Currency;
+use frame_support::traits::VestingSchedule;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::Get;
 use sp_runtime::traits::CheckedConversion;
@@ -152,6 +153,32 @@ impl Allocation {
 			BalanceOf::<T>::checked_from(per_block_rel)?,
 			BlockNumberFor::<T>::checked_from(start)?,
 		))
+	}
+
+	/// Change locked token amount
+	pub fn set_locked<T: Config>(&self, locked: BalanceOf<T>)
+	where
+		Balance: From<BalanceOf<T>>,
+	{
+		let account = self.account_id::<T>();
+
+		// Remove existing schedule
+		if <T as Config>::VestingSchedule::remove_vesting_schedule(&account, 0).is_err() {
+			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
+				source: self.sub_id().to_vec(),
+			});
+			return;
+		}
+
+		// Ensure the remaining tokens are locked again
+		if let Some(vs) = self.schedule_rel::<T>(locked) {
+			<T as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
+				.expect("Previous vesting schedule war removed; qed");
+		} else {
+			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
+				source: self.sub_id().to_vec(),
+			});
+		}
 	}
 }
 

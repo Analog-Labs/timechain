@@ -1,11 +1,11 @@
 //! Runtime migration to remove buggy pool members
-
 use frame_support::{
 	migration::remove_storage_prefix,
 	traits::{GetStorageVersion, StorageVersion},
 	weights::Weight,
 };
 use pallet_nomination_pools::PoolMembers;
+use polkadot_sdk::*;
 use sp_runtime::AccountId32;
 use sp_std::vec::Vec;
 

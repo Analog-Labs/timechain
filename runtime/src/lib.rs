@@ -677,7 +677,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = (migrations::fix_pool_members::RemoveBuggyPoolMembersMigration<Runtime>);
+type Migrations = migrations::fix_pool_members::RemoveBuggyPoolMembersMigration<Runtime>;
 
 #[cfg(test)]
 mod core_tests {

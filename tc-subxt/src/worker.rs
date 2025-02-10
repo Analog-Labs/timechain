@@ -1,19 +1,16 @@
 use crate::metadata::{self, runtime_types, RuntimeCall};
-use crate::{
-	ExtrinsicDetails, ExtrinsicParams, LegacyRpcMethods, OnlineClient, SubmittableExtrinsic,
+use crate::timechain_client::{
+	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
 };
-use anyhow::{Context, Result};
+use crate::ExtrinsicParams;
+use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
 use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
 use futures::stream::{BoxStream, Fuse, FuturesUnordered};
 use futures::{Future, FutureExt, StreamExt};
-use futures::{Future, FutureExt, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::pin::Pin;
-use std::time::Duration;
-use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;

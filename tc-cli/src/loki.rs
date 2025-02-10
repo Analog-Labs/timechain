@@ -37,9 +37,11 @@ struct StreamValue {
 pub enum Query {
 	Chronicle {
 		#[arg(long)]
-		task: Option<TaskId>,
+		task_id: Option<TaskId>,
 		#[arg(long)]
-		shard: Option<ShardId>,
+		shard_id: Option<ShardId>,
+		#[arg(long)]
+		task: Option<String>,
 		#[arg(long)]
 		account: Option<String>,
 		#[arg(long)]
@@ -66,8 +68,9 @@ impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Chronicle {
+				task_id,
+				shard_id,
 				task,
-				shard,
 				account,
 				target_address,
 				peer_id,
@@ -78,11 +81,14 @@ impl std::fmt::Display for Query {
 				to,
 			} => {
 				write!(f, r#"{{app="chronicle"}}"#)?;
-				if let Some(task) = task {
+				if let Some(task) = task_id {
 					write!(f, " |= `task_id: {task}`")?;
 				}
-				if let Some(shard) = shard {
+				if let Some(shard) = shard_id {
 					write!(f, " |= `shard_id: {shard}`")?;
+				}
+				if let Some(task) = task {
+					write!(f, " |= `task: {task}`")?;
 				}
 				if let Some(account) = account {
 					write!(f, " |= `timechain: {account}`")?;
@@ -119,7 +125,6 @@ impl std::fmt::Display for Query {
 pub struct Log {
 	pub timestamp: String,
 	pub level: String,
-	pub module: String,
 	pub msg: String,
 	pub location: String,
 	pub data: HashMap<String, String>,
@@ -131,13 +136,13 @@ impl std::str::FromStr for Log {
 	fn from_str(log: &str) -> Result<Self> {
 		let mut data = HashMap::new();
 		let (timestamp, rest) = log.trim().split_once(' ').context("no timestamp")?;
-		let (level, rest) = rest.split_once(' ').context("no level")?;
-		let (module, rest) = rest.split_once(": ").context("no module")?;
+		let (level, rest) = rest.trim().split_once(' ').context("no level")?;
+		let (_module, rest) = rest.split_once(": ").context("no module")?;
+		let (mrest, rest) = rest.split_once("  at ").context("no data")?;
 		// Work around when logging raw byte arrays
-		let (part1, rest) = rest.split_once(']').unwrap_or(("", rest));
-		let (part2, rest) = rest.split_once(',').context("no msg")?;
+		let (part1, mrest) = mrest.split_once(']').unwrap_or(("", mrest));
+		let (part2, sdata) = mrest.split_once(',').unwrap_or((mrest, ""));
 		let msg = if part1.is_empty() { part2.to_string() } else { format!("{part1}]{part2}") };
-		let (sdata, rest) = rest.split_once("  at ").context("no data")?;
 		for kv in sdata.split(',') {
 			let kv = kv.trim();
 			if kv.is_empty() {
@@ -163,7 +168,6 @@ impl std::str::FromStr for Log {
 		let me = Self {
 			timestamp: timestamp.trim().into(),
 			level: level.trim().into(),
-			module: module.trim().into(),
 			msg: msg.trim().into(),
 			location: location.trim().into(),
 			data,
@@ -174,11 +178,7 @@ impl std::str::FromStr for Log {
 
 impl std::fmt::Display for Log {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		writeln!(
-			f,
-			"{} {} {}: {} at {}",
-			&self.timestamp, &self.level, &self.module, &self.msg, &self.location
-		)?;
+		writeln!(f, "{} {}: {} at {}", &self.timestamp, &self.level, &self.msg, &self.location)?;
 		writeln!(f, "{:#?}", self.data)
 	}
 }
@@ -207,11 +207,12 @@ pub async fn logs(query: Query) -> Result<Vec<Log>> {
 	anyhow::ensure!(resp.status == "success", "unexpected status");
 	anyhow::ensure!(resp.data.result_type == "streams", "unexpected result type");
 
-	Ok(resp
+	let logs = resp
 		.data
 		.result
 		.into_iter()
 		.flat_map(|v| v.values)
 		.map(|(_, log)| log.parse().unwrap())
-		.collect::<Vec<Log>>())
+		.collect::<Vec<Log>>();
+	Ok(logs)
 }

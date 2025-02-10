@@ -1073,8 +1073,4 @@ impl Tc {
 	pub async fn println(&self, id: Option<TextRef>, line: impl Into<String>) -> Result<TextRef> {
 		self.msg.text(id, line.into()).await
 	}
-
-	pub async fn log(&self, query: Query) -> Result<TextRef> {
-		self.msg.log(None, loki::logs(query).await?).await
-	}
 }

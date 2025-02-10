@@ -1,4 +1,3 @@
-use crate::Log;
 use anyhow::Result;
 use slack_morphism::prelude::*;
 
@@ -66,26 +65,6 @@ impl Sender {
 			let id = id.map(|id| id.slack).unwrap_or_default();
 			let file = slack.post_table(id, title.into(), csv).await?;
 			return Ok(file.into());
-		}
-		Ok(Default::default())
-	}
-
-	pub async fn log(&self, id: Option<TextRef>, logs: Vec<Log>) -> Result<TextRef> {
-		let logs: String =
-			logs.into_iter().map(|log| log.to_string()).collect::<Vec<_>>().join("\n");
-		self.println(id.is_some(), &logs);
-		if let Some(slack) = self.slack.as_ref() {
-			let id = id.map(|id| id.slack).unwrap_or_default();
-			let text = SlackBlockMarkDownText::new(format!("```{logs}```"));
-			let ts = slack
-				.post_message(
-					id,
-					SlackMessageContent::new().with_blocks(vec![SlackBlock::Section(
-						SlackSectionBlock::new().with_text(text.into()),
-					)]),
-				)
-				.await?;
-			return Ok(ts.into());
 		}
 		Ok(Default::default())
 	}

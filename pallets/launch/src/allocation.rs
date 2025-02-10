@@ -29,6 +29,7 @@ pub enum Allocation {
 	Airdrop,
 	Initiatives,
 	Ecosystem,
+	#[allow(clippy::upper_case_acronyms)]
 	SIZE,
 }
 

@@ -183,7 +183,7 @@ where
 		}
 
 		// Remove existing schedule during operation
-		if let Err(_) = <T as Config>::VestingSchedule::remove_vesting_schedule(&account, 0) {
+		if <T as Config>::VestingSchedule::remove_vesting_schedule(&account, 0).is_err() {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
 				source: source.sub_id().to_vec(),
 			});
@@ -241,7 +241,7 @@ where
 			}
 		}
 
-		// Ensure the remaining tokens are locke again
+		// Ensure the remaining tokens are locked again
 		let remaining = CurrencyOf::<T>::free_balance(&account);
 		if let Some(vs) = source.schedule_rel::<T>(remaining) {
 			<T as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)

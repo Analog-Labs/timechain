@@ -111,22 +111,15 @@ pub mod pallet {
 		(
 			25,
 			Allocation::Initiatives,
-			348_731_883_500 * MILLIANLOG,
+			362_318_840 * ANLOG,
 			Stage::DepositFromUnlocked(data::v25::DEPOSITS_OTC_INITIATIVES_2),
 		),
 		// Launchday transfer 2
 		(
 			26,
 			Allocation::Ecosystem,
-			27_343_550 * ANLOG,
+			14_449_903_350 * MILLIANLOG,
 			Stage::DepositFromUnlocked(data::v26::DEPOSITS_LAUNCHDAY_2),
-		),
-		// Launchday transfer 3
-		(
-			27,
-			Allocation::Initiatives,
-			13_527_719 * ANLOG,
-			Stage::DepositFromUnlocked(data::v27::DEPOSITS_LAUNCHDAY_3),
 		),
 	];
 

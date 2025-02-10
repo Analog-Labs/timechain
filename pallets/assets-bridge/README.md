@@ -15,10 +15,10 @@ docker compose --profile bridge up -d
 > For EVM node we use _anvil_ with default pre-funded dev accounts. 
 > All txs we send from `account(0): 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`._
 
-Fund admin account 
+Fund GMP admin account (`0x90f3ba0b5861d5b108385c21b544a482ea1bfbf5`): 
 
 ``` sh
-cast send --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --value 100ether 0x90f3ba0b5861d5b108385c21b544a482ea1bfbf5 -r localhost:8546 --unlocked
+cast send --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --value 100ether 0x90f3ba0b5861d5b108385c21b544a482ea1bfbf5 --unlocked
 ```
 
 Deploy gateways
@@ -27,16 +27,16 @@ Deploy gateways
 docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml deploy
 ```
 
-Register TC network (route) to the gateway at network `3`:
+Register TC network (route) to the gateway at network `2`:
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml set-tc-route 3 0x49877F1e26d523e716d941a424af46B86EcaF09E
+docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml set-tc-route 2 0x49877F1e26d523e716d941a424af46B86EcaF09E
 ```
 
-Register shard for the network `3`:
+Register shard for the network `2`:
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml register-shards 3
+docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml register-shards 2
 ```
 
 ### ERC20 
@@ -49,10 +49,10 @@ Build contract
 forge build
 ```
 
-We'll deploy it to network `3` which should have rpc exposed at `8546` port:
+We'll deploy it to network `2` which should have rpc exposed at `8545` port:
 
 ``` sh
-forge create -r localhost:8546 --unlocked --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
+forge create --unlocked --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
 
 Deployed to:  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 ```
@@ -71,7 +71,7 @@ Token ANLOG 0x49877F1e26d523e716d941a424af46B86EcaF09E 0x00000000000000000000000
 
 call register_network extrinsic from sudo with following parameters:
 
-+ network: `3`
++ network: `2`
 + baseFee: 0
 + data:
   + nonce: 0                         
@@ -86,13 +86,13 @@ Let's teleport some ANLOG to `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` addres
 Check that it has zero ANLOG first: 
 
 ``` sh
-cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 -r localhost:8546
+cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 0
 ```
 
 Send teleport_keep_alive extrinsic from any account having ANLOG (e.g. `//Eve`):
 
-+ network_id: `3`
++ network_id: `2`
 + beneficiary: `0x000000000000000000000000f39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
 + amount: 1000000000000
 

@@ -2,13 +2,13 @@ use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::{
 	ExtrinsicDetails, ExtrinsicParams, LegacyRpcMethods, OnlineClient, SubmittableExtrinsic,
 };
-use std::collections::{HashSet, VecDeque};
-use std::pin::Pin;
-
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesUnordered;
 use futures::{Future, FutureExt, StreamExt, TryStreamExt};
+use std::collections::{HashSet, VecDeque};
+use std::pin::Pin;
+use std::time::Duration;
 use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::tx::Payload as TxPayload;
@@ -334,6 +334,7 @@ impl SubxtWorker {
 					block_data = finalized_blocks.next().fuse() => {
 						let Some(block_res) = block_data else {
 							tracing::error!("Finalized block strem terminated");
+							tokio::time::sleep(Duration::from_secs(1)).await;
 							continue;
 						};
 
@@ -359,6 +360,7 @@ impl SubxtWorker {
 					block_data = best_blocks.next().fuse() => {
 						let Some(block_res) = block_data else {
 							tracing::error!("Latest block stream terminated");
+							tokio::time::sleep(Duration::from_secs(1)).await;
 							continue;
 						};
 

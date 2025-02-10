@@ -327,3 +327,46 @@ impl IntoRow for MessageTrace {
 		})
 	}
 }
+
+#[derive(Serialize)]
+pub struct LogEntry {
+	timestamp: String,
+	level: String,
+	msg: String,
+	location: String,
+	task_id: Option<String>,
+	shard_id: Option<String>,
+	task: Option<String>,
+	account: Option<String>,
+	target_address: Option<String>,
+	peer_id: Option<String>,
+	block: Option<String>,
+	block_hash: Option<String>,
+	target_block: Option<String>,
+	from: Option<String>,
+	to: Option<String>,
+}
+
+impl IntoRow for Log {
+	type Row = LogEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(LogEntry {
+			timestamp: self.timestamp,
+			level: self.level,
+			msg: self.msg,
+			location: self.location,
+			task_id: self.data.get("task_id").cloned(),
+			shard_id: self.data.get("shard_id").cloned(),
+			task: self.data.get("task").cloned(),
+			account: self.data.get("timechain").cloned(),
+			target_address: self.data.get("target").cloned(),
+			peer_id: self.data.get("peer_id").cloned(),
+			block: self.data.get("block").cloned(),
+			block_hash: self.data.get("block_hash").cloned(),
+			target_block: self.data.get("target_block_height").cloned(),
+			from: self.data.get("from").cloned(),
+			to: self.data.get("to").cloned(),
+		})
+	}
+}

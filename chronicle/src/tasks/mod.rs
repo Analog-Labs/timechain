@@ -73,7 +73,7 @@ impl TaskParams {
 			tracing::debug!(
 				parent: span,
 				task_id,
-				task,
+				task = task.to_string(),
 				target_block_height,
 				"task scheduled for future {:?}/{:?}",
 				target_block_height,

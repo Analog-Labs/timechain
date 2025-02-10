@@ -176,24 +176,16 @@ impl std::str::FromStr for Log {
 	}
 }
 
-impl std::fmt::Display for Log {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		writeln!(f, "{} {}: {} at {}", &self.timestamp, &self.level, &self.msg, &self.location)?;
-		writeln!(f, "{:#?}", self.data)
-	}
-}
-
 pub async fn logs(query: Query) -> Result<Vec<Log>> {
+	let query = query.to_string();
+	log::info!("{query}");
 	let env = Loki::from_env()?;
 	let client = reqwest::Client::new();
 	let url: reqwest::Url = format!("{}/loki/api/v1/query_range", &env.loki_url).parse()?;
 	let req = client
 		.get(url)
 		.basic_auth(env.loki_username, Some(env.loki_password))
-		.query(&Request {
-			query: query.to_string(),
-			since: "30d".into(),
-		})
+		.query(&Request { query, since: "30d".into() })
 		.build()
 		.context("invalid request")?;
 	log::debug!("GET {}", req.url());

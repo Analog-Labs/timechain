@@ -105,9 +105,6 @@ impl Slack {
 		let channel = SlackChannelId::new(channel);
 		let thread = std::env::var("SLACK_THREAD_TS")?;
 		let thread = SlackTs::new(thread);
-		rustls::crypto::ring::default_provider()
-			.install_default()
-			.expect("Failed to install rustls crypto provider");
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
 		Ok(Self { client, token, channel, thread })
 	}

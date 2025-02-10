@@ -52,6 +52,10 @@ pub enum Query {
 		block_hash: Option<String>,
 		#[arg(long)]
 		target_block: Option<u64>,
+		#[arg(long)]
+		from: Option<String>,
+		#[arg(long)]
+		to: Option<String>,
 	},
 	Raw {
 		query: String,
@@ -70,6 +74,8 @@ impl std::fmt::Display for Query {
 				block,
 				block_hash,
 				target_block,
+				from,
+				to,
 			} => {
 				write!(f, r#"{{app="chronicle"}}"#)?;
 				if let Some(task) = task {
@@ -96,6 +102,12 @@ impl std::fmt::Display for Query {
 				if let Some(block) = target_block {
 					write!(f, " |= `target_block_height: {block}`")?;
 				}
+				if let Some(from) = from {
+					write!(f, " |= `from: {from}`")?;
+				}
+				if let Some(to) = to {
+					write!(f, " |= `to: {to}`")?;
+				}
 				Ok(())
 			},
 			Self::Raw { query } => f.write_str(query),
@@ -104,13 +116,13 @@ impl std::fmt::Display for Query {
 }
 
 #[derive(Debug)]
-struct Log {
-	timestamp: String,
-	level: String,
-	module: String,
-	msg: String,
-	location: String,
-	data: HashMap<String, String>,
+pub struct Log {
+	pub timestamp: String,
+	pub level: String,
+	pub module: String,
+	pub msg: String,
+	pub location: String,
+	pub data: HashMap<String, String>,
 }
 
 impl std::str::FromStr for Log {

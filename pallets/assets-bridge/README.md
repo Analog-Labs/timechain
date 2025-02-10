@@ -11,17 +11,23 @@ docker compose --profile evm up -d
 ```
 
 ### GMP
-
+    
 Deploy gateways
 
 ``` sh
 docker compose run --remove-orphans tc-cli --config local-evm.yaml deploy
 ```
 
-Register TC network to the gateway at network `3`:
+Register TC network (route) to the gateway at network `3`:
 
 ``` sh
 docker compose run --remove-orphans tc-cli --config local-evm.yaml set-tc-route 3 0x49877F1e26d523e716d941a424af46B86EcaF09E
+```
+
+Register shard for the network `3`:
+
+``` sh
+docker compose run --remove-orphans tc-cli --config local-evm.yaml register-shards 3
 ```
 
 ### ERC20 
@@ -47,16 +53,16 @@ To deploy it, we use pre-funded dev account of our evm network node, its address
         http://localhost:8545 | jq ".result"
         
 [
-  "0x9d0d95c91827a5eb87cf5e32d2af7189844e3790"
+  "0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf"
 ] 
 ```
 
 Now we deploy example ERC20 contract 
 
 ``` sh
-forge create -r localhost:8545 --unlocked --from 0x9d0d95c91827a5eb87cf5e32d2af7189844e3790 --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
+forge create -r localhost:8545 --unlocked --from 0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
 
-Deployed to: 0x4A36c68B9496fC5fb662976277Fa694efB40a649
+Deployed to:  0xa3d519c484554E71Ec1C25de0a5580c12Ae9DbF4
 ```
 
 ### Bridge Pallet 
@@ -67,25 +73,25 @@ call register_network extrinsic from sudo with following parameters:
 + baseFee: 0
 + data:
   + nonce: 0
-  + dest: `0x0000000000000000000000004A36c68B9496fC5fb662976277Fa694efB40a649` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
+  + dest: `0x000000000000000000000000a3d519c484554E71Ec1C25de0a5580c12Ae9DbF4` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
 
 ## Flow 
 
 ### TC -> ERC20 
 
-Let's teleport some ANLOG to `0x9d0d95c91827a5eb87cf5e32d2af7189844e3790` address.
+Let's teleport some ANLOG to `0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf` address.
 
 Check that it has zero ANLOG first: 
 
 ``` sh
-cast call 0x7a33b79C4F61258d84961929152e56978A76523E "balanceOf(address)(uint256)" 0x9d0d95c91827a5eb87cf5e32d2af7189844e3790
+cast call 0xa3d519c484554E71Ec1C25de0a5580c12Ae9DbF4 "balanceOf(address)(uint256)" 0xc11862b4d22cca250b2cc8cfa50f2a17e941dbaf
 0
 ```
 
 Send teleport_keep_alive extrinsic from any account having ANLOG (e.g. `//Eve`):
 
-+ network_id: 3
-+ beneficiary: `0x0000000000000000000000009d0d95c91827a5eb87cf5e32d2af7189844e3790`
++ network_id: `3`
++ beneficiary: `0x0000000000000000000000004c7daa5b107ff3b5324d7ee659a35ce4e1eeda1b`
 + amount: 1000000000000
 
 You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`, note task_id from it for tracking. 
@@ -93,7 +99,7 @@ You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`,
 You can track task status with 
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm.yaml task 62
+docker compose run --remove-orphans tc-cli --config local-evm.yaml task 40
 ```
 
 ***Problem**: for some reason that task remains unassigned: 

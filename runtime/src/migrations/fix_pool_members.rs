@@ -11,8 +11,8 @@ use sp_std::vec::Vec;
 
 pub struct RemoveBuggyPoolMembersMigration<T>(sp_std::marker::PhantomData<T>);
 
-impl<T: frame_system::Config> frame_support::traits::OnRuntimeUpgrade
-	for RemoveBuggyPoolMembersMigration<T>
+impl<T: frame_system::Config + pallet_nomination_pools::Config>
+	frame_support::traits::OnRuntimeUpgrade for RemoveBuggyPoolMembersMigration<T>
 {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight: Weight = Weight::zero();
@@ -44,7 +44,7 @@ impl<T: frame_system::Config> frame_support::traits::OnRuntimeUpgrade
 		for account in accounts_to_remove.iter() {
 			if PoolMembers::<T>::contains_key(account) {
 				PoolMembers::<T>::remove(account);
-				weight += T::DbWeight::get().writes(1);
+				weight += <T as frame_system::Config>::DbWeight::get().writes(1);
 			}
 		}
 

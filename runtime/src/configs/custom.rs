@@ -166,7 +166,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			nonce: data.nonce,
 			// must be sufficient to exec onGmpReceived
 			// TODO sane value here (100k fails)
-			gas_limit: 100_000_000u128,
+			gas_limit: 234_000_000u128,
 			// usually used for cronicles refund
 			gas_cost: 0u128,
 			// calldata for our onGmpReceived

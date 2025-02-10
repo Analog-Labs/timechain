@@ -592,7 +592,8 @@ impl IConnector for Connector {
 			s: u256(&sig[32..]),
 		};
 		// Adding extra overhead for gateway call
-		let total_gas = msg.gas().saturating_add(100_000u128);
+		// TODO replace this magic value w config value
+		let total_gas = msg.gas().saturating_add(1_200_000u128);
 		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
 			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
 			u64::MAX

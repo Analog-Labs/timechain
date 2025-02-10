@@ -70,7 +70,11 @@ impl TaskParams {
 		span: &Span,
 	) -> Result<bool> {
 		if target_block_height < task.start_block() {
-			tracing::debug!(parent: span,
+			tracing::debug!(
+				parent: span,
+				task_id,
+				task,
+				target_block_height,
 				"task scheduled for future {:?}/{:?}",
 				target_block_height,
 				task.start_block(),

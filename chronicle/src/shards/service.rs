@@ -58,7 +58,7 @@ pub struct TimeWorker<Tx, Rx> {
 
 fn display_peer_id(peer_id: PeerId) -> String {
 	let Ok(peer_id) = TssPeerId::new(peer_id) else {
-		return hex::encode(&peer_id);
+		return hex::encode(peer_id);
 	};
 	peer_id.to_string()
 }

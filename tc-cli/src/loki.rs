@@ -1,7 +1,7 @@
 use crate::env::Loki;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use time_primitives::{ShardId, TaskId};
+use time_primitives::{BlockNumber, ShardId, TaskId};
 
 //const DIRECTION_FORWARD: &'static str = "FORWARD";
 //const DIRECTION_BACKWARD: &'static str = "BACKWARD";
@@ -34,19 +34,60 @@ struct StreamValue {
 
 #[derive(Clone, Debug, clap::Parser)]
 pub enum Query {
-	Task { task: TaskId },
-	Shard { shard: ShardId },
-	Raw { query: String },
+	Chronicle {
+		task: Option<TaskId>,
+		shard: Option<ShardId>,
+		account: Option<String>,
+		target_address: Option<String>,
+		peer_id: Option<String>,
+		block: Option<BlockNumber>,
+		block_hash: Option<String>,
+		target_block: Option<u64>,
+	},
+	Raw {
+		query: String,
+	},
 }
 
 impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			Self::Task { task } => {
-				write!(f, r#"{{app="chronicle"}} |~ `task_id: {task}`"#)
-			},
-			Self::Shard { shard } => {
-				write!(f, r#"{{app="chronicle"}} |= `shard_id: {shard}`"#)
+			Self::Chronicle {
+				task,
+				shard,
+				account,
+				target_address,
+				peer_id,
+				block,
+				block_hash,
+				target_block,
+			} => {
+				write!(f, r#"{{app="chronicle"}}"#)?;
+				if let Some(task) = task {
+					write!(f, " |= `task_id: {task}`")?;
+				}
+				if let Some(shard) = shard {
+					write!(f, " |= `shard_id: {shard}`")?;
+				}
+				if let Some(account) = account {
+					write!(f, " |= `timechain: {account}`")?;
+				}
+				if let Some(address) = target_address {
+					write!(f, " |= `target: {address}`")?;
+				}
+				if let Some(peer_id) = peer_id {
+					write!(f, " |= `peer_id: {peer_id}`")?;
+				}
+				if let Some(block) = block {
+					write!(f, " |= `block: {block}`")?;
+				}
+				if let Some(block_hash) = block_hash {
+					write!(f, " |= `block_hash: {block_hash}`")?;
+				}
+				if let Some(block) = target_block {
+					write!(f, " |= `target_block_height: {block}`")?;
+				}
+				Ok(())
 			},
 			Self::Raw { query } => f.write_str(query),
 		}

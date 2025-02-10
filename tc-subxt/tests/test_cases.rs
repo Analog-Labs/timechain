@@ -117,8 +117,29 @@ async fn test_tc_subxt_db_ops() {
 	assert!(txs.len() == 0);
 }
 
-// TODO add stream implementation
 // Add test to check stream in case of errors.
+#[tokio::test]
+// now working WIP.
+async fn test_finalized_stream_error_and_recovery() {
+	let env = new_env().await;
+	// Force the stream to error.
+	env.client.set_force_stream_error(true).await;
+	sleep(Duration::from_secs(2)).await;
+	// Remove the error condition.
+	env.client.set_force_stream_error(false).await;
+	// Push a new block so that the worker’s subscription (after a retry) receives data.
+	let test_block = MockBlock {
+		number: 1,
+		hash: H256::random(),
+		extrinsics: vec![],
+	};
+	env.client.push_finalized_block(&test_block).await;
+	sleep(Duration::from_secs(1)).await;
+	// Check that the worker’s subscription counter has increased.
+	// let count = *env.client.subscription_counter.lock().await;
+	// assert!(count >= 2);
+	wait_for_submission(&env.client, 1).await;
+}
 
 /////////////////////////////////////////////
 /// Utils

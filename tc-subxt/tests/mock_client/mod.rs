@@ -19,6 +19,7 @@ pub struct MockClient {
 	pub latest_block: Arc<Mutex<BlockDetail>>,
 	submitted_hashes: Arc<Mutex<Vec<H256>>>,
 	failing_hashes: Arc<Mutex<Vec<H256>>>,
+	force_stream_error: Arc<Mutex<bool>>,
 	finalized_sender: broadcast::Sender<MockBlock>,
 	best_sender: broadcast::Sender<MockBlock>,
 }
@@ -43,11 +44,16 @@ impl MockClient {
 			})),
 			submitted_hashes: Arc::new(Mutex::new(Vec::new())),
 			failing_hashes: Arc::new(Mutex::new(Vec::new())),
+			force_stream_error: Arc::new(Mutex::new(false)),
 		}
 	}
 
-	async fn push_finalized_block(&self, block: &MockBlock) {
+	pub async fn push_finalized_block(&self, block: &MockBlock) {
 		self.finalized_sender.send(block.clone()).ok();
+	}
+
+	pub async fn set_force_stream_error(&self, value: bool) {
+		*self.force_stream_error.lock().await = value;
 	}
 
 	async fn push_best_block(&self, block: &MockBlock) {
@@ -160,6 +166,13 @@ impl ITimechainClient for MockClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
+		if *self.force_stream_error.lock().await {
+			let error_stream: BoxStream<
+				'static,
+				Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>,
+			> = futures::stream::once(async { Err(anyhow::anyhow!("Forced stream error")) }).boxed();
+			return Ok(error_stream);
+		}
 		let rx = self.finalized_sender.subscribe();
 		{
 			let mut counter = self.subscription_counter.lock().await;
@@ -177,6 +190,13 @@ impl ITimechainClient for MockClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
+		if *self.force_stream_error.lock().await {
+			let error_stream: BoxStream<
+				'static,
+				Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>,
+			> = futures::stream::once(async { Err(anyhow::anyhow!("Forced stream error")) }).boxed();
+			return Ok(error_stream);
+		}
 		let rx = self.best_sender.subscribe();
 		{
 			let mut counter = self.subscription_counter.lock().await;

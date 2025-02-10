@@ -63,6 +63,7 @@ pub trait ITransactionDbOps: Send + Sync {
 	fn load_pending_txs(&self, nonce: u64) -> Result<VecDeque<TxData>>;
 }
 
+#[derive(Clone)]
 pub struct TimechainOnlineClient {
 	client: OnlineClient,
 	keypair: Keypair,

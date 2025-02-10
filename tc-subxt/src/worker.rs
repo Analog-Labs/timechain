@@ -4,8 +4,12 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
+use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
+use futures::stream::{BoxStream, Fuse, FuturesUnordered};
+use futures::{Future, FutureExt, StreamExt};
 use futures::{Future, FutureExt, StreamExt, TryStreamExt};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::pin::Pin;
 use std::time::Duration;
@@ -95,7 +99,7 @@ pub struct TxStatus<C: ITimechainClient> {
 
 pub struct SubxtWorker<C, D>
 where
-	C: ITimechainClient + Send + Sync + 'static,
+	C: ITimechainClient + Send + Sync + Clone + 'static,
 	D: ITransactionDbOps + Send + Sync + 'static,
 {
 	client: C,
@@ -109,7 +113,7 @@ where
 
 impl<C, D> SubxtWorker<C, D>
 where
-	C: ITimechainClient + Send + Sync + 'static,
+	C: ITimechainClient + Send + Sync + Clone + 'static,
 	C::Submitter: ITransactionSubmitter + Send + Sync + 'static,
 	C::Block: IBlock + Send + Sync + 'static,
 	D: ITransactionDbOps + Send + Sync + 'static,
@@ -317,10 +321,15 @@ where
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			tracing::info!("starting subxt worker");
-			// TODO implement stream reconnection.
 			let mut update_stream = self.client.runtime_updates().await.unwrap().boxed();
-			let mut finalized_blocks = self.client.finalized_block_stream().await.unwrap().boxed();
-			let mut best_blocks = self.client.best_block_stream().await.unwrap().boxed();
+			let mut finalized_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
+				async move { c.finalized_block_stream().await }.boxed()
+			})
+			.await;
+			let mut best_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
+				async move { c.best_block_stream().await }.boxed()
+			})
+			.await;
 			loop {
 				futures::select! {
 					tx = rx.next().fuse() => {
@@ -328,78 +337,95 @@ where
 						tracing::info!("worker.rs tx added to pool");
 						self.add_tx_to_pool(command, Some(channel), None);
 					}
-					block_data = finalized_blocks.next().fuse() => {
-						tracing::info!("worker.rs finlaized block stream hit");
-						let Some(block_res) = block_data else {
-							tracing::error!("Finalized block strem terminated");
-							tokio::time::sleep(Duration::from_secs(1)).await;
-							continue;
-						};
-
-						let Ok((_, extrinsics)) = block_res else {
-							tracing::error!("Error processing finalized blocks: {:?}", block_res.err());
-							continue;
-						};
-
-						if self.pending_tx.is_empty() {
-							continue;
-						}
-
-						for extrinsic in extrinsics.into_iter() {
-							let extrinsic_hash = extrinsic.hash();
-							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
-								let Some(tx) = self.pending_tx.pop_front() else {
+					block_data = finalized_blocks.next() => {
+						match block_data {
+							Some(Ok((_block, extrinsics))) => {
+								if self.pending_tx.is_empty() {
 									continue;
-								};
-								if let Some(sender) = tx.event_sender {
-									sender.send(extrinsic).ok();
 								}
-								if let Err(e) = self.db.remove_tx(tx.data.hash){
-									tracing::error!("Unable to remove tx from db {e}");
-								};
+
+								for extrinsic in extrinsics.into_iter() {
+									let extrinsic_hash = extrinsic.hash();
+									if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
+										let Some(tx) = self.pending_tx.pop_front() else {
+											continue;
+										};
+										if let Some(sender) = tx.event_sender {
+											sender.send(extrinsic).ok();
+										}
+										if let Err(e) = self.db.remove_tx(tx.data.hash){
+											tracing::error!("Unable to remove tx from db {e}");
+										};
+									}
+								}
+							},
+							Some(Err(e)) => {
+								tracing::error!("Error processing finalized blocks: {:?}", e);
+								continue;
+							},
+							None => {
+								tracing::error!("Finalized block stream terminated");
+								finalized_blocks = Self::
+									create_stream_with_retry(
+										self.client.clone(),
+										|c| async move {
+											let client = c.clone();
+											client.finalized_block_stream().await
+										}.boxed()
+									)
+									.await;
 							}
 						}
 					}
-					block_data = best_blocks.next().fuse() => {
-						let Some(block_res) = block_data else {
-							tracing::error!("Latest block stream terminated");
-							tokio::time::sleep(Duration::from_secs(1)).await;
-							continue;
-						};
+					block_data = best_blocks.next() => {
+						match block_data {
+							Some(Ok((block, extrinsics))) => {
+								self.latest_block = BlockDetail {
+									number: block.number(),
+									hash: block.hash()
+								};
+								tracing::info!("worker.rs best block stream hit: {}", self.latest_block.number);
 
-						let Ok((block, extrinsics)) = block_res else {
-							tracing::error!("Error processing block: {:?}", block_res.err());
-							continue;
-						};
+								if self.pending_tx.is_empty() {
+									continue;
+								}
 
-						self.latest_block = BlockDetail {
-							number: block.number(),
-							hash: block.hash()
-						};
-						tracing::info!("worker.rs best block stream hit: {}", self.latest_block.number);
+								let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
+								for tx in self.pending_tx.iter_mut() {
+									if hashes.contains(&tx.data.hash) {
+										tracing::info!("worker.rs tx found in block {}", self.latest_block.number);
+										tx.best_block = Some(self.latest_block.number);
+									}
+								}
 
-						if self.pending_tx.is_empty() {
-							continue;
-						}
-
-						let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
-						for tx in self.pending_tx.iter_mut() {
-							if hashes.contains(&tx.data.hash) {
-								tracing::info!("worker.rs tx found in block {}", self.latest_block.number);
-								tx.best_block = Some(self.latest_block.number);
+								let mut new_pending: VecDeque<TxStatus<C>> = VecDeque::new();
+								while let Some(tx) = self.pending_tx.pop_front() {
+									if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
+										tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
+										self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
+									} else {
+										new_pending.push_back(tx);
+									}
+								}
+								self.pending_tx = new_pending;
+							},
+							Some(Err(e)) => {
+								tracing::error!("Error processing block: {:?}", e);
+								continue;
+							},
+							None => {
+								tracing::error!("Latest block stream terminated");
+								best_blocks = Self::
+									create_stream_with_retry(
+										self.client.clone(),
+										|c| async move {
+											let client = c.clone();
+											client.best_block_stream().await
+										}.boxed()
+									)
+									.await;
 							}
 						}
-
-						let mut new_pending: VecDeque<TxStatus<C>> = VecDeque::new();
-						while let Some(tx) = self.pending_tx.pop_front() {
-							if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
-								tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
-								self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
-							} else {
-								new_pending.push_back(tx);
-							}
-						}
-						self.pending_tx = new_pending;
 					}
 					tx_result = self.transaction_pool.next().fuse() => {
 						let Some(result) = tx_result else {
@@ -422,5 +448,26 @@ where
 			}
 		});
 		tx
+	}
+
+	async fn create_stream_with_retry<S, F>(
+		client: C,
+		stream_creator: F,
+	) -> Fuse<BoxStream<'static, Result<S>>>
+	where
+		F: Fn(C) -> BoxFuture<'static, Result<BoxStream<'static, Result<S>>>>
+			+ Clone
+			+ Send
+			+ 'static,
+	{
+		loop {
+			match stream_creator(client.clone()).await {
+				Ok(stream) => return stream.fuse(),
+				Err(e) => {
+					tracing::warn!("Couldn't create stream, retrying: {:?}", e);
+					tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+				},
+			}
+		}
 	}
 }

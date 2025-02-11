@@ -8,22 +8,22 @@ use futures::channel::{mpsc, oneshot};
 use futures::future::BoxFuture;
 use futures::stream::{BoxStream, Fuse, FuturesUnordered};
 use futures::{Future, FutureExt, StreamExt};
-use serde::{Deserialize, Serialize};
+use scale_codec::{Decode, Encode};
 use std::collections::{HashSet, VecDeque};
 use std::pin::Pin;
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;
 use time_primitives::{
-	serde_proof_of_knowledge, traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network,
-	NetworkConfig, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
+	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
+	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
 pub const MORTALITY: u8 = 32;
 type TransactionFuture = Pin<Box<dyn Future<Output = Result<H256>> + Send>>;
 type TransactionsUnordered = FuturesUnordered<TransactionFuture>;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Encode, Decode)]
 pub enum Tx {
 	// system
 	SetCode {
@@ -60,7 +60,7 @@ pub enum Tx {
 	Commitment {
 		shard_id: ShardId,
 		commitment: Commitment,
-		#[serde(with = "serde_proof_of_knowledge")]
+		// #[serde(with = "serde_proof_of_knowledge")]
 		proof_of_knowledge: ProofOfKnowledge,
 	},
 	Ready {
@@ -80,7 +80,7 @@ pub enum Tx {
 	},
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Encode, Decode)]
 pub struct TxData {
 	pub hash: H256,
 	pub era: u64,

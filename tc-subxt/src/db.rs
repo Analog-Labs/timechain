@@ -1,5 +1,6 @@
 use anyhow::Result;
 use redb::{Database, ReadableTable, TableDefinition};
+use scale_codec::{Decode, Encode};
 use std::collections::VecDeque;
 use subxt::utils::H256;
 
@@ -31,7 +32,7 @@ impl ITransactionDbOps for TransactionsDB {
 		composite_key[..32].copy_from_slice(&self.public_key);
 		composite_key[32..].copy_from_slice(tx_data.hash.as_bytes());
 
-		let tx_value = bincode::serialize(tx_data)?;
+		let tx_value = tx_data.encode();
 
 		let write_tx = self.db.begin_write()?;
 		{
@@ -72,8 +73,7 @@ impl ITransactionDbOps for TransactionsDB {
 
 			for entry in table.range(lower_bound..=upper_bound)? {
 				let (key, value) = entry?;
-				let tx_data: TxData = bincode::deserialize(value.value())?;
-
+				let tx_data = TxData::decode(&mut value.value())?;
 				if tx_data.nonce < nonce {
 					let key_bytes: [u8; 64] = key.value();
 					delete_keys.push(key_bytes);

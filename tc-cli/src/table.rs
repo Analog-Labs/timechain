@@ -239,6 +239,7 @@ impl IntoRow for Task {
 pub struct BatchEntry {
 	batch: BatchId,
 	task: TaskId,
+	tx: String,
 }
 
 impl IntoRow for Batch {
@@ -248,6 +249,7 @@ impl IntoRow for Batch {
 		Ok(BatchEntry {
 			batch: self.batch,
 			task: self.task,
+			tx: self.tx.map(hex::encode).unwrap_or_else(|| "pending".into()),
 		})
 	}
 }

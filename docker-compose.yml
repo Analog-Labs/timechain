@@ -82,7 +82,6 @@ services:
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
     profiles:
-    profiles:
     - evm
 
   chronicle-2-evm:

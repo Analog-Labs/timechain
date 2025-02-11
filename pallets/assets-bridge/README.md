@@ -69,7 +69,7 @@ Token ANLOG 0x49877F1e26d523e716d941a424af46B86EcaF09E 0x00000000000000000000000
 
 ### Bridge Pallet 
 
-call register_network extrinsic from sudo with following parameters:
+call `bridge/register_network extrinsic` from sudo with following parameters:
 
 + network: `2`
 + baseFee: 0
@@ -94,7 +94,7 @@ Send teleport_keep_alive extrinsic from any account having ANLOG (e.g. `//Eve`):
 
 + network_id: `2`
 + beneficiary: `0x000000000000000000000000f39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
-+ amount: 1000000000000
++ amount: 3000000000000
 
 You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`, note task_id from it for tracking. 
 
@@ -113,13 +113,14 @@ cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "balanceOf(address)(uint256
 
 ```
 
+#### Troubleshooting 
 
-***Problem**: task fails w 
-
-``` sh
-Executed { tx_hash: 0x9965f8abe9d69ee9957b55981b01b31a6644cf7ee79b53aed26b505c6d85caee, result: Revert("insufficient gas to execute GMP message"), receipt: TransactionReceipt { transaction_hash: 0x9965f8abe9d69ee9957b55981b01b31a6644cf7ee79b53aed26b505c6d85caee, transaction_index: 0, block_hash: 0xfaf8c750b447d9fba10a6a576a0237339fe4ae956717ea06c88d199abb567e7c, block_number: Some(777), from: Some(0x57a98df12254a98e0975368f97fb48c64ed4fd33), to: Some(0x49877f1e26d523e716d941a424af46b86ecaf09
-```
-
+1. If you see task as "completed", but tokens are not delivered to dest network: 
+   1. Note batch_id of the task: It's x in `SubmitMessage(x)` which you see w `tc-cli task x`;
+   2. Query GMP message tx_hash by batch_id from tasks pallet storage: `batchTxHash(u64)`;
+   3. Re-run that tx with trace: 
+      `$> cast run <tx_hash>`;
+   This will show you tx execution trace 
 
 
 ### ERC20 -> TC 

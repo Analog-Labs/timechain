@@ -92,7 +92,7 @@ const WEIGHT_PER_NANOS: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS, 0
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::weights::{pays_no_with_maybe_weight};
+	use crate::weights::pays_no_with_maybe_weight;
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	use sp_std::fmt::Debug;

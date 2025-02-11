@@ -5,6 +5,8 @@ pub mod extrinsic_weights;
 
 pub mod frame_system;
 
+pub mod bridge_multisig;
+pub mod eth_bridge;
 pub mod pallet_airdrop;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
@@ -20,8 +22,6 @@ pub mod pallet_tasks;
 pub mod pallet_timegraph;
 pub mod pallet_timestamp;
 pub mod pallet_utility;
-pub mod eth_bridge;
-pub mod bridge_multisig;
 
 pub use block_weights::BlockExecutionWeight;
 pub use extrinsic_weights::ExtrinsicBaseWeight;

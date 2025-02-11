@@ -358,6 +358,7 @@ where
 							},
 							Some(Err(e)) => {
 								tracing::error!("Error processing finalized blocks: {:?}", e);
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 								continue;
 							},
 							None => {
@@ -409,6 +410,7 @@ where
 							},
 							Some(Err(e)) => {
 								tracing::error!("Error processing block: {:?}", e);
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 								continue;
 							},
 							None => {

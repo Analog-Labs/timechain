@@ -126,7 +126,7 @@ impl Allocation {
 			Strategic => Some((376_857_707_180 * mANLOG, 47_669 * mANLOG, 1_950_870)),
 			Team => Some((1_714_673_910_300 * mANLOG, 108_446 * mANLOG, 4_586_070)),
 			Airdrop => None,
-			Initiatives => Some((1_449_275_360_000 * mANLOG, 68_745 * mANLOG, 633_270)),
+			Initiatives => Some((1_086_956_520_000 * mANLOG, 68_745 * mANLOG, 633_270)),
 			Ecosystem => Some((679_553_171_595 * mANLOG, 32_234 * mANLOG, 633_270)),
 		}
 	}

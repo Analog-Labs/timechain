@@ -48,7 +48,7 @@ pub mod pallet {
 	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::CheckedConversion;
+	//use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
@@ -108,19 +108,9 @@ pub mod pallet {
 		// OTC Preparation 2
 		(24, Allocation::Initiatives, 249_094_202_500 * MILLIANLOG, Stage::Retired),
 		// OTC Preparation 3
-		(
-			25,
-			Allocation::Initiatives,
-			362_318_840 * ANLOG,
-			Stage::DepositFromUnlocked(data::v25::DEPOSITS_OTC_INITIATIVES_2),
-		),
+		(25, Allocation::Initiatives, 362_318_840 * ANLOG, Stage::Retired),
 		// Launchday transfer 2
-		(
-			26,
-			Allocation::Ecosystem,
-			14_449_903_350 * MILLIANLOG,
-			Stage::DepositFromUnlocked(data::v26::DEPOSITS_LAUNCHDAY_2),
-		),
+		(26, Allocation::Ecosystem, 14_449_903_350 * MILLIANLOG, Stage::Retired),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -212,10 +202,6 @@ pub mod pallet {
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			// Correct token schedule to supply OTC demand, 20% additional unlock.
-			Allocation::Initiatives
-				.set_locked::<T>(BalanceOf::<T>::checked_from(1_086_956_520 * ANLOG).unwrap());
-
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {

@@ -256,25 +256,14 @@ impl IConnectorAdmin for Connector {
 		Ok((response.address, response.block))
 	}
 	/// Estimates the message cost.
-	async fn estimate_message_cost(
-		&self,
-		gateway: Address,
-		dest: NetworkId,
-		msg_size: usize,
-		gas_limit: u128,
-	) -> Result<u128> {
-		let request = Request::new(proto::EstimateMessageCostRequest {
-			gateway,
-			dest,
-			msg_size,
-			gas_limit,
-		});
+	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128> {
+		let request = Request::new(proto::EstimateMessageCostRequest { gateway, msg: msg.clone() });
 		let response = self.client.lock().await.estimate_message_cost(request).await?.into_inner();
 		Ok(response.cost)
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
-		let request = Request::new(proto::SendMessageRequest { contract, msg });
+	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
+		let request = Request::new(proto::SendMessageRequest { msg });
 		let response = self.client.lock().await.send_message(request).await?.into_inner();
 		Ok(response.message_id)
 	}

@@ -933,26 +933,40 @@ impl Tc {
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
-	pub async fn send_message(
-		&self,
-		network: NetworkId,
-		tester: Address,
-		dest: NetworkId,
-		dest_addr: Address,
-		nonce: u64,
-	) -> Result<MessageId> {
-		let msg = GmpMessage {
-			src_network: network,
-			src: tester,
-			dest_network: dest,
-			dest: dest_addr,
-			nonce,
-			gas_limit: 100,
-			gas_cost: 200,
-			bytes: vec![],
-		};
-		let connector = self.connector(network)?;
-		connector.send_message(tester, msg.clone()).await
+	pub async fn estimate_message_cost(&self, msg: &GmpMessage) -> Result<u128> {
+		let (connector, gateway) = self.gateway(msg.src_network).await?;
+		connector.estimate_message_cost(gateway, msg).await
+	}
+
+	pub async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
+		let connector = self.connector(msg.src_network)?;
+		let dest_network = msg.dest_network;
+		let dest = msg.dest;
+		let gas_cost = msg.gas_cost;
+		let id = self
+			.println(
+				None,
+				format!(
+					"send message to {} {} @{}gas",
+					dest_network,
+					self.format_address(Some(dest_network), dest)?,
+					gas_cost,
+				),
+			)
+			.await?;
+		let msg_id = connector.send_message(msg).await?;
+		self.println(
+			Some(id),
+			format!(
+				"sent message {} to {} {} @{}gas",
+				hex::encode(msg_id),
+				dest_network,
+				self.format_address(Some(dest_network), dest)?,
+				gas_cost,
+			),
+		)
+		.await?;
+		Ok(msg_id)
 	}
 
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {

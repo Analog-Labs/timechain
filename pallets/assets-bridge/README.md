@@ -34,7 +34,7 @@ docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml set-tc
 ```
 
 Register shard for the network `2`:
-
+    
 ``` sh
 docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml register-shards 2
 ```
@@ -106,6 +106,15 @@ You can track task status with
 docker compose run --remove-orphans tc-cli --config local-evm.yaml task 13
 ```
 
+!note: even if tc-cli report task status as __completed_, message itself could have been reverted. 
+To check actual message status run: 
+```sh
+cast call 0x49877F1e26d523e716d941a424af46B86EcaF09E "gmpInfo(bytes32)" <msg_id>
+ ``` 
+
+
+
+
 
 Once task successfully completed, ANLOG tokens should have been teleported to target account. 
 Let's check that on network `2`:
@@ -119,6 +128,10 @@ cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "balanceOf(address)(uint256
 
 1. If you see task as "completed", but tokens are not delivered to dest network: 
    1. Note batch_id of the task: It's x in `SubmitMessage(x)` which you see w `tc-cli task x`;
+   2. Query [GmpStatus](https://github.com/Analog-Labs/analog-gmp-examples/blob/00090ef5b83574c5fdaa2a10d428f87e1702cc79/examples/teleport-tokens/BasicERC20.sol) of the message  via querying `gmpInfo(bytes32)` on the gateway:
+      ```
+      cast call 0x49877F1e26d523e716d941a424af46B86EcaF09E "gmpInfo(bytes32)" 7006d4a23a194de7611ffbd974e88fbccc65d223f2742480c365e66dea839668
+      ``` 
    2. Query GMP message tx_hash by batch_id from tasks pallet storage: `batchTxHash(u64)`;
    3. Re-run that tx with trace: 
       `$> cast run <tx_hash>`;

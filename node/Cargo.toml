@@ -112,7 +112,7 @@ timechain-runtime = { workspace =  true, features = ["genesis-builder"] }
 #try-runtime-core = { git = "https://github.com/paritytech/try-runtime-cli", tag = "v0.7.0", optional = true }
 
 # HASHI Bridge
-eth-bridge.workspace = true
+eth-bridge = { workspace = true, optional = true }
 
 [build-dependencies]
 clap.workspace = true
@@ -130,10 +130,12 @@ polkadot-sdk = { workspace = true, features = [
 [features]
 default = [ "std" ]
 std = [
-	"scale-codec/std", 
-	"polkadot-sdk/std", 
-	"eth-bridge/std"
+	"scale-codec/std",
+	"polkadot-sdk/std",
+	"eth-bridge?/std"
 ]
+# Enable bridge code
+bridge = [ "eth-bridge" ]
 # Runtime variants
 testnet = [
 	"time-primitives/testnet",

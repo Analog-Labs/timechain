@@ -47,7 +47,7 @@ pub struct ChronicleArgs {
 	pub backend: Backend,
 	/// Chronicle db path.
 	#[clap(long, default_value = "cached_tx.redb")]
-	pub tx_db: Backend,
+	pub tx_db: String,
 	/// Cctp Sender.
 	#[clap(long)]
 	pub cctp_sender: Option<String>,

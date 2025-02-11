@@ -59,9 +59,10 @@ impl Tc {
 				tracing::info!("waiting for chain to start: {err:?}");
 				sleep_or_abort(Duration::from_secs(10)).await?;
 			}
-			let runtime = SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic)
-				.await
-				.context("failed to connect to timechain")?;
+			let runtime =
+				SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic, "cached_tx.redb")
+					.await
+					.context("failed to connect to timechain")?;
 			Ok::<_, anyhow::Error>(runtime)
 		});
 		let mut connectors = HashMap::new();

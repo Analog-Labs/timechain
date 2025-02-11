@@ -69,6 +69,8 @@ Token ANLOG 0x49877F1e26d523e716d941a424af46B86EcaF09E 0x00000000000000000000000
 
 ### Bridge Pallet 
 
+Register network for teleportation at bridge pallet: 
+
 call `bridge/register_network extrinsic` from sudo with following parameters:
 
 + network: `2`

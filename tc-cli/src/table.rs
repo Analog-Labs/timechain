@@ -249,7 +249,7 @@ impl IntoRow for Batch {
 		Ok(BatchEntry {
 			batch: self.batch,
 			task: self.task,
-			tx: self.tx.map(|tx| hex::encode(tx)).unwrap_or_else(|| "pending".into()),
+			tx: self.tx.map(hex::encode).unwrap_or_else(|| "pending".into()),
 		})
 	}
 }

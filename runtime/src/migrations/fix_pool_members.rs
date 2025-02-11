@@ -47,6 +47,7 @@ where
 		for account in accounts_to_remove.iter() {
 			if PoolMembers::<T>::contains_key(account) {
 				PoolMembers::<T>::remove(account);
+				log::info!("Removed pool member: {account:?}");
 				weight += <T as frame_system::Config>::DbWeight::get().writes(1);
 			}
 		}

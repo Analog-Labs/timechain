@@ -933,7 +933,7 @@ impl Tc {
 
 	pub async fn estimate_message_cost(&self, msg: &GmpMessage) -> Result<u128> {
 		let (connector, gateway) = self.gateway(msg.src_network).await?;
-		connector.estimate_message_cost(gateway, &msg).await
+		connector.estimate_message_cost(gateway, msg).await
 	}
 
 	pub async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
@@ -957,7 +957,7 @@ impl Tc {
 			Some(id),
 			format!(
 				"sent message {} to {} {} @{}gas",
-				hex::encode(&msg_id),
+				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest)?,
 				gas_cost,

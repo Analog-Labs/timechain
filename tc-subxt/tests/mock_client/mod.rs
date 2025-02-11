@@ -13,6 +13,7 @@ use tc_subxt::timechain_client::{
 use tc_subxt::worker::TxData;
 use tc_subxt::ExtrinsicParams;
 use tokio::sync::{broadcast, Mutex};
+use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tokio_stream::wrappers::BroadcastStream;
 
 #[derive(Clone)]
@@ -34,8 +35,8 @@ impl Default for MockClient {
 
 impl MockClient {
 	pub fn new() -> Self {
-		let (finalized_sender, _) = broadcast::channel(1000);
-		let (best_sender, _) = broadcast::channel(1000);
+		let (finalized_sender, _) = broadcast::channel(10_000);
+		let (best_sender, _) = broadcast::channel(10_000);
 		Self {
 			subscription_counter: Default::default(),
 			finalized_sender,
@@ -192,8 +193,21 @@ impl ITimechainClient for MockClient {
 			*counter += 1;
 		}
 		let stream = BroadcastStream::new(rx)
-			.map(|res| res.map_err(|e| anyhow::anyhow!(e)))
-			.map(|block_result| block_result.map(|block| (block.clone(), block.extrinsics.clone())))
+			.map(|res| match res {
+				Ok(block) => Ok(Some(block)),
+				Err(BroadcastStreamRecvError::Lagged(n)) => {
+					tracing::warn!("Skipped {} best blocks due to lag", n);
+					Ok(None)
+				},
+				Err(e) => Err(anyhow::anyhow!(e)),
+			})
+			.filter_map(|res| async {
+				match res {
+					Ok(Some(block)) => Some(Ok((block.clone(), block.extrinsics.clone()))),
+					Ok(None) => None,
+					Err(e) => Some(Err(e)),
+				}
+			})
 			.boxed();
 		Ok(stream)
 	}

@@ -60,7 +60,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitTaskResult { task_id, result }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(&tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -68,7 +68,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitGmpEvents { network, gmp_events }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(&tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -76,7 +76,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::RemoveTask { task_id }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(&tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 

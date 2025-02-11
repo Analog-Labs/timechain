@@ -25,7 +25,6 @@ pub mod worker;
 use metadata::technical_committee::events as CommitteeEvent;
 
 pub use subxt_signer::sr25519::Keypair;
-pub const DB_PATH: &str = "cached_tx.redb";
 
 pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;
 pub type LegacyRpcMethods = subxt::backend::legacy::LegacyRpcMethods<subxt::PolkadotConfig>;
@@ -43,7 +42,7 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	pub async fn new(url: &str, keypair: Keypair) -> Result<Self> {
+	pub async fn new(url: &str, keypair: Keypair, tx_db: &str) -> Result<Self> {
 		let rpc = Self::get_client(url).await?;
 		let client = OnlineClient::from_rpc_client(rpc.clone())
 			.await
@@ -52,7 +51,7 @@ impl SubxtClient {
 		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
 		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
 		let timechain_client = TimechainOnlineClient::new(client.clone(), keypair.clone());
-		let db = TransactionsDB::new(DB_PATH, keypair.public_key().0)?;
+		let db = TransactionsDB::new(tx_db, keypair.public_key().0)?;
 		let worker = SubxtWorker::new(nonce, timechain_client, db, keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
@@ -66,11 +65,11 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn with_key(url: &str, mnemonic: &str) -> Result<Self> {
+	pub async fn with_key(url: &str, mnemonic: &str, tx_db: &str) -> Result<Self> {
 		let secret =
 			SecretUri::from_str(mnemonic.trim()).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
-		Self::new(url, keypair).await
+		Self::new(url, keypair, tx_db).await
 	}
 
 	pub async fn get_client(url: &str) -> Result<RpcClient> {
@@ -111,7 +110,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SetCode { code }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(&tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -119,7 +118,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Transfer { account, balance }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(&tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -130,7 +129,7 @@ impl SubxtClient {
 		Ok(if let Some(info) = result { info.data.free } else { 0 })
 	}
 
-	pub async fn wait_for_success<E: IExtrinsic>(&self, extrinsic: &E) -> Result<()> {
+	pub async fn is_success<E: IExtrinsic>(&self, extrinsic: &E) -> Result<()> {
 		extrinsic.is_success().await?;
 		Ok(())
 	}

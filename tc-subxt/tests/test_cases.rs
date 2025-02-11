@@ -71,7 +71,7 @@ async fn test_transaction_mortality_outage_flow() {
 }
 
 #[tokio::test]
-#[ignore]
+// #[ignore]
 // not working tbf
 async fn test_transaction_mortality_outage_flow_50() {
 	let total_tasks: usize = 50;

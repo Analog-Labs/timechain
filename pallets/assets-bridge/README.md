@@ -41,7 +41,7 @@ docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml regist
 
 ### ERC20 
 
-We'll use [teleport example contract](https://github.com/Analog-Labs/analog-gmp-examples/blob/00090ef5b83574c5fdaa2a10d428f87e1702cc79/examples/teleport-tokens/BasicERC20.sol). 
+We use `AnlogTokenV1` from [feature/support-gmp-bridge](https://github.com/Analog-Labs/erc20-token/blob/95f249bd0a8e05af55c8cca141b75776e17080d0/src/AnlogTokenV1.sol#L1) branch.
 
 Build contract 
 
@@ -50,34 +50,40 @@ forge build
 ```
 
 We'll deploy it to network `2` which should have rpc exposed at `8545` port:
+(provide the well-known key of `account(0)` of anvil)
 
 ``` sh
-forge create --unlocked --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --constructor-args-path=./constructor.args.txt examples/teleport-tokens/BasicERC20.sol:BasicERC20 --broadcast
+forge script script/00_Deploy.s.sol --rpc-url=localhost:8545 --broadcast -i 1
 
-Deployed to:  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+##### anvil-hardhat
+✅  [Success] Hash: 0x9218957da686fc63b210ddb3ef148415fe96a089360af670951273d67df9bdd6
+Contract Address: 0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0
+Block: 80514
+Paid: 0.000000000020520928 ETH (2565116 gas * 0.000000008 gwei)
+
+
+##### anvil-hardhat
+✅  [Success] Hash: 0x61d11e51376104da96844149122a2460e926920448df55adc37c46e6d1601c82
+Contract Address: 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82
+Block: 80514
+Paid: 0.000000000002637168 ETH (329646 gas * 0.000000008 gwei)
 ```
 
-<details>
-<summary>`constructor.args.txt`</summary>
+Here we've got 2 addresses: 2nd is for the proxy, 1st is for implementation.
 
-```
-Token ANLOG 0x49877F1e26d523e716d941a424af46B86EcaF09E 0x0000000000000000000000000000000000000000 1000 0x0000000000000000000000000000000000000000 0
-```
-
-</details>
 
 
 ### Bridge Pallet 
 
-Register network for teleportation at bridge pallet: 
+Register a new (or update an existing) network for teleportation at bridge pallet: 
 
-call `bridge/register_network extrinsic` from sudo with following parameters:
+call `bridge/register_network extrinsic` (or `force_update_network`) from sudo with following parameters:
 
 + network: `2`
 + baseFee: 0
 + data:
   + nonce: 0                         
-  + dest: `0x000000000000000000000000e7f1725E7734CE288F8367e1Bb143E90bb3F0512` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
+  + dest: `0x0000000000000000000000000DCd1Bf9A1b36cE34237eEaFef220932846BCD82` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
 
 ## Flow 
 
@@ -88,7 +94,7 @@ Let's teleport some ANLOG to `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` addres
 Check that it has zero ANLOG first: 
 
 ``` sh
-cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+cast call 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 0
 ```
 
@@ -96,7 +102,7 @@ Send teleport_keep_alive extrinsic from any account having ANLOG (e.g. `//Eve`):
 
 + network_id: `2`
 + beneficiary: `0x000000000000000000000000f39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
-+ amount: 3000000000000
++ amount: 15000000000000
 
 You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`, note task_id from it for tracking. 
 
@@ -106,31 +112,30 @@ You can track task status with
 docker compose run --remove-orphans tc-cli --config local-evm.yaml task 13
 ```
 
-!note: even if tc-cli report task status as __completed_, message itself could have been reverted. 
-To check actual message status run: 
-```sh
-cast call 0x49877F1e26d523e716d941a424af46B86EcaF09E "gmpInfo(bytes32)" <msg_id>
- ``` 
-
-
-
-
-
-Once task successfully completed, ANLOG tokens should have been teleported to target account. 
+Once task is successfully completed, ANLOG tokens should have been teleported to target account. 
 Let's check that on network `2`:
 
 ``` sh
-cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-
+cast call 0xa513E6E4b8f2a923D98304ec87F64353C4D5C853 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+15000000000000
 ```
 
-#### Troubleshooting 
+We can see that the requested amount is successfully teleported.
+
+### ERC20->TC 
+
+
+
+### Troubleshooting 
 
 1. If you see task as "completed", but tokens are not delivered to dest network: 
    1. Note batch_id of the task: It's x in `SubmitMessage(x)` which you see w `tc-cli task x`;
    2. Query [GmpStatus](https://github.com/Analog-Labs/analog-gmp-examples/blob/00090ef5b83574c5fdaa2a10d428f87e1702cc79/examples/teleport-tokens/BasicERC20.sol) of the message  via querying `gmpInfo(bytes32)` on the gateway:
-      ```
-      cast call 0x49877F1e26d523e716d941a424af46B86EcaF09E "gmpInfo(bytes32)" 7006d4a23a194de7611ffbd974e88fbccc65d223f2742480c365e66dea839668
+      
+      !note: even if tc-cli report task status as __completed_, message itself could have been reverted. 
+      To check actual message status run: 
+      ```sh
+      cast call 0x49877F1e26d523e716d941a424af46B86EcaF09E "gmpInfo(bytes32)" <msg_id>
       ``` 
    2. Query GMP message tx_hash by batch_id from tasks pallet storage: `batchTxHash(u64)`;
    3. Re-run that tx with trace: 

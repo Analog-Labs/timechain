@@ -3,8 +3,8 @@ use crate::{metadata, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
 use time_primitives::{
-	BatchId, ErrorMsg, GatewayMessage, GmpEvents, MessageId, NetworkId, PublicKey, ShardId, Task,
-	TaskId, TaskResult,
+	BatchId, ErrorMsg, GatewayMessage, GmpEvents, Hash, MessageId, NetworkId, PublicKey, ShardId,
+	Task, TaskId, TaskResult,
 };
 
 impl SubxtClient {
@@ -93,6 +93,11 @@ impl SubxtClient {
 
 	pub async fn batch_task(&self, batch: BatchId) -> Result<Option<TaskId>> {
 		let storage_query = metadata::storage().tasks().batch_task_id(batch);
+		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+	}
+
+	pub async fn batch_tx_hash(&self, batch: BatchId) -> Result<Option<Hash>> {
+		let storage_query = metadata::storage().tasks().batch_tx_hash(batch);
 		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 	}
 

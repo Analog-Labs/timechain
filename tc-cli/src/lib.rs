@@ -16,8 +16,8 @@ use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address, BatchId, BlockHash,
 	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
-	GmpEvents, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId,
-	PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
+	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use tokio::time::sleep;
 
@@ -359,6 +359,7 @@ pub struct Batch {
 	pub batch: BatchId,
 	pub msg: GatewayMessage,
 	pub task: TaskId,
+	pub tx: Option<Hash>,
 }
 
 #[derive(Clone, Debug)]
@@ -611,6 +612,7 @@ impl Tc {
 			batch,
 			msg: self.runtime.batch_message(batch).await?.context("invalid batch id")?,
 			task: self.runtime.batch_task(batch).await?.context("invalid batch id")?,
+			tx: self.runtime.batch_tx_hash(batch).await?,
 		})
 	}
 

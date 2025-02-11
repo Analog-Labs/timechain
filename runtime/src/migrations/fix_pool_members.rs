@@ -61,7 +61,7 @@ fn test_pool_member_account_removal() {
 	use sp_runtime::AccountId32;
 
 	// Provided SS58 addresses
-	let provided_accounts = vec![
+	let provided_accounts = [
 		"an67vKKCtXjWYUaErzKp5E97dDnyt39HNZMwTAReK1PLUVdbA",
 		"an9XX2NvQXRvFBwMdNiaaXbAKHN4tA6oi7xGVJbffR84AvcDw",
 		"an9banSywn1r4nUkpVvFaBU5Jn5T32W9YHVvG33qo7AsrC1ci",

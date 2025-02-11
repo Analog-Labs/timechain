@@ -413,15 +413,9 @@ pub trait IConnectorAdmin: IConnector {
 	/// Deploys a test contract.
 	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
 	/// Estimates the message cost.
-	async fn estimate_message_cost(
-		&self,
-		gateway: Address,
-		dest: NetworkId,
-		msg_size: usize,
-		gas_limit: u128,
-	) -> Result<u128>;
-	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId>;
+	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128>;
+	/// Sends a message using the test contract and returns the message id.
+	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId>;
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;

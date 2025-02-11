@@ -691,17 +691,14 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Estimates the message cost.
-	async fn estimate_message_cost(
-		&self,
-		gateway: Address,
-		dest: NetworkId,
-		msg_size: usize,
-		gas_limit: u128,
-	) -> Result<u128> {
-		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
+	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128> {
+		let dest = msg.dest_network;
+		let gas_limit = msg.gas_limit;
+		let msg: sol::GmpMessage = msg.clone().into();
+		let bytes = msg.abi_encode();
 		let call = sol::Gateway::estimateMessageCostCall {
 			networkid: dest,
-			messageSize: msg_size,
+			messageSize: U256::from(bytes.len()),
 			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_view(gateway, call, None).await?;
@@ -714,28 +711,14 @@ impl IConnectorAdmin for Connector {
 			.await
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
-		// EVM specific logic
-		let mut modified_msg = msg.clone();
-		modified_msg.gas_limit = 300_000;
-		let sol_msg: sol::GmpMessage = modified_msg.clone().into();
-		modified_msg.bytes = sol_msg.abi_encode();
-
-		let cost_call = sol::GmpTester::estimateMessageCostCall {
-			messageSize: U256::from(modified_msg.bytes.len()),
-			gasLimit: U256::from(modified_msg.gas_limit),
-		};
-
-		let msg_cost = self.evm_view(contract, cost_call, None).await?;
-		let msg_cost = u128::try_from(msg_cost._0)?;
-
-		let call = sol::GmpTester::sendMessageCall {
-			msg: modified_msg.clone().into(),
-		};
-
-		self.evm_call(contract, call, msg_cost, None, None).await?;
-		let msg_id = modified_msg.message_id();
-		Ok(msg_id)
+	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
+		anyhow::ensure!(msg.src_network == self.network_id, "invalid source network id");
+		let src = msg.src;
+		let gas_cost = msg.gas_cost;
+		let call = sol::GmpTester::sendMessageCall { msg: msg.into() };
+		let result = self.evm_call(src, call, gas_cost, None, None).await?;
+		let id: MessageId = *result.0._0;
+		Ok(id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(

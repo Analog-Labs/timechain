@@ -425,6 +425,10 @@ pub trait IConnectorAdmin: IConnector {
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
 	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()>;
+	/// Debug a transaction.
+	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
+		anyhow::bail!("debugging transactions is not supported on this backend");
+	}
 }
 
 #[cfg(feature = "std")]

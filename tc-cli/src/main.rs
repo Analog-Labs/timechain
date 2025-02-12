@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{BatchId, GmpMessage, NetworkId, ShardId, TaskId};
+use time_primitives::{BatchId, GmpMessage, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -173,6 +173,10 @@ enum Command {
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
+	},
+	DebugTransaction {
+		network: NetworkId,
+		hash: String,
 	},
 }
 
@@ -460,6 +464,12 @@ async fn real_main() -> Result<()> {
 		Command::WithdrawFunds { network, amount, address } => {
 			let address = tc.parse_address(Some(network), &address)?;
 			tc.withdraw_funds(network, amount, address).await?;
+		},
+		Command::DebugTransaction { network, hash } => {
+			let hash: Hash =
+				hex::decode(&hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
+			let output = tc.debug_transaction(network, hash).await?;
+			tc.println(None, output).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

@@ -1103,4 +1103,9 @@ impl Tc {
 		let logs = loki::logs(query, since).await?;
 		self.print_table(None, "logs", logs).await
 	}
+
+	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
+		let connector = self.connector(network)?;
+		connector.debug_transaction(hash).await
+	}
 }

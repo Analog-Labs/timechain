@@ -98,8 +98,8 @@ impl IChain for Connector {
 		self.address
 	}
 	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self) -> Result<()> {
-		let request = Request::new(proto::FaucetRequest {});
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		let request = Request::new(proto::FaucetRequest { balance });
 		self.client.lock().await.faucet(request).await?;
 		Ok(())
 	}

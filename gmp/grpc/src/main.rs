@@ -54,8 +54,11 @@ impl Gmp for ConnectorWrapper {
 		&self,
 		request: Request<proto::FaucetRequest>,
 	) -> GmpResult<proto::FaucetResponse> {
-		let (connector, _) = self.connector(request)?;
-		connector.faucet().await.map_err(|err| Status::unknown(err.to_string()))?;
+		let (connector, msg) = self.connector(request)?;
+		connector
+			.faucet(msg.balance)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::FaucetResponse {}))
 	}
 

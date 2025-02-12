@@ -215,7 +215,9 @@ impl Tc {
 	}
 
 	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
-		self.connector(network)?.faucet().await
+		let config = self.config.network(network)?;
+		let faucet = config.faucet.context("faucet not supported, please prefund account")?;
+		self.connector(network)?.faucet(faucet).await
 	}
 
 	pub async fn balance(&self, network: Option<NetworkId>, address: Address) -> Result<u128> {

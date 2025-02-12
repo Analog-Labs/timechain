@@ -354,7 +354,7 @@ pub trait IChain: Send + Sync + 'static {
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address;
 	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self) -> Result<()>;
+	async fn faucet(&self, balance: u128) -> Result<()>;
 	/// Transfers an amount to an account.
 	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
 	/// Queries the account balance.

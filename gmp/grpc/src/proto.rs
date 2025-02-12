@@ -6,7 +6,9 @@ use time_primitives::{
 };
 
 #[derive(Serialize, Deserialize)]
-pub struct FaucetRequest {}
+pub struct FaucetRequest {
+	pub balance: u128,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct FaucetResponse {}

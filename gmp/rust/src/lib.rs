@@ -23,7 +23,6 @@ use time_primitives::{
 
 const BLOCK_TIME: u64 = 1;
 const FINALIZATION_TIME: u64 = 2;
-const FAUCET: u128 = 1_000_000_000;
 
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
@@ -193,12 +192,11 @@ impl IChain for Connector {
 		currency()
 	}
 
-	async fn faucet(&self) -> Result<()> {
+	async fn faucet(&self, balance: u128) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
 			let mut t = tx.open_table(BALANCE)?;
-			let balance = read_balance(&t, self.address)?;
-			t.insert(self.address, balance + FAUCET)?;
+			t.insert(self.address, balance)?;
 		}
 		tx.commit()?;
 		Ok(())

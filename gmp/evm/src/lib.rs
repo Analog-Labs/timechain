@@ -183,7 +183,7 @@ impl Connector {
 		//Step3: send eth_rawTransaction
 		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
-		tracing::info!("factory deployed with tx: {:?}", tx_hash);
+		tracing::info!("factory deployed with tx {}", tx_hash);
 		Ok(())
 	}
 
@@ -213,7 +213,7 @@ impl Connector {
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let (gateway_address, _) =
 			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
-		tracing::info!("gateway deployed at: {:?}", gateway_address);
+		tracing::info!("gateway deployed at {}", gateway_address);
 		Ok(gateway_address)
 	}
 
@@ -292,7 +292,7 @@ impl Connector {
 				proxy_address
 			);
 		}
-		tracing::info!("proxy deployed at: {}", proxy_address);
+		tracing::info!("proxy deployed at {}", proxy_address);
 		Ok((proxy_address, block))
 	}
 

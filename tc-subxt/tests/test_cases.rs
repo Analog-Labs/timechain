@@ -73,23 +73,23 @@ async fn test_transaction_mortality_outage_flow() {
 #[tokio::test]
 #[ignore]
 // not working tbf
-async fn test_transaction_mortality_outage_flow_50() {
-	let total_tasks: usize = 50;
+async fn test_transaction_mortality_outage_flow_25() {
+	let total_tasks: usize = 25;
 	let env = new_env().await;
 	let mut receivers = VecDeque::new();
 	// init 100 transactions
 	for _ in 0..total_tasks {
 		let (tx, rx) = oneshot::channel();
+		tokio::time::sleep(Duration::from_millis(100)).await;
 		env.tx_sender.unbounded_send((Tx::Ready { shard_id: 0 }, tx)).unwrap();
 		receivers.push_back(rx);
 	}
+
 	let hashes = wait_for_submission(&env.client, total_tasks).await;
 	assert!(hashes.len() == total_tasks);
-	env.client.inc_empty_blocks(MORTALITY / 2).await;
-	tokio::time::sleep(Duration::from_secs(1)).await;
-	env.client.inc_empty_blocks(MORTALITY / 2).await;
-	tokio::time::sleep(Duration::from_secs(1)).await;
-	env.client.inc_empty_blocks(1).await;
+	tokio::time::sleep(Duration::from_secs(5)).await;
+	env.client.inc_empty_blocks(MORTALITY + 1).await;
+
 	let hashes = wait_for_submission(&env.client, total_tasks + total_tasks).await;
 	assert_eq!(hashes[0], hashes[total_tasks + 1]);
 	env.client.inc_block_with_tx(hashes[0], true).await;

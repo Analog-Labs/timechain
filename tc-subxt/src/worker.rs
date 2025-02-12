@@ -123,12 +123,10 @@ where
 		let txs_data = db.load_pending_txs(nonce)?;
 		let pending_tx: VecDeque<TxStatus<C>> = txs_data
 			.into_iter()
-			.filter_map(|tx_data| {
-				(tx_data.nonce >= nonce).then(|| TxStatus {
-					data: tx_data,
-					event_sender: None,
-					best_block: None,
-				})
+			.map(|tx_data| TxStatus {
+				data: tx_data,
+				event_sender: None,
+				best_block: None,
 			})
 			.collect();
 		Ok(Self {
@@ -409,7 +407,7 @@ where
 								self.pending_tx = new_pending;
 							},
 							Some(Err(e)) => {
-								tracing::error!("Error processing block: {:?}", e);
+								tracing::error!("Error processing finalized blocks: {:?}", e);
 								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 								continue;
 							},

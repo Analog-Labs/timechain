@@ -61,7 +61,6 @@ impl ITransactionDbOps for TransactionsDB {
 		let write_tx = self.db.begin_write()?;
 		let mut pending_txs = Vec::new();
 
-		// Use a scope to contain the table borrow
 		{
 			let mut table = write_tx.open_table(TX_TABLE)?;
 			let mut delete_keys = Vec::new();

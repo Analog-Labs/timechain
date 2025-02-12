@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use anyhow::Result;
 use futures::stream::{self, BoxStream};
@@ -13,7 +14,6 @@ use tc_subxt::timechain_client::{
 use tc_subxt::worker::TxData;
 use tc_subxt::ExtrinsicParams;
 use tokio::sync::{broadcast, Mutex};
-use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tokio_stream::wrappers::BroadcastStream;
 
 #[derive(Clone)]
@@ -102,6 +102,7 @@ impl MockClient {
 			};
 			self.push_best_block(&block).await;
 			self.push_finalized_block(&block).await;
+			tokio::time::sleep(Duration::from_millis(100)).await;
 		}
 		tracing::info!("Done inserting blocks");
 	}
@@ -117,14 +118,14 @@ pub struct MockTransaction {
 	failing_hashes: Arc<Mutex<Vec<H256>>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MockBlock {
 	pub number: u64,
 	pub hash: H256,
 	pub extrinsics: Vec<MockExtrinsic>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MockExtrinsic {
 	pub hash: H256,
 	pub is_success: bool,
@@ -193,21 +194,8 @@ impl ITimechainClient for MockClient {
 			*counter += 1;
 		}
 		let stream = BroadcastStream::new(rx)
-			.map(|res| match res {
-				Ok(block) => Ok(Some(block)),
-				Err(BroadcastStreamRecvError::Lagged(n)) => {
-					tracing::warn!("Skipped {} best blocks due to lag", n);
-					Ok(None)
-				},
-				Err(e) => Err(anyhow::anyhow!(e)),
-			})
-			.filter_map(|res| async {
-				match res {
-					Ok(Some(block)) => Some(Ok((block.clone(), block.extrinsics.clone()))),
-					Ok(None) => None,
-					Err(e) => Some(Err(e)),
-				}
-			})
+			.map(|res| res.map_err(|e| anyhow::anyhow!(e)))
+			.map(|block_result| block_result.map(|block| (block.clone(), block.extrinsics.clone())))
 			.boxed();
 		Ok(stream)
 	}

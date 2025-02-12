@@ -86,9 +86,9 @@ networks:
     chronicle_target_funds: .1
     batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 350000
     gmp_margin: 0.0
-    shard_task_limit: 50
+    shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1
@@ -103,7 +103,7 @@ networks:
     chronicle_target_funds: .1
     batch_size: 256
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 350000
     gmp_margin: 0.0
     shard_task_limit: 50
     route_gas_limit: 10000000
@@ -120,9 +120,9 @@ networks:
     chronicle_target_funds: .1
     batch_size: 256
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 350000
     gmp_margin: 0.0
-    shard_task_limit: 50
+    shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1

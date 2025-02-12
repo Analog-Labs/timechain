@@ -62,31 +62,6 @@ impl<T: frame_system::Config> bridge_multisig::WeightInfo for WeightInfo<T> {
 	/// Proof: `BridgeMultisig::Accounts` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `BridgeMultisig::Multisigs` (r:1 w:1)
 	/// Proof: `BridgeMultisig::Multisigs` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `BridgeMultisig::Calls` (r:1 w:1)
-	/// Proof: `BridgeMultisig::Calls` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `BridgeMultisig::DispatchedCalls` (r:1 w:0)
-	/// Proof: `BridgeMultisig::DispatchedCalls` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `s` is `[2, 100]`.
-	/// The range of component `z` is `[0, 10000]`.
-	fn as_multi_create_store(s: u32, z: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `111 + s * (32 ±0)`
-		//  Estimated: `3576 + s * (32 ±0)`
-		// Minimum execution time: 22_262_000 picoseconds.
-		Weight::from_parts(19_824_562, 0)
-			.saturating_add(Weight::from_parts(0, 3576))
-			// Standard Error: 416
-			.saturating_add(Weight::from_parts(29_337, 0).saturating_mul(s.into()))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(1_012, 0).saturating_mul(z.into()))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(2))
-			.saturating_add(Weight::from_parts(0, 32).saturating_mul(s.into()))
-	}
-	/// Storage: `BridgeMultisig::Accounts` (r:1 w:0)
-	/// Proof: `BridgeMultisig::Accounts` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `BridgeMultisig::Multisigs` (r:1 w:1)
-	/// Proof: `BridgeMultisig::Multisigs` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `BridgeMultisig::DispatchedCalls` (r:1 w:0)
 	/// Proof: `BridgeMultisig::DispatchedCalls` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `s` is `[3, 100]`.

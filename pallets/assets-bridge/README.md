@@ -124,7 +124,34 @@ We can see that the requested amount is successfully teleported.
 
 ### ERC20->TC 
 
+Let's now teleport some ERC20 back to TC, to `//Alice` account. 
 
+All you have to do for that is to call [`teleport(bytes32 to, uint256 value)`](https://github.com/Analog-Labs/erc20-token/blob/a93214a85e46a23c127574652e9ec424f5f33c3f/src/AnlogTokenV1.sol#L188) method of our token contract.
+
+First we note current Alice balance in TC, which is `0` ANLOG.
+
+Then we need to figure out GMP cost for the teleportation message:
+``` sh
+cast call 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82 "estimateTeleportCost()" | cast 2d
+181255
+```
+
+Then we send the teleport tx: 
+
+``` sh
+cast send --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --unlocked --value 181255 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82 "teleport(bytes32,uint256)" 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d 6000000000000
+```
+
+note we provide: 
+
++ 181255 (*10^-18) ethers as a payment for GMP message passing thru gateway 
++ `teleport(bytes32,uint256)` args:
+  + Alice's public key on TC (hex-encoded)
+    this can be queried with `subkey Alice //inspect`
+  + Amount to be teleported 
+
+You can see the tx result and block number as the command's output. Note that block number, once events from the block are reported to TC by chronicle, 
+Alice should get her `6` ANLOG to her account. 
 
 ### Troubleshooting 
 

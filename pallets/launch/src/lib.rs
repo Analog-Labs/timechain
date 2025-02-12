@@ -8,7 +8,7 @@
 
 pub use pallet::*;
 
-use time_primitives::{AccountId, Balance, BlockNumber, ANLOG};
+use time_primitives::{AccountId, Balance, BlockNumber, ANLOG, MILLIANLOG};
 
 use polkadot_sdk::*;
 
@@ -22,6 +22,7 @@ mod mock;
 mod tests;
 
 mod airdrops;
+mod allocation;
 mod deposits;
 mod ledger;
 mod stage;
@@ -42,66 +43,82 @@ pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use deposits::RawVirtualSource;
+	use allocation::Allocation;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
 	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
 	use frame_support::PalletId;
-	use sp_runtime::traits::AccountIdConversion;
+	use frame_system::pallet_prelude::*;
+	//use sp_runtime::traits::CheckedConversion;
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 18;
+	pub const LAUNCH_VERSION: u16 = 26;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
 	/// The official mainnet launch ledger
 	pub const LAUNCH_LEDGER: RawLaunchLedger = &[
 		// Genesis
-		(0, 3100 * ANLOG, Stage::Retired),
+		(0, Allocation::Ecosystem, 3100 * ANLOG, Stage::Retired),
 		// Prelaunch Deposit 1
-		(1, 53_030_500 * ANLOG, Stage::Retired),
+		(1, Allocation::Ecosystem, 53_030_500 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 1
-		(2, 410_168_623_085_944_989_935, Stage::Retired),
-		(3, 0, Stage::Retired),
-		(4, 0, Stage::Retired),
+		(2, Allocation::Airdrop, 410_168_624 * ANLOG, Stage::Retired),
+		(3, Allocation::Airdrop, 0, Stage::Retired),
+		(4, Allocation::Airdrop, 0, Stage::Retired),
 		// Prelaunch Deposit 2
-		(5, 39_328_063 * ANLOG, Stage::Retired),
+		(5, Allocation::Ecosystem, 39_328_063 * ANLOG, Stage::Retired),
 		// Airdrop Testing
-		(6, 50 * ANLOG, Stage::Retired),
+		(6, Allocation::Ecosystem, 50 * ANLOG, Stage::Retired),
 		// Prelaunch Deposit 3
-		(7, 226_449_338 * ANLOG, Stage::Retired),
+		(7, Allocation::Ecosystem, 226_449_338 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 2
-		(8, 20_288_872_847_294_611_363, Stage::Retired),
+		(8, Allocation::Airdrop, 20_288_873 * ANLOG, Stage::Retired),
 		// Validator Airdrop
-		(9, 21_111_617 * ANLOG, Stage::Retired),
+		(9, Allocation::Ecosystem, 21_111_617 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 3
-		(10, 1_373_347_559_383_359_315, Stage::Retired),
+		(10, Allocation::Airdrop, 1_373_348 * ANLOG, Stage::Retired),
 		// Airdrop address updates
-		(11, 0, Stage::Retired),
+		(11, Allocation::Airdrop, 0, Stage::Retired),
 		// Airdrop Snapshot 1 - Missing EVM wallet
-		(12, 105_316_962_722_110_899, Stage::Retired),
+		(12, Allocation::Airdrop, 105_317 * ANLOG, Stage::Retired),
 		// Prelaunch Deposit 4
-		(13, 113_204_200 * ANLOG, Stage::Retired),
+		(13, Allocation::Ecosystem, 113_204_200 * ANLOG, Stage::Retired),
 		// Virtual Token Genesis Event
-		(14, 8_166_845_674 * ANLOG, Stage::Retired),
-		// Retry failed mints in stage 11
-		(15, 6_062_296 * ANLOG, Stage::Retired),
+		(14, Allocation::Ignore, 8_166_845_674 * ANLOG, Stage::Retired),
+		// Retry failed mints in stage 9
+		(15, Allocation::Ecosystem, 6_062_296 * ANLOG, Stage::Retired),
+		// NOTE: Minting stopped here, all funds are either in virtual wallets or unclaimed airdrops
 		// Airdrop Snapshot 4
-		(16, 1_336_147_462_613_682_971, Stage::Retired),
-		// Airdrop Move 2
-		(17, 0, Stage::Retired),
+		(16, Allocation::Airdrop, 1_336_147_462_613_682_971, Stage::Retired),
+		// Airdrop Move 2 (+ accounting for upcoming Staking Allocation)
+		(17, Allocation::Initiatives, 1_100_010 * ANLOG, Stage::Retired),
 		// Prelaunch Deposit 4
-		(18, 3_636_364 * ANLOG, Stage::Retired),
+		(18, Allocation::Ecosystem, 3_636_364 * ANLOG, Stage::Retired),
+		// Bootstaking Month 1
+		(19, Allocation::Initiatives, 60_386_473 * ANLOG, Stage::Retired),
+		// Provide fjord sale tokens to claims backend
+		(20, Allocation::Ecosystem, 116_163_163 * ANLOG, Stage::Retired),
+		// Testing vested transfers
+		(21, Allocation::Team, 45_289_855 * ANLOG, Stage::Retired),
+		// Launchday transfers 1
+		(22, Allocation::Ecosystem, 49_081_886_536 * MILLIANLOG, Stage::Retired),
+		// OTC Preparation 1
+		(23, Allocation::Ecosystem, 22_644_927_500 * MILLIANLOG, Stage::Retired),
+		// OTC Preparation 2
+		(24, Allocation::Initiatives, 249_094_202_500 * MILLIANLOG, Stage::Retired),
+		// OTC Preparation 3
+		(25, Allocation::Initiatives, 362_318_840 * ANLOG, Stage::Retired),
+		// Launchday transfer 2
+		(26, Allocation::Ecosystem, 14_449_903_350 * MILLIANLOG, Stage::Retired),
 	];
 
-	/// TODO: Difference to go to treasury:
-	/// stage_2 = 410_168_624 * ANLOG;
-	/// stage_8 = 20_288_873 * ANLOG;
-	/// stage_10 = 1_373_348 * ANLOG;
-	/// stage_11 = 105_317 * ANLOG;
-	/// stage_16 = 1_336_148 * ANLOG;
+	/// TODO: Difference that was actually minted for airdrops:
+	/// stage_2 = 410_168_624 * ANLOG - 410_168_623_085_944_989_935
+	/// stage_8 = 20_288_873 * ANLOG - 20_288_872_847_294_611_363
+	/// stage_10 = 1_373_348 * ANLOG - 1_373_347_559_383_359_315
+	/// stage_12 = 105_317 * ANLOG - 105_316_962_722_110_899
+	/// stage_16 = 1_336_148 * ANLOG - 1_336_147_462_613_682_971
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -148,6 +165,10 @@ pub mod pallet {
 		StageExecuted { version: u16, hash: T::Hash },
 		/// A deposit migration could not be parsed.
 		DepositInvalid { id: Vec<u8> },
+		/// A deposit migration could not be executed due to a source missmatching.
+		DepositSourceMissmatch { source: Vec<u8> },
+		/// A vested deposit failed due to a missmatch
+		DepositVestingMissmatch { target: T::AccountId },
 		/// Deposit does not exceed existential deposit.
 		DepositTooSmall { target: T::AccountId },
 		/// Deposit exceeds available virtual funds.
@@ -201,8 +222,8 @@ pub mod pallet {
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
 	{
 		/// Compute the account ID of any virtual source wallet.
-		pub fn account_id(source: RawVirtualSource) -> T::AccountId {
-			T::PalletId::get().into_sub_account_truncating(source)
+		pub fn account_id(source: Allocation) -> T::AccountId {
+			source.account_id::<T>()
 		}
 
 		/// Workaround to get raw storage version
@@ -220,14 +241,18 @@ pub mod pallet {
 
 		/// Withdraw balance from virtual account
 		pub fn transfer_virtual(
-			source: RawVirtualSource,
+			source: Allocation,
 			target: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let account = Self::account_id(source);
-			CurrencyOf::<T>::transfer(&account, &target, amount, ExistenceRequirement::AllowDeath)?;
+			CurrencyOf::<T>::transfer(
+				&source.account_id::<T>(),
+				&target,
+				amount,
+				ExistenceRequirement::AllowDeath,
+			)?;
 			Pallet::<T>::deposit_event(Event::<T>::TransferFromVirtual {
-				source: source.to_vec(),
+				source: source.sub_id().to_vec(),
 				target,
 				amount,
 			});

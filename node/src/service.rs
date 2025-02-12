@@ -9,6 +9,24 @@ use std::{path::Path, sync::Arc};
 
 use polkadot_sdk::*;
 
+#[cfg(feature = "bridge")]
+use eth_bridge::{
+	common, PeerConfig, STORAGE_ETH_NODE_PARAMS, STORAGE_NETWORK_IDS_KEY, STORAGE_PEER_SECRET_KEY,
+	STORAGE_SUB_NODE_URL_KEY,
+};
+#[cfg(feature = "bridge")]
+use scale_codec::Encode;
+#[cfg(feature = "bridge")]
+use sp_core::{offchain::OffchainStorage, ByteArray, Pair};
+#[cfg(feature = "bridge")]
+use sp_runtime::{offchain::STORAGE_PREFIX, traits::IdentifyAccount};
+#[cfg(feature = "bridge")]
+use sp_std::collections::btree_set::BTreeSet;
+#[cfg(feature = "bridge")]
+use std::fs::File;
+#[cfg(feature = "bridge")]
+use timechain_runtime::Runtime;
+
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
@@ -116,24 +134,9 @@ where
 		)?;
 	let client = Arc::new(client);
 
-	// HASHI Bridge support
-	#[cfg(feature = "testnet")]
+	#[cfg(feature = "bridge")]
 	{
-		use eth_bridge::common;
-		use eth_bridge::PeerConfig;
-		use eth_bridge::STORAGE_ETH_NODE_PARAMS;
-		use eth_bridge::STORAGE_NETWORK_IDS_KEY;
-		use eth_bridge::STORAGE_PEER_SECRET_KEY;
-		use eth_bridge::STORAGE_SUB_NODE_URL_KEY;
-		use scale_codec::Encode;
-		use sp_core::offchain::OffchainStorage;
-		use sp_core::ByteArray;
-		use sp_core::Pair;
-		use sp_runtime::offchain::STORAGE_PREFIX;
-		use sp_runtime::traits::IdentifyAccount;
-		use sp_std::collections::btree_set::BTreeSet;
-		use std::fs::File;
-		use timechain_runtime::Runtime;
+		// HASHI Bridge support
 		let mut bridge_peer_secret_key = None;
 
 		if let Some(first_pk_raw) = keystore_container

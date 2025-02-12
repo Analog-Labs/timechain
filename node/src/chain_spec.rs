@@ -20,18 +20,14 @@ use time_primitives::{
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 /// Stash and float for validators
-const PER_VALIDATOR_STASH: Balance = ANLOG * 500_000;
-const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 20_000;
+const PER_VALIDATOR_STASH: Balance = ANLOG * 1_001_000;
+const PER_VALIDATOR_UNLOCKED: Balance = ANLOG * 1_000;
 
 /// Stash and float for chronicles
 const PER_CHRONICLE_STASH: Balance = ANLOG * 100_000;
 
 /// Token supply for prefunded admin accounts
-const CONTROLLER_SUPPLY: Balance = ANLOG * 50_000;
-const PER_COUNCIL_STASH: Balance = ANLOG * 50_000;
-
-/// Minimum needed validators, currently lowered for testing environments
-const MIN_VALIDATOR_COUNT: u32 = 1;
+const PER_COUNCIL_STASH: Balance = ANLOG * 100_000;
 
 /// Default telemetry server for all networks
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
@@ -67,8 +63,6 @@ pub struct GenesisKeysConfig {
 	/// Stashes to be used for chronicles, balances controlled by PER_CHRONICLE_STASH
 	#[allow(dead_code)]
 	chronicles: Vec<AccountId>,
-	/// Optional controller account that will control all nominates stakes
-	controller: Option<AccountId>,
 	/// Additional endowed accounts and their balance in ANLOG.
 	endowments: Vec<(AccountId, Balance)>,
 	/// Stashes intended to be used to run validators.
@@ -91,8 +85,6 @@ impl Default for GenesisKeysConfig {
 				Alice.to_raw_public().unchecked_into(),
 			)],
 			chronicles: vec![],
-			// TODO: Would be better to assign individual controllers
-			controller: None,
 			endowments: vec![],
 			stakes: vec![Alice.into(), Bob.into(), Charlie.into(), Dave.into()],
 		}
@@ -188,11 +180,6 @@ impl GenesisKeysConfig {
 				.collect::<Vec<_>>(),
 		);
 
-		// Endow controller if necessary
-		if let Some(controller) = self.controller.as_ref() {
-			endowments.push((controller.clone(), CONTROLLER_SUPPLY));
-		}
-
 		// Endow council members and validators
 		endowments.append(
 			&mut self.admins.iter().map(|x| (x.clone(), PER_COUNCIL_STASH)).collect::<Vec<_>>(),
@@ -213,7 +200,7 @@ impl GenesisKeysConfig {
 			.enumerate()
 			.map(|(i, x)| {
 				(
-					self.controller.clone().unwrap_or(self.stakes[i].clone()),
+					self.stakes[i].clone(),
 					self.stakes[i].clone(),
 					timechain_runtime::SessionKeys {
 						babe: x.0.clone(),
@@ -225,6 +212,21 @@ impl GenesisKeysConfig {
 			})
 			.collect();
 
+		// Self-stake all authorities
+		let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
+		let min_count = if chain_type == ChainType::Local { 1 } else { 4 };
+		let stakers = authorities
+			.iter()
+			.map(|x| {
+				(
+					x.1.clone(),
+					x.0.clone(), // Ignored
+					locked,
+					timechain_runtime::StakerStatus::<AccountId>::Validator,
+				)
+			})
+			.collect::<Vec<_>>();
+
 		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
@@ -232,8 +234,24 @@ impl GenesisKeysConfig {
 			"babe": {
 				"epochConfig": timechain_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			},
+			"nominationPools": {
+				"minJoinBond": ANLOG,
+				"minCreateBond": 100_000 * ANLOG,
+				"maxPools": Some(0),
+				"maxMembersPerPool": None::<u32>,
+				"maxMembers": None::<u32>,
+			},
 			"session": {
 				"keys": authorities,
+			},
+			"staking": {
+				"validatorCount": authorities.len() as u32,
+				"minimumValidatorCount": min_count,
+				"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
+				"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
+				"stakers": stakers,
+				"minNominatorBond": 100_000 * ANLOG,
+				"minValidatorBond": 1_000_000 * ANLOG,
 			},
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
@@ -241,32 +259,11 @@ impl GenesisKeysConfig {
 		});
 
 		if cfg!(feature = "testnet") {
-			// Self-stake all authorities
-			let locked = PER_VALIDATOR_STASH - PER_VALIDATOR_UNLOCKED;
-			let stakers = authorities
-				.iter()
-				.map(|x| {
-					(
-						x.1.clone(),
-						x.0.clone(),
-						locked,
-						timechain_runtime::StakerStatus::<AccountId>::Validator,
-					)
-				})
-				.collect::<Vec<_>>();
-
 			json_merge(
 				&mut genesis_patch,
 				serde_json::json!({
 					"networks": {
 						"networks": [],
-					},
-					"staking": {
-						"validatorCount": authorities.len() as u32,
-						"minimumValidatorCount": MIN_VALIDATOR_COUNT,
-						"invulnerables": authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
-						"slashRewardFraction": sp_runtime::Perbill::from_percent(10),
-						"stakers": stakers
 					},
 				}),
 			);

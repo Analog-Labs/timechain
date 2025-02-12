@@ -13,13 +13,14 @@ use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	//traits::tokens::imbalance::ResolveTo,
-	traits::ConstU32,
+	traits::{ConstU32, Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
 	weights::Weight,
 	PalletId,
 };
 
 use sp_runtime::{
-	curve::PiecewiseLinear, transaction_validity::TransactionPriority, FixedU128, Perbill, Percent,
+	curve::PiecewiseLinear, traits::AccountIdConversion, transaction_validity::TransactionPriority,
+	FixedU128, Perbill, Percent,
 };
 use sp_std::prelude::*;
 
@@ -30,9 +31,9 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
-	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
-	TransactionPayment, VoterList, ANLOG,
+	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
+	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
+	Timestamp, TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {
@@ -214,9 +215,32 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
 }
 
+/// Virtual reward pool wallet
+pub struct RewardPool;
+impl RewardPool {
+	/// Return internal virtual wallet id
+	fn account_id() -> AccountId {
+		PalletId(*b"timerwrd").into_account_truncating()
+	}
+}
+
+impl OnUnbalanced<PositiveImbalance> for RewardPool {
+	/// Take rewards from special rewards wallet, otherwise mint it via drop
+	fn on_nonzero_unbalanced(imbalance: PositiveImbalance) {
+		if let Err(to_mint) = Balances::settle(
+			&Self::account_id(),
+			imbalance,
+			WithdrawReasons::TRANSFER,
+			ExistenceRequirement::AllowDeath,
+		) {
+			log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
+		}
+	}
+}
+
 pallet_staking_reward_curve::build! {
 	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_020_000,
+		min_inflation: 0_030_000,
 		max_inflation: 0_080_000,
 		ideal_stake: 0_600_000,
 		falloff: 0_050_000,
@@ -254,6 +278,7 @@ parameter_types! {
 /// Upper limit on the number of NPOS nominations.
 const MAX_QUOTA_NOMINATIONS: u32 = 16;
 
+/// Configuration of benchmarking bounds
 pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxNominators = ConstU32<1000>;
@@ -268,17 +293,19 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = (); //Treasury;
+	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = (); //Treasury; // send the slashed funds to the treasury.
-	type Reward = (); // rewards are minted from the void
+	/// Pay rewards from reward pool, otherwise mint them.
+	type Reward = RewardPool;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	/// A majority of the council can cancel the slash.
 	type AdminOrigin = EnsureRootOrHalfTechnical;
 	type SessionInterface = Self;
-	type EraPayout = (); //pallet_staking::ConvertCurve<RewardCurve>;
+	/// Inflation curve that optimizes returned rewards
+	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = ConstU32<256>;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;

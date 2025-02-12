@@ -6,9 +6,8 @@ use futures::Stream;
 use reqwest::Client;
 use rosetta_client::{
 	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
-	GetTransactionCount, Signer, SubmitResult, TransactionReceipt, Wallet,
+	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
 };
-use rosetta_crypto::{bip44::ChildNumber, SecretKey};
 use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server_ethereum::utils::{
@@ -206,12 +205,8 @@ impl Connector {
 		Ok(gateway_address)
 	}
 
-	fn compute_proxy_address(
-		&self,
-		config: &DeploymentConfig,
-		admin: AlloyAddress,
-		proxy: &[u8],
-	) -> Result<[u8; 20]> {
+	fn compute_proxy_address(&self, config: &DeploymentConfig, proxy: &[u8]) -> Result<[u8; 20]> {
+		let admin = a_addr(self.address());
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
 		let proxy_bytecode = get_contract_from_slice(proxy)?;
@@ -229,30 +224,14 @@ impl Connector {
 		Ok(computed_proxy_address)
 	}
 
-	fn get_proxy_admin_creds(&self, config: &DeploymentConfig) -> Result<(SecretKey, [u8; 20])> {
-		let signer = Signer::new(&config.proxy_admin_sk.parse()?, "")?;
-		let proxy_admin_sk = signer
-			.bip44_account(self.wallet.config().algorithm, self.wallet.config().coin, 0)?
-			.derive(ChildNumber::non_hardened_from_u32(0))?;
-
-		let proxy_admin_pk = proxy_admin_sk
-			.public_key()
-			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
-
-		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
-		let proxy_admin_sk = proxy_admin_sk.secret_key();
-		Ok((proxy_admin_sk.clone(), proxy_admin_address))
-	}
-
 	async fn deploy_proxy(
 		&self,
 		config: &DeploymentConfig,
 		proxy_addr: AlloyAddress,
 		gateway_address: AlloyAddress,
 		proxy_bytes: &[u8],
-		admin_sk: SecretKey,
-		admin: AlloyAddress,
 	) -> Result<(AlloyAddress, u64)> {
+		let admin = a_addr(self.address());
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let deployment_salt = config.deployment_salt;
 
@@ -269,7 +248,7 @@ impl Connector {
 		}
 		.abi_encode();
 		let payload: [u8; 32] = Keccak256::digest(digest).into();
-		let signature = admin_sk.sign_prehashed(&payload)?;
+		let signature = self.wallet.sign_prehashed(&payload)?;
 		let (v, r, s) = extract_signature_bytes(signature.to_bytes())?;
 		let arguments = ProxyContext {
 			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
@@ -636,8 +615,7 @@ impl IConnectorAdmin for Connector {
 		}
 
 		// proxy address computation
-		let (admin_sk, admin) = self.get_proxy_admin_creds(&config)?;
-		let proxy_addr = self.compute_proxy_address(&config, admin.into(), proxy)?;
+		let proxy_addr = self.compute_proxy_address(&config, proxy)?;
 
 		// check if proxy is deployed
 		let is_proxy_deployed = self
@@ -654,16 +632,8 @@ impl IConnectorAdmin for Connector {
 		let gateway_address = self.deploy_gateway(&config, proxy_addr, gateway).await?;
 
 		// compute proxy arguments
-		let (proxy_address, block) = self
-			.deploy_proxy(
-				&config,
-				proxy_addr.into(),
-				gateway_address,
-				proxy,
-				admin_sk,
-				admin.into(),
-			)
-			.await?;
+		let (proxy_address, block) =
+			self.deploy_proxy(&config, proxy_addr.into(), gateway_address, proxy).await?;
 
 		Ok((t_addr(proxy_address), block))
 	}
@@ -721,17 +691,14 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Estimates the message cost.
-	async fn estimate_message_cost(
-		&self,
-		gateway: Address,
-		dest: NetworkId,
-		msg_size: usize,
-		gas_limit: u128,
-	) -> Result<u128> {
-		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
+	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128> {
+		let dest = msg.dest_network;
+		let gas_limit = msg.gas_limit;
+		let msg: sol::GmpMessage = msg.clone().into();
+		let bytes = msg.abi_encode();
 		let call = sol::Gateway::estimateMessageCostCall {
 			networkid: dest,
-			messageSize: msg_size,
+			messageSize: U256::from(bytes.len()),
 			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_view(gateway, call, None).await?;
@@ -744,28 +711,14 @@ impl IConnectorAdmin for Connector {
 			.await
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
-		// EVM specific logic
-		let mut modified_msg = msg.clone();
-		modified_msg.gas_limit = 300_000;
-		let sol_msg: sol::GmpMessage = modified_msg.clone().into();
-		modified_msg.bytes = sol_msg.abi_encode();
-
-		let cost_call = sol::GmpTester::estimateMessageCostCall {
-			messageSize: U256::from(modified_msg.bytes.len()),
-			gasLimit: U256::from(modified_msg.gas_limit),
-		};
-
-		let msg_cost = self.evm_view(contract, cost_call, None).await?;
-		let msg_cost = u128::try_from(msg_cost._0)?;
-
-		let call = sol::GmpTester::sendMessageCall {
-			msg: modified_msg.clone().into(),
-		};
-
-		self.evm_call(contract, call, msg_cost, None, None).await?;
-		let msg_id = modified_msg.message_id();
-		Ok(msg_id)
+	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
+		anyhow::ensure!(msg.src_network == self.network_id, "invalid source network id");
+		let src = msg.src;
+		let gas_cost = msg.gas_cost;
+		let call = sol::GmpTester::sendMessageCall { msg: msg.into() };
+		let result = self.evm_call(src, call, gas_cost, None, None).await?;
+		let id: MessageId = *result.0._0;
+		Ok(id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(
@@ -890,7 +843,6 @@ pub struct DeploymentConfig {
 	pub raw_tx: String,
 	pub factory_address: String,
 	pub deployment_salt: [u8; 32],
-	pub proxy_admin_sk: String,
 }
 
 #[derive(Deserialize)]

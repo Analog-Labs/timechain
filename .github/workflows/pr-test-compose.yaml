@@ -9,6 +9,7 @@ concurrency:
 jobs:
   test-basic:
     runs-on: [self-hosted, integration]
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -57,7 +58,7 @@ jobs:
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          docker compose --profile "*" down
+          docker compose --profile "*" down --remove-orphans
       - name: Cleanup working dir
         if: ${{ always() }}
         uses: eviden-actions/clean-self-hosted-runner@v1

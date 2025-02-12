@@ -131,6 +131,7 @@ use polkadot_sdk::*;
 
 use frame_support::{
 	parameter_types,
+	traits::Currency,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use pallet_session::historical as pallet_session_historical;
@@ -219,6 +220,10 @@ pub type Executive = frame_executive::Executive<
 	Migrations,
 >;
 
+// Useful types when handeling currency
+pub type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
+pub type PositiveImbalance = <Balances as Currency<AccountId>>::PositiveImbalance;
+
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
@@ -231,7 +236,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-timechain"),
 	impl_name: create_runtime_str!("analog-timechain"),
 	authoring_version: 0,
-	spec_version: 13,
+	spec_version: 17,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -245,7 +250,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-testnet"),
 	impl_name: create_runtime_str!("analog-testnet"),
 	authoring_version: 0,
-	spec_version: 13,
+	spec_version: 17,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -259,7 +264,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-develop"),
 	impl_name: create_runtime_str!("analog-develop"),
 	authoring_version: 0,
-	spec_version: 13,
+	spec_version: 17,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -479,6 +484,14 @@ mod runtime {
 
 	#[runtime::pallet_index(43)]
 	pub type Launch = pallet_launch;
+
+	// HASHI Bridge
+
+	#[runtime::pallet_index(50)]
+	pub type EthBridge = eth_bridge;
+
+	#[runtime::pallet_index(51)]
+	pub type BridgeMultisig = bridge_multisig;
 }
 
 /// Testnet and develop runtime assembly

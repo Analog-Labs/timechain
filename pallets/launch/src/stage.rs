@@ -1,3 +1,4 @@
+use crate::allocation::Allocation;
 use crate::Config;
 
 use polkadot_sdk::*;
@@ -11,9 +12,7 @@ use crate::airdrops::{
 	AirdropBalanceOf, AirdropMintStage, AirdropTransferStage, RawAirdropMintStage,
 	RawAirdropTransferStage,
 };
-use crate::deposits::{
-	BalanceOf, DepositStage, RawDepositStage, RawVirtualDepositStage, RawVirtualSource,
-};
+use crate::deposits::{BalanceOf, DepositStage, RawDepositStage, RawVestedDepositStage};
 
 /// Enum describing the migration type and data to use for an individual
 /// launch stage. Uses static and 'raw' typing to allow for the use of
@@ -21,13 +20,10 @@ use crate::deposits::{
 #[derive(PartialEq)]
 pub enum Stage {
 	Retired,
-	AirdropMint(RawAirdropMintStage),
-	AirdropFromVirtual(RawVirtualSource, RawAirdropMintStage),
-	AirdropMintOrAdd(RawAirdropMintStage),
+	DepositFromUnlocked(RawVestedDepositStage),
+	DepositAsVested(RawDepositStage),
+	AirdropFromUnlocked(RawAirdropMintStage),
 	AirdropTransfer(RawAirdropTransferStage),
-	Deposit(RawDepositStage),
-	DepositFromVirtual(RawVirtualSource, RawDepositStage),
-	VirtualDeposit(RawVirtualDepositStage),
 }
 
 /// Coupling of the different supported migrations to the raw data
@@ -45,26 +41,24 @@ impl Stage {
 	pub fn check<T: Config>(&self)
 	where
 		T::AccountId: From<AccountId>,
+		Balance: From<BalanceOf<T>>,
 	{
 		use Stage::*;
 		match self {
 			Retired => (),
-			AirdropMint(raw) | AirdropFromVirtual(_, raw) => {
-				AirdropMintStage::<T>::parse(raw);
+			DepositFromUnlocked(raw) => {
+				DepositStage::<T>::parse_with_schedule(raw);
 			},
-			AirdropMintOrAdd(raw) => {
+			DepositAsVested(raw) => {
+				DepositStage::<T>::parse(raw);
+			},
+			AirdropFromUnlocked(raw) => {
 				AirdropMintStage::<T>::parse(raw);
 			},
 			AirdropTransfer(raw) => {
 				AirdropTransferStage::<T>::parse(raw);
 			},
-			Deposit(raw) | DepositFromVirtual(_, raw) => {
-				DepositStage::<T>::parse(raw);
-			},
-			VirtualDeposit(raw) => {
-				DepositStage::<T>::parse_virtual(raw);
-			},
-		}
+		};
 	}
 
 	/// Provide a hash of the input data, so source data can be easier verified.
@@ -72,11 +66,10 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => T::Hash::default(),
-			AirdropMint(raw) | AirdropFromVirtual(_, raw) => T::Hashing::hash_of(raw),
-			AirdropMintOrAdd(raw) => T::Hashing::hash_of(raw),
+			DepositFromUnlocked(raw) => T::Hashing::hash_of(raw),
+			DepositAsVested(raw) => T::Hashing::hash_of(raw),
+			AirdropFromUnlocked(raw) => T::Hashing::hash_of(raw),
 			AirdropTransfer(raw) => T::Hashing::hash_of(raw),
-			Deposit(raw) | DepositFromVirtual(_, raw) => T::Hashing::hash_of(raw),
-			VirtualDeposit(raw) => T::Hashing::hash_of(raw),
 		}
 	}
 
@@ -89,33 +82,28 @@ impl Stage {
 		use Stage::*;
 		match self {
 			Retired => 0,
-			AirdropMint(raw) | AirdropFromVirtual(_, raw) => {
-				AirdropMintStage::<T>::parse(raw).total().into()
-			},
-			AirdropMintOrAdd(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
+			DepositFromUnlocked(raw) => DepositStage::<T>::parse_with_schedule(raw).total().into(),
+			DepositAsVested(raw) => DepositStage::<T>::parse(raw).total().into(),
+			AirdropFromUnlocked(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).total().into(),
-			Deposit(raw) | DepositFromVirtual(_, raw) => {
-				DepositStage::<T>::parse(raw).total().into()
-			},
-			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).total().into(),
 		}
 	}
 
 	/// Execute the encoded migration type on the included data.
-	pub fn execute<T: Config>(&self) -> Weight
+	pub fn execute<T: Config>(&self, source: Allocation) -> Weight
 	where
 		T::AccountId: From<AccountId>,
+		Balance: From<BalanceOf<T>>,
 	{
 		use Stage::*;
 		match self {
 			Retired => Weight::zero(),
-			AirdropMint(raw) => AirdropMintStage::<T>::parse(raw).mint(),
-			AirdropFromVirtual(src, raw) => AirdropMintStage::<T>::parse(raw).withdraw(src),
-			AirdropMintOrAdd(raw) => AirdropMintStage::<T>::parse(raw).mint_or_add(),
+			DepositFromUnlocked(raw) => {
+				DepositStage::<T>::parse_with_schedule(raw).transfer_unlocked(source)
+			},
+			DepositAsVested(raw) => DepositStage::<T>::parse(raw).transfer_as_vested(source),
+			AirdropFromUnlocked(raw) => AirdropMintStage::<T>::parse(raw).mint(source),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).transfer(),
-			Deposit(raw) => DepositStage::<T>::parse(raw).deposit(),
-			DepositFromVirtual(src, raw) => DepositStage::<T>::parse(raw).withdraw(src),
-			VirtualDeposit(raw) => DepositStage::<T>::parse_virtual(raw).deposit(),
 		}
 	}
 }

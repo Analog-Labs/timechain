@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{BatchId, NetworkId, ShardId, TaskId};
+use time_primitives::{BatchId, GmpMessage, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -92,6 +92,9 @@ enum Command {
 	Task {
 		task: TaskId,
 	},
+	UnassignedTasks {
+		network: NetworkId,
+	},
 	AssignedTasks {
 		shard: ShardId,
 	},
@@ -147,7 +150,6 @@ enum Command {
 		tester: String,
 		dest: NetworkId,
 		dest_addr: String,
-		nonce: u64,
 	},
 	SmokeTest {
 		src: NetworkId,
@@ -166,6 +168,8 @@ enum Command {
 	Log {
 		#[clap(subcommand)]
 		query: Query,
+		#[arg(long, default_value = "7d")]
+		since: String,
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
@@ -175,6 +179,9 @@ enum Command {
 #[tokio::main]
 async fn main() {
 	time_primitives::init_ss58_version();
+	rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
 		std::process::exit(1);
@@ -255,6 +262,10 @@ async fn real_main() -> Result<()> {
 			let task = tc.task(task).await?;
 			tc.print_table(None, "task", vec![task]).await?;
 		},
+		Command::UnassignedTasks { network } => {
+			let tasks = tc.unassigned_tasks(network).await?;
+			tc.print_table(None, "unassigned-tasks", tasks).await?;
+		},
 		Command::AssignedTasks { shard } => {
 			let tasks = tc.assigned_tasks(shard).await?;
 			tc.print_table(None, "assigned-tasks", tasks).await?;
@@ -331,24 +342,39 @@ async fn real_main() -> Result<()> {
 			tester,
 			dest,
 			dest_addr,
-			nonce,
 		} => {
 			let tester = tc.parse_address(Some(network), &tester)?;
 			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-			let msg_id = tc.send_message(network, tester, dest, dest_addr, nonce).await?;
+			let mut msg = GmpMessage {
+				src_network: network,
+				src: tester,
+				dest_network: dest,
+				dest: dest_addr,
+				nonce: 0,
+				gas_limit: 300_000,
+				gas_cost: 0,
+				bytes: vec![],
+			};
+			msg.gas_cost = tc.estimate_message_cost(&msg).await?;
+			let msg_id = tc.send_message(msg).await?;
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
-			let id = tc.println(None, "send message").await?;
-			let msg_id = tc.send_message(src, src_addr, dest, dest_addr, 0).await?;
-			tc.println(
-				Some(id),
-				format!("sent message to {} {}", dest, tc.format_address(Some(dest), dest_addr)?),
-			)
-			.await?;
+			let mut msg = GmpMessage {
+				src_network: src,
+				src: src_addr,
+				dest_network: dest,
+				dest: dest_addr,
+				nonce: 0,
+				gas_limit: 300_000,
+				gas_cost: 0,
+				bytes: vec![],
+			};
+			msg.gas_cost = tc.estimate_message_cost(&msg).await?;
+			let msg_id = tc.send_message(msg).await?;
 			let mut id = None;
 			let (exec, end) = loop {
 				let (_, end) = blocks.next().await.context("expected block")?;
@@ -377,8 +403,21 @@ async fn real_main() -> Result<()> {
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
 			let mut msgs = HashSet::new();
-			for nonce in 0..num_messages {
-				let msg = tc.send_message(src, src_addr, dest, dest_addr, nonce as _).await?;
+			let mut gas_cost = 0;
+			for _ in 0..num_messages {
+				let mut msg = GmpMessage {
+					src_network: src,
+					src: src_addr,
+					dest_network: dest,
+					dest: dest_addr,
+					nonce: 0,
+					gas_limit: 300_000,
+					gas_cost: 0,
+					bytes: vec![],
+				};
+				msg.gas_cost = tc.estimate_message_cost(&msg).await?;
+				gas_cost += msg.gas_cost;
+				let msg = tc.send_message(msg).await?;
 				msgs.insert(msg);
 			}
 			let mut id = None;
@@ -396,12 +435,14 @@ async fn real_main() -> Result<()> {
 				let num_received = num_messages - msgs.len() as u16;
 				let blocks = block - start;
 				let throughput = num_received as f64 / blocks as f64;
+				let avg_gas_cost = gas_cost / num_messages as u128;
 				id = Some(
 					tc.println(
 						id,
 						format!(
 							r#"{num_received} out of {num_messages} received in {blocks} blocks
-							throughput {throughput:.3} msgs/block"#
+							throughput {throughput:.3} msgs/block
+							avg gas cost {avg_gas_cost}"#
 						),
 					)
 					.await?,
@@ -411,8 +452,8 @@ async fn real_main() -> Result<()> {
 				}
 			}
 		},
-		Command::Log { query } => {
-			tc.log(query).await?;
+		Command::Log { query, since } => {
+			tc.log(query, since).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id).await?;

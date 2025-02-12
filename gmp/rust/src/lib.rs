@@ -449,27 +449,23 @@ impl IConnectorAdmin for Connector {
 		Ok((tester, block))
 	}
 
-	async fn estimate_message_cost(
-		&self,
-		_gateway: Address,
-		_dest: NetworkId,
-		msg_size: usize,
-		_gas_limit: u128,
-	) -> Result<u128> {
-		Ok(msg_size as u128 * 100)
+	async fn estimate_message_cost(&self, _gateway: Address, msg: &GmpMessage) -> Result<u128> {
+		Ok(msg.bytes.len() as u128 * 100)
 	}
 
-	async fn send_message(&self, addr: Address, mut msg: GmpMessage) -> Result<MessageId> {
+	async fn send_message(&self, mut msg: GmpMessage) -> Result<MessageId> {
 		anyhow::ensure!(msg.src_network == self.network_id, "invalid source network id");
+		let addr = msg.src;
 		let tx = self.db.begin_write()?;
 		let id = {
 			// read nonce
 			let mut t = tx.open_table(NONCE)?;
 			let nonce = t.get((msg.src, addr))?.map(|a| a.value()).unwrap_or_default();
-			// increment nonce
-			t.insert((msg.src, addr), nonce + 1)?;
+			// set nonce
 			msg.nonce = nonce;
 			let id = msg.message_id();
+			// increment nonce
+			t.insert((msg.src, addr), nonce + 1)?;
 
 			// read gateway address
 			let t = tx.open_table(GATEWAY)?;
@@ -479,7 +475,6 @@ impl IConnectorAdmin for Connector {
 			let mut t = tx.open_multimap_table(EVENTS)?;
 			let block = block(self.genesis);
 			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
-
 			id
 		};
 		tx.commit()?;
@@ -620,8 +615,9 @@ mod tests {
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
 		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
 		let (dest, _) = chain.deploy_test(gateway, "".as_ref()).await?;
-		let msg = gmp_msg(src, dest);
-		chain.send_message(src, msg.clone()).await?;
+		let mut msg = gmp_msg(src, dest);
+		msg.gas_cost = chain.estimate_message_cost(gateway, &msg).await?;
+		chain.send_message(msg.clone()).await?;
 		let current2 = chain.block_stream().next().await.unwrap();
 		let events = chain.read_events(gateway, current..current2).await?;
 		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);

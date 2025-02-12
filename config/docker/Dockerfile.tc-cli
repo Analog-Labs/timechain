@@ -1,11 +1,7 @@
-FROM alpine:latest as certs
-RUN apk --update add ca-certificates
-
 FROM ghcr.io/foundry-rs/foundry:latest as foundry
 
-FROM scratch
-COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=foundry /usr/local/bin/cast cast
-COPY tc-cli tc-cli
+FROM ubuntu:22.04
+COPY --from=foundry /usr/local/bin/cast /bin/cast
+COPY tc-cli /bin/tc-cli
 COPY envs /etc/envs
-ENTRYPOINT ["/tc-cli"]
+ENTRYPOINT ["/bin/tc-cli"]

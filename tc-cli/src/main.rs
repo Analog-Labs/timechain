@@ -468,8 +468,9 @@ async fn real_main() -> Result<()> {
 			tc.withdraw_funds(network, amount, address).await?;
 		},
 		Command::DebugTransaction { network, hash } => {
+			let hash = hash.strip_prefix("0x").unwrap_or(&hash);
 			let hash: Hash =
-				hex::decode(&hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
+				hex::decode(hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
 			let output = tc.debug_transaction(network, hash).await?;
 			tc.println(None, output).await?;
 		},

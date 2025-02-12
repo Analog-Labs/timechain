@@ -135,7 +135,7 @@ pub struct NetworkConfig {
 	pub route_base_fee: u128,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub faucet: Option<u128>,
+	pub faucet: Option<String>,
 }
 
 #[cfg(test)]

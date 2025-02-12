@@ -216,7 +216,14 @@ impl Tc {
 
 	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
 		let config = self.config.network(network)?;
-		let faucet = config.faucet.context("faucet not supported, please prefund account")?;
+		let faucet =
+			config.faucet.as_ref().context("faucet not supported, please prefund account")?;
+		let faucet = self.parse_balance(Some(network), faucet)?;
+		self.println(
+			None,
+			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
+		)
+		.await?;
 		self.connector(network)?.faucet(faucet).await
 	}
 
@@ -669,7 +676,7 @@ impl Tc {
 			self.set_network_config(network).await?;
 			gateway
 		} else {
-			self.println(None, "deploying gateway").await?;
+			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
@@ -851,7 +858,6 @@ impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
 		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-			self.println(None, "admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}
 		let gateway = self.register_network(network).await?;

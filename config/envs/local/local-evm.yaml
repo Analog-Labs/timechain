@@ -11,7 +11,7 @@ contracts:
 networks:
   2:
     backend: "evm"
-    blockchain: "ethereum"
+    blockchain: "anvil"
     network: "dev"
     url: "ws://chain-2-evm:8545"
     gateway_funds: 1.
@@ -25,9 +25,10 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    faucet: 10.
   3:
     backend: "evm"
-    blockchain: "ethereum"
+    blockchain: "anvil"
     network: "dev"
     url: "ws://chain-3-evm:8545"
     gateway_funds: 1.
@@ -41,6 +42,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    faucet: 10.
 chronicles: 
   - http://timechain-chronicle-2-evm-1:8080
   - http://timechain-chronicle-3-evm-1:8080

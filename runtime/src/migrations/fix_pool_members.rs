@@ -1,10 +1,18 @@
 //! Runtime migration to remove buggy pool members
-use frame_support::{traits::Get, weights::Weight};
+use frame_support::{
+	traits::{Currency, Get},
+	weights::Weight,
+};
 use pallet_nomination_pools::{BondedPools, PoolMembers};
 use polkadot_sdk::*;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::AccountId32;
+use sp_runtime::{traits::Zero, AccountId32};
 use sp_std::vec::Vec;
+
+// Type alias for balance type
+type BalanceOf<T> = <<T as pallet_nomination_pools::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub struct RemoveBuggyPoolMembersMigration<T>(sp_std::marker::PhantomData<T>);
 
@@ -35,26 +43,44 @@ where
 			.collect::<Vec<T::AccountId>>();
 
 		// Track affected pools to update member_counter
-		let mut affected_pools = sp_std::collections::btree_map::BTreeMap::<u32, u32>::new();
+		let mut affected_pools =
+			sp_std::collections::btree_map::BTreeMap::<u32, (u32, BalanceOf<T>)>::new();
 
 		for account in &accounts_to_remove {
 			if let Some(member) = PoolMembers::<T>::take(account) {
-				weight += T::DbWeight::get().writes(1);
 				log::info!("Removed pool member: {account:?}");
-				let pool_id = member.pool_id;
-				// Increment count of members removed per pool
-				affected_pools.entry(pool_id).and_modify(|c| *c += 1).or_insert(1);
+				weight += T::DbWeight::get().writes(1);
+				let pool_id = member.pool_id; // Extract the pool ID correctly
+				let stake_amount = member.points; // Get the stake amount in raw balance
+
+				// Track both removed count and removed stake for each pool
+				affected_pools
+					.entry(pool_id)
+					.and_modify(|(count, stake)| {
+						*count += 1;
+						*stake += stake_amount;
+					})
+					.or_insert((1, stake_amount));
+				weight += T::DbWeight::get().writes(1);
 			}
 		}
 
-		// Update the member_counter for each affected pool
-		for (pool_id, count) in affected_pools.iter() {
+		// Update the member_counter and TVL for each affected pool
+		for (pool_id, (removed_members, removed_stake)) in affected_pools.iter() {
 			BondedPools::<T>::mutate(*pool_id, |maybe_pool| {
 				if let Some(pool) = maybe_pool {
-					if pool.member_counter >= *count {
-						pool.member_counter -= count;
+					// Decrement member counter correctly by the number of removed members
+					if pool.member_counter >= *removed_members {
+						pool.member_counter -= removed_members;
 					} else {
-						pool.member_counter = 0; // Ensure it doesn't go negative
+						pool.member_counter = 0;
+					}
+
+					// Ensure TVL does not go negative
+					if pool.points >= *removed_stake {
+						pool.points -= *removed_stake;
+					} else {
+						pool.points = Zero::zero();
 					}
 				}
 			});

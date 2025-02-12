@@ -26,19 +26,18 @@ use polkadot_sdk::{
 };
 
 pub use pallet::*;
-pub use types::NetworkDetails;
+pub use types::{NetworkData, NetworkDetails};
 
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type NetworkIdOf<T> = <T as Config>::NetworkId;
+pub type NegativeImbalanceOf<T> =
+	<<T as Config>::Currency as Currency<AccountIdOf<T>>>::NegativeImbalance;
 
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+pub type BalanceOf<T> = <<T as Config>::Currency as Currency<AccountIdOf<T>>>::Balance;
 
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-pub type NetworkDataOf<T> = <T as Config>::NetworkData;
-pub type NetworkDetailsOf<T> = NetworkDetails<BalanceOf<T>, NetworkDataOf<T>>;
+// TODO change to AccountId20
+pub type NetworkDataOf<T> = NetworkData<AccountIdOf<T>>;
+pub type NetworkDetailsOf<T> = NetworkDetails<BalanceOf<T>, AccountIdOf<T>>;
 pub type BeneficiaryOf<T> = <T as Config>::Beneficiary;
 
 /// Teleport handlers.
@@ -53,7 +52,7 @@ pub trait AssetTeleporter<T: Config> {
 	fn handle_teleport(
 		source: &T::AccountId,
 		network_id: NetworkIdOf<T>,
-		details: &mut NetworkDataOf<T>,
+		data: &mut NetworkDataOf<T>,
 		beneficiary: &BeneficiaryOf<T>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
@@ -114,18 +113,9 @@ pub mod pallet {
 		/// Network unique identifier
 		type NetworkId: Parameter + MaxEncodedLen;
 
-		/// Network Data, akin to pallet_balances::AccountData
-		/// should have
-		/// + nonce for the GMP message
-		/// + destination address for the token contract
-		type NetworkData: Parameter + MaxEncodedLen;
-
 		/// Identifier the account getting the teleported funds on the target chain,
 		/// currently this should be set to AccountId20
 		type Beneficiary: Parameter + MaxEncodedLen;
-
-		//		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
-		//		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>>
@@ -163,6 +153,8 @@ pub mod pallet {
 		AmountZero,
 		/// Attempt to use a network_id already in use.
 		NetworkAlreadyExists,
+		/// Network data nonce onverflow.
+		NetworkNonceOverflow,
 	}
 
 	/// Exposes callable functions to interact with the pallet.
@@ -177,7 +169,13 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			Self::do_teleport(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
+			Self::do_teleport_out(
+				source,
+				network,
+				beneficiary,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)
 		}
 
 		#[pallet::call_index(1)]
@@ -190,7 +188,13 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_teleport(source, network, beneficiary, amount, ExistenceRequirement::KeepAlive)
+			Self::do_teleport_out(
+				source,
+				network,
+				beneficiary,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)
 		}
 
 		#[pallet::call_index(2)]
@@ -199,7 +203,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			network: T::NetworkId,
 			base_fee: BalanceOf<T>,
-			data: T::NetworkData,
+			data: NetworkDataOf<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_register_network(network, base_fee, data)
@@ -211,7 +215,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			network: T::NetworkId,
 			active: bool,
-			maybe_data: Option<T::NetworkData>,
+			maybe_data: Option<NetworkDataOf<T>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			let network_ref = &network;
@@ -258,7 +262,7 @@ pub mod pallet {
 		pub fn do_register_network(
 			network: T::NetworkId,
 			base_fee: BalanceOf<T>,
-			mut data: T::NetworkData,
+			mut data: NetworkDataOf<T>,
 		) -> DispatchResult {
 			ensure!(!Network::<T>::contains_key(&network), Error::<T>::NetworkAlreadyExists);
 			T::Teleporter::handle_register(network.clone(), &mut data)?;
@@ -275,10 +279,10 @@ pub mod pallet {
 
 			Ok(())
 		}
-		/// Perform the asset teleportation
+		/// Perform the asset teleportation to other network
 		/// emits `Event::Teleported`.
-		pub fn do_teleport(
-			source: T::AccountId,
+		pub fn do_teleport_out(
+			sender: T::AccountId,
 			network_id: T::NetworkId,
 			beneficiary: T::Beneficiary,
 			amount: BalanceOf<T>,
@@ -296,9 +300,9 @@ pub mod pallet {
 					.checked_add(&details.teleport_base_fee)
 					.ok_or(Error::<T>::InsufficientFunds)?;
 
-				// Withdraw `total` from `source`
+				// Withdraw `total` from `sender`
 				let reason = WithdrawReasons::TRANSFER | WithdrawReasons::FEE;
-				let imbalance = T::Currency::withdraw(&source, total, reason, liveness)?;
+				let imbalance = T::Currency::withdraw(&sender, total, reason, liveness)?;
 
 				// If `network_details.teleport_base_fee` is greater than zero, pay the fee to destination
 				let imbalance = if !details.teleport_base_fee.is_zero() {
@@ -320,7 +324,7 @@ pub mod pallet {
 
 				// Perform the teleport
 				T::Teleporter::handle_teleport(
-					&source,
+					&sender,
 					network_id.clone(),
 					&mut details.data,
 					&beneficiary,
@@ -329,9 +333,19 @@ pub mod pallet {
 			})?;
 
 			// Emit `Teleported` event.
-			Self::deposit_event(Event::Teleported { account: source, amount });
+			Self::deposit_event(Event::Teleported { account: sender, amount });
 
 			Ok(())
+		}
+
+		/// Process assets teleported from other network
+		pub fn do_teleport_in(recipient: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+			T::Currency::transfer(
+				&T::BridgePot::get(),
+				recipient,
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)
 		}
 	}
 }

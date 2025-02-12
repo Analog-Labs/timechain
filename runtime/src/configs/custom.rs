@@ -4,6 +4,7 @@ use frame_support::{
 	ensure, parameter_types,
 	traits::{ConstU128, ConstU32},
 };
+use pallet_assets_bridge::NetworkDataOf;
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -78,6 +79,7 @@ impl pallet_tasks::Config for Runtime {
 	type Shards = Shards;
 	type MaxTasksPerBlock = ConstU32<50>;
 	type MaxBatchesPerBlock = ConstU32<10>;
+	type Teleporter = Bridge;
 }
 
 parameter_types! {
@@ -113,8 +115,6 @@ parameter_types! {
 	pub BridgePot: AccountId = Bridge::account_id();
 }
 
-type NetworkData = (u64, Address);
-
 impl pallet_assets_bridge::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -122,13 +122,15 @@ impl pallet_assets_bridge::Config for Runtime {
 	type Currency = pallet_balances::Pallet<Runtime>;
 	type FeeDestination = DealWithFees;
 	type NetworkId = NetworkId;
-	type NetworkData = NetworkData;
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
 }
 
 impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
-	fn handle_register(network_id: NetworkId, _data: &mut NetworkData) -> DispatchResult {
+	fn handle_register(
+		network_id: NetworkId,
+		_data: &mut NetworkDataOf<Runtime>,
+	) -> DispatchResult {
 		ensure!(
 			network_id.ne(&<Runtime as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
 			pallet_assets_bridge::Error::<Runtime>::NetworkAlreadyExists
@@ -143,7 +145,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 	fn handle_teleport(
 		source: &AccountId,
 		network_id: NetworkId,
-		details: &mut NetworkData,
+		data: &mut NetworkDataOf<Runtime>,
 		beneficiary: &Address,
 		amount: Balance,
 	) -> DispatchResult {
@@ -160,20 +162,27 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			dest_network: network_id,
 			src,
 			// GMP backend truncates this to AccountId20
-			dest: details.1,
-			nonce: details.0,
+			dest: data.dest().into(),
+			nonce: data.nonce,
 			// must be sufficient to exec onGmpReceived
 			gas_limit: 100_000u128,
-			// usually used for cronicles refund
-			gas_cost: 0u128,
+			// gas_limit + gateway_overhead
+			gas_cost: 120_000u128,
 			// calldata for our onGmpReceived
 			bytes: teleport_command.to_vec(),
 		};
 
-		// Push GMP message to gateway ops queue
-		pallet_tasks::Pallet::<Runtime>::push_gmp_message(msg);
+		data.incr_nonce()
+			.ok_or(pallet_assets_bridge::Error::<Runtime>::NetworkNonceOverflow)?;
+		Self::push_gmp_message(msg);
 
 		Ok(())
+	}
+}
+
+impl pallet_tasks::TeleportReciever<Runtime> for Bridge {
+	fn handle_teleport(recipient: &AccountId, amount: Balance) -> DispatchResult {
+		Self::do_teleport_in(recipient.into(), amount.into())
 	}
 }
 

@@ -1,6 +1,7 @@
 use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
 
+use frame_support::PalletId;
 use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -13,6 +14,7 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 
+use sp_runtime::traits::AccountIdConversion;
 use time_primitives::{AccountId, Balance, Block, BlockNumber, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
@@ -33,6 +35,9 @@ const MIN_VALIDATOR_COUNT: u32 = 1;
 /// Default telemetry server for all networks
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
+
+const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
+const ED: Balance = 1 * ANLOG;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -75,7 +80,7 @@ pub struct GenesisKeysConfig {
 }
 
 impl Default for GenesisKeysConfig {
-	/// Default configuration using know development keys
+	/// Default configuration using known development keys
 	fn default() -> Self {
 		use AccountKeyring::*;
 
@@ -90,8 +95,15 @@ impl Default for GenesisKeysConfig {
 			chronicles: vec![],
 			// TODO: Would be better to assign individual controllers
 			controller: None,
-			endowments: vec![],
-			stakes: vec![Alice.into(), Bob.into(), Charlie.into(), Dave.into()],
+			endowments: vec![(BRIDGE_PALLET_ID.into_account_truncating(), ED)],
+			stakes: vec![
+				AliceStash.into(),
+				BobStash.into(),
+				CharlieStash.into(),
+				DaveStash.into(),
+				EveStash.into(),
+				FerdieStash.into(),
+			],
 		}
 	}
 }
@@ -222,6 +234,7 @@ impl GenesisKeysConfig {
 			})
 			.collect();
 
+		let root_account = self.admins.first().cloned().unwrap();
 		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
@@ -235,6 +248,9 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
+			"sudo": {
+				"key": root_account,
+			}
 		});
 
 		if cfg!(feature = "testnet") {

@@ -76,30 +76,16 @@ services:
     - grpc
 
   chain-2-evm:
-    image: 'ethereum/client-go:v1.14.11'
+    image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - '--dev'
-    - '--dev.gaslimit=30000000'
-    - '--ipcdisable'
-    - '--dev.period=2'
-    - '--rpc.txfeecap=0'
-    - '--rpc.allow-unprotected-txs=true'
-    - '--http'
-    - '--http.addr=0.0.0.0'
-    - '--http.port=8545'
-    - '--http.vhosts=*'
-    - '--http.corsdomain=*'
-    - '--http.api=eth,debug,admin,txpool,web3,net'
-    - '--ws'
-    - '--ws.addr=0.0.0.0'
-    - '--ws.port=8545'
-    - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3,net'
-    - '--verbosity=4'
+    - 'anvil -b 1'
+    environment:
+        ANVIL_IP_ADDR: "0.0.0.0"
     ports:
     - 8545:8545
     profiles:
     - evm
+    - bridge
 
   chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
@@ -117,28 +103,14 @@ services:
       RUST_BACKTRACE: 1
     profiles:
     - evm
+    - bridge
 
   chain-3-evm:
-    image: 'ethereum/client-go:v1.14.11'
+    image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - '--dev'
-    - '--dev.gaslimit=30000000'
-    - '--ipcdisable'
-    - '--dev.period=2'
-    - '--rpc.txfeecap=0'
-    - '--rpc.allow-unprotected-txs=true'
-    - '--http'
-    - '--http.addr=0.0.0.0'
-    - '--http.port=8545'
-    - '--http.vhosts=*'
-    - '--http.corsdomain=*'
-    - '--http.api=eth,debug,admin,txpool,web3,net'
-    - '--ws'
-    - '--ws.addr=0.0.0.0'
-    - '--ws.port=8545'
-    - '--ws.origins=*'
-    - '--ws.api=eth,debug,admin,txpool,web3,net'
-    - '--verbosity=4'
+    - 'anvil -b 1'
+    environment:
+        ANVIL_IP_ADDR: "0.0.0.0"
     ports:
     - 8546:8545
     profiles:
@@ -165,5 +137,6 @@ services:
     image: 'analoglabs/tc-cli-develop'
     environment:
       RUST_BACKTRACE: 1
+      RUST_LOG: 'gmp_evm=info'
     profiles:
     - never

@@ -626,6 +626,24 @@ impl Tc {
 			exec,
 		})
 	}
+
+	pub async fn set_tc_route(&self, src: NetworkId, src_gateway: Gateway) -> Result<()> {
+		let connector = self.connector(src)?;
+		let route = Route {
+			network_id: 1000,
+			// note: TC does not have GW,
+			// but GMP GW does not accept 0x here,
+			// hence we set it to src_gateway as well.
+			gateway: src_gateway,
+			// TODO ??explain
+			relative_gas_price: (1, 1),
+			// TODO ??explain
+			gas_limit: 15_000_000,
+			base_fee: Default::default(),
+		};
+		self.println(None, format!("set_tc_route {:?}", &route)).await?;
+		connector.set_route(src_gateway, route).await
+	}
 }
 
 impl Tc {
@@ -818,7 +836,10 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
+		let admin_address = self.address(Some(network))?;
+			let msg = format!("admin address is: 0x{}", &hex::encode(&admin_address));
+			self.println(None, msg.as_str()).await?;
+		if self.balance(Some(network), admin_address).await? == 0 {
 			self.println(None, "admin target balance is 0, using faucet").await?;
 			self.faucet(network).await?;
 		}

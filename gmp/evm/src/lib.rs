@@ -164,12 +164,14 @@ impl Connector {
 		let deployer_address = self.parse_address(&config.factory_deployer)?;
 
 		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		tracing::info!("funding deployer: 0x{}, with: {}", hex::encode(&deployer_address), &config.required_balance);
 		self.transfer(deployer_address, config.required_balance).await?;
 
 		//Step2: load transaction from config
 		let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
 
 		//Step3: send eth_rawTransaction
+		tracing::info!("deploying factory");
 		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
 		tracing::info!("factory deployed with tx: {:?}", tx_hash);

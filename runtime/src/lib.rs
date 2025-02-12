@@ -342,6 +342,13 @@ parameter_types! {
 
 pub type TechnicalCollective = pallet_collective::Instance1;
 
+#[cfg(feature = "testnet")]
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
 /// Mainnet runtime assembly
 #[cfg(not(feature = "testnet"))]
 #[frame_support::runtime]
@@ -656,6 +663,10 @@ mod runtime {
 
 	#[runtime::pallet_index(42)]
 	pub type Airdrop = pallet_airdrop;
+
+	// TODO: remove
+	#[runtime::pallet_index(49)]
+	pub type Sudo = pallet_sudo;
 
 	// HASHI Bridge
 

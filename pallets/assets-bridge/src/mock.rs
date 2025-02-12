@@ -116,7 +116,7 @@ impl AssetTeleporter<Test> for Tasks {
 	fn handle_teleport(
 		source: &AccountId,
 		network_id: NetworkIdOf<Test>,
-		details: &mut NetworkDataOf<Test>,
+		data: &mut NetworkDataOf<Test>,
 		beneficiary: &BeneficiaryOf<Test>,
 		amount: BalanceOf<Test>,
 	) -> DispatchResult {
@@ -133,8 +133,8 @@ impl AssetTeleporter<Test> for Tasks {
 			dest_network: network_id,
 			src,
 			// GMP backend truncates this to AccountId20
-			dest: details.1,
-			nonce: details.0,
+			dest: data.dest().into(),
+			nonce: data.nonce,
 			// Must be sufficient to execute onGmpReceived
 			gas_limit: 100_000u128,
 			// ussually used for chronicles refund
@@ -143,6 +143,7 @@ impl AssetTeleporter<Test> for Tasks {
 			bytes: teleport_command,
 		};
 
+		data.incr_nonce().ok_or(Error::<Test>::NetworkNonceOverflow)?;
 		// Push GMP message to gateway ops queue
 		Tasks::push_gmp_message(msg);
 
@@ -186,7 +187,6 @@ impl pallet_assets_bridge::Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type FeeDestination = Treasury;
 	type NetworkId = u16;
-	type NetworkData = (u64, Address);
 	type Beneficiary = Address;
 	type Teleporter = Tasks;
 }
@@ -345,6 +345,7 @@ impl pallet_tasks::Config for Test {
 	type Networks = MockNetworks;
 	type MaxTasksPerBlock = ConstU32<3>;
 	type MaxBatchesPerBlock = ConstU32<4>;
+	type Teleporter = ();
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test

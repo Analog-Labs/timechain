@@ -20,10 +20,11 @@ use sha3::{Digest, Keccak256};
 use sol::{u256, Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
+use std::process::Command;
 use std::sync::Arc;
 use thiserror::Error;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
@@ -54,6 +55,7 @@ pub struct Connector {
 	network_id: NetworkId,
 	wallet: Arc<Wallet>,
 	backend: Adapter<DefaultClient>,
+	url: String,
 	cctp_sender: Option<String>,
 	cctp_attestation: String,
 	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
@@ -395,6 +397,7 @@ impl IConnectorBuilder for Connector {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
+			url: params.url,
 			cctp_sender: params.cctp_sender,
 			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
 			cctp_queue: Default::default(),
@@ -776,6 +779,22 @@ impl IConnectorAdmin for Connector {
 		};
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
+	}
+	/// Debug a transaction.
+	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
+		let output = Command::new("cast")
+			.arg("run")
+			.arg("--rpc-url")
+			.arg(&self.url)
+			.arg(hex::encode(hash))
+			.output()
+			.context("failed to run cast")?;
+		if !output.status.success() {
+			let err = std::str::from_utf8(&output.stderr).ok().unwrap_or_default();
+			anyhow::bail!("cast exited with {}: {err}", output.status);
+		}
+		let stdout = std::str::from_utf8(&output.stdout)?;
+		Ok(stdout.into())
 	}
 }
 

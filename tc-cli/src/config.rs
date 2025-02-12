@@ -96,7 +96,7 @@ struct ConfigYaml {
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	prices_path: PathBuf,
-	pub chronicle_timechain_funds: String,
+	pub chronicle_funds: String,
 	pub timechain_url: String,
 }
 
@@ -124,8 +124,9 @@ pub struct NetworkConfig {
 	pub blockchain: String,
 	pub network: String,
 	pub url: String,
+	pub admin_funds: Option<String>,
 	pub gateway_funds: String,
-	pub chronicle_target_funds: String,
+	pub chronicle_funds: String,
 	pub batch_size: u32,
 	pub batch_offset: u32,
 	pub batch_gas_limit: u128,
@@ -135,7 +136,6 @@ pub struct NetworkConfig {
 	pub route_base_fee: u128,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub faucet: Option<String>,
 }
 
 #[cfg(test)]

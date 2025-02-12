@@ -1,5 +1,5 @@
 config:
-  chronicle_timechain_funds: 1.
+  chronicle_funds: 1.
   timechain_url: 'wss://rpc.development.analog.one'
   prices_path: 'prices.csv'
 contracts:
@@ -14,8 +14,9 @@ networks:
     blockchain: "rust"
     network: "0"
     url: "https://gmp-grpc-1.development.analog.one:443"
+    admin_funds: 100.
     gateway_funds: 10.
-    chronicle_target_funds: 10.
+    chronicle_funds: 10.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -31,8 +32,9 @@ networks:
     blockchain: "rust"
     network: "1"
     url: "https://gmp-grpc-2.development.analog.one:443"
+    admin_funds: 100.
     gateway_funds: 10.
-    chronicle_target_funds: 10.
+    chronicle_funds: 10.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -48,8 +50,9 @@ networks:
     blockchain: "rust"
     network: "0"
     url: "https://gmp-grpc-3.development.analog.one:443"
+    admin_funds: 100.
     gateway_funds: 10.
-    chronicle_target_funds: 10.
+    chronicle_funds: 10.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -65,8 +68,9 @@ networks:
     blockchain: "rust"
     network: "1"
     url: "https://gmp-grpc-4.development.analog.one:443"
+    admin_funds: 100.
     gateway_funds: 10.
-    chronicle_target_funds: 10.
+    chronicle_funds: 10.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -82,8 +86,9 @@ networks:
     blockchain: "ethereum"
     network: "sepolia"
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
+    admin_funds: 100.
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_funds: .1
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000
@@ -99,8 +104,9 @@ networks:
     blockchain: "astar"
     network: "shibuya"
     url: "wss://rpc.shibuya.astar.network"
+    admin_funds: 100.
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_funds: .1
     batch_size: 256
     batch_offset: 0
     batch_gas_limit: 10000
@@ -116,8 +122,9 @@ networks:
     blockchain: "ethereum"
     network: "dev"
     url: "wss://eth-local.development.analog.one"
+    admin_funds: 100.
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_funds: .1
     batch_size: 256
     batch_offset: 0
     batch_gas_limit: 10000

@@ -216,9 +216,15 @@ impl Tc {
 
 	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
 		let config = self.config.network(network)?;
-		let faucet =
-			config.faucet.as_ref().context("faucet not supported, please prefund account")?;
-		let faucet = self.parse_balance(Some(network), faucet)?;
+		let Some(admin_funds) = config.admin_funds.as_ref() else {
+			return Ok(());
+		};
+		let admin_funds = self.parse_balance(Some(network), admin_funds)?;
+		let current_admin_funds = self.balance(Some(network), self.address(Some(network))?).await?;
+		let faucet = admin_funds - current_admin_funds;
+		if faucet <= 0 {
+			return Ok(());
+		}
 		self.println(
 			None,
 			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
@@ -857,9 +863,7 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-			self.faucet(network).await?;
-		}
+		self.faucet(network).await?;
 		let gateway = self.register_network(network).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
 		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
@@ -868,16 +872,16 @@ impl Tc {
 
 	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
-		let funds = self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
+		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
 		self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account")
 			.await?;
 		let config = self.config.network(chronicle.network)?;
-		let chronicle_target_funds =
-			self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
+		let chronicle_funds =
+			self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
 		self.fund(
 			Some(chronicle.network),
 			chronicle.address,
-			chronicle_target_funds,
+			chronicle_funds,
 			"chronicle target account",
 		)
 		.await?;

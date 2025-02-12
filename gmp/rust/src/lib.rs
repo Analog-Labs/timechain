@@ -601,8 +601,8 @@ mod tests {
 		let chain = connector(network, 0).await?;
 		let shard = MockTssSigner::new(0);
 		assert_eq!(chain.balance(chain.address()).await?, 0);
-		chain.faucet().await?;
-		assert_eq!(chain.balance(chain.address()).await?, FAUCET);
+		chain.faucet(100_000).await?;
+		assert_eq!(chain.balance(chain.address()).await?, 100_000);
 		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref(), "".as_ref()).await?;
 		chain.transfer(gateway, 10_000).await?;
 		assert_eq!(chain.balance(gateway).await?, 10_000);

@@ -194,7 +194,7 @@ async fn main() {
 }
 
 async fn real_main() -> Result<()> {
-	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
+	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info,gmp_evm=info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let sender = Sender::new();
 	let args = Args::parse();

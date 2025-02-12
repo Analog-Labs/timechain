@@ -75,6 +75,38 @@ impl Connector {
 			.await
 	}
 
+	async fn raw_evm_call(
+		&self,
+		contract: [u8; 20],
+		call: Vec<u8>,
+		amount: u128,
+		nonce: Option<u64>,
+		gas_limit: Option<u64>,
+	) -> Result<(Vec<u8>, TransactionReceipt, [u8; 32])> {
+		let result = self.wallet.eth_send_call(contract, call, amount, nonce, gas_limit).await?;
+		let (result, receipt, tx_hash) = match result {
+			SubmitResult::Executed { result, receipt, tx_hash } => (result, receipt, tx_hash),
+			SubmitResult::Timeout { tx_hash } => {
+				anyhow::bail!("tx 0x{} timed out", hex::encode(tx_hash))
+			},
+		};
+		let result = match result {
+			CallResult::Success(result) => {
+				tracing::info!("tx 0x{} succeeded", hex::encode(tx_hash));
+				result
+			},
+			CallResult::Revert(reason) => {
+				anyhow::bail!(
+					"tx 0x{} reverted because {}",
+					hex::encode(tx_hash),
+					hex::encode(reason)
+				);
+			},
+			CallResult::Error => anyhow::bail!("tx 0x{} failed", hex::encode(tx_hash)),
+		};
+		Ok((result, receipt, tx_hash.into()))
+	}
+
 	async fn evm_call<T: SolCall>(
 		&self,
 		contract: Address,
@@ -84,20 +116,9 @@ impl Connector {
 		gas_limit: Option<u64>,
 	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
 		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
-		let result = self
-			.wallet
-			.eth_send_call(contract, call.abi_encode(), amount, nonce, gas_limit)
-			.await?;
-		let SubmitResult::Executed {
-			result: CallResult::Success(result),
-			receipt,
-			tx_hash,
-		} = result
-		else {
-			anyhow::bail!("{:?}", result)
-		};
-		tracing::info!("evm_call success: {:?}", tx_hash);
-		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash.into()))
+		let (result, receipt, tx_hash) =
+			self.raw_evm_call(contract, call.abi_encode(), amount, nonce, gas_limit).await?;
+		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash))
 	}
 
 	async fn evm_view<T: SolCall>(
@@ -134,33 +155,20 @@ impl Connector {
 		factory_address: [u8; 20],
 		call: Vec<u8>,
 	) -> Result<(AlloyAddress, u64)> {
-		let result = self
-			.wallet
-			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
-			.await?;
-		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
-			anyhow::bail!("tx timed out");
-		};
-		match result {
-			CallResult::Success(_) => {
-				let log = receipt
-					.logs
-					.iter()
-					.find(|log| log.address.as_bytes() == factory_address)
-					.with_context(|| format!("Log with factory address not found: {}", tx_hash))?;
-				let topic = log
-					.topics
-					.first()
-					.with_context(|| "Unable to find topics in tx receipt")?
-					.as_bytes();
-				let contract_address = AlloyAddress::from_slice(&topic[12..]);
-				Ok((contract_address, receipt.block_number.unwrap()))
-			},
-			CallResult::Revert(reason) => {
-				anyhow::bail!("Deployment reverted: {tx_hash:?}: {:?}", hex::encode(reason))
-			},
-			CallResult::Error => anyhow::bail!("Failed to deploy contract"),
-		}
+		let (_, receipt, tx_hash) =
+			self.raw_evm_call(factory_address, call, 0, None, Some(20_000_000)).await?;
+		let log = receipt
+			.logs
+			.iter()
+			.find(|log| log.address.as_bytes() == factory_address)
+			.with_context(|| format!("tx {} logs not found", hex::encode(tx_hash)))?;
+		let topic = log
+			.topics
+			.first()
+			.with_context(|| format!("tx {} topic not found", hex::encode(tx_hash)))?
+			.as_bytes();
+		let contract_address = AlloyAddress::from_slice(&topic[12..]);
+		Ok((contract_address, receipt.block_number.unwrap()))
 	}
 
 	async fn deploy_factory(&self, config: &DeploymentConfig) -> Result<()> {

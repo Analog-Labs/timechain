@@ -5,11 +5,11 @@ pragma solidity >=0.8.0;
 
 import {VmSafe, Vm} from "forge-std/Vm.sol";
 import {console} from "forge-std/console.sol";
-import {Schnorr} from "@frost-evm/Schnorr.sol";
-import {SECP256K1} from "@frost-evm/SECP256K1.sol";
+import {Schnorr} from "../lib/frost-evm/sol/Schnorr.sol";
+import {SECP256K1} from "../lib/frost-evm/sol/SECP256K1.sol";
 import {BranchlessMath} from "../src/utils/BranchlessMath.sol";
-import {IUniversalFactory} from "@universal-factory/IUniversalFactory.sol";
-import {FactoryUtils} from "@universal-factory/FactoryUtils.sol";
+import {IUniversalFactory} from "../lib/universal-factory/src/IUniversalFactory.sol";
+import {FactoryUtils} from "../lib/universal-factory/src/FactoryUtils.sol";
 import {IGateway} from "../src/interfaces/IGateway.sol";
 import {Gateway, GatewayEIP712} from "../src/Gateway.sol";
 import {GatewayProxy} from "../src/GatewayProxy.sol";

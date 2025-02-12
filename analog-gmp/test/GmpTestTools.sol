@@ -11,7 +11,7 @@ import {GatewayProxy} from "../src/GatewayProxy.sol";
 import {IGateway} from "../src/interfaces/IGateway.sol";
 import {BranchlessMath} from "../src/utils/BranchlessMath.sol";
 import {GmpMessage, TssKey, Network, Signature, GmpSender, PrimitiveUtils} from "../src/Primitives.sol";
-import {IUniversalFactory} from "@universal-factory/IUniversalFactory.sol";
+import {IUniversalFactory} from "../lib/universal-factory/src/IUniversalFactory.sol";
 
 library GmpTestTools {
     /**

@@ -3,7 +3,7 @@
 
 pragma solidity >=0.8.0;
 
-import {ERC20} from "@solmate/tokens/ERC20.sol";
+import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
 import {IGmpReceiver} from "../src/interfaces/IGmpReceiver.sol";
 import {IGateway} from "../src/interfaces/IGateway.sol";
 

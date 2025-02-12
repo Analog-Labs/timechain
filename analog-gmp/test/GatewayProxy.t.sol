@@ -3,8 +3,8 @@
 
 pragma solidity >=0.8.0;
 
-import {IUniversalFactory} from "@universal-factory/IUniversalFactory.sol";
-import {FactoryUtils} from "@universal-factory/FactoryUtils.sol";
+import {IUniversalFactory} from "../lib/universal-factory/src/IUniversalFactory.sol";
+import {FactoryUtils} from "../lib/universal-factory/src/FactoryUtils.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 import {TestUtils, SigningKey, SigningUtils} from "./TestUtils.sol";

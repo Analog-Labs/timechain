@@ -18,6 +18,8 @@ pub mod pallet_proxy;
 //pub mod pallet_shards;
 //pub mod pallet_tasks;
 //pub mod pallet_timegraph;
+pub mod bridge_multisig;
+pub mod eth_bridge;
 pub mod pallet_timestamp;
 pub mod pallet_utility;
 

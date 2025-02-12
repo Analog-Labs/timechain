@@ -5,13 +5,15 @@ use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
 use rosetta_client::{
-	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
-	GetTransactionCount, SubmitResult, TransactionReceipt, Wallet,
-};
-use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
-use rosetta_server::ws::{default_client, DefaultClient};
-use rosetta_server_ethereum::utils::{
-	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
+	query::GetLogs,
+	rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc},
+	rosetta_server::ws::{default_client, DefaultClient},
+	rosetta_server_ethereum::utils::{
+		DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
+	},
+	types::AccountIdentifier,
+	AtBlock, CallResult, FilterBlockOption, GetTransactionCount, SubmitResult, TransactionReceipt,
+	Wallet,
 };
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
@@ -596,10 +598,8 @@ impl IConnectorAdmin for Connector {
 		// check if uf already deployed
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
-		let is_factory_deployed = self
-			.backend
-			.get_code(factory_address.into(), rosetta_ethereum_types::AtBlock::Latest)
-			.await?;
+		let is_factory_deployed =
+			self.backend.get_code(factory_address.into(), AtBlock::Latest).await?;
 
 		if is_factory_deployed.is_empty() {
 			self.deploy_factory(&config).await?;
@@ -609,10 +609,7 @@ impl IConnectorAdmin for Connector {
 		let proxy_addr = self.compute_proxy_address(&config, proxy)?;
 
 		// check if proxy is deployed
-		let is_proxy_deployed = self
-			.backend
-			.get_code(proxy_addr.into(), rosetta_ethereum_types::AtBlock::Latest)
-			.await?;
+		let is_proxy_deployed = self.backend.get_code(proxy_addr.into(), AtBlock::Latest).await?;
 
 		if !is_proxy_deployed.is_empty() {
 			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");

@@ -222,7 +222,7 @@ impl Tc {
 		let admin_funds = self.parse_balance(Some(network), admin_funds)?;
 		let current_admin_funds = self.balance(Some(network), self.address(Some(network))?).await?;
 		let faucet = admin_funds - current_admin_funds;
-		if faucet <= 0 {
+		if faucet == 0 {
 			return Ok(());
 		}
 		self.println(

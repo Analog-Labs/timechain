@@ -3,7 +3,7 @@ use polkadot_sdk::*;
 use frame_support::parameter_types;
 
 // Local module imports
-use crate::{deposit, Balance, Balances, Runtime, RuntimeCall, RuntimeEvent};
+use crate::{deposit, weights, Balance, Balances, Runtime, RuntimeCall, RuntimeEvent};
 
 pub type NetworkId = u32;
 
@@ -26,7 +26,7 @@ impl eth_bridge::Config for Runtime {
 	type Currency = Balances;
 	type NetworkId = NetworkId;
 	type PeerId = eth_bridge::offchain::crypto::TestAuthId;
-	type WeightInfo = eth_bridge::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::eth_bridge::WeightInfo<Runtime>;
 	type AdminOrigin = ChronicleAdmin;
 }
 
@@ -46,5 +46,5 @@ impl bridge_multisig::Config for Runtime {
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
-	type WeightInfo = bridge_multisig::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::bridge_multisig::WeightInfo<Runtime>;
 }

@@ -9,24 +9,22 @@ use std::{path::Path, sync::Arc};
 
 use polkadot_sdk::*;
 
-#[cfg(feature = "testnet")]
+#[cfg(feature = "bridge")]
 use eth_bridge::{
 	common, PeerConfig, STORAGE_ETH_NODE_PARAMS, STORAGE_NETWORK_IDS_KEY, STORAGE_PEER_SECRET_KEY,
 	STORAGE_SUB_NODE_URL_KEY,
 };
-#[cfg(feature = "testnet")]
+#[cfg(feature = "bridge")]
 use scale_codec::Encode;
-#[cfg(feature = "testnet")]
+#[cfg(feature = "bridge")]
 use sp_core::{offchain::OffchainStorage, ByteArray, Pair};
-#[cfg(feature = "testnet")]
-use sp_runtime::offchain::STORAGE_PREFIX;
-#[cfg(feature = "testnet")]
-use sp_runtime::traits::IdentifyAccount;
-#[cfg(feature = "testnet")]
+#[cfg(feature = "bridge")]
+use sp_runtime::{offchain::STORAGE_PREFIX, traits::IdentifyAccount};
+#[cfg(feature = "bridge")]
 use sp_std::collections::btree_set::BTreeSet;
-#[cfg(feature = "testnet")]
+#[cfg(feature = "bridge")]
 use std::fs::File;
-#[cfg(feature = "testnet")]
+#[cfg(feature = "bridge")]
 use timechain_runtime::Runtime;
 
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -136,7 +134,7 @@ where
 		)?;
 	let client = Arc::new(client);
 
-	#[cfg(feature = "testnet")]
+	#[cfg(feature = "bridge")]
 	{
 		// HASHI Bridge support
 		let mut bridge_peer_secret_key = None;

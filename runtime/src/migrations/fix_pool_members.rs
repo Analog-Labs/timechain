@@ -1,6 +1,6 @@
 //! Runtime migration to remove buggy pool members
 use frame_support::{
-	traits::{Currency, Get},
+	traits::{fungible::Inspect, Get},
 	weights::Weight,
 };
 use pallet_nomination_pools::{BondedPools, PoolMembers};
@@ -10,7 +10,7 @@ use sp_runtime::{traits::Zero, AccountId32};
 use sp_std::vec::Vec;
 
 // Type alias for balance type
-type BalanceOf<T> = <<T as pallet_nomination_pools::Config>::Currency as Currency<
+type BalanceOf<T> = <<T as pallet_nomination_pools::Config>::Currency as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 

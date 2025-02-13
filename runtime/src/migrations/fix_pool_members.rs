@@ -3,7 +3,7 @@ use frame_support::{
 	traits::{fungible::Inspect, Get},
 	weights::Weight,
 };
-use pallet_nomination_pools::{BondedPools, PoolMembers};
+use pallet_nomination_pools::{BondedPools, PoolMembers, TotalValueLocked};
 use polkadot_sdk::*;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::Zero, AccountId32};
@@ -82,6 +82,7 @@ where
 					} else {
 						pool.points = Zero::zero();
 					}
+					TotalValueLocked::<T>::mutate(|x| *x -= *removed_stake);
 				}
 			});
 			weight += T::DbWeight::get().writes(1);

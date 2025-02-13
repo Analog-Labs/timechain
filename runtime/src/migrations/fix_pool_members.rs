@@ -3,10 +3,13 @@ use frame_support::{
 	traits::{fungible::Inspect, Get},
 	weights::Weight,
 };
-use pallet_nomination_pools::{BondedPools, PoolMembers, TotalValueLocked};
+use pallet_nomination_pools::{
+	adapter::{Pool, StakeStrategy},
+	BondedPools, PoolMembers, TotalValueLocked,
+};
 use polkadot_sdk::*;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{traits::Zero, AccountId32};
+use sp_runtime::AccountId32;
 use sp_std::vec::Vec;
 
 // Type alias for balance type
@@ -82,6 +85,16 @@ where
 					// } else {
 					// 	pool.points = Zero::zero();
 					// }
+					if let Err(e) = <T as pallet_nomination_pools::Config>::StakeAdapter::unbond(
+						Pool::from(pallet_nomination_pools::Pallet::<T>::generate_bonded_account(
+							*pool_id,
+						)),
+						*removed_stake,
+					) {
+						log::info!(
+							"Failed with error {e:?} to unbond from pool {pool_id:?} amount {removed_stake:?}"
+						);
+					}
 					TotalValueLocked::<T>::mutate(|x| *x -= *removed_stake);
 				}
 			});

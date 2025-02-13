@@ -77,11 +77,11 @@ where
 					}
 
 					// Ensure TVL does not go negative
-					if pool.points >= *removed_stake {
-						pool.points -= *removed_stake;
-					} else {
-						pool.points = Zero::zero();
-					}
+					// if pool.points >= *removed_stake {
+					// 	pool.points -= *removed_stake;
+					// } else {
+					// 	pool.points = Zero::zero();
+					// }
 					TotalValueLocked::<T>::mutate(|x| *x -= *removed_stake);
 				}
 			});

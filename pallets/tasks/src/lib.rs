@@ -54,7 +54,8 @@ pub mod pallet {
 	use crate::queue::*;
 
 	use polkadot_sdk::{
-		frame_support, frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
+		frame_support::{self, Blake2_128Concat},
+		frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
 	};
 
 	use frame_support::{
@@ -82,6 +83,7 @@ pub mod pallet {
 		fn sync_network() -> Weight;
 		fn stop_network() -> Weight;
 		fn remove_task() -> Weight;
+		fn restart_batch() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -104,6 +106,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn remove_task() -> Weight {
+			Weight::default()
+		}
+		fn restart_batch() -> Weight {
 			Weight::default()
 		}
 	}
@@ -260,6 +265,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BatchTaskId<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
 
+	/// List of failed batches.
+	#[pallet::storage]
+	pub type FailedBatchIds<T: Config> = StorageValue<_, Vec<BatchId>, ValueQuery>;
+
 	/// TxHash of the batch executed.
 	///
 	/// It can `None` either if the BatchExecuted event was not received or it was received but tx_hash was `None`.   
@@ -282,6 +291,8 @@ pub mod pallet {
 		ShardTaskLimitSet(NetworkId, u32),
 		/// Set the network batch size
 		BatchSizeSet(NetworkId, u64, u64),
+		/// Batch Restarted (old_task_id, new_task_id)
+		BatchRestarted(TaskId, TaskId),
 		/// Insufficient Treasury Balance to payout rewards
 		InsufficientTreasuryBalance(AccountId, Balance),
 		/// Message received
@@ -363,11 +374,15 @@ pub mod pallet {
 					Self::process_events(network, task_id, events);
 					Ok(())
 				},
-				(Task::SubmitGatewayMessage { .. }, TaskResult::SubmitGatewayMessage { error }) => {
+				(
+					Task::SubmitGatewayMessage { batch_id },
+					TaskResult::SubmitGatewayMessage { error },
+				) => {
 					// verify signature
 					let expected_signer =
 						TaskSubmitter::<T>::get(task_id).map(|s| s.into_account());
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
+					FailedBatchIds::<T>::mutate(|ids| ids.push(batch_id));
 					Err(error)
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
@@ -432,6 +447,23 @@ pub mod pallet {
 			}
 			TaskNetwork::<T>::remove(task);
 			TaskSubmitter::<T>::remove(task);
+			Ok(())
+		}
+
+		#[pallet::call_index(14)]
+		#[pallet::weight(<T as Config>::WeightInfo::restart_batch())]
+		pub fn restart_batch(origin: OriginFor<T>, batch_id: BatchId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			let old_task_id = BatchTaskId::<T>::get(batch_id).ok_or(Error::<T>::InvalidBatchId)?;
+			let network = TaskNetwork::<T>::get(old_task_id).ok_or(Error::<T>::UnknownTask)?;
+			let new_task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
+			BatchTaskId::<T>::insert(batch_id, new_task_id);
+			FailedBatchIds::<T>::mutate(|ids| {
+				if let Some(pos) = ids.iter().position(|&id| id == batch_id) {
+					ids.swap_remove(pos);
+				}
+			});
+			Self::deposit_event(Event::BatchRestarted(old_task_id, new_task_id));
 			Ok(())
 		}
 	}
@@ -764,6 +796,11 @@ pub mod pallet {
 
 		pub fn get_batch_message(batch: BatchId) -> Option<GatewayMessage> {
 			BatchMessage::<T>::get(batch)
+		}
+
+		/// Get all failed batch IDs
+		pub fn get_failed_tasks() -> Vec<BatchId> {
+			FailedBatchIds::<T>::get()
 		}
 	}
 

@@ -30,6 +30,11 @@ impl SubxtClient {
 		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
 	}
 
+	pub async fn list_failed_tasks(&self) -> Result<Vec<TaskId>> {
+		let runtime_call = metadata::apis().tasks_api().get_failed_tasks();
+		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+	}
+
 	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<TaskId>> {
 		let storage_query = metadata::storage().tasks().ua_tasks_iter1(network);
 		let mut items = self.client.storage().at_latest().await?.iter(storage_query).await?;

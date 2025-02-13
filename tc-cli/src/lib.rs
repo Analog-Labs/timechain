@@ -561,6 +561,15 @@ impl Tc {
 		Ok(tasks)
 	}
 
+	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {
+		let task_ids = self.runtime.assigned_tasks(shard).await?;
+		let mut tasks = Vec::with_capacity(task_ids.len());
+		for id in task_ids {
+			tasks.push(self.task(id).await?);
+		}
+		Ok(tasks)
+	}
+
 	pub async fn members(&self, shard: ShardId) -> Result<Vec<Member>> {
 		let shard_members = self.runtime.shard_members(shard).await?;
 		let mut members = Vec::with_capacity(shard_members.len());

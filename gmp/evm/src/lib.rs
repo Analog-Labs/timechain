@@ -145,6 +145,12 @@ impl Connector {
 		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
 		let address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
+		tracing::info!(
+			"contract deployed at {:?} in block {} with tx {:?}",
+			address,
+			block_number,
+			tx_hash
+		);
 		Ok((t_addr(address.0.into()), block_number))
 	}
 
@@ -183,7 +189,7 @@ impl Connector {
 		//Step3: send eth_rawTransaction
 		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
-		tracing::info!("factory deployed with tx {}", tx_hash);
+		tracing::info!("factory deployed with tx {:?}", tx_hash);
 		Ok(())
 	}
 

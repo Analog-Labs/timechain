@@ -440,14 +440,15 @@ async fn real_main() -> Result<()> {
 				let num_received = num_messages - msgs.len() as u16;
 				let blocks = block - start;
 				let throughput = num_received as f64 / blocks as f64;
-				let avg_gas_cost = gas_cost / num_messages as u128;
+				let avg_msg_cost = gas_cost / num_messages as u128;
+				let avg_msg_cost = tc.format_balance(Some(src), avg_msg_cost)?;
 				id = Some(
 					tc.println(
 						id,
 						format!(
 							r#"{num_received} out of {num_messages} received in {blocks} blocks
 							throughput {throughput:.3} msgs/block
-							avg gas cost {avg_gas_cost}"#
+							avg msg cost {avg_msg_cost}"#
 						),
 					)
 					.await?,

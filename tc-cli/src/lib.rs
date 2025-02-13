@@ -954,15 +954,15 @@ impl Tc {
 		let connector = self.connector(msg.src_network)?;
 		let dest_network = msg.dest_network;
 		let dest = msg.dest;
-		let gas_cost = msg.gas_cost;
+		let gas_cost = self.format_balance(Some(msg.src_network), msg.gas_cost)?;
 		let id = self
 			.println(
 				None,
 				format!(
-					"send message to {} {} @{}gas",
+					"send message to {} {} with {}",
 					dest_network,
 					self.format_address(Some(dest_network), dest)?,
-					gas_cost,
+					&gas_cost,
 				),
 			)
 			.await?;
@@ -970,11 +970,11 @@ impl Tc {
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} to {} {} @{}gas",
+				"sent message {} to {} {} with {}",
 				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest)?,
-				gas_cost,
+				&gas_cost,
 			),
 		)
 		.await?;

@@ -970,6 +970,7 @@ impl Tc {
 		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	pub async fn send_message(
 		&self,
 		src_network: NetworkId,

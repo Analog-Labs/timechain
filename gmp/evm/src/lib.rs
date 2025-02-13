@@ -766,7 +766,7 @@ impl IConnectorAdmin for Connector {
 			gasLimit: gas_limit as _,
 			data: payload.into(),
 		};
-		let call = sol::GmpTester::sendMessageCall { msg: msg.into() };
+		let call = sol::GmpTester::sendMessageCall { msg };
 		let result = self.evm_call(contract, call, gas_cost, None, None).await?;
 		let id: MessageId = *result.0._0;
 		Ok(id)

@@ -561,13 +561,13 @@ impl Tc {
 		Ok(tasks)
 	}
 
-	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {
-		let task_ids = self.runtime.assigned_tasks(shard).await?;
-		let mut tasks = Vec::with_capacity(task_ids.len());
-		for id in task_ids {
-			tasks.push(self.task(id).await?);
+	pub async fn get_failed_batches(&self) -> Result<Vec<Batch>> {
+		let batch_ids = self.runtime.get_failed_tasks().await?;
+		let mut batches = Vec::with_capacity(batch_ids.len());
+		for id in batch_ids {
+			batches.push(self.batch(id).await?);
 		}
-		Ok(tasks)
+		Ok(batches)
 	}
 
 	pub async fn members(&self, shard: ShardId) -> Result<Vec<Member>> {
@@ -866,6 +866,11 @@ impl Tc {
 		}
 		self.println(None, format!("force_shard_offline {}", shard)).await?;
 		self.runtime.force_shard_offline(shard).await?;
+		Ok(())
+	}
+
+	pub async fn restart_failed_batch(&self, batch_id: BatchId) -> Result<()> {
+		self.runtime.restart_failed_batch(batch_id).await?;
 		Ok(())
 	}
 }

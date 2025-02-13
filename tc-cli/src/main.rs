@@ -98,6 +98,7 @@ enum Command {
 	AssignedTasks {
 		shard: ShardId,
 	},
+	FailedBatches,
 	TransactionBaseFee {
 		network: NetworkId,
 	},
@@ -127,6 +128,9 @@ enum Command {
 	},
 	RegisterShards {
 		network: NetworkId,
+	},
+	RetryFailedBatch {
+		batch_id: BatchId,
 	},
 	SetGatewayAdmin {
 		network: NetworkId,
@@ -291,6 +295,10 @@ async fn real_main() -> Result<()> {
 		Command::AssignedTasks { shard } => {
 			let tasks = tc.assigned_tasks(shard).await?;
 			tc.print_table(None, "assigned-tasks", tasks).await?;
+		},
+		Command::FailedBatches => {
+			let batches = tc.get_failed_batches().await?;
+			tc.print_table(None, "failed-batches", batches).await?;
 		},
 		Command::TransactionBaseFee { network } => {
 			let base_fee = tc.transaction_base_fee(network).await?;
@@ -517,6 +525,8 @@ async fn real_main() -> Result<()> {
 				hex::decode(hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
 			let output = tc.debug_transaction(network, hash).await?;
 			tc.println(None, output).await?;
+		Command::RetryFailedBatch { batch_id } => {
+			tc.restart_failed_batch(batch_id).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

@@ -790,10 +790,14 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Debug a transaction.
 	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
+		let analog_gmp_dir =
+			std::env::var("ANALOG_GMP_DIR").context("failed to find ANALOG_GMP_DIR")?;
 		let output = Command::new("cast")
+			.current_dir(analog_gmp_dir)
 			.arg("run")
 			.arg("--rpc-url")
 			.arg(&self.url)
+			.arg("--with-local-artifacts")
 			.arg(hex::encode(hash))
 			.output()
 			.context("failed to run cast")?;

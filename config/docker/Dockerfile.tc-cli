@@ -4,4 +4,6 @@ FROM ubuntu:22.04
 COPY --from=foundry /usr/local/bin/cast /bin/cast
 COPY tc-cli /bin/tc-cli
 COPY envs /etc/envs
+COPY analog-gmp /analog-gmp
+ENV ANALOG_GMP_DIR /analog-gmp
 ENTRYPOINT ["/bin/tc-cli"]

@@ -68,6 +68,8 @@ forge build --root analog-gmp
 mkdir -p target/docker/tc-cli
 rm -rf target/docker/tc-cli/envs
 cp -rL config/envs target/docker/tc-cli/envs
+rm -rf target/docker/tc-cli/analog-gmp
+cp -r analog-gmp target/docker/tc-cli/analog-gmp
 
 build_image () {
 	local TARGET="target/$rustTarget/$profile/$1"

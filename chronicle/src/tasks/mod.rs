@@ -7,8 +7,8 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockNumber, ErrorMsg, GatewayOp, GmpEvents, GmpParams, IConnector, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId, ShardId, Task,
+	TaskId, TaskResult, TssSignature, TssSigningRequest,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;

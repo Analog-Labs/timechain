@@ -412,10 +412,32 @@ pub trait IConnectorAdmin: IConnector {
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()>;
 	/// Deploys a test contract.
 	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
+	/// Estimates the message gas limit.
+	async fn estimate_message_gas_limit(
+		&self,
+		contract: Address,
+		src_network: NetworkId,
+		src: Address,
+		payload: Vec<u8>,
+	) -> Result<u128>;
 	/// Estimates the message cost.
-	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128>;
+	async fn estimate_message_cost(
+		&self,
+		gateway: Address,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128>;
 	/// Sends a message using the test contract and returns the message id.
-	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId>;
+	async fn send_message(
+		&self,
+		src: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId>;
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;

@@ -447,27 +447,57 @@ impl IConnectorAdmin for Connector {
 		Ok((tester, block))
 	}
 
-	async fn estimate_message_cost(&self, _gateway: Address, msg: &GmpMessage) -> Result<u128> {
-		Ok(msg.bytes.len() as u128 * 100)
+	async fn estimate_message_gas_limit(
+		&self,
+		_contract: Address,
+		_src_network: NetworkId,
+		_src: Address,
+		_payload: Vec<u8>,
+	) -> Result<u128> {
+		Ok(100_000)
 	}
 
-	async fn send_message(&self, mut msg: GmpMessage) -> Result<MessageId> {
-		anyhow::ensure!(msg.src_network == self.network_id, "invalid source network id");
-		let addr = msg.src;
+	async fn estimate_message_cost(
+		&self,
+		_gateway: Address,
+		_dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		Ok(gas_limit + payload.len() as u128 * 100)
+	}
+	async fn send_message(
+		&self,
+		src: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
 		let tx = self.db.begin_write()?;
 		let id = {
 			// read nonce
 			let mut t = tx.open_table(NONCE)?;
-			let nonce = t.get((msg.src, addr))?.map(|a| a.value()).unwrap_or_default();
-			// set nonce
-			msg.nonce = nonce;
+			let nonce = t.get((src, dest))?.map(|a| a.value()).unwrap_or_default();
+			// construct msg
+			let msg = GmpMessage {
+				src_network: self.network_id,
+				src,
+				dest_network,
+				dest,
+				nonce,
+				gas_limit,
+				gas_cost,
+				bytes: payload,
+			};
 			let id = msg.message_id();
 			// increment nonce
-			t.insert((msg.src, addr), nonce + 1)?;
+			t.insert((src, dest), nonce + 1)?;
 
 			// read gateway address
 			let t = tx.open_table(GATEWAY)?;
-			let gateway = t.get(addr)?.context("tester not deployed")?.value();
+			let gateway = t.get(src)?.context("tester not deployed")?.value();
 
 			// insert gateway event
 			let mut t = tx.open_multimap_table(EVENTS)?;
@@ -589,8 +619,8 @@ mod tests {
 			src,
 			dest,
 			nonce: 0,
-			gas_limit: 0,
-			gas_cost: 0,
+			gas_limit: 100_000,
+			gas_cost: 100_000,
 			bytes: vec![],
 		}
 	}
@@ -613,9 +643,14 @@ mod tests {
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
 		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
 		let (dest, _) = chain.deploy_test(gateway, "".as_ref()).await?;
-		let mut msg = gmp_msg(src, dest);
-		msg.gas_cost = chain.estimate_message_cost(gateway, &msg).await?;
-		chain.send_message(msg.clone()).await?;
+		let payload = vec![];
+		let gas_limit =
+			chain.estimate_message_gas_limit(dest, network, src, payload.clone()).await?;
+		let gas_cost = chain
+			.estimate_message_cost(gateway, network, gas_limit, payload.clone())
+			.await?;
+		chain.send_message(src, network, dest, gas_limit, gas_cost, payload).await?;
+		let msg = gmp_msg(src, dest);
 		let current2 = chain.block_stream().next().await.unwrap();
 		let events = chain.read_events(gateway, current..current2).await?;
 		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);

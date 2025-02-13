@@ -695,15 +695,47 @@ impl IConnectorAdmin for Connector {
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
+	/// Estimates the message gas limit.
+	async fn estimate_message_gas_limit(
+		&self,
+		contract: Address,
+		src_network: NetworkId,
+		src: Address,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let call = sol::IGmpReceiver::onGmpReceivedCall {
+			id: [0; 32].into(),
+			network: src_network.into(),
+			source: src.into(),
+			payload: payload.into(),
+		};
+		let gas_limit = self
+			.wallet
+			.eth_send_call_estimate_gas(a_addr(contract).into(), call.abi_encode(), 0)
+			.await?;
+		Ok(gas_limit)
+	}
 	/// Estimates the message cost.
-	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128> {
-		let dest = msg.dest_network;
-		let gas_limit = msg.gas_limit;
-		let msg: sol::GmpMessage = msg.clone().into();
-		let bytes = msg.abi_encode();
+	async fn estimate_message_cost(
+		&self,
+		gateway: Address,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let msg = sol::GmpMessage {
+			source: [0; 32].into(),
+			srcNetwork: 0,
+			dest: [0; 20].into(),
+			destNetwork: 0,
+			gasLimit: 0,
+			nonce: 0,
+			data: payload.into(),
+		};
 		let call = sol::Gateway::estimateMessageCostCall {
-			networkid: dest,
-			messageSize: U256::from(bytes.len()),
+			networkid: dest_network,
+			// abi_encoded_size returns the size without the 4 byte selector
+			messageSize: U256::from(msg.abi_encoded_size() + 4),
 			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_view(gateway, call, None).await?;
@@ -716,12 +748,26 @@ impl IConnectorAdmin for Connector {
 			.await
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
-		anyhow::ensure!(msg.src_network == self.network_id, "invalid source network id");
-		let src = msg.src;
-		let gas_cost = msg.gas_cost;
+	async fn send_message(
+		&self,
+		contract: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
+		let msg = sol::GmpMessage {
+			srcNetwork: self.network_id,
+			source: contract.into(),
+			destNetwork: dest_network,
+			dest: a_addr(dest),
+			nonce: 0,
+			gasLimit: gas_limit as _,
+			data: payload.into(),
+		};
 		let call = sol::GmpTester::sendMessageCall { msg: msg.into() };
-		let result = self.evm_call(src, call, gas_cost, None, None).await?;
+		let result = self.evm_call(contract, call, gas_cost, None, None).await?;
 		let id: MessageId = *result.0._0;
 		Ok(id)
 	}

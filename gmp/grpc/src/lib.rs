@@ -255,15 +255,59 @@ impl IConnectorAdmin for Connector {
 		let response = self.client.lock().await.deploy_test(request).await?.into_inner();
 		Ok((response.address, response.block))
 	}
+	/// Estimates the message gas limit.
+	async fn estimate_message_gas_limit(
+		&self,
+		contract: Address,
+		src_network: NetworkId,
+		src: Address,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let request = Request::new(proto::EstimateMessageGasLimitRequest {
+			contract,
+			src_network,
+			src,
+			payload,
+		});
+		let response =
+			self.client.lock().await.estimate_message_gas_limit(request).await?.into_inner();
+		Ok(response.gas_limit)
+	}
 	/// Estimates the message cost.
-	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128> {
-		let request = Request::new(proto::EstimateMessageCostRequest { gateway, msg: msg.clone() });
+	async fn estimate_message_cost(
+		&self,
+		gateway: Address,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let request = Request::new(proto::EstimateMessageCostRequest {
+			gateway,
+			dest_network,
+			gas_limit,
+			payload,
+		});
 		let response = self.client.lock().await.estimate_message_cost(request).await?.into_inner();
 		Ok(response.cost)
 	}
-	/// Sends a message using the test contract.
-	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
-		let request = Request::new(proto::SendMessageRequest { msg });
+	/// Sends a message using the test contract and returns the message id.
+	async fn send_message(
+		&self,
+		src: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
+		let request = Request::new(proto::SendMessageRequest {
+			src,
+			dest_network,
+			dest,
+			gas_limit,
+			gas_cost,
+			payload,
+		});
 		let response = self.client.lock().await.send_message(request).await?.into_inner();
 		Ok(response.message_id)
 	}

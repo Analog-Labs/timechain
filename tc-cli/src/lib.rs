@@ -945,16 +945,21 @@ impl Tc {
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
-	pub async fn estimate_message_cost(&self, msg: &GmpMessage) -> Result<u128> {
-		let (connector, gateway) = self.gateway(msg.src_network).await?;
-		connector.estimate_message_cost(gateway, msg).await
-	}
-
-	pub async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
-		let connector = self.connector(msg.src_network)?;
-		let dest_network = msg.dest_network;
-		let dest = msg.dest;
-		let gas_cost = self.format_balance(Some(msg.src_network), msg.gas_cost)?;
+	pub async fn send_message(
+		&self,
+		src_network: NetworkId,
+		src_addr: Address,
+		dest_network: NetworkId,
+		dest_addr: Address,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
+		let (src, src_gateway) = self.gateway(msg.src_network)?;
+		let dest = self.connector(msg.dest_network)?;
+		let gas_limit =
+			dest.estimate_message_gas_limit(src_network, src_addr, payload.clone()).await?;
+		let gas_cost = src
+			.estimate_message_cost(src_gateway, dest_network, gas_limit, payload.clone())
+			.await?;
 		let id = self
 			.println(
 				None,
@@ -962,11 +967,13 @@ impl Tc {
 					"send message to {} {} with {}",
 					dest_network,
 					self.format_address(Some(dest_network), dest)?,
-					&gas_cost,
+					self.format_balance(Some(src_network), gas_cost)?,
 				),
 			)
 			.await?;
-		let msg_id = connector.send_message(msg).await?;
+		let msg_id = src
+			.send_message(src_addr, dest_network, dest, gas_limit, gas_cost, payload)
+			.await?;
 		self.println(
 			Some(id),
 			format!(
@@ -974,7 +981,7 @@ impl Tc {
 				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest)?,
-				&gas_cost,
+				self.format_balance(Some(src_network), gas_cost)?,
 			),
 		)
 		.await?;

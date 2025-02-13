@@ -150,6 +150,7 @@ enum Command {
 		tester: String,
 		dest: NetworkId,
 		dest_addr: String,
+		payload: String,
 	},
 	SmokeTest {
 		src: NetworkId,
@@ -347,21 +348,12 @@ async fn real_main() -> Result<()> {
 			tester,
 			dest,
 			dest_addr,
+			payload,
 		} => {
 			let tester = tc.parse_address(Some(network), &tester)?;
 			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-			let mut msg = GmpMessage {
-				src_network: network,
-				src: tester,
-				dest_network: dest,
-				dest: dest_addr,
-				nonce: 0,
-				gas_limit: 300_000,
-				gas_cost: 0,
-				bytes: vec![],
-			};
-			msg.gas_cost = tc.estimate_message_cost(&msg).await?;
-			let msg_id = tc.send_message(msg).await?;
+			let payload = hex::decode(payload)?;
+			let msg_id = tc.send_message(network, tester, dest, dest_addr, payload).await?;
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {

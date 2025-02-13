@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_big_array::Array;
 use time_primitives::{
-	Address, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, MessageId, Route,
+	Address, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, MessageId, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
 
@@ -165,9 +165,24 @@ pub struct DeployTestResponse {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct EstimateMessageGasLimitRequest {
+	pub contract: Address,
+	pub src_network: NetworkId,
+	pub src: Address,
+	pub payload: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EstimateMessageGasLimitResponse {
+	pub gas_limit: u128,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct EstimateMessageCostRequest {
 	pub gateway: Address,
-	pub msg: GmpMessage,
+	pub dest_network: NetworkId,
+	pub gas_limit: u128,
+	pub payload: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -177,7 +192,12 @@ pub struct EstimateMessageCostResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct SendMessageRequest {
-	pub msg: GmpMessage,
+	pub src: Address,
+	pub dest_network: NetworkId,
+	pub dest: Address,
+	pub gas_limit: u128,
+	pub gas_cost: u128,
+	pub payload: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]

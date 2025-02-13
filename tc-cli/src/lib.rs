@@ -945,34 +945,55 @@ impl Tc {
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
+	pub async fn estimate_message_gas_limit(
+		&self,
+		dest_network: NetworkId,
+		dest_addr: Address,
+		src_network: NetworkId,
+		src_addr: Address,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let connector = self.connector(dest_network)?;
+		connector
+			.estimate_message_gas_limit(dest_addr, src_network, src_addr, payload)
+			.await
+	}
+
+	pub async fn estimate_message_cost(
+		&self,
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let (connector, gateway) = self.gateway(src_network).await?;
+		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
+	}
+
 	pub async fn send_message(
 		&self,
 		src_network: NetworkId,
 		src_addr: Address,
 		dest_network: NetworkId,
 		dest_addr: Address,
+		gas_limit: u128,
+		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
-		let (src, src_gateway) = self.gateway(msg.src_network)?;
-		let dest = self.connector(msg.dest_network)?;
-		let gas_limit =
-			dest.estimate_message_gas_limit(src_network, src_addr, payload.clone()).await?;
-		let gas_cost = src
-			.estimate_message_cost(src_gateway, dest_network, gas_limit, payload.clone())
-			.await?;
+		let connector = self.connector(src_network)?;
 		let id = self
 			.println(
 				None,
 				format!(
 					"send message to {} {} with {}",
 					dest_network,
-					self.format_address(Some(dest_network), dest)?,
+					self.format_address(Some(dest_network), dest_addr)?,
 					self.format_balance(Some(src_network), gas_cost)?,
 				),
 			)
 			.await?;
-		let msg_id = src
-			.send_message(src_addr, dest_network, dest, gas_limit, gas_cost, payload)
+		let msg_id = connector
+			.send_message(src_addr, dest_network, dest_addr, gas_limit, gas_cost, payload)
 			.await?;
 		self.println(
 			Some(id),
@@ -980,7 +1001,7 @@ impl Tc {
 				"sent message {} to {} {} with {}",
 				hex::encode(msg_id),
 				dest_network,
-				self.format_address(Some(dest_network), dest)?,
+				self.format_address(Some(dest_network), dest_addr)?,
 				self.format_balance(Some(src_network), gas_cost)?,
 			),
 		)

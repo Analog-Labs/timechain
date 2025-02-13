@@ -12,8 +12,8 @@ use rosetta_client::{
 		DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
 	},
 	types::AccountIdentifier,
-	AtBlock, CallResult, FilterBlockOption, GetTransactionCount, SubmitResult, TransactionReceipt,
-	Wallet,
+	AtBlock, Blockchain, CallResult, FilterBlockOption, GetTransactionCount, SubmitResult,
+	TransactionReceipt, Wallet,
 };
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
@@ -141,8 +141,8 @@ impl Connector {
 	) -> Result<(Address, u64)> {
 		let mut contract = get_contract_from_slice(abi)?;
 		contract.extend(constructor.abi_encode());
-		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash();
+		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash.0).await?.unwrap();
 		let address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
 		tracing::info!(
@@ -393,15 +393,17 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
+		let (blockchain, private_key) = if params.blockchain == "anvil" {
+			let private_key = hex_literal::hex![
+				"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+			];
+			(Blockchain::Ethereum, Some(private_key))
+		} else {
+			(params.blockchain.parse()?, None)
+		};
 		let wallet = Arc::new(
-			Wallet::new(
-				params.blockchain.parse()?,
-				&params.network,
-				&params.url,
-				&params.mnemonic,
-				None,
-			)
-			.await?,
+			Wallet::new(blockchain, &params.network, &params.url, &params.mnemonic, private_key)
+				.await?,
 		);
 		let client = default_client(&params.url, None)
 			.await

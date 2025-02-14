@@ -65,7 +65,7 @@ pub mod pallet {
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 26;
+	pub const LAUNCH_VERSION: u16 = 29;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -131,6 +131,15 @@ pub mod pallet {
 			45_289_855 * ANLOG,
 			Stage::DepositFromUnlocked(data::v27::DEPOSIT_BRIDGED),
 		),
+		// Airdrop Snapshot 5
+		(
+			28,
+			Allocation::Airdrop,
+			1_097_142_834_936_105_265,
+			Stage::AirdropFromUnlocked(data::v28::AIRDROPS_SNAPSHOT_5),
+		),
+		// Airdrop Move 3
+		(29, Allocation::Airdrop, 0, Stage::AirdropTransfer(data::v29::AIRDROP_MOVE_3)),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -139,6 +148,7 @@ pub mod pallet {
 	/// stage_10 = 1_373_348 * ANLOG - 1_373_347_559_383_359_315
 	/// stage_12 = 105_317 * ANLOG - 105_316_962_722_110_899
 	/// stage_16 = 1_336_148 * ANLOG - 1_336_147_462_613_682_971
+	/// stage_28 = 1_097_144 * ANLOG - 1_097_142_834_936_105_265
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

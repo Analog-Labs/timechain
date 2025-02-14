@@ -78,7 +78,7 @@ services:
   chain-2-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing'
+    - 'anvil -b 2 --steps-tracing --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
     profiles:
@@ -104,7 +104,7 @@ services:
   chain-3-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing'
+    - 'anvil -b 2 --steps-tracing --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
     profiles:

@@ -7,6 +7,7 @@ import {ERC1967} from "../../src/utils/ERC1967.sol";
 import {IGmpReceiver} from "../../src/interfaces/IGmpReceiver.sol";
 import {IGateway} from "../../src/interfaces/IGateway.sol";
 import {BranchlessMath} from "../../src/utils/BranchlessMath.sol";
+import {console} from "forge-std/console.sol";
 
 contract GmpProxy is IGmpReceiver {
     using BranchlessMath for uint256;
@@ -36,12 +37,19 @@ contract GmpProxy is IGmpReceiver {
         return GATEWAY.submitMessage{value: value}(message.dest, message.destNetwork, message.gasLimit, message.data);
     }
 
-    function onGmpReceived(bytes32 id, uint128, bytes32, uint64, bytes calldata payload) external payable returns (bytes32) {
-        // For testing purpose
-        // we keep the original struct in payload so we dont depend on OnGmpReceived call since it doesnt provide everything.
-        (GmpMessage memory message) = abi.decode(payload, (GmpMessage));
-        message.data = payload;
-
+    function onGmpReceived(bytes32 id, uint128 srcNetwork, bytes32 src, uint64 nonce, bytes calldata payload) external payable returns (bytes32) {
+        uint64 gasLimit = uint64(gasleft());
+        // this is the constant added to gasLimit
+        console.log(300_000 - gasLimit);
+        GmpMessage memory message = GmpMessage({
+            source: src,
+            srcNetwork: uint16(srcNetwork),
+            dest: address(this),
+            destNetwork: NETWORK_ID,
+            gasLimit: gasLimit + 579,
+            nonce: nonce,
+            data: payload
+        });
         emit MessageReceived(message);
         return id;
     }

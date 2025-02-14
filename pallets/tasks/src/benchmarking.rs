@@ -145,7 +145,7 @@ benchmarks! {
 
 
 	restart_batch {
-		let l in 1..100;
+		let l in 1..1000;
 		create_shard::<T>(ETHEREUM);
 		let network = ETHEREUM;
 		let failed_batches: Vec<BatchId> = (0..l).map(|l| l as BatchId).collect();

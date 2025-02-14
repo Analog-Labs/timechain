@@ -168,6 +168,3 @@ Alice should get her `6` ANLOG to her account.
    3. Re-run that tx with trace: 
       `$> cast run <tx_hash>`;
    This will show you tx execution trace 
-
-
-### ERC20 -> TC 

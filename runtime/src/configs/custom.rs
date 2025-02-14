@@ -167,6 +167,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			// must be sufficient to exec onGmpReceived
 			gas_limit: 100_000u128,
 			// gas_limit + gateway_overhead
+			// this is to be returned by GW's
 			gas_cost: 120_000u128,
 			// calldata for our onGmpReceived
 			bytes: teleport_command.to_vec(),

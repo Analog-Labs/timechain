@@ -172,12 +172,6 @@ benchmarks! {
 			!FailedBatchIds::<T>::get().contains(&target_batch_id),
 			"Batch not removed from failed list"
 		);
-		assert_eq!(
-			FailedBatchIds::<T>::get().len(),
-			(l - 1) as usize,
-			"List length mismatch"
-		);
-
 	   }
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

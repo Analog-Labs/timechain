@@ -11,15 +11,6 @@ docker compose --profile bridge up -d
 ```
 
 ### GMP
-> [!NOTE]  
-> For EVM node we use _anvil_ with default pre-funded dev accounts. 
-> All txs we send from `account(0): 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`._
-
-Fund GMP admin account (`0x90f3ba0b5861d5b108385c21b544a482ea1bfbf5`): 
-
-``` sh
-cast send --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --value 100ether 0x90f3ba0b5861d5b108385c21b544a482ea1bfbf5 --unlocked
-```
 
 Deploy gateways
 
@@ -41,37 +32,103 @@ docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml regist
 
 ### ERC20 
 
-We use `AnlogTokenV1` from [feature/support-gmp-bridge](https://github.com/Analog-Labs/erc20-token/blob/95f249bd0a8e05af55c8cca141b75776e17080d0/src/AnlogTokenV1.sol#L1) branch.
+We use `AnlogTokenV2` from **Analog-Labs/erc20-token** [`bridge`](https://github.com/Analog-Labs/erc20-token/tree/bridge) branch.
+
+Run tests 
+
+``` sh
+cd ../erc20-token
+forge clean && forge test
+```
 
 Build contract 
 
 ``` sh
-forge build
+forge clean && forge build
 ```
 
-We'll deploy it to network `2` which should have rpc exposed at `8545` port:
+We'll deploy it to network `2` which should have RPC exposed at `8545` port:
+
+1. Find out chronicle's address on target network 
+
+``` sh
+docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml chronicles
+```
+
+And save it to env var:
+
+``` sh
+# Set this to chronicle's address 
+export MINTER=0x2B67ca56E3DD054A8d7BA1387F51F5a96Be4a825
+```
+
+2. Set env vars 
+
+   ```sh 
+# well-known (thus key compromised) Anvil default account(0)
+export DEPLOYER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+# well-known (thus key compromised) Anvil default account(2)
+export UPGRADER=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+# well-known (thus key compromised) Anvil default account(3)
+export PAUSER=0x90F79bf6EB2c4f870365E785982E1f101E93b906
+# well-known (thus key compromised) Anvil default account(4)
+export UNPAUSER=0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+export GATEWAY=0x49877F1e26d523e716d941a424af46B86EcaF09E
+```
+
+3. Deploy `V1`
 (provide the well-known key of `account(0)` of anvil)
 
 ``` sh
-forge script script/00_Deploy.s.sol --rpc-url=localhost:8545 --broadcast -i 1
+forge script script/00_Deploy.V1.s.sol --rpc-url="http://localhost:8545" --broadcast -i 1
 
 ##### anvil-hardhat
-✅  [Success] Hash: 0x9218957da686fc63b210ddb3ef148415fe96a089360af670951273d67df9bdd6
-Contract Address: 0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0
-Block: 80514
-Paid: 0.000000000020520928 ETH (2565116 gas * 0.000000008 gwei)
+✅  [Success] Hash: 0xdbb41e7ccba67cd14e54c335cc0f2d709586342f17f4ac4f654a411ad77b7da4
+Contract Address: 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+Block: 342
+Paid: 0.000000000000329646 ETH (329646 gas * 0.000000001 gwei)
 
 
 ##### anvil-hardhat
-✅  [Success] Hash: 0x61d11e51376104da96844149122a2460e926920448df55adc37c46e6d1601c82
-Contract Address: 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82
-Block: 80514
-Paid: 0.000000000002637168 ETH (329646 gas * 0.000000008 gwei)
+✅  [Success] Hash: 0x7ba7d7d95cc90d0886414bce186208ea9fb431ade86ad9d7e7f8885d8b0d65ea
+Contract Address: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+Block: 342
+Paid: 0.000000000001931458 ETH (1931458 gas * 0.000000001 gwei)
+
+✅ Sequence #1 on anvil-hardhat | Total Paid: 0.000000000002261104 ETH (2261104 gas * avg 0.000000001 gwei)
+```
+Here we've got 2 addresses: 1st is for the proxy, 2nd is for implementation.
+
+4. Upgrade to `V2` 
+
+Set addresses of the contracts deployed above: 
+
+``` sh
+export PROXY=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+# Teleport-specific
+export TIMECHAIN_ROUTE_ID=1000
+export MINIMAL_TELEPORT_VALUE=1000000000000
 ```
 
-Here we've got 2 addresses: 2nd is for the proxy, 1st is for implementation.
+(provide the well-known key of `account(2)` of anvil)
+``` sh
+forge script script/01_Upgrade.V1.V2.s.sol --rpc-url=localhost:8545 --broadcast -i 1
+
+##### anvil-hardhat
+✅  [Success] Hash: 0x2fbbf7a8b936a8ca75da75b01824f4724f8668fdf2731ae111b6764a0d62f283
+Contract Address: 0x663F3ad617193148711d28f5334eE4Ed07016602
+Block: 61
+Paid: 0.007274622 ETH (2424874 gas * 3 gwei)
 
 
+##### anvil-hardhat
+✅  [Success] Hash: 0x3582750cdb5febc51ea95c9f3e92cf40019b26984ddde28e0f8c23df38e6ba94
+Block: 61
+Paid: 0.000112896 ETH (37632 gas * 3 gwei)
+
+✅ Sequence #1 on anvil-hardhat | Total Paid: 0.007387518 ETH (2462506 gas * avg 3 gwei)
+
+```
 
 ### Bridge Pallet 
 
@@ -83,7 +140,7 @@ call `bridge/register_network extrinsic` (or `force_update_network`) from sudo w
 + baseFee: 0
 + data:
   + nonce: 0                         
-  + dest: `0x0000000000000000000000000DCd1Bf9A1b36cE34237eEaFef220932846BCD82` (address of our ERC20 contract, zero-prefixed to match 32bytes size)
+  + dest: `0x0000000000000000000000009fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` (address of our ERC20 contract (proxy), zero-prefixed to match 32bytes size)
 
 ## Flow 
 
@@ -94,7 +151,7 @@ Let's teleport some ANLOG to `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` addres
 Check that it has zero ANLOG first: 
 
 ``` sh
-cast call 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 0
 ```
 
@@ -109,14 +166,14 @@ You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`,
 You can track task status with 
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm.yaml task 13
+docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml task 13
 ```
 
 Once task is successfully completed, ANLOG tokens should have been teleported to target account. 
 Let's check that on network `2`:
 
 ``` sh
-cast call 0xa513E6E4b8f2a923D98304ec87F64353C4D5C853 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 15000000000000
 ```
 

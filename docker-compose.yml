@@ -81,6 +81,8 @@ services:
     - 'anvil -b 2 --steps-tracing --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+    - 8545:8545
     profiles:
     - evm
     - bridge

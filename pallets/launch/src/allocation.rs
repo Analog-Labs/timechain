@@ -163,7 +163,7 @@ impl Allocation {
 		let account = self.account_id::<T>();
 
 		// Remove existing schedule
-		if <T as Config>::VestingSchedule::remove_vesting_schedule(&account, 0).is_err() {
+		if pallet_vesting::Pallet::<T>::remove_vesting_schedule(&account, 0).is_err() {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
 				source: self.sub_id().to_vec(),
 			});
@@ -172,7 +172,7 @@ impl Allocation {
 
 		// Ensure the remaining tokens are locked again
 		if let Some(vs) = self.schedule_rel::<T>(locked) {
-			<T as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
+			pallet_vesting::Pallet::<T>::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
 				.expect("Previous vesting schedule war removed; qed");
 		} else {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {

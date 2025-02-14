@@ -77,7 +77,6 @@ impl pallet_airdrop::Config for Test {
 impl pallet_launch::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = LaunchId;
-	type VestingSchedule = Vesting;
 	// Use mainnet existential deposit to ensure appropriate testing
 	type MinimumDeposit = ConstU128<ANLOG>;
 }

@@ -2,7 +2,7 @@ use crate::allocation::Allocation;
 use crate::deposits::{BalanceOf, CurrencyOf};
 use crate::mock::*;
 use crate::{
-	ledger::LaunchLedger, Config, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION,
+	ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION,
 };
 
 use polkadot_sdk::*;
@@ -24,7 +24,7 @@ fn mint_virtual(source: Allocation, amount: BalanceOf<Test>) {
 	let account = source.account_id::<Test>();
 	let _ = CurrencyOf::<Test>::deposit_creating(&account, amount);
 	if let Some(vs) = source.schedule::<Test>() {
-		<Test as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
+		pallet_vesting::Pallet::<Test>::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
 			.expect("No other vesting schedule exists; qed");
 	}
 }

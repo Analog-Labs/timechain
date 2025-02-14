@@ -13,9 +13,7 @@ use sp_std::{vec, vec::Vec};
 use time_primitives::{AccountId, Balance};
 
 /// Type aliases for currency used by the vesting schedule
-pub type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
-	<T as frame_system::Config>::AccountId,
->>::Currency;
+pub type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;
 
 /// Type aliases for balance used by the vesting schedule
 pub type BalanceOf<T> =
@@ -126,7 +124,7 @@ where
 				// (Checking if the target is able to receive a vested transfer is one read)
 				weight += T::DbWeight::get().reads(1);
 
-				if <T as Config>::VestingSchedule::can_add_vesting_schedule(
+				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(
 					target, vs.0, vs.1, vs.2,
 				)
 				.is_err()
@@ -159,7 +157,7 @@ where
 				// (Updating the vesting schedule involves reading the info, followed by writing the info, the vesting and the lock.)
 				weight += T::DbWeight::get().reads_writes(1, 3);
 
-				<T as Config>::VestingSchedule::add_vesting_schedule(target, vs.0, vs.1, vs.2)
+				pallet_vesting::Pallet::<T>::add_vesting_schedule(target, vs.0, vs.1, vs.2)
 					.expect("No other vesting schedule exists, as checked above; qed");
 			}
 		}
@@ -173,7 +171,7 @@ where
 		let account = source.account_id::<T>();
 
 		// Ensure account is fully vested
-		if <T as Config>::VestingSchedule::vesting_balance(&account)
+		if pallet_vesting::Pallet::<T>::vesting_balance(&account)
 			!= Some(CurrencyOf::<T>::free_balance(&account))
 		{
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
@@ -183,7 +181,7 @@ where
 		}
 
 		// Remove existing schedule during operation
-		if <T as Config>::VestingSchedule::remove_vesting_schedule(&account, 0).is_err() {
+		if pallet_vesting::Pallet::<T>::remove_vesting_schedule(&account, 0).is_err() {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
 				source: source.sub_id().to_vec(),
 			});
@@ -205,7 +203,7 @@ where
 
 			// Compute relative vesting schedule
 			if let Some(vs) = source.schedule_rel::<T>(*amount) {
-				if <T as Config>::VestingSchedule::can_add_vesting_schedule(
+				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(
 					target, vs.0, vs.1, vs.2,
 				)
 				.is_err()
@@ -231,7 +229,7 @@ where
 					continue;
 				}
 
-				<T as Config>::VestingSchedule::add_vesting_schedule(target, vs.0, vs.1, vs.2)
+				pallet_vesting::Pallet::<T>::add_vesting_schedule(target, vs.0, vs.1, vs.2)
 					.expect("No other vesting schedule exists, as checked above; qed");
 			} else {
 				Pallet::<T>::deposit_event(Event::<T>::DepositVestingMissmatch {
@@ -244,7 +242,7 @@ where
 		// Ensure the remaining tokens are locked again
 		let remaining = CurrencyOf::<T>::free_balance(&account);
 		if let Some(vs) = source.schedule_rel::<T>(remaining) {
-			<T as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
+			pallet_vesting::Pallet::<T>::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
 				.expect("Previous vesting schedule war removed; qed");
 		} else {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {

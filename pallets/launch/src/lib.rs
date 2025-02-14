@@ -45,7 +45,9 @@ pub mod pallet {
 	use super::*;
 	use allocation::Allocation;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
+	use frame_support::traits::{
+		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
+	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
 	//use sp_runtime::traits::CheckedConversion;
@@ -125,14 +127,14 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk::frame_system::Config + pallet_airdrop::Config {
+	pub trait Config:
+		polkadot_sdk::frame_system::Config + pallet_vesting::Config + pallet_airdrop::Config
+	{
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		/// Identifier to use for pallet-owned wallets
 		type PalletId: Get<PalletId>;
-		/// The vesting backend to use to enforce provided vesting schedules.
-		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
 		/// The minimum size a deposit has to have to be considered valid.
 		/// Set this to at least the minimum deposit to avoid errors
 		type MinimumDeposit: Get<BalanceOf<Self>>;

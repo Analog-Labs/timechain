@@ -18911,8 +18911,8 @@ dependencies = [
 
 [[package]]
 name = "ss58-registry"
-version = "1.49.0"
-source = "git+https://github.com/Analog-Labs/ss58-registry.git#8067ef285927fc37dafb5a63eb72bc79c466f190"
+version = "1.51.0"
+source = "git+https://github.com/Analog-Labs/ss58-registry.git?tag=v1.51.0-anlog0#98cbe337340c34182a69e136aa5c46f5d02acf9f"
 dependencies = [
  "Inflector",
  "num-format",

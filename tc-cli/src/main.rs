@@ -178,6 +178,7 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
+	time_primitives::init_ss58_version();
 	rustls::crypto::ring::default_provider()
 		.install_default()
 		.expect("Failed to install rustls crypto provider");

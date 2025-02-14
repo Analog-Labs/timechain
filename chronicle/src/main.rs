@@ -79,6 +79,7 @@ fn generate_key(path: &Path) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
 	init_logger();
+	time_primitives::init_ss58_version();
 	let args = ChronicleArgs::parse();
 
 	if args.cctp_sender.is_some() && args.cctp_attestation.is_none() {

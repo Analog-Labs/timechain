@@ -50,8 +50,19 @@ pub mod pallet {
 	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
-	//use sp_runtime::traits::CheckedConversion;
+	use sp_runtime::TokenError;
 	use sp_std::{vec, vec::Vec};
+
+	pub trait WeightInfo {
+		fn set_bridged_issuance() -> Weight;
+	}
+
+	pub struct TestWeightInfo;
+	impl WeightInfo for TestWeightInfo {
+		fn set_bridged_issuance() -> Weight {
+			Weight::zero()
+		}
+	}
 
 	/// Updating this number will automatically execute the next launch stages on update
 	pub const LAUNCH_VERSION: u16 = 26;
@@ -113,6 +124,13 @@ pub mod pallet {
 		(25, Allocation::Initiatives, 362_318_840 * ANLOG, Stage::Retired),
 		// Launchday transfer 2
 		(26, Allocation::Ecosystem, 14_449_903_350 * MILLIANLOG, Stage::Retired),
+		// Bridged token allocation
+		(
+			27,
+			Allocation::Initiatives,
+			45_289_855 * ANLOG,
+			Stage::DepositFromUnlocked(data::v27::DEPOSIT_BRIDGED),
+		),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -138,6 +156,10 @@ pub mod pallet {
 		/// The minimum size a deposit has to have to be considered valid.
 		/// Set this to at least the minimum deposit to avoid errors
 		type MinimumDeposit: Get<BalanceOf<Self>>;
+		/// Allowed origin for authorized calls
+		type LaunchAdmin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Weight information of the pallet
+		type WeightInfo: WeightInfo;
 	}
 
 	/// All error are a result of the "compile" step and do not allow execution.
@@ -216,6 +238,32 @@ pub mod pallet {
 				},
 			}
 			Weight::zero()
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Update total amount of tokens that are locked in the [`Allocation::Bridged`]
+		/// account as preparation for miniting or as a result of burning wrapped
+		/// tokens on another chain.
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_bridged_issuance())]
+		pub fn set_bridged_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			T::LaunchAdmin::ensure_origin(origin)?;
+
+			let bridge_account = Allocation::Bridged.account_id::<T>();
+			ensure!(
+				CurrencyOf::<T>::total_balance(&bridge_account) >= amount,
+				TokenError::FundsUnavailable
+			);
+			CurrencyOf::<T>::set_lock(
+				*b"bridged0",
+				&bridge_account,
+				amount,
+				WithdrawReasons::all(),
+			);
+
+			Ok(())
 		}
 	}
 

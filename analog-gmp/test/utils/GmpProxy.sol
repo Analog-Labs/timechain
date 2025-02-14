@@ -36,7 +36,7 @@ contract GmpProxy is IGmpReceiver {
         return GATEWAY.submitMessage{value: value}(message.dest, message.destNetwork, message.gasLimit, message.data);
     }
 
-    function onGmpReceived(bytes32 id, uint128, bytes32, bytes calldata payload) external payable returns (bytes32) {
+    function onGmpReceived(bytes32 id, uint128, bytes32, uint64, bytes calldata payload) external payable returns (bytes32) {
         // For testing purpose
         // we keep the original struct in payload so we dont depend on OnGmpReceived call since it doesnt provide everything.
         (GmpMessage memory message) = abi.decode(payload, (GmpMessage));

@@ -349,6 +349,7 @@ library PrimitiveUtils {
                 callback.eip712hash,
                 callback.srcNetwork,
                 callback.source,
+                callback.nonce,
                 data
             );
         } else {
@@ -364,6 +365,7 @@ library PrimitiveUtils {
                 callback.eip712hash,
                 callback.srcNetwork,
                 callback.source,
+                callback.nonce,
                 m.data
             );
         }

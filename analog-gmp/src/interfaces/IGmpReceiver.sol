@@ -17,7 +17,7 @@ interface IGmpReceiver {
      * @param payload The message payload with no specified format
      * @return 32 byte result which will be stored together with GMP message
      */
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 source, bytes calldata payload)
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 source, uint64 nonce, bytes calldata payload)
         external
         payable
         returns (bytes32);

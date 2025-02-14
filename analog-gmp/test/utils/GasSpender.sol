@@ -70,7 +70,7 @@ contract GasSpender is IGmpReceiver {
         }
     }
 
-    function onGmpReceived(bytes32, uint128, bytes32, bytes calldata payload) external payable returns (bytes32) {
+    function onGmpReceived(bytes32, uint128, bytes32, uint64, bytes calldata payload) external payable returns (bytes32) {
         unchecked {
             // OBS: This is just an example on how this contract works, the actual code is implemented directly in
             // low level EVM, as defined in the `BYTECODE` constant.

@@ -73,7 +73,7 @@ contract MockERC20 is ERC20, IGmpReceiver {
         );
     }
 
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata data)
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, uint64, bytes calldata data)
         external
         payable
         returns (bytes32)

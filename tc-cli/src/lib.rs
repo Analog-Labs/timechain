@@ -986,9 +986,10 @@ impl Tc {
 			.println(
 				None,
 				format!(
-					"send message to {} {} with {}",
+					"send message to {} {} with {} gas for {}",
 					dest_network,
 					self.format_address(Some(dest_network), dest_addr)?,
+					gas_limit,
 					self.format_balance(Some(src_network), gas_cost)?,
 				),
 			)
@@ -999,10 +1000,11 @@ impl Tc {
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} to {} {} with {}",
+				"sent message {} to {} {} with {} gas for {}",
 				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest_addr)?,
+				gas_limit,
 				self.format_balance(Some(src_network), gas_cost)?,
 			),
 		)

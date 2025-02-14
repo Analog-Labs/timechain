@@ -186,7 +186,7 @@ alloy_sol_types::sol! {
 	}
 
 	interface IGmpReceiver {
-		function onGmpReceived(bytes32 id, uint128 network, bytes32 source, bytes calldata payload)
+		function onGmpReceived(bytes32 id, uint128 network, bytes32 source, uint64 nonce, bytes calldata payload)
 			external
 			payable
 			returns (bytes32);

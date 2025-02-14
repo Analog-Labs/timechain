@@ -709,6 +709,7 @@ impl IConnectorAdmin for Connector {
 			id: [0; 32].into(),
 			network: src_network.into(),
 			source: src.into(),
+			nonce: 0,
 			payload: payload.into(),
 		};
 		let gas_limit = self

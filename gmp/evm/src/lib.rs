@@ -5,24 +5,26 @@ use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
 use rosetta_client::{
-	query::GetLogs, types::AccountIdentifier, AtBlock, CallResult, FilterBlockOption,
-	GetTransactionCount, Signer, SubmitResult, TransactionReceipt, Wallet,
-};
-use rosetta_crypto::{bip44::ChildNumber, SecretKey};
-use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
-use rosetta_server::ws::{default_client, DefaultClient};
-use rosetta_server_ethereum::utils::{
-	DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
+	query::GetLogs,
+	rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc},
+	rosetta_server::ws::{default_client, DefaultClient},
+	rosetta_server_ethereum::utils::{
+		DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
+	},
+	types::AccountIdentifier,
+	AtBlock, Blockchain, CallResult, FilterBlockOption, GetTransactionCount, SubmitResult,
+	TransactionReceipt, Wallet,
 };
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
 use sol::{u256, Network, TssKey};
 use std::ops::Range;
 use std::pin::Pin;
+use std::process::Command;
 use std::sync::Arc;
 use thiserror::Error;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
@@ -53,6 +55,7 @@ pub struct Connector {
 	network_id: NetworkId,
 	wallet: Arc<Wallet>,
 	backend: Adapter<DefaultClient>,
+	url: String,
 	cctp_sender: Option<String>,
 	cctp_attestation: String,
 	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
@@ -72,6 +75,38 @@ impl Connector {
 			.await
 	}
 
+	async fn raw_evm_call(
+		&self,
+		contract: [u8; 20],
+		call: Vec<u8>,
+		amount: u128,
+		nonce: Option<u64>,
+		gas_limit: Option<u64>,
+	) -> Result<(Vec<u8>, TransactionReceipt, [u8; 32])> {
+		let result = self.wallet.eth_send_call(contract, call, amount, nonce, gas_limit).await?;
+		let (result, receipt, tx_hash) = match result {
+			SubmitResult::Executed { result, receipt, tx_hash } => (result, receipt, tx_hash),
+			SubmitResult::Timeout { tx_hash } => {
+				anyhow::bail!("tx 0x{} timed out", hex::encode(tx_hash))
+			},
+		};
+		let result = match result {
+			CallResult::Success(result) => {
+				tracing::info!("tx 0x{} succeeded", hex::encode(tx_hash));
+				result
+			},
+			CallResult::Revert(reason) => {
+				anyhow::bail!(
+					"tx 0x{} reverted because {}",
+					hex::encode(tx_hash),
+					hex::encode(reason)
+				);
+			},
+			CallResult::Error => anyhow::bail!("tx 0x{} failed", hex::encode(tx_hash)),
+		};
+		Ok((result, receipt, tx_hash.into()))
+	}
+
 	async fn evm_call<T: SolCall>(
 		&self,
 		contract: Address,
@@ -81,20 +116,9 @@ impl Connector {
 		gas_limit: Option<u64>,
 	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
 		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
-		let result = self
-			.wallet
-			.eth_send_call(contract, call.abi_encode(), amount, nonce, gas_limit)
-			.await?;
-		let SubmitResult::Executed {
-			result: CallResult::Success(result),
-			receipt,
-			tx_hash,
-		} = result
-		else {
-			anyhow::bail!("{:?}", result)
-		};
-		tracing::info!("evm_call success: {:?}", tx_hash);
-		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash.into()))
+		let (result, receipt, tx_hash) =
+			self.raw_evm_call(contract, call.abi_encode(), amount, nonce, gas_limit).await?;
+		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash))
 	}
 
 	async fn evm_view<T: SolCall>(
@@ -117,10 +141,16 @@ impl Connector {
 	) -> Result<(Address, u64)> {
 		let mut contract = get_contract_from_slice(abi)?;
 		contract.extend(constructor.abi_encode());
-		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash().0;
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+		let tx_hash = self.wallet.eth_deploy_contract(contract).await?.tx_hash();
+		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash.0).await?.unwrap();
 		let address = tx_receipt.contract_address.unwrap();
 		let block_number = tx_receipt.block_number.unwrap();
+		tracing::info!(
+			"contract deployed at {:?} in block {} with tx {:?}",
+			address,
+			block_number,
+			tx_hash
+		);
 		Ok((t_addr(address.0.into()), block_number))
 	}
 
@@ -131,33 +161,20 @@ impl Connector {
 		factory_address: [u8; 20],
 		call: Vec<u8>,
 	) -> Result<(AlloyAddress, u64)> {
-		let result = self
-			.wallet
-			.eth_send_call(factory_address, call, 0, None, Some(20_000_000))
-			.await?;
-		let SubmitResult::Executed { result, receipt, tx_hash } = result else {
-			anyhow::bail!("tx timed out");
-		};
-		match result {
-			CallResult::Success(_) => {
-				let log = receipt
-					.logs
-					.iter()
-					.find(|log| log.address.as_bytes() == factory_address)
-					.with_context(|| format!("Log with factory address not found: {}", tx_hash))?;
-				let topic = log
-					.topics
-					.first()
-					.with_context(|| "Unable to find topics in tx receipt")?
-					.as_bytes();
-				let contract_address = AlloyAddress::from_slice(&topic[12..]);
-				Ok((contract_address, receipt.block_number.unwrap()))
-			},
-			CallResult::Revert(reason) => {
-				anyhow::bail!("Deployment reverted: {tx_hash:?}: {:?}", hex::encode(reason))
-			},
-			CallResult::Error => anyhow::bail!("Failed to deploy contract"),
-		}
+		let (_, receipt, tx_hash) =
+			self.raw_evm_call(factory_address, call, 0, None, Some(20_000_000)).await?;
+		let log = receipt
+			.logs
+			.iter()
+			.find(|log| log.address.as_bytes() == factory_address)
+			.with_context(|| format!("tx {} logs not found", hex::encode(tx_hash)))?;
+		let topic = log
+			.topics
+			.first()
+			.with_context(|| format!("tx {} topic not found", hex::encode(tx_hash)))?
+			.as_bytes();
+		let contract_address = AlloyAddress::from_slice(&topic[12..]);
+		Ok((contract_address, receipt.block_number.unwrap()))
 	}
 
 	async fn deploy_factory(&self, config: &DeploymentConfig) -> Result<()> {
@@ -174,7 +191,7 @@ impl Connector {
 		tracing::info!("deploying factory");
 		let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
 
-		tracing::info!("factory deployed with tx: {:?}", tx_hash);
+		tracing::info!("factory deployed with tx {:?}", tx_hash);
 		Ok(())
 	}
 
@@ -204,16 +221,12 @@ impl Connector {
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let (gateway_address, _) =
 			self.deploy_contract_with_factory(factory_address, gateway_create_call).await?;
-		tracing::info!("gateway deployed at: {:?}", gateway_address);
+		tracing::info!("gateway deployed at {}", gateway_address);
 		Ok(gateway_address)
 	}
 
-	fn compute_proxy_address(
-		&self,
-		config: &DeploymentConfig,
-		admin: AlloyAddress,
-		proxy: &[u8],
-	) -> Result<[u8; 20]> {
+	fn compute_proxy_address(&self, config: &DeploymentConfig, proxy: &[u8]) -> Result<[u8; 20]> {
+		let admin = a_addr(self.address());
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
 		let proxy_bytecode = get_contract_from_slice(proxy)?;
@@ -231,30 +244,14 @@ impl Connector {
 		Ok(computed_proxy_address)
 	}
 
-	fn get_proxy_admin_creds(&self, config: &DeploymentConfig) -> Result<(SecretKey, [u8; 20])> {
-		let signer = Signer::new(&config.proxy_admin_sk.parse()?, "")?;
-		let proxy_admin_sk = signer
-			.bip44_account(self.wallet.config().algorithm, self.wallet.config().coin, 0)?
-			.derive(ChildNumber::non_hardened_from_u32(0))?;
-
-		let proxy_admin_pk = proxy_admin_sk
-			.public_key()
-			.to_address(rosetta_crypto::address::AddressFormat::Eip55);
-
-		let proxy_admin_address = a_addr(self.parse_address(proxy_admin_pk.address())?).0 .0;
-		let proxy_admin_sk = proxy_admin_sk.secret_key();
-		Ok((proxy_admin_sk.clone(), proxy_admin_address))
-	}
-
 	async fn deploy_proxy(
 		&self,
 		config: &DeploymentConfig,
 		proxy_addr: AlloyAddress,
 		gateway_address: AlloyAddress,
 		proxy_bytes: &[u8],
-		admin_sk: SecretKey,
-		admin: AlloyAddress,
 	) -> Result<(AlloyAddress, u64)> {
+		let admin = a_addr(self.address());
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let deployment_salt = config.deployment_salt;
 
@@ -271,7 +268,7 @@ impl Connector {
 		}
 		.abi_encode();
 		let payload: [u8; 32] = Keccak256::digest(digest).into();
-		let signature = admin_sk.sign_prehashed(&payload)?;
+		let signature = self.wallet.sign_prehashed(&payload)?;
 		let (v, r, s) = extract_signature_bytes(signature.to_bytes())?;
 		let arguments = ProxyContext {
 			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
@@ -303,7 +300,7 @@ impl Connector {
 				proxy_address
 			);
 		}
-		tracing::info!("proxy deployed at: {}", proxy_address);
+		tracing::info!("proxy deployed at {}", proxy_address);
 		Ok((proxy_address, block))
 	}
 
@@ -398,15 +395,17 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
+		let (blockchain, private_key) = if params.blockchain == "anvil" {
+			let private_key = hex_literal::hex![
+				"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+			];
+			(Blockchain::Ethereum, Some(private_key))
+		} else {
+			(params.blockchain.parse()?, None)
+		};
 		let wallet = Arc::new(
-			Wallet::new(
-				params.blockchain.parse()?,
-				&params.network,
-				&params.url,
-				&params.mnemonic,
-				None,
-			)
-			.await?,
+			Wallet::new(blockchain, &params.network, &params.url, &params.mnemonic, private_key)
+				.await?,
 		);
 		let client = default_client(&params.url, None)
 			.await
@@ -416,6 +415,7 @@ impl IConnectorBuilder for Connector {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
+			url: params.url,
 			cctp_sender: params.cctp_sender,
 			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
 			cctp_queue: Default::default(),
@@ -449,16 +449,7 @@ impl IChain for Connector {
 		(config.currency_decimals, config.currency_symbol)
 	}
 	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self) -> Result<()> {
-		let balance = match self.network_id() {
-			6 => 10u128.pow(25), // astar
-			2 => 10u128.pow(29), // ethereum
-			3 => 10u128.pow(29), // ethereum
-			network_id => {
-				tracing::info!("network {network_id} doesn't support faucet");
-				return Ok(());
-			},
-		};
+	async fn faucet(&self, balance: u128) -> Result<()> {
 		self.wallet.faucet(balance, None).await?;
 		Ok(())
 	}
@@ -628,24 +619,18 @@ impl IConnectorAdmin for Connector {
 		// check if uf already deployed
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
-		let is_factory_deployed = self
-			.backend
-			.get_code(factory_address.into(), rosetta_ethereum_types::AtBlock::Latest)
-			.await?;
+		let is_factory_deployed =
+			self.backend.get_code(factory_address.into(), AtBlock::Latest).await?;
 
 		if is_factory_deployed.is_empty() {
 			self.deploy_factory(&config).await?;
 		}
 
 		// proxy address computation
-		let (admin_sk, admin) = self.get_proxy_admin_creds(&config)?;
-		let proxy_addr = self.compute_proxy_address(&config, admin.into(), proxy)?;
+		let proxy_addr = self.compute_proxy_address(&config, proxy)?;
 
 		// check if proxy is deployed
-		let is_proxy_deployed = self
-			.backend
-			.get_code(proxy_addr.into(), rosetta_ethereum_types::AtBlock::Latest)
-			.await?;
+		let is_proxy_deployed = self.backend.get_code(proxy_addr.into(), AtBlock::Latest).await?;
 
 		if !is_proxy_deployed.is_empty() {
 			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
@@ -656,16 +641,8 @@ impl IConnectorAdmin for Connector {
 		let gateway_address = self.deploy_gateway(&config, proxy_addr, gateway).await?;
 
 		// compute proxy arguments
-		let (proxy_address, block) = self
-			.deploy_proxy(
-				&config,
-				proxy_addr.into(),
-				gateway_address,
-				proxy,
-				admin_sk,
-				admin.into(),
-			)
-			.await?;
+		let (proxy_address, block) =
+			self.deploy_proxy(&config, proxy_addr.into(), gateway_address, proxy).await?;
 
 		Ok((t_addr(proxy_address), block))
 	}
@@ -722,18 +699,48 @@ impl IConnectorAdmin for Connector {
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
+	/// Estimates the message gas limit.
+	async fn estimate_message_gas_limit(
+		&self,
+		contract: Address,
+		src_network: NetworkId,
+		src: Address,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let call = sol::IGmpReceiver::onGmpReceivedCall {
+			id: [0; 32].into(),
+			network: src_network.into(),
+			source: src.into(),
+			nonce: 0,
+			payload: payload.into(),
+		};
+		let gas_limit = self
+			.wallet
+			.eth_send_call_estimate_gas(a_addr(contract).into(), call.abi_encode(), 0)
+			.await?;
+		Ok(gas_limit)
+	}
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,
 		gateway: Address,
-		dest: NetworkId,
-		msg_size: usize,
+		dest_network: NetworkId,
 		gas_limit: u128,
+		payload: Vec<u8>,
 	) -> Result<u128> {
-		let msg_size = U256::from_str_radix(&msg_size.to_string(), 16).unwrap();
+		let msg = sol::GmpMessage {
+			source: [0; 32].into(),
+			srcNetwork: 0,
+			dest: [0; 20].into(),
+			destNetwork: 0,
+			gasLimit: 0,
+			nonce: 0,
+			data: payload.into(),
+		};
 		let call = sol::Gateway::estimateMessageCostCall {
-			networkid: dest,
-			messageSize: msg_size,
+			networkid: dest_network,
+			// abi_encoded_size returns the size without the 4 byte selector
+			messageSize: U256::from(msg.abi_encoded_size() + 4),
 			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_view(gateway, call, None).await?;
@@ -746,28 +753,28 @@ impl IConnectorAdmin for Connector {
 			.await
 	}
 	/// Sends a message using the test contract.
-	async fn send_message(&self, contract: Address, msg: GmpMessage) -> Result<MessageId> {
-		// EVM specific logic
-		let mut modified_msg = msg.clone();
-		modified_msg.gas_limit = 300_000;
-		let sol_msg: sol::GmpMessage = modified_msg.clone().into();
-		modified_msg.bytes = sol_msg.abi_encode();
-
-		let cost_call = sol::GmpTester::estimateMessageCostCall {
-			messageSize: U256::from(modified_msg.bytes.len()),
-			gasLimit: U256::from(modified_msg.gas_limit),
+	async fn send_message(
+		&self,
+		contract: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
+		let msg = sol::GmpMessage {
+			srcNetwork: self.network_id,
+			source: contract.into(),
+			destNetwork: dest_network,
+			dest: a_addr(dest),
+			nonce: 0,
+			gasLimit: gas_limit as _,
+			data: payload.into(),
 		};
-
-		let msg_cost = self.evm_view(contract, cost_call, None).await?;
-		let msg_cost = u128::try_from(msg_cost._0)?;
-
-		let call = sol::GmpTester::sendMessageCall {
-			msg: modified_msg.clone().into(),
-		};
-
-		self.evm_call(contract, call, msg_cost, None, None).await?;
-		let msg_id = modified_msg.message_id();
-		Ok(msg_id)
+		let call = sol::GmpTester::sendMessageCall { msg };
+		let result = self.evm_call(contract, call, gas_cost, None, None).await?;
+		let id: MessageId = *result.0._0;
+		Ok(id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(
@@ -838,6 +845,26 @@ impl IConnectorAdmin for Connector {
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
+	/// Debug a transaction.
+	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
+		let analog_gmp_dir =
+			std::env::var("ANALOG_GMP_DIR").context("failed to find ANALOG_GMP_DIR")?;
+		let output = Command::new("cast")
+			.current_dir(analog_gmp_dir)
+			.arg("run")
+			.arg("--rpc-url")
+			.arg(&self.url)
+			.arg("--with-local-artifacts")
+			.arg(hex::encode(hash))
+			.output()
+			.context("failed to run cast")?;
+		if !output.status.success() {
+			let err = std::str::from_utf8(&output.stderr).ok().unwrap_or_default();
+			anyhow::bail!("cast exited with {}: {err}", output.status);
+		}
+		let stdout = std::str::from_utf8(&output.stdout)?;
+		Ok(stdout.into())
+	}
 }
 
 fn compute_create2_address(
@@ -892,7 +919,6 @@ pub struct DeploymentConfig {
 	pub raw_tx: String,
 	pub factory_address: String,
 	pub deployment_salt: [u8; 32],
-	pub proxy_admin_sk: String,
 }
 
 #[derive(Deserialize)]

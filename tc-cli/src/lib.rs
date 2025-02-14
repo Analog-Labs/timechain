@@ -3,7 +3,7 @@ use crate::env::Mnemonics;
 use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
-use futures::stream::{BoxStream, StreamExt};
+use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -16,8 +16,8 @@ use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address, BatchId, BlockHash,
 	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
-	GmpEvents, GmpMessage, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId,
-	PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
+	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use tokio::time::sleep;
 
@@ -28,7 +28,7 @@ mod loki;
 mod slack;
 mod table;
 
-pub use crate::loki::Query;
+pub use crate::loki::{Log, Query};
 pub use crate::slack::{Sender, TableRef, TextRef};
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
@@ -53,31 +53,47 @@ impl Tc {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;
-		while let Err(err) = SubxtClient::get_client(&config.global().timechain_url).await {
-			tracing::info!("waiting for chain to start: {err:?}");
-			sleep_or_abort(Duration::from_secs(10)).await?;
-		}
-		let runtime =
-			SubxtClient::with_key(&config.global().timechain_url, &env.timechain_mnemonic).await?;
-		let mut connectors = HashMap::default();
-		for (id, network) in config.networks() {
-			let id = *id;
-			let params = ConnectorParams {
-				network_id: id,
-				blockchain: network.blockchain.clone(),
-				network: network.network.clone(),
-				url: network.url.clone(),
-				mnemonic: env.target_mnemonic.clone(),
-				cctp_sender: None,
-				cctp_attestation: None,
-			};
-			let connector = network
-				.backend
-				.connect_admin(&params)
+		let timechain_url = config.global().timechain_url.clone();
+		let runtime = tokio::task::spawn(async move {
+			while let Err(err) = SubxtClient::get_client(&timechain_url).await {
+				tracing::info!("waiting for chain to start: {err:?}");
+				sleep_or_abort(Duration::from_secs(10)).await?;
+			}
+			let runtime = SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic)
 				.await
-				.context("failed to connect to backend")?;
-			connectors.insert(id, connector);
+				.context("failed to connect to timechain")?;
+			Ok::<_, anyhow::Error>(runtime)
+		});
+		let mut connectors = HashMap::new();
+		{
+			let mut connector_futures = FuturesUnordered::new();
+			for (id, network) in config.networks() {
+				let id = *id;
+				let params = ConnectorParams {
+					network_id: id,
+					blockchain: network.blockchain.clone(),
+					network: network.network.clone(),
+					url: network.url.clone(),
+					mnemonic: env.target_mnemonic.clone(),
+					cctp_sender: None,
+					cctp_attestation: None,
+				};
+				let connector = async move {
+					let connector = network
+						.backend
+						.connect_admin(&params)
+						.await
+						.with_context(|| format!("failed to connect to backend {id}"))?;
+					Ok::<_, anyhow::Error>((id, connector))
+				};
+				connector_futures.push(connector);
+			}
+			while let Some(res) = connector_futures.next().await {
+				let (network, connector) = res?;
+				connectors.insert(network, connector);
+			}
 		}
+		let runtime = runtime.await??;
 		Ok(Self {
 			config,
 			runtime,
@@ -199,7 +215,22 @@ impl Tc {
 	}
 
 	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
-		self.connector(network)?.faucet().await
+		let config = self.config.network(network)?;
+		let Some(admin_funds) = config.admin_funds.as_ref() else {
+			return Ok(());
+		};
+		let admin_funds = self.parse_balance(Some(network), admin_funds)?;
+		let current_admin_funds = self.balance(Some(network), self.address(Some(network))?).await?;
+		let faucet = admin_funds - current_admin_funds;
+		if faucet == 0 {
+			return Ok(());
+		}
+		self.println(
+			None,
+			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
+		)
+		.await?;
+		self.connector(network)?.faucet(faucet).await
 	}
 
 	pub async fn balance(&self, network: Option<NetworkId>, address: Address) -> Result<u128> {
@@ -265,6 +296,7 @@ pub struct NetworkInfo {
 	pub admin: Address,
 	pub admin_balance: u128,
 	pub sync_status: SyncStatus,
+	pub unassigned_tasks: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -342,6 +374,7 @@ pub struct Batch {
 	pub batch: BatchId,
 	pub msg: GatewayMessage,
 	pub task: TaskId,
+	pub tx: Option<Hash>,
 }
 
 #[derive(Clone, Debug)]
@@ -426,12 +459,14 @@ impl Tc {
 					let admin = connector.admin(gateway).await?;
 					let admin_balance = connector.balance(admin).await?;
 					let sync_status = self.sync_status(network).await?;
+					let unassigned_tasks = self.runtime.unassigned_tasks(network).await?;
 					Some(NetworkInfo {
 						gateway,
 						gateway_balance,
 						admin,
 						admin_balance,
 						sync_status,
+						unassigned_tasks: unassigned_tasks.len() as _,
 					})
 				},
 				Err(_) => None,
@@ -505,6 +540,15 @@ impl Tc {
 			});
 		}
 		Ok(shards)
+	}
+
+	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<Task>> {
+		let task_ids = self.runtime.unassigned_tasks(network).await?;
+		let mut tasks = Vec::with_capacity(task_ids.len());
+		for id in task_ids {
+			tasks.push(self.task(id).await?);
+		}
+		Ok(tasks)
 	}
 
 	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {
@@ -583,6 +627,7 @@ impl Tc {
 			batch,
 			msg: self.runtime.batch_message(batch).await?.context("invalid batch id")?,
 			task: self.runtime.batch_task(batch).await?.context("invalid batch id")?,
+			tx: self.runtime.batch_tx_hash(batch).await?,
 		})
 	}
 
@@ -655,7 +700,7 @@ impl Tc {
 			self.set_network_config(network).await?;
 			gateway
 		} else {
-			self.println(None, "deploying gateway").await?;
+			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
@@ -836,13 +881,7 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		let admin_address = self.address(Some(network))?;
-			let msg = format!("admin address is: 0x{}", &hex::encode(&admin_address));
-			self.println(None, msg.as_str()).await?;
-		if self.balance(Some(network), admin_address).await? == 0 {
-			self.println(None, "admin target balance is 0, using faucet").await?;
-			self.faucet(network).await?;
-		}
+		self.faucet(network).await?;
 		let gateway = self.register_network(network).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
 		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
@@ -851,16 +890,16 @@ impl Tc {
 
 	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
-		let funds = self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
+		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
 		self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account")
 			.await?;
 		let config = self.config.network(chronicle.network)?;
-		let chronicle_target_funds =
-			self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
+		let chronicle_funds =
+			self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
 		self.fund(
 			Some(chronicle.network),
 			chronicle.address,
-			chronicle_target_funds,
+			chronicle_funds,
 			"chronicle target account",
 		)
 		.await?;
@@ -924,26 +963,71 @@ impl Tc {
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
+	pub async fn estimate_message_gas_limit(
+		&self,
+		dest_network: NetworkId,
+		dest_addr: Address,
+		src_network: NetworkId,
+		src_addr: Address,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let connector = self.connector(dest_network)?;
+		connector
+			.estimate_message_gas_limit(dest_addr, src_network, src_addr, payload)
+			.await
+	}
+
+	pub async fn estimate_message_cost(
+		&self,
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let (connector, gateway) = self.gateway(src_network).await?;
+		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
+	}
+
+	#[allow(clippy::too_many_arguments)]
 	pub async fn send_message(
 		&self,
-		network: NetworkId,
-		tester: Address,
-		dest: NetworkId,
+		src_network: NetworkId,
+		src_addr: Address,
+		dest_network: NetworkId,
 		dest_addr: Address,
-		nonce: u64,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
 	) -> Result<MessageId> {
-		let msg = GmpMessage {
-			src_network: network,
-			src: tester,
-			dest_network: dest,
-			dest: dest_addr,
-			nonce,
-			gas_limit: 100,
-			gas_cost: 200,
-			bytes: vec![],
-		};
-		let connector = self.connector(network)?;
-		connector.send_message(tester, msg.clone()).await
+		let connector = self.connector(src_network)?;
+		let id = self
+			.println(
+				None,
+				format!(
+					"send message to {} {} with {} gas for {}",
+					dest_network,
+					self.format_address(Some(dest_network), dest_addr)?,
+					gas_limit,
+					self.format_balance(Some(src_network), gas_cost)?,
+				),
+			)
+			.await?;
+		let msg_id = connector
+			.send_message(src_addr, dest_network, dest_addr, gas_limit, gas_cost, payload)
+			.await?;
+		self.println(
+			Some(id),
+			format!(
+				"sent message {} to {} {} with {} gas for {}",
+				hex::encode(msg_id),
+				dest_network,
+				self.format_address(Some(dest_network), dest_addr)?,
+				gas_limit,
+				self.format_balance(Some(src_network), gas_cost)?,
+			),
+		)
+		.await?;
+		Ok(msg_id)
 	}
 
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {
@@ -1064,7 +1148,13 @@ impl Tc {
 		self.msg.text(id, line.into()).await
 	}
 
-	pub async fn log(&self, query: Query) -> Result<TextRef> {
-		self.msg.log(None, loki::logs(query).await?).await
+	pub async fn log(&self, query: Query, since: String) -> Result<TableRef> {
+		let logs = loki::logs(query, since).await?;
+		self.print_table(None, "logs", logs).await
+	}
+
+	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
+		let connector = self.connector(network)?;
+		connector.debug_transaction(hash).await
 	}
 }

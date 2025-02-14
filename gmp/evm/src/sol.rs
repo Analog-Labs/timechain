@@ -171,7 +171,7 @@ alloy_sol_types::sol! {
 
 	contract GmpTester {
 		constructor(address gateway);
-		function sendMessage(GmpMessage msg) payable;
+		function sendMessage(GmpMessage msg) payable returns (bytes32);
 		function estimateMessageCost(uint256 messageSize, uint256 gasLimit) external view returns (uint256);
 		event MessageReceived(GmpMessage msg);
 	}
@@ -183,6 +183,13 @@ alloy_sol_types::sol! {
 			external
 			payable
 			returns (address);
+	}
+
+	interface IGmpReceiver {
+		function onGmpReceived(bytes32 id, uint128 network, bytes32 source, uint64 nonce, bytes calldata payload)
+			external
+			payable
+			returns (bytes32);
 	}
 }
 

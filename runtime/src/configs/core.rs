@@ -16,7 +16,7 @@ use frame_system::limits::{BlockLength, BlockWeights};
 use sp_version::RuntimeVersion;
 
 use sp_runtime::Perbill;
-use time_primitives::{BlockHash, BlockNumber, Moment, SS58_PREFIX};
+use time_primitives::{BlockHash, BlockNumber, Moment, SS58_ADDRESS_PREFIX};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -92,7 +92,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
-	type SS58Prefix = ConstU16<{ SS58_PREFIX }>;
+	type SS58Prefix = ConstU16<{ SS58_ADDRESS_PREFIX }>;
 	type MaxConsumers = ConstU32<16>;
 }
 

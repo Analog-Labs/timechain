@@ -54,8 +54,11 @@ impl Gmp for ConnectorWrapper {
 		&self,
 		request: Request<proto::FaucetRequest>,
 	) -> GmpResult<proto::FaucetResponse> {
-		let (connector, _) = self.connector(request)?;
-		connector.faucet().await.map_err(|err| Status::unknown(err.to_string()))?;
+		let (connector, msg) = self.connector(request)?;
+		connector
+			.faucet(msg.balance)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::FaucetResponse {}))
 	}
 
@@ -243,13 +246,25 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::DeployTestResponse { address, block }))
 	}
 
+	async fn estimate_message_gas_limit(
+		&self,
+		request: Request<proto::EstimateMessageGasLimitRequest>,
+	) -> GmpResult<proto::EstimateMessageGasLimitResponse> {
+		let (connector, msg) = self.connector(request)?;
+		let gas_limit = connector
+			.estimate_message_gas_limit(msg.contract, msg.src_network, msg.src, msg.payload)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::EstimateMessageGasLimitResponse { gas_limit }))
+	}
+
 	async fn estimate_message_cost(
 		&self,
 		request: Request<proto::EstimateMessageCostRequest>,
 	) -> GmpResult<proto::EstimateMessageCostResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let cost = connector
-			.estimate_message_cost(msg.gateway, msg.dest, msg.msg_size, msg.gas_limit)
+			.estimate_message_cost(msg.gateway, msg.dest_network, msg.gas_limit, msg.payload)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::EstimateMessageCostResponse { cost }))
@@ -261,7 +276,14 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::SendMessageResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let message_id = connector
-			.send_message(msg.contract, msg.msg)
+			.send_message(
+				msg.src,
+				msg.dest_network,
+				msg.dest,
+				msg.gas_limit,
+				msg.gas_cost,
+				msg.payload,
+			)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::SendMessageResponse { message_id }))

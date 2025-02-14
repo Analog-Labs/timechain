@@ -29,6 +29,7 @@ fn main() {
 		.method(method("routes", "Routes").build())
 		.method(method("set_route", "SetRoute").build())
 		.method(method("deploy_test", "DeployTest").build())
+		.method(method("estimate_message_gas_limit", "EstimateMessageGasLimit").build())
 		.method(method("estimate_message_cost", "EstimateMessageCost").build())
 		.method(method("send_message", "SendMessage").build())
 		.method(method("recv_messages", "RecvMessages").build())

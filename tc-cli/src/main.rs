@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{BatchId, NetworkId, ShardId, TaskId};
+use time_primitives::{BatchId, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -92,6 +92,9 @@ enum Command {
 	Task {
 		task: TaskId,
 	},
+	UnassignedTasks {
+		network: NetworkId,
+	},
 	AssignedTasks {
 		shard: ShardId,
 	},
@@ -142,12 +145,27 @@ enum Command {
 		network_id: NetworkId,
 		batch_id: BatchId,
 	},
-	SendMessage {
-		network: NetworkId,
-		tester: String,
-		dest: NetworkId,
+	EstimateMessageGasLimit {
+		dest_network: NetworkId,
 		dest_addr: String,
-		nonce: u64,
+		src_network: NetworkId,
+		src_addr: String,
+		payload: String,
+	},
+	EstimateMessageGasCost {
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: String,
+	},
+	SendMessage {
+		src_network: NetworkId,
+		src_addr: String,
+		dest_network: NetworkId,
+		dest_addr: String,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: String,
 	},
 	SmokeTest {
 		src: NetworkId,
@@ -166,6 +184,8 @@ enum Command {
 	Log {
 		#[clap(subcommand)]
 		query: Query,
+		#[arg(long, default_value = "7d")]
+		since: String,
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
@@ -174,10 +194,18 @@ enum Command {
 		src_network: NetworkId,
 		src_gateway: String,
 	},
+	DebugTransaction {
+		network: NetworkId,
+		hash: String,
+	},
 }
 
 #[tokio::main]
 async fn main() {
+	time_primitives::init_ss58_version();
+	rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
 		std::process::exit(1);
@@ -187,7 +215,9 @@ async fn main() {
 }
 
 async fn real_main() -> Result<()> {
-	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
+	let filter = EnvFilter::from_default_env()
+		.add_directive("tc_cli=info".parse().unwrap())
+		.add_directive("gmp_evm=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let sender = Sender::new();
 	let args = Args::parse();
@@ -257,6 +287,10 @@ async fn real_main() -> Result<()> {
 		Command::Task { task } => {
 			let task = tc.task(task).await?;
 			tc.print_table(None, "task", vec![task]).await?;
+		},
+		Command::UnassignedTasks { network } => {
+			let tasks = tc.unassigned_tasks(network).await?;
+			tc.print_table(None, "unassigned-tasks", tasks).await?;
 		},
 		Command::AssignedTasks { shard } => {
 			let tasks = tc.assigned_tasks(shard).await?;
@@ -329,29 +363,69 @@ async fn real_main() -> Result<()> {
 		Command::CompleteBatch { network_id, batch_id } => {
 			tc.complete_batch(network_id, batch_id).await?
 		},
-		Command::SendMessage {
-			network,
-			tester,
-			dest,
+		Command::EstimateMessageGasLimit {
+			dest_network,
 			dest_addr,
-			nonce,
+			src_network,
+			src_addr,
+			payload,
 		} => {
-			let tester = tc.parse_address(Some(network), &tester)?;
-			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-			let msg_id = tc.send_message(network, tester, dest, dest_addr, nonce).await?;
+			let src_addr = tc.parse_address(Some(src_network), &src_addr)?;
+			let dest_addr = tc.parse_address(Some(dest_network), &dest_addr)?;
+			let payload = hex::decode(payload)?;
+			let gas_limit = tc
+				.estimate_message_gas_limit(dest_network, dest_addr, src_network, src_addr, payload)
+				.await?;
+			tc.println(None, gas_limit.to_string()).await?;
+		},
+		Command::EstimateMessageGasCost {
+			src_network,
+			dest_network,
+			gas_limit,
+			payload,
+		} => {
+			let payload = hex::decode(payload)?;
+			let gas_cost =
+				tc.estimate_message_cost(src_network, dest_network, gas_limit, payload).await?;
+			tc.println(None, gas_cost.to_string()).await?;
+		},
+		Command::SendMessage {
+			src_network,
+			src_addr,
+			dest_network,
+			dest_addr,
+			gas_limit,
+			gas_cost,
+			payload,
+		} => {
+			let src_addr = tc.parse_address(Some(src_network), &src_addr)?;
+			let dest_addr = tc.parse_address(Some(dest_network), &dest_addr)?;
+			let payload = hex::decode(payload)?;
+			let msg_id = tc
+				.send_message(
+					src_network,
+					src_addr,
+					dest_network,
+					dest_addr,
+					gas_limit,
+					gas_cost,
+					payload,
+				)
+				.await?;
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
-			let id = tc.println(None, "send message").await?;
-			let msg_id = tc.send_message(src, src_addr, dest, dest_addr, 0).await?;
-			tc.println(
-				Some(id),
-				format!("sent message to {} {}", dest, tc.format_address(Some(dest), dest_addr)?),
-			)
-			.await?;
+			let payload = vec![];
+			let gas_limit = tc
+				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+				.await?;
+			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+			let msg_id = tc
+				.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+				.await?;
 			let mut id = None;
 			let (exec, end) = loop {
 				let (_, end) = blocks.next().await.context("expected block")?;
@@ -380,9 +454,24 @@ async fn real_main() -> Result<()> {
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
 			let mut msgs = HashSet::new();
-			for nonce in 0..num_messages {
-				let msg = tc.send_message(src, src_addr, dest, dest_addr, nonce as _).await?;
-				msgs.insert(msg);
+			let payload = vec![];
+			let gas_limit = tc
+				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+				.await?;
+			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+			for _ in 0..num_messages {
+				let msg_id = tc
+					.send_message(
+						src,
+						src_addr,
+						dest,
+						dest_addr,
+						gas_limit,
+						gas_cost,
+						payload.clone(),
+					)
+					.await?;
+				msgs.insert(msg_id);
 			}
 			let mut id = None;
 			while let Some((_, block)) = blocks.next().await {
@@ -404,7 +493,9 @@ async fn real_main() -> Result<()> {
 						id,
 						format!(
 							r#"{num_received} out of {num_messages} received in {blocks} blocks
-							throughput {throughput:.3} msgs/block"#
+							throughput {throughput:.3} msgs/block
+							msg cost {}"#,
+							tc.format_balance(Some(src), gas_cost)?,
 						),
 					)
 					.await?,
@@ -414,8 +505,8 @@ async fn real_main() -> Result<()> {
 				}
 			}
 		},
-		Command::Log { query } => {
-			tc.log(query).await?;
+		Command::Log { query, since } => {
+			tc.log(query, since).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id).await?;
@@ -427,6 +518,13 @@ async fn real_main() -> Result<()> {
 		Command::SetTcRoute { src_network, src_gateway } => {
 			let src_gateway = tc.parse_address(Some(src_network), &src_gateway)?;
 			tc.set_tc_route(src_network, src_gateway).await?;
+		},
+		Command::DebugTransaction { network, hash } => {
+			let hash = hash.strip_prefix("0x").unwrap_or(&hash);
+			let hash: Hash =
+				hex::decode(hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
+			let output = tc.debug_transaction(network, hash).await?;
+			tc.println(None, output).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

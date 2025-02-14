@@ -184,4 +184,4 @@ zeroize = { opt-level = 3 }
 
 [patch.crates-io]
 # Testnet assginment was not accepted upstream
-ss58-registry = { git = 'https://github.com/Analog-Labs/ss58-registry.git' }
+ss58-registry = { git = 'https://github.com/Analog-Labs/ss58-registry.git', tag='v1.51.0-anlog0' }

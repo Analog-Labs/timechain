@@ -525,6 +525,7 @@ async fn real_main() -> Result<()> {
 				hex::decode(hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
 			let output = tc.debug_transaction(network, hash).await?;
 			tc.println(None, output).await?;
+		},
 		Command::RetryFailedBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
 		},

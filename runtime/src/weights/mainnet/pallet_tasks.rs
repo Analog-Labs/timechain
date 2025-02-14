@@ -218,7 +218,7 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::TaskSubmitter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Tasks::TaskNetwork` (r:0 w:1)
 	/// Proof: `Tasks::TaskNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn restart_batch() -> Weight {
+	fn restart_batch(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `286`
 		//  Estimated: `3751`

@@ -13,7 +13,7 @@ use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_
 use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, PublicKey,
+	AccountId, BatchId, Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, PublicKey,
 	ShardStatus, ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey,
 	TssSignature,
 };
@@ -145,27 +145,39 @@ benchmarks! {
 
 
 	restart_batch {
+		let l in 1..100;
 		create_shard::<T>(ETHEREUM);
 		let network = ETHEREUM;
-		let batch_id = BatchIdCounter::<T>::get();
-		let initial_task_id = Pallet::<T>::create_task(
-			network,
-			Task::SubmitGatewayMessage { batch_id }
-		);
-		FailedBatchIds::<T>::mutate(|ids| ids.push(batch_id));
-		BatchTaskId::<T>::insert(batch_id, initial_task_id);
-		TaskNetwork::<T>::insert(initial_task_id, network);
-	}: _(RawOrigin::Root, batch_id) verify {
-		let new_task_id = initial_task_id + 1;
+		let failed_batches: Vec<BatchId> = (0..l).map(|l| l as BatchId).collect();
+		let target_batch_id: u64 = (l - 1).into();
+
+		for batch_id in &failed_batches {
+			let task_id = Pallet::<T>::create_task(
+				network,
+				Task::SubmitGatewayMessage { batch_id: *batch_id }
+			);
+			BatchTaskId::<T>::insert(batch_id, task_id);
+			TaskNetwork::<T>::insert(task_id, network);
+		}
+
+		FailedBatchIds::<T>::put(failed_batches.clone());
+	}: _(RawOrigin::Root, target_batch_id) verify {
+		let new_task_id = TaskIdCounter::<T>::get();
 		assert_eq!(
-			BatchTaskId::<T>::get(batch_id),
+			BatchTaskId::<T>::get(target_batch_id),
 			Some(new_task_id),
-			"New task ID not properly set"
+			"New task not created"
 		);
 		assert!(
-			!FailedBatchIds::<T>::get().contains(&batch_id),
+			!FailedBatchIds::<T>::get().contains(&target_batch_id),
 			"Batch not removed from failed list"
 		);
-	}
+		assert_eq!(
+			FailedBatchIds::<T>::get().len(),
+			(l - 1) as usize,
+			"List length mismatch"
+		);
+
+	   }
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

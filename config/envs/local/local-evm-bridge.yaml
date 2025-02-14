@@ -1,5 +1,5 @@
 config:
-  chronicle_timechain_funds: 10.
+  chronicle_funds: 10.
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
 contracts:
@@ -11,11 +11,12 @@ contracts:
 networks:
   2:
     backend: "evm"
-    blockchain: "ethereum"
+    blockchain: "anvil"
     network: "dev"
     url: "ws://chain-2-evm:8545"
+    admin_funds: 100.
     gateway_funds: 1.
-    chronicle_target_funds: 1.
+    chronicle_funds: 1.
     batch_size: 64
     batch_offset: 0
     batch_gas_limit: 10000000
@@ -25,5 +26,5 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
-chronicles: 
+chronicles:
   - http://timechain-chronicle-2-evm-1:8080

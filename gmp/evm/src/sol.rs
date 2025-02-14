@@ -184,6 +184,13 @@ alloy_sol_types::sol! {
 			payable
 			returns (address);
 	}
+
+	interface IGmpReceiver {
+		function onGmpReceived(bytes32 id, uint128 network, bytes32 source, uint64 nonce, bytes calldata payload)
+			external
+			payable
+			returns (bytes32);
+	}
 }
 
 pub fn u256(bytes: &[u8]) -> U256 {

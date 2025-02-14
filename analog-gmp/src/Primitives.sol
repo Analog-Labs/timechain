@@ -281,7 +281,7 @@ library PrimitiveUtils {
         bytes memory onGmpReceived = callback.callback;
         bytes32 dataHash;
         assembly ("memory-safe") {
-            let offset := add(onGmpReceived, 0xa4)
+            let offset := add(onGmpReceived, 0xc4)
             dataHash := keccak256(add(offset, 0x20), mload(offset))
         }
         callback.eip712hash = bytes32(GMP_VERSION);
@@ -332,9 +332,10 @@ library PrimitiveUtils {
         // | 0x0124..0x0144 <- onGmpReceived.id
         // | 0x0144..0x0164 <- onGmpReceived.network
         // | 0x0164..0x0184 <- onGmpReceived.source
-        // | 0x0184..0x01a4 <- onGmpReceived.data.offset
-        // | 0x01a4..0x01c4 <- onGmpReceived.data.length
-        // | 0x01c4........ <- onGmpReceived.data
+        // | 0x0184..0x01a4 <- onGmpReceived.nonce
+        // | 0x01a4..0x01c4 <- onGmpReceived.data.offset
+        // | 0x01c4..0x01e4 <- onGmpReceived.data.length
+        // | 0x01e4........ <- onGmpReceived.data
         if (isCalldata) {
             GmpMessage calldata m = _intoCalldataPointer(message);
             callback.source = m.source;
@@ -345,10 +346,11 @@ library PrimitiveUtils {
             callback.nonce = m.nonce;
             bytes calldata data = m.data;
             callback.callback = abi.encodeWithSignature(
-                "onGmpReceived(bytes32,uint128,bytes32,bytes)",
+                "onGmpReceived(bytes32,uint128,bytes32,uint64,bytes)",
                 callback.eip712hash,
                 callback.srcNetwork,
                 callback.source,
+                callback.nonce,
                 data
             );
         } else {
@@ -360,10 +362,11 @@ library PrimitiveUtils {
             callback.gasLimit = m.gasLimit;
             callback.nonce = m.nonce;
             callback.callback = abi.encodeWithSignature(
-                "onGmpReceived(bytes32,uint128,bytes32,bytes)",
+                "onGmpReceived(bytes32,uint128,bytes32,uint64,bytes)",
                 callback.eip712hash,
                 callback.srcNetwork,
                 callback.source,
+                callback.nonce,
                 m.data
             );
         }

@@ -3,7 +3,7 @@
 
 pragma solidity >=0.8.0;
 
-import {ERC20} from "@solmate/tokens/ERC20.sol";
+import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
 import {IGmpReceiver} from "../src/interfaces/IGmpReceiver.sol";
 import {IGateway} from "../src/interfaces/IGateway.sol";
 
@@ -73,7 +73,7 @@ contract MockERC20 is ERC20, IGmpReceiver {
         );
     }
 
-    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, bytes calldata data)
+    function onGmpReceived(bytes32 id, uint128 network, bytes32 sender, uint64, bytes calldata data)
         external
         payable
         returns (bytes32)

@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{BatchId, GmpMessage, NetworkId, ShardId, TaskId};
+use time_primitives::{BatchId, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -145,11 +145,27 @@ enum Command {
 		network_id: NetworkId,
 		batch_id: BatchId,
 	},
-	SendMessage {
-		network: NetworkId,
-		tester: String,
-		dest: NetworkId,
+	EstimateMessageGasLimit {
+		dest_network: NetworkId,
 		dest_addr: String,
+		src_network: NetworkId,
+		src_addr: String,
+		payload: String,
+	},
+	EstimateMessageGasCost {
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: String,
+	},
+	SendMessage {
+		src_network: NetworkId,
+		src_addr: String,
+		dest_network: NetworkId,
+		dest_addr: String,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: String,
 	},
 	SmokeTest {
 		src: NetworkId,
@@ -174,6 +190,10 @@ enum Command {
 	ForceShardOffline {
 		shard_id: ShardId,
 	},
+	DebugTransaction {
+		network: NetworkId,
+		hash: String,
+	},
 }
 
 #[tokio::main]
@@ -191,7 +211,9 @@ async fn main() {
 }
 
 async fn real_main() -> Result<()> {
-	let filter = EnvFilter::from_default_env().add_directive("tc_cli=info".parse()?);
+	let filter = EnvFilter::from_default_env()
+		.add_directive("tc_cli=info".parse().unwrap())
+		.add_directive("gmp_evm=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let sender = Sender::new();
 	let args = Args::parse();
@@ -337,44 +359,69 @@ async fn real_main() -> Result<()> {
 		Command::CompleteBatch { network_id, batch_id } => {
 			tc.complete_batch(network_id, batch_id).await?
 		},
-		Command::SendMessage {
-			network,
-			tester,
-			dest,
+		Command::EstimateMessageGasLimit {
+			dest_network,
 			dest_addr,
+			src_network,
+			src_addr,
+			payload,
 		} => {
-			let tester = tc.parse_address(Some(network), &tester)?;
-			let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-			let mut msg = GmpMessage {
-				src_network: network,
-				src: tester,
-				dest_network: dest,
-				dest: dest_addr,
-				nonce: 0,
-				gas_limit: 300_000,
-				gas_cost: 0,
-				bytes: vec![],
-			};
-			msg.gas_cost = tc.estimate_message_cost(&msg).await?;
-			let msg_id = tc.send_message(msg).await?;
+			let src_addr = tc.parse_address(Some(src_network), &src_addr)?;
+			let dest_addr = tc.parse_address(Some(dest_network), &dest_addr)?;
+			let payload = hex::decode(payload)?;
+			let gas_limit = tc
+				.estimate_message_gas_limit(dest_network, dest_addr, src_network, src_addr, payload)
+				.await?;
+			tc.println(None, gas_limit.to_string()).await?;
+		},
+		Command::EstimateMessageGasCost {
+			src_network,
+			dest_network,
+			gas_limit,
+			payload,
+		} => {
+			let payload = hex::decode(payload)?;
+			let gas_cost =
+				tc.estimate_message_cost(src_network, dest_network, gas_limit, payload).await?;
+			tc.println(None, gas_cost.to_string()).await?;
+		},
+		Command::SendMessage {
+			src_network,
+			src_addr,
+			dest_network,
+			dest_addr,
+			gas_limit,
+			gas_cost,
+			payload,
+		} => {
+			let src_addr = tc.parse_address(Some(src_network), &src_addr)?;
+			let dest_addr = tc.parse_address(Some(dest_network), &dest_addr)?;
+			let payload = hex::decode(payload)?;
+			let msg_id = tc
+				.send_message(
+					src_network,
+					src_addr,
+					dest_network,
+					dest_addr,
+					gas_limit,
+					gas_cost,
+					payload,
+				)
+				.await?;
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
-			let mut msg = GmpMessage {
-				src_network: src,
-				src: src_addr,
-				dest_network: dest,
-				dest: dest_addr,
-				nonce: 0,
-				gas_limit: 300_000,
-				gas_cost: 0,
-				bytes: vec![],
-			};
-			msg.gas_cost = tc.estimate_message_cost(&msg).await?;
-			let msg_id = tc.send_message(msg).await?;
+			let payload = vec![];
+			let gas_limit = tc
+				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+				.await?;
+			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+			let msg_id = tc
+				.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+				.await?;
 			let mut id = None;
 			let (exec, end) = loop {
 				let (_, end) = blocks.next().await.context("expected block")?;
@@ -403,22 +450,24 @@ async fn real_main() -> Result<()> {
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
 			let mut msgs = HashSet::new();
-			let mut gas_cost = 0;
+			let payload = vec![];
+			let gas_limit = tc
+				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+				.await?;
+			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
 			for _ in 0..num_messages {
-				let mut msg = GmpMessage {
-					src_network: src,
-					src: src_addr,
-					dest_network: dest,
-					dest: dest_addr,
-					nonce: 0,
-					gas_limit: 300_000,
-					gas_cost: 0,
-					bytes: vec![],
-				};
-				msg.gas_cost = tc.estimate_message_cost(&msg).await?;
-				gas_cost += msg.gas_cost;
-				let msg = tc.send_message(msg).await?;
-				msgs.insert(msg);
+				let msg_id = tc
+					.send_message(
+						src,
+						src_addr,
+						dest,
+						dest_addr,
+						gas_limit,
+						gas_cost,
+						payload.clone(),
+					)
+					.await?;
+				msgs.insert(msg_id);
 			}
 			let mut id = None;
 			while let Some((_, block)) = blocks.next().await {
@@ -435,14 +484,14 @@ async fn real_main() -> Result<()> {
 				let num_received = num_messages - msgs.len() as u16;
 				let blocks = block - start;
 				let throughput = num_received as f64 / blocks as f64;
-				let avg_gas_cost = gas_cost / num_messages as u128;
 				id = Some(
 					tc.println(
 						id,
 						format!(
 							r#"{num_received} out of {num_messages} received in {blocks} blocks
 							throughput {throughput:.3} msgs/block
-							avg gas cost {avg_gas_cost}"#
+							msg cost {}"#,
+							tc.format_balance(Some(src), gas_cost)?,
 						),
 					)
 					.await?,
@@ -461,6 +510,13 @@ async fn real_main() -> Result<()> {
 		Command::WithdrawFunds { network, amount, address } => {
 			let address = tc.parse_address(Some(network), &address)?;
 			tc.withdraw_funds(network, amount, address).await?;
+		},
+		Command::DebugTransaction { network, hash } => {
+			let hash = hash.strip_prefix("0x").unwrap_or(&hash);
+			let hash: Hash =
+				hex::decode(hash)?.try_into().map_err(|_| anyhow::anyhow!("invalid hash"))?;
+			let output = tc.debug_transaction(network, hash).await?;
+			tc.println(None, output).await?;
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

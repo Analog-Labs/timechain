@@ -215,7 +215,22 @@ impl Tc {
 	}
 
 	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
-		self.connector(network)?.faucet().await
+		let config = self.config.network(network)?;
+		let Some(admin_funds) = config.admin_funds.as_ref() else {
+			return Ok(());
+		};
+		let admin_funds = self.parse_balance(Some(network), admin_funds)?;
+		let current_admin_funds = self.balance(Some(network), self.address(Some(network))?).await?;
+		let faucet = admin_funds - current_admin_funds;
+		if faucet == 0 {
+			return Ok(());
+		}
+		self.println(
+			None,
+			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
+		)
+		.await?;
+		self.connector(network)?.faucet(faucet).await
 	}
 
 	pub async fn balance(&self, network: Option<NetworkId>, address: Address) -> Result<u128> {
@@ -667,7 +682,7 @@ impl Tc {
 			self.set_network_config(network).await?;
 			gateway
 		} else {
-			self.println(None, "deploying gateway").await?;
+			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
@@ -848,10 +863,7 @@ impl Tc {
 impl Tc {
 	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		if self.balance(Some(network), self.address(Some(network))?).await? == 0 {
-			self.println(None, "admin target balance is 0, using faucet").await?;
-			self.faucet(network).await?;
-		}
+		self.faucet(network).await?;
 		let gateway = self.register_network(network).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
 		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
@@ -860,16 +872,16 @@ impl Tc {
 
 	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
-		let funds = self.parse_balance(None, &self.config.global().chronicle_timechain_funds)?;
+		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
 		self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account")
 			.await?;
 		let config = self.config.network(chronicle.network)?;
-		let chronicle_target_funds =
-			self.parse_balance(Some(chronicle.network), &config.chronicle_target_funds)?;
+		let chronicle_funds =
+			self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
 		self.fund(
 			Some(chronicle.network),
 			chronicle.address,
-			chronicle_target_funds,
+			chronicle_funds,
 			"chronicle target account",
 		)
 		.await?;
@@ -933,36 +945,67 @@ impl Tc {
 		connector.deploy_test(gateway, &contracts.tester).await
 	}
 
-	pub async fn estimate_message_cost(&self, msg: &GmpMessage) -> Result<u128> {
-		let (connector, gateway) = self.gateway(msg.src_network).await?;
-		connector.estimate_message_cost(gateway, msg).await
+	pub async fn estimate_message_gas_limit(
+		&self,
+		dest_network: NetworkId,
+		dest_addr: Address,
+		src_network: NetworkId,
+		src_addr: Address,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let connector = self.connector(dest_network)?;
+		connector
+			.estimate_message_gas_limit(dest_addr, src_network, src_addr, payload)
+			.await
 	}
 
-	pub async fn send_message(&self, msg: GmpMessage) -> Result<MessageId> {
-		let connector = self.connector(msg.src_network)?;
-		let dest_network = msg.dest_network;
-		let dest = msg.dest;
-		let gas_cost = msg.gas_cost;
+	pub async fn estimate_message_cost(
+		&self,
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128> {
+		let (connector, gateway) = self.gateway(src_network).await?;
+		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
+	}
+
+	#[allow(clippy::too_many_arguments)]
+	pub async fn send_message(
+		&self,
+		src_network: NetworkId,
+		src_addr: Address,
+		dest_network: NetworkId,
+		dest_addr: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
+		let connector = self.connector(src_network)?;
 		let id = self
 			.println(
 				None,
 				format!(
-					"send message to {} {} @{}gas",
+					"send message to {} {} with {} gas for {}",
 					dest_network,
-					self.format_address(Some(dest_network), dest)?,
-					gas_cost,
+					self.format_address(Some(dest_network), dest_addr)?,
+					gas_limit,
+					self.format_balance(Some(src_network), gas_cost)?,
 				),
 			)
 			.await?;
-		let msg_id = connector.send_message(msg).await?;
+		let msg_id = connector
+			.send_message(src_addr, dest_network, dest_addr, gas_limit, gas_cost, payload)
+			.await?;
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} to {} {} @{}gas",
+				"sent message {} to {} {} with {} gas for {}",
 				hex::encode(msg_id),
 				dest_network,
-				self.format_address(Some(dest_network), dest)?,
-				gas_cost,
+				self.format_address(Some(dest_network), dest_addr)?,
+				gas_limit,
+				self.format_balance(Some(src_network), gas_cost)?,
 			),
 		)
 		.await?;
@@ -1090,5 +1133,10 @@ impl Tc {
 	pub async fn log(&self, query: Query, since: String) -> Result<TableRef> {
 		let logs = loki::logs(query, since).await?;
 		self.print_table(None, "logs", logs).await
+	}
+
+	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
+		let connector = self.connector(network)?;
+		connector.debug_transaction(hash).await
 	}
 }

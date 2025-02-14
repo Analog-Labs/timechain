@@ -354,7 +354,7 @@ pub trait IChain: Send + Sync + 'static {
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address;
 	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self) -> Result<()>;
+	async fn faucet(&self, balance: u128) -> Result<()>;
 	/// Transfers an amount to an account.
 	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
 	/// Queries the account balance.
@@ -412,10 +412,32 @@ pub trait IConnectorAdmin: IConnector {
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()>;
 	/// Deploys a test contract.
 	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
+	/// Estimates the message gas limit.
+	async fn estimate_message_gas_limit(
+		&self,
+		contract: Address,
+		src_network: NetworkId,
+		src: Address,
+		payload: Vec<u8>,
+	) -> Result<u128>;
 	/// Estimates the message cost.
-	async fn estimate_message_cost(&self, gateway: Address, msg: &GmpMessage) -> Result<u128>;
+	async fn estimate_message_cost(
+		&self,
+		gateway: Address,
+		dest_network: NetworkId,
+		gas_limit: u128,
+		payload: Vec<u8>,
+	) -> Result<u128>;
 	/// Sends a message using the test contract and returns the message id.
-	async fn send_message(&self, msg: GmpMessage) -> Result<MessageId>;
+	async fn send_message(
+		&self,
+		src: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId>;
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
@@ -425,6 +447,10 @@ pub trait IConnectorAdmin: IConnector {
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
 	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()>;
+	/// Debug a transaction.
+	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
+		anyhow::bail!("debugging transactions is not supported on this backend");
+	}
 }
 
 #[cfg(feature = "std")]

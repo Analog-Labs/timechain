@@ -9,8 +9,8 @@ pub use subxt_signer::sr25519::Keypair;
 use crate::worker::TxData;
 use crate::{metadata, CommitteeEvent, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
 
-#[derive(Clone)]
-pub struct BlockDetail {
+#[derive(Clone, Copy, Debug, Default)]
+pub struct BlockId {
 	pub number: u64,
 	pub hash: H256,
 }
@@ -20,7 +20,7 @@ pub trait ITimechainClient {
 	type Submitter: ITransactionSubmitter + Send + Sync;
 	type Block: IBlock + Send + Sync;
 	type Update: Send + Sync;
-	async fn get_latest_block(&self) -> Result<BlockDetail>;
+	async fn get_latest_block(&self) -> Result<BlockId>;
 	fn sign_payload<Call>(&self, call: &Call, params: ExtrinsicParams) -> Vec<u8>
 	where
 		Call: Payload + Send + Sync;
@@ -96,9 +96,9 @@ impl ITimechainClient for TimechainOnlineClient {
 	type Block = TimechainBlock;
 	type Update = Update;
 
-	async fn get_latest_block(&self) -> Result<BlockDetail> {
+	async fn get_latest_block(&self) -> Result<BlockId> {
 		let block = self.client.blocks().at_latest().await?;
-		Ok(BlockDetail {
+		Ok(BlockId {
 			number: block.number().into(),
 			hash: block.hash(),
 		})
@@ -119,6 +119,7 @@ impl ITimechainClient for TimechainOnlineClient {
 		let tx = SubmittableExtrinsic::from_bytes(self.client.clone(), tx);
 		SignedTransaction { tx }
 	}
+
 	async fn finalized_block_stream(
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>

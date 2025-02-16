@@ -1,6 +1,6 @@
 use crate::metadata::{self, runtime_types, RuntimeCall};
 use crate::timechain_client::{
-	BlockDetail, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
+	BlockId, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
 };
 use crate::ExtrinsicParams;
 use anyhow::Result;
@@ -102,7 +102,7 @@ where
 	client: C,
 	keypair: Keypair,
 	nonce: u64,
-	latest_block: BlockDetail,
+	latest_block: BlockId,
 	pending_tx: VecDeque<TxStatus<C>>,
 	transaction_pool: TransactionsUnordered,
 	db: D,
@@ -328,8 +328,8 @@ where
 			loop {
 				futures::select! {
 					tx = rx.next().fuse() => {
-						let Some((command, channel)) = tx else { continue; };
-						tracing::info!("worker.rs tx added to pool");
+						let Some((command, channel)) = tx else { break; };
+						tracing::info!("tx added to pool");
 						self.add_tx_to_pool(command, Some(channel), None);
 					}
 					block_data = finalized_blocks.next() => {
@@ -341,13 +341,14 @@ where
 
 								for extrinsic in extrinsics.into_iter() {
 									let extrinsic_hash = extrinsic.hash();
+									let front = self.pending_tx.front().map(|tx| tx.data.hash);
+									tracing::info!("pending tx {front:?} finalized tx {extrinsic_hash}");
 									if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
 										let Some(tx) = self.pending_tx.pop_front() else {
 											continue;
 										};
-										if let Some(sender) = tx.event_sender {
-											sender.send(extrinsic).ok();
-										}
+										tx.event_sender.unwrap().send(extrinsic).ok();
+										tracing::info!("tx executed {}", extrinsic_hash);
 										if let Err(e) = self.db.remove_tx(tx.data.hash){
 											tracing::error!("Unable to remove tx from db {e}");
 										};
@@ -377,11 +378,11 @@ where
 					block_data = best_blocks.next() => {
 						match block_data {
 							Some(Ok((block, extrinsics))) => {
-								self.latest_block = BlockDetail {
+								self.latest_block = BlockId {
 									number: block.number(),
 									hash: block.hash()
 								};
-								tracing::info!("worker.rs best block stream hit: {}", self.latest_block.number);
+								tracing::info!("best block stream hit: {}", self.latest_block.number);
 
 								if self.pending_tx.is_empty() {
 									continue;
@@ -392,7 +393,7 @@ where
 									.collect();
 								for tx in self.pending_tx.iter_mut() {
 									if hashes.contains(&tx.data.hash) {
-										tracing::info!("worker.rs tx found in block {}", self.latest_block.number);
+										tracing::info!("tx found in block {}", self.latest_block.number);
 										tx.best_block = Some(self.latest_block.number);
 									}
 								}
@@ -400,7 +401,7 @@ where
 								let mut new_pending: VecDeque<TxStatus<C>> = VecDeque::new();
 								while let Some(tx) = self.pending_tx.pop_front() {
 									if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
-										tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
+										tracing::warn!("outdated tx found retrying with nonce {}", tx.data.nonce);
 										self.add_tx_to_pool(
 											tx.data.transaction,
 											tx.event_sender,
@@ -438,10 +439,10 @@ where
 						};
 						match result {
 							Ok(hash) => {
-								tracing::info!("Transaction completed: {:?}", hash);
+								tracing::info!("tx completed: {:?}", hash);
 							}
 							Err(e) => {
-								tracing::error!("Transaction failed {e}");
+								tracing::error!("tx failed {e}");
 							}
 						}
 					}

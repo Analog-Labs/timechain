@@ -171,6 +171,7 @@ runtime-benchmarks = [
 	"pallet-dmail/runtime-benchmarks",
 	"pallet-elections/runtime-benchmarks",
 	"pallet-governance/runtime-benchmarks",
+	"pallet-launch/runtime-benchmarks",
 	"pallet-members/runtime-benchmarks",
 	"pallet-networks/runtime-benchmarks",
 	"pallet-shards/runtime-benchmarks",

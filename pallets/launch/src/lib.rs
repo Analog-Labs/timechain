@@ -21,6 +21,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod benchmarks;
+
 mod airdrops;
 mod allocation;
 mod deposits;
@@ -45,14 +47,27 @@ pub mod pallet {
 	use super::*;
 	use allocation::Allocation;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::{Currency, ExistenceRequirement, StorageVersion, VestingSchedule};
+	use frame_support::traits::{
+		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
+	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
-	//use sp_runtime::traits::CheckedConversion;
+	use sp_runtime::TokenError;
 	use sp_std::{vec, vec::Vec};
 
+	pub trait WeightInfo {
+		fn set_bridged_issuance() -> Weight;
+	}
+
+	pub struct TestWeightInfo;
+	impl WeightInfo for TestWeightInfo {
+		fn set_bridged_issuance() -> Weight {
+			Weight::zero()
+		}
+	}
+
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 26;
+	pub const LAUNCH_VERSION: u16 = 29;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -111,6 +126,22 @@ pub mod pallet {
 		(25, Allocation::Initiatives, 362_318_840 * ANLOG, Stage::Retired),
 		// Launchday transfer 2
 		(26, Allocation::Ecosystem, 14_449_903_350 * MILLIANLOG, Stage::Retired),
+		// Bridged token allocation
+		(
+			27,
+			Allocation::Initiatives,
+			45_289_855 * ANLOG,
+			Stage::DepositFromUnlocked(data::v27::DEPOSIT_BRIDGED),
+		),
+		// Airdrop Snapshot 5
+		(
+			28,
+			Allocation::Airdrop,
+			1_097_142_834_936_105_265,
+			Stage::AirdropFromUnlocked(data::v28::AIRDROPS_SNAPSHOT_5),
+		),
+		// Airdrop Move 3
+		(29, Allocation::Airdrop, 0, Stage::AirdropTransfer(data::v29::AIRDROP_MOVE_3)),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -119,23 +150,28 @@ pub mod pallet {
 	/// stage_10 = 1_373_348 * ANLOG - 1_373_347_559_383_359_315
 	/// stage_12 = 105_317 * ANLOG - 105_316_962_722_110_899
 	/// stage_16 = 1_336_148 * ANLOG - 1_336_147_462_613_682_971
+	/// stage_28 = 1_097_144 * ANLOG - 1_097_142_834_936_105_265
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk::frame_system::Config + pallet_airdrop::Config {
+	pub trait Config:
+		polkadot_sdk::frame_system::Config + pallet_vesting::Config + pallet_airdrop::Config
+	{
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		/// Identifier to use for pallet-owned wallets
 		type PalletId: Get<PalletId>;
-		/// The vesting backend to use to enforce provided vesting schedules.
-		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
 		/// The minimum size a deposit has to have to be considered valid.
 		/// Set this to at least the minimum deposit to avoid errors
 		type MinimumDeposit: Get<BalanceOf<Self>>;
+		/// Allowed origin for authorized calls
+		type LaunchAdmin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Weight information of the pallet
+		type WeightInfo: WeightInfo;
 	}
 
 	/// All error are a result of the "compile" step and do not allow execution.
@@ -214,6 +250,32 @@ pub mod pallet {
 				},
 			}
 			Weight::zero()
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Update total amount of tokens that are locked in the [`Allocation::Bridged`]
+		/// account as preparation for miniting or as a result of burning wrapped
+		/// tokens on another chain.
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_bridged_issuance())]
+		pub fn set_bridged_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			T::LaunchAdmin::ensure_origin(origin)?;
+
+			let bridge_account = Allocation::Bridged.account_id::<T>();
+			ensure!(
+				CurrencyOf::<T>::total_balance(&bridge_account) >= amount,
+				TokenError::FundsUnavailable
+			);
+			CurrencyOf::<T>::set_lock(
+				*b"bridged0",
+				&bridge_account,
+				amount,
+				WithdrawReasons::all(),
+			);
+
+			Ok(())
 		}
 	}
 

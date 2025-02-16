@@ -3,6 +3,7 @@ use crate as pallet_launch;
 use polkadot_sdk::*;
 
 use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons, PalletId};
+use frame_system::EnsureRoot;
 use sp_core::ConstU128;
 use sp_runtime::{
 	traits::{ConvertInto, IdentityLookup},
@@ -77,9 +78,10 @@ impl pallet_airdrop::Config for Test {
 impl pallet_launch::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = LaunchId;
-	type VestingSchedule = Vesting;
 	// Use mainnet existential deposit to ensure appropriate testing
 	type MinimumDeposit = ConstU128<ANLOG>;
+	type LaunchAdmin = EnsureRoot<AccountId>;
+	type WeightInfo = crate::TestWeightInfo;
 }
 
 // Build genesis storage according to the mock runtime.

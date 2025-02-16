@@ -71,8 +71,6 @@ async fn test_transaction_mortality_outage_flow() {
 }
 
 #[tokio::test]
-#[ignore]
-// not working tbf
 async fn test_transaction_mortality_outage_flow_25() {
 	let total_tasks: usize = 25;
 	let env = new_env().await;
@@ -114,7 +112,7 @@ async fn test_tc_subxt_db_ops() {
 	env.client.inc_block_with_tx(hashes[0], true).await;
 	let _ = rx.await.unwrap();
 	let txs = env.db.load_pending_txs(0).unwrap();
-	assert!(txs.len() == 0);
+	assert!(txs.is_empty());
 }
 
 // Add test to check stream in case of errors.
@@ -148,9 +146,9 @@ async fn test_finalized_stream_error_and_recovery() {
 	assert_eq!(hashes[1], tx.hash);
 }
 
-/////////////////////////////////////////////
-/// Utils
-////////////////////////////////////////////
+// ///////////////////////////////////////////
+// Utils
+// //////////////////////////////////////////
 async fn wait_for_submission(client: &MockClient, len: usize) -> Vec<H256> {
 	loop {
 		{
@@ -170,9 +168,9 @@ fn get_keypair() -> Keypair {
 	Keypair::from_uri(&uri).unwrap()
 }
 
-/////////////////////////////////////////////
-/// ENV setup
-////////////////////////////////////////////
+// ///////////////////////////////////////////
+// ENV setup
+// //////////////////////////////////////////
 
 struct TestingEnv {
 	client: MockClient,

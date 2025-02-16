@@ -387,7 +387,9 @@ where
 									continue;
 								}
 
-								let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
+								let hashes: HashSet<_> = extrinsics.iter()
+									.map(|extrinsic| extrinsic.hash())
+									.collect();
 								for tx in self.pending_tx.iter_mut() {
 									if hashes.contains(&tx.data.hash) {
 										tracing::info!("worker.rs tx found in block {}", self.latest_block.number);
@@ -399,7 +401,11 @@ where
 								while let Some(tx) = self.pending_tx.pop_front() {
 									if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
 										tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
-										self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
+										self.add_tx_to_pool(
+											tx.data.transaction,
+											tx.event_sender,
+											Some(tx.data.nonce),
+										);
 									} else {
 										new_pending.push_back(tx);
 									}

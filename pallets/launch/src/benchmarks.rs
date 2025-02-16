@@ -1,5 +1,5 @@
 #![cfg(feature = "runtime-benchmarks")]
-use crate::{allocation::Allocation, BalanceOf, CurrencyOf, Call, Config, Pallet};
+use crate::{allocation::Allocation, BalanceOf, Call, Config, CurrencyOf, Pallet};
 
 //use super::mock_helpers::*;
 use polkadot_sdk::*;

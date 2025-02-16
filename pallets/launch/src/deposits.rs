@@ -124,10 +124,8 @@ where
 				// (Checking if the target is able to receive a vested transfer is one read)
 				weight += T::DbWeight::get().reads(1);
 
-				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(
-					target, vs.0, vs.1, vs.2,
-				)
-				.is_err()
+				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(target, vs.0, vs.1, vs.2)
+					.is_err()
 				{
 					Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
 						target: target.clone(),
@@ -203,10 +201,8 @@ where
 
 			// Compute relative vesting schedule
 			if let Some(vs) = source.schedule_rel::<T>(*amount) {
-				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(
-					target, vs.0, vs.1, vs.2,
-				)
-				.is_err()
+				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(target, vs.0, vs.1, vs.2)
+					.is_err()
 				{
 					Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
 						target: target.clone(),

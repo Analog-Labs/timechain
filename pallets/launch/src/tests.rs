@@ -1,9 +1,7 @@
 use crate::allocation::Allocation;
 use crate::deposits::{BalanceOf, CurrencyOf};
 use crate::mock::*;
-use crate::{
-	ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION,
-};
+use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION};
 
 use polkadot_sdk::*;
 

@@ -15,6 +15,7 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 	[pallet_grandpa, Grandpa]
 	[pallet_im_online, ImOnline]
+	[pallet_launch, Launch]
 	[pallet_membership, TechnicalMembership]
 	[pallet_multisig, Multisig]
 	[pallet_nomination_pools, NominationPoolsBench::<Runtime>]

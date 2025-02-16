@@ -91,5 +91,5 @@ impl pallet_launch::Config for Runtime {
 	type PalletId = LaunchId;
 	type MinimumDeposit = ExistentialDeposit;
 	type LaunchAdmin = EnsureRootOrHalfTechnical;
-	type WeightInfo = pallet_launch::TestWeightInfo;
+	type WeightInfo = weights::pallet_launch::WeightInfo<Runtime>;
 }

@@ -2,7 +2,7 @@
 use clap::Parser;
 use polkadot_sdk::generate_bags::generate_thresholds;
 use std::path::PathBuf;
-use time_primitives::TOTAL_ISSUANCE;
+use time_primitives::TARGET_ISSUANCE;
 use timechain_runtime::{ExistentialDeposit, Runtime};
 
 #[derive(Parser)]
@@ -18,5 +18,5 @@ struct Opt {
 
 fn main() -> Result<(), std::io::Error> {
 	let Opt { n_bags, output } = Opt::parse();
-	generate_thresholds::<Runtime>(n_bags, &output, TOTAL_ISSUANCE, ExistentialDeposit::get())
+	generate_thresholds::<Runtime>(n_bags, &output, TARGET_ISSUANCE, ExistentialDeposit::get())
 }

@@ -21,6 +21,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod benchmarks;
+
 mod airdrops;
 mod allocation;
 mod deposits;

@@ -21,7 +21,7 @@ solc = '0.8.28'
 # - https://ethereumclassic.org/knowledge/history
 evm_version = 'shanghai'
 optimizer = true
-optimizer_runs = 200000
+optimizer_runs = 500000
 
 ###############
 # EVM options #

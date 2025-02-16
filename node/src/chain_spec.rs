@@ -11,9 +11,12 @@ use sp_authority_discovery::AuthorityId as DiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
+
 use sp_keyring::{AccountKeyring, Ed25519Keyring};
 
-use time_primitives::{AccountId, Balance, Block, BlockNumber, ANLOG, SS58_PREFIX, TOKEN_DECIMALS};
+use time_primitives::{
+	AccountId, Balance, Block, BlockNumber, ANLOG, SS58_ADDRESS_PREFIX, TOKEN_DECIMALS,
+};
 use timechain_runtime::{RUNTIME_VARIANT, WASM_BINARY};
 
 /// Stash and float for validators
@@ -146,7 +149,7 @@ impl GenesisKeysConfig {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("tokenSymbol".into(), token_symbol.into());
 		properties.insert("tokenDecimals".into(), TOKEN_DECIMALS.into());
-		properties.insert("ss58Format".into(), SS58_PREFIX.into());
+		properties.insert("ss58Format".into(), SS58_ADDRESS_PREFIX.into());
 
 		// Add default telemetry for all deployed networks
 		let telemetry = if chain_type != ChainType::Local {

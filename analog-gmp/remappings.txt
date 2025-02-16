@@ -1,8 +1,0 @@
-forge-std/=lib/forge-std/src/
-@frost-evm/=lib/frost-evm/sol/
-@solmate/=lib/solmate/src/
-ds-test/=lib/solmate/lib/ds-test/src/
-@universal-factory/=lib/universal-factory/src/
-@evm-interpreter/=lib/evm-interpreter/src/
-@analog-gmp/=src/
-@analog-gmp-testing/=test/

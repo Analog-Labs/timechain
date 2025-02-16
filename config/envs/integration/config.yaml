@@ -1,5 +1,5 @@
 config:
-  chronicle_timechain_funds: 10.
+  chronicle_funds: 10.
   timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
 contracts:
@@ -15,36 +15,86 @@ networks:
     network: "sepolia"
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_funds: .1
     batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 18000000
     gmp_margin: 0.0
-    shard_task_limit: 50
+    shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    shard_size: 3
-    shard_threshold: 2
+    shard_size: 6
+    shard_threshold: 4
   11:
     backend: "evm"
     blockchain: "astar"
     network: "shibuya"
     url: "wss://rpc.shibuya.astar.network"
     gateway_funds: 1.
+    chronicle_funds: .1
+    batch_size: 256
+    batch_offset: 0
+    batch_gas_limit: 30000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 6
+    shard_threshold: 4
+  12:
+    backend: "evm"
+    blockchain: "binance"
+    network: "testnet"
+    url: "wss://bsc-testnet-rpc.publicnode.com"
+    gateway_funds: 1.
     chronicle_target_funds: .1
     batch_size: 256
     batch_offset: 0
-    batch_gas_limit: 10000
+    batch_gas_limit: 50000000
     gmp_margin: 0.0
-    shard_task_limit: 50
+    shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    shard_size: 3
-    shard_threshold: 2
+    shard_size: 6
+    shard_threshold: 4
+  13:
+    backend: "evm"
+    blockchain: "arbitrum"
+    network: "sepolia"
+    url: "wss://arbitrum-sepolia-rpc.publicnode.com"
+    gateway_funds: 1.
+    chronicle_target_funds: .1
+    batch_size: 512
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 6
+    shard_threshold: 4
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-2.integration.analog.one
 - https://chronicle-3.integration.analog.one
+- https://chronicle-4.integration.analog.one
+- https://chronicle-5.integration.analog.one
+- https://chronicle-6.integration.analog.one
 - https://chronicle-7.integration.analog.one
 - https://chronicle-8.integration.analog.one
 - https://chronicle-9.integration.analog.one
+- https://chronicle-10.integration.analog.one
+- https://chronicle-11.integration.analog.one
+- https://chronicle-12.integration.analog.one
+- https://chronicle-13.integration.analog.one
+- https://chronicle-14.integration.analog.one
+- https://chronicle-15.integration.analog.one
+- https://chronicle-16.integration.analog.one
+- https://chronicle-17.integration.analog.one
+- https://chronicle-18.integration.analog.one
+- https://chronicle-19.integration.analog.one
+- https://chronicle-20.integration.analog.one
+- https://chronicle-21.integration.analog.one
+- https://chronicle-22.integration.analog.one
+- https://chronicle-23.integration.analog.one
+- https://chronicle-24.integration.analog.one

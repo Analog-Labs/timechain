@@ -4,7 +4,9 @@
 use anyhow::Result;
 use polkadot_sdk::{sp_api, sp_core, sp_runtime};
 use scale_info::prelude::{string::String, vec::Vec};
-use sp_core::crypto::Ss58Codec;
+use sp_core::crypto::{
+	from_known_address_format, set_default_ss58_version, Ss58AddressFormatRegistry, Ss58Codec,
+};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Get, IdentifyAccount, Verify},
@@ -85,19 +87,30 @@ pub type PublicKey = MultiSigner;
 
 /// Official timechain SS58 prefix (`an`)
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
-pub const SS58_PREFIX: u16 = 12850;
+pub const SS58_ADDRESS_FORMAT: Ss58AddressFormatRegistry =
+	Ss58AddressFormatRegistry::AnalogTimechainAccount;
 
 /// Unofficial testnet SS58 prefix (`at`)
 #[cfg(all(feature = "testnet", not(feature = "develop")))]
-pub const SS58_PREFIX: u16 = 12851;
+pub const SS58_ADDRESS_FORMAT: Ss58AddressFormatRegistry =
+	Ss58AddressFormatRegistry::AnalogTestnetAccount;
 
 /// Unofficial develop SS58 prefix (`az`)
 #[cfg(feature = "develop")]
-pub const SS58_PREFIX: u16 = 42;
+pub const SS58_ADDRESS_FORMAT: Ss58AddressFormatRegistry =
+	Ss58AddressFormatRegistry::AnalogDevelopAccount;
+
+/// Export const primitive of raw prefifx
+pub const SS58_ADDRESS_PREFIX: u16 = from_known_address_format(SS58_ADDRESS_FORMAT);
+
+/// Helper to set default ss58 format
+pub fn init_ss58_version() {
+	set_default_ss58_version(SS58_ADDRESS_FORMAT.into())
+}
 
 /// Helper to format address with correct prefix
 pub fn format_address(account: &AccountId) -> String {
-	account.to_ss58check_with_version(sp_core::crypto::Ss58AddressFormat::custom(SS58_PREFIX))
+	account.to_ss58check_with_version(SS58_ADDRESS_FORMAT.into())
 }
 
 uint::construct_uint! {
@@ -199,6 +212,7 @@ mod tests {
 			"5DiPYChakvifNd4oC9s5ezGYn2WebiVdf8cUXRcG1XF9Jcfm",
 			"an7DqmJUeV3tjLf1NH7LRi4hu2YBftLs9K6LrAbf9UEvR8ePm",
 			"atVc4Jo8T5fsFLQu4FBdwsjj6PbLVQ5ATPHoFYLpR6xyd9N1V",
+			"azszGrHnFgHqmLAnkDFwU3QkHkeVJuoTmTVFev5ygjh2q9wqM",
 		];
 		for addr in addrs {
 			let account = AccountId::from_string(addr).unwrap();

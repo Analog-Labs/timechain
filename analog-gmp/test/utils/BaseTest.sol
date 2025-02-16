@@ -3,9 +3,9 @@
 
 pragma solidity >=0.8.0;
 
-import {IUniversalFactory} from "@universal-factory/IUniversalFactory.sol";
-import {FactoryUtils} from "@universal-factory/FactoryUtils.sol";
-import {Interpreter} from "@evm-interpreter/Interpreter.sol";
+import {IUniversalFactory} from "../../lib/universal-factory/src/IUniversalFactory.sol";
+import {FactoryUtils} from "../../lib/universal-factory/src/FactoryUtils.sol";
+import {Interpreter} from "../../lib/evm-interpreter/src/Interpreter.sol";
 import {Test, console, Vm} from "forge-std/Test.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 

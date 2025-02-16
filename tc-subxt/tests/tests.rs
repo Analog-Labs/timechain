@@ -32,7 +32,7 @@ async fn test_transaction_flow_with_error() -> Result<()> {
 	env.make_block().await;
 	let tx = rx.await?;
 	assert_eq!(tx.nonce, 0);
-	assert_eq!(tx.success, false);
+	assert!(!tx.success);
 	Ok(())
 }
 

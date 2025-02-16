@@ -342,13 +342,11 @@ where
 								for extrinsic in extrinsics.into_iter() {
 									let extrinsic_hash = extrinsic.hash();
 									let front = self.pending_tx.front().map(|tx| tx.data.hash);
-									tracing::info!("pending tx {front:?} finalized tx {extrinsic_hash}");
-									if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
+									if Some(extrinsic_hash) == front {
 										let Some(tx) = self.pending_tx.pop_front() else {
 											continue;
 										};
 										tx.event_sender.unwrap().send(extrinsic).ok();
-										tracing::info!("tx executed {}", extrinsic_hash);
 										if let Err(e) = self.db.remove_tx(tx.data.hash){
 											tracing::error!("Unable to remove tx from db {e}");
 										};

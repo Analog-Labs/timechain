@@ -123,7 +123,7 @@ impl ITimechainClient for MockClient {
 	type Block = MockBlock;
 	type Update = ();
 	async fn get_latest_block(&self) -> Result<BlockId> {
-		Ok(self.best_block.lock().await.clone())
+		Ok(*self.best_block.lock().await)
 	}
 
 	fn sign_payload<Call>(&self, _call: &Call, params: ExtrinsicParams) -> Vec<u8>

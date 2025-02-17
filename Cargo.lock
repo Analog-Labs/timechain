@@ -4006,6 +4006,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "feeef44e73baff3a26d371801df019877a9866a8c493d315ab00177843314f35"
 
 [[package]]
+name = "e2e-tests"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "tc-cli",
+ "tokio",
+]
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

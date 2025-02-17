@@ -7,7 +7,7 @@ pub struct TestEnv {
 	tc: Tc,
 }
 
-const CONFIG: &str = "local-evm.yaml";
+const CONFIG: &str = "local-evm-e2e.yaml";
 const ENV: &str = "../config/envs/local";
 
 impl TestEnv {
@@ -53,7 +53,7 @@ fn build_containers() -> Result<bool> {
 fn docker_up() -> Result<bool> {
 	let mut cmd = process::Command::new("docker");
 
-	cmd.arg("compose").arg("--profile=ethereum").arg("up").arg("--wait");
+	cmd.arg("compose").arg("--profile=evm").arg("up").arg("-d").arg("--wait");
 
 	let mut child = cmd.spawn().context("Error starting containers")?;
 
@@ -64,7 +64,7 @@ fn docker_up() -> Result<bool> {
 fn docker_down() -> Result<bool> {
 	let mut cmd = process::Command::new("docker");
 
-	cmd.arg("compose").arg("--profile=ethereum").arg("down");
+	cmd.arg("compose").arg("--profile=evm").arg("down");
 
 	let mut child = cmd.spawn().context("Error stopping containers")?;
 

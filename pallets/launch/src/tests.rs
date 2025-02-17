@@ -1,9 +1,7 @@
 use crate::allocation::Allocation;
 use crate::deposits::{BalanceOf, CurrencyOf};
 use crate::mock::*;
-use crate::{
-	ledger::LaunchLedger, Config, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION,
-};
+use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, STORAGE_VERSION};
 
 use polkadot_sdk::*;
 
@@ -20,11 +18,14 @@ const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 /// The number of expected migrations to run and test
 const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;
 
+/// The number of expected airdrop transfers (will fail in tests)
+const NUM_AIRDROP_TRANSFER: usize = 212;
+
 fn mint_virtual(source: Allocation, amount: BalanceOf<Test>) {
 	let account = source.account_id::<Test>();
 	let _ = CurrencyOf::<Test>::deposit_creating(&account, amount);
 	if let Some(vs) = source.schedule::<Test>() {
-		<Test as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
+		pallet_vesting::Pallet::<Test>::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
 			.expect("No other vesting schedule exists; qed");
 	}
 }
@@ -67,10 +68,12 @@ fn launch_ledger_validation() {
 		for event in events.iter() {
 			println!("{event:?}");
 		}
-
-		assert_eq!(events.len(), NUM_MIGRATIONS as usize);
+		assert_eq!(events.len(), NUM_AIRDROP_TRANSFER + NUM_MIGRATIONS as usize);
 		for event in events.iter() {
-			assert!(matches!(event, Event::StageExecuted { version: _, hash: _ }));
+			if !matches!(event, Event::StageExecuted { version: _, hash: _ }) {
+				// Airdrop transfer generally fail in testing
+				assert!(matches!(event, Event::AirdropTransferMissing { from: _ }));
+			}
 		}
 
 		// TODO: Check weight

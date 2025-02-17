@@ -30,6 +30,7 @@ pub enum Allocation {
 	Airdrop,
 	Initiatives,
 	Ecosystem,
+	Bridged,
 	#[allow(clippy::upper_case_acronyms)]
 	SIZE,
 }
@@ -56,6 +57,7 @@ impl Allocation {
 			i if i == Airdrop as usize => Airdrop,
 			i if i == Initiatives as usize => Initiatives,
 			i if i == Ecosystem as usize => Ecosystem,
+			i if i == Bridged as usize => Bridged,
 			_ => Ignore,
 		}
 	}
@@ -83,6 +85,7 @@ impl Allocation {
 			Airdrop => b"airdrop",
 			Initiatives => b"initiatives",
 			Ecosystem => b"ecosystem",
+			Bridged => b"bridged-erc20",
 		}
 	}
 
@@ -108,6 +111,7 @@ impl Allocation {
 			Airdrop => 452_898_550_000 * mANLOG,
 			Initiatives => 1_811_594_200_000 * mANLOG,
 			Ecosystem => 1_359_106_343_190 * mANLOG,
+			Bridged => 0,
 		}
 	}
 
@@ -128,6 +132,7 @@ impl Allocation {
 			Airdrop => None,
 			Initiatives => Some((1_086_956_520_000 * mANLOG, 68_745 * mANLOG, 633_270)),
 			Ecosystem => Some((679_553_171_595 * mANLOG, 32_234 * mANLOG, 633_270)),
+			Bridged => None,
 		}
 	}
 
@@ -163,7 +168,7 @@ impl Allocation {
 		let account = self.account_id::<T>();
 
 		// Remove existing schedule
-		if <T as Config>::VestingSchedule::remove_vesting_schedule(&account, 0).is_err() {
+		if pallet_vesting::Pallet::<T>::remove_vesting_schedule(&account, 0).is_err() {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
 				source: self.sub_id().to_vec(),
 			});
@@ -172,7 +177,7 @@ impl Allocation {
 
 		// Ensure the remaining tokens are locked again
 		if let Some(vs) = self.schedule_rel::<T>(locked) {
-			<T as Config>::VestingSchedule::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
+			pallet_vesting::Pallet::<T>::add_vesting_schedule(&account, vs.0, vs.1, vs.2)
 				.expect("Previous vesting schedule war removed; qed");
 		} else {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {

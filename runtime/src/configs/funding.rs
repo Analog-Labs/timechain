@@ -22,6 +22,8 @@ use sp_runtime::{traits::IdentityLookup, Percent, Permill};
 use time_primitives::BlockNumber;
 
 // Local module imports
+#[cfg(not(feature = "testnet"))]
+use crate::EnsureRootOrHalfTechnical;
 #[cfg(feature = "testnet")]
 use crate::{deposit, AccountId, Balance, Balances, TechnicalCollective, Treasury, ANLOG, DAYS};
 use crate::{main_or_test, weights, ExistentialDeposit, Runtime, RuntimeEvent, Vesting};
@@ -87,6 +89,7 @@ impl pallet_airdrop::Config for Runtime {
 impl pallet_launch::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = LaunchId;
-	type VestingSchedule = Vesting;
 	type MinimumDeposit = ExistentialDeposit;
+	type LaunchAdmin = EnsureRootOrHalfTechnical;
+	type WeightInfo = weights::pallet_launch::WeightInfo<Runtime>;
 }

@@ -36,7 +36,7 @@ schnorr-evm = { version = "0.1.0" }
 sha3 = { version = "0.10" }
 tide = { version = "0.16.0", default-features = false, features = ["h1-server"] }
 tracing-panic = "0.1.1"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dev-dependencies]
 ed25519-dalek = "2.1.1"

@@ -60,6 +60,7 @@ serde_json = { version = "1.0.117", default-features = false }
 simple-mermaid = "0.1"
 tokio = "1.38.0"
 tracing = "0.1.40"
+tracing-subscriber = "0.3.19"
 
 # substrate support libs
 scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [ "derive" ] }

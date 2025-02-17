@@ -13,7 +13,7 @@ use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_
 use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, BatchId, Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, PublicKey,
+	AccountId, Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, PublicKey,
 	ShardStatus, ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey,
 	TssSignature,
 };
@@ -164,7 +164,7 @@ benchmarks! {
 			"New task not created"
 		);
 		assert!(
-			!FailedBatchIds::<T>::contains_key(&batch_id),
+			!FailedBatchIds::<T>::contains_key(batch_id),
 			"Batch not removed from failed list"
 		);
 	}

@@ -14,7 +14,8 @@ const DEST: NetworkId = 3;
 async fn smoke() {
 	let filter = EnvFilter::from_default_env()
 		.add_directive("tc_cli=info".parse().unwrap())
-		.add_directive("gmp_evm=info".parse().unwrap());
+		.add_directive("gmp_evm=info".parse().unwrap())
+		.add_directive("smoke_test=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 
 	let env = TestEnv::spawn().await.expect("Failed to spawn Test Environment");
@@ -40,7 +41,7 @@ async fn smoke() {
 		let (_, end) = blocks.next().await.expect("expected block");
 		let trace = tc.message_trace(SRC, msg_id).await.unwrap();
 		let exec = trace.exec.as_ref().map(|t| t.task);
-		tracing::info!("waiting for message {}", hex::encode(msg_id));
+		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
 		id = Some(tc.print_table(id, "message", vec![trace]).await.unwrap());
 		if let Some(exec) = exec {
 			break (exec, end);

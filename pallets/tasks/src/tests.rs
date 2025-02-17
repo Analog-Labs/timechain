@@ -1,4 +1,4 @@
-use crate::{mock::*, BatchTaskId, Event};
+use crate::{mock::*, BatchTaskId, Event, FailedBatchIds};
 use crate::{BatchIdCounter, BatchTxHash, ShardRegistered};
 
 use frame_support::assert_ok;
@@ -418,12 +418,12 @@ fn test_restart_failed_batch() {
 		roll(1);
 		let submitter = Tasks::get_task_submitter(initial_task_id).unwrap();
 		submit_submission_error(submitter, initial_task_id, "batch failed");
-		assert!(Tasks::get_failed_tasks().contains(&batch_id));
+		assert!(FailedBatchIds::<Test>::contains_key(&batch_id));
 		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
 		let new_task_id = 3;
 		assert_eq!(Tasks::get_task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		assert_eq!(BatchTaskId::<Test>::get(batch_id), Some(new_task_id));
-		assert!(!Tasks::get_failed_tasks().contains(&batch_id));
+		assert!(!FailedBatchIds::<Test>::contains_key(&batch_id));
 		assert!(Tasks::get_task_result(initial_task_id).is_some());
 		let event = System::events().into_iter().find_map(|r| {
 			if let RuntimeEvent::Tasks(Event::BatchRestarted(old, new)) = r.event {

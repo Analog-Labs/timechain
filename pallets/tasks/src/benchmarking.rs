@@ -144,34 +144,29 @@ benchmarks! {
 	}: _(RawOrigin::Root, task_id) verify { }
 
 
+
 	restart_batch {
-		let l in 1..1000;
 		create_shard::<T>(ETHEREUM);
 		let network = ETHEREUM;
-		let failed_batches: Vec<BatchId> = (0..l).map(|l| l as BatchId).collect();
-		let target_batch_id: u64 = (l - 1).into();
-
-		for batch_id in &failed_batches {
-			let task_id = Pallet::<T>::create_task(
-				network,
-				Task::SubmitGatewayMessage { batch_id: *batch_id }
-			);
-			BatchTaskId::<T>::insert(batch_id, task_id);
-			TaskNetwork::<T>::insert(task_id, network);
-		}
-
-		FailedBatchIds::<T>::put(failed_batches.clone());
-	}: _(RawOrigin::Root, target_batch_id) verify {
-		let new_task_id = TaskIdCounter::<T>::get();
+		let batch_id = BatchIdCounter::<T>::get();
+		let initial_task_id = Pallet::<T>::create_task(
+			network,
+			Task::SubmitGatewayMessage { batch_id }
+		);
+		FailedBatchIds::<T>::insert(batch_id, ());
+		BatchTaskId::<T>::insert(batch_id, initial_task_id);
+		TaskNetwork::<T>::insert(initial_task_id, network);
+	}: _(RawOrigin::Root, batch_id) verify {
+		let new_task_id = initial_task_id + 1;
 		assert_eq!(
-			BatchTaskId::<T>::get(target_batch_id),
+			BatchTaskId::<T>::get(batch_id),
 			Some(new_task_id),
 			"New task not created"
 		);
 		assert!(
-			!FailedBatchIds::<T>::get().contains(&target_batch_id),
+			!FailedBatchIds::<T>::contains_key(&batch_id),
 			"Batch not removed from failed list"
 		);
-	   }
+	}
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

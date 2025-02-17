@@ -83,7 +83,7 @@ pub mod pallet {
 		fn sync_network() -> Weight;
 		fn stop_network() -> Weight;
 		fn remove_task() -> Weight;
-		fn restart_batch(n: u32) -> Weight;
+		fn restart_batch() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -108,7 +108,7 @@ pub mod pallet {
 		fn remove_task() -> Weight {
 			Weight::default()
 		}
-		fn restart_batch(_n: u32) -> Weight {
+		fn restart_batch() -> Weight {
 			Weight::default()
 		}
 	}
@@ -267,7 +267,7 @@ pub mod pallet {
 
 	/// List of failed batches.
 	#[pallet::storage]
-	pub type FailedBatchIds<T: Config> = StorageValue<_, Vec<BatchId>, ValueQuery>;
+	pub type FailedBatchIds<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
 
 	/// TxHash of the batch executed.
 	///
@@ -382,7 +382,7 @@ pub mod pallet {
 					let expected_signer =
 						TaskSubmitter::<T>::get(task_id).map(|s| s.into_account());
 					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
-					FailedBatchIds::<T>::mutate(|ids| ids.push(batch_id));
+					FailedBatchIds::<T>::insert(batch_id, ());
 					Err(error)
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
@@ -451,18 +451,14 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(14)]
-		#[pallet::weight(<T as Config>::WeightInfo::restart_batch(FailedBatchIds::<T>::decode_len().unwrap_or(0) as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::restart_batch())]
 		pub fn restart_batch(origin: OriginFor<T>, batch_id: BatchId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			let old_task_id = BatchTaskId::<T>::get(batch_id).ok_or(Error::<T>::InvalidBatchId)?;
 			let network = TaskNetwork::<T>::get(old_task_id).ok_or(Error::<T>::UnknownTask)?;
 			let new_task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			BatchTaskId::<T>::insert(batch_id, new_task_id);
-			FailedBatchIds::<T>::mutate(|ids| {
-				if let Some(pos) = ids.iter().position(|&id| id == batch_id) {
-					ids.swap_remove(pos);
-				}
-			});
+			FailedBatchIds::<T>::remove(batch_id);
 			Self::deposit_event(Event::BatchRestarted(old_task_id, new_task_id));
 			Ok(())
 		}
@@ -800,7 +796,7 @@ pub mod pallet {
 
 		/// Get all failed batch IDs
 		pub fn get_failed_tasks() -> Vec<BatchId> {
-			FailedBatchIds::<T>::get()
+			FailedBatchIds::<T>::iter_keys().collect()
 		}
 	}
 

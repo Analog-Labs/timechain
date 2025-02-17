@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use std::process;
 use tc_cli::{Sender, Tc};
-use time_primitives::{NetworkId, Address};
+use time_primitives::{Address, NetworkId};
 
 pub struct TestEnv {
 	pub tc: Tc,

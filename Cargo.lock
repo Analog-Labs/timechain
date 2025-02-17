@@ -4010,9 +4010,13 @@ name = "e2e-tests"
 version = "0.8.0"
 dependencies = [
  "anyhow",
+ "futures",
+ "hex",
  "tc-cli",
  "time-primitives",
  "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]

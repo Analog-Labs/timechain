@@ -2,9 +2,10 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use std::process;
 use tc_cli::{Sender, Tc};
+use time_primitives::{NetworkId, Address};
 
 pub struct TestEnv {
-	tc: Tc,
+	pub tc: Tc,
 }
 
 const CONFIG: &str = "local-evm-e2e.yaml";
@@ -19,6 +20,7 @@ impl TestEnv {
 		Ok(TestEnv { tc })
 	}
 
+	/// spawns new testing env
 	pub async fn spawn() -> Result<Self> {
 		// if !build_containers()? {
 		//	anyhow::bail!("Failed to build containers");
@@ -28,6 +30,11 @@ impl TestEnv {
 			anyhow::bail!("Failed to start containers");
 		}
 		Self::new().await
+	}
+
+	/// sets up test
+	pub async fn setup(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
+		self.tc.setup_test(src, dest).await
 	}
 }
 

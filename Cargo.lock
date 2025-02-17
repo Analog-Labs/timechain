@@ -4011,6 +4011,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "tc-cli",
+ "time-primitives",
  "tokio",
 ]
 

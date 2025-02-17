@@ -12,3 +12,4 @@ repository.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 anyhow.workspace = true
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }
+time-primitives = { workspace = true, features = ["testnet", "develop"] }

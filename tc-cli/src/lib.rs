@@ -671,6 +671,24 @@ impl Tc {
 			exec,
 		})
 	}
+
+	pub async fn set_tc_route(&self, src: NetworkId, src_gateway: Gateway) -> Result<()> {
+		let connector = self.connector(src)?;
+		let route = Route {
+			network_id: 1000,
+			// note: TC does not have GW,
+			// but GMP GW does not accept 0x here,
+			// hence we set it to src_gateway as well.
+			gateway: src_gateway,
+			// TODO ??explain
+			relative_gas_price: (1, 1),
+			// TODO ??explain
+			gas_limit: 15_000_000,
+			base_fee: Default::default(),
+		};
+		self.println(None, format!("set_tc_route {:?}", &route)).await?;
+		connector.set_route(src_gateway, route).await
+	}
 }
 
 impl Tc {

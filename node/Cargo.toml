@@ -122,6 +122,7 @@ clap_complete = "4.5"
 polkadot-sdk = { workspace = true, features = [
 	"substrate-build-script-utils",
 	"frame-benchmarking-cli",
+	"frame-support",
 	"sc-cli",
 	"sc-storage-monitor",
 	"staging-node-inspect",

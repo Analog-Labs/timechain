@@ -190,6 +190,10 @@ enum Command {
 	ForceShardOffline {
 		shard_id: ShardId,
 	},
+	SetTcRoute {
+		src_network: NetworkId,
+		src_gateway: String,
+	},
 	DebugTransaction {
 		network: NetworkId,
 		hash: String,
@@ -510,6 +514,10 @@ async fn real_main() -> Result<()> {
 		Command::WithdrawFunds { network, amount, address } => {
 			let address = tc.parse_address(Some(network), &address)?;
 			tc.withdraw_funds(network, amount, address).await?;
+		},
+		Command::SetTcRoute { src_network, src_gateway } => {
+			let src_gateway = tc.parse_address(Some(src_network), &src_gateway)?;
+			tc.set_tc_route(src_network, src_gateway).await?;
 		},
 		Command::DebugTransaction { network, hash } => {
 			let hash = hash.strip_prefix("0x").unwrap_or(&hash);

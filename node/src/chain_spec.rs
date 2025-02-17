@@ -1,7 +1,9 @@
 use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
 
+use frame_support::PalletId;
 use polkadot_sdk::*;
+use polkadot_sdk::sp_runtime::traits::AccountIdConversion;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{json_merge, ChainSpecExtension};
@@ -32,6 +34,9 @@ const PER_COUNCIL_STASH: Balance = ANLOG * 100_000;
 /// Default telemetry server for all networks
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
+
+const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
+const ED: Balance = 1 * ANLOG;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -72,7 +77,7 @@ pub struct GenesisKeysConfig {
 }
 
 impl Default for GenesisKeysConfig {
-	/// Default configuration using know development keys
+	/// Default configuration using known development keys
 	fn default() -> Self {
 		use AccountKeyring::*;
 
@@ -85,7 +90,7 @@ impl Default for GenesisKeysConfig {
 				Alice.to_raw_public().unchecked_into(),
 			)],
 			chronicles: vec![],
-			endowments: vec![],
+			endowments: vec![(BRIDGE_PALLET_ID.into_account_truncating(), ED)],
 			stakes: vec![Alice.into(), Bob.into(), Charlie.into(), Dave.into()],
 		}
 	}
@@ -227,6 +232,7 @@ impl GenesisKeysConfig {
 			})
 			.collect::<Vec<_>>();
 
+		let root_account = self.admins.first().cloned().unwrap();
 		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
@@ -256,6 +262,9 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
+			"sudo": {
+				"key": root_account,
+			}
 		});
 
 		if cfg!(feature = "testnet") {

@@ -13,3 +13,6 @@
 [submodule "analog-gmp/lib/evm-interpreter"]
 	path = analog-gmp/lib/evm-interpreter
 	url = https://github.com/Analog-Labs/evm-interpreter
+[submodule "analog-gmp"]
+	path = analog-gmp
+	url = git@github.com:Analog-Labs/analog-gmp.git

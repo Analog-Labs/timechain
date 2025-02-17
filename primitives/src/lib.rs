@@ -108,6 +108,8 @@ pub fn init_ss58_version() {
 	set_default_ss58_version(SS58_ADDRESS_FORMAT.into())
 }
 
+pub const DEFAULT_TC_NETWORK_ID: NetworkId = 1000;
+
 /// Helper to format address with correct prefix
 pub fn format_address(account: &AccountId) -> String {
 	account.to_ss58check_with_version(SS58_ADDRESS_FORMAT.into())
@@ -153,6 +155,9 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait NetworksInterface {
+	fn tc_network() -> NetworkId {
+		DEFAULT_TC_NETWORK_ID
+	}
 	fn get_networks() -> Vec<NetworkId>;
 	fn gateway(network: NetworkId) -> Option<Address>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;

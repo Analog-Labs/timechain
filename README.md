@@ -33,9 +33,8 @@ Follow the steps below to get started.
 
 1. Install docker, docker compose and musl using your system package manager.
 2. Build the docker image with `./scripts/build_docker.sh`.
-3. Start the timechain validators, chronicles and chain rpc nodes using `docker compose up`.
-4. Deploy the timechain using `docker compose run tc-cli deploy`
-5. Send a gmp message from chain 0 to chain 1 `docker compose run tc-cli smoke-test 0 1`
+3. Start the timechain validators, chronicles and chain rpc nodes using `docker compose --profile evm up -d`.
+4. Setup and send a gmp message from chain 2 to chain 3 `docker compose run --rm tc-cli --config=local-evm.yaml smoke-test 2 3`
 
 below are some notes for specific OS'es:
 

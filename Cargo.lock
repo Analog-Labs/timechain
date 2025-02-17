@@ -9407,6 +9407,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-bridge"
+version = "0.8.0"
+dependencies = [
+ "env_logger 0.11.6",
+ "lazy_static",
+ "log",
+ "pallet-elections",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "parity-scale-codec",
+ "polkadot-sdk 0.6.0",
+ "scale-info",
+ "simple-mermaid",
+ "time-primitives",
+]
+
+[[package]]
 name = "pallet-assets-freezer"
 version = "0.4.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.5-anlog0#1b04a0ba68dc4cd979cdd9f2e3ce6aed67d5db18"
@@ -20369,6 +20388,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-airdrop",
+ "pallet-assets-bridge",
  "pallet-dmail",
  "pallet-elections",
  "pallet-governance",

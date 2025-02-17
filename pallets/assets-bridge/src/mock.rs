@@ -1,4 +1,7 @@
-use crate::{self as pallet_tasks};
+use crate::{
+	self as pallet_assets_bridge, AssetTeleporter, BalanceOf, BeneficiaryOf, Error, NetworkDataOf,
+	NetworkIdOf,
+};
 use core::marker::PhantomData;
 
 use polkadot_sdk::{
@@ -6,24 +9,24 @@ use polkadot_sdk::{
 	sp_std,
 };
 
-use frame_support::derive_impl;
 use frame_support::traits::{
 	tokens::{ConversionFromAssetBalance, Pay, PaymentStatus},
 	OnInitialize,
 };
 use frame_support::PalletId;
+use frame_support::{derive_impl, ensure};
 
 use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature, Permill,
+	AccountId32, BuildStorage, DispatchResult, MultiSignature, Permill,
 };
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
 
 use time_primitives::{
-	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
-	PublicKey, ShardsInterface,
+	Address, Balance, ElectionsInterface, GmpMessage, MembersInterface, NetworkId,
+	NetworksInterface, PeerId, PublicKey, ShardsInterface, U256,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -97,17 +100,69 @@ impl ElectionsInterface for MockElections {
 	}
 }
 
+impl AssetTeleporter<Test> for Tasks {
+	fn handle_register(
+		network_id: NetworkIdOf<Test>,
+		_data: &mut NetworkDataOf<Test>,
+	) -> DispatchResult {
+		ensure!(
+			network_id.ne(&<Test as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
+			Error::<Test>::NetworkAlreadyExists
+		);
+
+		Ok(())
+	}
+
+	fn handle_teleport(
+		source: &AccountId,
+		network_id: NetworkIdOf<Test>,
+		data: &mut NetworkDataOf<Test>,
+		beneficiary: &BeneficiaryOf<Test>,
+		amount: BalanceOf<Test>,
+	) -> DispatchResult {
+		// TODO better to store somewhere
+		let src: Address = source.clone().into();
+		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
+		// TODO refactor with alloy
+		let teleport_command =
+			[&src[..], &beneficiary[..], &U256::from(amount).to_big_endian()[..]]
+				.concat()
+				.to_vec();
+		let msg = GmpMessage {
+			src_network: <Test as pallet_networks::Config>::TimechainNetworkId::get(),
+			dest_network: network_id,
+			src,
+			// GMP backend truncates this to AccountId20
+			dest: data.dest().into(),
+			nonce: data.nonce,
+			// Must be sufficient to execute onGmpReceived
+			gas_limit: 100_000u128,
+			// ussually used for chronicles refund
+			gas_cost: 0u128,
+			// calldata for our onGmpReceived
+			bytes: teleport_command,
+		};
+
+		data.incr_nonce().ok_or(Error::<Test>::NetworkNonceOverflow)?;
+		// Push GMP message to gateway ops queue
+		Tasks::push_gmp_message(msg);
+
+		Ok(())
+	}
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub struct Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		Tasks: pallet_tasks,
+		Tasks: pallet_tasks::{Pallet, Call, Storage, Event<T>},
 		Shards: pallet_shards::{Pallet, Call, Storage, Event<T>},
 		Members: pallet_members,
 		Elections: pallet_elections,
 		Treasury: pallet_treasury,
 		Networks: pallet_networks,
+		Bridge: pallet_assets_bridge,
 	}
 );
 
@@ -125,11 +180,22 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
+impl pallet_assets_bridge::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type BridgePot = BridgePot;
+	type Currency = pallet_balances::Pallet<Test>;
+	type FeeDestination = Treasury;
+	type NetworkId = u16;
+	type Beneficiary = Address;
+	type Teleporter = Tasks;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU128<1>;
+	type ExistentialDeposit = ConstU128<2>;
 	type AccountStore = System;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Test>;
 }
@@ -184,6 +250,7 @@ parameter_types! {
 	// 5EYCAe5ijiYfyeZ2JJCGq56LmPyNRAKzpG4QkoQkkQNB5e6Z
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	pub const SpendPayoutPeriod: u64 = 5;
+	pub BridgePot: AccountId = Bridge::account_id();
 }
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
@@ -256,7 +323,7 @@ impl pallet_shards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
-	type Tasks = Tasks;
+	type Tasks = pallet_tasks::Pallet<Test>;
 	type Members = MockMembers;
 	type Elections = Elections;
 	type DkgTimeout = ConstU64<10>;
@@ -316,11 +383,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let _ = env_logger::try_init();
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![
-			(acc_pub(0).into(), 10_000_000_000),
-			(acc_pub(1).into(), 20_000_000_000),
-			(TreasuryAccount::get(), 30_000_000_000),
-		],
+		balances: vec![(acc(0), 10_000_000_000), (acc(1), 20_000_000_000)],
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
@@ -329,8 +392,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-pub fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
+pub fn acc(acc_num: u8) -> AccountId32 {
+	AccountId32::new([acc_num; 32])
 }
 
 pub fn roll(n: u64) {

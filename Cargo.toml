@@ -18,6 +18,7 @@ members = [
 	"gmp/rust",
 	"node",
 	"pallets/airdrop",
+	"pallets/assets-bridge",
 	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",
@@ -80,6 +81,7 @@ time-primitives = { path = "primitives", default-features = false }
 
 # pallets in workspace (nostd by default)
 pallet-airdrop = { path = "pallets/airdrop", default-features = false }
+pallet-assets-bridge = { path = "pallets/assets-bridge", default-features = false }
 pallet-dmail = { path = "pallets/dmail", default-features = false }
 pallet-elections = { path = "pallets/elections", default-features = false }
 pallet-governance = { path = "pallets/governance", default-features = false }

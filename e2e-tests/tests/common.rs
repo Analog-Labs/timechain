@@ -21,10 +21,10 @@ impl TestEnv {
 	}
 
 	/// spawns new testing env
-	pub async fn spawn() -> Result<Self> {
-		// if !build_containers()? {
-		//	anyhow::bail!("Failed to build containers");
-		// }
+	pub async fn spawn(build: bool) -> Result<Self> {
+		if build && !build_containers()? {
+			anyhow::bail!("Failed to build containers");
+		}
 
 		if !docker_up()? {
 			anyhow::bail!("Failed to start containers");

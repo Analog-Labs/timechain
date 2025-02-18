@@ -47,7 +47,7 @@ networks:
     network: "testnet"
     url: "wss://bsc-testnet-rpc.publicnode.com"
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_funds: .1
     batch_size: 256
     batch_offset: 0
     batch_gas_limit: 50000000
@@ -63,7 +63,7 @@ networks:
     network: "sepolia"
     url: "wss://arbitrum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
-    chronicle_target_funds: .1
+    chronicle_funds: .1
     batch_size: 512
     batch_offset: 0
     batch_gas_limit: 500000000000000

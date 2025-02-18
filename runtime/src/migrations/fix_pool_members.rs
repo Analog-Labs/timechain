@@ -2,12 +2,11 @@
 use polkadot_sdk::*;
 
 use frame_support::{
+	ensure,
 	traits::{fungible::Inspect, Get},
-	weights::Weight, ensure,
+	weights::Weight,
 };
-use pallet_nomination_pools::{
-	BondedPools, PoolMembers,
-};
+use pallet_nomination_pools::{BondedPools, PoolMembers};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::Zero;
 use sp_runtime::AccountId32;
@@ -43,10 +42,11 @@ where
 
 			for account in CORRUPTED_POOL_MEMBERS {
 				// Attempt to parse address
-				let account: T::AccountId = AccountId32::from_ss58check(account).map_err(|_|"Failed to parse address")?.into();
+				let account: T::AccountId = AccountId32::from_ss58check(account)
+					.map_err(|_| "Failed to parse address")?
+					.into();
 
 				if let Some(member) = PoolMembers::<T>::take(&account) {
-
 					// Track weight of pool members update
 					weight += T::DbWeight::get().reads_writes(1, 1);
 
@@ -75,7 +75,10 @@ where
 				}
 			}
 
-			ensure!(total_balance_members::<T>() == balance_before, "Total member balance was changed.");
+			ensure!(
+				total_balance_members::<T>() == balance_before,
+				"Total member balance was changed."
+			);
 
 			Ok::<(), &str>(())
 		}) {

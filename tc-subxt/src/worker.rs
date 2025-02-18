@@ -269,7 +269,7 @@ where
 					metadata::runtime_types::pallet_tasks::pallet::Call::restart_batch { batch_id },
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 		}
 	}

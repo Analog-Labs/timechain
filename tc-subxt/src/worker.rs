@@ -417,9 +417,9 @@ where
 								continue;
 							},
 							None => {
-								 tracing::error!("Latest block stream terminated");
-								 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-								 best_blocks = Self::
+								tracing::error!("Latest block stream terminated");
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+								best_blocks = Self::
 									create_stream_with_retry(
 										self.client.clone(),
 										|c| async move {

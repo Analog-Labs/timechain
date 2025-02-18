@@ -1,6 +1,6 @@
 use crate::{
-	BatchIdCounter, Call, Config, Pallet, ReadEventsTask, ShardRegistered, TaskIdCounter,
-	TaskOutput, TaskShard,
+	BatchIdCounter, BatchTaskId, Call, Config, FailedBatchIds, Pallet, ReadEventsTask,
+	ShardRegistered, TaskIdCounter, TaskNetwork, TaskOutput, TaskShard,
 };
 use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
@@ -143,5 +143,30 @@ benchmarks! {
 		TaskOutput::<T>::insert(task_id, Ok::<(), ErrorMsg>(()));
 	}: _(RawOrigin::Root, task_id) verify { }
 
+
+
+	restart_batch {
+		create_shard::<T>(ETHEREUM);
+		let network = ETHEREUM;
+		let batch_id = BatchIdCounter::<T>::get();
+		let initial_task_id = Pallet::<T>::create_task(
+			network,
+			Task::SubmitGatewayMessage { batch_id }
+		);
+		FailedBatchIds::<T>::insert(batch_id, ());
+		BatchTaskId::<T>::insert(batch_id, initial_task_id);
+		TaskNetwork::<T>::insert(initial_task_id, network);
+	}: _(RawOrigin::Root, batch_id) verify {
+		let new_task_id = initial_task_id + 1;
+		assert_eq!(
+			BatchTaskId::<T>::get(batch_id),
+			Some(new_task_id),
+			"New task not created"
+		);
+		assert!(
+			!FailedBatchIds::<T>::contains_key(batch_id),
+			"Batch not removed from failed list"
+		);
+	}
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

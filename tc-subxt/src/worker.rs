@@ -14,6 +14,7 @@ use std::pin::Pin;
 use subxt::config::DefaultExtrinsicParamsBuilder;
 use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;
+use time_primitives::BatchId;
 use time_primitives::{
 	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
@@ -77,6 +78,9 @@ pub enum Tx {
 	},
 	RemoveTask {
 		task_id: TaskId,
+	},
+	RestartBatch {
+		batch_id: BatchId,
 	},
 }
 
@@ -256,6 +260,13 @@ where
 					metadata::runtime_types::pallet_tasks::pallet::Call::remove_task {
 						task: task_id,
 					},
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.client.sign_payload(&payload, params)
+			},
+			Tx::RestartBatch { batch_id } => {
+				let runtime_call = RuntimeCall::Tasks(
+					metadata::runtime_types::pallet_tasks::pallet::Call::restart_batch { batch_id },
 				);
 				let payload = metadata::sudo(runtime_call);
 				self.client.sign_payload(&payload, params)

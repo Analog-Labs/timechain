@@ -19,7 +19,7 @@ const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;
 
 /// The number of expected airdrop transfers (will fail in tests)
-const NUM_AIRDROP_TRANSFER: usize = 212;
+const NUM_AIRDROP_TRANSFER: usize = if LAUNCH_VERSION > 27 { 212 } else { 0 };
 
 fn mint_virtual(source: Allocation, amount: BalanceOf<Test>) {
 	let account = source.account_id::<Test>();

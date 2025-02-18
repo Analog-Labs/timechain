@@ -11,7 +11,7 @@ use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::Zero;
 use sp_runtime::AccountId32;
 
-const CORRUPTED_POOL_MEMBERS: &'static [&'static str] = &[
+const CORRUPTED_POOL_MEMBERS: &[&str] = &[
 	"an67vKKCtXjWYUaErzKp5E97dDnyt39HNZMwTAReK1PLUVdbA",
 	"an9XX2NvQXRvFBwMdNiaaXbAKHN4tA6oi7xGVJbffR84AvcDw",
 ];

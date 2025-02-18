@@ -34,7 +34,7 @@ tc-subxt.workspace = true
 time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
 tracing.workspace = true
-tracing-subscriber = "0.3.18"
+tracing-subscriber.workspace = true
 
 [features]
 testnet = [

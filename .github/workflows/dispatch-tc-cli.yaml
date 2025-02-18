@@ -34,42 +34,33 @@ on:
 
 env:
   TC_CLI_IMAGE: analoglabs/tc-cli
+  REGION: us-east1
 
 jobs:
   tc-cli:
     name: 'Run /tc-cli tag=${{ github.event.inputs.version }} ${{ github.event.inputs.args }} on ${{ github.event.inputs.environment}} #${{ github.event.inputs.thread }} @${{ github.event.inputs.user }}'
     runs-on: ubuntu-latest
+    # NOTE: Dockerfile for this container is located in the infrastructure repo
+    container:
+      image: analoglabs/gcloud-kubectl:latest
     environment: ${{ github.event.inputs.environment }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: GKE Setup
-      uses: ./.github/actions/gke-common
-      with:
-        cluster: ${{ github.event.inputs.environment }}
-        key-file: ${{ secrets.GCP_SA_KEY }}
-        project-id: ${{ secrets.GCP_PROJECT_ID }}
-        region: us-east1
-
-    - name: Check tc-cli image
-      id: check-image
+    - name: GKE Login
       run: |
-        TAG=${{ github.event.inputs.version || 'latest' }}
-        IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
-        echo "Checking if the image $IMAGE exists..."
-        if ! docker pull "$IMAGE" &>/dev/null; then
-            echo "Error: Image $IMAGE does not exist or is behind a private repo."
-            exit 1
-        fi
-        echo "Image $IMAGE exists. Proceeding with deployment..."
-        echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+        echo '${{ secrets.GCP_SA_KEY }}' > ${HOME}/gcp-key.json
+        gcloud auth activate-service-account --key-file=${HOME}/gcp-key.json
+        gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+        gcloud container clusters get-credentials ${{ github.event.inputs.environment }} --region $REGION
 
     - name: Run tc-cli
       id: run
       run: |
+        TAG=${{ github.event.inputs.version || 'latest' }}
+        IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
         NAMESPACE="timechain"
-        IMAGE=${{ steps.check-image.outputs.IMAGE }}
         NAME=tc-cli-${{ github.event.inputs.thread }}
         NAME=${NAME//./-}
         kubectl -n $NAMESPACE run $NAME --image=$IMAGE --attach --rm --restart=Never \

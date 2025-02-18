@@ -89,7 +89,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::RestartBatch { batch_id }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 

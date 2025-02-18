@@ -45,6 +45,9 @@ pub struct ChronicleArgs {
 	/// Gmp backend to use.
 	#[clap(long, default_value = "evm")]
 	pub backend: Backend,
+	/// Chronicle db path.
+	#[clap(long, default_value = "cached_tx.redb")]
+	pub tx_db: String,
 	/// Cctp Sender.
 	#[clap(long)]
 	pub cctp_sender: Option<String>,
@@ -130,7 +133,8 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	let subxt = SubxtClient::with_key(&args.timechain_url, &timechain_mnemonic).await?;
+	let subxt =
+		SubxtClient::with_key(&args.timechain_url, &timechain_mnemonic, &args.tx_db).await?;
 
 	let config = args.config(network_key, target_mnemonic)?;
 

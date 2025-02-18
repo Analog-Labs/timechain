@@ -1,6 +1,7 @@
 #![allow(clippy::missing_transmute_annotations)]
 use crate::worker::{SubxtWorker, Tx};
 use anyhow::{Context, Result};
+use db::TransactionsDB;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::BoxStream;
 use std::future::Future;
@@ -11,12 +12,15 @@ use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParams;
 use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
+use timechain_client::{IExtrinsic, TimechainExtrinsic, TimechainOnlineClient};
 
 use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
 
 mod api;
-mod metadata;
-mod worker;
+pub mod db;
+pub mod metadata;
+pub mod timechain_client;
+pub mod worker;
 
 use metadata::technical_committee::events as CommitteeEvent;
 
@@ -29,24 +33,26 @@ pub type ExtrinsicDetails = subxt::blocks::ExtrinsicDetails<PolkadotConfig, Onli
 pub type SubmittableExtrinsic = subxt::tx::SubmittableExtrinsic<PolkadotConfig, OnlineClient>;
 pub type ExtrinsicParams =
 	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
-pub type TxInBlock = subxt::tx::TxInBlock<PolkadotConfig, OnlineClient>;
-pub type TxProgress = subxt::tx::TxProgress<PolkadotConfig, OnlineClient>;
 
-#[derive(Clone)]
 pub struct SubxtClient {
 	client: OnlineClient,
-	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicDetails>)>,
+	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<TimechainExtrinsic>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
 }
 
 impl SubxtClient {
-	pub async fn new(url: &str, keypair: Keypair) -> Result<Self> {
+	pub async fn new(url: &str, keypair: Keypair, tx_db: &str) -> Result<Self> {
 		let rpc = Self::get_client(url).await?;
 		let client = OnlineClient::from_rpc_client(rpc.clone())
 			.await
 			.map_err(|_| anyhow::anyhow!("Failed to create a new client"))?;
-		let worker = SubxtWorker::new(rpc, client.clone(), keypair).await?;
+		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
+		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
+		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+		let timechain_client = TimechainOnlineClient::new(client.clone(), keypair.clone());
+		let db = TransactionsDB::new(tx_db, keypair.public_key().0)?;
+		let worker = SubxtWorker::new(nonce, timechain_client, db, keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
 		tracing::info!("account id {}", account_id);
@@ -59,11 +65,11 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn with_key(url: &str, mnemonic: &str) -> Result<Self> {
+	pub async fn with_key(url: &str, mnemonic: &str, tx_db: &str) -> Result<Self> {
 		let secret =
 			SecretUri::from_str(mnemonic.trim()).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;
-		Self::new(url, keypair).await
+		Self::new(url, keypair, tx_db).await
 	}
 
 	pub async fn get_client(url: &str) -> Result<RpcClient> {
@@ -104,7 +110,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SetCode { code }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -112,7 +118,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::Transfer { account, balance }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -123,43 +129,9 @@ impl SubxtClient {
 		Ok(if let Some(info) = result { info.data.free } else { 0 })
 	}
 
-	pub async fn wait_for_success(&self, extrinsic: ExtrinsicDetails) -> Result<ExtrinsicEvents> {
-		type SpRuntimeDispatchError = metadata::runtime_types::sp_runtime::DispatchError;
-		let events = extrinsic.events().await?;
-
-		for ev in events.iter() {
-			let ev = ev?;
-
-			if ev.pallet_name() == "System" && ev.variant_name() == "ExtrinsicFailed" {
-				let dispatch_error = subxt::error::DispatchError::decode_from(
-					ev.field_bytes(),
-					self.client.metadata(),
-				)?;
-				return Err(dispatch_error.into());
-			}
-
-			if let Some(event) = ev.as_event::<CommitteeEvent::MemberExecuted>()? {
-				if let Err(err) = event.result {
-					let SpRuntimeDispatchError::Module(error) = err else {
-						anyhow::bail!("Tx failed with error: {:?}", err);
-					};
-
-					let metadata = self.client.metadata();
-					let error_pallet = metadata
-						.pallet_by_index(error.index)
-						.ok_or_else(|| anyhow::anyhow!("Pallet not found: {:?}", error.index))?;
-
-					let Some(error_metadata) = error_pallet.error_variant_by_index(error.error[0])
-					else {
-						anyhow::bail!("Tx failed with error: {:?}", error);
-					};
-
-					anyhow::bail!("Tx failed with error: {:?}", error_metadata.name);
-				}
-			}
-		}
-
-		Ok(events)
+	pub async fn is_success<E: IExtrinsic>(&self, extrinsic: &E) -> Result<()> {
+		extrinsic.is_success().await?;
+		Ok(())
 	}
 }
 

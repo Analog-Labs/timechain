@@ -36,6 +36,11 @@ impl TestEnv {
 	pub async fn setup(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 		self.tc.setup_test(src, dest).await
 	}
+
+	/// restart container
+	pub async fn restart(&self, containers: Vec<&str>) -> Result<bool> {
+		docker_restart(containers)
+	}
 }
 
 impl Drop for TestEnv {
@@ -77,4 +82,18 @@ fn docker_down() -> Result<bool> {
 
 	// Wait for all containers to start
 	child.wait().map(|c| c.success()).context("Error stopping containers: {e}")
+}
+
+fn docker_restart(containers: Vec<&str>) -> Result<bool> {
+	let mut cmd = process::Command::new("docker");
+	cmd.arg("compose").arg("stop").args(containers.as_slice());
+
+	let mut child = cmd.spawn().context("Error stopping containers")?;
+	// wait for the containers to stop
+	child.wait().map(|c| c.success()).context("Error stopping containers")?;
+	let mut cmd = process::Command::new("docker");
+	cmd.arg("compose").arg("start").args(containers.as_slice());
+	let mut child = cmd.spawn().context("Error stopping containers")?;
+	// wait for the containers to start
+	child.wait().map(|c| c.success()).context("Error starting containers")
 }

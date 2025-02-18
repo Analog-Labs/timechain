@@ -33,7 +33,6 @@ on:
           - "mainnet"
 env:
   DOCKERHUB_ACCOUNT: analoglabs
-
 jobs:
   set-timestamp:
     name: Get timestamp

@@ -18,7 +18,7 @@ async fn smoke() {
 		.add_directive("smoke_test=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 
-	let env = TestEnv::spawn(false).await.expect("Failed to spawn Test Environment");
+	let env = TestEnv::spawn(true).await.expect("Failed to spawn Test Environment");
 
 	let (src_addr, dest_addr) = env.setup(SRC, DEST).await.expect("failed to setup test");
 

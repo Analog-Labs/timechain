@@ -1,0 +1,27 @@
+name: Check testsuite
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, reopened, synchronize]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-cargo:
+    runs-on: [self-hosted, general]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build testsuite
+        uses: ./.github/actions/cargo-command
+        with:
+          command: test
+          args: --all-features --no-run
+      - name: Run testsuite
+        uses: ./.github/actions/cargo-command
+        with:
+          command: test
+          args: --all-features --tests
+          cache: false
+          annotate: false

@@ -1,7 +1,23 @@
-name: Run integration tests
+name: Run all except e2e tests
 on:
   pull_request:
-    types: [labeled, unlabeled, opened, reopened, synchronize]
+    paths:
+      - '.github/actions/cargo-command/**'
+      - '.github/workflows/pr-test-cargo.yaml'
+      - 'chronicle/**'
+      - 'config/subxt/**'
+      - 'docs/**'
+      - 'node/**'
+      - 'pallets/**'
+      - 'primitives/**'
+      - 'runtime/**'
+      - 'tc-cli/**'
+      - 'tc-subxt/**'
+      - 'tss/**'
+      - 'utils/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,6 +38,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features --tests
+          args: --all-features --exclude timechain
           cache: false
           annotate: false

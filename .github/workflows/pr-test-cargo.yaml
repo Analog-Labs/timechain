@@ -1,23 +1,7 @@
 name: Check testsuite
 on:
   pull_request:
-    paths:
-      - '.github/actions/cargo-command/**'
-      - '.github/workflows/pr-test-cargo.yaml'
-      - 'chronicle/**'
-      - 'config/subxt/**'
-      - 'docs/**'
-      - 'node/**'
-      - 'pallets/**'
-      - 'primitives/**'
-      - 'runtime/**'
-      - 'tc-cli/**'
-      - 'tc-subxt/**'
-      - 'tss/**'
-      - 'utils/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
+    types: [labeled, unlabeled, opened, reopened, synchronize]
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

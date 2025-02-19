@@ -30,6 +30,11 @@ impl SubxtClient {
 		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
 	}
 
+	pub async fn get_failed_tasks(&self) -> Result<Vec<TaskId>> {
+		let runtime_call = metadata::apis().tasks_api().get_failed_tasks();
+		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+	}
+
 	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<TaskId>> {
 		let storage_query = metadata::storage().tasks().ua_tasks_iter1(network);
 		let mut items = self.client.storage().at_latest().await?.iter(storage_query).await?;
@@ -60,7 +65,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitTaskResult { task_id, result }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -68,7 +73,7 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitGmpEvents { network, gmp_events }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 
@@ -76,7 +81,15 @@ impl SubxtClient {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::RemoveTask { task_id }, tx))?;
 		let tx = rx.await?;
-		self.wait_for_success(tx).await?;
+		self.is_success(&tx).await?;
+		Ok(())
+	}
+
+	pub async fn restart_failed_batch(&self, batch_id: TaskId) -> Result<()> {
+		let (tx, rx) = oneshot::channel();
+		self.tx.unbounded_send((Tx::RestartBatch { batch_id }, tx))?;
+		let tx = rx.await?;
+		self.is_success(&tx).await?;
 		Ok(())
 	}
 

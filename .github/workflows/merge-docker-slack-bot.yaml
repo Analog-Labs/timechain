@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/merge-docker-slack-bot.yaml'
+      - '.github/workflows/deploy-slack-bot-cluster.yaml'
       - 'slack-bot/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -66,3 +67,18 @@ jobs:
           registry: docker.io
           push: 'true'
           tags: ${{ needs.set-tags.outputs.commit_hash8 }},latest
+  cd:
+    name: Deploy slack bot on K8s
+    runs-on: ubuntu-latest
+    needs: ['build-binary', 'set-tags']
+    steps:
+    - name: Fetch latest code
+      uses: actions/checkout@v4
+    - name: Automatic deployment
+      uses: ./.github/actions/dispatch
+      if: github.ref == 'refs/heads/development'
+      with:
+        service: "slack-bot"
+        version: ${{ needs.set-tags.outputs.commit_hash8 }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        environment: "mainnet"

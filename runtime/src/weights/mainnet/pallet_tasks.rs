@@ -210,4 +210,22 @@ impl<T: frame_system::Config> pallet_tasks::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	/// Storage: `Tasks::TaskOutput` (r:1 w:1)
+	/// Proof: `Tasks::TaskOutput` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::Tasks` (r:1 w:1)
+	/// Proof: `Tasks::Tasks` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::TaskSubmitter` (r:0 w:1)
+	/// Proof: `Tasks::TaskSubmitter` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Tasks::TaskNetwork` (r:0 w:1)
+	/// Proof: `Tasks::TaskNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn restart_batch() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `286`
+		//  Estimated: `3751`
+		// Minimum execution time: 8_666_000 picoseconds.
+		Weight::from_parts(8_986_000, 0)
+			.saturating_add(Weight::from_parts(0, 3751))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }

@@ -20,4 +20,4 @@ serde_json = "1.0.138"
 slack-morphism = { version = "2.9.0", features = ["axum", "hyper"] }
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
 tracing.workspace = true
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

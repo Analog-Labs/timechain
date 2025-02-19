@@ -20038,9 +20038,11 @@ dependencies = [
  "async-stream",
  "async-trait",
  "clap",
+ "env_logger 0.11.6",
  "futures",
  "hex",
  "parity-scale-codec",
+ "redb",
  "scale-decode 0.13.1",
  "scale-info",
  "serde",
@@ -20049,6 +20051,7 @@ dependencies = [
  "tc-subxt-metadata",
  "time-primitives",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
@@ -20319,6 +20322,20 @@ dependencies = [
  "serde",
  "sha3",
  "uint 0.10.0",
+]
+
+[[package]]
+name = "timechain"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "hex",
+ "tc-cli",
+ "time-primitives",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]

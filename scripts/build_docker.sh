@@ -3,6 +3,10 @@
 set -e
 set -x
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+WORKSPACE_ROOT=$SCRIPT_DIR/../
+cd $WORKSPACE_ROOT
+
 # Check for 'uname' and abort if it is not available.
 uname -v > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'uname' to identify the platform."; exit 1; }
 
@@ -65,19 +69,19 @@ cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rust
 
 forge build --root analog-gmp
 
-mkdir -p target/docker/tc-cli
-rm -rf target/docker/tc-cli/envs
-cp -rL config/envs target/docker/tc-cli/envs
-rm -rf target/docker/tc-cli/analog-gmp
-cp -r analog-gmp target/docker/tc-cli/analog-gmp
+mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
+rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/envs
+cp -rL $WORKSPACE_ROOT/config/envs target/docker/tc-cli/envs
+rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
+cp -r $WORKSPACE_ROOT/analog-gmp $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
 
 build_image () {
-	local TARGET="target/$rustTarget/$profile/$1"
-	local CONTEXT="target/docker/$1"
+	local TARGET=$WORKSPACE_ROOT"target/$rustTarget/$profile/$1"
+	local CONTEXT=$WORKSPACE_ROOT"target/docker/$1"
 	mkdir -p $CONTEXT
 	if ! cmp -s $TARGET "$CONTEXT/$1"; then
 		cp $TARGET $CONTEXT
-		docker build $CONTEXT -f "config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
+		docker build $CONTEXT -f $WORKSPACE_ROOT"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
 	fi
 }
 

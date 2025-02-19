@@ -67,10 +67,14 @@
         nativeBuildInputs = [
           # - Customized rust toolchain (via path)
           (mkRustToolchain tpkgs)
+          tpkgs.rustPlatform.bindgenHook
           # - Some helpers to improve compatibility
           pkgs.gcc
           pkgs.pkg-config
         ];
+
+        # - libclang needed by Rocksdb
+        LIBCLANG_PATH = "${tpkgs.libclang.lib}/lib";
 
         # - Protobuf compiler (via env var)
         PROTOC = "${pkgs.protobuf}/bin/protoc";

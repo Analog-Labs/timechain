@@ -774,6 +774,7 @@ impl IConnectorAdmin for Connector {
 		}
 		Ok(msgs)
 	}
+
 	/// Calculate transaction base fee for a chain.
 	async fn transaction_base_fee(&self) -> Result<u128> {
 		let fee_estimator = if self.wallet.config().blockchain == "polygon" {
@@ -794,6 +795,7 @@ impl IConnectorAdmin for Connector {
 			.with_context(|| "Cannot find latest block")?;
 		Ok(block.header.gas_limit)
 	}
+
 	/// Withdraw gateway funds.
 	async fn withdraw_funds(
 		&self,

@@ -1,5 +1,5 @@
 # Triggered via !ci-test-basic tag
-name: Check basic integration
+name: Run tc-cli smoke test
 on:
   pull_request:
     types: [labeled, unlabeled, opened, reopened, synchronize]

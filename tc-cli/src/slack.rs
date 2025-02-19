@@ -41,11 +41,7 @@ impl Sender {
 	}
 
 	fn println(&self, _restore: bool, text: &str) {
-		/*if restore {
-			print!("\x1B8");
-		}
-		print!("\x1B7");*/
-		println!("{text}");
+		tracing::info!("{text}");
 	}
 
 	pub async fn text(&self, id: Option<TextRef>, text: String) -> Result<TextRef> {
@@ -60,7 +56,7 @@ impl Sender {
 
 	pub async fn csv(&self, id: Option<TableRef>, title: &str, csv: Vec<u8>) -> Result<TableRef> {
 		let table = csv_to_table::from_reader(&mut &csv[..])?;
-		self.println(id.is_some(), &format!("{table}"));
+		self.println(id.is_some(), &format!("\n{table}"));
 		if let Some(slack) = self.slack.as_ref() {
 			let id = id.map(|id| id.slack).unwrap_or_default();
 			let file = slack.post_table(id, title.into(), csv).await?;

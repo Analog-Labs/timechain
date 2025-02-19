@@ -81,8 +81,11 @@ services:
     - 'anvil -b 2 --steps-tracing --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+    - 8545:8545
     profiles:
     - evm
+    - bridge
 
   chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
@@ -98,8 +101,11 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
+    ports:
+    - 8080:8080
     profiles:
     - evm
+    - bridge
 
   chain-3-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
@@ -107,6 +113,8 @@ services:
     - 'anvil -b 2 --steps-tracing --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+    - 8546:8545
     profiles:
     - evm
 
@@ -124,6 +132,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
+    ports:
+    - 8081:8080
     profiles:
     - evm
 
@@ -131,5 +141,6 @@ services:
     image: 'analoglabs/tc-cli-develop'
     environment:
       RUST_BACKTRACE: 1
+      RUST_LOG: 'gmp_evm=info'
     profiles:
     - never

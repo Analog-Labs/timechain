@@ -7,7 +7,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  if: false
   test-basic:
     runs-on: [self-hosted, integration]
     timeout-minutes: 90

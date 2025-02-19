@@ -594,7 +594,7 @@ impl IConnectorAdmin for Connector {
 			self.backend.get_code(proxy_addr.0 .0.into(), AtBlock::Latest).await?;
 		if !is_proxy_deployed.is_empty() {
 			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
-			return Ok((t_addr(proxy_addr.into()), 0));
+			return Ok((t_addr(proxy_addr), 0));
 		}
 
 		// gateway deployment
@@ -618,7 +618,7 @@ impl IConnectorAdmin for Connector {
 		let gateway = extract_bytecode(gateway)?;
 
 		let gateway_addr =
-			self.deploy_gateway_contract(&config, a_addr(proxy).into(), gateway).await?;
+			self.deploy_gateway_contract(&config, a_addr(proxy), gateway).await?;
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};

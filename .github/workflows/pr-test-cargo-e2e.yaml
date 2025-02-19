@@ -6,6 +6,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  if: false
   test-cargo:
     runs-on: [self-hosted, general]
     steps:

@@ -38,6 +38,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features
+          args: --all-features --lib --bins
           cache: false
           annotate: false

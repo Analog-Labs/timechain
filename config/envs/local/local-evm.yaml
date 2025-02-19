@@ -14,7 +14,7 @@ networks:
     blockchain: "anvil"
     network: "dev"
     url: "ws://chain-2-evm:8545"
-    admin_funds: 100.
+    admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
     batch_size: 64
@@ -31,7 +31,7 @@ networks:
     blockchain: "anvil"
     network: "dev"
     url: "ws://chain-3-evm:8545"
-    admin_funds: 100.
+    admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
     batch_size: 64

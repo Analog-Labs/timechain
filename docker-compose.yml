@@ -78,11 +78,9 @@ services:
   chain-2-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing --base-fee 0'
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
-    ports:
-    - 8545:8545
     profiles:
     - evm
     - bridge
@@ -110,11 +108,9 @@ services:
   chain-3-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing --base-fee 0'
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
-    ports:
-    - 8546:8545
     profiles:
     - evm
 

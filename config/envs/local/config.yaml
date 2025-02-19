@@ -14,7 +14,7 @@ networks:
     blockchain: "rust"
     network: "0"
     url: "http://chain-0-grpc:3000"
-    admin_funds: 100.
+    admin_funds: 10.
     gateway_funds: 10.
     chronicle_funds: 10.
     batch_size: 64
@@ -35,7 +35,7 @@ networks:
     blockchain: "rust"
     network: "1"
     url: "http://chain-1-grpc:3000"
-    admin_funds: 100.
+    admin_funds: 10.
     gateway_funds: 10.
     chronicle_funds: 10.
     batch_size: 64
@@ -52,7 +52,7 @@ networks:
     blockchain: "anvil"
     network: "dev"
     url: "ws://chain-2-evm:8545"
-    admin_funds: 100.
+    admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
     batch_size: 64
@@ -69,7 +69,7 @@ networks:
     blockchain: "anvil"
     network: "dev"
     url: "ws://chain-3-evm:8545"
-    admin_funds: 100.
+    admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
     batch_size: 64

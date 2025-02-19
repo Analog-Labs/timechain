@@ -36,6 +36,7 @@ members = [
 	"tc-subxt/metadata",
 	"tss",
 	"utils/generate-bags",
+	"e2e-tests",
 ]
 default-members = [
   "chronicle",

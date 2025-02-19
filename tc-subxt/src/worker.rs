@@ -1,29 +1,30 @@
 use crate::metadata::{self, runtime_types, RuntimeCall};
-use crate::{
-	ExtrinsicDetails, ExtrinsicParams, LegacyRpcMethods, OnlineClient, SubmittableExtrinsic,
+use crate::timechain_client::{
+	BlockId, IBlock, IExtrinsic, ITimechainClient, ITransactionDbOps, ITransactionSubmitter,
 };
-use anyhow::{Context, Result};
+use crate::ExtrinsicParams;
+use anyhow::Result;
 use futures::channel::{mpsc, oneshot};
-use futures::stream::FuturesUnordered;
-use futures::{Future, FutureExt, StreamExt, TryStreamExt};
+use futures::future::BoxFuture;
+use futures::stream::{BoxStream, Fuse, FuturesUnordered};
+use futures::{Future, FutureExt, StreamExt};
+use scale_codec::{Decode, Encode};
 use std::collections::{HashSet, VecDeque};
 use std::pin::Pin;
-use std::time::Duration;
-use subxt::backend::rpc::RpcClient;
 use subxt::config::DefaultExtrinsicParamsBuilder;
-use subxt::tx::Payload as TxPayload;
 use subxt::utils::H256;
 use subxt_signer::sr25519::Keypair;
+use time_primitives::BatchId;
 use time_primitives::{
 	traits::IdentifyAccount, AccountId, Commitment, GmpEvents, Network, NetworkConfig, NetworkId,
 	PeerId, ProofOfKnowledge, PublicKey, ShardId, TaskId, TaskResult,
 };
 
-const MORTALITY: u8 = 32;
-type TransactionFuture = Pin<Box<dyn Future<Output = Result<H256, subxt::Error>> + Send>>;
+pub const MORTALITY: u8 = 32;
+type TransactionFuture = Pin<Box<dyn Future<Output = Result<H256>> + Send>>;
 type TransactionsUnordered = FuturesUnordered<TransactionFuture>;
 
-#[derive(Clone)]
+#[derive(Clone, Encode, Decode)]
 pub enum Tx {
 	// system
 	SetCode {
@@ -60,6 +61,7 @@ pub enum Tx {
 	Commitment {
 		shard_id: ShardId,
 		commitment: Commitment,
+		// #[serde(with = "serde_proof_of_knowledge")]
 		proof_of_knowledge: ProofOfKnowledge,
 	},
 	Ready {
@@ -77,54 +79,68 @@ pub enum Tx {
 	RemoveTask {
 		task_id: TaskId,
 	},
+	RestartBatch {
+		batch_id: BatchId,
+	},
 }
 
+#[derive(Clone, Encode, Decode)]
 pub struct TxData {
-	transaction: Tx,
-	era: u64,
-	hash: H256,
-	nonce: u64,
+	pub hash: H256,
+	pub era: u64,
+	pub nonce: u64,
+	pub transaction: Tx,
 }
 
-pub struct TxStatus {
+pub struct TxStatus<C: ITimechainClient> {
 	data: TxData,
-	event_sender: oneshot::Sender<ExtrinsicDetails>,
+	event_sender: Option<oneshot::Sender<<C::Block as IBlock>::Extrinsic>>,
 	best_block: Option<u64>,
 }
 
-pub struct BlockDetail {
-	number: u64,
-	hash: H256,
-}
-
-pub struct SubxtWorker {
-	client: OnlineClient,
+pub struct SubxtWorker<C, D>
+where
+	C: ITimechainClient + Send + Sync + Clone + 'static,
+	D: ITransactionDbOps + Send + Sync + 'static,
+{
+	client: C,
 	keypair: Keypair,
 	nonce: u64,
-	latest_block: BlockDetail,
-	pending_tx: VecDeque<TxStatus>,
+	latest_block: BlockId,
+	pending_tx: VecDeque<TxStatus<C>>,
 	transaction_pool: TransactionsUnordered,
+	db: D,
 }
 
-impl SubxtWorker {
-	pub async fn new(rpc: RpcClient, client: OnlineClient, keypair: Keypair) -> Result<Self> {
-		let block = client.blocks().at_latest().await?;
-		let account_id: subxt::utils::AccountId32 = keypair.public_key().into();
-		let legacy_rpc = LegacyRpcMethods::new(rpc.clone());
-		let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
-		let tx_pool = FuturesUnordered::new();
-		// adding a never ending future to avoid tx_pool flood of None in select! loop
-		tx_pool.push(futures::future::pending().boxed());
+impl<C, D> SubxtWorker<C, D>
+where
+	C: ITimechainClient + Send + Sync + Clone + 'static,
+	C::Submitter: ITransactionSubmitter + Send + Sync + 'static,
+	C::Block: IBlock + Send + Sync + 'static,
+	D: ITransactionDbOps + Send + Sync + 'static,
+{
+	pub async fn new(nonce: u64, client: C, db: D, keypair: Keypair) -> Result<Self> {
+		let latest_block = client.get_latest_block().await?;
+		let transaction_pool = FuturesUnordered::new();
+		transaction_pool.push(futures::future::pending().boxed());
+
+		let txs_data = db.load_pending_txs(nonce)?;
+		let pending_tx: VecDeque<TxStatus<C>> = txs_data
+			.into_iter()
+			.map(|tx_data| TxStatus {
+				data: tx_data,
+				event_sender: None,
+				best_block: None,
+			})
+			.collect();
 		Ok(Self {
 			client,
 			keypair,
 			nonce,
-			latest_block: BlockDetail {
-				number: block.number().into(),
-				hash: block.hash(),
-			},
-			pending_tx: Default::default(),
-			transaction_pool: tx_pool,
+			latest_block,
+			pending_tx,
+			transaction_pool,
+			db,
 		})
 	}
 
@@ -136,17 +152,6 @@ impl SubxtWorker {
 		self.public_key().into_account()
 	}
 
-	fn create_signed_payload<Call>(&self, call: &Call, params: ExtrinsicParams) -> Vec<u8>
-	where
-		Call: TxPayload,
-	{
-		self.client
-			.tx()
-			.create_signed_offline(call, &self.keypair, params)
-			.expect("Metadata is invalid")
-			.into_encoded()
-	}
-
 	fn build_tx(&mut self, tx: Tx, params: ExtrinsicParams) -> Vec<u8> {
 		match tx.clone() {
 			// system
@@ -156,14 +161,14 @@ impl SubxtWorker {
 						code,
 					});
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			// balances
 			Tx::Transfer { account, balance } => {
 				let account = subxt::utils::Static(account);
 				let payload =
 					metadata::tx().balances().transfer_allow_death(account.into(), balance);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			// networks
 			Tx::RegisterNetwork { network } => {
@@ -172,7 +177,7 @@ impl SubxtWorker {
 					runtime_types::pallet_networks::pallet::Call::register_network { network },
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::ForceShardOffline { shard_id } => {
 				let runtime_call = RuntimeCall::Shards(
@@ -181,7 +186,7 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::SetNetworkConfig { network, config } => {
 				let config = subxt::utils::Static(config);
@@ -192,7 +197,7 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			// members
 			Tx::RegisterMember {
@@ -208,16 +213,16 @@ impl SubxtWorker {
 					peer_id,
 					stake_amount,
 				);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::UnregisterMember { member } => {
 				let member = subxt::utils::Static(member);
 				let payload = metadata::tx().members().unregister_member(member);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::Heartbeat => {
 				let payload = metadata::tx().members().send_heartbeat();
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			// shards
 			Tx::Commitment {
@@ -228,17 +233,17 @@ impl SubxtWorker {
 				let commitment = subxt::utils::Static(commitment);
 				let payload =
 					metadata::tx().shards().commit(shard_id, commitment, proof_of_knowledge);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::Ready { shard_id } => {
 				let payload = metadata::tx().shards().ready(shard_id);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			// tasks
 			Tx::SubmitTaskResult { task_id, result } => {
 				let result = subxt::utils::Static(result);
 				let payload = metadata::tx().tasks().submit_task_result(task_id, result);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::SubmitGmpEvents { network, gmp_events } => {
 				let runtime_call = RuntimeCall::Tasks(
@@ -248,7 +253,7 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
 			},
 			Tx::RemoveTask { task_id } => {
 				let runtime_call = RuntimeCall::Tasks(
@@ -257,7 +262,14 @@ impl SubxtWorker {
 					},
 				);
 				let payload = metadata::sudo(runtime_call);
-				self.create_signed_payload(&payload, params)
+				self.client.sign_payload(&payload, params)
+			},
+			Tx::RestartBatch { batch_id } => {
+				let runtime_call = RuntimeCall::Tasks(
+					metadata::runtime_types::pallet_tasks::pallet::Call::restart_batch { batch_id },
+				);
+				let payload = metadata::sudo(runtime_call);
+				self.client.sign_payload(&payload, params)
 			},
 		}
 	}
@@ -265,7 +277,7 @@ impl SubxtWorker {
 	fn add_tx_to_pool(
 		&mut self,
 		transaction: Tx,
-		sender: oneshot::Sender<ExtrinsicDetails>,
+		event_sender: Option<oneshot::Sender<<C::Block as IBlock>::Extrinsic>>,
 		nonce: Option<u64>,
 	) {
 		let mut is_new_tx = true;
@@ -282,7 +294,7 @@ impl SubxtWorker {
 			.mortal_unchecked(block.number, block.hash, MORTALITY.into())
 			.build();
 		let tx = self.build_tx(transaction.clone(), params);
-		let tx = SubmittableExtrinsic::from_bytes(self.client.clone(), tx.clone());
+		let tx = self.client.submittable_transaction(tx.clone());
 		let hash = tx.hash();
 		let tx_status = TxStatus {
 			data: TxData {
@@ -291,9 +303,14 @@ impl SubxtWorker {
 				hash,
 				nonce,
 			},
-			event_sender: sender,
+			event_sender,
 			best_block: None,
 		};
+
+		if let Err(e) = self.db.store_tx(&tx_status.data) {
+			tracing::error!("Unable to add transaction into cache: {e}");
+		};
+
 		if is_new_tx {
 			self.pending_tx.push_back(tx_status);
 			self.nonce += 1;
@@ -304,97 +321,126 @@ impl SubxtWorker {
 		self.transaction_pool.push(fut);
 	}
 
-	pub fn into_sender(mut self) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<ExtrinsicDetails>)> {
-		let updater = self.client.updater();
+	pub fn into_sender(
+		mut self,
+	) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<<C::Block as IBlock>::Extrinsic>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
 			tracing::info!("starting subxt worker");
-			let mut update_stream =
-				updater.runtime_updates().await.context("failed to start subxt worker").unwrap();
-			let finalized_block_stream = self.client.blocks().subscribe_finalized().await.unwrap();
-			let mut finalized_blocks = finalized_block_stream
-				.and_then(|block| async move {
-					let ex = block.extrinsics().await?;
-					Ok(ex)
-				})
-				.boxed();
-			let best_block_stream = self.client.blocks().subscribe_best().await.unwrap();
-			let mut best_blocks = best_block_stream
-				.and_then(|block| async {
-					let ex = block.extrinsics().await?;
-					Ok((block, ex))
-				})
-				.boxed();
+			let mut update_stream = self.client.runtime_updates().await.unwrap().boxed();
+			let mut finalized_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
+				async move { c.finalized_block_stream().await }.boxed()
+			})
+			.await;
+			let mut best_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
+				async move { c.best_block_stream().await }.boxed()
+			})
+			.await;
 			loop {
 				futures::select! {
 					tx = rx.next().fuse() => {
-						let Some((command, channel)) = tx else { continue; };
-						self.add_tx_to_pool(command, channel, None);
+						let Some((command, channel)) = tx else { break; };
+						tracing::info!("tx added to pool");
+						self.add_tx_to_pool(command, Some(channel), None);
 					}
-					block_data = finalized_blocks.next().fuse() => {
-						let Some(block_res) = block_data else {
-							tracing::error!("Finalized block strem terminated");
-							tokio::time::sleep(Duration::from_secs(1)).await;
-							continue;
-						};
-
-						let Ok(extrinsics) = block_res else {
-							tracing::error!("Error processing finalized blocks: {:?}", block_res.err());
-							continue;
-						};
-
-						if self.pending_tx.is_empty() {
-							continue;
-						}
-
-						for extrinsic in extrinsics.iter() {
-							let extrinsic_hash = extrinsic.hash();
-							if Some(extrinsic_hash) == self.pending_tx.front().map(|tx| tx.data.hash) {
-								let Some(tx) = self.pending_tx.pop_front() else {
+					block_data = finalized_blocks.next() => {
+						match block_data {
+							Some(Ok((_block, extrinsics))) => {
+								if self.pending_tx.is_empty() {
 									continue;
-								};
-								tx.event_sender.send(extrinsic).ok();
+								}
+
+								for extrinsic in extrinsics.into_iter() {
+									let extrinsic_hash = extrinsic.hash();
+									let front = self.pending_tx.front().map(|tx| tx.data.hash);
+									if Some(extrinsic_hash) == front {
+										let Some(tx) = self.pending_tx.pop_front() else {
+											continue;
+										};
+										tx.event_sender.unwrap().send(extrinsic).ok();
+										if let Err(e) = self.db.remove_tx(tx.data.hash){
+											tracing::error!("Unable to remove tx from db {e}");
+										};
+									}
+								}
+							},
+							Some(Err(e)) => {
+								tracing::error!("Error processing finalized blocks: {:?}", e);
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+								continue;
+							},
+							None => {
+								tracing::error!("Finalized block stream terminated");
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+								finalized_blocks = Self::
+									create_stream_with_retry(
+										self.client.clone(),
+										|c| async move {
+											let client = c.clone();
+											client.finalized_block_stream().await
+										}.boxed()
+									)
+									.await;
 							}
 						}
 					}
-					block_data = best_blocks.next().fuse() => {
-						let Some(block_res) = block_data else {
-							tracing::error!("Latest block stream terminated");
-							tokio::time::sleep(Duration::from_secs(1)).await;
-							continue;
-						};
+					block_data = best_blocks.next() => {
+						match block_data {
+							Some(Ok((block, extrinsics))) => {
+								self.latest_block = BlockId {
+									number: block.number(),
+									hash: block.hash()
+								};
+								tracing::info!("best block stream hit: {}", self.latest_block.number);
 
-						let Ok((block, extrinsics)) = block_res else {
-							tracing::error!("Error processing block: {:?}", block_res.err());
-							continue;
-						};
+								if self.pending_tx.is_empty() {
+									continue;
+								}
 
-						self.latest_block = BlockDetail {
-							number: block.number().into(),
-							hash: block.hash()
-						};
+								let hashes: HashSet<_> = extrinsics.iter()
+									.map(|extrinsic| extrinsic.hash())
+									.collect();
+								for tx in self.pending_tx.iter_mut() {
+									if hashes.contains(&tx.data.hash) {
+										tracing::info!("tx found in block {}", self.latest_block.number);
+										tx.best_block = Some(self.latest_block.number);
+									}
+								}
 
-						if self.pending_tx.is_empty() {
-							continue;
-						}
-
-						let hashes: HashSet<_> = extrinsics.iter().map(|extrinsic| extrinsic.hash()).collect();
-						for tx in self.pending_tx.iter_mut() {
-							if hashes.contains(&tx.data.hash) {
-								tx.best_block = Some(self.latest_block.number);
+								let mut new_pending: VecDeque<TxStatus<C>> = VecDeque::new();
+								while let Some(tx) = self.pending_tx.pop_front() {
+									if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
+										tracing::warn!("outdated tx found retrying with nonce {}", tx.data.nonce);
+										self.add_tx_to_pool(
+											tx.data.transaction,
+											tx.event_sender,
+											Some(tx.data.nonce),
+										);
+									} else {
+										new_pending.push_back(tx);
+									}
+								}
+								self.pending_tx = new_pending;
+							},
+							Some(Err(e)) => {
+								tracing::error!("Error processing finalized blocks: {:?}", e);
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+								continue;
+							},
+							None => {
+								tracing::error!("Latest block stream terminated");
+								tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+								best_blocks = Self::
+									create_stream_with_retry(
+										self.client.clone(),
+										|c| async move {
+											let client = c.clone();
+											client.best_block_stream().await
+										}.boxed()
+									)
+									.await;
 							}
 						}
-
-						let mut new_pending: VecDeque<TxStatus> = VecDeque::new();
-						while let Some(tx) = self.pending_tx.pop_front() {
-							if tx.best_block.is_none() && self.latest_block.number > tx.data.era {
-								tracing::warn!("Outdated tx found retrying with nonce: {}", tx.data.nonce);
-								self.add_tx_to_pool(tx.data.transaction, tx.event_sender, Some(tx.data.nonce));
-							} else {
-								new_pending.push_back(tx);
-							}
-						}
-						self.pending_tx = new_pending;
 					}
 					tx_result = self.transaction_pool.next().fuse() => {
 						let Some(result) = tx_result else {
@@ -402,29 +448,44 @@ impl SubxtWorker {
 						};
 						match result {
 							Ok(hash) => {
-								tracing::info!("Transaction completed: {:?}", hash);
+								tracing::info!("tx completed: {:?}", hash);
 							}
 							Err(e) => {
-								tracing::error!("Transaction failed {e}");
+								tracing::error!("tx failed {e}");
 							}
 						}
 					}
 					update = update_stream.next().fuse() => {
-						let Some(Ok(update)) = update else { continue; };
-						let version = update.runtime_version().spec_version;
-						match updater.apply_update(update) {
-							Ok(()) => {
-								tracing::info!("Upgrade to version: {} successful", version)
-							},
-							Err(subxt::client::UpgradeError::SameVersion) => {}
-							Err(e) => {
-								tracing::error!("Upgrade to version {} failed {:?}", version, e);
-							},
-						};
+						let Some(Ok(update)) = update else {continue};
+						self.client.apply_update(update).ok();
 					}
 				}
 			}
 		});
 		tx
+	}
+
+	async fn create_stream_with_retry<S, F>(
+		client: C,
+		stream_creator: F,
+	) -> Fuse<BoxStream<'static, Result<S>>>
+	where
+		F: Fn(C) -> BoxFuture<'static, Result<BoxStream<'static, Result<S>>>>
+			+ Clone
+			+ Send
+			+ 'static,
+	{
+		loop {
+			match stream_creator(client.clone()).await {
+				Ok(stream) => {
+					tracing::info!("stream created successfully returning");
+					return stream.fuse();
+				},
+				Err(e) => {
+					tracing::warn!("Couldn't create stream, retrying: {:?}", e);
+					tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+				},
+			}
+		}
 	}
 }

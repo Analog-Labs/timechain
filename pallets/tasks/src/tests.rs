@@ -1,4 +1,4 @@
-use crate::mock::*;
+use crate::{mock::*, BatchTaskId, Event, FailedBatchIds};
 use crate::{BatchIdCounter, BatchTxHash, ShardRegistered};
 
 use frame_support::assert_ok;
@@ -403,6 +403,37 @@ fn test_task_stuck_in_unassigned_queue() {
 		roll(1);
 		assert!(Tasks::get_task_shard(9).is_some());
 	})
+}
+
+#[test]
+fn test_restart_failed_batch() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let batch_id = 0;
+		let initial_task_id = 2;
+		Tasks::assign_task(shard, 2);
+		assert_eq!(Tasks::get_task(initial_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		roll(1);
+		let submitter = Tasks::get_task_submitter(initial_task_id).unwrap();
+		submit_submission_error(submitter, initial_task_id, "batch failed");
+		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
+		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
+		let new_task_id = 3;
+		assert_eq!(Tasks::get_task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		assert_eq!(BatchTaskId::<Test>::get(batch_id), Some(new_task_id));
+		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(Tasks::get_task_result(initial_task_id).is_some());
+		let event = System::events().into_iter().find_map(|r| {
+			if let RuntimeEvent::Tasks(Event::BatchRestarted(old, new)) = r.event {
+				Some((old, new))
+			} else {
+				None
+			}
+		});
+		assert_eq!(event, Some((initial_task_id, new_task_id)));
+	});
 }
 
 mod bench_helper {

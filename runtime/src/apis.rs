@@ -364,6 +364,10 @@ impl_runtime_apis! {
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
 			Tasks::get_batch_message(batch_id)
 		}
+
+		fn get_failed_tasks() -> Vec<TaskId> {
+			Tasks::get_failed_tasks()
+		}
 	}
 
 	#[cfg(feature = "testnet")]

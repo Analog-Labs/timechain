@@ -1,0 +1,42 @@
+name: "Dispatch"
+description: "Submit a service deployment event"
+
+inputs:
+  version:
+    description: "Docker image version tag"
+    required: true
+    default: "dev"
+  token:
+    description: "Github API Token"
+    required: true
+  environment:
+    description: "Target env for the deployment"
+    required: true
+  service:
+    description: "Service name of the CD workflow"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Trigger dispatch
+      shell: bash
+      run: |
+        set -e;
+        
+        CODE=$(curl -X POST --silent --output curl_out \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ inputs.token }}" \
+            https://api.github.com/repos/Analog-Labs/timechain/actions/workflows/deploy-${{ inputs.service }}-cluster.yaml/dispatches \
+            -d '{
+                    "ref": "development",
+                    "inputs": {
+                        "version": "'${{ inputs.version }}'",
+                        "environment": "'${{ inputs.environment }}'"
+                    }
+                }' --write-out "%{http_code}" "$@");
+
+        if [[ ${CODE} -lt 200 || ${CODE} -gt 299 ]] ; then
+          cat curl_out;
+          exit 1;
+        fi

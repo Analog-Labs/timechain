@@ -15,8 +15,9 @@ async-trait.workspace = true
 clap.workspace = true
 futures.workspace = true
 hex.workspace = true
+redb = "2.1.2"
 serde = { workspace = true, features = ["derive"] }
-tokio.workspace = true
+tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 
 scale-codec.workspace = true
@@ -28,6 +29,11 @@ subxt-signer.workspace = true
 
 time-primitives = { workspace = true, default-features = true }
 tc-subxt-metadata = { path = "metadata" }
+
+[dev-dependencies]
+env_logger.workspace = true
+tokio-stream = { version = "0.1", features = ["sync"]}
+
 
 [features]
 testnet = [

@@ -1,0 +1,78 @@
+###############################################
+##
+##    Pipeline for deploying to Kubernetes
+##    cluster.
+##
+##    Gets triggered on each completed run of
+##    the Docker build workflow.
+##
+##    Effectively deletes the pods on the
+##    cluster and pulls the latest images
+##    again.
+##
+###############################################
+
+name: K8s - Deploy Slack Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Docker image tag to deploy on the network"
+        required: true
+        type: string
+        default: "latest"
+      # Slack bot is currently deployed on mainnet since we
+      # consider it to be a production ready, long running environment
+      environment:
+        description: "Target environment where to fetch secrets and vars"
+        required: true
+        type: choice
+        default: "mainnet"
+        options:
+          - "mainnet"
+env:
+  DOCKERHUB_ACCOUNT: analoglabs
+jobs:
+  set-timestamp:
+    name: Get timestamp
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.get-timestamp.outputs.timestamp }}
+    steps:
+    - name: Get timestamp
+      id: get-timestamp
+      run: |
+        timestamp=$(date +%s)
+        echo "timestamp=$timestamp" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy on cluster
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    needs: ["set-timestamp"]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: GKE Setup
+      uses: ./.github/actions/gke-common
+      with:
+        cluster: ${{ github.event.inputs.environment }}
+        key-file: ${{ secrets.SLACK_DEPLOYER_KEY }}
+        project-id: ${{ secrets.GCP_PROJECT_ID }}
+        region: us-east1
+
+      # Using "kubectl patch" updates validator versions one by one
+      # NOTE: ideally, Helm should replace kubectl patch
+    - name: Update slack bot
+      run: |
+        VERSION=${{ github.event.inputs.version }};
+        IMAGE="${{ env.DOCKERHUB_ACCOUNT }}/slack-bot:${{ github.event.inputs.version }}";
+        TIMESTAMP="${{ needs.set-timestamp.outputs.timestamp }}";
+        NAMESPACE="slack-bot"
+
+        POD_NAME=$(kubectl get deployment -l app=slack-bot -n $NAMESPACE --no-headers -o custom-columns=":metadata.name")
+        
+        kubectl patch deployment $POD_NAME -n $NAMESPACE -p \
+          '{"spec":{"template":{"metadata":{"labels":{"timestamp":"'$TIMESTAMP'", "commit-sha":"'$VERSION'"}},"spec":{"containers":[{"name":"slack-bot","image":"'$IMAGE'"}]}}}}'

@@ -61,13 +61,13 @@ pub fn encode_gmp_events(task_id: TaskId, events: &[GmpEvent]) -> Vec<u8> {
 	(task_id, events).encode()
 }
 
-//const MAX_GMP_EVENTS: u32 = 1_000;
-pub const MAX_ERROR_LEN: u32 = 500;
+pub const MAX_GMP_EVENTS: u32 = 10_000;
+pub const MAX_ERROR_LEN: u32 = 10_000;
 
 /// Bounded vec alias for GMP events submitted in results
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
-pub struct GmpEvents(pub Vec<GmpEvent>);
+pub struct GmpEvents(pub BoundedVec<GmpEvent, ConstU32<MAX_GMP_EVENTS>>);
 /// Bounded vec alias for SubmitGatewayMessage error
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
@@ -80,6 +80,7 @@ pub enum TaskResult {
 		events: GmpEvents,
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_signature"))]
 		signature: TssSignature,
+		remaining: bool,
 	},
 	SubmitGatewayMessage {
 		error: ErrorMsg,

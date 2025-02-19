@@ -115,6 +115,9 @@ license.workspace = true
 readme.workspace = true
 repository.workspace = true
 
+[lib]
+path = "tests/lib.rs"
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 anyhow.workspace = true

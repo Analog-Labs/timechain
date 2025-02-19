@@ -99,8 +99,6 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    ports:
-    - 8080:8080
     profiles:
     - evm
     - bridge
@@ -128,8 +126,6 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    ports:
-    - 8081:8080
     profiles:
     - evm
 

@@ -9,7 +9,7 @@ pub struct TestEnv {
 }
 
 const CONFIG: &str = "local-evm-e2e.yaml";
-const ENV: &str = "../config/envs/local";
+const ENV: &str = "config/envs/local";
 
 impl TestEnv {
 	async fn new() -> Result<Self> {
@@ -56,7 +56,7 @@ impl Drop for TestEnv {
 }
 
 fn build_containers() -> Result<bool> {
-	let mut cmd = process::Command::new(Path::new("../scripts/build_docker.sh"));
+	let mut cmd = process::Command::new(Path::new("scripts/build_docker.sh"));
 	let mut child = cmd.spawn().context("Error building containers")?;
 
 	child.wait().map(|c| c.success()).context("Error building containers: {e}")

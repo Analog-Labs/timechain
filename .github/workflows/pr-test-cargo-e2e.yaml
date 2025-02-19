@@ -1,27 +1,12 @@
-name: Run all except e2e tests
+name: Run end-to-end tests
 on:
   pull_request:
-    paths:
-      - '.github/actions/cargo-command/**'
-      - '.github/workflows/pr-test-cargo.yaml'
-      - 'chronicle/**'
-      - 'config/subxt/**'
-      - 'docs/**'
-      - 'node/**'
-      - 'pallets/**'
-      - 'primitives/**'
-      - 'runtime/**'
-      - 'tc-cli/**'
-      - 'tc-subxt/**'
-      - 'tss/**'
-      - 'utils/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
+    types: [labeled, unlabeled, opened, reopened, synchronize]
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  if: false
   test-cargo:
     runs-on: [self-hosted, general]
     steps:
@@ -38,6 +23,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features --exclude timechain
+          args: --all-features -p timechain --tests
           cache: false
           annotate: false

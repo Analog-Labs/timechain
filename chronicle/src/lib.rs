@@ -23,18 +23,18 @@ mod shards;
 mod tasks;
 
 pub fn init_logger() {
-	let filter = tracing_subscriber::EnvFilter::from_default_env()
-		.add_directive("chronicle=debug".parse().unwrap())
-		.add_directive("tss=debug".parse().unwrap());
-	tracing_subscriber::fmt()
-		.pretty()
-		.with_ansi(false)
-		.with_max_level(tracing::Level::INFO)
-		.with_file(true)
-		.with_line_number(true)
-		.with_env_filter(filter)
-		.try_init()
-		.ok();
+	// let filter = tracing_subscriber::EnvFilter::from_default_env()
+	// 	.add_directive("chronicle=debug".parse().unwrap())
+	// 	.add_directive("tss=debug".parse().unwrap());
+	// tracing_subscriber::fmt()
+	// 	.pretty()
+	// 	.with_ansi(false)
+	// 	.with_max_level(tracing::Level::INFO)
+	// 	.with_file(true)
+	// 	.with_line_number(true)
+	// 	.with_env_filter(filter)
+	// 	.try_init()
+	// 	.ok();
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 }
 

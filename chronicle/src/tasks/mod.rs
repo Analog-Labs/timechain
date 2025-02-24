@@ -104,13 +104,19 @@ impl TaskParams {
 		events: Vec<GmpEvent>,
 		span: &Span,
 	) -> Result<()> {
+		let span = span!(
+			Level::INFO,
+			"submit_events",
+			task_id,
+			?events,
+		);
 		let payload = time_primitives::encode_gmp_events(task_id, &events);
-		let signature = self.tss_sign(block_number, shard_id, task_id, payload, span).await?;
+		let signature = self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 		let result = TaskResult::ReadGatewayEvents {
 			events: GmpEvents(BoundedVec::truncate_from(events)),
 			signature,
 		};
-		tracing::debug!(parent: span, "submitting task result",);
+		tracing::debug!("submitting task result",);
 		self.runtime.submit_task_result(task_id, result).await
 	}
 
@@ -123,8 +129,13 @@ impl TaskParams {
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
-		span: Span,
 	) -> Result<()> {
+		let span = span!(
+			Level::INFO,
+			"executing_task",
+			task_id,
+			%task,
+		);
 		match task {
 			Task::ReadGatewayEvents { blocks } => {
 				let events =
@@ -179,6 +190,7 @@ impl TaskExecutor {
 		}
 	}
 
+	#[tracing::instrument(skip(self))]
 	pub async fn process_tasks(
 		&mut self,
 		block_number: BlockNumber,
@@ -208,7 +220,6 @@ impl TaskExecutor {
 			}
 
 			let span = span!(
-				parent: span,
 				Level::INFO,
 				"task started",
 				task_id,
@@ -219,7 +230,7 @@ impl TaskExecutor {
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
 				match exec
-					.execute(block_number, network, gateway, shard_id, task_id, task, span2)
+					.execute(block_number, network, gateway, shard_id, task_id, task)
 					.await
 				{
 					Ok(()) => {

@@ -13,6 +13,16 @@ use std::{
 use tc_subxt::SubxtClient;
 use time_primitives::NetworkId;
 
+use opentelemetry::{trace::TracerProvider as _, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{
+    trace::{RandomIdGenerator, Sampler, SdkTracerProvider},
+    Resource,
+};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_core::Level;
+
 #[derive(Debug, Parser)]
 pub struct ChronicleArgs {
 	/// The network to be used from Analog Connector.
@@ -79,9 +89,69 @@ fn generate_key(path: &Path) -> Result<()> {
 	Ok(())
 }
 
+fn resource() -> Resource {
+    Resource::builder()
+        .with_schema_url(
+            [
+                KeyValue::new("service.name", "chronicle"),
+                KeyValue::new("service.version", "v1.0"),
+            ],
+            "https://opentelemetry.io/schemas/1.30.0",
+        )
+        .build()
+}
+
+// Construct TracerProvider for OpenTelemetryLayer
+fn init_tracer_provider() -> SdkTracerProvider {
+	let endpoint = std::env::var("TRACING_URL").unwrap();
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(endpoint)
+        .build()
+        .unwrap();
+
+    SdkTracerProvider::builder()
+        .with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(
+            1.0,
+        ))))
+        .with_id_generator(RandomIdGenerator::default())
+        .with_resource(resource())
+        .with_batch_exporter(exporter)
+        .build()
+}
+
+// Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
+fn init_tracing_subscriber() -> SdkTracerProvider {
+    let tracer_provider = init_tracer_provider();
+
+    let tracer = tracer_provider.tracer("tracing-otel-subscriber");
+
+	let filter = tracing_subscriber::EnvFilter::from_default_env()
+		.add_directive("chronicle=debug".parse().unwrap())
+		.add_directive("tss=debug".parse().unwrap());
+
+	let log_subscriber = tracing_subscriber::fmt::layer()
+		.pretty()
+		.with_ansi(false)
+		.with_file(true)
+		.with_line_number(true);
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::LevelFilter::from_level(
+            Level::DEBUG,
+        ))
+        .with(log_subscriber)
+        .with(OpenTelemetryLayer::new(tracer))
+        .init();
+
+	tracer_provider
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
 	init_logger();
+	init_tracing_subscriber();
+
 	time_primitives::init_ss58_version();
 	let args = ChronicleArgs::parse();
 

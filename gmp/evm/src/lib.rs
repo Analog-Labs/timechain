@@ -55,7 +55,7 @@ pub struct Connector {
 	wallet: Arc<Wallet>,
 	backend: Adapter<DefaultClient>,
 	url: String,
-	cctp_sender: Option<Address>,
+	cctp_sender: Option<Vec<Address>>,
 	cctp_attestation: Option<String>,
 	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
 	// Temporary fix to avoid nonce overlap
@@ -402,16 +402,22 @@ impl IConnectorBuilder for Connector {
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
 		let adapter = Adapter(client);
-		let cctp_sender: Result<Option<[u8; 32]>> = params
+		let cctp_sender: Result<Option<Vec<Address>>> = params
 			.cctp_sender
-			.map(|item| {
-				let clean_hex = item.strip_prefix("0x").unwrap_or(&item);
-				let bytes = hex::decode(clean_hex)
-					.map_err(|e| anyhow::anyhow!("Hex decode error: {}", e))?;
-				let arr: Address = bytes
-					.try_into()
-					.map_err(|_| anyhow::anyhow!("Unable to make Address from hex bytes"))?;
-				Ok(arr)
+			.map(|items| {
+				items
+					.split(',')
+					.map(|s| s.trim())
+					.map(|item| {
+						let clean_hex = item.strip_prefix("0x").unwrap_or(item);
+						let bytes = hex::decode(clean_hex)
+							.map_err(|e| anyhow::anyhow!("Hex decode error: {}", e))?;
+						let arr: Address = bytes
+							.try_into()
+							.map_err(|_| anyhow::anyhow!("Invalid address length"))?;
+						Ok(arr)
+					})
+					.collect::<Result<Vec<_>>>()
 			})
 			.transpose();
 		let cctp_sender = cctp_sender?;
@@ -533,16 +539,15 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						if Some(gmp_message.src) == self.cctp_sender {
-							let mut cctp_queue = self.cctp_queue.lock().await;
-							cctp_queue.push((gmp_message.clone(), 0));
-						} else {
-							tracing::info!(
-								"gmp created: {:?}",
-								hex::encode(gmp_message.message_id())
-							);
-							events.push(GmpEvent::MessageReceived(gmp_message));
+						if let Some(senders) = &self.cctp_sender {
+							if senders.contains(&gmp_message.src) {
+								let mut cctp_queue = self.cctp_queue.lock().await;
+								cctp_queue.push((gmp_message.clone(), 0));
+								continue;
+							}
 						}
+						tracing::info!("gmp created: {:?}", hex::encode(gmp_message.message_id()));
+						events.push(GmpEvent::MessageReceived(gmp_message));
 						break;
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {

@@ -566,10 +566,10 @@ async fn exec_smoke(
 	dest_addr: Address,
 	smoke_type: SmokeType,
 ) -> Result<()> {
-	const CCTP_MSG_LEN: u16 = 896;
+	const CCTP_MSG_LEN: usize = 896;
 	let mut blocks = tc.finality_notification_stream();
 	let (_, start) = blocks.next().await.context("expected block")?;
-	let payload = vec![0u8; MSG_LEN];
+	let payload = vec![0u8; CCTP_MSG_LEN];
 	let gas_limit = tc
 		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 		.await?;

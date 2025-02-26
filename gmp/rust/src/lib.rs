@@ -432,7 +432,12 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn deploy_test(&self, gateway: Address, _path: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_test(
+		&self,
+		_additional_params: &[u8],
+		gateway: Address,
+		_path: &[u8],
+	) -> Result<(Address, u64)> {
 		let mut tester = [0; 32];
 		getrandom::getrandom(&mut tester).unwrap();
 		let block = block(self.genesis);
@@ -507,6 +512,18 @@ impl IConnectorAdmin for Connector {
 		};
 		tx.commit()?;
 		Ok(id)
+	}
+
+	async fn send_cctp_message(
+		&self,
+		_gateway: Address,
+		_src: Address,
+		_dest_network: NetworkId,
+		_dest: Address,
+		_gas_limit: u128,
+		_gas_cost: u128,
+	) -> Result<MessageId> {
+		anyhow::bail!("Not supported")
 	}
 
 	async fn recv_messages(&self, addr: Address, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
@@ -641,8 +658,8 @@ mod tests {
 		let current = chain.block_stream().next().await.unwrap();
 		let events = chain.read_events(gateway, block..current).await?;
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
-		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
-		let (dest, _) = chain.deploy_test(gateway, "".as_ref()).await?;
+		let (src, _) = chain.deploy_test("".as_ref(), gateway, "".as_ref()).await?;
+		let (dest, _) = chain.deploy_test("".as_ref(), gateway, "".as_ref()).await?;
 		let payload = vec![];
 		let gas_limit =
 			chain.estimate_message_gas_limit(dest, network, src, payload.clone()).await?;

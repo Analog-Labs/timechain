@@ -1,5 +1,6 @@
 config:
   chronicle_funds: 10.
+  # timechain_url: 'ws://127.0.0.1:9944'
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
 contracts:
@@ -14,6 +15,7 @@ networks:
     blockchain: "anvil"
     network: "dev"
     url: "ws://chain-2-evm:8545"
+    # url: "ws://127.0.0.1:8545"
     admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
@@ -31,6 +33,7 @@ networks:
     blockchain: "anvil"
     network: "dev"
     url: "ws://chain-3-evm:8545"
+    # url: "ws://127.0.0.1:8545"
     admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.

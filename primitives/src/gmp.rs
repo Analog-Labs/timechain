@@ -391,7 +391,12 @@ pub trait IConnectorAdmin: IConnector {
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
+	async fn deploy_test(
+		&self,
+		additional_params: &[u8],
+		gateway: Address,
+		tester: &[u8],
+	) -> Result<(Address, u64)>;
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,
@@ -417,6 +422,16 @@ pub trait IConnectorAdmin: IConnector {
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
+	) -> Result<MessageId>;
+	/// Sends a cctp message using the test contract and returns the message id.
+	async fn send_cctp_message(
+		&self,
+		gateway: Address,
+		src: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
 	) -> Result<MessageId>;
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)

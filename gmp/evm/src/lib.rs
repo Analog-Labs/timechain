@@ -55,8 +55,8 @@ pub struct Connector {
 	wallet: Arc<Wallet>,
 	backend: Adapter<DefaultClient>,
 	url: String,
-	cctp_sender: Option<String>,
-	cctp_attestation: String,
+	cctp_sender: Option<Address>,
+	cctp_attestation: Option<String>,
 	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
@@ -288,11 +288,9 @@ impl Connector {
 		&self,
 		burn_hash: [u8; 32],
 	) -> Result<AttestationResponse, CctpError> {
-		let url = format!(
-			"{}/0x{}",
-			&self.cctp_attestation.trim_end_matches('/'),
-			hex::encode(burn_hash)
-		);
+		let uri = self.cctp_attestation.as_deref().ok_or(CctpError::AttestationDisabled)?;
+		let uri = uri.trim_end_matches('/');
+		let url = format!("{}/0x{}", uri, hex::encode(burn_hash));
 		let client = Client::new();
 		let response = client
 			.get(&url)
@@ -341,6 +339,44 @@ impl Connector {
 		}
 		attested_msgs
 	}
+
+	async fn deploy_cctp_contract(
+		&self,
+		additional_params: &[u8],
+		gateway: Address,
+		tester: &[u8],
+	) -> Result<AlloyAddress> {
+		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+		let mut bytecode = extract_bytecode(tester)?;
+		let constructor = sol::GmpTester::constructorCall { gateway: a_addr(gateway) };
+		let factory = a_addr(self.parse_address(&config.factory_address)?);
+		let tester_addr = compute_create2_address(
+			factory.into(),
+			config.deployment_salt,
+			&bytecode,
+			constructor.clone(),
+		)?;
+		bytecode.extend(constructor.abi_encode());
+		let is_tester_deployed =
+			self.backend.get_code(tester_addr.0 .0.into(), AtBlock::Latest).await?;
+		if !is_tester_deployed.is_empty() {
+			Ok(tester_addr)
+		} else {
+			let call = sol::IUniversalFactory::create2_0Call {
+				salt: config.deployment_salt.into(),
+				creationCode: bytecode.into(),
+			}
+			.abi_encode();
+			let (addr, _) = self.deploy_contract_with_factory(&config, call).await?;
+			Ok(addr)
+		}
+	}
+
+	async fn get_gateway_nonce(&self, gateway: Address, account: Address) -> Result<u64> {
+		let call = sol::Gateway::nonceOfCall { account: a_addr(account) };
+		let result = self.evm_call(gateway, call, 0, None, None).await?;
+		Ok(result.0._0)
+	}
 }
 
 #[async_trait]
@@ -365,14 +401,35 @@ impl IConnectorBuilder for Connector {
 		let client = default_client(&params.url, None)
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
+		if params.cctp_sender.is_some() {
+			tracing::info!("CCTP is enabled");
+			tracing::info!("params. {:?}", params.cctp_attestation)
+		}
 		let adapter = Adapter(client);
+		let cctp_sender: Result<Option<[u8; 32]>> = params
+			.cctp_sender
+			.map(|item| {
+				tracing::info!("cctp sender: {}", item);
+				let clean_hex = item.strip_prefix("0x").unwrap_or(&item);
+				let bytes = hex::decode(clean_hex)
+					.map_err(|e| anyhow::anyhow!("Hex decode error: {}", e))?;
+				tracing::info!("cctp bytes: {:?}", bytes);
+				let arr: Address = bytes
+					.try_into()
+					.map_err(|_| anyhow::anyhow!("Unable to make Address from hex bytes"))?;
+				tracing::info!("cctp bytes: {:?}", arr);
+				Ok(arr)
+			})
+			.transpose();
+		let cctp_sender = cctp_sender?;
+
 		let connector = Self {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
 			url: params.url,
-			cctp_sender: params.cctp_sender,
-			cctp_attestation: params.cctp_attestation.unwrap_or("".into()),
+			cctp_sender,
+			cctp_attestation: params.cctp_attestation,
 			cctp_queue: Default::default(),
 			wallet_guard: Default::default(),
 		};
@@ -433,9 +490,7 @@ impl IChain for Connector {
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		let cctp_sender =
-			self.cctp_sender.clone().map(|item| self.parse_address(&item)).transpose()?;
-
+		let cctp_sender = self.cctp_sender.clone();
 		let contract: [u8; 20] = a_addr(gateway).0.into();
 		let logs = self
 			.wallet
@@ -486,6 +541,15 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
+						tracing::info!("gmp created got hit: {:?}", gmp_message);
+						tracing::info!(
+							"gmp created got hit from source: {:?}",
+							hex::encode(gmp_message.src)
+						);
+						tracing::info!(
+							"gmp created cctp sender: {:?}",
+							hex::encode(cctp_sender.unwrap())
+						);
 						if Some(gmp_message.src) == cctp_sender {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));
@@ -709,13 +773,22 @@ impl IConnectorAdmin for Connector {
 		let msg_cost: u128 = result._0.try_into().unwrap();
 		Ok(msg_cost)
 	}
+
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_test(
+		&self,
+		additional_params: &[u8],
+		gateway: Address,
+		tester: &[u8],
+	) -> Result<(Address, u64)> {
 		let bytecode = extract_bytecode(tester)?;
+		let cctp_contract = self.deploy_cctp_contract(additional_params, gateway, tester).await?;
+		tracing::info!("CCTP contract deployed at: {:?}", hex::encode(cctp_contract));
 		self.deploy_contract(bytecode, sol::GmpTester::constructorCall { gateway: a_addr(gateway) })
 			.await
 	}
-	/// Sends a message using the test contract.
+
+	// Sends a message using the test contract.
 	async fn send_message(
 		&self,
 		contract: Address,
@@ -738,6 +811,58 @@ impl IConnectorAdmin for Connector {
 		let result = self.evm_call(contract, call, gas_cost, None, None).await?;
 		let id: MessageId = *result.0._0;
 		Ok(id)
+	}
+
+	async fn send_cctp_message(
+		&self,
+		gateway: Address,
+		contract: Address,
+		dest_network: NetworkId,
+		dest: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+	) -> Result<MessageId> {
+		let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
+		let msg_data =
+			hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
+		let mut cctp_msg = sol::CCTP {
+			version: 0,
+			localMessageTransmitter: a_addr(contract),
+			localMinter: a_addr([0u8; 32]),
+			amount: U256::from(0),
+			destinationDomain: dest_network as u32,
+			mintRecipient: dest.into(),
+			burnToken: a_addr([0u8; 32]),
+			nonce: 0,
+			attestation: Vec::new().into(),
+			message: msg_data.clone().into(),
+			extraData: Vec::new().into(),
+		};
+		let nonce = self.get_gateway_nonce(gateway, contract).await?;
+		let mut msg = sol::GmpMessage {
+			srcNetwork: self.network_id,
+			source: contract.into(),
+			destNetwork: dest_network,
+			dest: a_addr(dest),
+			nonce,
+			gasLimit: gas_limit as _,
+			data: cctp_msg.clone().abi_encode().into(),
+		};
+		let call = sol::GmpTester::sendMessageCall { msg: msg.clone() };
+		let _ = self.evm_call(contract, call, gas_cost, None, None).await?;
+
+		// Computing valid message id for CCTP requires adding attestation in the cctp struct and then compute message_id
+		// Since after getting attestation the message_id of the gmp message changes we get attestation in start to match the later message_id.
+		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&msg_data).into();
+		let response = self.get_cctp_attestation(burn_hash).await?;
+		let attestation =
+			response.attestation.ok_or(anyhow::anyhow!("Failed to get msg attestation"))?;
+		let attestation = attestation.strip_prefix("0x").unwrap_or(&attestation);
+		let attestation_bytes = hex::decode(attestation).unwrap();
+		cctp_msg.attestation = attestation_bytes.into();
+		msg.data = cctp_msg.abi_encode().into();
+		let message_id = Into::<GmpMessage>::into(msg).message_id();
+		Ok(message_id)
 	}
 	/// Receives messages from test contract.
 	async fn recv_messages(
@@ -768,7 +893,8 @@ impl IConnectorAdmin for Connector {
 					continue;
 				};
 				let log = sol::GmpTester::MessageReceived::decode_log(&log, true)?;
-				msgs.push(log.msg.clone().into());
+				let msg: GmpMessage = log.msg.clone().into();
+				msgs.push(msg);
 			}
 		}
 		Ok(msgs)
@@ -935,6 +1061,8 @@ struct AttestationResponse {
 enum CctpError {
 	#[error("Attestation is pending.")]
 	AttestationPending,
+	#[error("Attestation is disabled.")]
+	AttestationDisabled,
 	#[error("Failed to get attestation from response.")]
 	AttestationResponse,
 	#[error("Invalid payload.")]

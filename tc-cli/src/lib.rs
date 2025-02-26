@@ -77,7 +77,9 @@ impl Tc {
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
 					cctp_sender: None,
-					cctp_attestation: None,
+					cctp_attestation: Some(String::from(
+						"https://iris-api-sandbox.circle.com/attestations/",
+					)),
 				};
 				let connector = async move {
 					let connector = network
@@ -983,7 +985,9 @@ impl Tc {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network).await?;
 		self.println(None, format!("deploy tester {network}")).await?;
-		connector.deploy_test(gateway, &contracts.tester).await
+		connector
+			.deploy_test(&contracts.additional_params, gateway, &contracts.tester)
+			.await
 	}
 
 	pub async fn estimate_message_gas_limit(
@@ -1042,6 +1046,47 @@ impl Tc {
 			Some(id),
 			format!(
 				"sent message {} to {} {} with {} gas for {}",
+				hex::encode(msg_id),
+				dest_network,
+				self.format_address(Some(dest_network), dest_addr)?,
+				gas_limit,
+				self.format_balance(Some(src_network), gas_cost)?,
+			),
+		)
+		.await?;
+		Ok(msg_id)
+	}
+
+	#[allow(clippy::too_many_arguments)]
+	pub async fn send_cctp_message(
+		&self,
+		src_network: NetworkId,
+		src_addr: Address,
+		dest_network: NetworkId,
+		dest_addr: Address,
+		gas_limit: u128,
+		gas_cost: u128,
+	) -> Result<MessageId> {
+		let (connector, gateway) = self.gateway(src_network).await?;
+		let id = self
+			.println(
+				None,
+				format!(
+					"send cctp message to {} {} with {} gas for {}",
+					dest_network,
+					self.format_address(Some(dest_network), dest_addr)?,
+					gas_limit,
+					self.format_balance(Some(src_network), gas_cost)?,
+				),
+			)
+			.await?;
+		let msg_id = connector
+			.send_cctp_message(gateway, src_addr, dest_network, dest_addr, gas_limit, gas_cost)
+			.await?;
+		self.println(
+			Some(id),
+			format!(
+				"sent cctp message {} to {} {} with {} gas for {}",
 				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest_addr)?,

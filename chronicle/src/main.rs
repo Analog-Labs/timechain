@@ -84,6 +84,7 @@ async fn main() -> Result<()> {
 	init_logger();
 	time_primitives::init_ss58_version();
 	let args = ChronicleArgs::parse();
+	tracing::info!("chronicle args are{:?}", args.cctp_sender);
 
 	if args.cctp_sender.is_some() && args.cctp_attestation.is_none() {
 		anyhow::bail!("Requires cctp attestation url with cctp sender");

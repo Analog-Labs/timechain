@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{BatchId, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{Address, BatchId, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -175,6 +175,20 @@ enum Command {
 	SmokeTest {
 		src: NetworkId,
 		dest: NetworkId,
+	},
+	SmokeCctp {
+		src: NetworkId,
+		#[arg(
+			long,
+			default_value = "000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc"
+		)]
+		src_address: String,
+		dest: NetworkId,
+		#[arg(
+			long,
+			default_value = "000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc"
+		)]
+		dest_address: String,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -430,36 +444,29 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
-			let mut blocks = tc.finality_notification_stream();
-			let (_, start) = blocks.next().await.context("expected block")?;
-			let payload = vec![42];
-			let gas_limit = tc
-				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
-				.await?;
-			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
-			let msg_id = tc
-				.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
-				.await?;
-			let mut id = None;
-			let (exec, end) = loop {
-				let (_, end) = blocks.next().await.context("expected block")?;
-				let trace = tc.message_trace(src, msg_id).await?;
-				let exec = trace.exec.as_ref().map(|t| t.task);
-				tracing::info!("waiting for message {}", hex::encode(msg_id));
-				id = Some(tc.print_table(id, "message", vec![trace]).await?);
-				if let Some(exec) = exec {
-					break (exec, end);
-				}
-			};
-			let blocks = tc.read_events_blocks(exec).await?;
-			let msgs = tc.messages(dest, dest_addr, blocks).await?;
-			let msg = msgs
-				.into_iter()
-				.find(|msg| msg.message_id() == msg_id)
-				.context("failed to find message")?;
-			tc.print_table(None, "message", vec![msg]).await?;
-			tc.println(None, format!("received message after {} blocks", end - start))
-				.await?;
+			exec_smoke(tc, src, src_addr, dest, dest_addr, SmokeType::Gmp).await?;
+		},
+		Command::SmokeCctp {
+			src,
+			src_address,
+			dest,
+			dest_address,
+		} => {
+			let contracts = tc.setup_test(src, dest).await?;
+			tracing::info!(
+				"test contracts{:?}/{:?}",
+				hex::encode(contracts.0),
+				hex::encode(contracts.1)
+			);
+			let src_addr = hex::decode(src_address)
+				.unwrap()
+				.try_into()
+				.expect("Unable to convert src_address to bytes32");
+			let dest_addr = hex::decode(dest_address)
+				.unwrap()
+				.try_into()
+				.expect("Unable to convert dest_address to bytes32");
+			exec_smoke(tc, src, src_addr, dest, dest_addr, SmokeType::Cctp).await?;
 		},
 		Command::Benchmark { src, dest, num_messages } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
@@ -554,4 +561,57 @@ async fn real_main() -> Result<()> {
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
 	Ok(())
+}
+
+async fn exec_smoke(
+	tc: Tc,
+	src: NetworkId,
+	src_addr: Address,
+	dest: NetworkId,
+	dest_addr: Address,
+	smoke_type: SmokeType,
+) -> Result<()> {
+	let mut blocks = tc.finality_notification_stream();
+	let (_, start) = blocks.next().await.context("expected block")?;
+	let payload = vec![];
+	let gas_limit = tc
+		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+		.await?;
+	let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+	let msg_id = match smoke_type {
+		SmokeType::Gmp => {
+			tc.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+				.await?
+		},
+		SmokeType::Cctp => {
+			tc.send_cctp_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost)
+				.await?
+		},
+	};
+	let mut id = None;
+	let (exec, end) = loop {
+		let (_, end) = blocks.next().await.context("expected block")?;
+		let trace = tc.message_trace(src, msg_id).await?;
+		let exec = trace.exec.as_ref().map(|t| t.task);
+		tracing::info!("waiting for message {}", hex::encode(msg_id));
+		id = Some(tc.print_table(id, "message", vec![trace]).await?);
+		if let Some(exec) = exec {
+			break (exec, end);
+		}
+	};
+	let blocks = tc.read_events_blocks(exec).await?;
+	let msgs = tc.messages(dest, dest_addr, blocks).await?;
+	let msg = msgs
+		.into_iter()
+		.find(|msg| msg.message_id() == msg_id)
+		.context("failed to find message")?;
+	tc.print_table(None, "message", vec![msg]).await?;
+	tc.println(None, format!("received message after {} blocks", end - start))
+		.await?;
+	Ok(())
+}
+
+enum SmokeType {
+	Gmp,
+	Cctp,
 }

@@ -247,7 +247,12 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_test(
+		&self,
+		_additional_params: &[u8],
+		gateway: Address,
+		tester: &[u8],
+	) -> Result<(Address, u64)> {
 		let request = Request::new(proto::DeployTestRequest {
 			gateway,
 			tester: tester.to_vec(),
@@ -311,6 +316,19 @@ impl IConnectorAdmin for Connector {
 		let response = self.client.lock().await.send_message(request).await?.into_inner();
 		Ok(response.message_id)
 	}
+
+	async fn send_cctp_message(
+		&self,
+		_gateway: Address,
+		_src: Address,
+		_dest_network: NetworkId,
+		_dest: Address,
+		_gas_limit: u128,
+		_gas_cost: u128,
+	) -> Result<MessageId> {
+		anyhow::bail!("Not supported")
+	}
+
 	/// Receives messages from test contract.
 	async fn recv_messages(
 		&self,

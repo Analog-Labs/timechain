@@ -142,6 +142,5 @@ services:
     environment:
       RUST_BACKTRACE: 1
       RUST_LOG: 'gmp_evm=info'
-      RUST_MIN_STACK: "16777216"    
     profiles:
     - never

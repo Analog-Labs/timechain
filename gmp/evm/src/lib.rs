@@ -401,23 +401,16 @@ impl IConnectorBuilder for Connector {
 		let client = default_client(&params.url, None)
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
-		if params.cctp_sender.is_some() {
-			tracing::info!("CCTP is enabled");
-			tracing::info!("params. {:?}", params.cctp_attestation)
-		}
 		let adapter = Adapter(client);
 		let cctp_sender: Result<Option<[u8; 32]>> = params
 			.cctp_sender
 			.map(|item| {
-				tracing::info!("cctp sender: {}", item);
 				let clean_hex = item.strip_prefix("0x").unwrap_or(&item);
 				let bytes = hex::decode(clean_hex)
 					.map_err(|e| anyhow::anyhow!("Hex decode error: {}", e))?;
-				tracing::info!("cctp bytes: {:?}", bytes);
 				let arr: Address = bytes
 					.try_into()
 					.map_err(|_| anyhow::anyhow!("Unable to make Address from hex bytes"))?;
-				tracing::info!("cctp bytes: {:?}", arr);
 				Ok(arr)
 			})
 			.transpose();
@@ -541,15 +534,6 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						tracing::info!("gmp created got hit: {:?}", gmp_message);
-						tracing::info!(
-							"gmp created got hit from source: {:?}",
-							hex::encode(gmp_message.src)
-						);
-						tracing::info!(
-							"gmp created cctp sender: {:?}",
-							hex::encode(cctp_sender.unwrap())
-						);
 						if Some(gmp_message.src) == cctp_sender {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));

@@ -77,6 +77,8 @@ impl Tc {
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
 					cctp_sender: None,
+					// TODO move to config?
+					// This params is for checking cctp attestation with tc-cli
 					cctp_attestation: Some(String::from(
 						"https://iris-api-sandbox.circle.com/attestations/",
 					)),

@@ -483,7 +483,6 @@ impl IChain for Connector {
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		let cctp_sender = self.cctp_sender.clone();
 		let contract: [u8; 20] = a_addr(gateway).0.into();
 		let logs = self
 			.wallet
@@ -534,7 +533,7 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						if Some(gmp_message.src) == cctp_sender {
+						if Some(gmp_message.src) == self.cctp_sender {
 							let mut cctp_queue = self.cctp_queue.lock().await;
 							cctp_queue.push((gmp_message.clone(), 0));
 						} else {

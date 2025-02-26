@@ -452,12 +452,7 @@ async fn real_main() -> Result<()> {
 			dest,
 			dest_address,
 		} => {
-			let contracts = tc.setup_test(src, dest).await?;
-			tracing::info!(
-				"test contracts{:?}/{:?}",
-				hex::encode(contracts.0),
-				hex::encode(contracts.1)
-			);
+			tc.setup_test(src, dest).await?;
 			let src_addr = hex::decode(src_address)
 				.unwrap()
 				.try_into()
@@ -571,9 +566,10 @@ async fn exec_smoke(
 	dest_addr: Address,
 	smoke_type: SmokeType,
 ) -> Result<()> {
+	const CCTP_MSG_LEN: u16 = 896;
 	let mut blocks = tc.finality_notification_stream();
 	let (_, start) = blocks.next().await.context("expected block")?;
-	let payload = vec![];
+	let payload = vec![0u8; MSG_LEN];
 	let gas_limit = tc
 		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 		.await?;

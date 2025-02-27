@@ -9,7 +9,23 @@ concurrency:
 jobs:
   build-benchmark:
     runs-on: [self-hosted, benchmark]
-    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark') }}
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark-custom') || contains(github.event.pull_request.labels.*.name,'!ci-benchmark-frame') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mainnet
+            profile: mainnet
+            features: default
+          - name: staging
+            profile: testnet
+            features: develop
+          - name: testnet
+            profile: testnet
+            features: testnet
+          - name: develop
+            profile: testnet
+            features: testnet,develop
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -19,37 +35,112 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: timechain-node
-          feature: runtime-benchmarks
+          profile: ${{ matrix.profile }}
+          feature: runtime-benchmarks,${{ matrix.features }}
       - name: Upload runtime benchmarks
         uses: actions/upload-artifact@v4
         with:
-          name: runtime-benchmarks
+          name: runtime-benchmarks-${{ matrix.name }}
           if-no-files-found: error
           path: target/release/timechain-node
-  run-benchmark:
+  run-benchmark-custom-mainnet:
     needs: [build-benchmark]
     runs-on: [self-hosted, benchmark]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark-custom') }}
     strategy:
       fail-fast: false
       matrix:
-        pallet: [elections, launch, members, networks, shards, tasks, timegraph, dmail]
+        target: [mainnet, staging]
+        pallet: [launch]
     steps:
       - name: Download runtime benchmarks
         uses: actions/download-artifact@v4
         with:
-          name: runtime-benchmarks
+          name: runtime-benchmarks-${{ matrix.target }}
       - name: Prepare runtime benchmarks
-        run: chmod +x timechain-node && mkdir -p develop
+        run: chmod +x timechain-node && mkdir -p ${{ matrix.target }}
       - name: Run runtime benchmarks
-        run: ./timechain-node benchmark pallet --chain dev --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./develop/pallet_${{ matrix.pallet }}.rs
+        run: ./timechain-node benchmark pallet --chain dev --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./${{ matrix.target }}/pallet_${{ matrix.pallet }}.rs
       - name: Upload weights
         uses: actions/upload-artifact@v4
         with:
-          name: weights-develop-${{ matrix.pallet }}
+          name: weights-${{ matrix.target }}-${{ matrix.pallet }}
           if-no-files-found: error
-          path: develop/pallet_${{ matrix.pallet }}.rs
-  update-weights:
-    needs: [run-benchmark]
+          path: ${{ matrix.target }}/${{ matrix.pallet }}.rs
+  run-benchmark-custom-testnet:
+    needs: [build-benchmark]
+    runs-on: [self-hosted, benchmark]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark-custom') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [testnet, develop]
+        pallet: [elections, members, networks, shards, tasks, timegraph, dmail]
+    steps:
+      - name: Download runtime benchmarks
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-benchmarks-${{ matrix.target }}
+      - name: Prepare runtime benchmarks
+        run: chmod +x timechain-node && mkdir -p ${{ matrix.target }}
+      - name: Run runtime benchmarks
+        run: ./timechain-node benchmark pallet --chain dev --pallet pallet_${{ matrix.pallet }} --extrinsic '*' --output ./${{ matrix.target }}/pallet_${{ matrix.pallet }}.rs
+      - name: Upload weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: weights-${{ matrix.target }}-${{ matrix.pallet }}
+          if-no-files-found: error
+          path: ${{ matrix.target }}/${{ matrix.pallet }}.rs
+  run-benchmark-frame-baremetal:
+    needs: [build-benchmark]
+    runs-on: [self-hosted, baremetal-bench]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark-frame') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [mainnet, testnet]
+        pallet: [frame_system, pallet_balances, pallet_timestamp, pallet_im_online, pallet_utility, pallet_bags_list, pallet_proxy, pallet_multisig]
+    steps:
+      - name: Download runtime benchmarks
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-benchmarks-${{ matrix.target }}
+      - name: Prepare runtime benchmarks
+        run: chmod +x timechain-node && mkdir -p ${{ matrix.target }}
+      - name: Run runtime benchmarks for pallets
+        run: ./timechain-node benchmark pallet --chain dev --pallet ${{ matrix.pallet }} --extrinsic '*' --output ./${{ matrix.target }}/${{ matrix.pallet }}.rs
+      - name: Upload weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: weights-${{ matrix.target }}-${{ matrix.pallet }}
+          if-no-files-found: error
+          path: ${{ matrix.target }}/${{ matrix.pallet }}.rs
+  run-benchmark-frame-cloud:
+    needs: [build-benchmark]
+    runs-on: [self-hosted, benchmark]
+    if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark-frame') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [staging, develop]
+        pallet: [frame_system, pallet_balances, pallet_timestamp, pallet_im_online, pallet_utility, pallet_bags_list, pallet_proxy, pallet_multisig]
+    steps:
+      - name: Download runtime benchmarks
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-benchmarks-${{ matrix.target }}
+      - name: Prepare runtime benchmarks
+        run: chmod +x timechain-node && mkdir -p ${{ matrix.target }}
+      - name: Run runtime benchmarks for pallets
+        run: ./timechain-node benchmark pallet --chain dev --pallet ${{ matrix.pallet }} --extrinsic '*' --output ./${{ matrix.target }}/${{ matrix.pallet }}.rs
+      - name: Upload weights
+        uses: actions/upload-artifact@v4
+        with:
+          name: weights-${{ matrix.target }}-${{ matrix.pallet }}
+          if-no-files-found: error
+          path: ${{ matrix.target }}/${{ matrix.pallet }}.rs
+  update-weights-frame:
+    needs: [run-benchmark-custom-mainnet, run-benchmark-custom-testnet, run-benchmark-frame-cloud, run-benchmark-frame-baremetal]
     runs-on: [self-hosted, benchmark]
     steps:
       - name: Checkout sources
@@ -57,6 +148,24 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           submodules: recursive
+      - name: Download mainnet weights
+        uses: actions/download-artifact@v4
+        with:
+          path: runtime/src/weights/mainnet
+          pattern: weights-mainnet-*
+          merge-multiple: true
+      - name: Download staging weights
+        uses: actions/download-artifact@v4
+        with:
+          path: runtime/src/weights/staging
+          pattern: weights-staging-*
+          merge-multiple: true
+      - name: Download testnet weights
+        uses: actions/download-artifact@v4
+        with:
+          path: runtime/src/weights/testnet
+          pattern: weights-testnet-*
+          merge-multiple: true
       - name: Download develop weights
         uses: actions/download-artifact@v4
         with:
@@ -69,5 +178,5 @@ jobs:
         run: |
           git config user.email "github@analog.one"
           git config user.name "Weights Update Bot"
-          git commit -am "runtimes: update pallet weights"
+          git commit -am "runtimes: automatic weights update"
           git push

@@ -11,6 +11,7 @@ pub enum Backend {
 	Evm,
 	Grpc,
 	Rust,
+	Solana,
 }
 
 impl std::str::FromStr for Backend {

@@ -1,0 +1,22 @@
+[package]
+name = "gmp-solana"
+authors.workspace = true
+edition.workspace = true
+version.workspace = true
+homepage.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+hex.workspace = true
+sha3 = { version = "0.10", default-features = false }
+solana-client = "2.2.0"
+solana-sdk = "2.2.1"
+time-primitives.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+

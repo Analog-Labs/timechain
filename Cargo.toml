@@ -17,6 +17,7 @@ members = [
 	"gmp/evm",
 	"gmp/grpc",
 	"gmp/rust",
+	"gmp/solana",
 	"node",
 	"pallets/airdrop",
 	"pallets/elections",

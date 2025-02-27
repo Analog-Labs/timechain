@@ -14,5 +14,6 @@ anyhow.workspace = true
 gmp-evm = { path = "evm" }
 gmp-grpc = { path = "grpc" }
 gmp-rust = { path = "rust" }
+gmp-solana = { path = "solana" }
 serde = { workspace = true, features = ["derive"] }
 time-primitives.workspace = true

@@ -81,7 +81,7 @@ impl IChain for Connector {
 		self.network_id
 	}
 	fn address(&self) -> Address {
-		todo!()
+		t_addr(self.wallet.pubkey())
 	}
 	async fn faucet(&self, balance: u128) -> Result<()> {
 		// TODO add faucet for local devnode only
@@ -93,6 +93,7 @@ impl IChain for Connector {
 			system_instruction::transfer(&self.wallet.pubkey(), &a_addr(address), amount as u64);
 		self.send_transaction(instruction).await
 	}
+
 	async fn balance(&self, address: Address) -> Result<u128> {
 		let balance = self.client.get_balance(&a_addr(address))?;
 		Ok(balance as u128)

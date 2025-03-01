@@ -189,7 +189,7 @@ impl MockTssSigner {
 		batch: BatchId,
 		msg: &GatewayMessage,
 	) -> TssSignature {
-		let bytes = msg.encode(batch);
+		let bytes = msg.hash(batch);
 		let hash = GmpParams { network, gateway }.hash(&bytes);
 		self.sign(&hash)
 	}

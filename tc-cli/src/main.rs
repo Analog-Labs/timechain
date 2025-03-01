@@ -432,7 +432,7 @@ async fn real_main() -> Result<()> {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
-			let payload = vec![];
+			let payload = vec![42];
 			let gas_limit = tc
 				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 				.await?;

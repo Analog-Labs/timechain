@@ -82,10 +82,12 @@ jobs:
           # Name denotes the artifact name in the workflow run
           - name: mainnet
             features: default
+          - name: staging
+            features: develop
           - name: testnet
             features: testnet
           - name: develop
-            features: develop
+            features: testnet,develop
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4

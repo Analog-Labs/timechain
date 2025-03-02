@@ -17,7 +17,7 @@ gmp-rust = { path = "../rust" }
 prost = "0.13.3"
 serde = { workspace = true, features = ["derive"] }
 serde-big-array = "0.5.1"
-serde_json = "1.0.133"
+serde_json.workspace = true
 time-primitives = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "signal"] }
 tonic = { version = "0.12.3", features = ["transport", "tls", "tls-roots"] }

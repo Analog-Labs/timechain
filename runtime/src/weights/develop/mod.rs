@@ -13,6 +13,8 @@ pub mod pallet_balances;
 pub mod pallet_dmail;
 pub mod pallet_elections;
 pub mod pallet_im_online;
+#[cfg(not(feature = "testnet"))]
+pub mod pallet_launch;
 pub mod pallet_members;
 pub mod pallet_multisig;
 pub mod pallet_networks;

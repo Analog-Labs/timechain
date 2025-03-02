@@ -123,7 +123,6 @@ substrate-wasm-builder = { workspace = true, optional = true }
 default = [ "std" ]
 testnet = [ "time-primitives/testnet" ]
 develop = [
-  "testnet",
   "genesis-builder",
   "time-primitives/develop",
 ]

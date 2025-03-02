@@ -45,6 +45,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - image: test
+            profile: testnet
+            features: testnet
           - image: dev
             profile: testnet
             features: testnet,develop

@@ -39,12 +39,15 @@ jobs:
           - image: bridge
             profile: mainnet
             features: bridge
+          - image: staging
+            profile: mainnet
+            features: develop
           - image: test
             profile: testnet
-            features: default
+            features: testnet
           - image: dev
             profile: testnet
-            features: develop
+            features: testnet,develop
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v4

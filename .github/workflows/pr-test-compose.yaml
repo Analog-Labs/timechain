@@ -33,7 +33,7 @@ jobs:
         id: tc-cli
         run: |
           cat << EOF >> $GITHUB_OUTPUT
-          TC_CLI=docker compose run --rm --remove-orphans \
+          TC_CLI=docker compose -p $GITHUB_RUN_ID run --rm --remove-orphans \
             --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
             --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
             --env="TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }}" \
@@ -42,7 +42,7 @@ jobs:
           EOF
       - name: Setup containers
         run: |
-          docker compose --profile evm up -d
+          docker compose -p $GITHUB_RUN_ID --profile evm up -d
       - name: fetch prices
         run: |
           ${{ steps.tc-cli.outputs.TC_CLI }} fetch-prices
@@ -51,34 +51,16 @@ jobs:
           ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
       - name: Restart chronicles
         run: |
-          docker compose stop chronicle-2-evm chronicle-3-evm
+          docker compose -p $GITHUB_RUN_ID stop chronicle-2-evm chronicle-3-evm
           sleep 180s
-          docker compose start chronicle-2-evm chronicle-3-evm
+          docker compose -p $GITHUB_RUN_ID start chronicle-2-evm chronicle-3-evm
       - name: Still works
         run: |
           ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
-      - name: Set up AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.LOG_UPLOADER_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.LOG_UPLOADER_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-        # Upload logs step collects all the logs from the containers
-        # and uploads it in a S3 bucket
-      - name: Upload logs
-        if: ${{ always() }}
-        run: |
-          mkdir -p logs
-          echo "Uploading container logs"
-          for container in $(docker compose ps --services); do
-            echo "Export logs for $container"
-            docker compose logs "$container" > "logs/$container.log"
-          done
-          aws s3 cp logs "s3://${BUCKET_NAME}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}" --recursive
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          docker compose --profile "*" down --remove-orphans
+          docker compose -p $GITHUB_RUN_ID --profile "*" down --remove-orphans
       - name: Cleanup working dir
         if: ${{ always() }}
         uses: eviden-actions/clean-self-hosted-runner@v1

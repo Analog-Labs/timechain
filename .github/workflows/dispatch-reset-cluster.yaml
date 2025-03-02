@@ -38,7 +38,8 @@ jobs:
           # NOTE: can't wait for this command since PVCs 
           # can't be deleted while pods are running
           kubectl delete pvc --all -n $NAMESPACE --wait=false
-
+          kubectl delete pods --all -n $NAMESPACE --wait=false
+          
           # Rollback to the same version, ensuring recreation of all PVCs
           if [[ -n "$LATEST_REVISION" ]]; then
             helm rollback ${{ secrets.RELESE_NAME }} $LATEST_REVISION -n $NAMESPACE

@@ -451,6 +451,14 @@ pub trait IConnectorAdmin: IConnector {
 	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
 		anyhow::bail!("debugging transactions is not supported on this backend");
 	}
+	/// Dump anvil chain state
+	async fn dump_state(&self) -> Result<String> {
+		anyhow::bail!("dumping chain state is not supported on this backend");
+	}
+	/// Load anvil chain state
+	async fn load_state(&self, _state: String) -> Result<()> {
+		anyhow::bail!("loading chain state is not supported on this backend");
+	}
 }
 
 #[cfg(feature = "std")]

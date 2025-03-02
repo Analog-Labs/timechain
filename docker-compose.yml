@@ -76,12 +76,11 @@ services:
   chain-2-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
     profiles:
     - evm
-    - bridge
 
   chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
@@ -99,12 +98,11 @@ services:
       RUST_BACKTRACE: 1
     profiles:
     - evm
-    - bridge
 
   chain-3-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
     profiles:

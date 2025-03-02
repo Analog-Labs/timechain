@@ -4,7 +4,7 @@ on:
     paths:
       - '.github/workflows/merge-docker-tc-cli.yaml'
       - 'analog-gmp/**'
-      - 'config/subxt/**'
+      - 'config/envs/**'
       - 'primitives/**'
       - 'tc-subxt/**'
       - 'tc-cli/**'

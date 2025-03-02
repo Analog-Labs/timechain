@@ -6,12 +6,11 @@ use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, 
 use polkadot_sdk::*;
 
 use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
-//use sp_runtime::traits::CheckedConversion;
 
 use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 27;
+const ON_CHAIN_STAGE: u16 = 30;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -19,7 +18,7 @@ const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;
 
 /// The number of expected airdrop transfers (will fail in tests)
-const NUM_AIRDROP_TRANSFER: usize = if LAUNCH_VERSION > 27 { 212 } else { 0 };
+const NUM_AIRDROP_TRANSFER: usize = 0;
 
 fn mint_virtual(source: Allocation, amount: BalanceOf<Test>) {
 	let account = source.account_id::<Test>();
@@ -49,9 +48,9 @@ fn launch_ledger_validation() {
 		mint_virtual(Allocation::Strategic, 376_857_707_180 * mANLOG);
 		mint_virtual(Allocation::Team, 1_669_384_055_300 * mANLOG);
 
-		mint_virtual(Allocation::Airdrop, 19_626_240_537_386_317_029);
+		mint_virtual(Allocation::Airdrop, 18_529_097_702_450_211_764);
 		mint_virtual(Allocation::Initiatives, 1_093_404_819_500 * mANLOG);
-		mint_virtual(Allocation::Ecosystem, 693_940_934_804 * mANLOG);
+		mint_virtual(Allocation::Ecosystem, 693_780_848_804 * mANLOG);
 
 		// Start new block to collect events
 		System::set_block_number(1);

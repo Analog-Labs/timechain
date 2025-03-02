@@ -1,4 +1,4 @@
 [submodule "analog-gmp"]
 	path = analog-gmp
 	url = git@github.com:Analog-Labs/analog-gmp.git
-	branch = dvc/changes
+	branch = main

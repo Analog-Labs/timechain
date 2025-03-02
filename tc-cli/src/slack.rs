@@ -79,8 +79,10 @@ impl Slack {
 		let token_value = SlackApiTokenValue::new(token);
 		let token = SlackApiToken::new(token_value);
 		let channel = std::env::var("SLACK_CHANNEL_ID")?;
+		anyhow::ensure!(!channel.is_empty());
 		let channel = SlackChannelId::new(channel);
 		let thread = std::env::var("SLACK_THREAD_TS")?;
+		anyhow::ensure!(!thread.is_empty());
 		let thread = SlackTs::new(thread);
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
 		Ok(Self { client, token, channel, thread })
@@ -111,7 +113,6 @@ impl Slack {
 		content: Vec<u8>,
 	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
-
 		let req =
 			SlackApiFilesGetUploadUrlExternalRequest::new(format!("{name}.csv"), content.len());
 		let resp = session.get_upload_url_external(&req).await?;

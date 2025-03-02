@@ -222,7 +222,7 @@ impl Tc {
 		};
 		let admin_funds = self.parse_balance(Some(network), admin_funds)?;
 		let current_admin_funds = self.balance(Some(network), self.address(Some(network))?).await?;
-		let faucet = admin_funds - current_admin_funds;
+		let faucet = admin_funds.saturating_sub(current_admin_funds);
 		if faucet == 0 {
 			return Ok(());
 		}
@@ -231,7 +231,14 @@ impl Tc {
 			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
 		)
 		.await?;
-		self.connector(network)?.faucet(faucet).await
+		self.connector(network)?.faucet(faucet).await.with_context(|| {
+			format!(
+				"faucet failed or is unsupported, please transfer {} to {}",
+				self.format_balance(Some(network), faucet).unwrap(),
+				self.format_address(Some(network), self.address(Some(network)).unwrap())
+					.unwrap(),
+			)
+		})
 	}
 
 	pub async fn balance(&self, network: Option<NetworkId>, address: Address) -> Result<u128> {
@@ -1153,5 +1160,15 @@ impl Tc {
 	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
 		let connector = self.connector(network)?;
 		connector.debug_transaction(hash).await
+	}
+
+	pub async fn dump_state(&self, network: NetworkId) -> Result<String> {
+		let connector = self.connector(network)?;
+		connector.dump_state().await
+	}
+
+	pub async fn load_state(&self, network: NetworkId, state: String) -> Result<()> {
+		let connector = self.connector(network)?;
+		connector.load_state(state).await
 	}
 }

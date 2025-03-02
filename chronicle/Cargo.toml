@@ -17,7 +17,7 @@ futures.workspace = true
 gmp.workspace = true
 hex.workspace = true 
 serde.workspace = true
-serde_json = "1.0.128"
+serde_json.workspace = true
 time-primitives = { workspace = true, default-features = true }
 tc-subxt.workspace = true
 tokio.workspace = true

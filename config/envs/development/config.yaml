@@ -86,7 +86,7 @@ networks:
     blockchain: "ethereum"
     network: "sepolia"
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
-    admin_funds: 100.
+    admin_funds: 0
     gateway_funds: 1.
     chronicle_funds: .1
     batch_size: 64
@@ -104,7 +104,7 @@ networks:
     blockchain: "astar"
     network: "shibuya"
     url: "wss://rpc.shibuya.astar.network"
-    admin_funds: 100.
+    admin_funds: 0
     gateway_funds: 1.
     chronicle_funds: .1
     batch_size: 256

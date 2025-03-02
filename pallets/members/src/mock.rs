@@ -24,7 +24,7 @@ pub struct MockElections;
 impl ElectionsInterface for MockElections {
 	type MaxElectionsPerBlock = ConstU32<10>;
 	fn member_online(_: &AccountId, _: NetworkId) {}
-	fn member_offline(_: &AccountId, _: NetworkId) {}
+	fn members_offline(_: Vec<AccountId>, _: NetworkId) {}
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
 }
 
@@ -36,7 +36,7 @@ pub struct MockShards;
 
 impl ShardsInterface for MockShards {
 	fn member_online(_id: &AccountId, _network: NetworkId) {}
-	fn member_offline(_id: &AccountId, _network: NetworkId) {}
+	fn members_offline(_id: Vec<AccountId>) {}
 	fn is_shard_online(_shard_id: ShardId) -> bool {
 		false
 	}
@@ -133,7 +133,7 @@ impl pallet_members::Config for Test {
 	type Shards = MockShards;
 	type MinStake = ConstU128<5>;
 	type HeartbeatTimeout = ConstU64<10>;
-	type MaxTimeoutsPerBlock = ConstU32<100>;
+	type MaxTimeoutsPerBlock = ConstU32<1>;
 }
 
 /// To from `now` to block `n`.

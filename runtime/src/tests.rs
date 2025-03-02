@@ -140,9 +140,7 @@ fn shard_not_stuck_in_committed_state() {
 		// put shard in a committed state
 		<pallet_shards::ShardState<Runtime>>::insert(0, ShardStatus::Committed);
 		// then put all the members offline
-		for i in first_shard {
-			Shards::member_offline(&i, ETHEREUM);
-		}
+		Shards::members_offline(first_shard);
 		assert_eq!(<pallet_shards::ShardState<Runtime>>::get(0).unwrap(), ShardStatus::Offline);
 	});
 }

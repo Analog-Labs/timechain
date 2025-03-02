@@ -25,7 +25,9 @@ mod tasks;
 pub fn init_logger() {
 	let filter = tracing_subscriber::EnvFilter::from_default_env()
 		.add_directive("chronicle=debug".parse().unwrap())
-		.add_directive("tss=debug".parse().unwrap());
+		.add_directive("tss=debug".parse().unwrap())
+		.add_directive("peernet=debug".parse().unwrap());
+	//.add_directive("iroh_net=debug".parse().unwrap());
 	tracing_subscriber::fmt()
 		.pretty()
 		.with_ansi(false)

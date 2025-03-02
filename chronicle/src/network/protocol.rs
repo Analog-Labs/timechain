@@ -15,8 +15,8 @@ struct TssProtocol;
 
 impl Protocol for TssProtocol {
 	const ID: u16 = 0;
-	const REQ_BUF: usize = 1024;
-	const RES_BUF: usize = 1024;
+	const REQ_BUF: usize = 2048;
+	const RES_BUF: usize = 2048;
 	type Request = Message;
 	type Response = Message;
 }

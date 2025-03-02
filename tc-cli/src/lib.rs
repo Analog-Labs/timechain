@@ -758,6 +758,7 @@ impl Tc {
 	}
 
 	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
+		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
 			let routes = connector.routes(src_gateway).await?;
@@ -785,8 +786,11 @@ impl Tc {
 					}
 				}
 				self.println(None, format!("register_route {src} {dest}")).await?;
-				connector.set_route(src_gateway, route).await?;
+				set_routes.push(connector.set_route(src_gateway, route));
 			}
+		}
+		while let Some(result) = set_routes.next().await {
+			result?;
 		}
 		Ok(())
 	}
@@ -895,32 +899,47 @@ impl Tc {
 	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
 		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
-		self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account")
-			.await?;
+		let fund_tc =
+			self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account");
 		let config = self.config.network(chronicle.network)?;
 		let chronicle_funds =
 			self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
-		self.fund(
+		let fund_target = self.fund(
 			Some(chronicle.network),
 			chronicle.address,
 			chronicle_funds,
 			"chronicle target account",
-		)
-		.await?;
+		);
+		let (result_tc, result_target) = futures::future::join(fund_tc, fund_target).await;
+		result_tc?;
+		result_target?;
 		self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
 			.await?;
 		Ok(())
 	}
 
 	pub async fn deploy(&self) -> Result<()> {
-		let mut gateways = HashMap::new();
+		let mut deploy_network = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
-			let gateway = self.deploy_network(network).await?;
+			deploy_network.push(async move {
+				let gateway = self.deploy_network(network).await?;
+				Ok::<_, anyhow::Error>((network, gateway))
+			});
+		}
+		let mut gateways = HashMap::new();
+		while let Some(result) = deploy_network.next().await {
+			let (network, gateway) = result?;
 			gateways.insert(network, gateway);
 		}
+
 		self.register_routes(gateways).await?;
+
+		let mut deploy_chronicle = FuturesUnordered::new();
 		for chronicle in self.config.chronicles() {
-			self.deploy_chronicle(chronicle).await?;
+			deploy_chronicle.push(self.deploy_chronicle(chronicle));
+		}
+		while let Some(result) = deploy_chronicle.next().await {
+			result?;
 		}
 		Ok(())
 	}
@@ -1066,15 +1085,11 @@ impl Tc {
 	pub async fn setup_test(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 		// networks
 		self.deploy().await?;
-		let (src_addr, src_block) = self.deploy_tester(src).await?;
-		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
+		let (result_src, result_dest) =
+			futures::future::join(self.deploy_tester(src), self.deploy_tester(dest)).await;
+		let (src_addr, src_block) = result_src?;
+		let (dest_addr, dest_block) = result_dest?;
 		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
-		/*let networks = self.networks().await?;
-		self.print_table(None, "networks", networks.clone()).await?;
-		for network in networks {
-			let routes = self.routes(network.network).await?;
-			self.print_table(None, "routes", routes).await?;
-		}*/
 		// chronicles
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
@@ -1100,8 +1115,10 @@ impl Tc {
 			id = Some(self.print_table(id, "shards", shards).await?);
 		}
 		// registered shards
-		self.register_shards(src).await?;
-		self.register_shards(dest).await?;
+		let (result_src, result_dest) =
+			futures::future::join(self.register_shards(src), self.register_shards(dest)).await;
+		result_src?;
+		result_dest?;
 		while blocks.next().await.is_some() {
 			let shards = self.shards().await?;
 			let is_registered =

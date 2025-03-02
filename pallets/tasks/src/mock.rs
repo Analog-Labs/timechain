@@ -92,8 +92,8 @@ impl ElectionsInterface for MockElections {
 	fn member_online(member: &AccountId, network: NetworkId) {
 		Shards::member_online(member, network)
 	}
-	fn member_offline(member: &AccountId, network: NetworkId) {
-		Shards::member_offline(member, network)
+	fn members_offline(members: Vec<AccountId>, _network: NetworkId) {
+		Shards::members_offline(members)
 	}
 }
 

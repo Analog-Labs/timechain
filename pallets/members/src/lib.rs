@@ -343,7 +343,7 @@ pub mod pallet {
 				}
 
 				if let Some(network) = MemberNetwork::<T>::get(&member) {
-					current_timed_out.entry(network).or_insert_with(Vec::new).push(member);
+					current_timed_out.entry(network).or_default().push(member);
 					num_timeouts += 1;
 				} else {
 					next_timed_out.push(member);

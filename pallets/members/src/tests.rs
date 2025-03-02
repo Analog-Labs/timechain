@@ -1,15 +1,18 @@
 use crate::mock::*;
-use crate::{Error, Event, Heartbeat, MemberNetwork, MemberOnline, MemberPeerId, MemberStake};
-
-use polkadot_sdk::{frame_support, frame_system, sp_runtime};
+use crate::{
+	Error, Event, Heartbeat, MemberNetwork, MemberOnline, MemberPeerId, MemberStake, Pallet,
+	TimedOut,
+};
 
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use sp_runtime::{DispatchError, DispatchResult, ModuleError};
 
 use time_primitives::{AccountId, MembersInterface, NetworkId};
 
 const A: [u8; 32] = [1u8; 32];
+const B: [u8; 32] = [2u8; 32];
 const C: [u8; 32] = [3u8; 32];
 const ETHEREUM: NetworkId = 0;
 
@@ -160,5 +163,44 @@ fn unregister_member_works() {
 		assert_eq!(MemberPeerId::<Test>::get(&a), None);
 		assert_eq!(MemberNetwork::<Test>::get(&a), None);
 		assert!(Heartbeat::<Test>::get(&a).is_none());
+	});
+}
+
+#[test]
+fn test_timeout_heartbeats_inc_num_timeouts() {
+	new_test_ext().execute_with(|| {
+		let member1: AccountId = A.into();
+		let member2: AccountId = B.into();
+		let member3: AccountId = C.into(); // No network assigned
+		let network1: NetworkId = 10;
+
+		TimedOut::<Test>::put(vec![member1.clone(), member2.clone(), member3.clone()]);
+		MemberNetwork::<Test>::insert(&member1, network1);
+		MemberNetwork::<Test>::insert(&member2, network1);
+
+		let _ = Pallet::<Test>::timeout_heartbeats();
+		let remaining_timed_out = TimedOut::<Test>::get();
+		assert!(remaining_timed_out.contains(&member3));
+	});
+}
+
+#[test]
+fn test_timeout_heartbeats_respects_max_timeouts() {
+	new_test_ext().execute_with(|| {
+		let member1: AccountId = A.into();
+		let member2: AccountId = B.into();
+		let network1: NetworkId = 10;
+		let network2: NetworkId = 20;
+
+		TimedOut::<Test>::put(vec![member1.clone(), member2.clone()]);
+		MemberNetwork::<Test>::insert(&member1, network1);
+		MemberNetwork::<Test>::insert(&member2, network2);
+
+		let _ = Pallet::<Test>::timeout_heartbeats();
+
+		// Only one member should be processed due to max timeouts limit
+		let remaining_timed_out = TimedOut::<Test>::get();
+		assert_eq!(remaining_timed_out.len(), 1);
+		assert!(remaining_timed_out.contains(&member2) || remaining_timed_out.contains(&member1));
 	});
 }

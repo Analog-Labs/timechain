@@ -118,14 +118,16 @@ impl RoastSigner {
 struct RoastSession {
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 	signature_shares: HashMap<Identifier, SignatureShare>,
+	span: Span,
 }
 
 impl RoastSession {
 	/// Creates a new `RoastSession` instance with the given commitments.
-	fn new(commitments: BTreeMap<Identifier, SigningCommitments>) -> Self {
+	fn new(commitments: BTreeMap<Identifier, SigningCommitments>, span: Span) -> Self {
 		Self {
 			commitments,
 			signature_shares: Default::default(),
+			span,
 		}
 	}
 
@@ -134,6 +136,12 @@ impl RoastSession {
 		if self.commitments.contains_key(&peer) {
 			self.signature_shares.insert(peer, signature_share);
 		}
+		tracing::debug!(
+			parent: &self.span,
+			"signing shares {}/{}",
+			self.signature_shares.len(),
+			self.commitments.len(),
+		);
 	}
 
 	/// Checks if the session is complete, i.e., if all required signature shares have been received.
@@ -184,14 +192,14 @@ impl RoastCoordinator {
 
 	/// Starts a new signing session if enough commitments have been received.
 	fn start_session(&mut self) -> Option<RoastSignerRequest> {
+		let span = tracing::span!(parent: &self.span, Level::DEBUG, "session", session_id = self.session_id);
+		tracing::debug!(
+			parent: &span,
+			"commitments {}/{}",
+			self.commitments.len(),
+			self.threshold
+		);
 		if self.commitments.len() < self.threshold as _ {
-			tracing::debug!(
-				parent: &self.span,
-				session_id = self.session_id,
-				"commitments {}/{}",
-				self.commitments.len(),
-				self.threshold
-			);
 			return None;
 		}
 		let session_id = self.session_id;
@@ -201,7 +209,7 @@ impl RoastCoordinator {
 			let (peer, commitment) = commitments.pop_last().unwrap();
 			self.commitments.insert(peer, commitment);
 		}
-		self.sessions.insert(session_id, RoastSession::new(commitments.clone()));
+		self.sessions.insert(session_id, RoastSession::new(commitments.clone(), span));
 		Some(RoastSignerRequest { session_id, commitments })
 	}
 
@@ -213,6 +221,7 @@ impl RoastCoordinator {
 			.filter(|(_, session)| session.is_complete())
 			.map(|(session_id, _)| *session_id)
 			.next()?;
+		tracing::debug!(parent: &self.span, session_id, "aggregate");
 		self.sessions.remove(&session_id)
 	}
 }

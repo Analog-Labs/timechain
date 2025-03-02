@@ -80,11 +80,11 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{EnsureOrigin, ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::Saturating;
+	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
-
-	use schnorr_evm::VerifyingKey;
 
 	use time_primitives::{
 		AccountId, Balance, Commitment, ElectionsInterface, MemberStatus, MembersInterface,
@@ -514,42 +514,68 @@ pub mod pallet {
 				_ => (),
 			}
 		}
-		/// Handles shard state adjustments when a member goes offline.
-		///
-		/// # Flow
-		///   1. Retrieves the `shard_id` associated with the member `id`.
-		///   2. Retrieves the current `old_status`, `shard_threshold`, and `members_online` count.
-		///   3. Decrements the count of online members [`ShardMembersOnline`].
-		///   4. Determines the new_status of the shard based on the conditions:
-		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
-		///     - Updates [`ShardState`] with the new new_status.
-		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
-		fn member_offline(id: &AccountId, _: NetworkId) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
-			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
-			members_online = members_online.saturating_less_one();
-			ShardMembersOnline::<T>::insert(shard_id, members_online);
-			let new_status = match old_status {
-				// if a member goes offline before the group key is submitted,
-				// then the shard will never go online
-				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-				ShardStatus::Online => {
-					if members_online < shard_threshold {
-						ShardStatus::Offline
-					} else {
-						ShardStatus::Online
+
+		fn members_offline(members: Vec<AccountId>) {
+			let mut shard_updates: BTreeMap<ShardId, (u32, Option<ShardStatus>)> = BTreeMap::new();
+			let mut shards_to_remove_offline = Vec::new();
+
+			// First pass: Collect updates for each shard
+			for member in members {
+				let Some(shard_id) = MemberShard::<T>::get(member) else { continue };
+
+				// Get or initialize the shard entry in the update map
+				let (online_count, status_update) =
+					shard_updates.entry(shard_id).or_insert_with(|| {
+						let online = ShardMembersOnline::<T>::get(shard_id);
+						let status = ShardState::<T>::get(shard_id);
+						(online.into(), status)
+					});
+
+				*online_count = online_count.saturating_sub(1);
+
+				// If we haven't checked shard state yet, do it once
+				if let Some(old_status) = *status_update {
+					let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
+						continue;
+					};
+
+					// Determine new status
+					let new_status = match old_status {
+						ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
+						ShardStatus::Online if *online_count < shard_threshold.into() => {
+							ShardStatus::Offline
+						},
+						_ => old_status,
+					};
+
+					if matches!(new_status, ShardStatus::Offline)
+						&& !matches!(old_status, ShardStatus::Offline)
+					{
+						shards_to_remove_offline.push(shard_id);
 					}
-				},
-				_ => old_status,
-			};
-			if matches!(new_status, ShardStatus::Offline)
-				&& !matches!(old_status, ShardStatus::Offline)
-			{
+
+					// Update only if status changes
+					if new_status != old_status {
+						*status_update = Some(new_status);
+					}
+				}
+			}
+
+			// Batch storage updates
+			for (shard_id, (new_online_count, status_update)) in shard_updates {
+				ShardMembersOnline::<T>::insert(
+					shard_id,
+					TryInto::<u16>::try_into(new_online_count).unwrap_or_default(),
+				);
+
+				if let Some(new_status) = status_update {
+					ShardState::<T>::insert(shard_id, new_status);
+				}
+			}
+
+			// Remove offline shards in batch
+			for shard_id in shards_to_remove_offline {
 				Self::remove_shard_offline(shard_id);
-			} else if !matches!(new_status, ShardStatus::Offline) {
-				ShardState::<T>::insert(shard_id, new_status);
 			}
 		}
 

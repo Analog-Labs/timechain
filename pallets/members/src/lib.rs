@@ -36,6 +36,7 @@ pub mod pallet {
 	use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{IdentifyAccount, Zero};
+	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec::Vec;
 
 	use polkadot_sdk::pallet_balances;
@@ -147,8 +148,8 @@ pub mod pallet {
 		/// [`Event::MemberOnline`]  member online status changes
 		MemberOnline(AccountId),
 
-		/// [`Event::MemberOffline`] member offline status changes
-		MemberOffline(AccountId),
+		/// [`Event::MembersOffline`] members offline statuses changes
+		MembersOffline(Vec<AccountId>),
 
 		/// [`Event::UnRegisteredMember`] member unregistration event.
 		UnRegisteredMember(AccountId, NetworkId),
@@ -334,6 +335,7 @@ pub mod pallet {
 				Vec::with_capacity(timed_out_members.len() + heartbeats.size_hint().0);
 			let mut num_timeouts = 0u32;
 
+			let mut current_timed_out = BTreeMap::<NetworkId, Vec<AccountId>>::new();
 			for member in timed_out_members.into_iter() {
 				if num_timeouts >= T::MaxTimeoutsPerBlock::get() {
 					next_timed_out.push(member);
@@ -341,11 +343,14 @@ pub mod pallet {
 				}
 
 				if let Some(network) = MemberNetwork::<T>::get(&member) {
-					Self::member_offline(&member, network);
+					current_timed_out.entry(network).or_default().push(member);
 					num_timeouts += 1;
 				} else {
 					next_timed_out.push(member);
 				}
+			}
+			for (network, members) in current_timed_out {
+				Self::members_offline(members, network);
 			}
 
 			// Extend with Heartbeat members
@@ -369,15 +374,17 @@ pub mod pallet {
 			T::Elections::member_online(member, network);
 		}
 
-		///  Marks a member as offline.
+		///  Marks members as offline.
 		/// # Flow
-		///	1. Receives `member` (account of the member) and `network` (NetworkId).
-		///	2. Removes `member` from [`MemberOnline::<T>`] storage.
-		///	3. Emits [`Event::MemberOffline]`.
-		fn member_offline(member: &AccountId, network: NetworkId) {
-			MemberOnline::<T>::remove(member);
-			Self::deposit_event(Event::MemberOffline(member.clone()));
-			T::Elections::member_offline(member, network);
+		///	1. Receives `members` (accounts of the members) and `network` (NetworkId).
+		///	2. Removes `members` from [`MemberOnline::<T>`] storage.
+		///	3. Emits [`Event::MembersOffline]`.
+		fn members_offline(members: Vec<AccountId>, network: NetworkId) {
+			for m in &members {
+				MemberOnline::<T>::remove(m);
+			}
+			Self::deposit_event(Event::MembersOffline(members.clone()));
+			T::Elections::members_offline(members, network);
 		}
 
 		/// Retrieves the heartbeat timeout value.

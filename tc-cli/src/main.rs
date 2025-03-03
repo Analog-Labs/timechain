@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{Address, BatchId, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{Address, BatchId, CCTPMessage, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -444,7 +444,7 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
-			exec_smoke(tc, src, src_addr, dest, dest_addr, SmokeType::Gmp).await?;
+			exec_smoke(tc, src, src_addr, dest, dest_addr, vec![]).await?;
 		},
 		Command::SmokeCctp {
 			src,
@@ -461,7 +461,23 @@ async fn real_main() -> Result<()> {
 				.unwrap()
 				.try_into()
 				.expect("Unable to convert dest_address to bytes32");
-			exec_smoke(tc, src, src_addr, dest, dest_addr, SmokeType::Cctp).await?;
+			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
+			let msg_data =
+				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
+			let cctp_payload = CCTPMessage {
+				version: 0,
+				local_transmitter: Default::default(),
+				local_minter: Default::default(),
+				amount: Default::default(),
+				destination_domain: Default::default(),
+				mint_receipient: Default::default(),
+				burn_token: Default::default(),
+				nonce: 0,
+				attestation: vec![],
+				message: msg_data,
+				extra_data: vec![],
+			};
+			exec_smoke(tc, src, src_addr, dest, dest_addr, cctp_payload.encode()).await?;
 		},
 		Command::Benchmark { src, dest, num_messages } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
@@ -564,26 +580,17 @@ async fn exec_smoke(
 	src_addr: Address,
 	dest: NetworkId,
 	dest_addr: Address,
-	smoke_type: SmokeType,
+	payload: Vec<u8>,
 ) -> Result<()> {
-	const CCTP_MSG_LEN: usize = 896;
 	let mut blocks = tc.finality_notification_stream();
 	let (_, start) = blocks.next().await.context("expected block")?;
-	let payload = vec![0u8; CCTP_MSG_LEN];
 	let gas_limit = tc
 		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 		.await?;
 	let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
-	let msg_id = match smoke_type {
-		SmokeType::Gmp => {
-			tc.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
-				.await?
-		},
-		SmokeType::Cctp => {
-			tc.send_cctp_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost)
-				.await?
-		},
-	};
+	let msg_id = tc
+		.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+		.await?;
 	let mut id = None;
 	let (exec, end) = loop {
 		let (_, end) = blocks.next().await.context("expected block")?;
@@ -605,9 +612,4 @@ async fn exec_smoke(
 	tc.println(None, format!("received message after {} blocks", end - start))
 		.await?;
 	Ok(())
-}
-
-enum SmokeType {
-	Gmp,
-	Cctp,
 }

@@ -21,6 +21,7 @@ pub mod balance;
 pub mod bounds;
 pub mod currency;
 pub mod dmail;
+pub mod encode;
 pub mod gmp;
 pub mod network;
 pub mod shard;

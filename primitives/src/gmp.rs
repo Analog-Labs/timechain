@@ -1,3 +1,4 @@
+use crate::encode::{encode_dynamic, FixedSizeEncodable};
 use crate::{NetworkId, TssPublicKey};
 use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
@@ -36,6 +37,57 @@ impl GmpParams {
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
+pub struct CCTPMessage {
+	pub version: u32,
+	pub local_transmitter: Address,
+	pub local_minter: Address,
+	pub amount: [u8; 32],
+	pub destination_domain: NetworkId,
+	pub mint_receipient: [u8; 32],
+	pub burn_token: Address,
+	pub nonce: u64,
+	pub attestation: Vec<u8>,
+	pub message: Vec<u8>,
+	pub extra_data: Vec<u8>,
+}
+
+impl CCTPMessage {
+	pub fn encode(&self) -> Vec<u8> {
+		let mut encoded = Vec::new();
+		encoded.extend_from_slice(&self.version.to_be_bytes().left_pad_32());
+		encoded.extend_from_slice(&self.local_transmitter);
+		encoded.extend_from_slice(&self.local_minter);
+		encoded.extend_from_slice(&self.amount.left_pad_32());
+		encoded.extend_from_slice(&self.destination_domain.to_be_bytes().left_pad_32());
+		encoded.extend_from_slice(&self.mint_receipient.left_pad_32());
+		encoded.extend_from_slice(&self.burn_token);
+		encoded.extend_from_slice(&self.nonce.to_be_bytes().left_pad_32());
+
+		let attestation = encode_dynamic(&self.attestation);
+		let message = encode_dynamic(&self.message);
+		let extra_data = encode_dynamic(&self.extra_data);
+
+		// add 32 * 3 bytes for 3 offsets that we have
+		let attestation_offset = encoded.len() + (3 * 32);
+		let message_offset = attestation_offset + attestation.len();
+		let extra_offset = message_offset + message.len();
+
+		// offset of attestation
+		encoded.extend_from_slice(&attestation_offset.to_be_bytes().left_pad_32());
+		// offset of message
+		encoded.extend_from_slice(&message_offset.to_be_bytes().left_pad_32());
+		// offset of extra_data
+		encoded.extend_from_slice(&extra_offset.to_be_bytes().left_pad_32());
+
+		encoded.extend_from_slice(&attestation);
+		encoded.extend_from_slice(&message);
+		encoded.extend_from_slice(&extra_data);
+		encoded
+	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
@@ -55,19 +107,13 @@ impl GmpMessage {
 	}
 
 	fn encode_header(&self) -> [u8; 224] {
-		// we dont include gasCost here due to its dynamic nature
 		let mut hdr = [0u8; 224];
-		// Leaving initial 32 bytes with padded 0's
-		hdr[32..64].copy_from_slice(&self.src);
-		// Leaving 30 bytes with padded 0's
-		hdr[94..96].copy_from_slice(&self.src_network.to_be_bytes());
-		hdr[96..128].copy_from_slice(&self.dest);
-		// Leaving 30 bytes with padded 0's
-		hdr[158..160].copy_from_slice(&self.dest_network.to_be_bytes());
-		// Leaving 16 bytes with padded 0's
-		hdr[176..192].copy_from_slice(&self.gas_limit.to_be_bytes());
-		// Leaving 16 bytes with padded 0's
-		hdr[216..224].copy_from_slice(&self.nonce.to_be_bytes());
+		hdr[32..64].copy_from_slice(&self.src.left_pad_32());
+		hdr[64..96].copy_from_slice(&self.src_network.to_be_bytes().left_pad_32());
+		hdr[96..128].copy_from_slice(&self.dest.left_pad_32());
+		hdr[128..160].copy_from_slice(&self.dest_network.to_be_bytes().left_pad_32());
+		hdr[160..192].copy_from_slice(&self.gas_limit.to_be_bytes().left_pad_32());
+		hdr[192..224].copy_from_slice(&self.nonce.to_be_bytes().left_pad_32());
 		hdr
 	}
 
@@ -422,16 +468,6 @@ pub trait IConnectorAdmin: IConnector {
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId>;
-	/// Sends a cctp message using the test contract and returns the message id.
-	async fn send_cctp_message(
-		&self,
-		gateway: Address,
-		src: Address,
-		dest_network: NetworkId,
-		dest: Address,
-		gas_limit: u128,
-		gas_cost: u128,
 	) -> Result<MessageId>;
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)

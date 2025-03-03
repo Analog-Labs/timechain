@@ -371,12 +371,6 @@ impl Connector {
 			Ok(addr)
 		}
 	}
-
-	async fn get_gateway_nonce(&self, gateway: Address, account: Address) -> Result<u64> {
-		let call = sol::Gateway::nonceOfCall { account: a_addr(account) };
-		let result = self.evm_call(gateway, call, 0, None, None).await?;
-		Ok(result.0._0)
-	}
 }
 
 #[async_trait]
@@ -801,57 +795,6 @@ impl IConnectorAdmin for Connector {
 		Ok(id)
 	}
 
-	async fn send_cctp_message(
-		&self,
-		gateway: Address,
-		contract: Address,
-		dest_network: NetworkId,
-		dest: Address,
-		gas_limit: u128,
-		gas_cost: u128,
-	) -> Result<MessageId> {
-		let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
-		let msg_data =
-			hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
-		let mut cctp_msg = sol::CCTP {
-			version: 0,
-			localMessageTransmitter: a_addr(contract),
-			localMinter: a_addr([0u8; 32]),
-			amount: U256::from(0),
-			destinationDomain: dest_network as u32,
-			mintRecipient: dest.into(),
-			burnToken: a_addr([0u8; 32]),
-			nonce: 0,
-			attestation: Vec::new().into(),
-			message: msg_data.clone().into(),
-			extraData: Vec::new().into(),
-		};
-		let nonce = self.get_gateway_nonce(gateway, contract).await?;
-		let mut msg = sol::GmpMessage {
-			srcNetwork: self.network_id,
-			source: contract.into(),
-			destNetwork: dest_network,
-			dest: a_addr(dest),
-			nonce,
-			gasLimit: gas_limit as _,
-			data: cctp_msg.clone().abi_encode().into(),
-		};
-		let call = sol::GmpTester::sendMessageCall { msg: msg.clone() };
-		let _ = self.evm_call(contract, call, gas_cost, None, None).await?;
-
-		// Computing valid message id for CCTP requires adding attestation in the cctp struct and then compute message_id
-		// Since after getting attestation the message_id of the gmp message changes we get attestation in start to match the later message_id.
-		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&msg_data).into();
-		let response = self.get_cctp_attestation(burn_hash).await?;
-		let attestation =
-			response.attestation.ok_or(anyhow::anyhow!("Failed to get msg attestation"))?;
-		let attestation = attestation.strip_prefix("0x").unwrap_or(&attestation);
-		let attestation_bytes = hex::decode(attestation).unwrap();
-		cctp_msg.attestation = attestation_bytes.into();
-		msg.data = cctp_msg.abi_encode().into();
-		let message_id = Into::<GmpMessage>::into(msg).message_id();
-		Ok(message_id)
-	}
 	/// Receives messages from test contract.
 	async fn recv_messages(
 		&self,

@@ -1059,47 +1059,6 @@ impl Tc {
 		Ok(msg_id)
 	}
 
-	#[allow(clippy::too_many_arguments)]
-	pub async fn send_cctp_message(
-		&self,
-		src_network: NetworkId,
-		src_addr: Address,
-		dest_network: NetworkId,
-		dest_addr: Address,
-		gas_limit: u128,
-		gas_cost: u128,
-	) -> Result<MessageId> {
-		let (connector, gateway) = self.gateway(src_network).await?;
-		let id = self
-			.println(
-				None,
-				format!(
-					"send cctp message to {} {} with {} gas for {}",
-					dest_network,
-					self.format_address(Some(dest_network), dest_addr)?,
-					gas_limit,
-					self.format_balance(Some(src_network), gas_cost)?,
-				),
-			)
-			.await?;
-		let msg_id = connector
-			.send_cctp_message(gateway, src_addr, dest_network, dest_addr, gas_limit, gas_cost)
-			.await?;
-		self.println(
-			Some(id),
-			format!(
-				"sent cctp message {} to {} {} with {} gas for {}",
-				hex::encode(msg_id),
-				dest_network,
-				self.format_address(Some(dest_network), dest_addr)?,
-				gas_limit,
-				self.format_balance(Some(src_network), gas_cost)?,
-			),
-		)
-		.await?;
-		Ok(msg_id)
-	}
-
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {
 		self.runtime.remove_task(task_id).await
 	}

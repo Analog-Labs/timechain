@@ -79,8 +79,6 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
-    ports:
-      - '8545:8545'
     profiles:
     - evm
 
@@ -100,8 +98,6 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    ports:
-      - '8080:8080'
     profiles:
     - evm
 
@@ -111,8 +107,6 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
-    ports:
-      - '8546:8545'
     profiles:
     - evm
 
@@ -132,8 +126,6 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-    ports:
-      - '8081:8080'
     profiles:
     - evm
 

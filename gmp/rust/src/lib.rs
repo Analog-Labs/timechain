@@ -514,18 +514,6 @@ impl IConnectorAdmin for Connector {
 		Ok(id)
 	}
 
-	async fn send_cctp_message(
-		&self,
-		_gateway: Address,
-		_src: Address,
-		_dest_network: NetworkId,
-		_dest: Address,
-		_gas_limit: u128,
-		_gas_cost: u128,
-	) -> Result<MessageId> {
-		anyhow::bail!("Not supported")
-	}
-
 	async fn recv_messages(&self, addr: Address, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(EVENTS)?;

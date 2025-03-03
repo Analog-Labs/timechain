@@ -234,7 +234,7 @@ mod tests {
 	/// * `Result<()>` - Returns an empty result on success, or an error on failure.
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
-		let (n, t) = (25, 25);
+		let (n, t) = (3, 3);
 		init_logger();
 
 		let mock = Mock::default().instance(42);

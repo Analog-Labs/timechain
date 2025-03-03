@@ -168,7 +168,7 @@ fn dkg_times_out() {
 			1
 		));
 		roll(11);
-		System::assert_last_event(Event::<Test>::ShardsOfflineDKGTimedOut(vec![0]).into());
+		System::assert_last_event(Event::<Test>::ShardsOffline(vec![0]).into());
 		assert_eq!(ShardState::<Test>::get(0), Some(ShardStatus::Offline));
 		assert!(ShardNetwork::<Test>::get(0).is_none());
 		assert!(ShardMembers::<Test>::iter().collect::<Vec<_>>().is_empty());

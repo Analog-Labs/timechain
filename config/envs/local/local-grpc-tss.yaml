@@ -48,9 +48,9 @@ networks:
     shard_size: 3
     shard_threshold: 2
 chronicles: 
-  - http://chronicle-0-grpc:8080
-  - http://chronicle-0-grpc:8080
-  - http://chronicle-0-grpc:8080
-  - http://chronicle-1-grpc:8080
-  - http://chronicle-1-grpc:8080
-  - http://chronicle-1-grpc:8080
+  - http://timechain-chronicle-0-grpc-1:8080
+  - http://timechain-chronicle-0-grpc-2:8080
+  - http://timechain-chronicle-0-grpc-3:8080
+  - http://timechain-chronicle-1-grpc-1:8080
+  - http://timechain-chronicle-1-grpc-2:8080
+  - http://timechain-chronicle-1-grpc-3:8080

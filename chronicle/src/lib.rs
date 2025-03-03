@@ -25,7 +25,9 @@ mod tasks;
 pub fn init_logger() {
 	let filter = tracing_subscriber::EnvFilter::from_default_env()
 		.add_directive("chronicle=debug".parse().unwrap())
-		.add_directive("tss=debug".parse().unwrap());
+		.add_directive("tss=debug".parse().unwrap())
+		.add_directive("peernet=debug".parse().unwrap());
+	//.add_directive("iroh_net=debug".parse().unwrap());
 	tracing_subscriber::fmt()
 		.pretty()
 		.with_ansi(false)
@@ -232,6 +234,7 @@ mod tests {
 	/// * `Result<()>` - Returns an empty result on success, or an error on failure.
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
+		let (n, t) = (3, 3);
 		init_logger();
 
 		let mock = Mock::default().instance(42);
@@ -240,8 +243,8 @@ mod tests {
 			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
 		);
 		// Spawn multiple threads to run the Chronicle application.
-		for id in 0..3 {
-			let instance = mock.instance(id);
+		for id in 0..n {
+			let instance = mock.instance(id as u8);
 			std::thread::spawn(move || {
 				let rt = tokio::runtime::Runtime::new().unwrap();
 				rt.block_on(chronicle(instance, network_id, futures::future::pending::<()>()));
@@ -250,7 +253,7 @@ mod tests {
 		// Wait for members to register.
 		loop {
 			tracing::info!("waiting for members to register");
-			if mock.members(network_id).len() < 3 {
+			if mock.members(network_id).len() < n {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
@@ -263,7 +266,7 @@ mod tests {
 			.map(|(public, _)| public.into_account())
 			.collect();
 		// Create a shard.
-		let shard_id = mock.create_shard(members.clone(), 2);
+		let shard_id = mock.create_shard(members.clone(), t);
 		// Wait for the shard to be online.
 		loop {
 			tracing::info!("waiting for shard");

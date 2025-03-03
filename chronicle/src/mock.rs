@@ -194,12 +194,7 @@ impl Runtime for Mock {
 	}
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
-		self.block_notification_stream()
-			.then(|e| async move {
-				tokio::time::sleep(Duration::from_secs(1)).await;
-				e
-			})
-			.boxed()
+		self.block_notification_stream().boxed()
 	}
 
 	async fn is_registered(&self) -> Result<bool> {

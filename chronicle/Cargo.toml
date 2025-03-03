@@ -30,7 +30,7 @@ scale-codec.workspace = true
 bincode = "1.3.3"
 bip39 = "2.0.0"
 getrandom = "0.2.15"
-peernet = "0.4.0"
+peernet = "0.4.1"
 prometheus_exporter = { version = "0.8.5", default-features = false, features = ["logging"] }
 schnorr-evm = { version = "0.1.0" }
 sha3 = { version = "0.10" }

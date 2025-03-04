@@ -1,0 +1,47 @@
+name: "Install dependencies and build GMP contracts"
+description: "Action to install all tc-cli deps and build contracts"
+
+inputs:
+  version:
+    description: "Docker image version tag"
+    required: true
+    default: "dev"
+  token:
+    description: "Github API Token"
+    required: true
+  environment:
+    description: "Target env for the tc-cli dispatch"
+    required: true
+  args:
+    description: "Tc-cli arguments"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Cargo
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-unknown-linux-musl,wasm32-unknown-unknown
+        components: rust-src
+    - name: Install musl deps
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
+    - name: Rust cache
+      uses: Swatinem/rust-cache@v2
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+    - name: Build contracts
+      shell: bash
+      run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
+    # At the moment mainnet doesn't support GMP, so the only compatible metadata is the testnet one
+    - name: Build tc-cli
+      shell: bash
+      run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
+    - name: Prepare context
+      shell: bash
+      run: |
+        mkdir docker
+        cp target/x86_64-unknown-linux-musl/testnet/tc-cli docker/tc-cli
+        cp -rL config/envs docker/envs

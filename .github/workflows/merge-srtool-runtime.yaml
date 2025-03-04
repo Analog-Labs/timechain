@@ -144,7 +144,6 @@ jobs:
           -e TARGET_MNEMONIC="${{ secrets.TARGET_MNEMONIC }}" \
           ${{ needs.set_tags.outputs.tc_cli }} \
           --config /etc/config.yaml runtime-upgrade /etc/development-runtime.wasm
-
     - name: Notify on slack
       uses: slackapi/slack-github-action@v2.0.0
       with:
@@ -154,3 +153,16 @@ jobs:
           channel: ${{ secrets.SLACK_CHANNEL_ID }}
           thread_ts: ${{ github.event.inputs.thread }}
           text: "runtime upgrade from ${{ needs.set_tags.outputs.commit_hash8 }}"
+    - name: Setup foundry and build GMP contracts
+      uses: ./.github/actions/build-contracts
+    - name: Build tc-cli OCI image and push
+      uses: ./.github/actions/buildah-action
+      with:
+        image_name: ${{ env.TC_CLI_IMAGE }}
+        containerfile: ./config/docker/Dockerfile.tc-cli-release
+        context: docker
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        registry: docker.io
+        push: 'true'
+        tags: ${{ github.event.inputs.environment }}

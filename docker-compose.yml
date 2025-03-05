@@ -14,6 +14,8 @@ services:
     - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
+    ports:
+      - 9944
 
   chain-0-grpc:
     image: 'analoglabs/gmp-grpc-develop'
@@ -93,8 +95,6 @@ services:
     - '--target-url=ws://chain-2-evm:8545'
     - '--network-id=2'
     - '--backend=evm'
-    - '--cctp-sender=000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc'
-    - '--cctp-attestation=https://iris-api-sandbox.circle.com/attestations/'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1

@@ -8,12 +8,16 @@ use scale_codec::Encode;
 use scale_info::prelude::string::String;
 use sp_runtime::BoundedVec;
 use time_primitives::{
-	ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, CHAIN_NAME_LEN, CHAIN_NET_LEN,
+	CctpConfig, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId,
+	CHAIN_NAME_LEN, CHAIN_NET_LEN, MAX_CCTP_ADDRESSES, MAX_CCTP_URL_LEN,
 };
 
 const NETWORK: NetworkId = 42;
 
 fn mock_network_config() -> NetworkConfig {
+	let contracts =
+		CctpContracts(BoundedVec::truncate_from([[0u8; 32]; MAX_CCTP_ADDRESSES as usize].to_vec()));
+	let url = CctpUrl(BoundedVec::truncate_from([0u8; MAX_CCTP_URL_LEN as usize].to_vec()));
 	NetworkConfig {
 		batch_size: 32,
 		batch_offset: 0,
@@ -21,6 +25,7 @@ fn mock_network_config() -> NetworkConfig {
 		shard_task_limit: 10,
 		shard_size: 3,
 		shard_threshold: 2,
+		cctp_config: Some(CctpConfig { contracts, url }),
 	}
 }
 

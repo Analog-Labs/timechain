@@ -28,8 +28,6 @@ impl ConnectorWrapper {
 			network: network.to_string(),
 			url: db.to_str().unwrap().to_string(),
 			mnemonic: String::new(),
-			cctp_sender: None,
-			cctp_attestation: None,
 		})
 		.await?;
 		Ok(Self { connector })
@@ -116,7 +114,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::ReadEventsResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let events = connector
-			.read_events(msg.gateway, msg.start_block..msg.end_block)
+			.read_events(msg.gateway, msg.start_block..msg.end_block, None)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::ReadEventsResponse { events }))

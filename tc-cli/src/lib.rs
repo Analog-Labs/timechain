@@ -76,12 +76,6 @@ impl Tc {
 					network: network.network.clone(),
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
-					cctp_sender: None,
-					// TODO move to config?
-					// This params is for checking cctp attestation with tc-cli
-					cctp_attestation: Some(String::from(
-						"https://iris-api-sandbox.circle.com/attestations/",
-					)),
 				};
 				let connector = async move {
 					let connector = network
@@ -599,7 +593,7 @@ impl Tc {
 
 	pub async fn events(&self, network: NetworkId, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.read_events(gateway, blocks).await
+		connector.read_events(gateway, blocks, None).await
 	}
 
 	pub async fn messages(
@@ -722,6 +716,11 @@ impl Tc {
 						shard_task_limit: config.shard_task_limit,
 						shard_size: config.shard_size,
 						shard_threshold: config.shard_threshold,
+						cctp_config: config
+							.cctp
+							.clone()
+							.map(|item| item.to_config())
+							.transpose()?,
 					},
 				})
 				.await?;
@@ -739,6 +738,7 @@ impl Tc {
 			shard_task_limit: config.shard_task_limit,
 			shard_size: config.shard_size,
 			shard_threshold: config.shard_threshold,
+			cctp_config: config.cctp.clone().map(|item| item.to_config()).transpose()?,
 		};
 
 		let batch_size = self.runtime.network_batch_size(network).await?;

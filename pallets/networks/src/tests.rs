@@ -5,9 +5,15 @@ use frame_system::RawOrigin;
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
-use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig};
+use time_primitives::{
+	CctpConfig, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
+	MAX_CCTP_ADDRESSES, MAX_CCTP_URL_LEN,
+};
 
 fn mock_network_config() -> NetworkConfig {
+	let contracts =
+		CctpContracts(BoundedVec::truncate_from([[0u8; 32]; MAX_CCTP_ADDRESSES as usize].to_vec()));
+	let url = CctpUrl(BoundedVec::truncate_from([0u8; MAX_CCTP_URL_LEN as usize].to_vec()));
 	NetworkConfig {
 		batch_size: 32,
 		batch_offset: 0,
@@ -15,6 +21,7 @@ fn mock_network_config() -> NetworkConfig {
 		shard_task_limit: 10,
 		shard_size: 3,
 		shard_threshold: 2,
+		cctp_config: Some(CctpConfig { contracts, url }),
 	}
 }
 

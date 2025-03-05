@@ -140,7 +140,12 @@ impl IChain for Connector {
 #[tonic::async_trait]
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
+	async fn read_events(
+		&self,
+		gateway: Gateway,
+		blocks: Range<u64>,
+		_cctp_info: Option<(Vec<Address>, String)>,
+	) -> Result<Vec<GmpEvent>> {
 		let request = Request::new(proto::ReadEventsRequest {
 			gateway,
 			start_block: blocks.start,

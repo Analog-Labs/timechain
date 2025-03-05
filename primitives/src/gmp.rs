@@ -335,8 +335,6 @@ pub struct ConnectorParams {
 	pub network: String,
 	pub url: String,
 	pub mnemonic: String,
-	pub cctp_sender: Option<String>,
-	pub cctp_attestation: Option<String>,
 }
 
 #[cfg(feature = "std")]
@@ -395,7 +393,12 @@ pub trait IChain: Send + Sync + 'static {
 #[async_trait::async_trait]
 pub trait IConnector: IChain {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
+	async fn read_events(
+		&self,
+		gateway: Gateway,
+		blocks: Range<u64>,
+		cctp_info: Option<(Vec<Address>, String)>,
+	) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,

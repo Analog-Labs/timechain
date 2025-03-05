@@ -55,9 +55,7 @@ pub struct Connector {
 	wallet: Arc<Wallet>,
 	backend: Adapter<DefaultClient>,
 	url: String,
-	cctp_sender: Option<Vec<Address>>,
-	cctp_attestation: Option<String>,
-	cctp_queue: Arc<Mutex<Vec<(GmpMessage, CctpRetryCount)>>>,
+	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
 }
@@ -265,8 +263,8 @@ impl Connector {
 		Ok((proxy_address, block))
 	}
 
-	async fn process_cctp_msg(&self, msg: &mut GmpMessage) -> Result<(), CctpError> {
-		let payload = msg.bytes.clone();
+	async fn process_cctp_msg(&self, request: &mut CctpRequest) -> Result<(), CctpError> {
+		let payload = request.msg.bytes.clone();
 		let mut cctp_payload =
 			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
 		if cctp_payload.version != 0 {
@@ -274,21 +272,21 @@ impl Connector {
 		}
 		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
-		let attestation_response = self.get_cctp_attestation(burn_hash).await?;
+		let attestation_response = self.get_cctp_attestation(burn_hash, &request.url).await?;
 		let signature =
 			attestation_response.attestation.clone().ok_or(CctpError::AttestationResponse)?;
 		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
 		let attestation = hex::decode(signature).map_err(|_| CctpError::InvalidSignature)?;
 		cctp_payload.attestation = attestation.into();
-		msg.bytes = cctp_payload.abi_encode();
+		request.msg.bytes = cctp_payload.abi_encode();
 		Ok(())
 	}
 
 	async fn get_cctp_attestation(
 		&self,
 		burn_hash: [u8; 32],
+		uri: &str,
 	) -> Result<AttestationResponse, CctpError> {
-		let uri = self.cctp_attestation.as_deref().ok_or(CctpError::AttestationDisabled)?;
 		let uri = uri.trim_end_matches('/');
 		let url = format!("{}/0x{}", uri, hex::encode(burn_hash));
 		let client = Client::new();
@@ -316,20 +314,24 @@ impl Connector {
 		let mut attested_msgs = vec![];
 
 		let msgs = std::mem::take(&mut *queue);
-		for (mut msg, mut retry_count) in msgs {
-			match self.process_cctp_msg(&mut msg).await {
-				Ok(()) => attested_msgs.push(msg),
+		for mut request in msgs {
+			match self.process_cctp_msg(&mut request).await {
+				Ok(()) => attested_msgs.push(request.msg),
 				Err(CctpError::AttestationPending) => {
-					retry_count += 1;
-					if retry_count >= MAX_CCTP_RETRY {
-						tracing::info!("Dropping Cctp message: {msg:?} with count: {retry_count}",);
+					request.retry_count += 1;
+					if request.retry_count >= MAX_CCTP_RETRY {
+						tracing::info!("Dropping Cctp message due to count: {:?}", request);
 					} else {
-						tracing::info!("Attestation is pending for msg: {:?}", msg);
-						queue.push((msg, retry_count));
+						tracing::info!("Attestation is pending for msg: {:?}", request.msg);
+						queue.push(request);
 					}
 				},
 				Err(error) => {
-					tracing::error!("Failed to process cctp message: {:?}: {:?}", msg, error);
+					tracing::error!(
+						"Failed to process cctp message: {:?}: {:?}",
+						request.msg,
+						error
+					);
 				},
 			}
 		}
@@ -396,33 +398,12 @@ impl IConnectorBuilder for Connector {
 			.await
 			.with_context(|| "Cannot get ws client for url: {url}")?;
 		let adapter = Adapter(client);
-		let cctp_sender: Result<Option<Vec<Address>>> = params
-			.cctp_sender
-			.map(|items| {
-				items
-					.split(',')
-					.map(|s| s.trim())
-					.map(|item| {
-						let clean_hex = item.strip_prefix("0x").unwrap_or(item);
-						let bytes = hex::decode(clean_hex)
-							.map_err(|e| anyhow::anyhow!("Hex decode error: {}", e))?;
-						let arr: Address = bytes
-							.try_into()
-							.map_err(|_| anyhow::anyhow!("Invalid address length"))?;
-						Ok(arr)
-					})
-					.collect::<Result<Vec<_>>>()
-			})
-			.transpose();
-		let cctp_sender = cctp_sender?;
 
 		let connector = Self {
 			network_id: params.network_id,
 			wallet,
 			backend: adapter,
 			url: params.url,
-			cctp_sender,
-			cctp_attestation: params.cctp_attestation,
 			cctp_queue: Default::default(),
 			wallet_guard: Default::default(),
 		};
@@ -482,7 +463,12 @@ impl IChain for Connector {
 #[async_trait]
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
+	async fn read_events(
+		&self,
+		gateway: Gateway,
+		blocks: Range<u64>,
+		cctp_info: Option<(Vec<Address>, String)>,
+	) -> Result<Vec<GmpEvent>> {
 		let contract: [u8; 20] = a_addr(gateway).0.into();
 		let logs = self
 			.wallet
@@ -533,10 +519,10 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						if let Some(senders) = &self.cctp_sender {
-							if senders.contains(&gmp_message.src) {
+						if let Some((ref cctp_contracts, ref url)) = cctp_info {
+							if cctp_contracts.contains(&gmp_message.src) {
 								let mut cctp_queue = self.cctp_queue.lock().await;
-								cctp_queue.push((gmp_message.clone(), 0));
+								cctp_queue.push(CctpRequest::new(gmp_message.clone(), url.clone()));
 								continue;
 							}
 						}
@@ -972,6 +958,19 @@ pub struct DeploymentConfig {
 	pub deployment_salt: [u8; 32],
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct CctpRequest {
+	msg: GmpMessage,
+	url: String,
+	retry_count: CctpRetryCount,
+}
+
+impl CctpRequest {
+	fn new(msg: GmpMessage, url: String) -> Self {
+		Self { msg, url, retry_count: 0 }
+	}
+}
+
 #[derive(Deserialize)]
 struct Contract {
 	bytecode: Bytecode,
@@ -992,8 +991,6 @@ struct AttestationResponse {
 enum CctpError {
 	#[error("Attestation is pending.")]
 	AttestationPending,
-	#[error("Attestation is disabled.")]
-	AttestationDisabled,
 	#[error("Failed to get attestation from response.")]
 	AttestationResponse,
 	#[error("Invalid payload.")]

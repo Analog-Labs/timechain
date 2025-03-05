@@ -1,4 +1,4 @@
-use crate::Gateway;
+use crate::{Address, Gateway};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -6,12 +6,18 @@ use serde::{Deserialize, Serialize};
 
 pub const CHAIN_NAME_LEN: u32 = 50;
 pub const CHAIN_NET_LEN: u32 = 50;
+pub const MAX_CCTP_ADDRESSES: u32 = 50;
+pub const MAX_CCTP_URL_LEN: u32 = 200;
 
 pub type NetworkId = u16;
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct ChainName(pub BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct ChainNetwork(pub BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>);
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub struct CctpContracts(pub BoundedVec<Address, ConstU32<MAX_CCTP_ADDRESSES>>);
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub struct CctpUrl(pub BoundedVec<u8, ConstU32<MAX_CCTP_URL_LEN>>);
 
 #[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
 pub struct Network {
@@ -31,4 +37,11 @@ pub struct NetworkConfig {
 	pub shard_task_limit: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
+	pub cctp_config: Option<CctpConfig>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
+pub struct CctpConfig {
+	pub contracts: CctpContracts,
+	pub url: CctpUrl,
 }

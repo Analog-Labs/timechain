@@ -2,7 +2,10 @@ use crate::worker::Tx;
 use crate::{metadata, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
-use time_primitives::{ChainName, ChainNetwork, Gateway, Network, NetworkConfig, NetworkId};
+use scale_codec::Decode;
+use time_primitives::{
+	Address, CctpUrl, ChainName, ChainNetwork, Gateway, Network, NetworkConfig, NetworkId,
+};
 
 impl SubxtClient {
 	pub async fn register_network(&self, network: Network) -> Result<()> {
@@ -49,6 +52,28 @@ impl SubxtClient {
 			.await?
 			.map(|(name, net)| ((*name).clone(), (*net).clone()));
 		Ok(data)
+	}
+
+	pub async fn get_cctp_contracts(&self, network: NetworkId) -> Result<Option<Vec<Address>>> {
+		let runtime_call = metadata::apis().networks_api().get_cctp_contracts(network);
+		let data: Option<Vec<Address>> =
+			self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		Ok(data)
+	}
+
+	pub async fn get_cctp_url(&self, network: NetworkId) -> Result<Option<String>> {
+		let runtime_call = metadata::apis().networks_api().get_cctp_url(network);
+		let data: Option<CctpUrl> = self
+			.client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call(runtime_call)
+			.await?
+			.map(|url| (*url).clone());
+		let converted_item =
+			data.map(|item| String::decode(&mut item.0.to_vec().as_slice())).transpose()?;
+		Ok(converted_item)
 	}
 
 	pub async fn network_gateway(&self, network: NetworkId) -> Result<Option<Gateway>> {

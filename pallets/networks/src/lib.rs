@@ -37,14 +37,14 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, NetworksInterface,
-		TasksInterface,
+		Address, CctpConfig, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId,
+		NetworksInterface, TasksInterface,
 	};
 
 	pub trait WeightInfo {
 		fn register_network(name: u32, network: u32) -> Weight;
-		fn set_network_config() -> Weight;
-		fn remove_network() -> Weight;
+		fn set_network_config(cctp_contracts: u32, cctp_url: u32) -> Weight;
+		fn remove_network(contracts_len: u32) -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -52,11 +52,11 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn set_network_config() -> Weight {
+		fn set_network_config(_cctp_contracts: u32, _cctp_url: u32) -> Weight {
 			Weight::default()
 		}
 
-		fn remove_network() -> Weight {
+		fn remove_network(_contracts_len: u32) -> Weight {
 			Weight::default()
 		}
 	}
@@ -93,6 +93,8 @@ pub mod pallet {
 		ShardSizeAboveMax,
 		/// Network threshold is invalid.
 		ThresholdLargerThanSize,
+		/// Network threshold is invalid.
+		FailedClearingAddress,
 	}
 
 	/// Workaround for subxt not supporting iterating over the decoded keys.
@@ -137,10 +139,31 @@ pub mod pallet {
 	pub type NetworkShardSize<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
 
-	/// Map storage for shard size.
+	/// Map storage for shard threshold.
 	#[pallet::storage]
 	pub type NetworkShardThreshold<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
+
+	/// Map storage for cctp config.
+	#[pallet::storage]
+	pub type NetworkCctpConfig<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, CctpConfig, OptionQuery>;
+
+	/// Map storage for cctp config.
+	#[pallet::storage]
+	pub type NetworkCctpContracts<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		NetworkId,
+		Blake2_128Concat,
+		Address,
+		(),
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub type NetworkCctpUrl<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, CctpUrl, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -214,6 +237,12 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
 			NetworkShardSize::<T>::insert(network, config.shard_size);
 			NetworkShardThreshold::<T>::insert(network, config.shard_threshold);
+			if let Some(ref cctp_config) = config.cctp_config {
+				for contract in cctp_config.contracts.0.clone().into_iter() {
+					NetworkCctpContracts::<T>::insert(network, contract, ());
+				}
+				NetworkCctpUrl::<T>::insert(network, cctp_config.url.clone());
+			}
 			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
 		}
@@ -246,7 +275,12 @@ pub mod pallet {
 		///   4. Emit an event indicating the batch size and offset have been set.
 		///   5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_network_config())]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::set_network_config(
+				config.cctp_config.as_ref().map_or(0, |c| c.contracts.0.len() as u32),
+				config.cctp_config.as_ref().map_or(0, |c| c.url.0.len() as u32)
+		    )
+		)]
 		pub fn set_network_config(
 			origin: OriginFor<T>,
 			network: NetworkId,
@@ -258,7 +292,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::remove_network())]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_network(NetworkCctpContracts::<T>::iter_prefix(network).count() as u32))]
 		pub fn remove_network(origin: OriginFor<T>, network: NetworkId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Networks::<T>::remove(network);
@@ -270,6 +304,10 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::remove(network);
 			NetworkShardSize::<T>::remove(network);
 			NetworkShardThreshold::<T>::remove(network);
+			let contract_count: u32 =
+				NetworkCctpContracts::<T>::iter_prefix(network).count() as u32;
+			let _ = NetworkCctpContracts::<T>::clear_prefix(network, contract_count, None);
+			NetworkCctpUrl::<T>::remove(network);
 			Ok(())
 		}
 	}
@@ -282,6 +320,22 @@ pub mod pallet {
 		///  2. Return the network information if it exists, otherwise return `None`.
 		pub fn get_network(network: NetworkId) -> Option<(ChainName, ChainNetwork)> {
 			NetworkName::<T>::get(network)
+		}
+
+		pub fn get_cctp_contracts(network: NetworkId) -> Option<Vec<Address>> {
+			let contracts: Vec<Address> = NetworkCctpContracts::<T>::iter_prefix(network)
+				.map(|(address, _)| address)
+				.collect();
+
+			if contracts.is_empty() {
+				None
+			} else {
+				Some(contracts)
+			}
+		}
+
+		pub fn get_cctp_url(network: NetworkId) -> Option<CctpUrl> {
+			NetworkCctpUrl::<T>::get(network)
 		}
 	}
 

@@ -17,7 +17,7 @@ networks:
     admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
-    batch_size: 64
+    batch_size: 16
     batch_offset: 0
     batch_gas_limit: 10000000
     gmp_margin: 0.0
@@ -34,7 +34,7 @@ networks:
     admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: 1.
-    batch_size: 64
+    batch_size: 16
     batch_offset: 0
     batch_gas_limit: 10000000
     gmp_margin: 0.0

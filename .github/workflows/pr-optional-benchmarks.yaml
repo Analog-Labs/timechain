@@ -44,7 +44,7 @@ jobs:
         with:
           name: runtime-benchmarks-${{ matrix.name }}
           if-no-files-found: error
-          path: target/release/timechain-node
+          path: target/${{ matrix.profile }}/timechain-node
   run-benchmark-custom-mainnet:
     needs: [build-benchmark]
     runs-on: [self-hosted, benchmark]

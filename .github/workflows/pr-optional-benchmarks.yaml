@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build-benchmark:
-    runs-on: [self-hosted, benchmark]
+    runs-on: ubuntu-latest
     if: ${{ contains(github.event.pull_request.labels.*.name,'!ci-benchmark-custom') || contains(github.event.pull_request.labels.*.name,'!ci-benchmark-frame') }}
     strategy:
       fail-fast: false

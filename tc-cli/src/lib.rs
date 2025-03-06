@@ -19,7 +19,7 @@ use time_primitives::{
 	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
 	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
-use time_primitives::{CctpContracts, CctpUrl};
+use time_primitives::{CctpContracts, CctpUrl, MAX_CCTP_ADDRESSES};
 use tokio::time::sleep;
 
 mod config;
@@ -695,7 +695,7 @@ impl Tc {
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
 		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
-			self.set_network_config(network).await?;
+			self.set_network_config(network, None).await?;
 			gateway
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
@@ -734,10 +734,27 @@ impl Tc {
 		Ok(gateway)
 	}
 
-	async fn set_network_config(&self, network: NetworkId) -> Result<()> {
+	pub async fn set_network_config(
+		&self,
+		network: NetworkId,
+		additional_contract: Option<Address>,
+	) -> Result<()> {
 		let config = self.config.network(network)?;
-		let cctp_contracts =
+		let mut cctp_contracts =
 			config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
+		if let Some(new_contract) = additional_contract {
+			match &mut cctp_contracts {
+				Some(contracts) => {
+					contracts.0.try_push(new_contract).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+				},
+				None => {
+					let bounded = BoundedVec::try_from(vec![new_contract]).map_err(|_| {
+						anyhow::anyhow!("Exceeded maximum of {} CCTP addresses", MAX_CCTP_ADDRESSES)
+					})?;
+					cctp_contracts = Some(CctpContracts(bounded));
+				},
+			}
+		}
 		let cctp_url = config
 			.cctp_url
 			.clone()

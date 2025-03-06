@@ -54,39 +54,53 @@ pub struct CCTPMessage {
 
 impl CCTPMessage {
 	pub fn encode(&self) -> Vec<u8> {
-		let mut encoded = Vec::new();
-		encoded.extend_from_slice(&self.version.to_be_bytes().left_pad_32());
-		encoded.extend_from_slice(&self.local_transmitter);
-		encoded.extend_from_slice(&self.local_minter);
-		encoded.extend_from_slice(&self.amount.left_pad_32());
-		encoded.extend_from_slice(&self.destination_domain.to_be_bytes().left_pad_32());
-		encoded.extend_from_slice(&self.mint_receipient.left_pad_32());
-		encoded.extend_from_slice(&self.burn_token);
-		encoded.extend_from_slice(&self.nonce.to_be_bytes().left_pad_32());
+		let mut tail = Vec::new();
+		tail.extend_from_slice(&self.version.to_be_bytes().left_pad_32());
+		tail.extend_from_slice(&self.local_transmitter);
+		tail.extend_from_slice(&self.local_minter);
+		tail.extend_from_slice(&self.amount.left_pad_32());
+		tail.extend_from_slice(&self.destination_domain.to_be_bytes().left_pad_32());
+		tail.extend_from_slice(&self.mint_receipient.left_pad_32());
+		tail.extend_from_slice(&self.burn_token);
+		tail.extend_from_slice(&self.nonce.to_be_bytes().left_pad_32());
 
 		let attestation = encode_dynamic(&self.attestation);
 		let message = encode_dynamic(&self.message);
 		let extra_data = encode_dynamic(&self.extra_data);
 
 		// add 32 * 3 bytes for 3 offsets that we have
-		let attestation_offset = encoded.len() + (3 * 32);
+		let attestation_offset = tail.len() + (3 * DECODE_BLOCK_SIZE);
 		let message_offset = attestation_offset + attestation.len();
 		let extra_offset = message_offset + message.len();
 
 		// offset of attestation
-		encoded.extend_from_slice(&attestation_offset.to_be_bytes().left_pad_32());
+		tail.extend_from_slice(&attestation_offset.to_be_bytes().left_pad_32());
 		// offset of message
-		encoded.extend_from_slice(&message_offset.to_be_bytes().left_pad_32());
+		tail.extend_from_slice(&message_offset.to_be_bytes().left_pad_32());
 		// offset of extra_data
-		encoded.extend_from_slice(&extra_offset.to_be_bytes().left_pad_32());
+		tail.extend_from_slice(&extra_offset.to_be_bytes().left_pad_32());
 
-		encoded.extend_from_slice(&attestation);
-		encoded.extend_from_slice(&message);
-		encoded.extend_from_slice(&extra_data);
+		tail.extend_from_slice(&attestation);
+		tail.extend_from_slice(&message);
+		tail.extend_from_slice(&extra_data);
+
+		// prepends 0x20 in the list to tell where the data starts
+		let mut encoded = Vec::new();
+		encoded.extend_from_slice(&32u64.to_be_bytes().left_pad_32());
+		encoded.extend_from_slice(&tail);
+
 		encoded
 	}
 
 	pub fn from_bytes(input: &[u8]) -> Result<Self, DecodeError> {
+		if input.len() < DECODE_BLOCK_SIZE {
+			return Err(DecodeError::InsufficientData);
+		}
+
+		// removing the head offset from the bytes
+		let _ = u64::decode_from_block(&input[0..DECODE_BLOCK_SIZE])?;
+		let input = &input[DECODE_BLOCK_SIZE..];
+
 		// 11 fields
 		if input.len() < 11 * DECODE_BLOCK_SIZE {
 			return Err(DecodeError::InsufficientData);

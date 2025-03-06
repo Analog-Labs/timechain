@@ -2,7 +2,6 @@ use crate::worker::Tx;
 use crate::{metadata, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
-use scale_codec::Decode;
 use time_primitives::{
 	Address, CctpUrl, ChainName, ChainNetwork, Gateway, Network, NetworkConfig, NetworkId,
 };
@@ -71,8 +70,7 @@ impl SubxtClient {
 			.call(runtime_call)
 			.await?
 			.map(|url| (*url).clone());
-		let converted_item =
-			data.map(|item| String::decode(&mut item.0.to_vec().as_slice())).transpose()?;
+		let converted_item = data.map(|item| String::from_utf8(item.0.to_vec())).transpose()?;
 		Ok(converted_item)
 	}
 

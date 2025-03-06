@@ -81,6 +81,8 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - 8545
     profiles:
     - evm
 
@@ -107,6 +109,8 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - 8545
     profiles:
     - evm
 

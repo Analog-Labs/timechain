@@ -45,3 +45,4 @@ runs:
         mkdir docker
         cp target/x86_64-unknown-linux-musl/testnet/tc-cli docker/tc-cli
         cp -rL config/envs docker/envs
+        cp -rL analog-gmp docker/analog-gmp

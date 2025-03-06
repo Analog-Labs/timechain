@@ -26,10 +26,9 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
-    cctp:
-      addresses:
+    cctp_contracts:
         - 000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc
-      url: "https://iris-api-sandbox.circle.com/attestations/"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
       
   3:
     backend: "evm"
@@ -48,10 +47,9 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
-    cctp:
-      addresses:
+    cctp_contracts:
         - 000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc
-      url: "https://iris-api-sandbox.circle.com/attestations/"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
 chronicles: 
   - http://chronicle-2-evm:8080
   - http://chronicle-3-evm:8080

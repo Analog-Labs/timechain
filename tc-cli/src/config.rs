@@ -1,12 +1,9 @@
 use anyhow::{Context, Result};
 use gmp::Backend;
-use polkadot_sdk::sp_runtime::BoundedVec;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use time_primitives::{
-	Address, CctpConfig, CctpContracts, CctpUrl, NetworkId, MAX_CCTP_ADDRESSES, MAX_CCTP_URL_LEN,
-};
+use time_primitives::NetworkId;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -19,7 +16,6 @@ impl Config {
 		let config_path = path.join(config);
 		let config = std::fs::read_to_string(&config_path)
 			.with_context(|| format!("failed to read config file {}", config_path.display()))?;
-		tracing::info!("YAML config: {:?}", config);
 		let yaml = serde_yaml::from_str(&config)
 			.with_context(|| format!("failed to parse config file {}", config_path.display()))?;
 		Ok(Self { path, yaml })
@@ -140,49 +136,8 @@ pub struct NetworkConfig {
 	pub route_base_fee: u128,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub cctp: Option<CctpYaml>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CctpYaml {
-	pub addresses: Vec<String>,
-	pub url: String,
-}
-
-impl CctpYaml {
-	pub fn to_config(&self) -> Result<CctpConfig> {
-		let addresses = self
-			.addresses
-			.iter()
-			.map(|s| {
-				let clean = s.trim_start_matches("0x");
-				let bytes = hex::decode(clean)
-					.map_err(|_| anyhow::anyhow!("Unable to make bytes from hex"))?;
-				let address: Address = bytes
-					.try_into()
-					.map_err(|_| anyhow::anyhow!("Unable to convert bytes to address format"))?;
-				Ok(address)
-			})
-			.collect::<Result<Vec<Address>>>()?;
-
-		let bounded_addresses = BoundedVec::try_from(addresses).map_err(|_| {
-			anyhow::anyhow!("Exceeded maximum of {} CCTP addresses", MAX_CCTP_ADDRESSES)
-		})?;
-
-		let url_bytes = self.url.as_bytes().to_vec();
-		let bounded_url = BoundedVec::try_from(url_bytes).map_err(|_| {
-			anyhow::anyhow!(
-				"URL length {} exceeds maximum of {} bytes",
-				self.url.len(),
-				MAX_CCTP_URL_LEN
-			)
-		})?;
-
-		Ok(CctpConfig {
-			contracts: CctpContracts(bounded_addresses),
-			url: CctpUrl(bounded_url),
-		})
-	}
+	pub cctp_contracts: Option<Vec<String>>,
+	pub cctp_url: Option<String>,
 }
 
 #[cfg(test)]

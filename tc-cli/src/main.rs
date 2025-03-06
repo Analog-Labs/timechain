@@ -6,7 +6,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{Address, BatchId, CCTPMessage, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{
+	Address, BatchId, CCTPMessage, GmpMessage, Hash, NetworkId, ShardId, TaskId,
+};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -178,17 +180,7 @@ enum Command {
 	},
 	SmokeCctp {
 		src: NetworkId,
-		#[arg(
-			long,
-			default_value = "000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc"
-		)]
-		src_address: String,
 		dest: NetworkId,
-		#[arg(
-			long,
-			default_value = "000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc"
-		)]
-		dest_address: String,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -444,23 +436,10 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
-			exec_smoke(tc, src, src_addr, dest, dest_addr, vec![]).await?;
+			let _ = exec_smoke(tc, src, src_addr, dest, dest_addr, vec![]).await?;
 		},
-		Command::SmokeCctp {
-			src,
-			src_address,
-			dest,
-			dest_address,
-		} => {
-			tc.setup_test(src, dest).await?;
-			let src_addr = hex::decode(src_address)
-				.unwrap()
-				.try_into()
-				.expect("Unable to convert src_address to bytes32");
-			let dest_addr = hex::decode(dest_address)
-				.unwrap()
-				.try_into()
-				.expect("Unable to convert dest_address to bytes32");
+		Command::SmokeCctp { src, dest } => {
+			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
 			let msg_data =
 				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
@@ -477,7 +456,10 @@ async fn real_main() -> Result<()> {
 				message: msg_data,
 				extra_data: vec![],
 			};
-			exec_smoke(tc, src, src_addr, dest, dest_addr, cctp_payload.encode()).await?;
+			let msg = exec_smoke(tc, src, src_addr, dest, dest_addr, cctp_payload.encode()).await?;
+			let attested =
+				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+			assert!(!attested.attestation.is_empty())
 		},
 		Command::Benchmark { src, dest, num_messages } => {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
@@ -581,7 +563,7 @@ async fn exec_smoke(
 	dest: NetworkId,
 	dest_addr: Address,
 	payload: Vec<u8>,
-) -> Result<()> {
+) -> Result<GmpMessage> {
 	let mut blocks = tc.finality_notification_stream();
 	let (_, start) = blocks.next().await.context("expected block")?;
 	let gas_limit = tc
@@ -608,8 +590,8 @@ async fn exec_smoke(
 		.into_iter()
 		.find(|msg| msg.message_id() == msg_id)
 		.context("failed to find message")?;
-	tc.print_table(None, "message", vec![msg]).await?;
+	tc.print_table(None, "message", vec![msg.clone()]).await?;
 	tc.println(None, format!("received message after {} blocks", end - start))
 		.await?;
-	Ok(())
+	Ok(msg)
 }

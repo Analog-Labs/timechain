@@ -20,6 +20,7 @@ pub mod admin;
 pub mod balance;
 pub mod bounds;
 pub mod currency;
+pub mod decode;
 pub mod dmail;
 pub mod encode;
 pub mod gmp;

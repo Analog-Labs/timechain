@@ -37,7 +37,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address, CctpConfig, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId,
+		Address, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId,
 		NetworksInterface, TasksInterface,
 	};
 
@@ -146,11 +146,6 @@ pub mod pallet {
 
 	/// Map storage for cctp config.
 	#[pallet::storage]
-	pub type NetworkCctpConfig<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, CctpConfig, OptionQuery>;
-
-	/// Map storage for cctp config.
-	#[pallet::storage]
 	pub type NetworkCctpContracts<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -237,11 +232,13 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
 			NetworkShardSize::<T>::insert(network, config.shard_size);
 			NetworkShardThreshold::<T>::insert(network, config.shard_threshold);
-			if let Some(ref cctp_config) = config.cctp_config {
-				for contract in cctp_config.contracts.0.clone().into_iter() {
+			if let Some(ref contracts) = config.cctp_contracts {
+				for contract in contracts.0.clone().into_iter() {
 					NetworkCctpContracts::<T>::insert(network, contract, ());
 				}
-				NetworkCctpUrl::<T>::insert(network, cctp_config.url.clone());
+			}
+			if let Some(ref url) = config.cctp_url {
+				NetworkCctpUrl::<T>::insert(network, url.clone());
 			}
 			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
@@ -277,8 +274,8 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::set_network_config(
-				config.cctp_config.as_ref().map_or(0, |c| c.contracts.0.len() as u32),
-				config.cctp_config.as_ref().map_or(0, |c| c.url.0.len() as u32)
+				config.cctp_contracts.as_ref().map_or(0, |contracts| contracts.0.len() as u32),
+				config.cctp_url.as_ref().map_or(0, |url| url.0.len() as u32)
 		    )
 		)]
 		pub fn set_network_config(

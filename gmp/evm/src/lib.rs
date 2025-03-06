@@ -341,38 +341,6 @@ impl Connector {
 		}
 		attested_msgs
 	}
-
-	async fn deploy_cctp_contract(
-		&self,
-		additional_params: &[u8],
-		gateway: Address,
-		tester: &[u8],
-	) -> Result<AlloyAddress> {
-		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
-		let mut bytecode = extract_bytecode(tester)?;
-		let constructor = sol::GmpTester::constructorCall { gateway: a_addr(gateway) };
-		let factory = a_addr(self.parse_address(&config.factory_address)?);
-		let tester_addr = compute_create2_address(
-			factory.into(),
-			config.deployment_salt,
-			&bytecode,
-			constructor.clone(),
-		)?;
-		bytecode.extend(constructor.abi_encode());
-		let is_tester_deployed =
-			self.backend.get_code(tester_addr.0 .0.into(), AtBlock::Latest).await?;
-		if !is_tester_deployed.is_empty() {
-			Ok(tester_addr)
-		} else {
-			let call = sol::IUniversalFactory::create2_0Call {
-				salt: config.deployment_salt.into(),
-				creationCode: bytecode.into(),
-			}
-			.abi_encode();
-			let (addr, _) = self.deploy_contract_with_factory(&config, call).await?;
-			Ok(addr)
-		}
-	}
 }
 
 #[async_trait]
@@ -743,15 +711,8 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Deploys a test contract.
-	async fn deploy_test(
-		&self,
-		additional_params: &[u8],
-		gateway: Address,
-		tester: &[u8],
-	) -> Result<(Address, u64)> {
+	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)> {
 		let bytecode = extract_bytecode(tester)?;
-		let cctp_contract = self.deploy_cctp_contract(additional_params, gateway, tester).await?;
-		tracing::info!("CCTP contract deployed at: {:?}", hex::encode(cctp_contract));
 		self.deploy_contract(bytecode, sol::GmpTester::constructorCall { gateway: a_addr(gateway) })
 			.await
 	}

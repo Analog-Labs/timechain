@@ -313,3 +313,22 @@ impl From<time_primitives::GatewayOp> for GatewayOp {
 		}
 	}
 }
+
+
+impl From<time_primitives::CCTPMessage> for CCTP {
+	fn from(msg: time_primitives::CCTPMessage) -> Self {
+		CCTP { 
+			version: msg.version, 
+			localMessageTransmitter: a_addr(msg.local_transmitter), 
+			localMinter: a_addr(msg.local_minter), 
+			amount: u256(&msg.amount), 
+			destinationDomain: msg.destination_domain, 
+			mintRecipient: msg.mint_receipient.into(), 
+			burnToken: a_addr(msg.burn_token), 
+			nonce: msg.nonce, 
+			attestation: msg.attestation.into(), 
+			message: msg.message.into(), 
+			extraData: msg.extra_data.into() 
+		}
+	}
+}

@@ -1,6 +1,9 @@
 use crate::{Address, Gateway};
+use anyhow::{anyhow, Result};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
+use scale_info::prelude::string::String;
+use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -37,11 +40,44 @@ pub struct NetworkConfig {
 	pub shard_task_limit: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub cctp_config: Option<CctpConfig>,
+	pub cctp_contracts: Option<CctpContracts>,
+	pub cctp_url: Option<CctpUrl>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
-pub struct CctpConfig {
-	pub contracts: CctpContracts,
-	pub url: CctpUrl,
+#[cfg(feature = "std")]
+impl TryFrom<Vec<String>> for CctpContracts {
+	type Error = anyhow::Error;
+	fn try_from(contracts: Vec<String>) -> Result<Self> {
+		let addresses: Result<Vec<Address>> = contracts
+			.into_iter()
+			.map(|addr_str| {
+				let clean = addr_str.trim().trim_start_matches("0x");
+				let bytes = hex::decode(clean).map_err(|_| {
+					anyhow::anyhow!("Unable to decode hex for address: {}", addr_str)
+				})?;
+				let address: Address = bytes.try_into().map_err(|_| {
+					anyhow!("Unable to convert bytes to address format for: {}", addr_str)
+				})?;
+				Ok(address)
+			})
+			.collect();
+
+		let addresses = addresses?;
+		let bounded_addresses = BoundedVec::try_from(addresses)
+			.map_err(|_| anyhow!("Exceeded maximum of {} CCTP addresses", MAX_CCTP_ADDRESSES))?;
+		Ok(CctpContracts(bounded_addresses))
+	}
+}
+
+#[cfg(feature = "std")]
+impl TryFrom<&str> for CctpUrl {
+	type Error = anyhow::Error;
+
+	fn try_from(s: &str) -> Result<Self> {
+		let url_bytes = s.as_bytes().to_vec();
+		let bounded_url = BoundedVec::try_from(url_bytes).map_err(|_| {
+			anyhow!("URL length {} exceeds maximum of {} bytes", s.len(), MAX_CCTP_URL_LEN)
+		})?;
+		Ok(CctpUrl(bounded_url))
+	}
 }

@@ -1,3 +1,4 @@
+use crate::decode::{AbiDynamicDecode, AbiFixedDecode, DecodeError, DECODE_BLOCK_SIZE};
 use crate::encode::{encode_dynamic, FixedSizeEncodable};
 use crate::{NetworkId, TssPublicKey};
 use scale_codec::{Decode, Encode};
@@ -42,7 +43,7 @@ pub struct CCTPMessage {
 	pub local_transmitter: Address,
 	pub local_minter: Address,
 	pub amount: [u8; 32],
-	pub destination_domain: NetworkId,
+	pub destination_domain: u32,
 	pub mint_receipient: [u8; 32],
 	pub burn_token: Address,
 	pub nonce: u64,
@@ -83,6 +84,76 @@ impl CCTPMessage {
 		encoded.extend_from_slice(&message);
 		encoded.extend_from_slice(&extra_data);
 		encoded
+	}
+
+	pub fn from_bytes(input: &[u8]) -> Result<Self, DecodeError> {
+		// 11 fields
+		if input.len() < 11 * DECODE_BLOCK_SIZE {
+			return Err(DecodeError::InsufficientData);
+		}
+		let mut offset = 0;
+		let version = u32::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let local_transmitter = <Address as AbiFixedDecode>::decode_from_block(
+			&input[offset..offset + DECODE_BLOCK_SIZE],
+		)?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let local_minter = <Address as AbiFixedDecode>::decode_from_block(
+			&input[offset..offset + DECODE_BLOCK_SIZE],
+		)?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let amount = <[u8; DECODE_BLOCK_SIZE] as AbiFixedDecode>::decode_from_block(
+			&input[offset..offset + DECODE_BLOCK_SIZE],
+		)?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let destination_domain =
+			u32::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let mint_receipient = <[u8; DECODE_BLOCK_SIZE] as AbiFixedDecode>::decode_from_block(
+			&input[offset..offset + DECODE_BLOCK_SIZE],
+		)?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let burn_token = <Address as AbiFixedDecode>::decode_from_block(
+			&input[offset..offset + DECODE_BLOCK_SIZE],
+		)?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let nonce = u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
+		offset += DECODE_BLOCK_SIZE;
+
+		// dynamic fields decoding
+		let attestation_offset =
+			u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let message_offset = u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
+		offset += DECODE_BLOCK_SIZE;
+
+		let extra_offset = u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
+
+		let (attestation, _) = <Vec<u8>>::decode_dynamic(&input[attestation_offset as usize..])?;
+		let (message, _) = <Vec<u8>>::decode_dynamic(&input[message_offset as usize..])?;
+		let (extra_data, _) = <Vec<u8>>::decode_dynamic(&input[extra_offset as usize..])?;
+
+		Ok(Self {
+			version,
+			local_transmitter,
+			local_minter,
+			amount,
+			destination_domain,
+			mint_receipient,
+			burn_token,
+			nonce,
+			attestation,
+			message,
+			extra_data,
+		})
 	}
 }
 
@@ -440,12 +511,7 @@ pub trait IConnectorAdmin: IConnector {
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address, route: Route) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(
-		&self,
-		additional_params: &[u8],
-		gateway: Address,
-		tester: &[u8],
-	) -> Result<(Address, u64)>;
+	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,

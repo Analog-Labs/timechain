@@ -12,7 +12,6 @@ fn derive(path: &Path, module: &str) -> String {
 		"time_primitives::gmp::GatewayOp",
 		"time_primitives::gmp::GatewayMessage",
 		"time_primitives::gmp::GmpEvent",
-		"time_primitives::network::CctpConfig",
 		"time_primitives::network::CctpContracts",
 		"time_primitives::network::CctpUrl",
 		"time_primitives::network::ChainName",

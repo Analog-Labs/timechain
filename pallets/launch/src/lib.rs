@@ -49,7 +49,6 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::VestingSchedule;
 	use frame_support::traits::{
 		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
 	};
@@ -226,32 +225,13 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	const MISSING_VESTING: AccountId = AccountId::new([
-		44, 88, 126, 28, 246, 43, 6, 141, 223, 74, 79, 103, 178, 122, 180, 29, 172, 78, 49, 252,
-		97, 148, 143, 216, 67, 104, 192, 130, 181, 181, 147, 31,
-	]);
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
-		BalanceOf<T>: From<u128>,
-		BlockNumberFor<T>: From<u32>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			if let Err(error) = pallet_vesting::Pallet::<T>::add_vesting_schedule(
-				&T::AccountId::from(MISSING_VESTING),
-				(8_303_140 * ANLOG).into(),
-				(1_718 * MILLIANLOG).into(),
-				690_870u32.into(),
-			) {
-				log::warn!(
-						target: LOG_TARGET,
-						"🤔 Unable to fix vesting schedule: {:?}", error
-				);
-			}
-
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {

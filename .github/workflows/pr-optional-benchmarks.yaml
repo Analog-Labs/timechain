@@ -68,7 +68,7 @@ jobs:
         with:
           name: weights-${{ matrix.target }}-${{ matrix.pallet }}
           if-no-files-found: error
-          path: ${{ matrix.target }}/${{ matrix.pallet }}.rs
+          path: ${{ matrix.target }}/pallet_${{ matrix.pallet }}.rs
   run-benchmark-custom-testnet:
     needs: [build-benchmark]
     runs-on: [self-hosted, benchmark]
@@ -92,7 +92,7 @@ jobs:
         with:
           name: weights-${{ matrix.target }}-${{ matrix.pallet }}
           if-no-files-found: error
-          path: ${{ matrix.target }}/${{ matrix.pallet }}.rs
+          path: ${{ matrix.target }}/pallet_${{ matrix.pallet }}.rs
   run-benchmark-frame-baremetal:
     needs: [build-benchmark]
     runs-on: [self-hosted, baremetal-bench]

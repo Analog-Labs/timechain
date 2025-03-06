@@ -84,6 +84,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		type Shards: ShardsInterface;
 		type Elections: ElectionsInterface;
+		/// Ensured origin for calls to register/unregister members
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Minimum stake to register member
 		#[pallet::constant]
 		type MinStake: Get<BalanceOf<Self>>;
@@ -193,7 +195,7 @@ pub mod pallet {
 		/// `register_member`: Registers a member with specified network ID, public key, peer ID, and bond (staking amount).
 		/// # Flow
 		///	1. Receives `origin` (caller's account), `network` (NetworkId), `public_key` (PublicKey), `peer_id` (PeerId), `bond` (Balance to stake).
-		///	2. Ensures the `origin` is signed (authenticated).
+		///	2. Ensures the `origin` is AdminOrigin (authenticated).
 		///	3. Validates the `public_key` against the `origin` account.
 		///	4. Checks if the member is already registered and unregisters them if necessary.
 		///	5. Ensures the `bond` is at least equal to `MinStake::get()`.
@@ -207,26 +209,13 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::register_member())]
 		pub fn register_member(
 			origin: OriginFor<T>,
-			network: NetworkId,
-			public_key: PublicKey,
-			peer_id: PeerId,
-			bond: BalanceOf<T>,
-		) -> DispatchResult {
-			let staker = ensure_signed(origin)?;
-			Self::execute_register_member(staker, network, public_key, peer_id, bond)
-		}
-
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::register_member())]
-		pub fn sudo_register_member(
-			origin: OriginFor<T>,
 			staker: AccountId,
 			network: NetworkId,
 			public_key: PublicKey,
 			peer_id: PeerId,
 			bond: BalanceOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::execute_register_member(staker, network, public_key, peer_id, bond)
 		}
 
@@ -267,19 +256,12 @@ pub mod pallet {
 		///	9. Returns `Ok(())` if successful.
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
-		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
-			let staker = ensure_signed(origin)?;
-			Self::execute_unregister_member(staker, member)
-		}
-
-		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
-		pub fn sudo_unregister_member(
+		pub fn unregister_member(
 			origin: OriginFor<T>,
 			staker: AccountId,
 			member: AccountId,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::execute_unregister_member(staker, member)
 		}
 	}

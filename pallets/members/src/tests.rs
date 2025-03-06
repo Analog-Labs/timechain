@@ -18,7 +18,8 @@ const ETHEREUM: NetworkId = 0;
 
 fn register_member(staker: AccountId, pubkey: [u8; 32], stake: u128) -> DispatchResult {
 	Members::register_member(
-		RawOrigin::Signed(staker).into(),
+		RawOrigin::Root.into(),
+		staker,
 		ETHEREUM,
 		pubkey_from_bytes(pubkey),
 		pubkey,
@@ -27,7 +28,7 @@ fn register_member(staker: AccountId, pubkey: [u8; 32], stake: u128) -> Dispatch
 }
 
 fn unregister_member(staker: AccountId, pubkey: [u8; 32]) -> DispatchResult {
-	Members::unregister_member(RawOrigin::Signed(staker).into(), pubkey.into())
+	Members::unregister_member(RawOrigin::Root.into(), staker, pubkey.into())
 }
 
 fn send_heartbeat(pubkey: [u8; 32]) -> DispatchResult {

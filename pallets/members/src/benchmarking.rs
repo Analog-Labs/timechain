@@ -26,7 +26,7 @@ benchmarks! {
 			&caller,
 			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 		);
-	}: _(RawOrigin::Signed(caller), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get())
+	}: _(RawOrigin::Root, caller, ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get())
 	verify { }
 
 	send_heartbeat {
@@ -35,7 +35,7 @@ benchmarks! {
 			&caller,
 			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 		);
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), caller.clone(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
 	}: _(RawOrigin::Signed(caller))
 	verify { }
 
@@ -45,8 +45,8 @@ benchmarks! {
 			&caller,
 			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 		);
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(caller), public_key().into_account())
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), caller.clone(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
+	}: _(RawOrigin::Root, caller, public_key().into_account())
 	verify { }
 
 	timeout_heartbeats {
@@ -58,7 +58,7 @@ benchmarks! {
 				&caller,
 				pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
 			);
-			Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
+			Pallet::<T>::register_member(RawOrigin::Root.into(), caller.clone(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
 			// Send heartbeat to set caller online and set heartbeat
 			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
 			assert!(MemberOnline::<T>::get(&caller).is_some());

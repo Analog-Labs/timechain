@@ -298,7 +298,7 @@ impl GatewayMessage {
 		// include version in buffer
 		buf[..32].copy_from_slice(&[0u8; 32]);
 		// include batch id padded to uint256
-		buf[56..64].copy_from_slice(&batch_id.to_be_bytes());
+		buf[32..64].copy_from_slice(&batch_id.to_be_bytes().left_pad_32());
 		buf[64..].copy_from_slice(&ops_hash);
 		Keccak256::digest(buf).into()
 	}

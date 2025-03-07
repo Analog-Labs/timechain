@@ -10,12 +10,10 @@ mod common;
 const SRC: NetworkId = 2;
 const DEST: NetworkId = 3;
 
-async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>{
+async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()> {
 	let mut blockstream = tc.finality_notification_stream();
 	let (_, start) = blockstream.next().await.context("expected block")?;
-	let gas_limit = tc
-		.estimate_message_gas_limit(DEST, dest_addr, SRC, src_addr, vec![])
-		.await?;
+	let gas_limit = tc.estimate_message_gas_limit(DEST, dest_addr, SRC, src_addr, vec![]).await?;
 	let gas_cost = tc.estimate_message_cost(SRC, DEST, gas_limit, vec![]).await?;
 
 	let msg_id = tc
@@ -41,7 +39,7 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>
 		.expect("failed to find message");
 	tc.print_table(None, "message", vec![msg]).await?;
 	tc.println(None, format!("received message after {} blocks", end - start))
-	  .await?;
+		.await?;
 
 	Ok(())
 }

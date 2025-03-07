@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::path::Path;
 use std::process;
 use tc_cli::{Sender, Tc};
@@ -9,7 +10,7 @@ pub struct TestEnv {
 }
 
 const CONFIG: &str = "local-evm-e2e.yaml";
-const ENV: &str = "config/envs/local";
+const ENV: &str = "../config/envs/local";
 
 impl TestEnv {
 	async fn new() -> Result<Self> {
@@ -33,8 +34,8 @@ impl TestEnv {
 	}
 
 	/// sets up test
-	pub async fn setup(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
-		self.tc.setup_test(src, dest).await
+	pub async fn setup(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+		self.tc.setup_test().await
 	}
 
 	/// restart container
@@ -56,7 +57,7 @@ impl Drop for TestEnv {
 }
 
 fn build_containers() -> Result<bool> {
-	let mut cmd = process::Command::new(Path::new("scripts/build_docker.sh"));
+	let mut cmd = process::Command::new(Path::new("../scripts/build_docker.sh"));
 	let mut child = cmd.spawn().context("Error building containers")?;
 
 	child.wait().map(|c| c.success()).context("Error building containers: {e}")

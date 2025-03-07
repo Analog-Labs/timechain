@@ -14,6 +14,8 @@ services:
     - '--force-authoring'
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
+    ports:
+      - 9944
 
   chain-0-grpc:
     image: 'analoglabs/gmp-grpc-develop'
@@ -79,6 +81,8 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - 8545
     profiles:
     - evm
 
@@ -105,6 +109,8 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - 8545
     profiles:
     - evm
 

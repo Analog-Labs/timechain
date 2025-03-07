@@ -37,13 +37,13 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId, NetworksInterface,
-		TasksInterface,
+		Address, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
+		NetworkId, NetworksInterface, TasksInterface,
 	};
 
 	pub trait WeightInfo {
 		fn register_network(name: u32, network: u32) -> Weight;
-		fn set_network_config() -> Weight;
+		fn set_network_config(cctp_contracts: u32, cctp_url: u32) -> Weight;
 		fn remove_network() -> Weight;
 	}
 
@@ -52,7 +52,7 @@ pub mod pallet {
 			Weight::default()
 		}
 
-		fn set_network_config() -> Weight {
+		fn set_network_config(_cctp_contracts: u32, _cctp_url: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -93,6 +93,8 @@ pub mod pallet {
 		ShardSizeAboveMax,
 		/// Network threshold is invalid.
 		ThresholdLargerThanSize,
+		/// Network threshold is invalid.
+		FailedClearingAddress,
 	}
 
 	/// Workaround for subxt not supporting iterating over the decoded keys.
@@ -137,10 +139,19 @@ pub mod pallet {
 	pub type NetworkShardSize<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
 
-	/// Map storage for shard size.
+	/// Map storage for shard threshold.
 	#[pallet::storage]
 	pub type NetworkShardThreshold<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
+
+	/// Map storage for cctp config.
+	#[pallet::storage]
+	pub type NetworkCctpContracts<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, CctpContracts, OptionQuery>;
+
+	#[pallet::storage]
+	pub type NetworkCctpUrl<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, CctpUrl, OptionQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
@@ -214,6 +225,12 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
 			NetworkShardSize::<T>::insert(network, config.shard_size);
 			NetworkShardThreshold::<T>::insert(network, config.shard_threshold);
+			if let Some(ref contracts) = config.cctp_contracts {
+				NetworkCctpContracts::<T>::insert(network, contracts.clone());
+			}
+			if let Some(ref url) = config.cctp_url {
+				NetworkCctpUrl::<T>::insert(network, url.clone());
+			}
 			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
 		}
@@ -246,7 +263,12 @@ pub mod pallet {
 		///   4. Emit an event indicating the batch size and offset have been set.
 		///   5. Return `Ok(())` if all operations succeed.
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_network_config())]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::set_network_config(
+				config.cctp_contracts.as_ref().map_or(0, |contracts| contracts.0.len() as u32),
+				config.cctp_url.as_ref().map_or(0, |url| url.0.len() as u32)
+		    )
+		)]
 		pub fn set_network_config(
 			origin: OriginFor<T>,
 			network: NetworkId,
@@ -270,6 +292,8 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::remove(network);
 			NetworkShardSize::<T>::remove(network);
 			NetworkShardThreshold::<T>::remove(network);
+			NetworkCctpContracts::<T>::remove(network);
+			NetworkCctpUrl::<T>::remove(network);
 			Ok(())
 		}
 	}
@@ -282,6 +306,14 @@ pub mod pallet {
 		///  2. Return the network information if it exists, otherwise return `None`.
 		pub fn get_network(network: NetworkId) -> Option<(ChainName, ChainNetwork)> {
 			NetworkName::<T>::get(network)
+		}
+
+		pub fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts> {
+			NetworkCctpContracts::<T>::get(network)
+		}
+
+		pub fn get_cctp_url(network: NetworkId) -> Option<CctpUrl> {
+			NetworkCctpUrl::<T>::get(network)
 		}
 	}
 

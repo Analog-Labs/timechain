@@ -64,22 +64,18 @@ fn build_containers() -> Result<bool> {
 
 fn docker_up() -> Result<bool> {
 	let mut cmd = process::Command::new("docker");
-
 	cmd.arg("compose").arg("--profile=evm").arg("up").arg("-d").arg("--wait");
 
 	let mut child = cmd.spawn().context("Error starting containers")?;
-
 	// Wait for all containers to start
 	child.wait().map(|c| c.success()).context("Error starting containers")
 }
 
 fn docker_down() -> Result<bool> {
 	let mut cmd = process::Command::new("docker");
-
 	cmd.arg("compose").arg("--profile=evm").arg("down");
 
 	let mut child = cmd.spawn().context("Error stopping containers")?;
-
 	// Wait for all containers to start
 	child.wait().map(|c| c.success()).context("Error stopping containers: {e}")
 }

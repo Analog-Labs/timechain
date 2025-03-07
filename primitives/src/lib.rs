@@ -19,6 +19,7 @@ pub mod admin;
 #[cfg(feature = "std")]
 pub mod balance;
 pub mod bounds;
+pub mod cctp;
 pub mod currency;
 pub mod dmail;
 pub mod gmp;
@@ -28,6 +29,7 @@ pub mod task;
 
 // ... and unscoped
 pub use crate::bounds::*;
+pub use crate::cctp::*;
 pub use crate::currency::*;
 pub use crate::dmail::*;
 pub use crate::gmp::*;
@@ -127,6 +129,8 @@ sp_api::decl_runtime_apis! {
 	pub trait NetworksApi {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
 		fn get_gateway(network: NetworkId) -> Option<Gateway>;
+		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts>;
+		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl>;
 	}
 
 	pub trait ShardsApi {

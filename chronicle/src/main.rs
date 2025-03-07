@@ -48,12 +48,6 @@ pub struct ChronicleArgs {
 	/// Chronicle db path.
 	#[clap(long, default_value = "cached_tx.redb")]
 	pub tx_db: String,
-	/// Cctp Sender.
-	#[clap(long)]
-	pub cctp_sender: Option<String>,
-	/// Cctp Sender.
-	#[clap(long)]
-	pub cctp_attestation: Option<String>,
 }
 
 impl ChronicleArgs {
@@ -65,8 +59,6 @@ impl ChronicleArgs {
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
 			backend: self.backend,
-			cctp_sender: self.cctp_sender,
-			cctp_attestation: self.cctp_attestation,
 		})
 	}
 }
@@ -84,10 +76,6 @@ async fn main() -> Result<()> {
 	init_logger();
 	time_primitives::init_ss58_version();
 	let args = ChronicleArgs::parse();
-
-	if args.cctp_sender.is_some() && args.cctp_attestation.is_none() {
-		anyhow::bail!("Requires cctp attestation url with cctp sender");
-	}
 
 	if !args.tss_keyshare_cache.exists() {
 		std::fs::create_dir_all(&args.tss_keyshare_cache)?;

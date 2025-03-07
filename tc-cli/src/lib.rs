@@ -763,8 +763,8 @@ impl Tc {
 			shard_task_limit: config.shard_task_limit,
 			shard_size: config.shard_size,
 			shard_threshold: config.shard_threshold,
-			cctp_contracts,
-			cctp_url,
+			cctp_contracts: cctp_contracts.clone(),
+			cctp_url: cctp_url.clone(),
 		};
 
 		let batch_size = self.runtime.network_batch_size(network).await?;
@@ -782,8 +782,8 @@ impl Tc {
 			&& shard_task_limit == config.shard_task_limit
 			&& shard_size == config.shard_size
 			&& shard_threshold == config.shard_threshold
-			&& runtime_cctp_contracts == config.cctp_contracts
-			&& runtime_cctp_url == config.cctp_url
+			&& runtime_cctp_contracts == cctp_contracts
+			&& runtime_cctp_url == cctp_url
 		{
 			return Ok(());
 		}

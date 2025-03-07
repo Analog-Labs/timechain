@@ -93,10 +93,6 @@ pub struct ChronicleConfig {
 	pub tss_keyshare_cache: PathBuf,
 	/// Backend
 	pub backend: Backend,
-	// Cctp request sender
-	pub cctp_sender: Option<String>,
-	// Cctp attestation url
-	pub cctp_attestation: Option<String>,
 }
 
 /// Runs the Chronicle application.
@@ -140,8 +136,6 @@ pub async fn run_chronicle(
 		network,
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
-		cctp_sender: config.cctp_sender,
-		cctp_attestation: config.cctp_attestation,
 	};
 	let connector = loop {
 		match config.backend.connect(&connector_params).await {
@@ -238,8 +232,6 @@ mod tests {
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache,
 				backend: Backend::Rust,
-				cctp_sender: None,
-				cctp_attestation: None,
 			},
 			Arc::new(mock.clone()),
 			tx,

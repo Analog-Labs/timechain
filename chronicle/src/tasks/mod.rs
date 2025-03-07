@@ -119,6 +119,7 @@ impl TaskParams {
 	async fn execute(
 		self,
 		block_number: BlockNumber,
+		cctp_info: Option<(Vec<Address>, String)>,
 		network_id: NetworkId,
 		gateway: Address,
 		shard_id: ShardId,
@@ -135,8 +136,11 @@ impl TaskParams {
 		);
 		match task {
 			Task::ReadGatewayEvents { blocks } => {
-				let events =
-					self.connector.read_events(gateway, blocks).await.context("read_events")?;
+				let events = self
+					.connector
+					.read_events(gateway, blocks, cctp_info)
+					.await
+					.context("read_events")?;
 				tracing::info!(parent: &span, "read {} events", events.len());
 				let mut remaining = true;
 				for chunk in events.chunks(MAX_GMP_EVENTS as _) {
@@ -202,11 +206,13 @@ impl TaskExecutor {
 			.get_gateway(network)
 			.await?
 			.context("no gateway registered")?;
+		let cctp_info = self.params.runtime.get_cctp_info(network).await?;
 		let mut start_sessions = vec![];
 		let tasks = self.params.runtime.get_shard_tasks(shard_id).await?;
 
 		let failed_tasks: Arc<Mutex<u64>> = Default::default();
 		for task_id in tasks.iter().copied() {
+			let cctp_info = cctp_info.clone();
 			let total_failed = failed_tasks.clone();
 			if self.running_tasks.contains_key(&task_id) {
 				continue;
@@ -226,7 +232,19 @@ impl TaskExecutor {
 			let exec = self.params.clone();
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
-				match exec.execute(block_number, network, gateway, shard_id, task_id, task, span2).await {
+				match exec
+					.execute(
+						block_number,
+						cctp_info,
+						network,
+						gateway,
+						shard_id,
+						task_id,
+						task,
+						span2,
+					)
+					.await
+				{
 					Ok(()) => {
 						tracing::info!(parent: &span, task_id, target_block_height, "task completed");
 					},

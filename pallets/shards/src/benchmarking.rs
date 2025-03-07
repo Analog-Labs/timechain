@@ -2,14 +2,9 @@ use super::*;
 use crate::{Config, Pallet};
 
 use frame_benchmarking::benchmarks;
-use frame_support::{
-	assert_ok,
-	traits::{Currency, Get},
-};
+use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
-use polkadot_sdk::{
-	frame_benchmarking, frame_support, frame_system, pallet_balances, sp_core, sp_runtime, sp_std,
-};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_runtime, sp_std};
 use sp_runtime::{BoundedVec, Saturating};
 
 use sp_std::vec;
@@ -96,16 +91,11 @@ benchmarks! {
 		// benchmark commitment that changes shard status
 		for member in shard {
 			let member_account: AccountId = member.into();
-			pallet_balances::Pallet::<T>::resolve_creating(
-				&member_account,
-				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
-			);
 			pallet_members::Pallet::<T>::register_member(
-				RawOrigin::Signed(member_account.clone()).into(),
+				RawOrigin::Root.into(),
 				ETHEREUM,
 				public_key(member),
 				member,
-				<T as pallet_members::Config>::MinStake::get(),
 			)?;
 			if member != ALICE {
 				Pallet::<T>::commit(
@@ -125,16 +115,11 @@ benchmarks! {
 		assert_ok!(Pallet::<T>::create_shard(ETHEREUM, shard.clone().into_iter().map(|x| x.into()).collect::<Vec<AccountId>>(), 1));
 		for member in shard.clone() {
 			let member_account: AccountId = member.into();
-			pallet_balances::Pallet::<T>::resolve_creating(
-				&member_account,
-				pallet_balances::Pallet::<T>::issue(<T as pallet_members::Config>::MinStake::get() * 100),
-			);
 			pallet_members::Pallet::<T>::register_member(
-				RawOrigin::Signed(member_account.clone()).into(),
+				RawOrigin::Root.into(),
 				ETHEREUM,
 				public_key(member),
 				member,
-				<T as pallet_members::Config>::MinStake::get(),
 			)?;
 			Pallet::<T>::commit(
 				RawOrigin::Signed(member_account.clone()).into(),

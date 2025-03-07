@@ -175,8 +175,8 @@ enum Command {
 		payload: String,
 	},
 	SmokeTest {
-		src: NetworkId,
-		dest: NetworkId,
+		src: Option<NetworkId>,
+		dest: Option<NetworkId>,
 	},
 	SmokeCctp {
 		src: NetworkId,
@@ -437,16 +437,20 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
-			let _ = exec_smoke(tc, src, src_addr, dest, dest_addr, vec![]).await?;
+			let testers = tc.setup_test().await?;
+			let _ = exec_smoke(tc, src, dest, &testers, vec![42]).await?;
 		},
 		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
-			let (src_addr, dest_addr) = match (src_addr, dest_addr) {
-				(Some(src_addr), Some(dest_addr)) => (
-					tc.parse_address(Some(src), &src_addr)?,
-					tc.parse_address(Some(dest), &dest_addr)?,
-				),
-				_ => tc.setup_test(src, dest).await?,
+			let testers = match (src_addr, dest_addr) {
+				(Some(src_addr), Some(dest_addr)) => {
+					let src_addr = tc.parse_address(Some(src), &src_addr)?;
+					let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
+					let mut testers = HashMap::new();
+					testers.insert(src, (src_addr, 0));
+					testers.insert(dest, (dest_addr, 0));
+					testers
+				},
+				_ => tc.setup_test().await?,
 			};
 			tc.set_network_config(src, Some(src_addr)).await?;
 			tc.set_network_config(dest, Some(dest_addr)).await?;
@@ -463,7 +467,9 @@ async fn real_main() -> Result<()> {
 			assert!(!attested.attestation.is_empty())
 		},
 		Command::Benchmark { src, dest, num_messages } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
+			let testers = tc.setup_test().await?;
+			let src_addr = testers.get(&src).context("missing tester")?.0;
+			let dest_addr = testers.get(&dest).context("missing tester")?.0;
 			tc.wait_for_sync(src).await?;
 			tc.wait_for_sync(dest).await?;
 			let mut blocks = tc.finality_notification_stream();
@@ -560,11 +566,13 @@ async fn real_main() -> Result<()> {
 async fn exec_smoke(
 	tc: Tc,
 	src: NetworkId,
-	src_addr: Address,
 	dest: NetworkId,
-	dest_addr: Address,
+	testers: HashMap<NetworkId, (Address, u64)>,
 	payload: Vec<u8>,
 ) -> Result<GmpMessage> {
+	let testers = tc.setup_test().await?;
+	let src_addr = testers.get(&src).context("missing tester")?.0;
+	let dest_addr = testers.get(&dest).context("missing tester")?.0;
 	let mut blocks = tc.finality_notification_stream();
 	let (_, start) = blocks.next().await.context("expected block")?;
 	let gas_limit = tc

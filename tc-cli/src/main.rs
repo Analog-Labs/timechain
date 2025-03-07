@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use futures::StreamExt;
 use std::collections::HashSet;
+use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
@@ -198,6 +199,14 @@ enum Command {
 		network: NetworkId,
 		hash: String,
 	},
+	DumpState {
+		network: NetworkId,
+		path: Option<PathBuf>,
+	},
+	LoadState {
+		network: NetworkId,
+		path: Option<PathBuf>,
+	},
 }
 
 #[tokio::main]
@@ -208,6 +217,7 @@ async fn main() {
 		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
+		std::io::stdout().flush().unwrap();
 		std::process::exit(1);
 	} else {
 		std::process::exit(0);
@@ -422,7 +432,7 @@ async fn real_main() -> Result<()> {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
-			let payload = vec![];
+			let payload = vec![42];
 			let gas_limit = tc
 				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 				.await?;
@@ -528,6 +538,18 @@ async fn real_main() -> Result<()> {
 		},
 		Command::RetryFailedBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
+		},
+		Command::DumpState { network, path } => {
+			let path = path.unwrap_or("anvil_state.txt".into());
+			let state = tc.dump_state(network).await?;
+			std::fs::write(&path, state)?;
+			tracing::info!("Anvil state stored to: {:?}", &path);
+		},
+		Command::LoadState { network, path } => {
+			let path = path.unwrap_or("anvil_state.txt".into());
+			let state = std::fs::read_to_string(&path)?;
+			tc.load_state(network, state).await?;
+			tracing::info!("Anvil state loaded from: {:?}", &path);
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

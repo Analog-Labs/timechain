@@ -6,6 +6,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+env:
+  BUCKET_NAME: compose-test-logs
 jobs:
   test-basic:
     runs-on: [self-hosted, integration]
@@ -31,7 +33,7 @@ jobs:
         id: tc-cli
         run: |
           cat << EOF >> $GITHUB_OUTPUT
-          TC_CLI=docker compose run --rm --remove-orphans \
+          TC_CLI=docker compose -p $GITHUB_RUN_ID run --rm --remove-orphans \
             --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
             --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
             --env="TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }}" \
@@ -40,7 +42,7 @@ jobs:
           EOF
       - name: Setup containers
         run: |
-          docker compose --profile evm up -d
+          docker compose -p $GITHUB_RUN_ID --profile evm up -d
       - name: fetch prices
         run: |
           ${{ steps.tc-cli.outputs.TC_CLI }} fetch-prices
@@ -49,16 +51,16 @@ jobs:
           ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
       - name: Restart chronicles
         run: |
-          docker compose stop chronicle-2-evm chronicle-3-evm
+          docker compose -p $GITHUB_RUN_ID stop chronicle-2-evm chronicle-3-evm
           sleep 180s
-          docker compose start chronicle-2-evm chronicle-3-evm
+          docker compose -p $GITHUB_RUN_ID start chronicle-2-evm chronicle-3-evm
       - name: Still works
         run: |
           ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
       - name: Cleanup
         if: ${{ always() }}
         run: |
-          docker compose --profile "*" down --remove-orphans
+          docker compose -p $GITHUB_RUN_ID --profile "*" down --remove-orphans
       - name: Cleanup working dir
         if: ${{ always() }}
         uses: eviden-actions/clean-self-hosted-runner@v1

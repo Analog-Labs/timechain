@@ -35,13 +35,13 @@ use time_primitives::{
 // Local module imports
 use super::{
 	AccountId, AuthorityDiscovery, Babe, Balance, Block, EpochDuration, Executive, Grandpa,
-	Historical, InherentDataExt, Nonce, Runtime, RuntimeCall, SessionKeys, System,
-	TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
+	Historical, InherentDataExt, NominationPools, Nonce, Runtime, RuntimeCall, SessionKeys,
+	Staking, System, TransactionPayment, BABE_GENESIS_EPOCH_CONFIG, VERSION,
 };
 #[cfg(feature = "genesis-builder")]
 use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
-use crate::{Members, Networks, Shards, Staking, Tasks};
+use crate::{Members, Networks, Shards, Tasks};
 
 // HASHI Bridge
 use crate::configs::bridge::NetworkId as BridgeNetworkId;
@@ -73,6 +73,13 @@ where
 }
 
 impl_runtime_apis! {
+
+	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+		fn account_nonce(account: AccountId) -> Nonce {
+			System::account_nonce(account)
+		}
+	}
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
@@ -101,6 +108,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			AuthorityDiscovery::authorities()
+		}
+	}
+
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
 		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
@@ -116,34 +129,6 @@ impl_runtime_apis! {
 
 		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
-		}
-	}
-
-	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-			block_hash: <Block as BlockT>::Hash,
-		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
-
-	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			Executive::offchain_worker(header)
-		}
-	}
-
-	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
-		}
-
-		fn decode_session_keys(
-			encoded: Vec<u8>,
-		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
 
@@ -228,7 +213,68 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[cfg(feature = "testnet")]
+	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
+		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			Executive::offchain_worker(header)
+		}
+	}
+
+	impl sp_session::SessionKeys<Block> for Runtime {
+		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+			SessionKeys::generate(seed)
+		}
+
+		fn decode_session_keys(
+			encoded: Vec<u8>,
+		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
+			SessionKeys::decode_into_raw_public_keys(&encoded)
+		}
+	}
+
+	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+		fn validate_transaction(
+			source: TransactionSource,
+			tx: <Block as BlockT>::Extrinsic,
+			block_hash: <Block as BlockT>::Hash,
+		) -> TransactionValidity {
+			Executive::validate_transaction(source, tx, block_hash)
+		}
+	}
+
+	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<
+		Block,
+		AccountId,
+		Balance,
+	> for Runtime {
+		fn pending_rewards(member: AccountId) -> Balance {
+			NominationPools::api_pending_rewards(member).unwrap_or_default()
+		}
+
+		fn points_to_balance(pool_id: pallet_nomination_pools::PoolId, points: Balance) -> Balance {
+			NominationPools::api_points_to_balance(pool_id, points)
+		}
+
+		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
+			NominationPools::api_balance_to_points(pool_id, new_funds)
+		}
+
+		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		fn member_pending_slash(member: AccountId) -> Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		fn member_needs_delegate_migration(member: AccountId) -> bool {
+			NominationPools::api_member_needs_delegate_migration(member)
+		}
+	}
+
 	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
 		fn nominations_quota(balance: Balance) -> u32 {
 			Staking::api_nominations_quota(balance)
@@ -240,18 +286,6 @@ impl_runtime_apis! {
 
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
 			Staking::api_pending_rewards(era, account)
-		}
-	}
-
-	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
-		fn authorities() -> Vec<AuthorityDiscoveryId> {
-			AuthorityDiscovery::authorities()
-		}
-	}
-
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
-		fn account_nonce(account: AccountId) -> Nonce {
-			System::account_nonce(account)
 		}
 	}
 
@@ -289,6 +323,8 @@ impl_runtime_apis! {
 			TransactionPayment::length_to_fee(length)
 		}
 	}
+
+	// Experimental APIs used only on testnet yet
 
 	#[cfg(feature = "testnet")]
 	impl time_primitives::MembersApi<Block> for Runtime {
@@ -377,6 +413,8 @@ impl_runtime_apis! {
 		}
 	}
 
+	// Temporary APIs to be removed again
+
 	impl
 		eth_bridge_runtime_api::EthBridgeRuntimeApi<
 			Block,
@@ -442,7 +480,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	/// Optional runtime interfaces controlled by feature flags
+	// Optional runtime interfaces controlled by feature flags
 
 	/// - __genesis-builder__: support generation of custom genesis
 	#[cfg(feature = "genesis-builder")]

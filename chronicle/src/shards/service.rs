@@ -49,9 +49,8 @@ pub struct TimeWorker<Tx, Rx> {
 	requests: BTreeMap<BlockNumber, Vec<(ShardId, TaskId, Vec<u8>)>>,
 	channels: HashMap<TaskId, oneshot::Sender<([u8; 32], TssSignature)>>,
 	#[allow(clippy::type_complexity)]
-	outgoing_requests: FuturesUnordered<
-		Pin<Box<dyn Future<Output = (ShardId, PeerId, Result<()>)> + Send + 'static>>,
-	>,
+	outgoing_requests:
+		FuturesUnordered<Pin<Box<dyn Future<Output = (Result<()>, Span)> + Send + 'static>>>,
 	tss_keyshare_cache: PathBuf,
 	admin_request: mpsc::Sender<AdminMsg>,
 }
@@ -107,7 +106,7 @@ where
 			Level::DEBUG,
 			"on_finality",
 			block = block,
-			block_hash = block_hash.to_string(),
+			block_hash = format!("{block_hash:?}"),
 		);
 		let account_id = self.substrate.account_id();
 		let shards = self.substrate.get_shards(account_id).await?;
@@ -338,19 +337,19 @@ where
 	}
 
 	fn send_message(&mut self, span: &Span, peer_id: PeerId, message: Message) {
-		event!(
+		let span = span!(
 			parent: span,
 			Level::DEBUG,
+			"tx",
 			shard_id = message.shard_id,
 			to = display_peer_id(peer_id),
-			"tx {}",
-			message.payload,
+			msg = message.payload.to_string(),
 		);
 		let endpoint = self.network.clone();
 		self.outgoing_requests.push(Box::pin(async move {
-			let shard_id = message.shard_id;
+			event!(parent: &span, Level::DEBUG, "send");
 			let result = endpoint.send(peer_id, message).await;
-			(shard_id, peer_id, result)
+			(result, span)
 		}));
 	}
 
@@ -463,23 +462,22 @@ where
 					self.messages.entry(block).or_default().push((shard_id, peer, payload));
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
-					let Some((shard_id, peer, result)) = outgoing_request else {
+					let Some((result, span)) = outgoing_request else {
 						continue;
 					};
-					let span = span!(
-						parent: span,
-						Level::DEBUG,
-						"received response",
-						shard_id,
-					);
+					let _enter = span.enter();
 					if let Err(error) = result {
 						event!(
-							parent: span,
-							Level::INFO,
-							shard_id,
-							to = display_peer_id(peer),
-							"tx network error {:?}",
+							parent: &span,
+							Level::ERROR,
+							"error {:?}",
 							error,
+						);
+					} else {
+						event!(
+							parent: &span,
+							Level::DEBUG,
+							"sent",
 						);
 					}
 				}

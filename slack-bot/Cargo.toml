@@ -13,10 +13,10 @@ anyhow.workspace = true
 axum = { version = "0.8.1", features = ["macros"] }
 axum-github-webhook-extract = { version = "0.2.0", git = "https://github.com/daaku/axum-github-webhook-extract" }
 dotenv = "0.15.0"
-reqwest = { version = "0.12.7", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+reqwest.workspace = true
 rustls = { version = "0.23", features = ["ring"], default-features = false }
 serde = { workspace = true, features = ["derive"] }
-serde_json = "1.0.138"
+serde_json.workspace = true
 slack-morphism = { version = "2.9.0", features = ["axum", "hyper"] }
 tokio = { workspace = true, features = [ "macros", "rt-multi-thread", "signal" ]}
 tracing.workspace = true

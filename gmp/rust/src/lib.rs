@@ -261,7 +261,7 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let hash = GmpParams::new(self.network_id(), gateway).hash(&msg.encode(batch));
+		let hash = GmpParams::new(self.network_id(), gateway).hash(&msg.hash(batch));
 
 		time_primitives::verify_signature(signer, &hash, sig)
 			.map_err(|_| "invalid signature".to_string())?;

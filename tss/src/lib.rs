@@ -272,7 +272,7 @@ where
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg);
 				} else {
-					tracing::error!(parent: &span, "invalid signing session");
+					tracing::info!(parent: &span, "no signing session");
 				}
 			},
 			(_, _) => {

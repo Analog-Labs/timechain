@@ -2,12 +2,12 @@
 //!
 //! # Timechain Runtime
 //!
-//!
-//! | Name    | Features | Profile |
-//! |---------|----------|---------|
-//! | mainnet | default  | mainnet |
-//! | testnet | testnet  | testnet |
-//! | develop | develop  | dev     |
+//! | Name    | Features         | Profile |
+//! |---------|------------------|---------|
+//! | mainnet | default          | mainnet |
+//! | staging | develop          | testnet |
+//! | testnet | testnet          | testnet |
+//! | develop | testnet,develop  | testnet |
 //!
 //! Until we can extract individual package config a bit better,
 //! please check [`Runtime`] and the individual pallets.
@@ -82,13 +82,21 @@
 #![allow(clippy::identity_op)]
 #![allow(non_local_definitions)]
 
-/// The runtime is split into its components
+// The runtime is split into its components
 pub mod apis;
 pub mod configs;
 pub mod offchain;
+pub mod version;
+
+/// Helpers to handle variant flags
+pub mod variants;
 
 pub use apis::RuntimeApi;
 use apis::_InternalImplRuntimeApis;
+
+pub use version::VERSION;
+
+// The runtime configs and its sections
 pub use configs::consensus::SessionKeys;
 pub use configs::core::{
 	BlockHashCount, RuntimeBlockLength, RuntimeBlockWeights, AVERAGE_ON_INITIALIZE_RATIO,
@@ -98,9 +106,6 @@ pub use configs::governance::{
 	TechnicalUnanimity,
 };
 pub use configs::tokenomics::{ExistentialDeposit, LengthToFee, WeightToFee};
-
-/// Helpers to handle variant flags
-pub mod variants;
 
 /// Import variant constants and macros
 pub use variants::*;
@@ -140,15 +145,8 @@ use pallet_session::historical as pallet_session_historical;
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
-use sp_runtime::{
-	create_runtime_str,
-	generic,
-	//traits::{OpaqueKeys},
-};
+use sp_runtime::generic;
 use sp_std::prelude::*;
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
 
 pub use time_primitives::{
 	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
@@ -228,57 +226,6 @@ pub type PositiveImbalance = <Balances as Currency<AccountId>>::PositiveImbalanc
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
 pub const CALL_PARAMS_MAX_SIZE: usize = 448;
-
-/// Mainnet runtime version
-#[cfg(not(any(feature = "testnet", feature = "develop")))]
-#[sp_version::runtime_version]
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-timechain"),
-	impl_name: create_runtime_str!("analog-timechain"),
-	authoring_version: 0,
-	spec_version: 18,
-	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
-	transaction_version: 1,
-	state_version: 1,
-};
-
-/// Testnet runtime version.
-#[cfg(all(feature = "testnet", not(feature = "develop")))]
-#[sp_version::runtime_version]
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-testnet"),
-	impl_name: create_runtime_str!("analog-testnet"),
-	authoring_version: 0,
-	spec_version: 18,
-	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
-	transaction_version: 1,
-	state_version: 1,
-};
-
-/// Development runtime version.
-#[cfg(feature = "develop")]
-#[sp_version::runtime_version]
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-develop"),
-	impl_name: create_runtime_str!("analog-develop"),
-	authoring_version: 0,
-	spec_version: 18,
-	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
-	transaction_version: 1,
-	state_version: 1,
-};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion {
-		runtime_version: VERSION,
-		can_author_with: Default::default(),
-	}
-}
 
 /// Maximum block size
 pub const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;

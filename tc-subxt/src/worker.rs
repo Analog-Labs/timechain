@@ -357,10 +357,10 @@ where
 										let Some(tx) = self.pending_tx.pop_front() else {
 											continue;
 										};
-										tx.event_sender.unwrap().send(extrinsic).ok();
 										if let Err(e) = self.db.remove_tx(tx.data.hash){
 											tracing::error!("Unable to remove tx from db {e}");
 										};
+										tx.event_sender.unwrap().send(extrinsic).ok();
 									}
 								}
 							},

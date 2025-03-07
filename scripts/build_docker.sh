@@ -39,17 +39,21 @@ case "${environment}" in
 		profile=mainnet
 		features=default
 		;;
+	staging)
+		profile=testnet
+		features=develop
+		;;
 	testnet)
 		profile=testnet
 		features=testnet
 		;;
 	develop)
 		profile=testnet
-		features=develop
+		features=testnet,develop
 		;;
 	*)
 		echo >&2 "ERROR - unsupported environment: ${1}"
-		echo >&2 "      - options: mainnet testnet develop"
+		echo >&2 "      - options: mainnet staging testnet develop"
 		echo >&2 "      - default: develop"
 		exit 1
 		;;

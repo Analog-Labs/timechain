@@ -194,6 +194,19 @@ fn test_threshold_sign() {
 	tester.run().assert_signatures(sigs, &pubkey, 0, &msg);
 }
 
+#[test]
+fn test_large_threshold_sign() {
+	init_logger();
+	let n = 10;
+	let t = 10;
+	let sigs = n - t + 1;
+	let msg = [0u8; 32];
+	let mut tester = TssTester::new(n, t);
+	let pubkey = tester.run().assert_pubkeys(n).unwrap();
+	tester.sign(0, &msg);
+	tester.run().assert_signatures(sigs, &pubkey, 0, &msg);
+}
+
 /*#[test]
 fn test_fault_dkg() {
 	env_logger::try_init().ok();

@@ -61,7 +61,7 @@ jobs:
         TAG=${{ github.event.inputs.version || 'latest' }}
         IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
         NAMESPACE="timechain"
-        NAME=tc-cli-${{ github.event.inputs.thread }}
+        NAME=tc-cli-${GITHUB_RUN_ID}
         NAME=${NAME//./-}
         kubectl -n $NAMESPACE run $NAME --image=$IMAGE --attach --rm --restart=Never \
           --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \

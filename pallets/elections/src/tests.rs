@@ -50,7 +50,7 @@ fn member_offline_removes_unassigned() {
 		MemberOnline::<Test>::insert(&a, ());
 		Elections::member_online(&a, ETHEREUM);
 		assert!(Unassigned::<Test>::get(ETHEREUM).contains(&a));
-		Elections::member_offline(&a, ETHEREUM);
+		Elections::members_offline(vec![a.clone()], ETHEREUM);
 		assert!(!Unassigned::<Test>::get(ETHEREUM).contains(&a));
 	});
 }

@@ -31,10 +31,10 @@
 //! ### Force Shard Offline Flow
 //!
 //! The force shard offline process starts with ensuring the request is from a root user. Upon
-//! confirmation, the system calls the `remove_shard_offline` function to begin the shard removal
-//! process. This involves removing the shard state, retrieving the network details, and scheduling
-//! the `shard_offline` task. The process also includes draining and removing shard members,
-//! removing members from the `MemberShard`, and concludes with logging the `ShardOffline` event.
+//! confirmation, the system removes the shard. This involves removing the shard state,
+//! retrieving the network details, and scheduling the `shard_offline` task. The process also
+//! includes draining and removing shard members, removing members from the `MemberShard`, and
+//! concludes with logging the `ShardOffline` event.
 //!
 //! ### Ready Flow
 //!
@@ -80,11 +80,11 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{EnsureOrigin, ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
+	use schnorr_evm::VerifyingKey;
 	use sp_runtime::Saturating;
+	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
-
-	use schnorr_evm::VerifyingKey;
 
 	use time_primitives::{
 		AccountId, Balance, Commitment, ElectionsInterface, MemberStatus, MembersInterface,
@@ -211,12 +211,10 @@ pub mod pallet {
 		ShardCreated(ShardId, NetworkId),
 		/// Shard commited
 		ShardCommitted(ShardId, Commitment),
-		/// Shard DKG timed out
-		ShardKeyGenTimedOut(ShardId),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),
-		/// Shard went offline
-		ShardOffline(ShardId),
+		/// Shards went offline
+		ShardsOffline(Vec<ShardId>),
 	}
 
 	#[pallet::error]
@@ -307,12 +305,12 @@ pub mod pallet {
 		/// Forces a shard to go offline, used primarily by the root.
 		/// # Flow
 		///   1. Ensure the origin is the root.
-		///   2. Call the internal `remove_shard_offline` function to handle the shard offline process.
+		///   2. Call the internal `remove_shards_offline` function to handle the shard offline process.
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
 		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Self::remove_shard_offline(shard_id);
+			Self::remove_shards_offline(vec![shard_id]);
 			Ok(())
 		}
 	}
@@ -406,46 +404,71 @@ pub mod pallet {
 			}
 			Ok(())
 		}
-		/// Handles the internal logic for removing a shard and setting its state to offline.
-		/// Set shard status to offline and keep shard public key if already submitted
+		/// Handles the internal logic for removing shards and setting state to offline.
+		/// Sets shards' statuses to offline and keeps shards' public keys if already submitted
 		/// # Flow
 		///   1. Update the state of the shard to `Offline`.
 		///   2. Remove the threshold of the shard.
 		///   3. Notify the task scheduler and elections module that the shard is offline.
 		///   4. Drain the members of the shard and remove their corresponding entries.
-		///   5. Emit the [`Event::ShardOffline`] event.
-		fn remove_shard_offline(shard_id: ShardId) {
-			ShardState::<T>::insert(shard_id, ShardStatus::Offline);
-			ShardThreshold::<T>::remove(shard_id);
-			let Some(network) = ShardNetwork::<T>::take(shard_id) else { return };
-			T::Tasks::shard_offline(shard_id, network);
-			let members = ShardMembers::<T>::drain_prefix(shard_id)
-				.map(|(m, _)| {
-					MemberShard::<T>::remove(&m);
-					m
-				})
-				.collect::<Vec<_>>();
-			T::Elections::shard_offline(network, members);
-			Self::deposit_event(Event::ShardOffline(shard_id));
+		///   5. Emit the [`Event::ShardsOffline`] event.
+		fn remove_shards_offline(shards: Vec<ShardId>) {
+			let mut network_updates = BTreeMap::<NetworkId, Vec<AccountId>>::new();
+
+			// First pass: collect data for batch operations
+			for &shard_id in &shards {
+				ShardState::<T>::insert(shard_id, ShardStatus::Offline);
+				ShardThreshold::<T>::remove(shard_id);
+
+				if let Some(network) = ShardNetwork::<T>::take(shard_id) {
+					T::Tasks::shard_offline(shard_id, network);
+
+					// Collect all members for election update
+					let members = ShardMembers::<T>::drain_prefix(shard_id)
+						.map(|(m, _)| {
+							MemberShard::<T>::remove(&m);
+							m
+						})
+						.collect::<Vec<_>>();
+
+					network_updates.entry(network).or_default().extend(members);
+				}
+			}
+
+			// Batch update elections for all networks
+			for (network, members) in network_updates {
+				T::Elections::shard_offline(network, members);
+			}
+
+			// Emit events in batch after applying all changes
+			Self::deposit_event(Event::ShardsOffline(shards));
 		}
 		/// Checks for DKG timeouts and handles shard state transitions accordingly.
 		/// # Flow
 		///   1. Iterate over the [`DkgTimeout`] storage.
 		///   2. Check if the DKG process of any shard has timed out.
-		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardKeyGenTimedOut`] event.
+		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardsOfflineDKGTimedOut`] event.
 		///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
 		pub(crate) fn timeout_dkgs(n: BlockNumberFor<T>) -> Weight {
 			let mut num_timeouts = 0u32;
-			// Iterate over DKG timeouts
+			let mut shards_to_remove = Vec::new();
+
+			// Collect all shard IDs that need to be removed
 			DkgTimeout::<T>::drain_prefix(n).for_each(|(shard_id, _)| {
 				if let Some(status) = ShardState::<T>::get(shard_id) {
 					if matches!(status, ShardStatus::Created | ShardStatus::Committed) {
-						Self::remove_shard_offline(shard_id);
-						Self::deposit_event(Event::ShardKeyGenTimedOut(shard_id));
-						num_timeouts = num_timeouts.saturating_plus_one();
+						shards_to_remove.push(shard_id);
+						num_timeouts = num_timeouts.saturating_add(1);
 					}
 				}
 			});
+
+			// Batch remove offline shards
+			if !shards_to_remove.is_empty() {
+				Self::remove_shards_offline(shards_to_remove);
+			}
+
+			// Remove the timeout counter for this block
 			DkgTimeoutCounter::<T>::remove(n);
 			<T as Config>::WeightInfo::timeout_dkgs(num_timeouts)
 		}
@@ -514,42 +537,68 @@ pub mod pallet {
 				_ => (),
 			}
 		}
-		/// Handles shard state adjustments when a member goes offline.
-		///
-		/// # Flow
-		///   1. Retrieves the `shard_id` associated with the member `id`.
-		///   2. Retrieves the current `old_status`, `shard_threshold`, and `members_online` count.
-		///   3. Decrements the count of online members [`ShardMembersOnline`].
-		///   4. Determines the new_status of the shard based on the conditions:
-		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
-		///     - Updates [`ShardState`] with the new new_status.
-		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
-		fn member_offline(id: &AccountId, _: NetworkId) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
-			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
-			members_online = members_online.saturating_less_one();
-			ShardMembersOnline::<T>::insert(shard_id, members_online);
-			let new_status = match old_status {
-				// if a member goes offline before the group key is submitted,
-				// then the shard will never go online
-				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-				ShardStatus::Online => {
-					if members_online < shard_threshold {
-						ShardStatus::Offline
-					} else {
-						ShardStatus::Online
+
+		fn members_offline(members: Vec<AccountId>) {
+			let mut shard_updates: BTreeMap<ShardId, (u32, Option<ShardStatus>)> = BTreeMap::new();
+			let mut shards_to_remove_offline = Vec::new();
+
+			// First pass: Collect updates for each shard
+			for member in members {
+				let Some(shard_id) = MemberShard::<T>::get(member) else { continue };
+
+				// Get or initialize the shard entry in the update map
+				let (online_count, status_update) =
+					shard_updates.entry(shard_id).or_insert_with(|| {
+						let online = ShardMembersOnline::<T>::get(shard_id);
+						let status = ShardState::<T>::get(shard_id);
+						(online.into(), status)
+					});
+
+				*online_count = online_count.saturating_sub(1);
+
+				// If we haven't checked shard state yet, do it once
+				if let Some(old_status) = *status_update {
+					let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else {
+						continue;
+					};
+
+					// Determine new status
+					let new_status = match old_status {
+						ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
+						ShardStatus::Online if *online_count < shard_threshold.into() => {
+							ShardStatus::Offline
+						},
+						_ => old_status,
+					};
+
+					if matches!(new_status, ShardStatus::Offline)
+						&& !matches!(old_status, ShardStatus::Offline)
+					{
+						shards_to_remove_offline.push(shard_id);
 					}
-				},
-				_ => old_status,
-			};
-			if matches!(new_status, ShardStatus::Offline)
-				&& !matches!(old_status, ShardStatus::Offline)
-			{
-				Self::remove_shard_offline(shard_id);
-			} else if !matches!(new_status, ShardStatus::Offline) {
-				ShardState::<T>::insert(shard_id, new_status);
+
+					// Update only if status changes
+					if new_status != old_status {
+						*status_update = Some(new_status);
+					}
+				}
+			}
+
+			// Batch storage updates
+			for (shard_id, (new_online_count, status_update)) in shard_updates {
+				ShardMembersOnline::<T>::insert(
+					shard_id,
+					TryInto::<u16>::try_into(new_online_count).unwrap_or_default(),
+				);
+
+				if let Some(new_status) = status_update {
+					ShardState::<T>::insert(shard_id, new_status);
+				}
+			}
+
+			// Remove offline shards in batch
+			if !shards_to_remove_offline.is_empty() {
+				Self::remove_shards_offline(shards_to_remove_offline);
 			}
 		}
 

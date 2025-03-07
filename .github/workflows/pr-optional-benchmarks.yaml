@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pallet: [elections, members, networks, shards, tasks, timegraph, dmail]
+        pallet: [elections, launch, members, networks, shards, tasks, timegraph, dmail]
     steps:
       - name: Download runtime benchmarks
         uses: actions/download-artifact@v4

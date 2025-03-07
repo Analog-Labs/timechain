@@ -25,11 +25,14 @@ mod benchmarks;
 
 mod airdrops;
 mod allocation;
+mod application;
 mod deposits;
 mod ledger;
 mod stage;
 
 use airdrops::AirdropBalanceOf;
+use allocation::Allocation;
+use application::Application;
 use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
@@ -45,7 +48,6 @@ pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use allocation::Allocation;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
 		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
@@ -56,18 +58,18 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	pub trait WeightInfo {
-		fn set_bridged_issuance() -> Weight;
+		fn lock_operational() -> Weight;
 	}
 
 	pub struct TestWeightInfo;
 	impl WeightInfo for TestWeightInfo {
-		fn set_bridged_issuance() -> Weight {
+		fn lock_operational() -> Weight {
 			Weight::zero()
 		}
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 27;
+	pub const LAUNCH_VERSION: u16 = 30;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -129,14 +131,11 @@ pub mod pallet {
 		// Bridged token allocation
 		(27, Allocation::Initiatives, 45_289_855 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 5
-		(
-			28,
-			Allocation::Airdrop,
-			1_097_142_834_936_105_265,
-			Stage::AirdropFromUnlocked(data::v28::AIRDROPS_SNAPSHOT_5),
-		),
+		(28, Allocation::Airdrop, 1_097_142_834_936_105_265, Stage::Retired),
 		// Airdrop Move 3
-		(29, Allocation::Airdrop, 0, Stage::AirdropTransfer(data::v29::AIRDROP_MOVE_3)),
+		(29, Allocation::Airdrop, 0, Stage::Retired),
+		// Validator Airdrop (missed)
+		(30, Allocation::Ecosystem, 160_086 * ANLOG, Stage::Retired),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -250,25 +249,25 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Update total amount of tokens that are locked in the [`Allocation::Bridged`]
-		/// account as preparation for miniting or as a result of burning wrapped
-		/// tokens on another chain.
+		/// Update total amount of tokens that are locked in one of the operational wallets.
+		///
+		/// This is used as a preparation for miniting, as a result of burning wrapped
+		/// tokens on another chain or other tokenomics reasons.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_bridged_issuance())]
-		pub fn set_bridged_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
+		pub fn lock_operational(
+			origin: OriginFor<T>,
+			target: Application,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			T::LaunchAdmin::ensure_origin(origin)?;
 
-			let bridge_account = Allocation::Bridged.account_id::<T>();
+			let account = target.account_id::<T>();
 			ensure!(
-				CurrencyOf::<T>::total_balance(&bridge_account) >= amount,
+				CurrencyOf::<T>::total_balance(&account) >= amount,
 				TokenError::FundsUnavailable
 			);
-			CurrencyOf::<T>::set_lock(
-				*b"bridged0",
-				&bridge_account,
-				amount,
-				WithdrawReasons::all(),
-			);
+			CurrencyOf::<T>::set_lock(target.lock_id(), &account, amount, WithdrawReasons::all());
 
 			Ok(())
 		}

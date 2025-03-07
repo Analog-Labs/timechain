@@ -154,7 +154,7 @@ impl TaskParams {
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
 					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
-				let payload = GmpParams::new(network_id, gateway).hash(&msg.encode(batch_id));
+				let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
 				let signature =
 					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				let signer =

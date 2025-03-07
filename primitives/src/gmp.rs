@@ -71,16 +71,9 @@ impl GmpMessage {
 		hdr
 	}
 
-	pub fn encode_to(&self, buf: &mut Vec<u8>) {
-		let msg_hash: [u8; 32] = Keccak256::digest(&self.bytes).into();
-		buf.extend_from_slice(&self.encode_header());
-		buf.extend_from_slice(&msg_hash);
-	}
-
 	pub fn message_id(&self) -> MessageId {
-		let mut buf = Vec::new();
-		self.encode_to(&mut buf);
-		Keccak256::digest(buf).into()
+		let header = self.encode_header();
+		Keccak256::digest(header).into()
 	}
 }
 
@@ -106,7 +99,7 @@ pub enum GatewayOp {
 }
 
 impl GatewayOp {
-	fn to_code(&self) -> u8 {
+	fn code(&self) -> u8 {
 		match self {
 			GatewayOp::SendMessage(_) => 1,
 			GatewayOp::RegisterShard(_) => 2,
@@ -114,37 +107,22 @@ impl GatewayOp {
 		}
 	}
 
-	fn to_u256_code(&self) -> [u8; 32] {
-		let mut bytes = [0u8; 32];
-		bytes[31] = self.to_code();
-		bytes
-	}
-
-	pub fn encoded_len(&self) -> usize {
-		match self {
-			Self::SendMessage(msg) => msg.encoded_len(),
-			_ => 32,
-		}
-	}
-
-	pub fn encode_to(&self, buf: &mut Vec<u8>) {
+	fn hash(&self) -> [u8; 32] {
+		let mut bytes = [0; 64];
 		match self {
 			Self::SendMessage(msg) => {
-				buf.extend_from_slice(&msg.message_id());
+				let data = Keccak256::digest(&msg.bytes);
+				bytes[..32].copy_from_slice(&msg.message_id());
+				bytes[32..].copy_from_slice(&data);
 			},
 			Self::RegisterShard(pubkey) => {
-				let mut op_bytes = [0u8; 64];
-				op_bytes[31..].copy_from_slice(pubkey);
-				let op_hash: [u8; 32] = Keccak256::digest(op_bytes).into();
-				buf.extend_from_slice(&op_hash);
+				bytes[31..].copy_from_slice(pubkey);
 			},
 			Self::UnregisterShard(pubkey) => {
-				let mut op_bytes = [0u8; 64];
-				op_bytes[31..].copy_from_slice(pubkey);
-				let op_hash: [u8; 32] = Keccak256::digest(op_bytes).into();
-				buf.extend_from_slice(&op_hash);
+				bytes[31..].copy_from_slice(pubkey);
 			},
 		}
+		Keccak256::digest(bytes).into()
 	}
 
 	pub fn gas(&self) -> u128 {
@@ -183,27 +161,29 @@ impl GatewayMessage {
 		Self { ops }
 	}
 
-	pub fn encode(&self, batch_id: BatchId) -> [u8; 32] {
-		let mut op_root_hash: [u8; 32] = [0u8; 32];
-		let mut buf = Vec::new();
-		// include version in buffer
-		buf.extend_from_slice(&[0u8; 32]);
-		// include batch id
-		// padding for batch_id, since batch_id is uint64 we do intial padding with 0 until we have 32 bytes
-		buf.extend_from_slice(&[0u8; 24]);
-		buf.extend_from_slice(&batch_id.to_be_bytes());
+	pub fn hash(&self, batch_id: BatchId) -> [u8; 32] {
+		let mut ops_hash = [0; 32];
 		for op in &self.ops {
-			let mut op_hasher = Keccak256::new();
-			let mut op_hash = Vec::new();
-			op.encode_to(&mut op_hash);
+			let mut ops_hasher = Keccak256::new();
+			ops_hasher.update(ops_hash);
 
-			op_hasher.update(op_root_hash);
-			op_hasher.update(op.to_u256_code());
-			op_hasher.update(op_hash);
-			op_root_hash = op_hasher.finalize().into();
+			let mut op_code = [0; 32];
+			op_code[31] = op.code();
+			ops_hasher.update(op_code);
+
+			let op_hash = op.hash();
+			ops_hasher.update(op_hash);
+
+			ops_hash = ops_hasher.finalize().into();
 		}
-		buf.extend_from_slice(&op_root_hash);
-		Keccak256::digest(&buf).into()
+
+		let mut buf = [0; 96];
+		// include version in buffer
+		buf[..32].copy_from_slice(&[0u8; 32]);
+		// include batch id padded to uint256
+		buf[56..64].copy_from_slice(&batch_id.to_be_bytes());
+		buf[64..].copy_from_slice(&ops_hash);
+		Keccak256::digest(buf).into()
 	}
 
 	pub fn gas(&self) -> u128 {
@@ -450,6 +430,14 @@ pub trait IConnectorAdmin: IConnector {
 	/// Debug a transaction.
 	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
 		anyhow::bail!("debugging transactions is not supported on this backend");
+	}
+	/// Dump anvil chain state
+	async fn dump_state(&self) -> Result<String> {
+		anyhow::bail!("dumping chain state is not supported on this backend");
+	}
+	/// Load anvil chain state
+	async fn load_state(&self, _state: String) -> Result<()> {
+		anyhow::bail!("loading chain state is not supported on this backend");
 	}
 }
 

@@ -1,0 +1,62 @@
+name: Reset Timechain
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment to reset"
+        required: true
+        type: string
+        options:
+          - development
+
+jobs:
+  reset-timechain:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: GKE Setup
+        uses: ./.github/actions/gke-common
+        with:
+          cluster: ${{ github.event.inputs.environment }}
+          key-file: ${{ secrets.TIMECHAIN_RESET_KEY }}
+          project-id: ${{ secrets.GCP_PROJECT_ID }}
+          region: us-east1
+
+      - name: Install helm
+        uses: azure/setup-helm@v4.3.0
+
+      - name: Purge cluster
+        run: |
+          NAMESPACE="timechain"
+          LATEST_REVISION=$(helm history ${{ secrets.RELESE_NAME }} -n $NAMESPACE | awk 'END{print $1}')
+
+          # Delete all volumes
+          # NOTE: can't wait for this command since PVCs 
+          # can't be deleted while pods are running
+          kubectl delete pvc --all -n $NAMESPACE --wait=false
+          kubectl delete pods --all -n $NAMESPACE --wait=false
+          
+          # Rollback to the same version, ensuring recreation of all PVCs
+          if [[ -n "$LATEST_REVISION" ]]; then
+            helm rollback ${{ secrets.RELESE_NAME }} $LATEST_REVISION -n $NAMESPACE
+          else
+            echo "No Helm release found to roll back."
+            exit 1
+          fi
+
+          # NOTE: this step might be redundant, but just to make sure
+          # We give it 1 minute to finish cleaning up
+          kubectl delete pods --all -n $NAMESPACE --timeout=60s
+          kubectl get pods -n $NAMESPACE
+
+      - name: Re-deploy GMP components
+        uses: ./.github/actions/tc-cli
+        with:
+          environment: ${{ github.event.inputs.environment }}
+          version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: deploy

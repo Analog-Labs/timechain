@@ -17,7 +17,6 @@ testnet = [
   "timechain-runtime/testnet",
 ]
 develop = [
-  "testnet",
   "time-primitives/develop",
   "timechain-runtime/develop",
 ]

@@ -56,6 +56,7 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-membership",
 	"pallet-multisig",
 	"pallet-nomination-pools",
+	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-preimage",
 	"pallet-proxy",
@@ -123,7 +124,6 @@ substrate-wasm-builder = { workspace = true, optional = true }
 default = [ "std" ]
 testnet = [ "time-primitives/testnet" ]
 develop = [
-  "testnet",
   "genesis-builder",
   "time-primitives/develop",
 ]

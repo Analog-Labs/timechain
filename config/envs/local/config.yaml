@@ -82,7 +82,7 @@ networks:
     shard_size: 1
     shard_threshold: 1
 chronicles:
-  - http://timechain-chronicle-0-grpc-1:8080
-  - http://timechain-chronicle-1-grpc-1:8080
-  - http://timechain-chronicle-2-evm-1:8080
-  - http://timechain-chronicle-3-evm-1:8080
+  - http://chronicle-0-grpc:8080
+  - http://chronicle-1-grpc:8080
+  - http://chronicle-2-evm:8080
+  - http://chronicle-3-evm:8080

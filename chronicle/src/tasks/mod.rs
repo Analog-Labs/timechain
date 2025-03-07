@@ -124,8 +124,10 @@ impl TaskParams {
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
+		span: Span,
 	) -> Result<()> {
-		let span = span!(
+		span!(
+			parent: &span,
 			Level::INFO,
 			"executing_task",
 			task_id,
@@ -224,7 +226,7 @@ impl TaskExecutor {
 			let exec = self.params.clone();
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
-				match exec.execute(block_number, network, gateway, shard_id, task_id, task).await {
+				match exec.execute(block_number, network, gateway, shard_id, task_id, task, span2).await {
 					Ok(()) => {
 						tracing::info!(parent: &span, task_id, target_block_height, "task completed");
 					},

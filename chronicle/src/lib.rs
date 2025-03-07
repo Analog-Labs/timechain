@@ -274,7 +274,7 @@ mod tests {
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
 		let (n, t) = (3, 3);
-		init_logger();
+		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network(
@@ -336,7 +336,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_restart() -> Result<()> {
-		init_logger();
+		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network(

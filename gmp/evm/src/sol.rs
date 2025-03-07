@@ -46,29 +46,10 @@ alloy_sol_types::sol! {
 
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct CCTP {
-		/// Version of message body format
-		/// <https://github.com/circlefin/evm-cctp-contracts/blob/release-2024-10-23T134808/src/TokenMessenger.sol#L106-L107>
-		uint32 version;
-		/// Local Message Transmitter responsible for sending and receiving messages to/from remote domains
-		address localMessageTransmitter;
-		/// Minter responsible for minting and burning tokens on the local domain
-		address localMinter;
-		/// Amount of tokens to transfer
-		uint256 amount;
-		/// The destination domain
-		uint32 destinationDomain;
-		/// address of mint recipient on destination domain
-		bytes32 mintRecipient;
-		/// address of contract to burn deposited tokens, on local domain
-		address burnToken;
-		/// unique nonce reserved by message
-		uint64 nonce;
 		/// The attestation (obs: will be provided by the chronicle).
 		bytes attestation;
-		/// The message bytes emitted by the MessageSent event (obs: will be provided by the chronicle).
+		/// The message bytes emitted by the MessageSent event (must be provided).
 		bytes message;
-		/// Any extra custom data that Zenswap wants to send to the recipient Zenswap Plugin.
-		bytes extraData;
 	}
 
 	contract GatewayProxy {
@@ -314,20 +295,15 @@ impl From<time_primitives::GatewayOp> for GatewayOp {
 	}
 }
 
-impl From<time_primitives::CCTPMessage> for CCTP {
-	fn from(msg: time_primitives::CCTPMessage) -> Self {
-		CCTP {
-			version: msg.version,
-			localMessageTransmitter: a_addr(msg.local_transmitter),
-			localMinter: a_addr(msg.local_minter),
-			amount: u256(&msg.amount),
-			destinationDomain: msg.destination_domain,
-			mintRecipient: msg.mint_receipient.into(),
-			burnToken: a_addr(msg.burn_token),
-			nonce: msg.nonce,
-			attestation: msg.attestation.into(),
-			message: msg.message.into(),
-			extraData: msg.extra_data.into(),
+impl CCTP {
+	pub fn get_version(&self) -> anyhow::Result<u32> {
+		if self.message.len() < 4 {
+			return Err(anyhow::anyhow!("Message is too short to contain a version field"));
 		}
+		let version_bytes: [u8; 4] = self.message[0..4]
+			.try_into()
+			.map_err(|_| anyhow::anyhow!("Failed to extract version bytes"))?;
+		let version = u32::from_be_bytes(version_bytes);
+		Ok(version)
 	}
 }

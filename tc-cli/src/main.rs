@@ -454,17 +454,8 @@ async fn real_main() -> Result<()> {
 			let msg_data =
 				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
 			let cctp_payload = CCTPMessage {
-				version: 0,
-				local_transmitter: Default::default(),
-				local_minter: Default::default(),
-				amount: Default::default(),
-				destination_domain: Default::default(),
-				mint_receipient: Default::default(),
-				burn_token: Default::default(),
-				nonce: 0,
 				attestation: vec![],
 				message: msg_data,
-				extra_data: vec![],
 			};
 			let msg = exec_smoke(tc, src, src_addr, dest, dest_addr, cctp_payload.encode()).await?;
 			let attested =

@@ -1,4 +1,3 @@
-use crate::Address;
 use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 use serde::{Deserialize, Serialize};
@@ -112,50 +111,25 @@ pub fn encode_dynamic(bytes: &[u8]) -> vec::Vec<u8> {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CCTPMessage {
-	pub version: u32,
-	pub local_transmitter: Address,
-	pub local_minter: Address,
-	pub amount: [u8; 32],
-	pub destination_domain: u32,
-	pub mint_receipient: [u8; 32],
-	pub burn_token: Address,
-	pub nonce: u64,
 	pub attestation: Vec<u8>,
 	pub message: Vec<u8>,
-	pub extra_data: Vec<u8>,
 }
 
 impl CCTPMessage {
 	pub fn encode(&self) -> Vec<u8> {
 		let mut tail = Vec::new();
-		tail.extend_from_slice(&self.version.to_be_bytes().left_pad_32());
-		tail.extend_from_slice(&self.local_transmitter);
-		tail.extend_from_slice(&self.local_minter);
-		tail.extend_from_slice(&self.amount.left_pad_32());
-		tail.extend_from_slice(&self.destination_domain.to_be_bytes().left_pad_32());
-		tail.extend_from_slice(&self.mint_receipient.left_pad_32());
-		tail.extend_from_slice(&self.burn_token);
-		tail.extend_from_slice(&self.nonce.to_be_bytes().left_pad_32());
-
 		let attestation = encode_dynamic(&self.attestation);
 		let message = encode_dynamic(&self.message);
-		let extra_data = encode_dynamic(&self.extra_data);
 
-		// add 32 * 3 bytes for 3 offsets that we have
-		let attestation_offset = tail.len() + (3 * DECODE_BLOCK_SIZE);
+		// add 32 * 2 bytes for 2 offsets that we have
+		let attestation_offset = 2 * DECODE_BLOCK_SIZE;
 		let message_offset = attestation_offset + attestation.len();
-		let extra_offset = message_offset + message.len();
 
-		// offset of attestation
 		tail.extend_from_slice(&attestation_offset.to_be_bytes().left_pad_32());
-		// offset of message
 		tail.extend_from_slice(&message_offset.to_be_bytes().left_pad_32());
-		// offset of extra_data
-		tail.extend_from_slice(&extra_offset.to_be_bytes().left_pad_32());
 
 		tail.extend_from_slice(&attestation);
 		tail.extend_from_slice(&message);
-		tail.extend_from_slice(&extra_data);
 
 		// prepends 0x20 in the list to tell where the data starts
 		let mut encoded = Vec::new();
@@ -174,72 +148,21 @@ impl CCTPMessage {
 		let _ = u64::decode_from_block(&input[0..DECODE_BLOCK_SIZE])?;
 		let input = &input[DECODE_BLOCK_SIZE..];
 
-		// 11 fields
-		if input.len() < 11 * DECODE_BLOCK_SIZE {
+		// 2 fields
+		if input.len() < 2 * DECODE_BLOCK_SIZE {
 			return Err(DecodeError::InsufficientData);
 		}
+
 		let mut offset = 0;
-		let version = u32::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let local_transmitter = <Address as AbiFixedDecode>::decode_from_block(
-			&input[offset..offset + DECODE_BLOCK_SIZE],
-		)?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let local_minter = <Address as AbiFixedDecode>::decode_from_block(
-			&input[offset..offset + DECODE_BLOCK_SIZE],
-		)?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let amount = <[u8; DECODE_BLOCK_SIZE] as AbiFixedDecode>::decode_from_block(
-			&input[offset..offset + DECODE_BLOCK_SIZE],
-		)?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let destination_domain =
-			u32::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let mint_receipient = <[u8; DECODE_BLOCK_SIZE] as AbiFixedDecode>::decode_from_block(
-			&input[offset..offset + DECODE_BLOCK_SIZE],
-		)?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let burn_token = <Address as AbiFixedDecode>::decode_from_block(
-			&input[offset..offset + DECODE_BLOCK_SIZE],
-		)?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let nonce = u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
-		offset += DECODE_BLOCK_SIZE;
-
-		// dynamic fields decoding
 		let attestation_offset =
 			u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
 		offset += DECODE_BLOCK_SIZE;
 
 		let message_offset = u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
-		offset += DECODE_BLOCK_SIZE;
-
-		let extra_offset = u64::decode_from_block(&input[offset..offset + DECODE_BLOCK_SIZE])?;
 
 		let (attestation, _) = <Vec<u8>>::decode_dynamic(&input[attestation_offset as usize..])?;
 		let (message, _) = <Vec<u8>>::decode_dynamic(&input[message_offset as usize..])?;
-		let (extra_data, _) = <Vec<u8>>::decode_dynamic(&input[extra_offset as usize..])?;
 
-		Ok(Self {
-			version,
-			local_transmitter,
-			local_minter,
-			amount,
-			destination_domain,
-			mint_receipient,
-			burn_token,
-			nonce,
-			attestation,
-			message,
-			extra_data,
-		})
+		Ok(Self { attestation, message })
 	}
 }

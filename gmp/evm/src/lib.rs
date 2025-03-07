@@ -267,7 +267,7 @@ impl Connector {
 		let payload = request.msg.bytes.clone();
 		let mut cctp_payload =
 			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
-		if cctp_payload.version != 0 {
+		if cctp_payload.get_version().map_err(|_| CctpError::InvalidPayload)? != 0 {
 			return Err(CctpError::InvalidVersion);
 		}
 		let burn_message: Vec<u8> = cctp_payload.message.clone().into();

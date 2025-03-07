@@ -41,7 +41,7 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-      TRACING_URL: 'http://tempo:4317/v1/traces'
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
       OTEL_SERVICE_NAME: 'chronicle-0'
     profiles:
     - grpc
@@ -72,7 +72,7 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
-      TRACING_URL: 'http://tempo:4317/v1/traces'
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
       OTEL_SERVICE_NAME: 'chronicle-1'
     profiles:
     - grpc
@@ -101,7 +101,7 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-      TRACING_URL: 'http://tempo:4317/v1/traces'
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
       OTEL_SERVICE_NAME: 'chronicle-2'
     profiles:
     - evm
@@ -130,7 +130,7 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
-      TRACING_URL: 'http://tempo:4317/v1/traces'
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
       OTEL_SERVICE_NAME: 'chronicle-3'
     profiles:
     - evm
@@ -177,9 +177,7 @@ services:
     volumes:
       - "./config/tempo/tempo.yaml:/etc/tempo.yaml"
     ports:
-      - "127.0.0.1:3200:3200"
       - "127.0.0.1:4317:4317"
       - "127.0.0.1:4318:4318"
-      - "127.0.0.1:14268:14268"
     profiles:
     - monitoring

@@ -168,6 +168,7 @@ pub trait MembersInterface {
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_registered(account: &AccountId) -> bool;
 	fn is_member_online(account: &AccountId) -> bool;
+	fn do_unregister_member(account: &AccountId);
 }
 
 pub trait ElectionsInterface {

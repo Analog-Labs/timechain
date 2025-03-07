@@ -16,14 +16,14 @@ use frame_support::PalletId;
 use sp_core::{ConstU128, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{parameter_types, Get, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, DispatchResult, MultiSignature, Permill,
+	BuildStorage, MultiSignature, Permill,
 };
 use sp_std::cell::RefCell;
 use sp_std::collections::btree_map::BTreeMap;
 
 use time_primitives::{
-	Address, Balance, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
-	PublicKey, ShardsInterface,
+	Address, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId, PublicKey,
+	ShardsInterface,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -60,9 +60,6 @@ impl NetworksInterface for MockNetworks {
 pub struct MockMembers;
 
 impl MembersInterface for MockMembers {
-	fn member_stake(_: &AccountId) -> Balance {
-		0u128
-	}
 	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
 		None
 	}
@@ -72,16 +69,10 @@ impl MembersInterface for MockMembers {
 	fn is_member_online(_: &AccountId) -> bool {
 		true
 	}
-	fn total_stake() -> u128 {
-		0u128
-	}
-	fn transfer_stake(_: &AccountId, _: &AccountId, _: Balance) -> DispatchResult {
-		Ok(())
-	}
-	fn unstake_member(_account: &AccountId) {}
 	fn is_member_registered(_account: &AccountId) -> bool {
 		true
 	}
+	fn do_unregister_member(_account: &AccountId) {}
 }
 
 pub struct MockElections;
@@ -237,7 +228,7 @@ impl pallet_members::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = MockElections;
 	type Shards = Shards;
-	type MinStake = ConstU128<5>;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<100>;
 }

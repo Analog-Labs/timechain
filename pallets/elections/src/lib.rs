@@ -146,20 +146,14 @@ pub mod pallet {
 			let mut batch = Vec::new();
 			for member in members {
 				if !T::Members::is_member_registered(&member) {
-					T::Members::unstake_member(&member);
+					T::Members::do_unregister_member(&member);
 				} else if T::Members::is_member_online(&member) {
 					batch.push(member.clone());
 				}
 			}
 			Unassigned::<T>::mutate(network, |unassigned| {
 				unassigned.extend(batch);
-				unassigned.sort_by(|a, b| {
-					T::Members::member_stake(a)
-						.cmp(&T::Members::member_stake(b))
-						// sort by AccountId iff amounts are equal to uphold determinism
-						.then_with(|| a.cmp(b))
-						.reverse()
-				});
+				unassigned.sort_by(|a, b| a.cmp(b).reverse());
 			});
 		}
 
@@ -173,13 +167,7 @@ pub mod pallet {
 			if !T::Shards::is_shard_member(member) {
 				Unassigned::<T>::mutate(network, |members| {
 					members.push(member.clone());
-					members.sort_by(|a, b| {
-						T::Members::member_stake(a)
-							.cmp(&T::Members::member_stake(b))
-							// sort by AccountId iff amounts are equal to uphold determinism
-							.then_with(|| a.cmp(b))
-							.reverse()
-					});
+					members.sort_by(|a, b| a.cmp(b).reverse());
 				});
 			}
 			T::Shards::member_online(member, network);

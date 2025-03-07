@@ -262,11 +262,7 @@ pub mod pallet {
 		fn execute_unregister_member(member: AccountId) -> DispatchResult {
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
-			if !T::Shards::is_shard_member(&member) {
-				MemberNetwork::<T>::remove(&member);
-				MemberPeerId::<T>::remove(&member);
-				MemberPublicKey::<T>::remove(&member);
-			}
+			Self::do_unregister_member(&member);
 			Self::deposit_event(Event::UnRegisteredMember(member, network));
 			Ok(())
 		}
@@ -357,6 +353,14 @@ pub mod pallet {
 
 		fn is_member_registered(account: &AccountId) -> bool {
 			MemberRegistered::<T>::get(account).is_some()
+		}
+
+		fn do_unregister_member(account: &AccountId) {
+			if !T::Shards::is_shard_member(&account) {
+				MemberNetwork::<T>::remove(&account);
+				MemberPeerId::<T>::remove(&account);
+				MemberPublicKey::<T>::remove(&account);
+			}
 		}
 	}
 }

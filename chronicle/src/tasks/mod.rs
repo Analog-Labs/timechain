@@ -225,7 +225,6 @@ impl TaskExecutor {
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
 				match exec
-					// TODO add the cctp address here
 					.execute(
 						block_number,
 						cctp_info,

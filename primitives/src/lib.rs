@@ -19,10 +19,9 @@ pub mod admin;
 #[cfg(feature = "std")]
 pub mod balance;
 pub mod bounds;
+pub mod cctp;
 pub mod currency;
-pub mod decode;
 pub mod dmail;
-pub mod encode;
 pub mod gmp;
 pub mod network;
 pub mod shard;
@@ -30,6 +29,7 @@ pub mod task;
 
 // ... and unscoped
 pub use crate::bounds::*;
+pub use crate::cctp::*;
 pub use crate::currency::*;
 pub use crate::dmail::*;
 pub use crate::gmp::*;

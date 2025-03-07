@@ -173,8 +173,8 @@ enum Command {
 		payload: String,
 	},
 	SmokeTest {
-		src: Option<NetworkId>,
-		dest: Option<NetworkId>,
+		src: NetworkId,
+		dest: NetworkId,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -429,7 +429,9 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let testers = tc.setup_test(src, dest).await?;
+			let testers = tc.setup_test().await?;
+			let src_addr = testers.get(&src).context("missing tester")?.0;
+			let dest_addr = testers.get(&dest).context("missing tester")?.0;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
 			let payload = vec![42];
@@ -462,7 +464,9 @@ async fn real_main() -> Result<()> {
 				.await?;
 		},
 		Command::Benchmark { src, dest, num_messages } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
+			let testers = tc.setup_test().await?;
+			let src_addr = testers.get(&src).context("missing tester")?.0;
+			let dest_addr = testers.get(&dest).context("missing tester")?.0;
 			tc.wait_for_sync(src).await?;
 			tc.wait_for_sync(dest).await?;
 			let mut blocks = tc.finality_notification_stream();

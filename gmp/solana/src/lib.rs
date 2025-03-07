@@ -117,7 +117,7 @@ impl IConnectorAdmin for Connector {
 		_proxy: &[u8],
 		_gateway: &[u8],
 	) -> Result<(Address, u64)> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn redeploy_gateway(
 		&self,
@@ -125,25 +125,25 @@ impl IConnectorAdmin for Connector {
 		_proxy: Address,
 		_gateway: &[u8],
 	) -> Result<()> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn admin(&self, _gateway: Address) -> Result<Address> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn set_admin(&self, _gateway: Address, _admin: Address) -> Result<()> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn shards(&self, _gateway: Address) -> Result<Vec<TssPublicKey>> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn set_shards(&self, _gateway: Address, _keys: &[TssPublicKey]) -> Result<()> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn routes(&self, _gateway: Address) -> Result<Vec<Route>> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn set_route(&self, _gateway: Address, _route: Route) -> Result<()> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn deploy_test(&self, _gateway: Address, _tester: &[u8]) -> Result<(Address, u64)> {
 		todo!("Not supported")
@@ -175,14 +175,14 @@ impl IConnectorAdmin for Connector {
 		_gas_cost: u128,
 		_payload: Vec<u8>,
 	) -> Result<MessageId> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn recv_messages(
 		&self,
 		_contract: Address,
 		_blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
-		todo!("Not supported")
+		todo!("Need gateway implementation")
 	}
 	async fn transaction_base_fee(&self) -> Result<u128> {
 		// reference: <https://solana.com/docs/core/fees#key-points>
@@ -199,14 +199,14 @@ impl IConnectorAdmin for Connector {
 		_amount: u128,
 		_address: Address,
 	) -> Result<()> {
-		todo!()
+		todo!("Need gateway implementation")
 	}
 }
 
 #[async_trait]
 impl IConnector for Connector {
 	async fn read_events(&self, _gateway: Gateway, _blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		todo!()
+		todo!("Need gateway implementation")
 	}
 	async fn submit_commands(
 		&self,
@@ -216,6 +216,6 @@ impl IConnector for Connector {
 		_signer: TssPublicKey,
 		_sig: TssSignature,
 	) -> Result<(), String> {
-		todo!()
+		todo!("Need gateway implementation")
 	}
 }

@@ -12,6 +12,7 @@ resolver = "2"
 members = [
 	"chronicle",
 	"docs",
+	"e2e-tests",
 	"gmp",
 	"gmp/evm",
 	"gmp/grpc",

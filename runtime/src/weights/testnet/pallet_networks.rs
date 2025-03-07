@@ -115,7 +115,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::NetworkGatewayBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Networks::NetworkBatchGasLimit` (r:0 w:1)
 	/// Proof: `Networks::NetworkBatchGasLimit` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn remove_network(_a: u32) -> Weight {
+	fn remove_network() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

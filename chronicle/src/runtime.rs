@@ -153,7 +153,11 @@ impl Runtime for SubxtClient {
 		let url_opt = self.get_cctp_url(network).await?;
 
 		match (contracts_opt, url_opt) {
-			(Some(contracts), Some(url)) => Ok(Some((contracts, url))),
+			(Some(contracts), Some(url)) => {
+				let contracts = contracts.0.to_vec();
+				let url = String::from_utf8(url.0.to_vec())?;
+				Ok(Some((contracts, url)))
+			},
 			_ => Ok(None),
 		}
 	}

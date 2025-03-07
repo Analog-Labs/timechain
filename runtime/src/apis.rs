@@ -29,8 +29,9 @@ pub use time_primitives::{MembersInterface, NetworksInterface};
 
 #[cfg(feature = "testnet")]
 use time_primitives::{
-	Address, BatchId, BlockNumber, CctpUrl, ChainName, ChainNetwork, Commitment, ErrorMsg, Gateway,
-	GatewayMessage, MemberStatus, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, Task, TaskId,
+	BatchId, BlockNumber, CctpContracts, CctpUrl, ChainName, ChainNetwork, Commitment, ErrorMsg,
+	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, PublicKey, ShardId, ShardStatus,
+	Task, TaskId,
 };
 // Local module imports
 use super::{
@@ -351,7 +352,7 @@ impl_runtime_apis! {
 			Networks::gateway(network)
 		}
 
-		fn get_cctp_contracts(network: NetworkId) -> Option<Vec<Address>> {
+		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts> {
 			Networks::get_cctp_contracts(network)
 		}
 

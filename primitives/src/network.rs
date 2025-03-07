@@ -22,6 +22,17 @@ pub struct CctpContracts(pub BoundedVec<Address, ConstU32<MAX_CCTP_ADDRESSES>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct CctpUrl(pub BoundedVec<u8, ConstU32<MAX_CCTP_URL_LEN>>);
 
+impl CctpContracts {
+	pub fn push_unique(&mut self, new_contract: Address) -> Result<(), anyhow::Error> {
+		if !self.0.contains(&new_contract) {
+			self.0
+				.try_push(new_contract)
+				.map_err(|e| anyhow::anyhow!("failed to add new contract: {:?}", e))?;
+		}
+		Ok(())
+	}
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
 pub struct Network {
 	pub id: NetworkId,

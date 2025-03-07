@@ -19,7 +19,7 @@ use time_primitives::{
 	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
 	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
-use time_primitives::{CctpContracts, CctpUrl, MAX_CCTP_ADDRESSES};
+use time_primitives::{CctpContracts, CctpUrl};
 use tokio::time::sleep;
 
 mod config;
@@ -743,16 +743,12 @@ impl Tc {
 		let mut cctp_contracts =
 			config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
 		if let Some(new_contract) = additional_contract {
-			match &mut cctp_contracts {
-				Some(contracts) => {
-					contracts.0.try_push(new_contract).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-				},
-				None => {
-					let bounded = BoundedVec::try_from(vec![new_contract]).map_err(|_| {
-						anyhow::anyhow!("Exceeded maximum of {} CCTP addresses", MAX_CCTP_ADDRESSES)
-					})?;
-					cctp_contracts = Some(CctpContracts(bounded));
-				},
+			if let Some(contracts) = cctp_contracts.as_mut() {
+				contracts.push_unique(new_contract)?;
+			} else {
+				let bounded = BoundedVec::try_from(vec![new_contract])
+					.map_err(|_| anyhow::anyhow!("failed to make bounded vec from new contract"))?;
+				cctp_contracts = Some(CctpContracts(bounded));
 			}
 		}
 		let cctp_url = config
@@ -777,26 +773,8 @@ impl Tc {
 		let shard_task_limit = self.runtime.network_shard_task_limit(network).await?;
 		let shard_size = self.runtime.network_shard_size(network).await?;
 		let shard_threshold = self.runtime.network_shard_threshold(network).await?;
-		let runtime_cctp_contracts = self
-			.runtime
-			.get_cctp_contracts(network)
-			.await?
-			.map(|item| {
-				BoundedVec::try_from(item)
-					.map(CctpContracts)
-					.map_err(|e| anyhow::anyhow!("CctpContracts conversion error: {:?}", e))
-			})
-			.transpose()?;
-
-		let runtime_cctp_url = self
-			.runtime
-			.get_cctp_url(network)
-			.await?
-			.map(|item| {
-				CctpUrl::try_from(item.as_str())
-					.map_err(|e| anyhow::anyhow!("CctpUrl conversion error: {:?}", e))
-			})
-			.transpose()?;
+		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network).await?;
+		let runtime_cctp_url = self.runtime.get_cctp_url(network).await?;
 
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset

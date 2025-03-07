@@ -180,7 +180,9 @@ enum Command {
 	},
 	SmokeCctp {
 		src: NetworkId,
+		src_addr: Option<String>,
 		dest: NetworkId,
+		dest_addr: Option<String>,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -438,8 +440,14 @@ async fn real_main() -> Result<()> {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let _ = exec_smoke(tc, src, src_addr, dest, dest_addr, vec![]).await?;
 		},
-		Command::SmokeCctp { src, dest } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
+		Command::SmokeCctp { src, src_addr, dest, dest_addr } => {
+			let (src_addr, dest_addr) = match (src_addr, dest_addr) {
+				(Some(src_addr), Some(dest_addr)) => (
+					tc.parse_address(Some(src), &src_addr)?,
+					tc.parse_address(Some(dest), &dest_addr)?,
+				),
+				_ => tc.setup_test(src, dest).await?,
+			};
 			tc.set_network_config(src, Some(src_addr)).await?;
 			tc.set_network_config(dest, Some(dest_addr)).await?;
 			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";

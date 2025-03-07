@@ -104,7 +104,7 @@ impl TaskParams {
 		events: Vec<GmpEvent>,
 		span: &Span,
 	) -> Result<()> {
-		let span = span!(Level::INFO, "submit_events", task_id, ?events,);
+		let span = span!(parent: span, Level::INFO, "submit_events", task_id, ?events,);
 		let payload = time_primitives::encode_gmp_events(task_id, &events);
 		let signature = self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 		let result = TaskResult::ReadGatewayEvents {

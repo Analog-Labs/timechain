@@ -10,69 +10,68 @@ mod common;
 const SRC: NetworkId = 2;
 const DEST: NetworkId = 3;
 
-async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) {
+async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>{
 	let mut blockstream = tc.finality_notification_stream();
-	let (_, start) = blockstream.next().await.expect("expected block");
+	let (_, start) = blockstream.next().await.context("expected block")?;
 	let gas_limit = tc
 		.estimate_message_gas_limit(DEST, dest_addr, SRC, src_addr, vec![])
-		.await
-		.unwrap();
-	let gas_cost = tc.estimate_message_cost(SRC, DEST, gas_limit, vec![]).await.unwrap();
+		.await?;
+	let gas_cost = tc.estimate_message_cost(SRC, DEST, gas_limit, vec![]).await?;
 
 	let msg_id = tc
 		.send_message(SRC, src_addr, DEST, dest_addr, gas_limit, gas_cost, vec![])
-		.await
-		.unwrap();
+		.await?;
 
 	let mut id = None;
 	let (exec, end) = loop {
-		let (_, end) = blockstream.next().await.expect("expected block");
-		let trace = tc.message_trace(SRC, msg_id).await.unwrap();
+		let (_, end) = blockstream.next().await.context("expected block")?;
+		let trace = tc.message_trace(SRC, msg_id).await?;
 		let exec = trace.exec.as_ref().map(|t| t.task);
 		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
-		id = Some(tc.print_table(id, "message", vec![trace]).await.unwrap());
+		id = Some(tc.print_table(id, "message", vec![trace]).await?);
 		if let Some(exec) = exec {
 			break (exec, end);
 		}
 	};
-	let blocks = tc.read_events_blocks(exec).await.unwrap();
-	let msgs = tc.messages(DEST, dest_addr, blocks).await.unwrap();
+	let blocks = tc.read_events_blocks(exec).await?;
+	let msgs = tc.messages(DEST, dest_addr, blocks).await?;
 	let msg = msgs
 		.into_iter()
 		.find(|msg| msg.message_id() == msg_id)
 		.expect("failed to find message");
-	tc.print_table(None, "message", vec![msg]).await.unwrap();
+	tc.print_table(None, "message", vec![msg]).await?;
 	tc.println(None, format!("received message after {} blocks", end - start))
-		.await
-		.unwrap();
+	  .await?;
+
+	Ok(())
 }
 
 #[tokio::test]
 // Resembles tc-cli smoke test
 async fn smoke() -> Result<()> {
 	let filter = EnvFilter::from_default_env()
-		.add_directive("tc_cli=info".parse().unwrap())
-		.add_directive("gmp_evm=info".parse().unwrap())
-		.add_directive("smoke_test=info".parse().unwrap());
+		.add_directive("tc_cli=info".parse()?)
+		.add_directive("gmp_evm=info".parse()?)
+		.add_directive("smoke_test=info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 
-	let env = TestEnv::spawn(true).await.expect("Failed to spawn Test Environment");
+	let env = TestEnv::spawn(true).await.context("Failed to spawn Test Environment")?;
 
-	let testers = env.setup().await.expect("failed to setup test");
-	let src_addr = testers.get(&SRC).context("not found")?.0;
-	let dest_addr = testers.get(&DEST).context("not found")?.0;
+	let testers = env.setup().await.context("failed to setup test")?;
+	let src_addr = testers.get(&SRC).context("tester src contract not found")?.0;
+	let dest_addr = testers.get(&DEST).context("tester dest contract not found")?.0;
 
 	// Run smoke test
-	run_smoke(&env.tc, src_addr, dest_addr).await;
+	run_smoke(&env.tc, src_addr, dest_addr).await?;
 
 	// Restart chronicles
 	assert!(env
 		.restart(vec!["chronicle-2-evm", "chronicle-3-evm"])
 		.await
-		.expect("Failed to restart chronicles"));
+		.context("Failed to restart chronicles")?);
 
 	// Re-run smoke test: should still work
-	run_smoke(&env.tc, src_addr, dest_addr).await;
+	run_smoke(&env.tc, src_addr, dest_addr).await?;
 
 	Ok(())
 }

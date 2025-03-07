@@ -180,8 +180,8 @@ enum Command {
 	},
 	SmokeCctp {
 		src: NetworkId,
-		src_addr: Option<String>,
 		dest: NetworkId,
+		src_addr: Option<String>,
 		dest_addr: Option<String>,
 	},
 	WithdrawFunds {
@@ -440,7 +440,7 @@ async fn real_main() -> Result<()> {
 			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
 			let _ = exec_smoke(tc, src, src_addr, dest, dest_addr, vec![]).await?;
 		},
-		Command::SmokeCctp { src, src_addr, dest, dest_addr } => {
+		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
 			let (src_addr, dest_addr) = match (src_addr, dest_addr) {
 				(Some(src_addr), Some(dest_addr)) => (
 					tc.parse_address(Some(src), &src_addr)?,

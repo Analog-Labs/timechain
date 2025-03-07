@@ -1,12 +1,14 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use futures::StreamExt;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
-use time_primitives::{BatchId, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{
+	Address, BatchId, CCTPMessage, GmpMessage, Hash, NetworkId, ShardId, TaskId,
+};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -175,6 +177,12 @@ enum Command {
 	SmokeTest {
 		src: NetworkId,
 		dest: NetworkId,
+	},
+	SmokeCctp {
+		src: NetworkId,
+		dest: NetworkId,
+		src_addr: Option<String>,
+		dest_addr: Option<String>,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -429,40 +437,41 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
-			let mut blocks = tc.finality_notification_stream();
-			let (_, start) = blocks.next().await.context("expected block")?;
-			let payload = vec![42];
-			let gas_limit = tc
-				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
-				.await?;
-			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
-			let msg_id = tc
-				.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
-				.await?;
-			let mut id = None;
-			let (exec, end) = loop {
-				let (_, end) = blocks.next().await.context("expected block")?;
-				let trace = tc.message_trace(src, msg_id).await?;
-				let exec = trace.exec.as_ref().map(|t| t.task);
-				tracing::info!("waiting for message {}", hex::encode(msg_id));
-				id = Some(tc.print_table(id, "message", vec![trace]).await?);
-				if let Some(exec) = exec {
-					break (exec, end);
-				}
+			let testers = tc.setup_test().await?;
+			let _ = exec_smoke(tc, src, dest, &testers, vec![42]).await?;
+		},
+		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
+			let testers = match (src_addr, dest_addr) {
+				(Some(src_addr), Some(dest_addr)) => {
+					let src_addr = tc.parse_address(Some(src), &src_addr)?;
+					let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
+					let mut testers = HashMap::new();
+					testers.insert(src, (src_addr, 0));
+					testers.insert(dest, (dest_addr, 0));
+					testers
+				},
+				_ => tc.setup_test().await?,
 			};
-			let blocks = tc.read_events_blocks(exec).await?;
-			let msgs = tc.messages(dest, dest_addr, blocks).await?;
-			let msg = msgs
-				.into_iter()
-				.find(|msg| msg.message_id() == msg_id)
-				.context("failed to find message")?;
-			tc.print_table(None, "message", vec![msg]).await?;
-			tc.println(None, format!("received message after {} blocks", end - start))
-				.await?;
+			let src_addr = testers.get(&src).context("missing tester")?.0;
+			let dest_addr = testers.get(&dest).context("missing tester")?.0;
+			tc.set_network_config(src, Some(src_addr)).await?;
+			tc.set_network_config(dest, Some(dest_addr)).await?;
+			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
+			let msg_data =
+				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
+			let cctp_payload = CCTPMessage {
+				attestation: vec![],
+				message: msg_data,
+			};
+			let msg = exec_smoke(tc, src, dest, &testers, cctp_payload.encode()).await?;
+			let attested =
+				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+			assert!(!attested.attestation.is_empty())
 		},
 		Command::Benchmark { src, dest, num_messages } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
+			let testers = tc.setup_test().await?;
+			let src_addr = testers.get(&src).context("missing tester")?.0;
+			let dest_addr = testers.get(&dest).context("missing tester")?.0;
 			tc.wait_for_sync(src).await?;
 			tc.wait_for_sync(dest).await?;
 			let mut blocks = tc.finality_notification_stream();
@@ -554,4 +563,45 @@ async fn real_main() -> Result<()> {
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
 	Ok(())
+}
+
+async fn exec_smoke(
+	tc: Tc,
+	src: NetworkId,
+	dest: NetworkId,
+	testers: &HashMap<NetworkId, (Address, u64)>,
+	payload: Vec<u8>,
+) -> Result<GmpMessage> {
+	let src_addr = testers.get(&src).context("missing tester")?.0;
+	let dest_addr = testers.get(&dest).context("missing tester")?.0;
+	let mut blocks = tc.finality_notification_stream();
+	let (_, start) = blocks.next().await.context("expected block")?;
+	let gas_limit = tc
+		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+		.await?;
+	let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+	let msg_id = tc
+		.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+		.await?;
+	let mut id = None;
+	let (exec, end) = loop {
+		let (_, end) = blocks.next().await.context("expected block")?;
+		let trace = tc.message_trace(src, msg_id).await?;
+		let exec = trace.exec.as_ref().map(|t| t.task);
+		tracing::info!("waiting for message {}", hex::encode(msg_id));
+		id = Some(tc.print_table(id, "message", vec![trace]).await?);
+		if let Some(exec) = exec {
+			break (exec, end);
+		}
+	};
+	let blocks = tc.read_events_blocks(exec).await?;
+	let msgs = tc.messages(dest, dest_addr, blocks).await?;
+	let msg = msgs
+		.into_iter()
+		.find(|msg| msg.message_id() == msg_id)
+		.context("failed to find message")?;
+	tc.print_table(None, "message", vec![msg.clone()]).await?;
+	tc.println(None, format!("received message after {} blocks", end - start))
+		.await?;
+	Ok(msg)
 }

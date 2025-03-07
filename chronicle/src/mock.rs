@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sr25519, AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
+	sr25519, AccountId, Address, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
 	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
 	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
 };
@@ -217,6 +217,10 @@ impl Runtime for Mock {
 			.flat_map(|(_, members)| members.iter())
 			.find(|(acc, _)| &acc.clone().into_account() == account)
 			.map(|(_, peer_id)| *peer_id))
+	}
+
+	async fn get_cctp_info(&self, _network: NetworkId) -> Result<Option<(Vec<Address>, String)>> {
+		Ok(None)
 	}
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {

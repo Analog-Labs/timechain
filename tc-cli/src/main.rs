@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use futures::StreamExt;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -452,6 +452,8 @@ async fn real_main() -> Result<()> {
 				},
 				_ => tc.setup_test().await?,
 			};
+			let src_addr = testers.get(&src).context("missing tester")?.0;
+			let dest_addr = testers.get(&dest).context("missing tester")?.0;
 			tc.set_network_config(src, Some(src_addr)).await?;
 			tc.set_network_config(dest, Some(dest_addr)).await?;
 			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
@@ -461,7 +463,7 @@ async fn real_main() -> Result<()> {
 				attestation: vec![],
 				message: msg_data,
 			};
-			let msg = exec_smoke(tc, src, src_addr, dest, dest_addr, cctp_payload.encode()).await?;
+			let msg = exec_smoke(tc, src, dest, &testers, cctp_payload.encode()).await?;
 			let attested =
 				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 			assert!(!attested.attestation.is_empty())
@@ -567,10 +569,9 @@ async fn exec_smoke(
 	tc: Tc,
 	src: NetworkId,
 	dest: NetworkId,
-	testers: HashMap<NetworkId, (Address, u64)>,
+	testers: &HashMap<NetworkId, (Address, u64)>,
 	payload: Vec<u8>,
 ) -> Result<GmpMessage> {
-	let testers = tc.setup_test().await?;
 	let src_addr = testers.get(&src).context("missing tester")?.0;
 	let dest_addr = testers.get(&dest).context("missing tester")?.0;
 	let mut blocks = tc.finality_notification_stream();

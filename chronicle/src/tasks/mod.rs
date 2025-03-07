@@ -104,12 +104,7 @@ impl TaskParams {
 		events: Vec<GmpEvent>,
 		span: &Span,
 	) -> Result<()> {
-		let span = span!(
-			Level::INFO,
-			"submit_events",
-			task_id,
-			?events,
-		);
+		let span = span!(Level::INFO, "submit_events", task_id, ?events,);
 		let payload = time_primitives::encode_gmp_events(task_id, &events);
 		let signature = self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 		let result = TaskResult::ReadGatewayEvents {
@@ -229,10 +224,7 @@ impl TaskExecutor {
 			let exec = self.params.clone();
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
-				match exec
-					.execute(block_number, network, gateway, shard_id, task_id, task)
-					.await
-				{
+				match exec.execute(block_number, network, gateway, shard_id, task_id, task).await {
 					Ok(()) => {
 						tracing::info!(parent: &span, task_id, target_block_height, "task completed");
 					},

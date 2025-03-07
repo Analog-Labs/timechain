@@ -20325,20 +20325,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "timechain"
-version = "0.8.0"
-dependencies = [
- "anyhow",
- "futures",
- "hex",
- "tc-cli",
- "time-primitives",
- "tokio",
- "tracing",
- "tracing-subscriber 0.3.19",
-]
-
-[[package]]
 name = "timechain-generate-bags"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,25 @@
+[package]
+name = "e2e-tests"
+authors.workspace = true
+edition.workspace = true
+version.workspace = true
+homepage.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+anyhow.workspace = true
+futures.workspace = true
+time-primitives = { workspace = true, features = ["testnet", "develop"] }
+tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+hex.workspace = true
+alloy = { version = "0.11", features = ["full"] }
+tc-subxt.workspace = true
+sp-core = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.15.5-anlog0", default-features = false }
+subxt.workspace = true
+subxt-signer.workspace = true
+test-log = { version = "0.2.17", features = ["trace"] }

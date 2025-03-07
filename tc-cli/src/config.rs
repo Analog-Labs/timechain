@@ -136,6 +136,8 @@ pub struct NetworkConfig {
 	pub route_base_fee: u128,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
+	pub cctp_contracts: Option<Vec<String>>,
+	pub cctp_url: Option<String>,
 }
 
 #[cfg(test)]

@@ -44,28 +44,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Setup Cargo
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          target: x86_64-unknown-linux-musl,wasm32-unknown-unknown
-          components: rust-src
-      - name: Install musl deps
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      - name: Build contracts
-        run: forge build --root analog-gmp --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
-      # At the moment mainnet doesn't support GMP, so the only compatible metadata is the testnet one
-      - name: Build tc-cli
-        run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
-      - name: Prepare context
-        run: |
-          mkdir docker
-          cp target/x86_64-unknown-linux-musl/testnet/tc-cli docker/tc-cli
-          cp -rL config/envs docker/envs
+      - name: Setup foundry and build GMP contracts
+        uses: ./.github/actions/build-contracts
       - name: Build and push
         uses: ./.github/actions/buildah-action
         with:

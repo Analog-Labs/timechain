@@ -19,6 +19,7 @@ use time_primitives::{
 	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
 	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
+use time_primitives::{CctpContracts, CctpUrl};
 use tokio::time::sleep;
 
 mod config;
@@ -76,8 +77,6 @@ impl Tc {
 					network: network.network.clone(),
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
-					cctp_sender: None,
-					cctp_attestation: None,
 				};
 				let connector = async move {
 					let connector = network
@@ -595,7 +594,7 @@ impl Tc {
 
 	pub async fn events(&self, network: NetworkId, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let (connector, gateway) = self.gateway(network).await?;
-		connector.read_events(gateway, blocks).await
+		connector.read_events(gateway, blocks, None).await
 	}
 
 	pub async fn messages(
@@ -696,13 +695,20 @@ impl Tc {
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
 		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
-			self.set_network_config(network).await?;
+			self.set_network_config(network, None).await?;
 			gateway
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
+			let cctp_contracts =
+				config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
+			let cctp_url = config
+				.cctp_url
+				.clone()
+				.map(|item| CctpUrl::try_from(item.as_str()))
+				.transpose()?;
 			self.println(None, format!("register_network {network}")).await?;
 			self.runtime
 				.register_network(time_primitives::Network {
@@ -718,6 +724,8 @@ impl Tc {
 						shard_task_limit: config.shard_task_limit,
 						shard_size: config.shard_size,
 						shard_threshold: config.shard_threshold,
+						cctp_contracts,
+						cctp_url,
 					},
 				})
 				.await?;
@@ -726,8 +734,28 @@ impl Tc {
 		Ok(gateway)
 	}
 
-	async fn set_network_config(&self, network: NetworkId) -> Result<()> {
+	pub async fn set_network_config(
+		&self,
+		network: NetworkId,
+		additional_contract: Option<Address>,
+	) -> Result<()> {
 		let config = self.config.network(network)?;
+		let mut cctp_contracts =
+			config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
+		if let Some(new_contract) = additional_contract {
+			if let Some(contracts) = cctp_contracts.as_mut() {
+				contracts.push_unique(new_contract)?;
+			} else {
+				let bounded = BoundedVec::try_from(vec![new_contract])
+					.map_err(|_| anyhow::anyhow!("failed to make bounded vec from new contract"))?;
+				cctp_contracts = Some(CctpContracts(bounded));
+			}
+		}
+		let cctp_url = config
+			.cctp_url
+			.clone()
+			.map(|item| CctpUrl::try_from(item.as_str()))
+			.transpose()?;
 		let config = NetworkConfig {
 			batch_size: config.batch_size,
 			batch_offset: config.batch_offset,
@@ -735,6 +763,8 @@ impl Tc {
 			shard_task_limit: config.shard_task_limit,
 			shard_size: config.shard_size,
 			shard_threshold: config.shard_threshold,
+			cctp_contracts: cctp_contracts.clone(),
+			cctp_url: cctp_url.clone(),
 		};
 
 		let batch_size = self.runtime.network_batch_size(network).await?;
@@ -743,12 +773,17 @@ impl Tc {
 		let shard_task_limit = self.runtime.network_shard_task_limit(network).await?;
 		let shard_size = self.runtime.network_shard_size(network).await?;
 		let shard_threshold = self.runtime.network_shard_threshold(network).await?;
+		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network).await?;
+		let runtime_cctp_url = self.runtime.get_cctp_url(network).await?;
+
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset
 			&& batch_gas_limit == config.batch_gas_limit
 			&& shard_task_limit == config.shard_task_limit
 			&& shard_size == config.shard_size
 			&& shard_threshold == config.shard_threshold
+			&& runtime_cctp_contracts == cctp_contracts
+			&& runtime_cctp_url == cctp_url
 		{
 			return Ok(());
 		}

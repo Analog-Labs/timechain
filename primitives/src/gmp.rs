@@ -1,3 +1,4 @@
+use crate::cctp::FixedSizeEncodable;
 use crate::{NetworkId, TssPublicKey};
 use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
@@ -55,19 +56,13 @@ impl GmpMessage {
 	}
 
 	fn encode_header(&self) -> [u8; 224] {
-		// we dont include gasCost here due to its dynamic nature
 		let mut hdr = [0u8; 224];
-		// Leaving initial 32 bytes with padded 0's
-		hdr[32..64].copy_from_slice(&self.src);
-		// Leaving 30 bytes with padded 0's
-		hdr[94..96].copy_from_slice(&self.src_network.to_be_bytes());
-		hdr[96..128].copy_from_slice(&self.dest);
-		// Leaving 30 bytes with padded 0's
-		hdr[158..160].copy_from_slice(&self.dest_network.to_be_bytes());
-		// Leaving 16 bytes with padded 0's
-		hdr[176..192].copy_from_slice(&self.gas_limit.to_be_bytes());
-		// Leaving 16 bytes with padded 0's
-		hdr[216..224].copy_from_slice(&self.nonce.to_be_bytes());
+		hdr[32..64].copy_from_slice(&self.src.left_pad_32());
+		hdr[64..96].copy_from_slice(&self.src_network.to_be_bytes().left_pad_32());
+		hdr[96..128].copy_from_slice(&self.dest.left_pad_32());
+		hdr[128..160].copy_from_slice(&self.dest_network.to_be_bytes().left_pad_32());
+		hdr[160..192].copy_from_slice(&self.gas_limit.to_be_bytes().left_pad_32());
+		hdr[192..224].copy_from_slice(&self.nonce.to_be_bytes().left_pad_32());
 		hdr
 	}
 
@@ -181,7 +176,7 @@ impl GatewayMessage {
 		// include version in buffer
 		buf[..32].copy_from_slice(&[0u8; 32]);
 		// include batch id padded to uint256
-		buf[56..64].copy_from_slice(&batch_id.to_be_bytes());
+		buf[32..64].copy_from_slice(&batch_id.to_be_bytes().left_pad_32());
 		buf[64..].copy_from_slice(&ops_hash);
 		Keccak256::digest(buf).into()
 	}
@@ -289,8 +284,6 @@ pub struct ConnectorParams {
 	pub network: String,
 	pub url: String,
 	pub mnemonic: String,
-	pub cctp_sender: Option<String>,
-	pub cctp_attestation: Option<String>,
 }
 
 #[cfg(feature = "std")]
@@ -349,7 +342,12 @@ pub trait IChain: Send + Sync + 'static {
 #[async_trait::async_trait]
 pub trait IConnector: IChain {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(&self, gateway: Gateway, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
+	async fn read_events(
+		&self,
+		gateway: Gateway,
+		blocks: Range<u64>,
+		cctp_info: Option<(Vec<Address>, String)>,
+	) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,

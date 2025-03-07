@@ -89,7 +89,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::NetworkShardTaskLimit` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Networks::NetworkBatchGasLimit` (r:0 w:1)
 	/// Proof: `Networks::NetworkBatchGasLimit` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn set_network_config() -> Weight {
+	fn set_network_config(_a: u32, _b: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `277`
 		//  Estimated: `3742`

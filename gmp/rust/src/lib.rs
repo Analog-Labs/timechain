@@ -238,7 +238,12 @@ impl IChain for Connector {
 #[async_trait::async_trait]
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(&self, gateway: Address, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
+	async fn read_events(
+		&self,
+		gateway: Address,
+		blocks: Range<u64>,
+		_cctp_info: Option<(Vec<Address>, String)>,
+	) -> Result<Vec<GmpEvent>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(EVENTS)?;
 		let mut events = vec![];
@@ -606,8 +611,6 @@ mod tests {
 			network: network.to_string(),
 			url: "tempfile".to_string(),
 			mnemonic: mnemonic.to_string(),
-			cctp_sender: None,
-			cctp_attestation: None,
 		})
 		.await
 	}
@@ -639,7 +642,7 @@ mod tests {
 		chain.set_shards(gateway, &[shard.public_key()]).await?;
 		assert_eq!(&chain.shards(gateway).await?, &[shard.public_key()]);
 		let current = chain.block_stream().next().await.unwrap();
-		let events = chain.read_events(gateway, block..current).await?;
+		let events = chain.read_events(gateway, block..current, None).await?;
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
 		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
 		let (dest, _) = chain.deploy_test(gateway, "".as_ref()).await?;
@@ -652,7 +655,7 @@ mod tests {
 		chain.send_message(src, network, dest, gas_limit, gas_cost, payload).await?;
 		let msg = gmp_msg(src, dest);
 		let current2 = chain.block_stream().next().await.unwrap();
-		let events = chain.read_events(gateway, current..current2).await?;
+		let events = chain.read_events(gateway, current..current2, None).await?;
 		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);
 		let cmds = GatewayMessage::new(vec![GatewayOp::SendMessage(msg.clone())]);
 		let sig = shard.sign_gateway_message(network, gateway, 0, &cmds);

@@ -26,6 +26,8 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+      
   3:
     backend: "evm"
     blockchain: "anvil"
@@ -43,6 +45,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
 chronicles: 
   - http://chronicle-2-evm:8080
   - http://chronicle-3-evm:8080

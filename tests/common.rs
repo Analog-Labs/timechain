@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::path::Path;
 use std::process;
 use tc_cli::{Sender, Tc};
@@ -33,8 +34,8 @@ impl TestEnv {
 	}
 
 	/// sets up test
-	pub async fn setup(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
-		self.tc.setup_test(src, dest).await
+	pub async fn setup(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+		self.tc.setup_test().await
 	}
 
 	/// restart container

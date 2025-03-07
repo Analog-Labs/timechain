@@ -175,8 +175,8 @@ enum Command {
 		payload: String,
 	},
 	SmokeTest {
-		src: Option<NetworkId>,
-		dest: Option<NetworkId>,
+		src: NetworkId,
+		dest: NetworkId,
 	},
 	SmokeCctp {
 		src: NetworkId,

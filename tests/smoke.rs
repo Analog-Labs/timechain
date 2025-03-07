@@ -1,11 +1,11 @@
+use crate::common::TestEnv;
+use anyhow::{Context, Result};
 use futures::StreamExt;
 use tc_cli::Tc;
+use time_primitives::{Address, NetworkId};
 use tracing_subscriber::filter::EnvFilter;
 
 mod common;
-
-use common::TestEnv;
-use time_primitives::{Address, NetworkId};
 
 const SRC: NetworkId = 2;
 const DEST: NetworkId = 3;
@@ -49,7 +49,7 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) {
 
 #[tokio::test]
 // Resembles tc-cli smoke test
-async fn smoke() {
+async fn smoke() -> Result<()> {
 	let filter = EnvFilter::from_default_env()
 		.add_directive("tc_cli=info".parse().unwrap())
 		.add_directive("gmp_evm=info".parse().unwrap())
@@ -58,7 +58,9 @@ async fn smoke() {
 
 	let env = TestEnv::spawn(true).await.expect("Failed to spawn Test Environment");
 
-	let (src_addr, dest_addr) = env.setup(SRC, DEST).await.expect("failed to setup test");
+	let testers = env.setup().await.expect("failed to setup test");
+	let src_addr = testers.get(&SRC).context("not found")?.0;
+	let dest_addr = testers.get(&DEST).context("not found")?.0;
 
 	// Run smoke test
 	run_smoke(&env.tc, src_addr, dest_addr).await;
@@ -71,4 +73,6 @@ async fn smoke() {
 
 	// Re-run smoke test: should still work
 	run_smoke(&env.tc, src_addr, dest_addr).await;
+
+	Ok(())
 }

@@ -982,8 +982,18 @@ impl Tc {
 	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network).await?;
-		self.println(None, format!("deploy tester {network}")).await?;
-		connector.deploy_test(gateway, &contracts.tester).await
+		let id = self.println(None, format!("deploy tester {network}")).await?;
+		let tester = connector.deploy_test(gateway, &contracts.tester).await?;
+		self.println(
+			Some(id),
+			format!(
+				"deployed tester {} at {}",
+				self.format_address(Some(network), tester.0)?,
+				tester.1,
+			),
+		)
+		.await?;
+		Ok(tester)
 	}
 
 	pub async fn estimate_message_gas_limit(
@@ -1082,15 +1092,23 @@ impl Tc {
 		connector.withdraw_funds(gateway, amount, address).await
 	}
 
-	pub async fn setup_test(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
-		// networks
-		self.deploy().await?;
-		let (result_src, result_dest) =
-			futures::future::join(self.deploy_tester(src), self.deploy_tester(dest)).await;
-		let (src_addr, src_block) = result_src?;
-		let (dest_addr, dest_block) = result_dest?;
-		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
-		// chronicles
+	async fn deploy_testers(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+		let mut deploy_tester = FuturesUnordered::new();
+		for network in self.connectors.keys().copied() {
+			deploy_tester.push(async move {
+				let tester = self.deploy_tester(network).await?;
+				Ok::<_, anyhow::Error>((network, tester))
+			});
+		}
+		let mut testers = HashMap::new();
+		while let Some(result) = deploy_tester.next().await {
+			let (network, tester) = result?;
+			testers.insert(network, tester);
+		}
+		Ok(testers)
+	}
+
+	async fn wait_for_chronicles(&self) -> Result<()> {
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
 		while blocks.next().await.is_some() {
@@ -1102,34 +1120,55 @@ impl Tc {
 				break;
 			}
 		}
-		// shards
+		Ok(())
+	}
+
+	async fn register_all_shards(&self) -> Result<()> {
+		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
-		while blocks.next().await.is_some() {
-			let src_keys = self.find_online_shard_keys(src).await?;
-			let dest_keys = self.find_online_shard_keys(dest).await?;
-			if !src_keys.is_empty() && !dest_keys.is_empty() {
-				break;
+		for network in self.connectors.keys().copied() {
+			loop {
+				let keys = self.find_online_shard_keys(network).await?;
+				if !keys.is_empty() {
+					break;
+				}
+				tracing::info!("waiting for shards to come online");
+				let shards = self.shards().await?;
+				id = Some(self.print_table(id, "shards", shards).await?);
+				blocks.next().await;
 			}
-			tracing::info!("waiting for shards to come online");
-			let shards = self.shards().await?;
-			id = Some(self.print_table(id, "shards", shards).await?);
 		}
-		// registered shards
-		let (result_src, result_dest) =
-			futures::future::join(self.register_shards(src), self.register_shards(dest)).await;
-		result_src?;
-		result_dest?;
+
+		let mut register_shards = FuturesUnordered::new();
+		for network in self.connectors.keys().copied() {
+			register_shards.push(self.register_shards(network));
+		}
+		while let Some(result) = register_shards.next().await {
+			result?;
+		}
+
+		// TODO: this could deadlock since find_online_shard_keys doesn't error if there
+		// are shards that were created but not online/offline
 		while blocks.next().await.is_some() {
 			let shards = self.shards().await?;
-			let is_registered =
-				shards.iter().any(|shard| shard.registered && shard.network == dest);
+			let is_registered = shards
+				.iter()
+				.all(|shard| shard.registered && shard.status == ShardStatus::Online);
 			tracing::info!("waiting for shard to be registered");
 			id = Some(self.print_table(id, "shards", shards).await?);
 			if is_registered {
 				break;
 			}
 		}
-		Ok((src_addr, dest_addr))
+		Ok(())
+	}
+
+	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+		self.deploy().await?;
+		let testers = self.deploy_testers().await?;
+		self.wait_for_chronicles().await?;
+		self.register_all_shards().await?;
+		Ok(testers)
 	}
 
 	pub async fn wait_for_sync(&self, network: NetworkId) -> Result<()> {

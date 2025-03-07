@@ -173,8 +173,8 @@ enum Command {
 		payload: String,
 	},
 	SmokeTest {
-		src: NetworkId,
-		dest: NetworkId,
+		src: Option<NetworkId>,
+		dest: Option<NetworkId>,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -429,7 +429,7 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let (src_addr, dest_addr) = tc.setup_test(src, dest).await?;
+			let testers = tc.setup_test(src, dest).await?;
 			let mut blocks = tc.finality_notification_stream();
 			let (_, start) = blocks.next().await.context("expected block")?;
 			let payload = vec![42];

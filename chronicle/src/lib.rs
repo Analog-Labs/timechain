@@ -80,7 +80,7 @@ pub fn init_opentelemetry() {
 			.add_directive("tss=debug".parse().unwrap())
 			.add_directive("peernet=debug".parse().unwrap());
 		tracing_subscriber::registry()
-			.with(LevelFilter::INFO.into())
+			.with(LevelFilter::INFO)
 			.with(log_subscriber)
 			.with(filter)
 			.try_init()

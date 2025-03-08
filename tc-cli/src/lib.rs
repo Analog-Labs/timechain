@@ -1178,17 +1178,22 @@ impl Tc {
 		for network in self.connectors.keys().copied() {
 			let shard_size = self.config.network(network)?.shard_size;
 			let chronicles = chronicles_per_network.get(&network).copied().unwrap_or_default();
-			let shards = chronicles / shard_size;
-			shards_per_network.insert(network, shards);
+			let num_shards = chronicles / shard_size;
+			shards_per_network.insert(network, num_shards);
 			loop {
 				let keys = self.find_online_shard_keys(network).await?;
-				if keys.len() == shards as usize {
+				if keys.len() == num_shards as usize {
 					register_shards.push(self.register_shards(network, keys));
 					break;
 				}
 				let shards = self.shards().await?;
 				id = Some(self.print_table(id, "shards", shards).await?);
-				tracing::info!("waiting for shards to come online");
+				tracing::info!(
+					"waiting for {}/{} shards to come online for {}",
+					keys.len(),
+					num_shards,
+					network
+				);
 				blocks.next().await;
 			}
 		}
@@ -1208,7 +1213,12 @@ impl Tc {
 				if num_shards as usize == num_registered {
 					break;
 				}
-				tracing::info!("waiting for shard to be registered");
+				tracing::info!(
+					"waiting for {}/{} shards to be registered for {}",
+					num_registered,
+					num_shards,
+					network
+				);
 				blocks.next().await;
 			}
 		}

@@ -1299,6 +1299,14 @@ impl Tc {
 			let chronicle_funds =
 				self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
 			let balance = self.balance(Some(chronicle.network), chronicle.address).await?;
+			tracing::info!(
+				"initial chronicle balance {}",
+				self.format_balance(Some(chronicle.network), chronicle_funds)?
+			);
+			tracing::info!(
+				"current chronicle balance {}",
+				self.format_balance(Some(chronicle.network), balance)?
+			);
 			anyhow::ensure!(balance >= chronicle_funds, "reimburstment failed");
 		}
 		Ok(())

@@ -43,6 +43,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-0'
     profiles:
     - grpc
 
@@ -72,6 +74,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
       RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-1'
     profiles:
     - grpc
 
@@ -100,6 +104,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-2'
     profiles:
     - evm
 
@@ -128,6 +134,8 @@ services:
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-3'
     profiles:
     - evm
 
@@ -138,3 +146,42 @@ services:
       RUST_LOG: 'gmp_evm=info'
     profiles:
     - never
+
+  grafana:
+    image: "grafana/grafana:10.0.1"
+    volumes:
+      - "./config/grafana/datasources/datasource.yaml:/etc/grafana/provisioning/datasources/datasources.yaml"
+    environment:
+      - "GF_AUTH_ANONYMOUS_ENABLED=true"
+      - "GF_AUTH_ANONYMOUS_ORG_ROLE=Admin"
+      - "GF_AUTH_DISABLE_LOGIN_FORM=true"
+      - "GF_FEATURE_TOGGLES_ENABLE=traceqlEditor"
+    ports:
+      - "127.0.0.1:3000:3000"
+    profiles:
+    - monitoring
+
+  prometheus:
+    image: "prom/prometheus:v2.45.0"
+    command:
+      - "--config.file=/etc/prometheus.yaml"
+      - "--enable-feature=exemplar-storage"
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - "./config/prometheus/prometheus.yaml:/etc/prometheus.yaml"
+    ports:
+      - "127.0.0.1:9090:9090"
+    profiles:
+    - monitoring
+
+  tempo:
+    image: "grafana/tempo:2.1.1"
+    command:
+      - "-config.file=/etc/tempo.yaml"
+    volumes:
+      - "./config/tempo/tempo.yaml:/etc/tempo.yaml"
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    profiles:
+    - monitoring

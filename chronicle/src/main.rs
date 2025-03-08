@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use bip39::Mnemonic;
-use chronicle::{init_logger, ChronicleConfig};
+use chronicle::{init_opentelemetry, ChronicleConfig};
 use clap::Parser;
 use futures::channel::mpsc;
 use futures::FutureExt;
@@ -73,7 +73,8 @@ fn generate_key(path: &Path) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	init_logger();
+	init_opentelemetry();
+
 	time_primitives::init_ss58_version();
 	let args = ChronicleArgs::parse();
 

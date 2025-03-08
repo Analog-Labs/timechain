@@ -7,3 +7,7 @@ scrape_configs:
     file_sd_configs:
     - files:
       - /prometheus-docker-sd/docker-targets.json
+  - job_name: 'tempo'
+    static_configs:
+      - targets:
+          - 'tempo:3200'

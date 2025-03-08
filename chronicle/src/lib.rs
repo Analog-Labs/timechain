@@ -14,6 +14,19 @@ use time_primitives::admin::Config;
 use time_primitives::{ConnectorParams, NetworkId};
 use tracing::{span, Level};
 
+use opentelemetry::{trace::TracerProvider as _, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{
+	trace::{RandomIdGenerator, Sampler, SdkTracerProvider},
+	Resource,
+};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::{
+	filter::{EnvFilter, LevelFilter},
+	layer::SubscriberExt,
+	util::SubscriberInitExt,
+};
+
 pub mod admin;
 #[cfg(test)]
 mod mock;
@@ -22,21 +35,57 @@ mod runtime;
 mod shards;
 mod tasks;
 
-pub fn init_logger() {
-	let filter = tracing_subscriber::EnvFilter::from_default_env()
-		.add_directive("chronicle=debug".parse().unwrap())
-		.add_directive("tss=debug".parse().unwrap())
-		.add_directive("peernet=debug".parse().unwrap());
-	//.add_directive("iroh_net=debug".parse().unwrap());
-	tracing_subscriber::fmt()
+// Sets the attributes for tracing
+fn resource() -> Resource {
+	Resource::builder()
+		.with_schema_url(
+			[KeyValue::new("service.name", "chronicle"), KeyValue::new("service.version", "v1.0")],
+			"https://opentelemetry.io/schemas/1.30.0",
+		)
+		.build()
+}
+
+// Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
+pub fn init_opentelemetry() {
+	let log_subscriber = tracing_subscriber::fmt::layer()
 		.pretty()
 		.with_ansi(false)
-		.with_max_level(tracing::Level::INFO)
 		.with_file(true)
-		.with_line_number(true)
-		.with_env_filter(filter)
-		.try_init()
-		.ok();
+		.with_line_number(true);
+
+	// Skip initializing OTLP if endpoint isn't given
+	if let Ok(endpoint) = std::env::var("TRACING_ENDPOINT") {
+		let exporter = opentelemetry_otlp::SpanExporter::builder()
+			.with_tonic()
+			.with_endpoint(endpoint)
+			.build()
+			.unwrap();
+
+		let tracer_provider = SdkTracerProvider::builder()
+			.with_sampler(Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(1.0))))
+			.with_id_generator(RandomIdGenerator::default())
+			.with_resource(resource())
+			.with_batch_exporter(exporter)
+			.build();
+
+		let tracer = tracer_provider.tracer("tracing-otel-subscriber");
+		tracing_subscriber::registry()
+			.with(LevelFilter::from_level(Level::DEBUG))
+			.with(log_subscriber)
+			.with(OpenTelemetryLayer::new(tracer))
+			.init();
+	} else {
+		let filter = EnvFilter::from_default_env()
+			.add_directive("chronicle=debug".parse().unwrap())
+			.add_directive("tss=debug".parse().unwrap())
+			.add_directive("peernet=debug".parse().unwrap());
+		tracing_subscriber::registry()
+			.with(LevelFilter::INFO)
+			.with(log_subscriber)
+			.with(filter)
+			.try_init()
+			.ok();
+	}
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 }
 
@@ -227,7 +276,7 @@ mod tests {
 	#[tokio::test]
 	async fn chronicle_smoke() -> Result<()> {
 		let (n, t) = (3, 3);
-		init_logger();
+		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network(
@@ -289,7 +338,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn chronicle_restart() -> Result<()> {
-		init_logger();
+		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
 		let network_id = mock.create_network(

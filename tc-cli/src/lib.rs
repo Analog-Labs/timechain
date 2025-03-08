@@ -1076,11 +1076,12 @@ impl Tc {
 			.println(
 				None,
 				format!(
-					"send message to {} {} with {} gas for {}",
+					"send message to {} {} with {} gas for {} {}$",
 					dest_network,
 					self.format_address(Some(dest_network), dest_addr)?,
 					gas_limit,
 					self.format_balance(Some(src_network), gas_cost)?,
+					self.balance_to_usd(src_network, gas_cost)?,
 				),
 			)
 			.await?;
@@ -1090,12 +1091,13 @@ impl Tc {
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} to {} {} with {} gas for {}",
+				"sent message {} to {} {} with {} gas for {} {}$",
 				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest_addr)?,
 				gas_limit,
 				self.format_balance(Some(src_network), gas_cost)?,
+				self.balance_to_usd(src_network, gas_cost)?,
 			),
 		)
 		.await?;

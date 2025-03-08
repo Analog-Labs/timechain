@@ -438,6 +438,8 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
+			tc.assert_reimburstment().await?;
+			tc.assert_message_fees().await?;
 			let _ = exec_smoke(&tc, src, dest, &testers, vec![42]).await?;
 			tc.assert_reimburstment().await?;
 			tc.assert_message_fees().await?;

@@ -80,8 +80,6 @@ pub mod pallet {
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 		///  The weight information for the pallet's extrinsics.
 		type WeightInfo: WeightInfo;
-		/// Ensured origin for calls changing config or electables
-		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// The interface for shard-related operations.
 		type Shards: ShardsInterface;
 		///  The storage interface for member-related data.

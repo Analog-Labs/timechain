@@ -38,6 +38,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features --exclude timechain
+          args: --all-features --exclude e2e-tests
           cache: false
           annotate: false

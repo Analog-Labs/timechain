@@ -47,7 +47,6 @@ impl pallet_members::Config for Runtime {
 
 impl pallet_elections::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = ChronicleAdmin;
 	type WeightInfo = weights::pallet_elections::WeightInfo<Runtime>;
 	type Members = Members;
 	type Shards = Shards;

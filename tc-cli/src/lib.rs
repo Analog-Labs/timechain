@@ -1182,13 +1182,13 @@ impl Tc {
 			shards_per_network.insert(network, shards);
 			loop {
 				let keys = self.find_online_shard_keys(network).await?;
-				if keys.len() != shards as usize {
+				if keys.len() == shards as usize {
 					register_shards.push(self.register_shards(network, keys));
 					break;
 				}
-				tracing::info!("waiting for shards to come online");
 				let shards = self.shards().await?;
 				id = Some(self.print_table(id, "shards", shards).await?);
+				tracing::info!("waiting for shards to come online");
 				blocks.next().await;
 			}
 		}
@@ -1199,17 +1199,17 @@ impl Tc {
 
 		for (network, num_shards) in shards_per_network {
 			loop {
-				blocks.next().await;
 				let shards = self.shards().await?;
 				let num_registered = shards
 					.iter()
 					.filter(|shard| shard.network == network && shard.registered)
 					.count();
-				tracing::info!("waiting for shard to be registered");
 				id = Some(self.print_table(id, "shards", shards).await?);
 				if num_shards as usize == num_registered {
 					break;
 				}
+				tracing::info!("waiting for shard to be registered");
+				blocks.next().await;
 			}
 		}
 		Ok(())

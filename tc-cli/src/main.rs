@@ -367,7 +367,7 @@ async fn real_main() -> Result<()> {
 			tc.unregister_member(member.into()).await?;
 		},
 		Command::RegisterShards { network } => {
-			tc.register_shards(network).await?;
+			tc.register_online_shards(network).await?;
 		},
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;

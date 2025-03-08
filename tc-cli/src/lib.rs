@@ -979,9 +979,13 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_shards(&self, network: NetworkId) -> Result<()> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn register_online_shards(&self, network: NetworkId) -> Result<()> {
 		let keys = self.find_online_shard_keys(network).await?;
+		self.register_shards(network, keys).await
+	}
+
+	pub async fn register_shards(&self, network: NetworkId, keys: Vec<TssPublicKey>) -> Result<()> {
+		let (connector, gateway) = self.gateway(network).await?;
 		let shards = connector.shards(gateway).await?;
 		if same(&keys, &shards) {
 			return Ok(());
@@ -1146,12 +1150,13 @@ impl Tc {
 	async fn wait_for_chronicles(&self) -> Result<()> {
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
-		while blocks.next().await.is_some() {
+		loop {
+			blocks.next().await;
 			let chronicles = self.chronicles().await?;
-			let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
+			let online = chronicles.iter().all(|c| c.status == ChronicleStatus::Online);
 			tracing::info!("waiting for chronicles to be registered");
 			id = Some(self.print_table(id, "chronicles", chronicles).await?);
-			if !not_registered {
+			if online {
 				break;
 			}
 		}
@@ -1159,12 +1164,26 @@ impl Tc {
 	}
 
 	async fn register_all_shards(&self) -> Result<()> {
+		self.wait_for_chronicles().await?;
+		let mut chronicles_per_network = HashMap::<NetworkId, u16>::new();
+		for chronicle in self.config.chronicles() {
+			let config = self.chronicle_config(chronicle).await?;
+			*chronicles_per_network.entry(config.network).or_default() += 1;
+		}
+
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
+		let mut register_shards = FuturesUnordered::new();
+		let mut shards_per_network = HashMap::<NetworkId, u16>::new();
 		for network in self.connectors.keys().copied() {
+			let shard_size = self.config.network(network)?.shard_size;
+			let chronicles = chronicles_per_network.get(&network).copied().unwrap_or_default();
+			let shards = chronicles / shard_size;
+			shards_per_network.insert(network, shards);
 			loop {
 				let keys = self.find_online_shard_keys(network).await?;
-				if !keys.is_empty() {
+				if keys.len() != shards as usize {
+					register_shards.push(self.register_shards(network, keys));
 					break;
 				}
 				tracing::info!("waiting for shards to come online");
@@ -1174,25 +1193,23 @@ impl Tc {
 			}
 		}
 
-		let mut register_shards = FuturesUnordered::new();
-		for network in self.connectors.keys().copied() {
-			register_shards.push(self.register_shards(network));
-		}
 		while let Some(result) = register_shards.next().await {
 			result?;
 		}
 
-		// TODO: this could deadlock since find_online_shard_keys doesn't error if there
-		// are shards that were created but not online/offline
-		while blocks.next().await.is_some() {
-			let shards = self.shards().await?;
-			let is_registered = shards
-				.iter()
-				.all(|shard| shard.registered && shard.status == ShardStatus::Online);
-			tracing::info!("waiting for shard to be registered");
-			id = Some(self.print_table(id, "shards", shards).await?);
-			if is_registered {
-				break;
+		for (network, num_shards) in shards_per_network {
+			loop {
+				blocks.next().await;
+				let shards = self.shards().await?;
+				let num_registered = shards
+					.iter()
+					.filter(|shard| shard.network == network && shard.registered)
+					.count();
+				tracing::info!("waiting for shard to be registered");
+				id = Some(self.print_table(id, "shards", shards).await?);
+				if num_shards as usize == num_registered {
+					break;
+				}
 			}
 		}
 		Ok(())
@@ -1201,7 +1218,6 @@ impl Tc {
 	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
 		self.deploy().await?;
 		let testers = self.deploy_testers().await?;
-		self.wait_for_chronicles().await?;
 		self.register_all_shards().await?;
 		Ok(testers)
 	}

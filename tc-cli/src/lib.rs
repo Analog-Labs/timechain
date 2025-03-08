@@ -1314,7 +1314,11 @@ impl Tc {
 			total_funds += self.balance_to_usd(network, gateway_funds)?;
 			total_balance += self.balance_to_usd(network, balance)?;
 		}
-		anyhow::ensure!(total_balance >= total_funds, "message price is too low");
+		tracing::info!("initial gateway balance {total_funds}$");
+		tracing::info!("current gateway balance {total_balance}$");
+		let profit = total_balance - total_funds;
+		tracing::info!("made {profit}$ of profit");
+		anyhow::ensure!(profit >= 0., "message price is too low");
 		Ok(())
 	}
 }

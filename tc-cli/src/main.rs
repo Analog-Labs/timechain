@@ -438,7 +438,9 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
-			let _ = exec_smoke(tc, src, dest, &testers, vec![42]).await?;
+			let _ = exec_smoke(&tc, src, dest, &testers, vec![42]).await?;
+			tc.assert_reimburstment().await?;
+			tc.assert_message_fees().await?;
 		},
 		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
 			let testers = match (src_addr, dest_addr) {
@@ -463,7 +465,7 @@ async fn real_main() -> Result<()> {
 				attestation: vec![],
 				message: msg_data,
 			};
-			let msg = exec_smoke(tc, src, dest, &testers, cctp_payload.encode()).await?;
+			let msg = exec_smoke(&tc, src, dest, &testers, cctp_payload.encode()).await?;
 			let attested =
 				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 			assert!(!attested.attestation.is_empty())
@@ -566,7 +568,7 @@ async fn real_main() -> Result<()> {
 }
 
 async fn exec_smoke(
-	tc: Tc,
+	tc: &Tc,
 	src: NetworkId,
 	dest: NetworkId,
 	testers: &HashMap<NetworkId, (Address, u64)>,

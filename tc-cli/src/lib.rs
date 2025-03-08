@@ -1278,4 +1278,33 @@ impl Tc {
 		let connector = self.connector(network)?;
 		connector.load_state(state).await
 	}
+
+	pub async fn assert_reimburstment(&self) -> Result<()> {
+		// all chronicles should have the configured balance
+		for chronicle in self.config.chronicles() {
+			let chronicle = self.chronicle_config(chronicle).await?;
+			let config = self.config.network(chronicle.network)?;
+			let chronicle_funds =
+				self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
+			let balance = self.balance(Some(chronicle.network), chronicle.address).await?;
+			anyhow::ensure!(balance >= chronicle_funds, "reimburstment failed");
+		}
+		Ok(())
+	}
+
+	pub async fn assert_message_fees(&self) -> Result<()> {
+		// sum of all gateway funds should match teh configured balances
+		let mut total_funds = 0.;
+		let mut total_balance = 0.;
+		for network in self.connectors.keys().copied() {
+			let (_connector, gateway) = self.gateway(network).await?;
+			let gateway_funds = &self.config.network(network)?.gateway_funds;
+			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
+			let balance = self.balance(Some(network), gateway).await?;
+			total_funds += self.balance_to_usd(network, gateway_funds)?;
+			total_balance += self.balance_to_usd(network, balance)?;
+		}
+		anyhow::ensure!(total_balance >= total_funds, "message price is too low");
+		Ok(())
+	}
 }

@@ -979,9 +979,13 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_shards(&self, network: NetworkId) -> Result<()> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn register_online_shards(&self, network: NetworkId) -> Result<()> {
 		let keys = self.find_online_shard_keys(network).await?;
+		self.register_shards(network, keys).await
+	}
+
+	pub async fn register_shards(&self, network: NetworkId, keys: Vec<TssPublicKey>) -> Result<()> {
+		let (connector, gateway) = self.gateway(network).await?;
 		let shards = connector.shards(gateway).await?;
 		if same(&keys, &shards) {
 			return Ok(());
@@ -1072,11 +1076,12 @@ impl Tc {
 			.println(
 				None,
 				format!(
-					"send message to {} {} with {} gas for {}",
+					"send message to {} {} with {} gas for {} {}$",
 					dest_network,
 					self.format_address(Some(dest_network), dest_addr)?,
 					gas_limit,
 					self.format_balance(Some(src_network), gas_cost)?,
+					self.balance_to_usd(src_network, gas_cost)?,
 				),
 			)
 			.await?;
@@ -1086,12 +1091,13 @@ impl Tc {
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} to {} {} with {} gas for {}",
+				"sent message {} to {} {} with {} gas for {} {}$",
 				hex::encode(msg_id),
 				dest_network,
 				self.format_address(Some(dest_network), dest_addr)?,
 				gas_limit,
 				self.format_balance(Some(src_network), gas_cost)?,
+				self.balance_to_usd(src_network, gas_cost)?,
 			),
 		)
 		.await?;
@@ -1146,12 +1152,13 @@ impl Tc {
 	async fn wait_for_chronicles(&self) -> Result<()> {
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
-		while blocks.next().await.is_some() {
+		loop {
+			blocks.next().await;
 			let chronicles = self.chronicles().await?;
-			let not_registered = chronicles.iter().any(|c| c.status != ChronicleStatus::Online);
+			let online = chronicles.iter().all(|c| c.status == ChronicleStatus::Online);
 			tracing::info!("waiting for chronicles to be registered");
 			id = Some(self.print_table(id, "chronicles", chronicles).await?);
-			if !not_registered {
+			if online {
 				break;
 			}
 		}
@@ -1159,40 +1166,62 @@ impl Tc {
 	}
 
 	async fn register_all_shards(&self) -> Result<()> {
+		self.wait_for_chronicles().await?;
+		let mut chronicles_per_network = HashMap::<NetworkId, u16>::new();
+		for chronicle in self.config.chronicles() {
+			let config = self.chronicle_config(chronicle).await?;
+			*chronicles_per_network.entry(config.network).or_default() += 1;
+		}
+
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
+		let mut register_shards = FuturesUnordered::new();
+		let mut shards_per_network = HashMap::<NetworkId, u16>::new();
 		for network in self.connectors.keys().copied() {
+			let shard_size = self.config.network(network)?.shard_size;
+			let chronicles = chronicles_per_network.get(&network).copied().unwrap_or_default();
+			let num_shards = chronicles / shard_size;
+			shards_per_network.insert(network, num_shards);
 			loop {
 				let keys = self.find_online_shard_keys(network).await?;
-				if !keys.is_empty() {
+				if keys.len() == num_shards as usize {
+					register_shards.push(self.register_shards(network, keys));
 					break;
 				}
-				tracing::info!("waiting for shards to come online");
 				let shards = self.shards().await?;
 				id = Some(self.print_table(id, "shards", shards).await?);
+				tracing::info!(
+					"waiting for {}/{} shards to come online for {}",
+					keys.len(),
+					num_shards,
+					network
+				);
 				blocks.next().await;
 			}
 		}
 
-		let mut register_shards = FuturesUnordered::new();
-		for network in self.connectors.keys().copied() {
-			register_shards.push(self.register_shards(network));
-		}
 		while let Some(result) = register_shards.next().await {
 			result?;
 		}
 
-		// TODO: this could deadlock since find_online_shard_keys doesn't error if there
-		// are shards that were created but not online/offline
-		while blocks.next().await.is_some() {
-			let shards = self.shards().await?;
-			let is_registered = shards
-				.iter()
-				.all(|shard| shard.registered && shard.status == ShardStatus::Online);
-			tracing::info!("waiting for shard to be registered");
-			id = Some(self.print_table(id, "shards", shards).await?);
-			if is_registered {
-				break;
+		for (network, num_shards) in shards_per_network {
+			loop {
+				let shards = self.shards().await?;
+				let num_registered = shards
+					.iter()
+					.filter(|shard| shard.network == network && shard.registered)
+					.count();
+				id = Some(self.print_table(id, "shards", shards).await?);
+				if num_shards as usize == num_registered {
+					break;
+				}
+				tracing::info!(
+					"waiting for {}/{} shards to be registered for {}",
+					num_registered,
+					num_shards,
+					network
+				);
+				blocks.next().await;
 			}
 		}
 		Ok(())
@@ -1201,7 +1230,6 @@ impl Tc {
 	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
 		self.deploy().await?;
 		let testers = self.deploy_testers().await?;
-		self.wait_for_chronicles().await?;
 		self.register_all_shards().await?;
 		Ok(testers)
 	}
@@ -1261,5 +1289,46 @@ impl Tc {
 	pub async fn load_state(&self, network: NetworkId, state: String) -> Result<()> {
 		let connector = self.connector(network)?;
 		connector.load_state(state).await
+	}
+
+	pub async fn assert_reimburstment(&self) -> Result<()> {
+		// all chronicles should have the configured balance
+		for chronicle in self.config.chronicles() {
+			let chronicle = self.chronicle_config(chronicle).await?;
+			let config = self.config.network(chronicle.network)?;
+			let chronicle_funds =
+				self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
+			let balance = self.balance(Some(chronicle.network), chronicle.address).await?;
+			tracing::info!(
+				"initial chronicle balance {}",
+				self.format_balance(Some(chronicle.network), chronicle_funds)?
+			);
+			tracing::info!(
+				"current chronicle balance {}",
+				self.format_balance(Some(chronicle.network), balance)?
+			);
+			anyhow::ensure!(balance >= chronicle_funds, "reimburstment failed");
+		}
+		Ok(())
+	}
+
+	pub async fn assert_message_fees(&self) -> Result<()> {
+		// sum of all gateway funds should match teh configured balances
+		let mut total_funds = 0.;
+		let mut total_balance = 0.;
+		for network in self.connectors.keys().copied() {
+			let (_connector, gateway) = self.gateway(network).await?;
+			let gateway_funds = &self.config.network(network)?.gateway_funds;
+			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
+			let balance = self.balance(Some(network), gateway).await?;
+			total_funds += self.balance_to_usd(network, gateway_funds)?;
+			total_balance += self.balance_to_usd(network, balance)?;
+		}
+		tracing::info!("initial gateway balance {total_funds}$");
+		tracing::info!("current gateway balance {total_balance}$");
+		let profit = total_balance - total_funds;
+		tracing::info!("made {profit}$ of profit");
+		anyhow::ensure!(profit >= 0., "message price is too low");
+		Ok(())
 	}
 }

@@ -186,6 +186,14 @@ impl Tc {
 		read_csv_token_prices(&self.config.prices())
 	}
 
+	pub fn balance_to_usd(&self, network: NetworkId, balance: u128) -> Result<f64> {
+		let prices = self.read_csv_token_prices()?;
+		let decimals = self.currency(Some(network))?.0;
+		let factor = 10.0f64.powi(decimals as i32);
+		let token_price = prices.get(&network).context("no price data")?.1;
+		Ok(balance as f64 / factor * token_price)
+	}
+
 	pub fn calculate_relative_price(
 		&self,
 		src_network: NetworkId,

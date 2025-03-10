@@ -87,7 +87,6 @@ impl pallet_balances::Config for Test {
 impl pallet_elections::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type Members = Members;
 	type Shards = Shards;
 	type Networks = MockNetworks;

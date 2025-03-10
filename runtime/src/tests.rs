@@ -112,27 +112,24 @@ fn shard_not_stuck_in_committed_state() {
 			network(),
 		));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(a.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(b.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(b.clone()).into()));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(c.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(1);
@@ -157,35 +154,31 @@ fn elections_chooses_top_members_by_stake() {
 	let second_shard = [d.clone(), c.clone(), b.clone()].to_vec();
 	new_test_ext().execute_with(|| {
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(a.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(b.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(c.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			90_000 * ANLOG,
 		));
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
 			assert!(first_shard.contains(&m));
 		}
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(d.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(D),
 			get_peer_id(D),
-			90_001 * ANLOG,
 		));
 		Elections::shard_offline(ETHEREUM, vec![a.clone(), b.clone(), c.clone()]);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(1) {
@@ -209,28 +202,25 @@ fn register_unregister_kills_task() {
 			network(),
 		));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(a.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(A),
 			get_peer_id(A),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(b.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(B),
 			get_peer_id(B),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(b.clone()).into()));
 		roll(1);
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(c.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(C),
 			get_peer_id(C),
-			90_000 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(1);
@@ -246,8 +236,8 @@ fn register_unregister_kills_task() {
 		assert_eq!(Tasks::task_shard(1).unwrap(), 0);
 		roll(300);
 		// member unregisters
-		assert_ok!(Members::unregister_member(RawOrigin::Signed(a.clone()).into(), a.clone()));
-		assert_ok!(Members::unregister_member(RawOrigin::Signed(b.clone()).into(), b.clone()));
+		assert_ok!(Members::unregister_member(RawOrigin::Root.into(), a.clone()));
+		assert_ok!(Members::unregister_member(RawOrigin::Root.into(), b.clone()));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(300);
 		assert!(!Members::is_member_online(&a));
@@ -263,20 +253,18 @@ fn register_unregister_kills_task() {
 		assert!(Tasks::tasks(1).is_some());
 		// new member
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(d.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(D),
 			get_peer_id(D),
-			90_001 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(d.clone()).into()));
 		// new member
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(e.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			pubkey_from_bytes(E),
 			get_peer_id(E),
-			90_002 * ANLOG,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(e.clone()).into()));
 		roll(1);

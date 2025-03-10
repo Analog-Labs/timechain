@@ -227,10 +227,6 @@ impl Runtime for Mock {
 		Ok(1000)
 	}
 
-	async fn get_min_stake(&self) -> Result<Balance> {
-		Ok(0)
-	}
-
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {
 		let shards = self.shards.lock().unwrap();
 		let shards = shards

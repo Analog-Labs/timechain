@@ -28,8 +28,6 @@ pub trait Runtime: Send + Sync + 'static {
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
 
-	async fn get_min_stake(&self) -> Result<Balance>;
-
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>>;
 
 	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>>;
@@ -102,10 +100,6 @@ impl Runtime for SubxtClient {
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
 		self.heartbeat_timeout().await
-	}
-
-	async fn get_min_stake(&self) -> Result<Balance> {
-		self.min_stake().await
 	}
 
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {

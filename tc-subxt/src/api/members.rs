@@ -61,11 +61,6 @@ impl SubxtClient {
 		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
 	}
 
-	pub async fn min_stake(&self) -> Result<Balance> {
-		let runtime_call = metadata::apis().members_api().get_min_stake();
-		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
-	}
-
 	pub async fn register_member(
 		&self,
 		network: NetworkId,

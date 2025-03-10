@@ -123,7 +123,6 @@ sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
 		fn get_heartbeat_timeout() -> BlockNumber;
-		fn get_min_stake() -> Balance;
 	}
 
 	pub trait NetworksApi {

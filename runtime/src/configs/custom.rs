@@ -41,7 +41,6 @@ impl pallet_members::Config for Runtime {
 	type Elections = Elections;
 	type Shards = Shards;
 	type AdminOrigin = ChronicleAdmin;
-	type MinStake = ConstU128<1>;
 	type HeartbeatTimeout = ConstU32<300>;
 	type MaxTimeoutsPerBlock = ConstU32<25>;
 }

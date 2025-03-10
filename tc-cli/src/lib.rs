@@ -1291,7 +1291,7 @@ impl Tc {
 		connector.load_state(state).await
 	}
 
-	pub async fn assert_reimburstment(&self) -> Result<()> {
+	pub async fn assert_reimbursement(&self) -> Result<()> {
 		// all chronicles should have the configured balance
 		for chronicle in self.config.chronicles() {
 			let chronicle = self.chronicle_config(chronicle).await?;
@@ -1307,13 +1307,13 @@ impl Tc {
 				"current chronicle balance {}",
 				self.format_balance(Some(chronicle.network), balance)?
 			);
-			anyhow::ensure!(balance >= chronicle_funds, "reimburstment failed");
+			anyhow::ensure!(balance >= chronicle_funds, "reimbursement failed");
 		}
 		Ok(())
 	}
 
 	pub async fn assert_message_fees(&self) -> Result<()> {
-		// sum of all gateway funds should match teh configured balances
+		// sum of all gateway funds should match the configured balances
 		let mut total_funds = 0.;
 		let mut total_balance = 0.;
 		for network in self.connectors.keys().copied() {

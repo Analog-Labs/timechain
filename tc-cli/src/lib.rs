@@ -109,7 +109,7 @@ impl Tc {
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	pub async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -792,7 +792,7 @@ impl Tc {
 		Ok(())
 	}
 
-	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
+	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;

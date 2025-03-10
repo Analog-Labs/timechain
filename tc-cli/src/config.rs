@@ -138,6 +138,7 @@ pub struct NetworkConfig {
 	pub shard_threshold: u16,
 	pub cctp_contracts: Option<Vec<String>>,
 	pub cctp_url: Option<String>,
+	pub coin_id: u32,
 }
 
 #[cfg(test)]

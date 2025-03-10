@@ -26,6 +26,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
+    coin_id: 825
 
   1:
     backend: "grpc"
@@ -44,6 +45,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
+    coin_id: 825
 
   2:
     backend: "grpc"
@@ -62,6 +64,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 3
     shard_threshold: 2
+    coin_id: 825
 
   3:
     backend: "grpc"
@@ -80,6 +83,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 3
     shard_threshold: 2
+    coin_id: 825
 
   4:
     backend: "evm"
@@ -98,6 +102,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 1027
 
   5:
     backend: "evm"
@@ -116,6 +121,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 12885
 
   6:
     backend: "evm"
@@ -134,6 +140,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 1027
 
 chronicles:
 - https://chronicle-1.development.analog.one

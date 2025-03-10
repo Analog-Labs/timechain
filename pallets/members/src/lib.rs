@@ -356,10 +356,10 @@ pub mod pallet {
 		}
 
 		fn do_unregister_member(account: &AccountId) {
-			if !T::Shards::is_shard_member(&account) {
-				MemberNetwork::<T>::remove(&account);
-				MemberPeerId::<T>::remove(&account);
-				MemberPublicKey::<T>::remove(&account);
+			if !T::Shards::is_shard_member(account) {
+				MemberNetwork::<T>::remove(account);
+				MemberPeerId::<T>::remove(account);
+				MemberPublicKey::<T>::remove(account);
 			}
 		}
 	}

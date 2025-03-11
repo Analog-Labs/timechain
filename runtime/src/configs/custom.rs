@@ -1,9 +1,6 @@
 use polkadot_sdk::*;
 
-use frame_support::{
-	parameter_types,
-	traits::{ConstU128, ConstU32},
-};
+use frame_support::{parameter_types, traits::ConstU32};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>

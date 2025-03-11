@@ -45,6 +45,7 @@ pub struct BenchmarkStats {
 	pub msg_cost: f64,
 	pub num_sent: u64,
 	pub num_received: u64,
+	pub num_total: u64,
 	pub latency: f64,
 	pub throughput: f64,
 }
@@ -215,6 +216,7 @@ impl Benchmark {
 				msg_cost: route.msg_cost,
 				num_sent: route.num_sent,
 				num_received: route.num_received,
+				num_total: self.msgs_per_block as u64 * self.num_blocks as u64,
 				latency: route.sum_latency as f64 / route.num_received as f64,
 				throughput: route.num_received as f64 / self.blocks as f64,
 			});

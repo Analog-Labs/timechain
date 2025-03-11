@@ -391,7 +391,7 @@ impl IntoRow for BenchmarkStats {
 			src: self.src,
 			dest: self.dest,
 			cost: format!("{:.3}$", self.msg_cost),
-			messages: format!("{}/{}", self.num_received, self.num_sent),
+			messages: format!("{}/{}/{}", self.num_received, self.num_sent, self.num_total),
 			latency: format!("{:.3} blocks", self.latency),
 			throughput: format!("{:.3} msgs/block", self.throughput),
 		})

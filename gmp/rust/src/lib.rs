@@ -21,8 +21,8 @@ use time_primitives::{
 	TssPublicKey, TssSignature,
 };
 
-const BLOCK_TIME: u64 = 1;
-const FINALIZATION_TIME: u64 = 2;
+const BLOCK_TIME: u64 = 6;
+const FINALIZATION_TIME: u64 = 1;
 
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");

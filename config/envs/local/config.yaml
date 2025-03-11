@@ -30,6 +30,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 825
   1:
     backend: "grpc"
     blockchain: "rust"
@@ -47,6 +48,7 @@ networks:
     route_base_fee: 1715000000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 825
   2:
     backend: "evm"
     blockchain: "anvil"
@@ -64,6 +66,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 1027
   3:
     backend: "evm"
     blockchain: "anvil"
@@ -81,6 +84,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
+    coin_id: 1027
 chronicles:
   - http://chronicle-0-grpc:8080
   - http://chronicle-1-grpc:8080

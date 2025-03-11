@@ -132,6 +132,7 @@ enum Command {
 	RegisterShards {
 		network: NetworkId,
 	},
+	RegisterRoutes,
 	RetryFailedBatch {
 		batch_id: BatchId,
 	},
@@ -369,6 +370,7 @@ async fn real_main() -> Result<()> {
 		Command::RegisterShards { network } => {
 			tc.register_online_shards(network).await?;
 		},
+		Command::RegisterRoutes => tc.register_all_routes().await?,
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
 			tc.set_gateway_admin(network, admin).await?;

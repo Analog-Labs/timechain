@@ -4,6 +4,7 @@ use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
+use futures::TryStreamExt;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -109,7 +110,7 @@ impl Tc {
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	pub async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -792,7 +793,7 @@ impl Tc {
 		Ok(())
 	}
 
-	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
+	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
@@ -828,6 +829,20 @@ impl Tc {
 			result?;
 		}
 		Ok(())
+	}
+
+	pub async fn register_all_routes(&self) -> Result<()> {
+		let gateways = FuturesUnordered::new();
+		for network in self.connectors.keys().copied() {
+			let fut = self.gateway(network);
+			gateways.push(async move {
+				let (_, gateway) = fut.await?;
+				Ok::<_, anyhow::Error>((network, gateway))
+			});
+		}
+
+		let routes: HashMap<NetworkId, Gateway> = gateways.try_collect().await?;
+		self.register_routes(routes).await
 	}
 
 	async fn chronicle_config(&self, chronicle_address: &str) -> Result<ChronicleConfig> {

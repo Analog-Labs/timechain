@@ -372,3 +372,28 @@ impl IntoRow for Log {
 		})
 	}
 }
+
+#[derive(Serialize)]
+pub struct BenchmarkEntry {
+	src: NetworkId,
+	dest: NetworkId,
+	cost: String,
+	messages: String,
+	latency: String,
+	throughput: String,
+}
+
+impl IntoRow for BenchmarkStats {
+	type Row = BenchmarkEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(BenchmarkEntry {
+			src: self.src,
+			dest: self.dest,
+			cost: format!("{:.3}$", self.msg_cost),
+			messages: format!("{}/{}", self.num_received, self.num_sent),
+			latency: format!("{:.3} blocks", self.latency),
+			throughput: format!("{:.3} msgs/block", self.throughput),
+		})
+	}
+}

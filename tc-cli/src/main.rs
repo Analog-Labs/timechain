@@ -466,11 +466,13 @@ async fn real_main() -> Result<()> {
 			let cctp_payload = CCTPMessage {
 				attestation: vec![],
 				message: msg_data,
+				extra_data: [0u8; 32].to_vec(),
 			};
 			let msg = exec_smoke(&tc, src, dest, &testers, cctp_payload.encode()).await?;
 			let attested =
 				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-			assert!(!attested.attestation.is_empty())
+			assert!(!attested.attestation.is_empty());
+			assert!(attested.extra_data == cctp_payload.extra_data);
 		},
 		Command::Benchmark { src, dest, num_messages } => {
 			let testers = tc.setup_test().await?;

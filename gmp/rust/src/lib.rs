@@ -21,9 +21,6 @@ use time_primitives::{
 	TssPublicKey, TssSignature,
 };
 
-const BLOCK_TIME: u64 = 1;
-const FINALIZATION_TIME: u64 = 2;
-
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
 const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
 const ADMIN: TableDefinition<Address, Address> = TableDefinition::new("admin");
@@ -43,6 +40,7 @@ pub struct Connector {
 	address: Address,
 	db: Arc<Database>,
 	genesis: SystemTime,
+	block_time: u64,
 	_tmpfile: Option<Arc<NamedTempFile>>,
 }
 
@@ -55,6 +53,11 @@ impl Connector {
 		let mut clone = Clone::clone(self);
 		clone.address = address;
 		clone
+	}
+
+	fn block(&self) -> u64 {
+		let elapsed = SystemTime::now().duration_since(self.genesis).unwrap();
+		elapsed.as_secs() / self.block_time
 	}
 
 	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address) -> Result<()> {
@@ -99,13 +102,13 @@ pub fn parse_address(address: &str) -> Result<Address> {
 	Ok(addr)
 }
 
-pub fn currency() -> (u32, &'static str) {
-	(3, "TT")
+fn block(genesis: SystemTime, block_time: u64) -> u64 {
+	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
+	elapsed.as_secs() / block_time
 }
 
-fn block(genesis: SystemTime) -> u64 {
-	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
-	elapsed.as_secs() / BLOCK_TIME
+pub fn currency() -> (u32, &'static str) {
+	(3, "TT")
 }
 
 fn read_balance<T: ReadableTable<Address, u128>>(table: &T, addr: Address) -> Result<u128> {
@@ -161,6 +164,7 @@ impl IConnectorBuilder for Connector {
 			address,
 			db: Arc::new(db),
 			genesis,
+			block_time: 6,
 			_tmpfile: tmpfile,
 		})
 	}
@@ -220,16 +224,17 @@ impl IChain for Connector {
 	}
 
 	async fn finalized_block(&self) -> Result<u64> {
-		Ok(block(self.genesis))
+		Ok(self.block())
 	}
 
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		let genesis = self.genesis;
+		let block_time = self.block_time;
 		futures::stream::repeat(0)
 			.then(move |_| async move {
-				tokio::time::sleep(Duration::from_secs(FINALIZATION_TIME)).await;
-				block(genesis)
+				tokio::time::sleep(Duration::from_secs(block_time)).await;
+				block(genesis, block_time)
 			})
 			.boxed()
 	}
@@ -275,7 +280,7 @@ impl IConnector for Connector {
 			{
 				let mut events = tx.open_multimap_table(EVENTS)?;
 				let mut shards = tx.open_multimap_table(SHARDS)?;
-				let block = block(self.genesis);
+				let block = self.block();
 				for op in &msg.ops {
 					match op {
 						GatewayOp::RegisterShard(key) => {
@@ -320,7 +325,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<(Address, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::getrandom(&mut gateway).unwrap();
-		let block = block(self.genesis);
+		let block = self.block();
 		let tx = self.db.begin_write()?;
 		{
 			let mut t = tx.open_table(ADMIN)?;
@@ -373,7 +378,7 @@ impl IConnectorAdmin for Connector {
 			self.ensure_admin(&tx, gateway)?;
 			let mut events = tx.open_multimap_table(EVENTS)?;
 			let mut shards = tx.open_multimap_table(SHARDS)?;
-			let block = block(self.genesis);
+			let block = self.block();
 			let values = shards.remove_all(gateway)?;
 			let keys: BTreeSet<_> = keys.iter().copied().collect();
 			let mut old_keys = BTreeSet::new();
@@ -440,7 +445,7 @@ impl IConnectorAdmin for Connector {
 	async fn deploy_test(&self, gateway: Address, _path: &[u8]) -> Result<(Address, u64)> {
 		let mut tester = [0; 32];
 		getrandom::getrandom(&mut tester).unwrap();
-		let block = block(self.genesis);
+		let block = self.block();
 		let tx = self.db.begin_write()?;
 		{
 			let mut t = tx.open_table(GATEWAY)?;
@@ -506,7 +511,7 @@ impl IConnectorAdmin for Connector {
 
 			// insert gateway event
 			let mut t = tx.open_multimap_table(EVENTS)?;
-			let block = block(self.genesis);
+			let block = self.block();
 			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
 			id
 		};
@@ -631,7 +636,8 @@ mod tests {
 	#[tokio::test]
 	async fn smoke_test() -> Result<()> {
 		let network = 0;
-		let chain = connector(network, 0).await?;
+		let mut chain = connector(network, 0).await?;
+		chain.block_time = 1;
 		let shard = MockTssSigner::new(0);
 		assert_eq!(chain.balance(chain.address()).await?, 0);
 		chain.faucet(100_000).await?;

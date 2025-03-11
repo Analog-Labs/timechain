@@ -23,6 +23,7 @@ use time_primitives::{
 use time_primitives::{CctpContracts, CctpUrl};
 use tokio::time::sleep;
 
+mod benchmark;
 mod config;
 mod env;
 mod gas_price;
@@ -30,6 +31,7 @@ mod loki;
 mod slack;
 mod table;
 
+pub use crate::benchmark::{Benchmark, BenchmarkStats};
 pub use crate::loki::{Log, Query};
 pub use crate::slack::{Sender, TableRef, TextRef};
 
@@ -655,6 +657,10 @@ impl Tc {
 			batch: self.runtime.message_batch(message).await?,
 			exec: self.runtime.message_executed_task(message).await?,
 		})
+	}
+
+	pub async fn is_message_executed(&self, message: MessageId) -> Result<bool> {
+		Ok(self.runtime.message_executed_task(message).await?.is_some())
 	}
 
 	pub async fn message_trace(
@@ -1345,5 +1351,53 @@ impl Tc {
 		tracing::info!("made {profit}$ of profit");
 		anyhow::ensure!(profit >= 0., "message price is too low");
 		Ok(())
+	}
+
+	pub async fn exec_smoke(
+		&self,
+		src: NetworkId,
+		dest: NetworkId,
+		testers: &HashMap<NetworkId, (Address, u64)>,
+		payload: Vec<u8>,
+	) -> Result<GmpMessage> {
+		// prepare
+		let src_addr = testers.get(&src).context("missing tester")?.0;
+		let dest_addr = testers.get(&dest).context("missing tester")?.0;
+		let gas_limit = self
+			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+			.await?;
+		let gas_cost = self.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+
+		// send message
+		let mut blocks = self.finality_notification_stream();
+		let (_, start) = blocks.next().await.context("expected block")?;
+		let msg_id = self
+			.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+			.await?;
+
+		// track message
+		let mut id = None;
+		let (exec, end) = loop {
+			let (_, end) = blocks.next().await.context("expected block")?;
+			let trace = self.message_trace(src, msg_id).await?;
+			let exec = trace.exec.as_ref().map(|t| t.task);
+			tracing::info!("waiting for message {}", hex::encode(msg_id));
+			id = Some(self.print_table(id, "message", vec![trace]).await?);
+			if let Some(exec) = exec {
+				break (exec, end);
+			}
+		};
+
+		// read message
+		let blocks = self.read_events_blocks(exec).await?;
+		let msgs = self.messages(dest, dest_addr, blocks).await?;
+		let msg = msgs
+			.into_iter()
+			.find(|msg| msg.message_id() == msg_id)
+			.context("failed to find message")?;
+		self.print_table(None, "message", vec![msg.clone()]).await?;
+		self.println(None, format!("received message after {} blocks", end - start))
+			.await?;
+		Ok(msg)
 	}
 }

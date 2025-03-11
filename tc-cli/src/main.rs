@@ -1,12 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use tc_cli::{Query, Sender, Tc};
 use time_primitives::{
 	Address, BatchId, CCTPMessage, GmpMessage, Hash, NetworkId, ShardId, TaskId,
@@ -134,9 +132,7 @@ enum Command {
 	RegisterShards {
 		network: NetworkId,
 	},
-	RegisterRoutes {
-		network: Option<NetworkId>,
-	},
+	RegisterRoutes,
 	RetryFailedBatch {
 		batch_id: BatchId,
 	},
@@ -374,31 +370,7 @@ async fn real_main() -> Result<()> {
 		Command::RegisterShards { network } => {
 			tc.register_online_shards(network).await?;
 		},
-		Command::RegisterRoutes { network } => {
-			let networks = if let Some(network) = network {
-				vec![network]
-			} else {
-				tc.networks().await?.into_iter().map(|n| n.network).collect()
-			};
-			let tc_arc = Arc::new(tc);
-			let mut futures = networks
-				.into_iter()
-				.map(|net| {
-					let tc_clone = Arc::clone(&tc_arc);
-					async move {
-						let (_, gateway) = tc_clone.gateway(net).await?;
-						Ok::<_, anyhow::Error>((net, gateway))
-					}
-				})
-				.collect::<FuturesUnordered<_>>();
-
-			let mut map = HashMap::new();
-			while let Some(result) = futures.next().await {
-				let (net, gateway) = result?;
-				map.insert(net, gateway);
-			}
-			tc_arc.register_routes(map).await?;
-		},
+		Command::RegisterRoutes => tc.register_all_routes().await?,
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
 			tc.set_gateway_admin(network, admin).await?;

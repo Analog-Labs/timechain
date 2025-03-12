@@ -253,7 +253,11 @@ pub mod pallet {
 		///   6. If all members have committed, update the state of the shards to `Committed` and store the group commitment.
 		///   7. Emit the [`Event::ShardCommitted`] event.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::commit())]
+		#[pallet::weight((
+			<T as Config>::WeightInfo::commit(),
+			DispatchClass::Normal,
+			Pays::No
+		))]
 		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
@@ -273,7 +277,11 @@ pub mod pallet {
 		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
 		///   5. Notify the task scheduler that the shard is online.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::ready())]
+		#[pallet::weight((
+			<T as Config>::WeightInfo::ready(),
+			DispatchClass::Normal,
+			Pays::No
+		))]
 		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			Self::execute_ready(member, shard_id)

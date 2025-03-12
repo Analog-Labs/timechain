@@ -22,7 +22,6 @@ networks:
     batch_gas_limit: 10000
     shard_task_limit: 50
     route_gas_limit: 10000
-    route_base_fee: 10000
     gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
@@ -41,7 +40,6 @@ networks:
     batch_gas_limit: 10000
     shard_task_limit: 50
     route_gas_limit: 10000
-    route_base_fee: 10000
     gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
@@ -60,7 +58,6 @@ networks:
     batch_gas_limit: 10000
     shard_task_limit: 50
     route_gas_limit: 10000
-    route_base_fee: 10000
     gmp_margin: 0.1
     shard_size: 3
     shard_threshold: 2
@@ -79,7 +76,6 @@ networks:
     batch_gas_limit: 10000
     shard_task_limit: 50
     route_gas_limit: 10000
-    route_base_fee: 10000
     gmp_margin: 0.1
     shard_size: 3
     shard_threshold: 2
@@ -99,7 +95,6 @@ networks:
     gmp_margin: 0.0
     shard_task_limit: 100
     route_gas_limit: 10000000
-    route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
@@ -118,7 +113,6 @@ networks:
     gmp_margin: 0.0
     shard_task_limit: 50
     route_gas_limit: 10000000
-    route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
     coin_id: 12885
@@ -137,7 +131,6 @@ networks:
     gmp_margin: 0.0
     shard_task_limit: 100
     route_gas_limit: 10000000
-    route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027

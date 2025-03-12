@@ -96,7 +96,6 @@ struct ConfigYaml {
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	prices_path: PathBuf,
-	pub chronicle_funds: String,
 	pub timechain_url: String,
 }
 

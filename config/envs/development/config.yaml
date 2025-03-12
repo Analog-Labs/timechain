@@ -1,5 +1,4 @@
 config:
-  chronicle_funds: 1.
   timechain_url: 'wss://rpc.development.analog.one'
   prices_path: 'prices.csv'
 contracts:

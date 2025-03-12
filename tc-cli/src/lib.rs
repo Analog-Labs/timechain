@@ -944,21 +944,16 @@ impl Tc {
 
 	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
-		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
-		let fund_tc =
-			self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account");
 		let config = self.config.network(chronicle.network)?;
 		let chronicle_funds =
 			self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
-		let fund_target = self.fund(
+		self.fund(
 			Some(chronicle.network),
 			chronicle.address,
 			chronicle_funds,
 			"chronicle target account",
-		);
-		let (result_tc, result_target) = futures::future::join(fund_tc, fund_target).await;
-		result_tc?;
-		result_target?;
+		)
+		.await?;
 		self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
 			.await?;
 		Ok(())

@@ -1,5 +1,4 @@
 config:
-  chronicle_funds: 10.
   timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
 contracts:

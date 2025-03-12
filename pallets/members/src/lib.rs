@@ -193,6 +193,23 @@ pub mod pallet {
 			Self::execute_register_member(network, public_key, peer_id)
 		}
 
+		///  - `unregister_member`: Unregisters a member from the network.
+		/// # Flow
+		///	1. Receives `origin` (caller's account).
+		///	2. Ensures the `origin` is signed (authenticated) and retrieves the `member` account.
+		///	3. Retrieves the current `network` of the member ([`MemberNetwork::<T>::take(&member)`]).
+		///	4. Calls `Self::unregister_member_from_network` to perform the actual unregistration tasks:
+		///	5. Removes data from storage ([`MemberPublicKey::<T>`], [`MemberPeerId::<T>`], [`Heartbeat::<T>`], [`MemberOnline::<T>`]).
+		///	6. Emits [`Event::UnRegisteredMember`].
+		///	7. Calls `Self::member_offline` to mark the member as offline and calculate weight adjustments.
+		///	8. Returns `Ok(())` if successful.
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
+		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::execute_unregister_member(member)
+		}
+
 		/// `send_heartbeat`: Updates the last heartbeat time for a member.
 		/// # Flow
 		///	1. Receives `origin` (caller's account).
@@ -208,30 +225,6 @@ pub mod pallet {
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			Self::execute_send_heartbeat(member)
-		}
-
-		#[pallet::call_index(3)]
-		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
-		pub fn sudo_send_heartbeat(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::execute_send_heartbeat(member)
-		}
-
-		///  - `unregister_member`: Unregisters a member from the network.
-		/// # Flow
-		///	1. Receives `origin` (caller's account).
-		///	2. Ensures the `origin` is signed (authenticated) and retrieves the `member` account.
-		///	3. Retrieves the current `network` of the member ([`MemberNetwork::<T>::take(&member)`]).
-		///	4. Calls `Self::unregister_member_from_network` to perform the actual unregistration tasks:
-		///	5. Removes data from storage ([`MemberPublicKey::<T>`], [`MemberPeerId::<T>`], [`Heartbeat::<T>`], [`MemberOnline::<T>`]).
-		///	6. Emits [`Event::UnRegisteredMember`].
-		///	7. Calls `Self::member_offline` to mark the member as offline and calculate weight adjustments.
-		///	8. Returns `Ok(())` if successful.
-		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
-		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			Self::execute_unregister_member(member)
 		}
 	}
 

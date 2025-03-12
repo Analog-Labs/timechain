@@ -800,9 +800,10 @@ impl Tc {
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
-				let src_price = gas_price::get_network_price(&network_prices, &src)?;
+				let src_price = get_network_price(&network_prices, &src)?;
 				let dest_price = get_network_price(&network_prices, &dest)?;
-				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
+				let dest_gas_fee = self.transaction_base_fee(dest).await?;
+				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price, dest_gas_fee)?;
 				let numerator = convert_bigint_to_u128(ratio.numer())?;
 				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {

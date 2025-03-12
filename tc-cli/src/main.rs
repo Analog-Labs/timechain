@@ -584,6 +584,7 @@ async fn exec_smoke(
 		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 		.await?;
 	let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+	tracing::info!("Estimated message cost: {gas_cost}");
 	let msg_id = tc
 		.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
 		.await?;

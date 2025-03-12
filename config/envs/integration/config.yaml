@@ -25,6 +25,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 6
     shard_threshold: 4
+    coin_id: 1027
   11:
     backend: "evm"
     blockchain: "astar"
@@ -41,6 +42,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 6
     shard_threshold: 4
+    coin_id: 12885
   12:
     backend: "evm"
     blockchain: "binance"
@@ -57,6 +59,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 6
     shard_threshold: 4
+    coin_id: 1839
   13:
     backend: "evm"
     blockchain: "arbitrum"
@@ -73,6 +76,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 6
     shard_threshold: 4
+    coin_id: 11841
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-2.integration.analog.one

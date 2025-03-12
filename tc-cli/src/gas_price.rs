@@ -1,3 +1,4 @@
+use crate::config::NetworkConfig;
 use crate::env::CoinMarketCap;
 use crate::Tc;
 use anyhow::{Context, Result};
@@ -16,7 +17,7 @@ use time_primitives::NetworkId;
 
 #[derive(Clone, Deserialize)]
 pub struct TokenPriceData {
-	pub data: Vec<CryptoData>,
+	pub data: CryptoData,
 }
 
 #[derive(Clone, Deserialize)]
@@ -156,9 +157,9 @@ impl Tc {
 			.with_context(|| format!("failed to create {}", price_path.display()))?;
 		let mut wtr = Writer::from_writer(file);
 		wtr.write_record(["network_id", "symbol", "usd_price"])?;
-		for network_id in self.config.networks().keys() {
+		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
 			let symbol = self.currency(Some(*network_id))?.1;
-			let token_url = format!("{}{}", env.token_price_url, symbol);
+			let token_url = format!("{}{}", env.token_price_url, coin_id);
 			let client = reqwest::Client::new();
 			let request = client.get(token_url).headers(header_map.clone()).build()?;
 			log::info!("GET {}", request.url());
@@ -167,7 +168,7 @@ impl Tc {
 				anyhow::bail!("{}", response.status());
 			}
 			let response = response.json::<TokenPriceData>().await?;
-			let data = response.data[0].clone();
+			let data = response.data.clone();
 			let usd_price = data
 				.quote
 				.usd

@@ -201,8 +201,14 @@ where
 			// members
 			Tx::RegisterMember { network, public_key, peer_id } => {
 				let public_key = subxt::utils::Static(public_key);
-				let payload =
-					metadata::tx().members().register_member(network, public_key, peer_id);
+				let runtime_call = RuntimeCall::Members(
+					metadata::runtime_types::pallet_members::pallet::Call::register_member {
+						network,
+						public_key,
+						peer_id,
+					},
+				);
+				let payload = metadata::sudo(runtime_call);
 				self.client.sign_payload(&payload, params)
 			},
 			Tx::UnregisterMember { member } => {

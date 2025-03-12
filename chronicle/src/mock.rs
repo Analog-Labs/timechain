@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sr25519, AccountId, Address, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
+	sr25519, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
 	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
 	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
 };

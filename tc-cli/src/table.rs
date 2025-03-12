@@ -119,8 +119,6 @@ impl IntoRow for Shard {
 pub struct MemberEntry {
 	account: String,
 	status: String,
-	staker: String,
-	stake: String,
 }
 
 impl IntoRow for Member {

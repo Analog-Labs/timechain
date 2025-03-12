@@ -23,10 +23,9 @@ networks:
     gmp_margin: 0.0
     shard_task_limit: 50
     route_gas_limit: 10000
-    # This is the base fee of evm chains. Connector have a method to fetch base fee:
-    # https://github.com/Analog-Labs/chain-connectors/blob/master/chains/ethereum/server/src/utils.rs#L296
-    # In short it queries the fee history for some past blocks 10/15 and takes median of it.
-    # TODO remove from here and fetch from connector when evm backend is functional
+    # GMP fee for a message delivery from this nework to any other.
+    # NOTE currently set to be the same for any destination network,
+    # but in general could be different for every route.
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1

@@ -620,13 +620,13 @@ impl Tc {
 		})
 	}
 
-	pub async fn transaction_base_fee(&self, network: NetworkId) -> Result<u128> {
+	pub async fn max_fee_per_gas(&self, network: NetworkId) -> Result<u128> {
 		let connector = self
 			.connectors
 			.get(&network)
 			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
-		let base_fee = connector.max_fee_per_gas().await?;
-		Ok(base_fee)
+		let fee = connector.max_fee_per_gas().await?;
+		Ok(fee)
 	}
 
 	pub async fn block_gas_limit(&self, network: NetworkId) -> Result<u64> {
@@ -802,8 +802,9 @@ impl Tc {
 				let network_prices = self.read_csv_token_prices()?;
 				let src_price = get_network_price(&network_prices, &src)?;
 				let dest_price = get_network_price(&network_prices, &dest)?;
-				let dest_gas_fee = self.transaction_base_fee(dest).await?;
-				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price, dest_gas_fee)?;
+				let dest_gas_fee = self.max_fee_per_gas(dest).await?;
+				let ratio =
+					self.calculate_relative_price(src, dest, src_price, dest_price, dest_gas_fee)?;
 				let numerator = convert_bigint_to_u128(ratio.numer())?;
 				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {

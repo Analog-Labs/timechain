@@ -289,10 +289,15 @@ pub struct ConnectorParams {
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Route {
+	/// Destination network Id
 	pub network_id: NetworkId,
+	/// Destination gateway
 	pub gateway: Gateway,
+	/// Gas price on destination network, nominated in source network token
 	pub relative_gas_price: (u128, u128),
+	/// Maximum amount of gas a message is allowed to spend on destination network
 	pub gas_limit: u64,
+	/// GMP protocol fee for message delivery to the destination network, nominated in source network token
 	pub base_fee: u128,
 }
 

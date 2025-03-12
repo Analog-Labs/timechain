@@ -333,9 +333,9 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		let request = Request::new(proto::TransactionBaseFeeRequest {});
-		let response = self.client.lock().await.transaction_base_fee(request).await?.into_inner();
-		Ok(response.base_fee)
+		let request = Request::new(proto::MaxFeePerGasRequest {});
+		let response = self.client.lock().await.max_fee_per_gas(request).await?.into_inner();
+		Ok(response.fee)
 	}
 
 	/// Returns gas limit of latest block.

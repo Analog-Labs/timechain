@@ -365,8 +365,6 @@ pub struct Shard {
 pub struct Member {
 	pub account: AccountId,
 	pub status: MemberStatus,
-	pub staker: Option<AccountId>,
-	pub stake: u128,
 }
 
 #[derive(Clone, Debug)]
@@ -583,9 +581,7 @@ impl Tc {
 		let shard_members = self.runtime.shard_members(shard).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
-			let staker = self.runtime.member_staker(&account).await?;
-			let stake = self.runtime.member_stake(&account).await?;
-			members.push(Member { account, status, staker, stake })
+			members.push(Member { account, status })
 		}
 		Ok(members)
 	}
@@ -900,16 +896,12 @@ impl Tc {
 		peer_id: PeerId,
 	) -> Result<()> {
 		let member = public_key.clone().into_account();
-		if self.runtime.member_stake(&member).await? > 0 {
-			return Ok(());
-		}
 		self.println(
 			None,
 			format!("register_member {}", self.format_address(None, member.clone().into())?),
 		)
 		.await?;
-		let min_stake = self.runtime.min_stake().await?;
-		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
+		self.runtime.register_member(network, public_key, peer_id).await?;
 		sleep(Duration::from_secs(20)).await;
 		Ok(())
 	}

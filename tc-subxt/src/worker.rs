@@ -51,7 +51,6 @@ pub enum Tx {
 		network: NetworkId,
 		public_key: PublicKey,
 		peer_id: PeerId,
-		stake_amount: u128,
 	},
 	UnregisterMember {
 		member: AccountId,
@@ -200,19 +199,10 @@ where
 				self.client.sign_payload(&payload, params)
 			},
 			// members
-			Tx::RegisterMember {
-				network,
-				public_key,
-				peer_id,
-				stake_amount,
-			} => {
+			Tx::RegisterMember { network, public_key, peer_id } => {
 				let public_key = subxt::utils::Static(public_key);
-				let payload = metadata::tx().members().register_member(
-					network,
-					public_key,
-					peer_id,
-					stake_amount,
-				);
+				let payload =
+					metadata::tx().members().register_member(network, public_key, peer_id);
 				self.client.sign_payload(&payload, params)
 			},
 			Tx::UnregisterMember { member } => {

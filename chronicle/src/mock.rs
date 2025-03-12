@@ -155,13 +155,7 @@ impl Mock {
 		tasks.get(&task_id).cloned()
 	}
 
-	pub fn register_member(
-		&self,
-		network: NetworkId,
-		public_key: PublicKey,
-		peer_id: PeerId,
-		_stake_amount: u128,
-	) {
+	pub fn register_member(&self, network: NetworkId, public_key: PublicKey, peer_id: PeerId) {
 		let mut members = self.members.lock().unwrap();
 		members.entry(network).or_default().push((public_key, peer_id));
 	}

@@ -133,7 +133,6 @@ pub struct NetworkConfig {
 	pub gmp_margin: f64,
 	pub shard_task_limit: u32,
 	pub route_gas_limit: u64,
-	pub route_base_fee: u128,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub cctp_contracts: Option<Vec<String>>,

@@ -40,8 +40,8 @@ pub struct PriceInfo {
 #[derive(Clone, Deserialize)]
 pub struct NetworkPrice {
 	pub network_id: NetworkId,
-	pub symbol: String,
-	pub usd_price: f64,
+	#[serde(flatten)]
+	pub price_data: PriceData,
 }
 
 fn bigint_log10(n: &BigUint) -> f64 {
@@ -117,13 +117,13 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 }
 
 pub fn get_network_price(
-	network_prices: &HashMap<NetworkId, (String, f64)>,
+	network_prices: &HashMap<NetworkId, PriceData>,
 	network_id: &NetworkId,
-) -> Result<f64> {
+) -> Result<PriceData> {
 	network_prices
 		.get(network_id)
-		.map(|(_, price)| *price)
 		.ok_or_else(|| anyhow::anyhow!("Unable to get network {} from csv", network_id))
+		.cloned()
 }
 
 pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
@@ -132,14 +132,14 @@ pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 		.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
 }
 
-pub fn read_csv_token_prices(price_path: &Path) -> Result<HashMap<NetworkId, (String, f64)>> {
+pub fn read_csv_token_prices(price_path: &Path) -> Result<HashMap<NetworkId, PriceData>> {
 	let mut rdr = Reader::from_path(price_path)
 		.with_context(|| format!("failed to open {}", price_path.display()))?;
 
-	let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
+	let mut network_map: HashMap<NetworkId, PriceData> = HashMap::new();
 	for result in rdr.deserialize() {
 		let record: NetworkPrice = result?;
-		network_map.insert(record.network_id, (record.symbol, record.usd_price));
+		network_map.insert(record.network_id, record.price_data);
 	}
 	Ok(network_map)
 }
@@ -156,7 +156,7 @@ impl Tc {
 		let file = File::create(&price_path)
 			.with_context(|| format!("failed to create {}", price_path.display()))?;
 		let mut wtr = Writer::from_writer(file);
-		wtr.write_record(["network_id", "symbol", "usd_price"])?;
+		wtr.write_record(["network_id", "symbol", "usd_price", "base_fee"])?;
 		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
 			let symbol = self.currency(Some(*network_id))?.1;
 			let token_url = format!("{}{}", env.token_price_url, coin_id);
@@ -175,15 +175,21 @@ impl Tc {
 				.price
 				.ok_or_else(|| anyhow::anyhow!("Couldnt fetch token price for {}", symbol))?;
 			let symbol = data.symbol;
+			let base_fee = self.transaction_base_fee(*network_id).await?;
 
-			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
+			wtr.write_record(&[
+				network_id.to_string(),
+				symbol,
+				usd_price.to_string(),
+				base_fee.to_string(),
+			])?;
 		}
 		wtr.flush()?;
 		log::info!("Saved in prices.csv");
 		Ok(())
 	}
 
-	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
+	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, PriceData>> {
 		read_csv_token_prices(&self.config.prices())
 	}
 
@@ -191,7 +197,7 @@ impl Tc {
 		let prices = self.read_csv_token_prices()?;
 		let decimals = self.currency(Some(network))?.0;
 		let factor = 10.0f64.powi(decimals as i32);
-		let token_price = prices.get(&network).context("no price data")?.1;
+		let token_price = prices.get(&network).context("no price data")?.usd_price;
 		Ok(balance as f64 / factor * token_price)
 	}
 
@@ -199,22 +205,21 @@ impl Tc {
 		&self,
 		src_network: NetworkId,
 		dest_network: NetworkId,
-		src_usd_price: f64,
-		dest_usd_price: f64,
+		src_data: PriceData,
+		dest_data: PriceData,
 	) -> Result<Ratio<BigUint>> {
 		let src_config = self.config.network(src_network)?;
 		let src_margin: f64 = src_config.gmp_margin;
 		let src_decimals = self.currency(Some(src_network))?.0;
 
-		let dest_config = self.config.network(dest_network)?;
 		let dest_decimals = self.currency(Some(dest_network))?.0;
-		let dest_gas_fee = dest_config.route_base_fee;
+		let dest_gas_fee = dest_data.base_fee;
 
 		let src_usd_price =
-			Ratio::from_float(src_usd_price).context("Cannot convert float to ratio")?;
+			Ratio::from_float(src_data.usd_price).context("Cannot convert float to ratio")?;
 		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
 		let dest_usd_price =
-			Ratio::from_float(dest_usd_price).context("Cannot convert float to ratio")?;
+			Ratio::from_float(dest_data.usd_price).context("Cannot convert float to ratio")?;
 		let dest_usd_price = convert_bigint_ratio_to_biguint(dest_usd_price)?;
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
@@ -238,4 +243,11 @@ impl Tc {
 		);
 		Ok(src_to_dest)
 	}
+}
+
+#[derive(Clone, Deserialize)]
+pub struct PriceData {
+	pub symbol: String,
+	pub usd_price: f64,
+	pub base_fee: u128,
 }

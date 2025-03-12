@@ -801,9 +801,10 @@ impl Tc {
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
-				let src_price = gas_price::get_network_price(&network_prices, &src)?;
-				let dest_price = get_network_price(&network_prices, &dest)?;
-				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
+				let src_data = get_network_price(&network_prices, &src)?;
+				let dest_data = get_network_price(&network_prices, &dest)?;
+				let ratio =
+					self.calculate_relative_price(src, dest, src_data, dest_data.clone())?;
 				let numerator = convert_bigint_to_u128(ratio.numer())?;
 				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
@@ -811,7 +812,7 @@ impl Tc {
 					gateway: dest_gateway,
 					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
-					base_fee: config.route_base_fee,
+					base_fee: dest_data.base_fee,
 				};
 				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
 					if r.gas_limit == route.gas_limit

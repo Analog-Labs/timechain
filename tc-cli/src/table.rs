@@ -124,7 +124,7 @@ pub struct MemberEntry {
 impl IntoRow for Member {
 	type Row = MemberEntry;
 
-	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(MemberEntry {
 			account: self.account.to_string(),
 			status: self.status.to_string(),

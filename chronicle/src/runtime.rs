@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
+	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Task, TaskId, TaskResult,
 };
 
 #[async_trait]

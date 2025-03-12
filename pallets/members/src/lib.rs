@@ -170,8 +170,6 @@ pub mod pallet {
 		NotStaker,
 		/// Already registered
 		StillStaked,
-		/// Already submitted heartbeat
-		AlreadySubmittedHeartbeat,
 	}
 
 	/// Implements hooks for pallet initialization and block processing.
@@ -312,7 +310,6 @@ pub mod pallet {
 			Ok(())
 		}
 		fn execute_send_heartbeat(member: AccountId) -> DispatchResult {
-			ensure!(Heartbeat::<T>::get(&member).is_none(), Error::<T>::AlreadySubmittedHeartbeat);
 			ensure!(
 				MemberStake::<T>::get(&member) >= T::MinStake::get(),
 				Error::<T>::BondBelowMinStake

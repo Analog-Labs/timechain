@@ -21,7 +21,6 @@ use time_primitives::{
 	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use time_primitives::{CctpContracts, CctpUrl};
-use tokio::time::sleep;
 
 mod benchmark;
 mod config;
@@ -902,7 +901,6 @@ impl Tc {
 		)
 		.await?;
 		self.runtime.register_member(network, public_key, peer_id).await?;
-		sleep(Duration::from_secs(20)).await;
 		Ok(())
 	}
 

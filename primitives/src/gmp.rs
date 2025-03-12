@@ -293,7 +293,7 @@ pub struct Route {
 	pub gateway: Gateway,
 	pub relative_gas_price: (u128, u128),
 	pub gas_limit: u64,
-	pub base_fee: u128,
+	pub max_fee_per_gas: u128,
 }
 
 #[cfg(feature = "std")]

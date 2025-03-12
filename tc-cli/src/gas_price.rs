@@ -185,7 +185,7 @@ impl Tc {
 			])?;
 		}
 		wtr.flush()?;
-		log::info!("Saved in prices.csv");
+		log::info!("Saved in {:?}", price_path);
 		Ok(())
 	}
 
@@ -213,7 +213,7 @@ impl Tc {
 		let src_decimals = self.currency(Some(src_network))?.0;
 
 		let dest_decimals = self.currency(Some(dest_network))?.0;
-		let dest_gas_fee = dest_data.base_fee;
+		let dest_gas_fee = dest_data.max_fee_per_gas;
 
 		let src_usd_price =
 			Ratio::from_float(src_data.usd_price).context("Cannot convert float to ratio")?;
@@ -249,5 +249,5 @@ impl Tc {
 pub struct PriceData {
 	pub symbol: String,
 	pub usd_price: f64,
-	pub base_fee: u128,
+	pub max_fee_per_gas: u128,
 }

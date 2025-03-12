@@ -159,7 +159,7 @@ impl IntoRow for Route {
 			gateway: tc.format_address(Some(self.network_id), self.gateway)?,
 			relative_gas_price: format!("{}", num as f64 / den as f64),
 			gas_limit: self.gas_limit,
-			base_fee: self.base_fee,
+			base_fee: self.max_fee_per_gas,
 		})
 	}
 }

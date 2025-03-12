@@ -428,8 +428,8 @@ impl IConnectorAdmin for Connector {
 			if new_route.gas_limit != 0 {
 				route.gas_limit = new_route.gas_limit;
 			}
-			if new_route.base_fee != 0 {
-				route.base_fee = new_route.base_fee;
+			if new_route.max_fee_per_gas != 0 {
+				route.max_fee_per_gas = new_route.max_fee_per_gas;
 			}
 			t.insert((gateway, route.network_id), route)?;
 		}

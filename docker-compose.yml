@@ -144,6 +144,8 @@ services:
     environment:
       RUST_BACKTRACE: 1
       RUST_LOG: 'gmp_evm=info'
+      TOKEN_PRICE_URL: ${TOKEN_PRICE_URL}
+      TOKEN_API_KEY: ${TOKEN_API_KEY}
     profiles:
     - never
 

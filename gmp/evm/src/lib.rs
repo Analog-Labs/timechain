@@ -58,6 +58,7 @@ pub struct Connector {
 	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
+	anvil: bool,
 }
 
 impl Connector {
@@ -350,7 +351,8 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		let (blockchain, private_key) = if params.blockchain == "anvil" {
+		let anvil = params.blockchain == "anvil";
+		let (blockchain, private_key) = if anvil {
 			let private_key = hex_literal::hex![
 				"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 			];
@@ -374,6 +376,7 @@ impl IConnectorBuilder for Connector {
 			url: params.url,
 			cctp_queue: Default::default(),
 			wallet_guard: Default::default(),
+			anvil,
 		};
 		Ok(connector)
 	}
@@ -780,6 +783,10 @@ impl IConnectorAdmin for Connector {
 
 	/// Calculate transaction base fee for a chain.
 	async fn transaction_base_fee(&self) -> Result<u128> {
+		if self.anvil {
+			// return 0 if we are running local anvil node
+			return Ok(0);
+		}
 		let fee_estimator = if self.wallet.config().blockchain == "polygon" {
 			self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
 		} else {

@@ -812,11 +812,11 @@ impl Tc {
 					gateway: dest_gateway,
 					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
-					base_fee: config.route_base_fee,
+					gmp_base_fee: config.route_base_fee,
 				};
 				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
 					if r.gas_limit == route.gas_limit
-						&& r.base_fee == route.base_fee
+						&& r.gmp_base_fee == route.gmp_base_fee
 						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
 					{
 						continue;

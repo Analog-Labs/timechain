@@ -334,8 +334,8 @@ async fn real_main() -> Result<()> {
 		},
 
 		Command::BlockGasLimit { network } => {
-			let base_fee = tc.block_gas_limit(network).await?;
-			tc.println(None, format!("Gas limit for block: {} is : {}", network, base_fee))
+			let limit = tc.block_gas_limit(network).await?;
+			tc.println(None, format!("Gas limit for block: {} is : {}", network, limit))
 				.await?;
 		},
 		Command::Message { message } => {

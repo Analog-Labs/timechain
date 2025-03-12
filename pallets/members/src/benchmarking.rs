@@ -4,9 +4,9 @@ use crate::Pallet;
 use polkadot_sdk::*;
 
 use frame_benchmarking::benchmarks;
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use time_primitives::{traits::IdentifyAccount, AccountId, NetworkId, PublicKey};
+use time_primitives::{AccountId, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
@@ -22,31 +22,19 @@ fn pk_from_account(r: [u8; 32]) -> PublicKey {
 benchmarks! {
 	register_member {
 		let caller: AccountId = ALICE.into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-		);
-	}: _(RawOrigin::Signed(caller), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get())
+	}: _(RawOrigin::Root, ETHEREUM, public_key(), ALICE)
 	verify { }
 
 	send_heartbeat {
 		let caller: AccountId = ALICE.into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-		);
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
 	}: _(RawOrigin::Signed(caller))
 	verify { }
 
 	unregister_member {
 		let caller: AccountId = ALICE.into();
-		pallet_balances::Pallet::<T>::resolve_creating(
-			&caller,
-			pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-		);
-		let _ = Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, public_key(), ALICE, <T as Config>::MinStake::get());
-	}: _(RawOrigin::Signed(caller), public_key().into_account())
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
+	}: _(RawOrigin::Root, caller)
 	verify { }
 
 	timeout_heartbeats {
@@ -54,11 +42,7 @@ benchmarks! {
 		for i in 0..b {
 			let raw = [i as u8; 32];
 			let caller: AccountId = raw.into();
-			pallet_balances::Pallet::<T>::resolve_creating(
-				&caller,
-				pallet_balances::Pallet::<T>::issue(<T as Config>::MinStake::get() * 100),
-			);
-			Pallet::<T>::register_member(RawOrigin::Signed(caller.clone()).into(), ETHEREUM, pk_from_account(raw), caller.clone().into(), <T as Config>::MinStake::get())?;
+			Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, pk_from_account(raw), caller.clone().into())?;
 			// Send heartbeat to set caller online and set heartbeat
 			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
 			assert!(MemberOnline::<T>::get(&caller).is_some());

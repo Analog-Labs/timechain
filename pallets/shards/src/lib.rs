@@ -253,7 +253,11 @@ pub mod pallet {
 		///   6. If all members have committed, update the state of the shards to `Committed` and store the group commitment.
 		///   7. Emit the [`Event::ShardCommitted`] event.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::commit())]
+		#[pallet::weight((
+			<T as Config>::WeightInfo::commit(),
+			DispatchClass::Normal,
+			Pays::No
+		))]
 		pub fn commit(
 			origin: OriginFor<T>,
 			shard_id: ShardId,
@@ -261,19 +265,6 @@ pub mod pallet {
 			proof_of_knowledge: ProofOfKnowledge,
 		) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			Self::execute_commit(member, shard_id, commitment, proof_of_knowledge)
-		}
-
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::commit())]
-		pub fn sudo_commit(
-			origin: OriginFor<T>,
-			member: AccountId,
-			shard_id: ShardId,
-			commitment: Commitment,
-			proof_of_knowledge: ProofOfKnowledge,
-		) -> DispatchResult {
-			ensure_root(origin)?;
 			Self::execute_commit(member, shard_id, commitment, proof_of_knowledge)
 		}
 
@@ -285,28 +276,22 @@ pub mod pallet {
 		///   3. Update the status of the shard to `Ready`.
 		///   4. If all members are ready, update the state of the shard to `Online` and emit the [`Event::ShardOnline`] event.
 		///   5. Notify the task scheduler that the shard is online.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as Config>::WeightInfo::ready())]
+		#[pallet::call_index(1)]
+		#[pallet::weight((
+			<T as Config>::WeightInfo::ready(),
+			DispatchClass::Normal,
+			Pays::No
+		))]
 		pub fn ready(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			Self::execute_ready(member, shard_id)
 		}
 
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::ready())]
-		pub fn sudo_ready(
-			origin: OriginFor<T>,
-			member: AccountId,
-			shard_id: ShardId,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::execute_ready(member, shard_id)
-		}
 		/// Forces a shard to go offline, used primarily by the root.
 		/// # Flow
 		///   1. Ensure the origin is the root.
 		///   2. Call the internal `remove_shards_offline` function to handle the shard offline process.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_shard_offline())]
 		pub fn force_shard_offline(origin: OriginFor<T>, shard_id: ShardId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;

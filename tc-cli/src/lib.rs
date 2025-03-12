@@ -4,6 +4,7 @@ use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
+use futures::TryStreamExt;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
 use std::collections::hash_map::Entry;
@@ -20,8 +21,8 @@ use time_primitives::{
 	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use time_primitives::{CctpContracts, CctpUrl};
-use tokio::time::sleep;
 
+mod benchmark;
 mod config;
 mod env;
 mod gas_price;
@@ -29,6 +30,7 @@ mod loki;
 mod slack;
 mod table;
 
+pub use crate::benchmark::{Benchmark, BenchmarkStats};
 pub use crate::loki::{Log, Query};
 pub use crate::slack::{Sender, TableRef, TextRef};
 
@@ -109,7 +111,7 @@ impl Tc {
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	pub async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -362,8 +364,6 @@ pub struct Shard {
 pub struct Member {
 	pub account: AccountId,
 	pub status: MemberStatus,
-	pub staker: Option<AccountId>,
-	pub stake: u128,
 }
 
 #[derive(Clone, Debug)]
@@ -580,9 +580,7 @@ impl Tc {
 		let shard_members = self.runtime.shard_members(shard).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
-			let staker = self.runtime.member_staker(&account).await?;
-			let stake = self.runtime.member_stake(&account).await?;
-			members.push(Member { account, status, staker, stake })
+			members.push(Member { account, status })
 		}
 		Ok(members)
 	}
@@ -654,6 +652,10 @@ impl Tc {
 			batch: self.runtime.message_batch(message).await?,
 			exec: self.runtime.message_executed_task(message).await?,
 		})
+	}
+
+	pub async fn is_message_executed(&self, message: MessageId) -> Result<bool> {
+		Ok(self.runtime.message_executed_task(message).await?.is_some())
 	}
 
 	pub async fn message_trace(
@@ -792,7 +794,7 @@ impl Tc {
 		Ok(())
 	}
 
-	async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
+	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
@@ -830,6 +832,20 @@ impl Tc {
 			result?;
 		}
 		Ok(())
+	}
+
+	pub async fn register_all_routes(&self) -> Result<()> {
+		let gateways = FuturesUnordered::new();
+		for network in self.connectors.keys().copied() {
+			let fut = self.gateway(network);
+			gateways.push(async move {
+				let (_, gateway) = fut.await?;
+				Ok::<_, anyhow::Error>((network, gateway))
+			});
+		}
+
+		let routes: HashMap<NetworkId, Gateway> = gateways.try_collect().await?;
+		self.register_routes(routes).await
 	}
 
 	async fn chronicle_config(&self, chronicle_address: &str) -> Result<ChronicleConfig> {
@@ -881,17 +897,12 @@ impl Tc {
 		peer_id: PeerId,
 	) -> Result<()> {
 		let member = public_key.clone().into_account();
-		if self.runtime.member_stake(&member).await? > 0 {
-			return Ok(());
-		}
 		self.println(
 			None,
 			format!("register_member {}", self.format_address(None, member.clone().into())?),
 		)
 		.await?;
-		let min_stake = self.runtime.min_stake().await?;
-		self.runtime.register_member(network, public_key, peer_id, min_stake).await?;
-		sleep(Duration::from_secs(20)).await;
+		self.runtime.register_member(network, public_key, peer_id).await?;
 		Ok(())
 	}
 
@@ -1332,5 +1343,53 @@ impl Tc {
 		tracing::info!("made {profit}$ of profit");
 		anyhow::ensure!(profit >= 0., "message price is too low");
 		Ok(())
+	}
+
+	pub async fn exec_smoke(
+		&self,
+		src: NetworkId,
+		dest: NetworkId,
+		testers: &HashMap<NetworkId, (Address, u64)>,
+		payload: Vec<u8>,
+	) -> Result<GmpMessage> {
+		// prepare
+		let src_addr = testers.get(&src).context("missing tester")?.0;
+		let dest_addr = testers.get(&dest).context("missing tester")?.0;
+		let gas_limit = self
+			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+			.await?;
+		let gas_cost = self.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+
+		// send message
+		let mut blocks = self.finality_notification_stream();
+		let (_, start) = blocks.next().await.context("expected block")?;
+		let msg_id = self
+			.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
+			.await?;
+
+		// track message
+		let mut id = None;
+		let (exec, end) = loop {
+			let (_, end) = blocks.next().await.context("expected block")?;
+			let trace = self.message_trace(src, msg_id).await?;
+			let exec = trace.exec.as_ref().map(|t| t.task);
+			tracing::info!("waiting for message {}", hex::encode(msg_id));
+			id = Some(self.print_table(id, "message", vec![trace]).await?);
+			if let Some(exec) = exec {
+				break (exec, end);
+			}
+		};
+
+		// read message
+		let blocks = self.read_events_blocks(exec).await?;
+		let msgs = self.messages(dest, dest_addr, blocks).await?;
+		let msg = msgs
+			.into_iter()
+			.find(|msg| msg.message_id() == msg_id)
+			.context("failed to find message")?;
+		self.print_table(None, "message", vec![msg.clone()]).await?;
+		self.println(None, format!("received message after {} blocks", end - start))
+			.await?;
+		Ok(msg)
 	}
 }

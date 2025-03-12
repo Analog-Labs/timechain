@@ -1,14 +1,11 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use futures::StreamExt;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
-use tc_cli::{Query, Sender, Tc};
-use time_primitives::{
-	Address, BatchId, CCTPMessage, GmpMessage, Hash, NetworkId, ShardId, TaskId,
-};
+use tc_cli::{Benchmark, Query, Sender, Tc};
+use time_primitives::{BatchId, BlockNumber, CCTPMessage, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -132,6 +129,7 @@ enum Command {
 	RegisterShards {
 		network: NetworkId,
 	},
+	RegisterRoutes,
 	RetryFailedBatch {
 		batch_id: BatchId,
 	},
@@ -190,9 +188,10 @@ enum Command {
 		address: String,
 	},
 	Benchmark {
-		src: NetworkId,
-		dest: NetworkId,
-		num_messages: u16,
+		#[arg(long, default_value = "10")]
+		num_messages_per_block: u16,
+		#[arg(long, default_value = "10")]
+		num_blocks: BlockNumber,
 	},
 	Log {
 		#[clap(subcommand)]
@@ -369,6 +368,7 @@ async fn real_main() -> Result<()> {
 		Command::RegisterShards { network } => {
 			tc.register_online_shards(network).await?;
 		},
+		Command::RegisterRoutes => tc.register_all_routes().await?,
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
 			tc.set_gateway_admin(network, admin).await?;
@@ -440,7 +440,7 @@ async fn real_main() -> Result<()> {
 			let testers = tc.setup_test().await?;
 			tc.assert_reimbursement().await?;
 			tc.assert_message_fees().await?;
-			let _ = exec_smoke(&tc, src, dest, &testers, vec![42]).await?;
+			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
 			tc.assert_reimbursement().await?;
 			tc.assert_message_fees().await?;
 		},
@@ -466,71 +466,24 @@ async fn real_main() -> Result<()> {
 			let cctp_payload = CCTPMessage {
 				attestation: vec![],
 				message: msg_data,
+				extra_data: [0u8; 32].to_vec(),
 			};
-			let msg = exec_smoke(&tc, src, dest, &testers, cctp_payload.encode()).await?;
+			let msg = tc.exec_smoke(src, dest, &testers, cctp_payload.encode()).await?;
 			let attested =
 				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-			assert!(!attested.attestation.is_empty())
+			assert!(!attested.attestation.is_empty());
+			assert!(attested.extra_data == cctp_payload.extra_data);
 		},
-		Command::Benchmark { src, dest, num_messages } => {
+		Command::Benchmark {
+			num_messages_per_block,
+			num_blocks,
+		} => {
 			let testers = tc.setup_test().await?;
-			let src_addr = testers.get(&src).context("missing tester")?.0;
-			let dest_addr = testers.get(&dest).context("missing tester")?.0;
-			tc.wait_for_sync(src).await?;
-			tc.wait_for_sync(dest).await?;
-			let mut blocks = tc.finality_notification_stream();
-			let (_, start) = blocks.next().await.context("expected block")?;
-			let mut msgs = HashSet::new();
-			let payload = vec![];
-			let gas_limit = tc
-				.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
-				.await?;
-			let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
-			for _ in 0..num_messages {
-				let msg_id = tc
-					.send_message(
-						src,
-						src_addr,
-						dest,
-						dest_addr,
-						gas_limit,
-						gas_cost,
-						payload.clone(),
-					)
-					.await?;
-				msgs.insert(msg_id);
-			}
-			let mut id = None;
-			while let Some((_, block)) = blocks.next().await {
-				let mut received = HashSet::new();
-				for msg in &msgs {
-					let msg = tc.message(*msg).await?;
-					if msg.exec.is_some() {
-						received.insert(msg.message);
-					}
-				}
-				for msg in received {
-					msgs.remove(&msg);
-				}
-				let num_received = num_messages - msgs.len() as u16;
-				let blocks = block - start;
-				let throughput = num_received as f64 / blocks as f64;
-				id = Some(
-					tc.println(
-						id,
-						format!(
-							r#"{num_received} out of {num_messages} received in {blocks} blocks
-							throughput {throughput:.3} msgs/block
-							msg cost {}"#,
-							tc.format_balance(Some(src), gas_cost)?,
-						),
-					)
-					.await?,
-				);
-				if msgs.is_empty() {
-					break;
-				}
-			}
+			let mut benchmark =
+				Benchmark::new(tc, testers, vec![42], num_messages_per_block, num_blocks);
+			benchmark.add_routes().await?;
+			benchmark.wait_for_sync().await?;
+			benchmark.exec().await?;
 		},
 		Command::Log { query, since } => {
 			tc.log(query, since).await?;
@@ -567,46 +520,4 @@ async fn real_main() -> Result<()> {
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
 	Ok(())
-}
-
-async fn exec_smoke(
-	tc: &Tc,
-	src: NetworkId,
-	dest: NetworkId,
-	testers: &HashMap<NetworkId, (Address, u64)>,
-	payload: Vec<u8>,
-) -> Result<GmpMessage> {
-	let src_addr = testers.get(&src).context("missing tester")?.0;
-	let dest_addr = testers.get(&dest).context("missing tester")?.0;
-	let mut blocks = tc.finality_notification_stream();
-	let (_, start) = blocks.next().await.context("expected block")?;
-	let gas_limit = tc
-		.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
-		.await?;
-	let gas_cost = tc.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
-	tracing::info!("Estimated message cost: {gas_cost}");
-	let msg_id = tc
-		.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
-		.await?;
-	let mut id = None;
-	let (exec, end) = loop {
-		let (_, end) = blocks.next().await.context("expected block")?;
-		let trace = tc.message_trace(src, msg_id).await?;
-		let exec = trace.exec.as_ref().map(|t| t.task);
-		tracing::info!("waiting for message {}", hex::encode(msg_id));
-		id = Some(tc.print_table(id, "message", vec![trace]).await?);
-		if let Some(exec) = exec {
-			break (exec, end);
-		}
-	};
-	let blocks = tc.read_events_blocks(exec).await?;
-	let msgs = tc.messages(dest, dest_addr, blocks).await?;
-	let msg = msgs
-		.into_iter()
-		.find(|msg| msg.message_id() == msg_id)
-		.context("failed to find message")?;
-	tc.print_table(None, "message", vec![msg.clone()]).await?;
-	tc.println(None, format!("received message after {} blocks", end - start))
-		.await?;
-	Ok(msg)
 }

@@ -119,23 +119,15 @@ impl IntoRow for Shard {
 pub struct MemberEntry {
 	account: String,
 	status: String,
-	staker: String,
-	stake: String,
 }
 
 impl IntoRow for Member {
 	type Row = MemberEntry;
 
-	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(MemberEntry {
 			account: self.account.to_string(),
 			status: self.status.to_string(),
-			staker: self
-				.staker
-				.map(|staker| tc.format_address(None, staker.into()))
-				.transpose()?
-				.unwrap_or_default(),
-			stake: tc.format_balance(None, self.stake)?,
 		})
 	}
 }
@@ -369,6 +361,31 @@ impl IntoRow for Log {
 			target_block: self.data.get("target_block_height").cloned(),
 			from: self.data.get("from").cloned(),
 			to: self.data.get("to").cloned(),
+		})
+	}
+}
+
+#[derive(Serialize)]
+pub struct BenchmarkEntry {
+	src: NetworkId,
+	dest: NetworkId,
+	cost: String,
+	messages: String,
+	latency: String,
+	throughput: String,
+}
+
+impl IntoRow for BenchmarkStats {
+	type Row = BenchmarkEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(BenchmarkEntry {
+			src: self.src,
+			dest: self.dest,
+			cost: format!("{:.3}$", self.msg_cost),
+			messages: format!("{}/{}/{}", self.num_received, self.num_sent, self.num_total),
+			latency: format!("{:.3} blocks", self.latency),
+			throughput: format!("{:.3} msgs/block", self.throughput),
 		})
 	}
 }

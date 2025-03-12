@@ -1,10 +1,9 @@
 use crate::mock::*;
 use crate::{Event, ShardMembers, ShardNetwork, ShardState};
 
-use polkadot_sdk::{frame_support, frame_system, pallet_balances, sp_core, sp_runtime};
+use polkadot_sdk::{frame_support, frame_system, sp_core, sp_runtime};
 
 use frame_support::assert_ok;
-use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use schnorr_evm::k256::elliptic_curve::PrimeField;
 use schnorr_evm::k256::{ProjectivePoint, Scalar};
@@ -68,18 +67,11 @@ fn shard() -> [Member; 3] {
 
 fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 	for member in shard {
-		pallet_balances::Pallet::<Test>::resolve_creating(
-			&member.account_id,
-			pallet_balances::Pallet::<Test>::issue(
-				<<Test as pallet_members::Config>::MinStake as Get<u128>>::get() * 100u128,
-			),
-		);
 		assert_ok!(Members::register_member(
-			RawOrigin::Signed(member.account_id.clone()).into(),
+			RawOrigin::Root.into(),
 			ETHEREUM,
 			public_key(member.peer_id),
 			member.peer_id,
-			<Test as pallet_members::Config>::MinStake::get(),
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(member.account_id.clone()).into()));
 		roll(1);
@@ -127,18 +119,11 @@ fn test_register_shard() {
 		for (shard_id, shard) in shards.iter().enumerate() {
 			let threshold = Shards::get_shard_threshold(shard_id as _);
 			for member in shard {
-				pallet_balances::Pallet::<Test>::resolve_creating(
-					&member.account_id,
-					pallet_balances::Pallet::<Test>::issue(
-						<<Test as pallet_members::Config>::MinStake as Get<u128>>::get() * 100u128,
-					),
-				);
 				assert_ok!(Members::register_member(
-					RawOrigin::Signed(member.account_id.clone()).into(),
+					RawOrigin::Root.into(),
 					ETHEREUM,
 					public_key(member.peer_id),
 					member.peer_id,
-					<Test as pallet_members::Config>::MinStake::get(),
 				));
 				assert_ok!(Shards::commit(
 					RawOrigin::Signed(member.account_id.clone()).into(),

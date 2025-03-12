@@ -131,7 +131,7 @@ impl pallet_members::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Elections = MockElections;
 	type Shards = MockShards;
-	type MinStake = ConstU128<5>;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type HeartbeatTimeout = ConstU64<10>;
 	type MaxTimeoutsPerBlock = ConstU32<1>;
 }

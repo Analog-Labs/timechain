@@ -27,6 +27,7 @@ networks:
     shard_size: 1
     shard_threshold: 1
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    coin_id: 1027
       
   3:
     backend: "evm"
@@ -46,6 +47,7 @@ networks:
     shard_size: 1
     shard_threshold: 1
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    coin_id: 1027
 chronicles: 
   - http://chronicle-2-evm:8080
   - http://chronicle-3-evm:8080

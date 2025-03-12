@@ -1,7 +1,7 @@
 use super::*;
 use crate::Pallet;
 
-use pallet_members::{MemberOnline, MemberStake};
+use pallet_members::MemberOnline;
 use pallet_networks::{NetworkName, NetworkShardSize};
 use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::{frame_support::traits::Get, frame_system, sp_runtime};
@@ -35,8 +35,6 @@ benchmarks! {
 				let member = account(i, j);
 				MemberOnline::<T>::insert(member.clone(), ());
 				Pallet::<T>::member_online(&member, ETHEREUM);
-				let member_stake: u128 = 1_000_000_000 - <u32 as Into<u128>>::into(i) -  <u16 as Into<u128>>::into(j);
-				MemberStake::<T>::insert(member.clone(), member_stake);
 				all_new_shard_members.push(member);
 			}
 		}

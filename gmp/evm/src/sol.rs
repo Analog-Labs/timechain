@@ -50,6 +50,8 @@ alloy_sol_types::sol! {
 		bytes attestation;
 		/// The message bytes emitted by the MessageSent event (must be provided).
 		bytes message;
+		/// Extra data field used by cctp implementers for custom usage
+		bytes extraData;
 	}
 
 	contract GatewayProxy {

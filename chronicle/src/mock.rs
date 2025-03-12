@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sr25519, AccountId, Address, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
+	sr25519, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
 	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
 	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
 };
@@ -155,13 +155,7 @@ impl Mock {
 		tasks.get(&task_id).cloned()
 	}
 
-	pub fn register_member(
-		&self,
-		network: NetworkId,
-		public_key: PublicKey,
-		peer_id: PeerId,
-		_stake_amount: u128,
-	) {
+	pub fn register_member(&self, network: NetworkId, public_key: PublicKey, peer_id: PeerId) {
 		let mut members = self.members.lock().unwrap();
 		members.entry(network).or_default().push((public_key, peer_id));
 	}
@@ -225,10 +219,6 @@ impl Runtime for Mock {
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
 		Ok(1000)
-	}
-
-	async fn get_min_stake(&self) -> Result<Balance> {
-		Ok(0)
 	}
 
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {

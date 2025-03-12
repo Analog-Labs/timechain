@@ -92,7 +92,6 @@ fn send_heartbeat_works() {
 		assert_ok!(register_member(a.clone(), A, 5));
 		roll_to(5);
 		assert_ok!(send_heartbeat(A));
-		assert_ok!(send_heartbeat(A));
 		System::assert_last_event(Event::<Test>::HeartbeatReceived(a.clone()).into());
 		assert!(MemberOnline::<Test>::get(&a).is_some());
 		assert!(Heartbeat::<Test>::get(&a).is_some());

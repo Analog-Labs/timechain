@@ -156,7 +156,7 @@ impl Tc {
 		let file = File::create(&price_path)
 			.with_context(|| format!("failed to create {}", price_path.display()))?;
 		let mut wtr = Writer::from_writer(file);
-		wtr.write_record(["network_id", "symbol", "usd_price", "base_fee"])?;
+		wtr.write_record(["network_id", "symbol", "usd_price", "max_fee_per_gas"])?;
 		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
 			let symbol = self.currency(Some(*network_id))?.1;
 			let token_url = format!("{}{}", env.token_price_url, coin_id);
@@ -249,5 +249,41 @@ impl Tc {
 pub struct PriceData {
 	pub symbol: String,
 	pub usd_price: f64,
+	#[serde(deserialize_with = "deserialize_u128")]
 	pub max_fee_per_gas: u128,
+}
+
+use serde::de::{self, Visitor};
+use std::fmt;
+
+struct U128Visitor;
+
+impl<'de> Visitor<'de> for U128Visitor {
+	type Value = u128;
+
+	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		formatter.write_str("a string or integer representing a u128")
+	}
+
+	fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+		value.parse().map_err(de::Error::custom)
+	}
+
+	fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+		Ok(value as u128)
+	}
+
+	fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
+		if value < 0 {
+			return Err(de::Error::custom(format!("negative value {} for u128", value)));
+		}
+		Ok(value as u128)
+	}
+}
+
+fn deserialize_u128<'de, D>(deserializer: D) -> Result<u128, D::Error>
+where
+	D: de::Deserializer<'de>,
+{
+	deserializer.deserialize_any(U128Visitor)
 }

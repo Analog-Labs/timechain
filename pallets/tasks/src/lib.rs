@@ -340,7 +340,11 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Used by chroncles to submit task results.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::submit_task_result())]
+		#[pallet::weight((
+			<T as Config>::WeightInfo::submit_task_result(),
+			DispatchClass::Normal,
+			Pays::No
+		))]
 		pub fn submit_task_result(
 			origin: OriginFor<T>,
 			task_id: TaskId,

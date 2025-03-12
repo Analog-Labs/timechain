@@ -221,7 +221,11 @@ pub mod pallet {
 		///		1. If not online, calls `Self::member_online` to mark them as online.
 		///	7. Returns `Ok(())` if successful.
 		#[pallet::call_index(2)]
-		#[pallet::weight((<T as Config>::WeightInfo::send_heartbeat(), DispatchClass::Operational))]
+		#[pallet::weight((
+			<T as Config>::WeightInfo::send_heartbeat(),
+			DispatchClass::Operational,
+			Pays::No
+		))]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
 			Self::execute_send_heartbeat(member)

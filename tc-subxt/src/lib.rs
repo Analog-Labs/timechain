@@ -22,8 +22,6 @@ pub mod metadata;
 pub mod timechain_client;
 pub mod worker;
 
-use metadata::technical_committee::events as CommitteeEvent;
-
 pub use subxt_signer::sr25519::Keypair;
 
 pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;

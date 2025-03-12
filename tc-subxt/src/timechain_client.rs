@@ -7,7 +7,10 @@ use subxt::{client::Update, tx::Payload};
 pub use subxt_signer::sr25519::Keypair;
 
 use crate::worker::TxData;
-use crate::{metadata, CommitteeEvent, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
+use crate::{metadata, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
+use metadata::runtime_types::sp_runtime::DispatchError;
+use metadata::system::events::ExtrinsicFailed;
+use metadata::technical_committee::events::MemberExecuted;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BlockId {
@@ -212,38 +215,32 @@ impl IExtrinsic for TimechainExtrinsic {
 		self.extrinsic.hash()
 	}
 	async fn is_success(&self) -> Result<()> {
-		type SpRuntimeDispatchError = metadata::runtime_types::sp_runtime::DispatchError;
 		let events = self.extrinsic.events().await?;
 		for ev in events.iter() {
 			let ev = ev?;
 
-			if ev.pallet_name() == "System" && ev.variant_name() == "ExtrinsicFailed" {
-				let event_metadata = ev.event_metadata();
-				anyhow::bail!(
-					"{:?} extrinsic failed with code: {:?}, pallet idx: {}, variant idx: {}",
-					self.hash(),
-					ev.field_bytes(),
-					event_metadata.pallet.index(),
-					event_metadata.variant.index,
-				)
-			}
+			let error = if let Some(ExtrinsicFailed { dispatch_error, .. }) =
+				ev.as_event::<ExtrinsicFailed>()?
+			{
+				dispatch_error
+			} else if let Some(MemberExecuted { result: Err(error), .. }) =
+				ev.as_event::<MemberExecuted>()?
+			{
+				error
+			} else {
+				continue;
+			};
 
-			if let Some(event) = ev.as_event::<CommitteeEvent::MemberExecuted>()? {
-				if let Err(err) = event.result {
-					let SpRuntimeDispatchError::Module(error) = err else {
-						anyhow::bail!("Tx failed with error: {:?}", err);
-					};
-					let event_metadata = ev.event_metadata();
+			let DispatchError::Module(error) = error else {
+				anyhow::bail!("Tx failed with error: {:?}", error);
+			};
+			let event_metadata = ev.event_metadata();
+			let Some(error_metadata) = event_metadata.pallet.error_variant_by_index(error.error[0])
+			else {
+				anyhow::bail!("Tx failed with error: {:?}", error);
+			};
 
-					let Some(error_metadata) =
-						event_metadata.pallet.error_variant_by_index(error.error[0])
-					else {
-						anyhow::bail!("Tx failed with error: {:?}", error);
-					};
-
-					anyhow::bail!("Tx failed with error: {:?}", error_metadata.name);
-				}
-			}
+			anyhow::bail!("Tx failed with error: {:?}", error_metadata.name);
 		}
 		Ok(())
 	}

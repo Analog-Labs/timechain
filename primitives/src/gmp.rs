@@ -419,8 +419,8 @@ pub trait IConnectorAdmin: IConnector {
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
-	/// Calculate transaction base fee for a chain.
-	async fn transaction_base_fee(&self) -> Result<u128>;
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128>;
 	/// Calculate returns the latest block gas_limit for a chain.
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.

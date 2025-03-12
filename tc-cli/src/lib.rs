@@ -625,7 +625,7 @@ impl Tc {
 			.connectors
 			.get(&network)
 			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
-		let base_fee = connector.transaction_base_fee().await?;
+		let base_fee = connector.max_fee_per_gas().await?;
 		Ok(base_fee)
 	}
 

@@ -779,9 +779,8 @@ impl IConnectorAdmin for Connector {
 		Ok(msgs)
 	}
 
-	/// Calculate transaction base fee for a chain.
-	// BUG: why this is called "base" fee?
-	async fn transaction_base_fee(&self) -> Result<u128> {
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128> {
 		let fee_estimator = if self.wallet.config().blockchain == "polygon" {
 			self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
 		} else {

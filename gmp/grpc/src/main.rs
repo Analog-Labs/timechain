@@ -304,7 +304,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::TransactionBaseFeeResponse> {
 		let (connector, _) = self.connector(request)?;
 		let base_fee = connector
-			.transaction_base_fee()
+			.max_fee_per_gas()
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::TransactionBaseFeeResponse { base_fee }))

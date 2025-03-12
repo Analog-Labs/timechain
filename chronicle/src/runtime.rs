@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
+	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Task, TaskId, TaskResult,
 };
 
 #[async_trait]
@@ -27,8 +27,6 @@ pub trait Runtime: Send + Sync + 'static {
 	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>>;
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
-
-	async fn get_min_stake(&self) -> Result<Balance>;
 
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>>;
 
@@ -102,10 +100,6 @@ impl Runtime for SubxtClient {
 
 	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
 		self.heartbeat_timeout().await
-	}
-
-	async fn get_min_stake(&self) -> Result<Balance> {
-		self.min_stake().await
 	}
 
 	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {

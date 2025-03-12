@@ -1,9 +1,6 @@
 use polkadot_sdk::*;
 
-use frame_support::{
-	parameter_types,
-	traits::{ConstU128, ConstU32},
-};
+use frame_support::{parameter_types, traits::ConstU32};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
@@ -40,7 +37,7 @@ impl pallet_members::Config for Runtime {
 	type WeightInfo = weights::pallet_members::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Shards = Shards;
-	type MinStake = ConstU128<1>;
+	type AdminOrigin = ChronicleAdmin;
 	type HeartbeatTimeout = ConstU32<300>;
 	type MaxTimeoutsPerBlock = ConstU32<25>;
 }

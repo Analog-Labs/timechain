@@ -255,7 +255,6 @@ mod tests {
 						network_id,
 						config.public_key,
 						hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
-						0,
 					);
 					tracing::info!("registered chronicle");
 				}

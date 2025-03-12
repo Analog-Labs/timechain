@@ -10,7 +10,7 @@ use sp_core::crypto::{
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Get, IdentifyAccount, Verify},
-	DispatchError, DispatchResult, MultiSignature, MultiSigner, OpaqueExtrinsic,
+	DispatchError, MultiSignature, MultiSigner, OpaqueExtrinsic,
 };
 
 // Export scoped ...
@@ -123,7 +123,6 @@ sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
 		fn get_heartbeat_timeout() -> BlockNumber;
-		fn get_min_stake() -> Balance;
 	}
 
 	pub trait NetworksApi {
@@ -168,14 +167,11 @@ pub trait NetworksInterface {
 }
 
 pub trait MembersInterface {
-	fn member_stake(account: &AccountId) -> Balance;
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
 	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_registered(account: &AccountId) -> bool;
 	fn is_member_online(account: &AccountId) -> bool;
-	fn total_stake() -> Balance;
-	fn transfer_stake(from: &AccountId, to: &AccountId, amount: Balance) -> DispatchResult;
-	fn unstake_member(account: &AccountId);
+	fn do_unregister_member(account: &AccountId);
 }
 
 pub trait ElectionsInterface {

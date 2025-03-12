@@ -195,7 +195,7 @@ impl Tc {
 		Ok(balance as f64 / factor * token_price)
 	}
 
-	/// Calculates destination gas fee denominated in source token.
+	/// Calculates destination network gas fee expressed in source network token
 	pub fn calculate_relative_price(
 		&self,
 		src_network: NetworkId,

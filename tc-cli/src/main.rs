@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::HashMap;
+use futures::StreamExt;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -436,11 +437,43 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
+
+			// collect shard batches
+			let mut batches = HashSet::new();
+			for shard in tc.shards().await? {
+				if let Some(batch) = shard.batch_register {
+					batches.insert(batch);
+				}
+			}
+			// wait for shard batches to execute
+			for batch in batches {
+				let mut blocks = tc.finality_notification_stream();
+				loop {
+					if tc.is_batch_executed(batch).await? {
+						break;
+					}
+					tracing::info!("waiting for batch {batch}");
+					blocks.next().await.context("expected block")?;
+				}
+			}
+
 			tc.assert_reimbursement().await?;
-			tc.assert_message_fees().await?;
+			let total_funds = tc.total_gateway_funds()?;
+			let total_balance = tc.total_gateway_balance().await?;
+			tc.println(
+				None,
+				format!("shard registration msgs cost {}$", total_funds - total_balance),
+			)
+			.await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
 			tc.assert_reimbursement().await?;
-			//			tc.assert_message_fees().await?;
+			let total_balance_after = tc.total_gateway_balance().await?;
+			tc.println(
+				None,
+				format!("made {}$ of profit with msg", total_balance_after - total_balance),
+			)
+			.await?;
+			anyhow::ensure!(total_balance_after >= total_balance);
 		},
 		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
 			let testers = match (src_addr, dest_addr) {

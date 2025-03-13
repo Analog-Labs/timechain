@@ -1,0 +1,65 @@
+###############################################
+##
+##    Pipeline for triggering price updates
+##    on GMP routes.
+##
+##    This workflow runs as a cronjob or is
+##    triggered manually. It fetches the 
+##    latest prices from CMC and updates the
+##    routes on the gateway contracts.
+##
+###############################################
+name: Fetch route prices and update
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "tc-cli image tag (sha8 commit)"
+        required: false
+        type: string
+  # schedule:
+  #   - cron: "0 00,12 * * *"
+
+env:
+  TC_CLI_IMAGE: analoglabs/tc-cli
+  REGION: us-east1
+
+jobs:
+  tc-cli:
+    name: Fetch and upload
+    runs-on: ubuntu-latest
+    container:
+      image: analoglabs/gcloud-kubectl:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - env: development
+        - env: integration
+    environment: ${{ matrix.env }}
+    steps:
+    - name: GKE Login
+      run: |
+        echo '${{ secrets.GCP_SA_KEY }}' > ${HOME}/gcp-key.json
+        gcloud auth activate-service-account --key-file=${HOME}/gcp-key.json
+        gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+        gcloud container clusters get-credentials ${{ matrix.env }} --region $REGION
+    - name: Run tc-cli
+      run: |
+        TAG=${{ github.event.inputs.version || 'latest' }}
+        IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
+        NAMESPACE="timechain"
+        NAME=tc-cli-${GITHUB_RUN_ID}
+        NAME=${NAME//./-}
+        kubectl -n $NAMESPACE run $NAME --image=$IMAGE --attach --rm --restart=Never \
+          --env="TIMECHAIN_MNEMONIC=${{ secrets.TIMECHAIN_MNEMONIC }}" \
+          --env="TARGET_MNEMONIC=${{ secrets.TARGET_MNEMONIC }}" \
+          --env="TOKEN_PRICE_URL=${{ secrets.TOKEN_PRICE_URL }}" \
+          --env="TOKEN_API_KEY=${{ secrets.TOKEN_API_KEY }}" \
+          --env="NO_COLOR=1" \
+          --env="CONFIG_PATH=/etc/envs/${{ matrix.env }}" \
+          --command \
+          -- bash -c "./tc-cli --env /etc/envs/${{ matrix.env }} fetch-prices && cat /etc/envs/${{ matrix.env }}/prices.csv && ./tc-cli --env /etc/envs/${{ matrix.env }} register-routes"
+
+    

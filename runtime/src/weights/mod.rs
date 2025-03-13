@@ -7,6 +7,13 @@ mod mainnet;
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
 pub use mainnet::*;
 
+/// Staging profile runtime weights
+#[cfg(all(not(feature = "testnet"), feature = "develop"))]
+mod staging;
+
+#[cfg(all(not(feature = "testnet"), feature = "develop"))]
+pub use staging::*;
+
 /// Testnet profile runtime weights
 #[cfg(all(feature = "testnet", not(feature = "develop")))]
 mod testnet;
@@ -15,8 +22,8 @@ mod testnet;
 pub use testnet::*;
 
 /// Develop profile runtime weights
-#[cfg(feature = "develop")]
+#[cfg(all(feature = "testnet", feature = "develop"))]
 mod develop;
 
-#[cfg(feature = "develop")]
+#[cfg(all(feature = "testnet", feature = "develop"))]
 pub use develop::*;

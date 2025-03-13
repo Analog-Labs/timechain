@@ -297,6 +297,82 @@ where
 						parent: span,
 						Level::DEBUG,
 						shard_id,
+						"checking shard status before commitment",
+					);
+
+					// Check shard status first
+					let shard_status = match self.substrate.get_shard_status(shard_id).await {
+						Ok(status) => status,
+						Err(e) => {
+							event!(
+								parent: span,
+								Level::ERROR,
+								shard_id,
+								"failed to get shard status: {:?}",
+								e
+							);
+							return;
+						},
+					};
+
+					// Only proceed if shard is in Created state
+					if shard_status != ShardStatus::Created {
+						event!(
+							parent: span,
+							Level::WARN,
+							shard_id,
+							"cannot commit: shard in wrong state: {:?}",
+							shard_status
+						);
+						return;
+					}
+
+					// Check if enough members are online
+					let online_count = match self.substrate.get_shard_members_online(shard_id).await
+					{
+						Ok(count) => count,
+						Err(e) => {
+							event!(
+								parent: span,
+								Level::ERROR,
+								shard_id,
+								"failed to get online members count: {:?}",
+								e
+							);
+							return;
+						},
+					};
+
+					let threshold = match self.substrate.get_shard_threshold(shard_id).await {
+						Ok(t) => t,
+						Err(e) => {
+							event!(
+								parent: span,
+								Level::ERROR,
+								shard_id,
+								"failed to get shard threshold: {:?}",
+								e
+							);
+							return;
+						},
+					};
+
+					if online_count < threshold {
+						event!(
+							parent: span,
+							Level::WARN,
+							shard_id,
+							"not enough members online for commitment: {} < {}",
+							online_count,
+							threshold
+						);
+						return;
+					}
+
+					event!(
+						parent: span,
+						Level::DEBUG,
+						shard_id,
 						"attempting commitment",
 					);
 

@@ -69,7 +69,9 @@ impl Connector {
 		nonce: Option<u64>,
 		gas_limit: Option<u64>,
 	) -> Result<(Vec<u8>, TransactionReceipt, [u8; 32])> {
+		let guard = self.wallet_guard.lock().await;
 		let result = self.wallet.eth_send_call(contract, call, amount, nonce, gas_limit).await?;
+		drop(guard);
 		let (result, receipt, tx_hash) = match result {
 			SubmitResult::Executed { result, receipt, tx_hash } => (result, receipt, tx_hash),
 			SubmitResult::Timeout { tx_hash } => {
@@ -553,7 +555,6 @@ impl IConnector for Connector {
 			},
 		};
 		tracing::info!("submitting batch {batch} with {gas_limit} gas");
-		let _guard = self.wallet_guard.lock().await;
 		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
 			tracing::info!("failed to submit batch: {:?}", err);
 			err.to_string()

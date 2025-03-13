@@ -126,9 +126,7 @@ enum Command {
 	UnregisterMember {
 		member: String,
 	},
-	RegisterShards {
-		network: NetworkId,
-	},
+	RegisterShards,
 	RegisterRoutes,
 	RetryFailedBatch {
 		batch_id: BatchId,
@@ -365,8 +363,8 @@ async fn real_main() -> Result<()> {
 			let member = tc.parse_address(None, &member)?;
 			tc.unregister_member(member.into()).await?;
 		},
-		Command::RegisterShards { network } => {
-			tc.register_online_shards(network).await?;
+		Command::RegisterShards => {
+			tc.register_online_shards().await?;
 		},
 		Command::RegisterRoutes => tc.register_all_routes().await?,
 		Command::SetGatewayAdmin { network, admin } => {

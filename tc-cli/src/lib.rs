@@ -897,6 +897,9 @@ impl Tc {
 		peer_id: PeerId,
 	) -> Result<()> {
 		let member = public_key.clone().into_account();
+		if self.runtime.member_registered(&member).await? {
+			return Ok(());
+		}
 		self.println(
 			None,
 			format!("register_member {}", self.format_address(None, member.clone().into())?),
@@ -992,9 +995,16 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_online_shards(&self, network: NetworkId) -> Result<()> {
-		let keys = self.find_online_shard_keys(network).await?;
-		self.register_shards(network, keys).await
+	pub async fn register_online_shards(&self) -> Result<()> {
+		let mut register_shards = FuturesUnordered::new();
+		for network in self.connectors.keys().copied() {
+			let keys = self.find_online_shard_keys(network).await?;
+			register_shards.push(self.register_shards(network, keys));
+		}
+		while let Some(result) = register_shards.next().await {
+			result?;
+		}
+		Ok(())
 	}
 
 	pub async fn register_shards(&self, network: NetworkId, keys: Vec<TssPublicKey>) -> Result<()> {
@@ -1089,7 +1099,9 @@ impl Tc {
 			.println(
 				None,
 				format!(
-					"send message to {} {} with {} gas for {} {}$",
+					"send message from {} {} to {} {} with {} gas for {} {}$",
+					src_network,
+					self.format_address(Some(src_network), src_addr)?,
 					dest_network,
 					self.format_address(Some(dest_network), dest_addr)?,
 					gas_limit,
@@ -1104,8 +1116,10 @@ impl Tc {
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} to {} {} with {} gas for {} {}$",
+				"sent message {} from {} {} to {} {} with {} gas for {} {}$",
 				hex::encode(msg_id),
+				src_network,
+				self.format_address(Some(src_network), src_addr)?,
 				dest_network,
 				self.format_address(Some(dest_network), dest_addr)?,
 				gas_limit,

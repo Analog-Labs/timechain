@@ -1,4 +1,4 @@
-use crate::{BatchId, GmpEvent, TssSignature, MILLIANLOG};
+use crate::{BatchId, GmpEvent, TssSignature};
 use core::ops::Range;
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -34,10 +34,6 @@ impl std::fmt::Display for Task {
 impl Task {
 	pub fn get_input_length(&self) -> u32 {
 		self.encoded_size() as _
-	}
-
-	pub fn reward(&self) -> u128 {
-		15 * MILLIANLOG
 	}
 
 	pub fn needs_registration(&self) -> bool {

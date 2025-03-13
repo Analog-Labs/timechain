@@ -230,7 +230,7 @@ pub mod pallet {
 	pub type ShardRegisterBatchId<T: Config> =
 		StorageMap<_, Blake2_128Concat, TssPublicKey, BatchId, OptionQuery>;
 
-	/// Map storage for register shard batches.
+	/// Map storage for unregister shard batches.
 	#[pallet::storage]
 	pub type ShardUnregisterBatchId<T: Config> =
 		StorageMap<_, Blake2_128Concat, TssPublicKey, BatchId, OptionQuery>;

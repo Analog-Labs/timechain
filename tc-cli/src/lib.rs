@@ -532,18 +532,14 @@ impl Tc {
 			let size = self.runtime.shard_members(shard).await?.len() as u16;
 			let threshold = self.runtime.shard_threshold(shard).await?;
 			let mut registered = false;
+			let mut batch_register = None;
+			let mut batch_unregister = None;
 			if let Some(key) = key {
 				registered = registered_shards.get(&network).unwrap().contains(&key);
+				batch_register = self.runtime.shard_register_batch(key).await?;
+				batch_unregister = self.runtime.shard_unregister_batch(key).await?;
 			}
 			let assigned = self.runtime.assigned_tasks(shard).await?.len();
-			let (batch_register, batch_unregister) = if let Some(key) = key {
-				(
-					self.runtime.shard_register_batch(key).await?,
-					self.runtime.shard_unregister_batch(key).await?,
-				)
-			} else {
-				(None, None)
-			};
 			shards.push(Shard {
 				shard,
 				network,

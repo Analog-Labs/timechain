@@ -18,7 +18,7 @@
 // --extrinsic
 // *
 // --output
-// ./develop/pallet_timestamp.rs
+// ./staging/pallet_timestamp.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -39,20 +39,20 @@ impl<T: frame_system::Config> pallet_timestamp::WeightInfo for WeightInfo<T> {
 	/// Proof: `Babe::CurrentSlot` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn set() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `175`
+		//  Measured:  `211`
 		//  Estimated: `1493`
-		// Minimum execution time: 12_373_000 picoseconds.
-		Weight::from_parts(13_295_000, 0)
+		// Minimum execution time: 14_285_000 picoseconds.
+		Weight::from_parts(17_062_000, 0)
 			.saturating_add(Weight::from_parts(0, 1493))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	fn on_finalize() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `57`
+		//  Measured:  `94`
 		//  Estimated: `0`
-		// Minimum execution time: 4_849_000 picoseconds.
-		Weight::from_parts(5_080_000, 0)
+		// Minimum execution time: 7_384_000 picoseconds.
+		Weight::from_parts(8_114_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 }

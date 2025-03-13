@@ -58,10 +58,7 @@ pub mod pallet {
 		frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
 	};
 
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{Currency, ExistenceRequirement},
-	};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::IdentifyAccount, Saturating};
 	use sp_std::boxed::Box;
@@ -357,7 +354,6 @@ pub mod pallet {
 			}
 			let shard = TaskShard::<T>::get(task_id).ok_or(Error::<T>::UnassignedTask)?;
 			let network = T::Shards::shard_network(shard).ok_or(Error::<T>::UnknownShard)?;
-			let reward = task.reward();
 			let result = match (task, result) {
 				(
 					Task::ReadGatewayEvents { blocks },
@@ -399,7 +395,6 @@ pub mod pallet {
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
 			};
 			// complete task
-			Self::treasury_transfer_shard(shard, reward);
 			Self::finish_task(network, task_id, result);
 			Ok(())
 		}
@@ -524,35 +519,6 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidSignature.into());
 			}
 			Ok(())
-		}
-
-		fn treasury_transfer_shard(shard: ShardId, amount: u128) {
-			let members = T::Shards::shard_members(shard);
-			if members.is_empty() {
-				// Handle the case where there are no members
-				log::error!("Shard has no members, cannot distribute rewards.");
-				return;
-			}
-			let member_amount = amount / members.len() as u128;
-			for account in members.into_iter() {
-				Self::treasury_transfer(account, member_amount);
-			}
-		}
-
-		fn treasury_transfer(account: AccountId, amount: u128) {
-			let treasury = pallet_treasury::Pallet::<T>::account_id();
-			match pallet_balances::Pallet::<T>::transfer(
-				&treasury,
-				&account,
-				amount,
-				ExistenceRequirement::KeepAlive,
-			) {
-				Ok(_) => {},
-				Err(err) => {
-					Self::deposit_event(Event::InsufficientTreasuryBalance(account, amount));
-					log::error!("Treasury transfer failed: {:?}", err);
-				},
-			}
 		}
 
 		pub(crate) fn create_task(network: NetworkId, task: Task) -> TaskId {

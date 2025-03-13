@@ -229,7 +229,7 @@ impl From<time_primitives::Route> for Route {
 			relativeGasPriceNumerator: route.relative_gas_price.0,
 			relativeGasPriceDenominator: route.relative_gas_price.1,
 			gasLimit: route.gas_limit,
-			baseFee: route.base_fee,
+			baseFee: route.gmp_base_fee,
 		}
 	}
 }
@@ -244,7 +244,7 @@ impl From<Route> for time_primitives::Route {
 				route.relativeGasPriceDenominator,
 			),
 			gas_limit: route.gasLimit,
-			base_fee: route.baseFee,
+			gmp_base_fee: route.baseFee,
 		}
 	}
 }

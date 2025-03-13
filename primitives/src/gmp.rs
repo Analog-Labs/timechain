@@ -289,11 +289,16 @@ pub struct ConnectorParams {
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Route {
+	/// Destination network Id
 	pub network_id: NetworkId,
+	/// Destination gateway
 	pub gateway: Gateway,
+	/// Gas price on destination network, expressed in source network token
 	pub relative_gas_price: (u128, u128),
+	/// Maximum amount of gas a message is allowed to spend on destination network
 	pub gas_limit: u64,
-	pub base_fee: u128,
+	/// GMP protocol fee for message delivery to the destination network, expressed in source network token
+	pub gmp_base_fee: u128,
 }
 
 #[cfg(feature = "std")]
@@ -419,8 +424,8 @@ pub trait IConnectorAdmin: IConnector {
 	/// Receives messages from test contract.
 	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
-	/// Calculate transaction base fee for a chain.
-	async fn transaction_base_fee(&self) -> Result<u128>;
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128>;
 	/// Calculate returns the latest block gas_limit for a chain.
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.

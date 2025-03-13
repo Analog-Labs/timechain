@@ -736,6 +736,7 @@ impl IConnectorAdmin for Connector {
 			gasLimit: gas_limit as _,
 			data: payload.into(),
 		};
+		tracing::debug!("Sending GMP message: {:#?}", &msg);
 		let call = sol::GmpTester::sendMessageCall { msg };
 		let result = self.evm_call(contract, call, gas_cost, None, None).await?;
 		let id: MessageId = *result.0._0;
@@ -778,8 +779,8 @@ impl IConnectorAdmin for Connector {
 		Ok(msgs)
 	}
 
-	/// Calculate transaction base fee for a chain.
-	async fn transaction_base_fee(&self) -> Result<u128> {
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128> {
 		let fee_estimator = if self.wallet.config().blockchain == "polygon" {
 			self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
 		} else {

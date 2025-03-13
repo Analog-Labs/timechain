@@ -138,7 +138,7 @@ pub struct RouteEntry {
 	gateway: String,
 	relative_gas_price: String,
 	gas_limit: u64,
-	base_fee: u128,
+	gmp_base_fee: u128,
 }
 
 impl IntoRow for Route {
@@ -151,7 +151,7 @@ impl IntoRow for Route {
 			gateway: tc.format_address(Some(self.network_id), self.gateway)?,
 			relative_gas_price: format!("{}", num as f64 / den as f64),
 			gas_limit: self.gas_limit,
-			base_fee: self.base_fee,
+			gmp_base_fee: self.gmp_base_fee,
 		})
 	}
 }

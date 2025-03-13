@@ -298,16 +298,16 @@ impl Gmp for ConnectorWrapper {
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::RecvMessagesResponse { messages }))
 	}
-	async fn transaction_base_fee(
+	async fn max_fee_per_gas(
 		&self,
-		request: Request<proto::TransactionBaseFeeRequest>,
-	) -> GmpResult<proto::TransactionBaseFeeResponse> {
+		request: Request<proto::MaxFeePerGasRequest>,
+	) -> GmpResult<proto::MaxFeePerGasResponse> {
 		let (connector, _) = self.connector(request)?;
-		let base_fee = connector
-			.transaction_base_fee()
+		let fee = connector
+			.max_fee_per_gas()
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::TransactionBaseFeeResponse { base_fee }))
+		Ok(Response::new(proto::MaxFeePerGasResponse { fee }))
 	}
 
 	async fn block_gas_limit(

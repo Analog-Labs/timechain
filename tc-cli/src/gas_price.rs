@@ -195,20 +195,20 @@ impl Tc {
 		Ok(balance as f64 / factor * token_price)
 	}
 
+	/// Calculates destination network gas fee expressed in source network token
 	pub fn calculate_relative_price(
 		&self,
 		src_network: NetworkId,
 		dest_network: NetworkId,
 		src_usd_price: f64,
 		dest_usd_price: f64,
+		dest_gas_fee: u128,
 	) -> Result<Ratio<BigUint>> {
 		let src_config = self.config.network(src_network)?;
 		let src_margin: f64 = src_config.gmp_margin;
 		let src_decimals = self.currency(Some(src_network))?.0;
 
-		let dest_config = self.config.network(dest_network)?;
 		let dest_decimals = self.currency(Some(dest_network))?.0;
-		let dest_gas_fee = dest_config.route_base_fee;
 
 		let src_usd_price =
 			Ratio::from_float(src_usd_price).context("Cannot convert float to ratio")?;

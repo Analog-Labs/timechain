@@ -618,13 +618,13 @@ impl Tc {
 		})
 	}
 
-	pub async fn transaction_base_fee(&self, network: NetworkId) -> Result<u128> {
+	pub async fn max_fee_per_gas(&self, network: NetworkId) -> Result<u128> {
 		let connector = self
 			.connectors
 			.get(&network)
 			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
-		let base_fee = connector.transaction_base_fee().await?;
-		Ok(base_fee)
+		let fee = connector.max_fee_per_gas().await?;
+		Ok(fee)
 	}
 
 	pub async fn block_gas_limit(&self, network: NetworkId) -> Result<u64> {
@@ -802,9 +802,11 @@ impl Tc {
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let network_prices = self.read_csv_token_prices()?;
-				let src_price = gas_price::get_network_price(&network_prices, &src)?;
+				let src_price = get_network_price(&network_prices, &src)?;
 				let dest_price = get_network_price(&network_prices, &dest)?;
-				let ratio = self.calculate_relative_price(src, dest, src_price, dest_price)?;
+				let dest_gas_fee = self.max_fee_per_gas(dest).await?;
+				let ratio =
+					self.calculate_relative_price(src, dest, src_price, dest_price, dest_gas_fee)?;
 				let numerator = convert_bigint_to_u128(ratio.numer())?;
 				let denominator = convert_bigint_to_u128(ratio.denom())?;
 				let route = Route {
@@ -812,11 +814,11 @@ impl Tc {
 					gateway: dest_gateway,
 					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
-					base_fee: config.route_base_fee,
+					gmp_base_fee: config.route_base_fee,
 				};
 				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
 					if r.gas_limit == route.gas_limit
-						&& r.base_fee == route.base_fee
+						&& r.gmp_base_fee == route.gmp_base_fee
 						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
 					{
 						continue;
@@ -1302,7 +1304,7 @@ impl Tc {
 		connector.load_state(state).await
 	}
 
-	pub async fn assert_reimburstment(&self) -> Result<()> {
+	pub async fn assert_reimbursement(&self) -> Result<()> {
 		// all chronicles should have the configured balance
 		for chronicle in self.config.chronicles() {
 			let chronicle = self.chronicle_config(chronicle).await?;
@@ -1318,13 +1320,13 @@ impl Tc {
 				"current chronicle balance {}",
 				self.format_balance(Some(chronicle.network), balance)?
 			);
-			anyhow::ensure!(balance >= chronicle_funds, "reimburstment failed");
+			anyhow::ensure!(balance >= chronicle_funds, "reimbursement failed");
 		}
 		Ok(())
 	}
 
 	pub async fn assert_message_fees(&self) -> Result<()> {
-		// sum of all gateway funds should match teh configured balances
+		// sum of all gateway funds should match the configured balances
 		let mut total_funds = 0.;
 		let mut total_balance = 0.;
 		for network in self.connectors.keys().copied() {

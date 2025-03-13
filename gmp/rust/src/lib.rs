@@ -433,8 +433,8 @@ impl IConnectorAdmin for Connector {
 			if new_route.gas_limit != 0 {
 				route.gas_limit = new_route.gas_limit;
 			}
-			if new_route.base_fee != 0 {
-				route.base_fee = new_route.base_fee;
+			if new_route.gmp_base_fee != 0 {
+				route.gmp_base_fee = new_route.gmp_base_fee;
 			}
 			t.insert((gateway, route.network_id), route)?;
 		}
@@ -534,8 +534,8 @@ impl IConnectorAdmin for Connector {
 		}
 		Ok(msgs)
 	}
-	/// Calculate transaction base fee for a chain.
-	async fn transaction_base_fee(&self) -> Result<u128> {
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128> {
 		Ok(0)
 	}
 

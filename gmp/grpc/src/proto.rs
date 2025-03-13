@@ -218,11 +218,11 @@ pub struct RecvMessagesResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct TransactionBaseFeeRequest {}
+pub struct MaxFeePerGasRequest {}
 
 #[derive(Serialize, Deserialize)]
-pub struct TransactionBaseFeeResponse {
-	pub base_fee: u128,
+pub struct MaxFeePerGasResponse {
+	pub fee: u128,
 }
 
 #[derive(Serialize, Deserialize)]

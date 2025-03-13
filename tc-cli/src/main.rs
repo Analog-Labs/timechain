@@ -99,7 +99,7 @@ enum Command {
 		shard: ShardId,
 	},
 	FailedBatches,
-	TransactionBaseFee {
+	MaxFeePerGas {
 		network: NetworkId,
 	},
 	Batch {
@@ -317,11 +317,11 @@ async fn real_main() -> Result<()> {
 			let batches = tc.get_failed_batches().await?;
 			tc.print_table(None, "failed-batches", batches).await?;
 		},
-		Command::TransactionBaseFee { network } => {
-			let base_fee = tc.transaction_base_fee(network).await?;
+		Command::MaxFeePerGas { network } => {
+			let fee = tc.max_fee_per_gas(network).await?;
 			tc.println(
 				None,
-				format!("Transaction base fee for network: {} is : {}", network, base_fee),
+				format!("EIP1559 max_fee_per_gas for network: {} is : {}", network, fee),
 			)
 			.await?;
 		},
@@ -333,8 +333,8 @@ async fn real_main() -> Result<()> {
 		},
 
 		Command::BlockGasLimit { network } => {
-			let base_fee = tc.block_gas_limit(network).await?;
-			tc.println(None, format!("Gas limit for block: {} is : {}", network, base_fee))
+			let limit = tc.block_gas_limit(network).await?;
+			tc.println(None, format!("Gas limit for block: {} is : {}", network, limit))
 				.await?;
 		},
 		Command::Message { message } => {
@@ -438,11 +438,11 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
-			tc.assert_reimburstment().await?;
+			tc.assert_reimbursement().await?;
 			tc.assert_message_fees().await?;
-			tc.exec_smoke(src, dest, &testers, vec![42]).await?;
-			tc.assert_reimburstment().await?;
-			//tc.assert_message_fees().await?;
+			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
+			tc.assert_reimbursement().await?;
+			//			tc.assert_message_fees().await?;
 		},
 		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
 			let testers = match (src_addr, dest_addr) {

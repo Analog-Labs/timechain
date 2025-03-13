@@ -55,7 +55,7 @@ pub mod pallet {
 
 	use polkadot_sdk::{
 		frame_support::{self, Blake2_128Concat},
-		frame_system, pallet_balances, pallet_treasury, sp_runtime, sp_std,
+		frame_system, pallet_balances, sp_runtime, sp_std,
 	};
 
 	use frame_support::pallet_prelude::*;
@@ -119,7 +119,6 @@ pub mod pallet {
 	pub trait Config:
 		polkadot_sdk::frame_system::Config<AccountId = AccountId>
 		+ pallet_balances::Config<Balance = Balance>
-		+ pallet_treasury::Config
 	{
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
@@ -291,8 +290,6 @@ pub mod pallet {
 		BatchSizeSet(NetworkId, u64, u64),
 		/// Batch Restarted (old_task_id, new_task_id)
 		BatchRestarted(TaskId, TaskId),
-		/// Insufficient Treasury Balance to payout rewards
-		InsufficientTreasuryBalance(AccountId, Balance),
 		/// Message received
 		MessageReceived(MessageId),
 		/// Message executed

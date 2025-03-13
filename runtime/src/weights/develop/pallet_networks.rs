@@ -71,9 +71,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Tasks::TaskNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 50]`.
 	/// The range of component `b` is `[1, 50]`.
-	/// The range of component `c` is `[1, 50]`.
-	/// The range of component `d` is `[1, 200]`.
-	fn register_network(a: u32, b: u32, c: u32, _d: u32, ) -> Weight {
+	fn register_network(a: u32, b: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `189`
 		//  Estimated: `3654`
@@ -84,8 +82,6 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(7_680, 0).saturating_mul(a.into()))
 			// Standard Error: 9_218
 			.saturating_add(Weight::from_parts(17_098, 0).saturating_mul(b.into()))
-			// Standard Error: 9_218
-			.saturating_add(Weight::from_parts(25_518, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(18))
 	}

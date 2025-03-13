@@ -19,6 +19,7 @@ use std::{
 	path::PathBuf,
 	pin::Pin,
 	task::Poll,
+	time::Duration,
 };
 use time_primitives::{
 	BlockHash, BlockNumber, Commitment, ShardId, ShardStatus, TaskId, TssSignature,
@@ -296,16 +297,67 @@ where
 						parent: span,
 						Level::DEBUG,
 						shard_id,
-						"commit",
+						"attempting commitment",
 					);
-					self.substrate
-						.submit_commitment(
-							shard_id,
-							Commitment(BoundedVec::truncate_from(commitment.serialize())),
-							proof_of_knowledge.serialize(),
-						)
-						.await
-						.unwrap();
+
+					const MAX_RETRIES: u32 = 3;
+					const INITIAL_BACKOFF_MS: u64 = 5000; // 5 seconds
+
+					let mut retry_count = 0;
+					let mut backoff_ms = INITIAL_BACKOFF_MS;
+
+					loop {
+						match self
+							.substrate
+							.submit_commitment(
+								shard_id,
+								Commitment(BoundedVec::truncate_from(commitment.serialize())),
+								proof_of_knowledge.serialize(),
+							)
+							.await
+						{
+							Ok(_) => {
+								event!(
+									parent: span,
+									Level::INFO,
+									shard_id,
+									"commitment successful",
+								);
+								break;
+							},
+							Err(e) => {
+								retry_count += 1;
+								if retry_count >= MAX_RETRIES {
+									event!(
+										parent: span,
+										Level::ERROR,
+										shard_id,
+										"commitment failed after {} retries: {:?}",
+										MAX_RETRIES,
+										e
+									);
+									// Propagate the error after max retries
+									panic!(
+										"Shard {} commitment failed after {} retries: {:?}",
+										shard_id, MAX_RETRIES, e
+									);
+								}
+
+								event!(
+									parent: span,
+									Level::WARN,
+									shard_id,
+									"commitment attempt {} failed, retrying in {}ms: {:?}",
+									retry_count,
+									backoff_ms,
+									e
+								);
+
+								tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+								backoff_ms *= 2; // Exponential backoff
+							},
+						}
+					}
 				},
 				TssAction::PublicKey(tss_public_key) => {
 					let public_key = tss_public_key.to_bytes().unwrap();

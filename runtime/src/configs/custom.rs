@@ -58,7 +58,7 @@ impl pallet_shards::Config for Runtime {
 	type Members = Members;
 	type Elections = Elections;
 	type Tasks = Tasks;
-	type DkgTimeout = ConstU32<10>;
+	type DkgTimeout = ConstU32<30>; // Increased timeout to handle multiple simultaneous shard creations
 }
 
 impl pallet_tasks::Config for Runtime {

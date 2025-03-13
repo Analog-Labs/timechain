@@ -103,6 +103,10 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
+    cctp_contracts:
+    - "000000000000000000000000F804E7B9bf2a1644c490c87Fdb18642ef329601C"
+    - "000000000000000000000000D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
 
   5:
     backend: "evm"

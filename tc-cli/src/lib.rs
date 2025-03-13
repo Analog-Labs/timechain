@@ -993,9 +993,16 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_online_shards(&self, network: NetworkId) -> Result<()> {
-		let keys = self.find_online_shard_keys(network).await?;
-		self.register_shards(network, keys).await
+	pub async fn register_online_shards(&self) -> Result<()> {
+		let mut register_shards = FuturesUnordered::new();
+		for network in self.connectors.keys().copied() {
+			let keys = self.find_online_shard_keys(network).await?;
+			register_shards.push(self.register_shards(network, keys));
+		}
+		while let Some(result) = register_shards.next().await {
+			result?;
+		}
+		Ok(())
 	}
 
 	pub async fn register_shards(&self, network: NetworkId, keys: Vec<TssPublicKey>) -> Result<()> {

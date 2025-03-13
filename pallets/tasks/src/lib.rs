@@ -225,6 +225,16 @@ pub mod pallet {
 	pub type TaskNetwork<T: Config> =
 		StorageMap<_, Blake2_128Concat, TaskId, NetworkId, OptionQuery>;
 
+	/// Map storage for register shard batches.
+	#[pallet::storage]
+	pub type ShardRegisterBatchId<T: Config> =
+		StorageMap<_, Blake2_128Concat, TssPublicKey, BatchId, OptionQuery>;
+
+	/// Map storage for register shard batches.
+	#[pallet::storage]
+	pub type ShardUnregisterBatchId<T: Config> =
+		StorageMap<_, Blake2_128Concat, TssPublicKey, BatchId, OptionQuery>;
+
 	/// Map storage for registered shards.
 	#[pallet::storage]
 	pub type ShardRegistered<T: Config> =
@@ -722,9 +732,17 @@ pub mod pallet {
 			let batch_id = BatchIdCounter::<T>::get();
 			BatchIdCounter::<T>::put(batch_id.saturating_add(1));
 			for op in &msg.ops {
-				if let GatewayOp::SendMessage(msg) = op {
-					let msg_id = msg.message_id();
-					MessageBatchId::<T>::insert(msg_id, batch_id);
+				match op {
+					GatewayOp::SendMessage(msg) => {
+						let msg_id = msg.message_id();
+						MessageBatchId::<T>::insert(msg_id, batch_id);
+					},
+					GatewayOp::RegisterShard(key) => {
+						ShardRegisterBatchId::<T>::insert(key, batch_id);
+					},
+					GatewayOp::UnregisterShard(key) => {
+						ShardUnregisterBatchId::<T>::insert(key, batch_id);
+					},
 				}
 			}
 			BatchMessage::<T>::insert(batch_id, msg);

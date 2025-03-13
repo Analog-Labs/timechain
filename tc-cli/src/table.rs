@@ -96,6 +96,8 @@ pub struct ShardEntry {
 	size: u16,
 	threshold: u16,
 	assigned: usize,
+	batch_register: String,
+	batch_unregister: String,
 }
 
 impl IntoRow for Shard {
@@ -111,6 +113,8 @@ impl IntoRow for Shard {
 			size: self.size,
 			threshold: self.threshold,
 			assigned: self.assigned,
+			batch_register: self.batch_register.map(|b| b.to_string()).unwrap_or_default(),
+			batch_unregister: self.batch_unregister.map(|b| b.to_string()).unwrap_or_default(),
 		})
 	}
 }

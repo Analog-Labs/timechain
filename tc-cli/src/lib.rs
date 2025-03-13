@@ -356,8 +356,9 @@ pub struct Shard {
 	pub registered: bool,
 	pub size: u16,
 	pub threshold: u16,
-	// TODO: pub stake: u128,
 	pub assigned: usize,
+	pub batch_register: Option<BatchId>,
+	pub batch_unregister: Option<BatchId>,
 }
 
 #[derive(Clone, Debug)]
@@ -535,6 +536,14 @@ impl Tc {
 				registered = registered_shards.get(&network).unwrap().contains(&key);
 			}
 			let assigned = self.runtime.assigned_tasks(shard).await?.len();
+			let (batch_register, batch_unregister) = if let Some(key) = key {
+				(
+					self.runtime.shard_register_batch(key).await?,
+					self.runtime.shard_unregister_batch(key).await?,
+				)
+			} else {
+				(None, None)
+			};
 			shards.push(Shard {
 				shard,
 				network,
@@ -544,6 +553,8 @@ impl Tc {
 				size,
 				threshold,
 				assigned,
+				batch_register,
+				batch_unregister,
 			});
 		}
 		Ok(shards)
@@ -656,6 +667,10 @@ impl Tc {
 
 	pub async fn is_message_executed(&self, message: MessageId) -> Result<bool> {
 		Ok(self.runtime.message_executed_task(message).await?.is_some())
+	}
+
+	pub async fn is_batch_executed(&self, batch: BatchId) -> Result<bool> {
+		Ok(self.runtime.batch_tx_hash(batch).await?.is_some())
 	}
 
 	pub async fn message_trace(
@@ -1339,24 +1354,24 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn assert_message_fees(&self) -> Result<()> {
-		// sum of all gateway funds should match the configured balances
+	pub fn total_gateway_funds(&self) -> Result<f64> {
 		let mut total_funds = 0.;
+		for network in self.connectors.keys().copied() {
+			let gateway_funds = &self.config.network(network)?.gateway_funds;
+			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
+			total_funds += self.balance_to_usd(network, gateway_funds)?;
+		}
+		Ok(total_funds)
+	}
+
+	pub async fn total_gateway_balance(&self) -> Result<f64> {
 		let mut total_balance = 0.;
 		for network in self.connectors.keys().copied() {
 			let (_connector, gateway) = self.gateway(network).await?;
-			let gateway_funds = &self.config.network(network)?.gateway_funds;
-			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
 			let balance = self.balance(Some(network), gateway).await?;
-			total_funds += self.balance_to_usd(network, gateway_funds)?;
 			total_balance += self.balance_to_usd(network, balance)?;
 		}
-		tracing::info!("initial gateway balance {total_funds}$");
-		tracing::info!("current gateway balance {total_balance}$");
-		let profit = total_balance - total_funds;
-		tracing::info!("made {profit}$ of profit");
-		anyhow::ensure!(profit >= 0., "message price is too low");
-		Ok(())
+		Ok(total_balance)
 	}
 
 	pub async fn exec_smoke(

@@ -4,7 +4,7 @@ use anyhow::Result;
 use futures::channel::oneshot;
 use time_primitives::{
 	BatchId, ErrorMsg, GatewayMessage, GmpEvents, Hash, MessageId, NetworkId, PublicKey, ShardId,
-	Task, TaskId, TaskResult,
+	Task, TaskId, TaskResult, TssPublicKey,
 };
 
 impl SubxtClient {
@@ -126,6 +126,16 @@ impl SubxtClient {
 
 	pub async fn message_executed_task(&self, message: MessageId) -> Result<Option<TaskId>> {
 		let storage_query = metadata::storage().tasks().message_executed_task_id(message);
+		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+	}
+
+	pub async fn shard_register_batch(&self, key: TssPublicKey) -> Result<Option<BatchId>> {
+		let storage_query = metadata::storage().tasks().shard_register_batch_id(key);
+		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+	}
+
+	pub async fn shard_unregister_batch(&self, key: TssPublicKey) -> Result<Option<BatchId>> {
+		let storage_query = metadata::storage().tasks().shard_unregister_batch_id(key);
 		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
 	}
 }

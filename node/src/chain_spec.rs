@@ -298,6 +298,13 @@ impl GenesisKeysConfig {
 			.with_properties(properties)
 			.with_genesis_config_patch(genesis_patch);
 
+		if cfg!(feature = "testnet") && !cfg!(feature = "develop") {
+			builder = builder.with_boot_nodes(vec![
+				"/dns/bootnode-1.testnet.analog.one/tcp/30333/ws/p2p/12D3KooWGPWXRn5WL2hQA5Fo88RKCVX3Sgnm85JrDzgGf3PUPBui".parse().unwrap(),
+				"/dns/bootnode-2.testnet.analog.one/tcp/30333/ws/p2p/12D3KooWEr2Cj7SeGR6dF61uhwE9vf4ibR9x4ntJkVyhe2wYbQQW".parse().unwrap()
+			]);
+		}
+
 		// ... and add optional telemetry
 		if let Some(endpoints) = telemetry {
 			builder = builder.with_telemetry_endpoints(endpoints);

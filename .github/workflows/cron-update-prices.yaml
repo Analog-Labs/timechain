@@ -18,8 +18,8 @@ on:
         description: "tc-cli image tag (sha8 commit)"
         required: false
         type: string
-  # schedule:
-  #   - cron: "0 00,12 * * *"
+  schedule:
+    - cron: "0 00,12 * * *"
 
 env:
   TC_CLI_IMAGE: analoglabs/tc-cli

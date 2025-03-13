@@ -895,6 +895,9 @@ impl Tc {
 		peer_id: PeerId,
 	) -> Result<()> {
 		let member = public_key.clone().into_account();
+		if self.runtime.member_registered(&member).await? {
+			return Ok(());
+		}
 		self.println(
 			None,
 			format!("register_member {}", self.format_address(None, member.clone().into())?),

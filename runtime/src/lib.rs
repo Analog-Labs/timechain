@@ -1,6 +1,12 @@
 //! This is the official timechain runtime.
 //!
-//! # Timechain Runtime
+//! # Timechain Runtime and Environments
+//!
+//! New code is first tested on development (develop), then integrated with all other projects on integration.
+//!
+//! Once ready for release, new features start long term testing on testnet (testnet). Once everybody is happy, including the community and external partners, features are brought to timechain (mainnet).
+//!
+//! The staging can be optionally used to test any mainnet specific migrations, features or other oddities.
 //!
 //! | Name    | Features         | Profile |
 //! |---------|------------------|---------|

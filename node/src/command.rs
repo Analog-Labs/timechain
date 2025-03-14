@@ -51,11 +51,18 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			// Choose soft-launch mainnet by default
-			"mainnet" | "" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+			// Use default chain based on compile flags
+			"" => {
+				if cfg!(feature = "testnet") {
+					self.load_spec("testnet")?
+				} else {
+					self.load_spec("mainnet")?
+				}
+			},
+			// Public networks
+			"mainnet" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 				&include_bytes!("chains/mainnet.raw.json")[..],
 			)?),
-			// Old testnet environment
 			"testnet" => Box::new(
 				chain_spec::GenesisKeysConfig::from_json_bytes(
 					&include_bytes!("chains/testnet.keys.json")[..],

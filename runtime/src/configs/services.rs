@@ -7,7 +7,6 @@ use frame_support::{
 	traits::{fungible::HoldConsideration, ConstU32, EqualPrivilegeOnly, LinearStoragePrice},
 	weights::Weight,
 };
-use frame_system::EnsureRoot;
 
 use sp_runtime::{traits::Verify, Perbill};
 
@@ -16,9 +15,7 @@ use pallet_identity::legacy::IdentityInfo;
 use time_primitives::{Signature, ANLOG};
 // Local module imports
 use crate::{
-	deposit, AccountId, Balance, Balances, EnsureRootOrHalfTechnical, OriginCaller, Preimage,
-	Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
-	Treasury, DAYS,
+	deposit, AccountId, Balance, Balances, DefaultAdminOrigin, OriginCaller, Preimage, Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, DAYS
 };
 
 parameter_types! {
@@ -42,12 +39,12 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
-	type Slashed = Treasury;
-	type ForceOrigin = EnsureRootOrHalfTechnical;
-	type RegistrarOrigin = EnsureRootOrHalfTechnical;
+	type Slashed = (); // Treasury
+	type ForceOrigin = DefaultAdminOrigin;
+	type RegistrarOrigin = DefaultAdminOrigin;
 	type OffchainSignature = Signature;
 	type SigningPublicKey = <Signature as Verify>::Signer;
-	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+	type UsernameAuthorityOrigin = DefaultAdminOrigin;
 	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
@@ -67,7 +64,7 @@ impl pallet_preimage::Config for Runtime {
 	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type ManagerOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = DefaultAdminOrigin;
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,
@@ -88,7 +85,7 @@ impl pallet_scheduler::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
-	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type ScheduleOrigin = DefaultAdminOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MaxScheduledPerBlock = ConstU32<512>;
 	#[cfg(not(feature = "runtime-benchmarks"))]

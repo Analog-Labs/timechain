@@ -52,10 +52,6 @@
 //! ### On-chain governance
 //!  - [`TechnicalCommittee`]
 //!  - [`TechnicalMembership`]
-//!  - SafeMode
-//!
-//! ### On-chain funding
-//!  - [`Treasury`]
 //!
 //! ### Custom pallets
 //!  - [`Governance`]
@@ -109,10 +105,7 @@ pub use configs::core::{
 };
 #[cfg(feature = "testnet")]
 pub use configs::custom::PrevalidateFeeless;
-pub use configs::governance::{
-	EnsureRootOrHalfTechnical, TechnicalMember, TechnicalQualifiedMajority, TechnicalSuperMajority,
-	TechnicalUnanimity,
-};
+pub use configs::governance::DefaultAdminOrigin;
 pub use configs::tokenomics::{ExistentialDeposit, LengthToFee, WeightToFee};
 
 /// Import variant constants and macros
@@ -439,9 +432,6 @@ mod runtime {
 	#[runtime::pallet_index(23)]
 	pub type TechnicalMembership = pallet_membership;
 
-	#[runtime::pallet_index(24)]
-	pub type SafeMode = pallet_safe_mode;
-
 	// Custom governance
 
 	#[runtime::pallet_index(32)]
@@ -596,11 +586,6 @@ mod runtime {
 	#[runtime::pallet_index(23)]
 	pub type TechnicalMembership = pallet_membership;
 
-	// On-chain funding
-
-	#[runtime::pallet_index(27)]
-	pub type Treasury = pallet_treasury;
-
 	// = Custom pallets =
 
 	// Custom governance
@@ -630,11 +615,6 @@ mod runtime {
 
 	#[runtime::pallet_index(39)]
 	pub type Dmail = pallet_dmail;
-
-	// Custom funding pallets
-
-	#[runtime::pallet_index(42)]
-	pub type Airdrop = pallet_airdrop;
 
 	// HASHI Bridge
 

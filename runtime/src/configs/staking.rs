@@ -30,7 +30,7 @@ use time_primitives::BlockNumber;
 // Local module imports
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
-	DelegatedStaking, ElectionProviderMultiPhase, EnsureRootOrHalfTechnical, EpochDuration,
+	DelegatedStaking, ElectionProviderMultiPhase, DefaultAdminOrigin, EpochDuration,
 	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
 	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
 	Timestamp, TransactionPayment, VoterList, ANLOG,
@@ -208,7 +208,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
-	type ForceOrigin = EnsureRootOrHalfTechnical;
+	type ForceOrigin = DefaultAdminOrigin;
 	type MaxWinners = ConstU32<100>;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
@@ -302,7 +302,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	/// A majority of the council can cancel the slash.
-	type AdminOrigin = EnsureRootOrHalfTechnical;
+	type AdminOrigin = DefaultAdminOrigin;
 	type SessionInterface = Self;
 	/// Inflation curve that optimizes returned rewards
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
@@ -384,7 +384,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
 	type PalletId = NominationPoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
-	type AdminOrigin = EnsureRootOrHalfTechnical;
+	type AdminOrigin = DefaultAdminOrigin;
 }
 
 parameter_types! {

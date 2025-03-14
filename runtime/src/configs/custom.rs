@@ -25,33 +25,20 @@ use time_primitives::{MembersInterface, ANLOG};
 // Local module imports
 use crate::{
 	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
-	Shards, Tasks,
+	Shards, Tasks, DefaultAdminOrigin
 };
-
-#[cfg(not(feature = "testnet"))]
-use super::governance::EnsureRootOrHalfTechnical;
-#[cfg(feature = "testnet")]
-use super::governance::EnsureRootOrTechnicalMember;
 
 // Custom pallet config
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
 }
 
-#[cfg(not(feature = "testnet"))]
-/// Default admin origin for all chronicle related pallets
-type ChronicleAdmin = EnsureRootOrHalfTechnical;
-
-#[cfg(feature = "testnet")]
-/// Development admin origin for all chronicle related pallets
-type ChronicleAdmin = EnsureRootOrTechnicalMember;
-
 impl pallet_members::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_members::WeightInfo<Runtime>;
 	type Elections = Elections;
 	type Shards = Shards;
-	type AdminOrigin = ChronicleAdmin;
+	type AdminOrigin = DefaultAdminOrigin;
 	type HeartbeatTimeout = ConstU32<300>;
 	type MaxTimeoutsPerBlock = ConstU32<25>;
 }
@@ -67,7 +54,7 @@ impl pallet_elections::Config for Runtime {
 
 impl pallet_shards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = ChronicleAdmin;
+	type AdminOrigin = DefaultAdminOrigin;
 	type WeightInfo = weights::pallet_shards::WeightInfo<Runtime>;
 	type Members = Members;
 	type Elections = Elections;
@@ -77,7 +64,7 @@ impl pallet_shards::Config for Runtime {
 
 impl pallet_tasks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = ChronicleAdmin;
+	type AdminOrigin = DefaultAdminOrigin;
 	type WeightInfo = weights::pallet_tasks::WeightInfo<Runtime>;
 	type Networks = Networks;
 	type Shards = Shards;
@@ -98,12 +85,12 @@ impl pallet_timegraph::Config for Runtime {
 	type InitialRewardPoolAccount = InitialRewardPoolAccount;
 	type InitialTimegraphAccount = InitialTimegraphAccount;
 	type InitialThreshold = InitialThreshold;
-	type AdminOrigin = EnsureRootOrTechnicalMember;
+	type AdminOrigin = DefaultAdminOrigin;
 }
 
 impl pallet_networks::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = ChronicleAdmin;
+	type AdminOrigin = DefaultAdminOrigin;
 	type WeightInfo = weights::pallet_networks::WeightInfo<Runtime>;
 	type Tasks = Tasks;
 }

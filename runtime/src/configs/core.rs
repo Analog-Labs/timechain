@@ -9,7 +9,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstU16, ConstU32},
+	traits::{ConstU16, ConstU32, Everything},
 	weights::{constants::ParityDbWeight, Weight},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
@@ -24,15 +24,11 @@ use time_primitives::{BlockHash, BlockNumber, Moment, SS58_ADDRESS_PREFIX};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
-#[cfg(not(feature = "testnet"))]
-use crate::SafeMode;
 use crate::{
 	weights::{self, BlockExecutionWeight, ExtrinsicBaseWeight},
 	AccountId, Babe, Balance, Block, Nonce, PalletInfo, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeOrigin, RuntimeTask, MAXIMUM_BLOCK_WEIGHT, SLOT_DURATION, VERSION,
 };
-#[cfg(feature = "testnet")]
-use frame_support::traits::Everything;
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
@@ -72,14 +68,10 @@ const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO
 /// ## 00 - <a id="config.System">`System` Config</a>
 ///
 /// Represents the runtime base configuration, pretty standard appart from:
-/// - [`BaseCallFilter`](#associatedtype.BaseCallFilter) is currently set to support safe mode
 /// - [`AccountData`](#associatedtype.AccountData) is managed by `Balances`
 /// - [`SS58Prefix`](#associatedtype.SS58Prefix) is registered for mainnet, rest is unofficial
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
-	#[cfg(not(feature = "testnet"))]
-	type BaseCallFilter = SafeMode;
-	#[cfg(feature = "testnet")]
 	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;

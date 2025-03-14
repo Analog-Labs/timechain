@@ -7,7 +7,6 @@ pub mod frame_system;
 
 pub mod bridge_multisig;
 pub mod eth_bridge;
-pub mod pallet_airdrop;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
 pub mod pallet_dmail;

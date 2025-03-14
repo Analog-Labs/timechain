@@ -64,10 +64,7 @@ const SHARD_SIZE: usize = 3;
 // Build genesis storage according to the mock runtime.
 fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	let mut balances = vec![(
-		sp_core::sr25519::Public::from_raw(Treasury::account_id().into()).into(),
-		100_000 * ANLOG,
-	)];
+	let mut balances = vec![];
 	for i in 1..=(SHARD_SIZE * 3) {
 		balances.push((acc_pub(i.try_into().unwrap()).into(), 100_000 * ANLOG));
 	}

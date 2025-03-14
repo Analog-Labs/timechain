@@ -9,16 +9,7 @@ use sp_runtime::Perbill;
 
 use time_primitives::{AccountId, Balance, BlockNumber, ANLOG};
 
-#[cfg(not(feature = "testnet"))]
-use frame_support::traits::Contains;
-#[cfg(not(feature = "testnet"))]
-use frame_system::EnsureRootWithSuccess;
-#[cfg(not(feature = "testnet"))]
-use sp_runtime::traits::ConstU32;
-
 // Local module imports
-#[cfg(not(feature = "testnet"))]
-use crate::{Balances, RuntimeHoldReason};
 use crate::{
 	Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin, TechnicalCollective,
 	TechnicalCommittee, DAYS, HOURS,
@@ -41,13 +32,14 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type MaxMembers = TechnicalMaxMembers;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type SetMembersOrigin = DefaultAdminOrigin;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
 }
 
-// Limit membership check to development mode
+// Limit to membership check in development mode
 pub type TechnicalMember = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
 
+// Various voting percentages to use in governance
 pub type TechnicalHalf =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 2>;
 pub type TechnicalMajority =
@@ -59,30 +51,29 @@ pub type TechnicalSuperMajority =
 pub type TechnicalUnanimity =
 	pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>;
 
+// Combine with root origin to allow easier benchmarking
 pub type EnsureRootOrTechnicalMember = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalMember>;
 pub type EnsureRootOrHalfTechnical = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalHalf>;
 
+/// Default admin origin on mainnet
+#[cfg(not(any(feature = "testnet", feature = "develop")))]
+pub type DefaultAdminOrigin = EnsureRootOrHalfTechnical;
+
+/// Default admin origin on testnet or any development environment
+#[cfg(any(feature = "testnet", feature = "develop"))]
+pub type DefaultAdminOrigin = EnsureRootOrTechnicalMember;
+
 impl pallet_membership::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AddOrigin = EnsureRootOrHalfTechnical;
-	type RemoveOrigin = EnsureRootOrHalfTechnical;
-	type SwapOrigin = EnsureRootOrHalfTechnical;
-	type ResetOrigin = EnsureRootOrHalfTechnical;
-	type PrimeOrigin = EnsureRootOrHalfTechnical;
+	type AddOrigin = DefaultAdminOrigin;
+	type RemoveOrigin = DefaultAdminOrigin;
+	type SwapOrigin = DefaultAdminOrigin;
+	type ResetOrigin = DefaultAdminOrigin;
+	type PrimeOrigin = DefaultAdminOrigin;
 	type MembershipInitialized = TechnicalCommittee;
 	type MembershipChanged = TechnicalCommittee;
 	type MaxMembers = TechnicalMaxMembers;
 	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
-}
-
-/// Calls that can bypass the safe-mode pallet.
-pub struct SafeModeWhitelistedCalls;
-#[cfg(not(feature = "testnet"))]
-impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
-	fn contains(call: &RuntimeCall) -> bool {
-		// TODO: Allow inherents
-		matches!(call, RuntimeCall::System(_) | RuntimeCall::SafeMode(_))
-	}
 }
 
 parameter_types! {
@@ -107,38 +98,9 @@ parameter_types! {
 	pub const ReleaseDelay: u32 = 7 * DAYS;
 }
 
-#[cfg(not(feature = "testnet"))]
-impl pallet_safe_mode::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type WhitelistedCalls = SafeModeWhitelistedCalls;
-	type EnterDuration = EnterDuration;
-	type EnterDepositAmount = EnterDepositAmount;
-	type ExtendDuration = ExtendDuration;
-	type ExtendDepositAmount = ExtendDepositAmount;
-	// TODO: Tie properly into governance
-	type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, ConstU32<9>>;
-	type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, ConstU32<11>>;
-	type ForceExitOrigin = EnsureRootOrHalfTechnical;
-	type ForceDepositOrigin = EnsureRoot<AccountId>;
-	type ReleaseDelay = ReleaseDelay;
-	type Notify = ();
-	type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
-}
-
-#[cfg(not(feature = "testnet"))]
 impl pallet_governance::Config for Runtime {
 	/// Default admin origin for system related governance
-	type SystemAdmin = EnsureRootOrHalfTechnical;
+	type SystemAdmin = DefaultAdminOrigin;
 	// Default admin origin for staking related governance
-	type StakingAdmin = EnsureRootOrHalfTechnical;
-}
-
-#[cfg(feature = "testnet")]
-impl pallet_governance::Config for Runtime {
-	/// Development admin origin for all system calls
-	type SystemAdmin = EnsureRootOrTechnicalMember;
-	// Development admin origin for all staking calls
-	type StakingAdmin = EnsureRootOrTechnicalMember;
+	type StakingAdmin = DefaultAdminOrigin;
 }

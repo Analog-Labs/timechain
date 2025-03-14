@@ -9,12 +9,17 @@ use frame_support::weights::{
 };
 
 #[cfg(feature = "testnet")]
-use frame_support::traits::{Imbalance, OnUnbalanced};
+use frame_support::{
+	PalletId,
+	traits::{Imbalance, OnUnbalanced, Currency}
+};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, WithdrawReasons},
 };
 
+#[cfg(feature = "testnet")]
+use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
 	traits::{Bounded, ConvertInto},
 	FixedPointNumber, Perbill, Perquintill,
@@ -31,9 +36,9 @@ use crate::{
 	RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
 };
 #[cfg(feature = "testnet")]
-use crate::{Authorship, NegativeImbalance, Treasury};
+use crate::{Authorship, NegativeImbalance};
 #[cfg(feature = "testnet")]
-use frame_support::traits::Currency;
+use time_primitives::{AccountId};
 use time_primitives::{MICROANLOG, MILLIANLOG};
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -126,6 +131,25 @@ parameter_types! {
 	pub const ExistentialDeposit: Balance = 500;
 }
 
+/// Virtual treasury wallet
+pub struct Treasury;
+#[cfg(feature = "testnet")]
+impl Treasury {
+	/// Return internal virtual wallet id
+	fn account_id() -> AccountId {
+		PalletId(*b"timetrsy").into_account_truncating()
+	}
+}
+
+/// Unbalance handler to provide rewards to treasury wallet
+#[cfg(feature = "testnet")]
+impl OnUnbalanced<NegativeImbalance> for Treasury {
+	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+		Balances::resolve_creating(&Self::account_id(), amount);
+	}
+}
+
+/// Unbalance handler to provide rewards to block authors
 pub struct Author;
 #[cfg(feature = "testnet")]
 impl OnUnbalanced<NegativeImbalance> for Author {
@@ -147,7 +171,6 @@ impl OnUnbalanced<NegativeImbalance> for DealWithFees {
 				// for tips, if any, 80% to treasury, 20% to author (though this can be anything)
 				tips.ration_merge_into(80, 20, &mut split);
 			}
-			#[cfg(feature = "testnet")]
 			Treasury::on_unbalanced(split.0);
 			Author::on_unbalanced(split.1);
 		}

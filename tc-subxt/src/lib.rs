@@ -120,10 +120,10 @@ impl SubxtClient {
 		Ok(())
 	}
 
-	pub async fn balance(&self, account: &AccountId, block: BlockHash) -> Result<u128> {
+	pub async fn balance(&self, account: &AccountId, block: SubxtBlock) -> Result<u128> {
 		let storage_query =
 			metadata::storage().system().account(subxt::utils::Static(account.clone()));
-		let result = self.client.storage().at(block).fetch(&storage_query).await?;
+		let result = self.client.storage().at(block.value()).fetch(&storage_query).await?;
 		Ok(if let Some(info) = result { info.data.free } else { 0 })
 	}
 
@@ -173,4 +173,18 @@ fn block_stream<
 		}
 	};
 	Box::pin(stream)
+}
+
+pub struct SubxtBlock(subxt::utils::H256);
+
+impl From<BlockHash> for SubxtBlock {
+	fn from(value: BlockHash) -> Self {
+		SubxtBlock(subxt::utils::H256::from(value.0))
+	}
+}
+
+impl SubxtBlock {
+	pub fn value(&self) -> subxt::utils::H256 {
+		self.0
+	}
 }

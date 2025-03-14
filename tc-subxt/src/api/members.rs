@@ -1,38 +1,46 @@
 use crate::worker::Tx;
-use crate::{metadata, SubxtClient};
+use crate::{metadata, SubxtBlock, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
 use time_primitives::{AccountId, BlockNumber, NetworkId, PeerId, PublicKey};
 
 impl SubxtClient {
-	pub async fn member_network(&self, account: &AccountId) -> Result<Option<NetworkId>> {
+	pub async fn member_network(
+		&self,
+		account: &AccountId,
+		block: SubxtBlock,
+	) -> Result<Option<NetworkId>> {
 		let account = subxt::utils::Static(account.clone());
 		let storage_query = metadata::storage().members().member_network(&account);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+		Ok(self.client.storage().at(block.value()).fetch(&storage_query).await?)
 	}
 
-	pub async fn member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>> {
+	pub async fn member_peer_id(
+		&self,
+		account: &AccountId,
+		block: SubxtBlock,
+	) -> Result<Option<PeerId>> {
 		let account = subxt::utils::Static(account.clone());
 		let runtime_call = metadata::apis().members_api().get_member_peer_id(account);
-		let data = self.client.runtime_api().at_latest().await?.call(runtime_call).await?;
+		let data = self.client.runtime_api().at(block.value()).call(runtime_call).await?;
 		Ok(data)
 	}
 
-	pub async fn member_online(&self, account: &AccountId) -> Result<bool> {
+	pub async fn member_online(&self, account: &AccountId, block: SubxtBlock) -> Result<bool> {
 		let account = subxt::utils::Static(account.clone());
 		let storage_query = metadata::storage().members().member_online(account);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
+		Ok(self.client.storage().at(block.value()).fetch(&storage_query).await?.is_some())
 	}
 
-	pub async fn member_registered(&self, account: &AccountId) -> Result<bool> {
+	pub async fn member_registered(&self, account: &AccountId, block: SubxtBlock) -> Result<bool> {
 		let account = subxt::utils::Static(account.clone());
 		let storage_query = metadata::storage().members().member_registered(account);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?.is_some())
+		Ok(self.client.storage().at(block.value()).fetch(&storage_query).await?.is_some())
 	}
 
-	pub async fn heartbeat_timeout(&self) -> Result<BlockNumber> {
+	pub async fn heartbeat_timeout(&self, block: SubxtBlock) -> Result<BlockNumber> {
 		let runtime_call = metadata::apis().members_api().get_heartbeat_timeout();
-		Ok(self.client.runtime_api().at_latest().await?.call(runtime_call).await?)
+		Ok(self.client.runtime_api().at(block.value()).call(runtime_call).await?)
 	}
 
 	pub async fn register_member(

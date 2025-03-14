@@ -16,6 +16,8 @@ use time_primitives::Signature;
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
+#[cfg(feature = "testnet")]
+use super::PrevalidateFeeless;
 use super::{
 	AccountId, BlockHashCount, Nonce, Runtime, RuntimeCall, SignedPayload, System,
 	UncheckedExtrinsic,
@@ -51,6 +53,8 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			#[cfg(feature = "testnet")]
+			PrevalidateFeeless::<Runtime>::new(),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {

@@ -1,13 +1,27 @@
+use core::fmt::Debug;
+use core::marker::PhantomData;
+
+use scale_codec::{Decode, Encode};
+use scale_info::TypeInfo;
+
 use polkadot_sdk::*;
 
-use frame_support::{parameter_types, traits::ConstU32};
+use frame_support::traits::IsSubType;
+use frame_support::{ensure, parameter_types, traits::ConstU32};
+
+use sp_runtime::{
+	traits::{DispatchInfoOf, SignedExtension},
+	transaction_validity::{
+		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
+};
 
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
-use time_primitives::ANLOG;
+use time_primitives::{MembersInterface, ANLOG};
 // Local module imports
 use crate::{
 	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
@@ -97,6 +111,106 @@ impl pallet_networks::Config for Runtime {
 impl pallet_dmail::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_dmail::WeightInfo<Runtime>;
+}
+
+/// Transaction extensions to prevalidate feeless transactions to avoid spam.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct PrevalidateFeeless<T>(PhantomData<fn(T)>);
+
+impl<T: frame_system::Config> PrevalidateFeeless<T> {
+	pub fn new() -> Self {
+		Self(PhantomData)
+	}
+}
+
+/// Helper to implement nostd debug printing
+impl<T: frame_system::Config> Debug for PrevalidateFeeless<T> {
+	#[cfg(feature = "std")]
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		write!(f, "PrevalidateFeeless")
+	}
+
+	#[cfg(not(feature = "std"))]
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+		Ok(())
+	}
+}
+
+/// Pre-dispatch validation of extrinsic origin via members pallet
+impl<T> SignedExtension for PrevalidateFeeless<T>
+where
+	T: frame_system::Config + pallet_members::Config + pallet_shards::Config + pallet_tasks::Config,
+	T::RuntimeCall: IsSubType<pallet_members::Call<T>>
+		+ IsSubType<pallet_shards::Call<T>>
+		+ IsSubType<pallet_tasks::Call<T>>,
+{
+	type AccountId = T::AccountId;
+	type Call = <T as frame_system::Config>::RuntimeCall;
+	type AdditionalSigned = ();
+	type Pre = ();
+	const IDENTIFIER: &'static str = "PrevalidateFeeless";
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(|_| ())
+	}
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> TransactionValidity {
+		// Check feeless members calls
+		match call.is_sub_type() {
+			Some(pallet_members::Call::send_heartbeat {}) => ensure!(
+				pallet_members::Pallet::<T>::is_member_registered(who),
+				InvalidTransaction::BadSigner
+			),
+
+			_ => {},
+		}
+
+		// Check feeless shards calls
+		match call.is_sub_type() {
+			Some(pallet_shards::Call::commit {
+				shard_id: _,
+				commitment: _,
+				proof_of_knowledge: _,
+			}) => ensure!(
+				pallet_members::Pallet::<T>::is_member_registered(who),
+				InvalidTransaction::BadSigner
+			),
+			Some(pallet_shards::Call::ready { shard_id: _ }) => ensure!(
+				pallet_members::Pallet::<T>::is_member_registered(who),
+				InvalidTransaction::BadSigner
+			),
+			_ => {},
+		}
+
+		// Check feeless tasks calls
+		match call.is_sub_type() {
+			Some(pallet_tasks::Call::submit_task_result { task_id: _, result: _ }) => ensure!(
+				pallet_members::Pallet::<T>::is_member_registered(who),
+				InvalidTransaction::BadSigner
+			),
+
+			_ => {},
+		}
+
+		Ok(ValidTransaction::default())
+	}
 }
 
 #[cfg(test)]

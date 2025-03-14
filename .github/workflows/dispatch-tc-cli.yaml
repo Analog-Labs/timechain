@@ -58,8 +58,8 @@ jobs:
     - name: Run tc-cli
       id: run
       run: |
-        TAG=${{ github.event.inputs.version || 'latest' }}
-        IMAGE="$TC_CLI_IMAGE:${TAG:0:8}"
+        TAG=${{ github.event.inputs.environment }}
+        IMAGE="$TC_CLI_IMAGE:${TAG}"
         NAMESPACE="timechain"
         NAME=tc-cli-${GITHUB_RUN_ID}
         NAME=${NAME//./-}

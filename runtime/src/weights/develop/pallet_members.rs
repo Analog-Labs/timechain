@@ -120,4 +120,9 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(b.into())))
 			.saturating_add(Weight::from_parts(0, 2649).saturating_mul(b.into()))
 	}
+
+	/// Dummy, to be replaced
+	fn is_member() -> Weight {
+		Weight::from_parts(20_000_000, 4000)
+	}
 }

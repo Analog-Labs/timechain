@@ -50,6 +50,7 @@ pub mod pallet {
 		fn send_heartbeat() -> Weight;
 		fn unregister_member() -> Weight;
 		fn timeout_heartbeats(n: u32) -> Weight;
+		fn is_member() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -63,6 +64,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn timeout_heartbeats(_: u32) -> Weight {
+			Weight::default()
+		}
+		fn is_member() -> Weight {
 			Weight::default()
 		}
 	}

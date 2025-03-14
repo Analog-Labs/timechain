@@ -6,10 +6,11 @@ use polkadot_sdk::*;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, NetworkId, PublicKey};
+use time_primitives::{AccountId, MembersInterface, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
+pub const NUM_MEMBERS: u8 = 255;
 
 fn public_key() -> PublicKey {
 	pk_from_account(ALICE)
@@ -60,6 +61,26 @@ benchmarks! {
 			// Next timed out set is derived from heartbeats previously in storage
 			assert!(TimedOut::<T>::get().contains(&caller));
 		}
+	}
+
+	is_member {
+		// Pick different member to query each benchmark
+		let c in 0..(NUM_MEMBERS-1).into();
+		let target: AccountId = [c as u8; 32].into();
+		let pk = pk_from_account([c as u8; 32]);
+
+		// Ensure a total of NUM_CHRONICLES are registered
+		for a in 0..NUM_MEMBERS {
+			let raw = [a; 32];
+			let peer: AccountId = raw.into();
+			Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, pk_from_account(raw), peer.into())?;
+		}
+
+		let result: bool;
+	} : {
+		result = Pallet::<T>::is_member_registered(&target);
+	} verify {
+		assert!(result);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

@@ -124,6 +124,12 @@ impl<T: frame_system::Config> PrevalidateFeeless<T> {
 	}
 }
 
+impl<T: frame_system::Config> Default for PrevalidateFeeless<T> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 /// Helper to implement nostd debug printing
 impl<T: frame_system::Config> Debug for PrevalidateFeeless<T> {
 	#[cfg(feature = "std")]
@@ -173,13 +179,11 @@ where
 		_len: usize,
 	) -> TransactionValidity {
 		// Check feeless members calls
-		match call.is_sub_type() {
-			Some(pallet_members::Call::send_heartbeat {}) => ensure!(
+		if let Some(pallet_members::Call::send_heartbeat {}) = call.is_sub_type() {
+			ensure!(
 				pallet_members::Pallet::<T>::is_member_registered(who),
 				InvalidTransaction::BadSigner
-			),
-
-			_ => {},
+			);
 		}
 
 		// Check feeless shards calls
@@ -200,13 +204,13 @@ where
 		}
 
 		// Check feeless tasks calls
-		match call.is_sub_type() {
-			Some(pallet_tasks::Call::submit_task_result { task_id: _, result: _ }) => ensure!(
+		if let Some(pallet_tasks::Call::submit_task_result { task_id: _, result: _ }) =
+			call.is_sub_type()
+		{
+			ensure!(
 				pallet_members::Pallet::<T>::is_member_registered(who),
 				InvalidTransaction::BadSigner
-			),
-
-			_ => {},
+			);
 		}
 
 		Ok(ValidTransaction::default())

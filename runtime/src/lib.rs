@@ -107,6 +107,8 @@ pub use configs::consensus::SessionKeys;
 pub use configs::core::{
 	BlockHashCount, RuntimeBlockLength, RuntimeBlockWeights, AVERAGE_ON_INITIALIZE_RATIO,
 };
+#[cfg(feature = "testnet")]
+pub use configs::custom::PrevalidateFeeless;
 pub use configs::governance::{
 	EnsureRootOrHalfTechnical, TechnicalMember, TechnicalQualifiedMajority, TechnicalSuperMajority,
 	TechnicalUnanimity,
@@ -130,7 +132,6 @@ mod weights;
 pub use weights::{BlockExecutionWeight, ExtrinsicBaseWeight};
 
 /// Automatically generated nomination bag boundaries
-//#[cfg(feature = "testnet")]
 mod staking_bags;
 
 // Make the WASM binary available.
@@ -183,6 +184,7 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight =
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 
 /// Shared signing extensions
+#[cfg(not(feature = "testnet"))]
 pub type SignedExtra<Runtime> = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
@@ -193,6 +195,21 @@ pub type SignedExtra<Runtime> = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+/// Shared signing extensions
+#[cfg(feature = "testnet")]
+pub type SignedExtra<Runtime> = (
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_system::CheckWeight<Runtime>,
+	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	PrevalidateFeeless<Runtime>,
 );
 
 /// Type shorthand for the balance type used to charge transaction fees

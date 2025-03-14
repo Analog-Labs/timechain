@@ -3,22 +3,11 @@ use polkadot_sdk::*;
 use frame_support::parameter_types;
 
 // Local module imports
-use crate::{deposit, weights, Balance, Balances, Runtime, RuntimeCall, RuntimeEvent};
+use crate::{
+	deposit, weights, Balance, Balances, DefaultAdminOrigin, Runtime, RuntimeCall, RuntimeEvent,
+};
 
 pub type NetworkId = u32;
-
-#[cfg(not(feature = "testnet"))]
-use super::governance::EnsureRootOrHalfTechnical;
-#[cfg(feature = "testnet")]
-use super::governance::EnsureRootOrTechnicalMember;
-
-#[cfg(not(feature = "testnet"))]
-/// Default admin origin for all chronicle related pallets
-type ChronicleAdmin = EnsureRootOrHalfTechnical;
-
-#[cfg(feature = "testnet")]
-/// Development admin origin for all chronicle related pallets
-type ChronicleAdmin = EnsureRootOrTechnicalMember;
 
 impl eth_bridge::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -27,7 +16,7 @@ impl eth_bridge::Config for Runtime {
 	type NetworkId = NetworkId;
 	type PeerId = eth_bridge::offchain::crypto::TestAuthId;
 	type WeightInfo = weights::eth_bridge::WeightInfo<Runtime>;
-	type AdminOrigin = ChronicleAdmin;
+	type AdminOrigin = DefaultAdminOrigin;
 }
 
 parameter_types! {

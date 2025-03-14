@@ -1,7 +1,8 @@
 {
   "admins": [
     "atV1mr4DYG7v4wEBveWPpfEKYXgXEAaKxL8P5uY2jthibMVuN",
-    "an9mZZEVhaSM66biFoGk6yjUoNGaQBQDH9nSh9FAodXg1GGui"
+    "an9mZZEVhaSM66biFoGk6yjUoNGaQBQDH9nSh9FAodXg1GGui",
+    "atZLnN5XU6mLDDo6Fxbg4i3mbg1usfSkRpwvFTqZiGd5v96q4"
   ],
   "bootstraps": [
     [
@@ -73,7 +74,9 @@
   "endowments": [
     ["atZ8dFmghLXB5UwqXY7jT9VfAeo5whpiXtoUSmWFYcctYax4L", 1000000000],
     ["an7bkQ2ttnU579Sm37rKwReBsdp4QDaQbvHAJTUesAjqPJops", 1000000000],
-    ["atZB8mNuW2KPEE5cSEfczWVJ5u8RgUDkBYRW7hKzec5p5wgkE", 1000000]
+    ["atZB8mNuW2KPEE5cSEfczWVJ5u8RgUDkBYRW7hKzec5p5wgkE", 1000000],
+    ["an87AETQK27pEEejEhzQ97Ddau4n7o2HQ6jQFLyxVsJzo3RLR", 1000000],
+    ["anAX2FJfrTehC5g9a7bXpWxrn45Nt4A7yYKRg7JVdQcX8wyLR", 1000000]
   ],
   "stakes": [
     "atUnPBECgKsEgQPwjWPSuE7fFJjizH25GLYY98Cd3rSBGnc4q",

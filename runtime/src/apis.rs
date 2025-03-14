@@ -559,16 +559,10 @@ impl_runtime_apis! {
 			impl baseline::Config for Runtime {}
 
 			use frame_support::traits::{TrackedStorageKey, WhitelistedStorageKeys};
-			let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+			let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
 
 			// Import substrate macros created by macros (and all pallets by effects)
 			use crate::*;
-
-			// Treasury Account
-			// TODO: this is manual for now, someday we might be able to use a
-			// macro for this particular key
-			#[cfg(feature = "testnet")]
-			whitelist.push(frame_system::Account::<Runtime>::hashed_key_for(Treasury::account_id()).to_vec().into());
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);

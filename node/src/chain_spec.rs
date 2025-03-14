@@ -189,10 +189,6 @@ impl GenesisKeysConfig {
 			&mut self.stakes.iter().map(|x| (x.clone(), PER_VALIDATOR_STASH)).collect::<Vec<_>>(),
 		);
 
-		#[cfg(feature = "testnet")]
-		// Currently still needed for GMP (6d6f646c70792f74727372790000000000000000000000000000000000000000)
-		endowments.push((timechain_runtime::Treasury::account_id(), 20_000_000 * ANLOG));
-
 		// Load session keys to bootstrap validators from file
 		let authorities: Vec<_> = self
 			.bootstraps
@@ -269,7 +265,7 @@ impl GenesisKeysConfig {
 			);
 		}
 
-		if cfg!(feature = "develop") {
+		if !cfg!(feature = "testnet") && cfg!(feature = "develop") {
 			use AccountKeyring::*;
 
 			let airdrop: Vec<(AccountId, Balance)> =

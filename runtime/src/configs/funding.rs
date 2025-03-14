@@ -5,7 +5,9 @@ use polkadot_sdk::*;
 use frame_support::{parameter_types, PalletId};
 
 // Local module imports
-use crate::{main_or_test, weights, ExistentialDeposit, DefaultAdminOrigin, Runtime, RuntimeEvent, Vesting};
+use crate::{
+	main_or_test, weights, DefaultAdminOrigin, ExistentialDeposit, Runtime, RuntimeEvent, Vesting,
+};
 
 parameter_types! {
 	pub RawPrefix: &'static [u8] = main_or_test!(b"Airdrop ANLOG to the Timechain account: ", b"Airdrop TANLOG to the Testnet account: ");

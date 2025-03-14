@@ -30,7 +30,7 @@ use time_primitives::BlockNumber;
 // Local module imports
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
-	DelegatedStaking, ElectionProviderMultiPhase, DefaultAdminOrigin, EpochDuration,
+	DefaultAdminOrigin, DelegatedStaking, ElectionProviderMultiPhase, EpochDuration,
 	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
 	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
 	Timestamp, TransactionPayment, VoterList, ANLOG,

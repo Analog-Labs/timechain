@@ -15,7 +15,8 @@ use pallet_identity::legacy::IdentityInfo;
 use time_primitives::{Signature, ANLOG};
 // Local module imports
 use crate::{
-	deposit, AccountId, Balance, Balances, DefaultAdminOrigin, OriginCaller, Preimage, Runtime, RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, DAYS
+	deposit, AccountId, Balance, Balances, DefaultAdminOrigin, OriginCaller, Preimage, Runtime,
+	RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, DAYS,
 };
 
 parameter_types! {

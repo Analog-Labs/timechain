@@ -3,7 +3,9 @@ use polkadot_sdk::*;
 use frame_support::parameter_types;
 
 // Local module imports
-use crate::{deposit, weights, Balance, Balances, DefaultAdminOrigin, Runtime, RuntimeCall, RuntimeEvent};
+use crate::{
+	deposit, weights, Balance, Balances, DefaultAdminOrigin, Runtime, RuntimeCall, RuntimeEvent,
+};
 
 pub type NetworkId = u32;
 

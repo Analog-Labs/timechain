@@ -24,8 +24,8 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 use time_primitives::{MembersInterface, ANLOG};
 // Local module imports
 use crate::{
-	weights, AccountId, Balance, Balances, Elections, Members, Networks, Runtime, RuntimeEvent,
-	Shards, Tasks, DefaultAdminOrigin
+	weights, AccountId, Balance, Balances, DefaultAdminOrigin, Elections, Members, Networks,
+	Runtime, RuntimeEvent, Shards, Tasks,
 };
 
 // Custom pallet config

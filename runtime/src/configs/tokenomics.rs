@@ -8,14 +8,14 @@ use frame_support::weights::{
 	WeightToFeePolynomial,
 };
 
-#[cfg(feature = "testnet")]
-use frame_support::{
-	PalletId,
-	traits::{Imbalance, OnUnbalanced, Currency}
-};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, WithdrawReasons},
+};
+#[cfg(feature = "testnet")]
+use frame_support::{
+	traits::{Currency, Imbalance, OnUnbalanced},
+	PalletId,
 };
 
 #[cfg(feature = "testnet")]
@@ -38,7 +38,7 @@ use crate::{
 #[cfg(feature = "testnet")]
 use crate::{Authorship, NegativeImbalance};
 #[cfg(feature = "testnet")]
-use time_primitives::{AccountId};
+use time_primitives::AccountId;
 use time_primitives::{MICROANLOG, MILLIANLOG};
 
 /// Handles converting a weight scalar to a fee value, based on the scale and granularity of the

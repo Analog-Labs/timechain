@@ -109,7 +109,7 @@ where
 			block_hash = format!("{block_hash:?}"),
 		);
 		let account_id = self.substrate.account_id();
-		let shards = self.substrate.get_shards(account_id).await?;
+		let shards = self.substrate.get_shards(account_id, block_hash).await?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
@@ -117,14 +117,14 @@ where
 				continue;
 			}
 			let span = span!(parent: &span, Level::DEBUG, "join shard", shard_id);
-			let members = self.substrate.get_shard_members(shard_id).await?;
-			let threshold = self.substrate.get_shard_threshold(shard_id).await?;
+			let members = self.substrate.get_shard_members(shard_id, block_hash).await?;
+			let threshold = self.substrate.get_shard_threshold(shard_id, block_hash).await?;
 			let futures: Vec<_> = members
 				.into_iter()
 				.map(|(account, _)| {
 					let substrate = self.substrate.clone();
 					async move {
-						match substrate.get_member_peer_id(&account).await {
+						match substrate.get_member_peer_id(&account, block_hash).await {
 							Ok(Some(peer_id)) => Some(peer_id),
 							Ok(None) | Err(_) => None,
 						}
@@ -134,14 +134,15 @@ where
 			let members =
 				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
 
-			let commitment =
-				if let Some(commitment) = self.substrate.get_shard_commitment(shard_id).await? {
-					let commitment =
-						VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
-					Some(commitment)
-				} else {
-					None
-				};
+			let commitment = if let Some(commitment) =
+				self.substrate.get_shard_commitment(shard_id, block_hash).await?
+			{
+				let commitment =
+					VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
+				Some(commitment)
+			} else {
+				None
+			};
 			self.tss_states.insert(
 				shard_id,
 				Tss::new(
@@ -165,11 +166,14 @@ where
 			if tss.committed() {
 				continue;
 			}
-			if self.substrate.get_shard_status(shard_id).await? != ShardStatus::Committed {
+			if self.substrate.get_shard_status(shard_id, block_hash).await?
+				!= ShardStatus::Committed
+			{
 				continue;
 			}
 			event!(parent: &span, Level::DEBUG, shard_id, "committing");
-			let commitment = self.substrate.get_shard_commitment(shard_id).await?.unwrap();
+			let commitment =
+				self.substrate.get_shard_commitment(shard_id, block_hash).await?.unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block).await;
@@ -202,7 +206,7 @@ where
 			}
 		}
 		for shard_id in shards {
-			if self.substrate.get_shard_status(shard_id).await? != ShardStatus::Online {
+			if self.substrate.get_shard_status(shard_id, block_hash).await? != ShardStatus::Online {
 				continue;
 			}
 			let executor = self
@@ -215,22 +219,24 @@ where
 				"running task executor",
 				shard_id,
 			);
-			let (start_sessions, complete_sessions, failed_tasks) =
-				match executor.process_tasks(block, shard_id, self.block_height, &span).await {
-					Ok((start_sessions, complete_sessions, failed_tasks)) => {
-						(start_sessions, complete_sessions, failed_tasks)
-					},
-					Err(error) => {
-						event!(
-							parent: &span,
-							Level::INFO,
-							shard_id,
-							"failed to start tasks: {:?}",
-							error,
-						);
-						continue;
-					},
-				};
+			let (start_sessions, complete_sessions, failed_tasks) = match executor
+				.process_tasks(block_hash, block, shard_id, self.block_height, &span)
+				.await
+			{
+				Ok((start_sessions, complete_sessions, failed_tasks)) => {
+					(start_sessions, complete_sessions, failed_tasks)
+				},
+				Err(error) => {
+					event!(
+						parent: &span,
+						Level::INFO,
+						shard_id,
+						"failed to start tasks: {:?}",
+						error,
+					);
+					continue;
+				},
+			};
 			if let Err(e) = self
 				.admin_request
 				.send(AdminMsg::FailedTasks(start_sessions.len() as u64, failed_tasks))

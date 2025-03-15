@@ -134,7 +134,6 @@ pub async fn run_chronicle(
 			break network;
 		}
 		tracing::warn!("network {} isn't registered", config.network_id);
-		ticker.next().await;
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();

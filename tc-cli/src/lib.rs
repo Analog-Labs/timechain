@@ -539,8 +539,8 @@ impl Tc {
 			let mut batch_unregister = None;
 			if let Some(key) = key {
 				registered = registered_shards.get(&network).unwrap().contains(&key);
-				batch_register = self.runtime.shard_register_batch(key).await?;
-				batch_unregister = self.runtime.shard_unregister_batch(key).await?;
+				batch_register = self.runtime.shard_register_batch(key, None).await?;
+				batch_unregister = self.runtime.shard_unregister_batch(key, None).await?;
 			}
 			let assigned = self.runtime.assigned_tasks(shard, None).await?.len();
 			shards.push(Shard {
@@ -670,6 +670,10 @@ impl Tc {
 
 	pub async fn is_task_executed(&self, task: TaskId) -> Result<bool> {
 		Ok(self.runtime.task_output(task).await?.is_some())
+	}
+
+	pub async fn is_batch_executed(&self, batch: BatchId) -> Result<bool> {
+		Ok(self.runtime.batch_tx_hash(batch, None).await?.is_some())
 	}
 
 	pub async fn message_trace(
@@ -911,7 +915,7 @@ impl Tc {
 		peer_id: PeerId,
 	) -> Result<()> {
 		let member = public_key.clone().into_account();
-		if self.runtime.member_registered(&member).await? {
+		if self.runtime.member_registered(&member, None).await? {
 			return Ok(());
 		}
 		self.println(

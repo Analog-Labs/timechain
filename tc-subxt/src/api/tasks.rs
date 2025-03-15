@@ -149,14 +149,22 @@ impl SubxtClient {
 		Ok(self.st_at_or_latest(block).await?.fetch(&storage_query).await?)
 	}
 
-	pub async fn shard_register_batch(&self, key: TssPublicKey) -> Result<Option<BatchId>> {
+	pub async fn shard_register_batch(
+		&self,
+		key: TssPublicKey,
+		block: Option<BlockHash>,
+	) -> Result<Option<BatchId>> {
 		let storage_query = metadata::storage().tasks().shard_register_batch_id(key);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+		Ok(self.st_at_or_latest(block).await?.fetch(&storage_query).await?)
 	}
 
-	pub async fn shard_unregister_batch(&self, key: TssPublicKey) -> Result<Option<BatchId>> {
+	pub async fn shard_unregister_batch(
+		&self,
+		key: TssPublicKey,
+		block: Option<BlockHash>,
+	) -> Result<Option<BatchId>> {
 		let storage_query = metadata::storage().tasks().shard_unregister_batch_id(key);
-		Ok(self.client.storage().at_latest().await?.fetch(&storage_query).await?)
+		Ok(self.st_at_or_latest(block).await?.fetch(&storage_query).await?)
 	}
 
 	pub async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {

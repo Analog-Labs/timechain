@@ -129,10 +129,11 @@ pub async fn run_chronicle(
 	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
 	let (chain, subchain) = loop {
-		let network = substrate.get_network(config.network_id).await?;
+		let network = substrate.get_network(config.network_id, None).await?;
 		if let Some(network) = network {
 			break network;
 		}
+		ticker.next().await;
 		tracing::warn!("network {} isn't registered", config.network_id);
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
@@ -184,7 +185,7 @@ pub async fn run_chronicle(
 		}))
 		.await?;
 	loop {
-		if substrate.is_registered().await? {
+		if substrate.is_registered(None).await? {
 			break;
 		}
 		tracing::warn!(parent: &span, "chronicle isn't registered");

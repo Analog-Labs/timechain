@@ -115,7 +115,7 @@ impl Tc {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
-			.network_gateway(network)
+			.network_gateway(network, None)
 			.await?
 			.with_context(|| format!("no gateway configured for {network}"))?;
 		Ok((connector, gateway))
@@ -132,10 +132,10 @@ impl Tc {
 	}
 
 	pub async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
-		let shard_id_counter = self.runtime.shard_id_counter().await?;
+		let shard_id_counter = self.runtime.shard_id_counter(None).await?;
 		let mut shards = vec![];
 		for shard_id in 0..shard_id_counter {
-			match self.runtime.shard_network(shard_id).await {
+			match self.runtime.shard_network(shard_id, None).await {
 				Ok(Some(shard_network)) if shard_network == network => {},
 				Ok(_) => continue,
 				Err(err) => {
@@ -143,7 +143,7 @@ impl Tc {
 					continue;
 				},
 			};
-			match self.runtime.shard_status(shard_id).await {
+			match self.runtime.shard_status(shard_id, None).await {
 				Ok(ShardStatus::Online) => {},
 				Ok(_) => continue,
 				Err(err) => {
@@ -151,7 +151,7 @@ impl Tc {
 					continue;
 				},
 			}
-			let shard_key = match self.runtime.shard_public_key(shard_id).await {
+			let shard_key = match self.runtime.shard_public_key(shard_id, None).await {
 				Ok(Some(key)) => key,
 				Ok(_) => continue,
 				Err(err) => {
@@ -246,7 +246,7 @@ impl Tc {
 		if let Some(network) = network {
 			self.connector(network)?.balance(address).await
 		} else {
-			self.runtime.balance(&address.into()).await
+			self.runtime.balance(&address.into(), None).await
 		}
 	}
 
@@ -426,7 +426,7 @@ fn same<T: PartialEq>(a: &[T], b: &[T]) -> bool {
 
 impl Tc {
 	pub async fn read_events_blocks(&self, task: TaskId) -> Result<Range<u64>> {
-		let task = self.runtime.task(task).await?.context("no read event task")?;
+		let task = self.runtime.task(task, None).await?.context("no read event task")?;
 		let time_primitives::Task::ReadGatewayEvents { blocks } = task else {
 			anyhow::bail!("invalid read event task descriptor");
 		};
@@ -434,8 +434,11 @@ impl Tc {
 	}
 
 	pub async fn sync_status(&self, network: NetworkId) -> Result<SyncStatus> {
-		let sync_task =
-			self.runtime.read_events_task(network).await?.context("no read events task")?;
+		let sync_task = self
+			.runtime
+			.read_events_task(network, None)
+			.await?
+			.context("no read events task")?;
 		let blocks = self.read_events_blocks(sync_task).await?;
 		let block = self
 			.connector(network)?
@@ -452,11 +455,11 @@ impl Tc {
 	}
 
 	pub async fn networks(&self) -> Result<Vec<Network>> {
-		let network_ids = self.runtime.networks().await?;
+		let network_ids = self.runtime.networks(None).await?;
 		let mut networks = vec![];
 		for network in network_ids {
 			let (chain_name, chain_network) =
-				self.runtime.network_name(network).await?.context("invalid network")?;
+				self.runtime.network_name(network, None).await?.context("invalid network")?;
 			let chain_name =
 				String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
 			let chain_network =
@@ -467,7 +470,7 @@ impl Tc {
 					let admin = connector.admin(gateway).await?;
 					let admin_balance = connector.balance(admin).await?;
 					let sync_status = self.sync_status(network).await?;
-					let unassigned_tasks = self.runtime.unassigned_tasks(network).await?;
+					let unassigned_tasks = self.runtime.unassigned_tasks(network, None).await?;
 					Some(NetworkInfo {
 						gateway,
 						gateway_balance,
@@ -517,20 +520,20 @@ impl Tc {
 	}
 
 	pub async fn shards(&self) -> Result<Vec<Shard>> {
-		let shard_id_counter = self.runtime.shard_id_counter().await?;
+		let shard_id_counter = self.runtime.shard_id_counter(None).await?;
 		let mut shards = vec![];
 		let mut registered_shards = HashMap::new();
 		for shard in 0..shard_id_counter {
-			let Some(network) = self.runtime.shard_network(shard).await? else {
+			let Some(network) = self.runtime.shard_network(shard, None).await? else {
 				continue;
 			};
 			if let Entry::Vacant(e) = registered_shards.entry(network) {
 				e.insert(self.registered_shards(network).await?);
 			}
-			let status = self.runtime.shard_status(shard).await?;
-			let key = self.runtime.shard_commitment(shard).await?.map(|c| c.0[0]);
-			let size = self.runtime.shard_members(shard).await?.len() as u16;
-			let threshold = self.runtime.shard_threshold(shard).await?;
+			let status = self.runtime.shard_status(shard, None).await?;
+			let key = self.runtime.shard_commitment(shard, None).await?.map(|c| c.0[0]);
+			let size = self.runtime.shard_members(shard, None).await?.len() as u16;
+			let threshold = self.runtime.shard_threshold(shard, None).await?;
 			let mut registered = false;
 			let mut batch_register = None;
 			let mut batch_unregister = None;
@@ -539,7 +542,7 @@ impl Tc {
 				batch_register = self.runtime.shard_register_batch(key).await?;
 				batch_unregister = self.runtime.shard_unregister_batch(key).await?;
 			}
-			let assigned = self.runtime.assigned_tasks(shard).await?.len();
+			let assigned = self.runtime.assigned_tasks(shard, None).await?.len();
 			shards.push(Shard {
 				shard,
 				network,
@@ -557,7 +560,7 @@ impl Tc {
 	}
 
 	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<Task>> {
-		let task_ids = self.runtime.unassigned_tasks(network).await?;
+		let task_ids = self.runtime.unassigned_tasks(network, None).await?;
 		let mut tasks = Vec::with_capacity(task_ids.len());
 		for id in task_ids {
 			tasks.push(self.task(id).await?);
@@ -566,7 +569,7 @@ impl Tc {
 	}
 
 	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {
-		let task_ids = self.runtime.assigned_tasks(shard).await?;
+		let task_ids = self.runtime.assigned_tasks(shard, None).await?;
 		let mut tasks = Vec::with_capacity(task_ids.len());
 		for id in task_ids {
 			tasks.push(self.task(id).await?);
@@ -575,7 +578,7 @@ impl Tc {
 	}
 
 	pub async fn get_failed_batches(&self) -> Result<Vec<Batch>> {
-		let batch_ids = self.runtime.get_failed_tasks().await?;
+		let batch_ids = self.runtime.get_failed_tasks(None).await?;
 		let mut batches = Vec::with_capacity(batch_ids.len());
 		for id in batch_ids {
 			batches.push(self.batch(id).await?);
@@ -584,7 +587,7 @@ impl Tc {
 	}
 
 	pub async fn members(&self, shard: ShardId) -> Result<Vec<Member>> {
-		let shard_members = self.runtime.shard_members(shard).await?;
+		let shard_members = self.runtime.shard_members(shard, None).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
 			members.push(Member { account, status })
@@ -615,13 +618,13 @@ impl Tc {
 	pub async fn task(&self, task: TaskId) -> Result<Task> {
 		Ok(Task {
 			task,
-			network: self.runtime.task_network(task).await?.context("invalid task id")?,
-			descriptor: self.runtime.task(task).await?.context("invalid task id")?,
-			output: self.runtime.task_output(task).await?.map(|o| {
+			network: self.runtime.task_network(task, None).await?.context("invalid task id")?,
+			descriptor: self.runtime.task(task, None).await?.context("invalid task id")?,
+			output: self.runtime.task_output(task, None).await?.map(|o| {
 				o.map_err(|e| String::decode(&mut e.0.to_vec().as_slice()).unwrap_or_default())
 			}),
-			shard: self.runtime.assigned_shard(task).await?,
-			submitter: self.runtime.task_submitter(task).await?,
+			shard: self.runtime.assigned_shard(task, None).await?,
+			submitter: self.runtime.task_submitter(task, None).await?,
 		})
 	}
 
@@ -646,23 +649,23 @@ impl Tc {
 	pub async fn batch(&self, batch: BatchId) -> Result<Batch> {
 		Ok(Batch {
 			batch,
-			msg: self.runtime.batch_message(batch).await?.context("invalid batch id")?,
-			task: self.runtime.batch_task(batch).await?.context("invalid batch id")?,
-			tx: self.runtime.batch_tx_hash(batch).await?,
+			msg: self.runtime.batch_message(batch, None).await?.context("invalid batch id")?,
+			task: self.runtime.batch_task(batch, None).await?.context("invalid batch id")?,
+			tx: self.runtime.batch_tx_hash(batch, None).await?,
 		})
 	}
 
 	pub async fn message(&self, message: MessageId) -> Result<Message> {
 		Ok(Message {
 			message,
-			recv: self.runtime.message_received_task(message).await?,
-			batch: self.runtime.message_batch(message).await?,
-			exec: self.runtime.message_executed_task(message).await?,
+			recv: self.runtime.message_received_task(message, None).await?,
+			batch: self.runtime.message_batch(message, None).await?,
+			exec: self.runtime.message_executed_task(message, None).await?,
 		})
 	}
 
 	pub async fn is_message_executed(&self, message: MessageId) -> Result<bool> {
-		Ok(self.runtime.message_executed_task(message).await?.is_some())
+		Ok(self.runtime.message_executed_task(message, None).await?.is_some())
 	}
 
 	pub async fn is_task_executed(&self, task: TaskId) -> Result<bool> {
@@ -707,7 +710,7 @@ impl Tc {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
-		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
+		let gateway = if let Some(gateway) = self.runtime.network_gateway(network, None).await? {
 			self.set_network_config(network, None).await?;
 			gateway
 		} else {
@@ -780,14 +783,14 @@ impl Tc {
 			cctp_url: cctp_url.clone(),
 		};
 
-		let batch_size = self.runtime.network_batch_size(network).await?;
-		let batch_offset = self.runtime.network_batch_offset(network).await?;
-		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
-		let shard_task_limit = self.runtime.network_shard_task_limit(network).await?;
-		let shard_size = self.runtime.network_shard_size(network).await?;
-		let shard_threshold = self.runtime.network_shard_threshold(network).await?;
-		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network).await?;
-		let runtime_cctp_url = self.runtime.get_cctp_url(network).await?;
+		let batch_size = self.runtime.network_batch_size(network, None).await?;
+		let batch_offset = self.runtime.network_batch_offset(network, None).await?;
+		let batch_gas_limit = self.runtime.network_batch_gas_limit(network, None).await?;
+		let shard_task_limit = self.runtime.network_shard_task_limit(network, None).await?;
+		let shard_size = self.runtime.network_shard_size(network, None).await?;
+		let shard_threshold = self.runtime.network_shard_threshold(network, None).await?;
+		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network, None).await?;
+		let runtime_cctp_url = self.runtime.get_cctp_url(network, None).await?;
 
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset
@@ -875,10 +878,10 @@ impl Tc {
 	}
 
 	async fn chronicle_status(&self, account: &AccountId) -> Result<ChronicleStatus> {
-		if !self.runtime.member_registered(account).await? {
+		if !self.runtime.member_registered(account, None).await? {
 			return Ok(ChronicleStatus::Unregistered);
 		}
-		if !self.runtime.member_online(account).await? {
+		if !self.runtime.member_online(account, None).await? {
 			return Ok(ChronicleStatus::Registered);
 		}
 		Ok(ChronicleStatus::Online)
@@ -921,7 +924,7 @@ impl Tc {
 	}
 
 	pub async fn unregister_member(&self, member: AccountId) -> Result<()> {
-		if !self.runtime.member_registered(&member).await? {
+		if !self.runtime.member_registered(&member, None).await? {
 			return Ok(());
 		}
 		self.println(
@@ -934,7 +937,7 @@ impl Tc {
 	}
 
 	pub async fn force_shard_offline(&self, shard: ShardId) -> Result<()> {
-		if matches!(self.runtime.shard_status(shard).await?, ShardStatus::Offline) {
+		if matches!(self.runtime.shard_status(shard, None).await?, ShardStatus::Offline) {
 			return Ok(());
 		}
 		self.println(None, format!("force_shard_offline {}", shard)).await?;

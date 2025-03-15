@@ -109,7 +109,7 @@ where
 			block_hash = format!("{block_hash:?}"),
 		);
 		let account_id = self.substrate.account_id();
-		let shards = self.substrate.get_shards(account_id, block_hash).await?;
+		let shards = self.substrate.get_shards(account_id, Some(block_hash)).await?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
 		self.executor_states.retain(|shard_id, _| shards.contains(shard_id));
 		for shard_id in shards.iter().copied() {
@@ -117,14 +117,14 @@ where
 				continue;
 			}
 			let span = span!(parent: &span, Level::DEBUG, "join shard", shard_id);
-			let members = self.substrate.get_shard_members(shard_id, block_hash).await?;
-			let threshold = self.substrate.get_shard_threshold(shard_id, block_hash).await?;
+			let members = self.substrate.get_shard_members(shard_id, Some(block_hash)).await?;
+			let threshold = self.substrate.get_shard_threshold(shard_id, Some(block_hash)).await?;
 			let futures: Vec<_> = members
 				.into_iter()
 				.map(|(account, _)| {
 					let substrate = self.substrate.clone();
 					async move {
-						match substrate.get_member_peer_id(&account, block_hash).await {
+						match substrate.get_member_peer_id(&account, Some(block_hash)).await {
 							Ok(Some(peer_id)) => Some(peer_id),
 							Ok(None) | Err(_) => None,
 						}
@@ -135,7 +135,7 @@ where
 				join_all(futures).await.into_iter().flatten().collect::<BTreeSet<PeerId>>();
 
 			let commitment = if let Some(commitment) =
-				self.substrate.get_shard_commitment(shard_id, block_hash).await?
+				self.substrate.get_shard_commitment(shard_id, Some(block_hash)).await?
 			{
 				let commitment =
 					VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
@@ -166,14 +166,14 @@ where
 			if tss.committed() {
 				continue;
 			}
-			if self.substrate.get_shard_status(shard_id, block_hash).await?
+			if self.substrate.get_shard_status(shard_id, Some(block_hash)).await?
 				!= ShardStatus::Committed
 			{
 				continue;
 			}
 			event!(parent: &span, Level::DEBUG, shard_id, "committing");
 			let commitment =
-				self.substrate.get_shard_commitment(shard_id, block_hash).await?.unwrap();
+				self.substrate.get_shard_commitment(shard_id, Some(block_hash)).await?.unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
 			tss.on_commit(commitment);
 			self.poll_actions(&span, shard_id, block).await;
@@ -206,7 +206,9 @@ where
 			}
 		}
 		for shard_id in shards {
-			if self.substrate.get_shard_status(shard_id, block_hash).await? != ShardStatus::Online {
+			if self.substrate.get_shard_status(shard_id, Some(block_hash)).await?
+				!= ShardStatus::Online
+			{
 				continue;
 			}
 			let executor = self
@@ -365,7 +367,7 @@ where
 			Level::DEBUG,
 			"starting tss",
 		);
-		let heartbeat_period = self.substrate.get_heartbeat_timeout().await.unwrap();
+		let heartbeat_period = self.substrate.get_heartbeat_timeout(None).await.unwrap();
 
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));

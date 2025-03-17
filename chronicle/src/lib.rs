@@ -52,6 +52,9 @@ pub fn init_opentelemetry() {
 		.with_ansi(false)
 		.with_file(true)
 		.with_line_number(true);
+	let filter_layer = EnvFilter::try_from_default_env()
+		.or_else(|_| EnvFilter::try_new("debug"))
+		.unwrap();
 
 	// Skip initializing OTLP if endpoint isn't given
 	if let Ok(endpoint) = std::env::var("TRACING_ENDPOINT") {
@@ -70,7 +73,7 @@ pub fn init_opentelemetry() {
 
 		let tracer = tracer_provider.tracer("tracing-otel-subscriber");
 		tracing_subscriber::registry()
-			.with(LevelFilter::from_level(Level::DEBUG))
+			.with(filter_layer)
 			.with(log_subscriber)
 			.with(OpenTelemetryLayer::new(tracer))
 			.init();
@@ -79,7 +82,12 @@ pub fn init_opentelemetry() {
 			.add_directive("chronicle=debug".parse().unwrap())
 			.add_directive("tss=debug".parse().unwrap())
 			.add_directive("peernet=debug".parse().unwrap());
-		tracing_subscriber::registry().with(log_subscriber).with(filter).try_init().ok();
+		tracing_subscriber::registry()
+			.with(filter_layer)
+			.with(log_subscriber)
+			.with(filter)
+			.try_init()
+			.ok();
 	}
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 }

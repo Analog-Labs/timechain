@@ -21,11 +21,7 @@ use opentelemetry_sdk::{
 	Resource,
 };
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{
-	filter::{EnvFilter, LevelFilter},
-	layer::SubscriberExt,
-	util::SubscriberInitExt,
-};
+use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub mod admin;
 #[cfg(test)]
@@ -52,6 +48,9 @@ pub fn init_opentelemetry() {
 		.with_ansi(false)
 		.with_file(true)
 		.with_line_number(true);
+	let filter_layer = EnvFilter::try_from_default_env()
+		.or_else(|_| EnvFilter::try_new("debug"))
+		.unwrap();
 
 	// Skip initializing OTLP if endpoint isn't given
 	if let Ok(endpoint) = std::env::var("TRACING_ENDPOINT") {
@@ -70,7 +69,7 @@ pub fn init_opentelemetry() {
 
 		let tracer = tracer_provider.tracer("tracing-otel-subscriber");
 		tracing_subscriber::registry()
-			.with(LevelFilter::from_level(Level::DEBUG))
+			.with(filter_layer)
 			.with(log_subscriber)
 			.with(OpenTelemetryLayer::new(tracer))
 			.init();
@@ -80,7 +79,7 @@ pub fn init_opentelemetry() {
 			.add_directive("tss=debug".parse().unwrap())
 			.add_directive("peernet=debug".parse().unwrap());
 		tracing_subscriber::registry()
-			.with(LevelFilter::INFO)
+			.with(filter_layer)
 			.with(log_subscriber)
 			.with(filter)
 			.try_init()

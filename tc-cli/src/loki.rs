@@ -82,37 +82,37 @@ impl std::fmt::Display for Query {
 			} => {
 				write!(f, r#"{{app="chronicle"}}"#)?;
 				if let Some(task) = task_id {
-					write!(f, " |= `task_id: {task}`")?;
+					write!(f, " |= `task_id: {task},`")?;
 				}
 				if let Some(shard) = shard_id {
-					write!(f, " |= `shard_id: {shard}`")?;
+					write!(f, " |= `shard_id: {shard},`")?;
 				}
 				if let Some(task) = task {
-					write!(f, " |= `task: {task}`")?;
+					write!(f, r#" |= `task: "{task}"`"#)?;
 				}
 				if let Some(account) = account {
-					write!(f, " |= `timechain: {account}`")?;
+					write!(f, r#" |= `timechain: "{account}"`"#)?;
 				}
 				if let Some(address) = target_address {
-					write!(f, " |= `target: {address}`")?;
+					write!(f, r#" |= `target: "{address}"`"#)?;
 				}
 				if let Some(peer_id) = peer_id {
-					write!(f, " |= `peer_id: {peer_id}`")?;
+					write!(f, r#" |= `peer_id: "{peer_id}"`"#)?;
 				}
 				if let Some(block) = block {
-					write!(f, " |= `block: {block}`")?;
+					write!(f, " |= `block: {block},`")?;
 				}
 				if let Some(block_hash) = block_hash {
-					write!(f, " |= `block_hash: {block_hash}`")?;
+					write!(f, r#" |= `block_hash: "{block_hash}"`"#)?;
 				}
 				if let Some(block) = target_block {
-					write!(f, " |= `target_block_height: {block}`")?;
+					write!(f, " |= `target_block_height: {block},`")?;
 				}
 				if let Some(from) = from {
-					write!(f, " |= `from: {from}`")?;
+					write!(f, r#" |= `from: "{from}"`"#)?;
 				}
 				if let Some(to) = to {
-					write!(f, " |= `to: {to}`")?;
+					write!(f, r#" |= `to: "{to}"`"#)?;
 				}
 				Ok(())
 			},

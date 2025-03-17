@@ -22,7 +22,7 @@ use opentelemetry_sdk::{
 };
 use tracing_opentelemetry::OpenTelemetryLayer;
 use tracing_subscriber::{
-	filter::{EnvFilter, LevelFilter},
+	filter::EnvFilter,
 	layer::SubscriberExt,
 	util::SubscriberInitExt,
 };

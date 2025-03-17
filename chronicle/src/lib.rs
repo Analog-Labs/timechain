@@ -21,11 +21,7 @@ use opentelemetry_sdk::{
 	Resource,
 };
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{
-	filter::EnvFilter,
-	layer::SubscriberExt,
-	util::SubscriberInitExt,
-};
+use tracing_subscriber::{filter::EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub mod admin;
 #[cfg(test)]

@@ -79,11 +79,7 @@ pub fn init_opentelemetry() {
 			.add_directive("chronicle=debug".parse().unwrap())
 			.add_directive("tss=debug".parse().unwrap())
 			.add_directive("peernet=debug".parse().unwrap());
-		tracing_subscriber::registry()
-			.with(log_subscriber)
-			.with(filter)
-			.try_init()
-			.ok();
+		tracing_subscriber::registry().with(log_subscriber).with(filter).try_init().ok();
 	}
 	std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 }

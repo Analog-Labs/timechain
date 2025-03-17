@@ -146,7 +146,6 @@ enum Command {
 		task_id: TaskId,
 	},
 	CompleteBatch {
-		network_id: NetworkId,
 		batch_id: BatchId,
 	},
 	EstimateMessageGasLimit {
@@ -381,9 +380,7 @@ async fn real_main() -> Result<()> {
 			tc.println(None, format!("{address} {block}")).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
-		Command::CompleteBatch { network_id, batch_id } => {
-			tc.complete_batch(network_id, batch_id).await?
-		},
+		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id).await?,
 		Command::EstimateMessageGasLimit {
 			dest_network,
 			dest_addr,
@@ -438,21 +435,22 @@ async fn real_main() -> Result<()> {
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
 
-			// collect shard batches
-			let mut batches = HashSet::new();
+			// collect shard tasks
+			let mut tasks = HashSet::new();
 			for shard in tc.shards().await? {
 				if let Some(batch) = shard.batch_register {
-					batches.insert(batch);
+					let task = tc.batch(batch).await?.task;
+					tasks.insert((task, batch));
 				}
 			}
 			// wait for shard batches to execute
-			for batch in batches {
+			for (task, batch) in tasks {
 				let mut blocks = tc.finality_notification_stream();
 				loop {
-					if tc.is_batch_executed(batch).await? {
+					if tc.is_task_executed(task).await? {
 						break;
 					}
-					tracing::info!("waiting for batch {batch}");
+					tracing::info!("waiting for task {task} / batch {batch}");
 					blocks.next().await.context("expected block")?;
 				}
 			}

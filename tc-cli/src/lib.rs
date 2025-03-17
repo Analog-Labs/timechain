@@ -665,8 +665,8 @@ impl Tc {
 		Ok(self.runtime.message_executed_task(message).await?.is_some())
 	}
 
-	pub async fn is_batch_executed(&self, batch: BatchId) -> Result<bool> {
-		Ok(self.runtime.batch_tx_hash(batch).await?.is_some())
+	pub async fn is_task_executed(&self, task: TaskId) -> Result<bool> {
+		Ok(self.runtime.task_output(task).await?.is_some())
 	}
 
 	pub async fn message_trace(
@@ -1146,10 +1146,13 @@ impl Tc {
 		self.runtime.remove_task(task_id).await
 	}
 
-	pub async fn complete_batch(&self, network_id: NetworkId, batch_id: BatchId) -> Result<()> {
+	pub async fn complete_batch(&self, batch_id: BatchId) -> Result<()> {
+		let task_id = self.runtime.batch_task(batch_id).await?.context("batch task not found")?;
+		let network =
+			self.runtime.task_network(task_id).await?.context("task network not found")?;
 		let gmp_event = GmpEvent::BatchExecuted { batch_id, tx_hash: None };
 		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
-		self.runtime.submit_gmp_events(network_id, events).await
+		self.runtime.submit_gmp_events(network, events).await
 	}
 
 	pub async fn withdraw_funds(

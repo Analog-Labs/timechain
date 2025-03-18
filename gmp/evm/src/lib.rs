@@ -261,7 +261,7 @@ impl Connector {
 				proxy_address
 			);
 		}
-		tracing::info!("proxy deployed at {}", proxy_address);
+		tracing::info!("proxy deployed at {} {}", proxy_address, block);
 		Ok((proxy_address, block))
 	}
 

@@ -84,7 +84,7 @@ impl TaskParams {
 		}
 		if task.needs_signer() {
 			let Some(public_key) =
-				self.runtime.get_task_submitter(task_id, Some(block_hash)).await?
+				self.runtime.get_task_submitter(task_id, block_hash.into()).await?
 			else {
 				tracing::debug!(
 					parent: span,
@@ -159,7 +159,7 @@ impl TaskParams {
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg = self
 					.runtime
-					.get_batch_message(batch_id, Some(block_hash))
+					.get_batch_message(batch_id, block_hash.into())
 					.await?
 					.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
@@ -167,7 +167,7 @@ impl TaskParams {
 					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				let signer = self
 					.runtime
-					.get_shard_commitment(shard_id, Some(block_hash))
+					.get_shard_commitment(shard_id, block_hash.into())
 					.await?
 					.context("invalid shard")?
 					.0[0];
@@ -214,12 +214,12 @@ impl TaskExecutor {
 		let gateway = self
 			.params
 			.runtime
-			.get_gateway(network, Some(block_hash))
+			.get_gateway(network, block_hash.into())
 			.await?
 			.context("no gateway registered")?;
-		let cctp_info = self.params.runtime.get_cctp_info(network, Some(block_hash)).await?;
+		let cctp_info = self.params.runtime.get_cctp_info(network, block_hash.into()).await?;
 		let mut start_sessions = vec![];
-		let tasks = self.params.runtime.get_shard_tasks(shard_id, Some(block_hash)).await?;
+		let tasks = self.params.runtime.get_shard_tasks(shard_id, block_hash.into()).await?;
 
 		let failed_tasks: Arc<Mutex<u64>> = Default::default();
 		for task_id in tasks.iter().copied() {
@@ -231,7 +231,7 @@ impl TaskExecutor {
 			let task = self
 				.params
 				.runtime
-				.get_task(task_id, Some(block_hash))
+				.get_task(task_id, block_hash.into())
 				.await?
 				.context("invalid task")?;
 			if !self

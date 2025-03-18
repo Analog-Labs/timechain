@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use tc_subxt::SubxtClient;
+use tc_subxt::{SubxtBlock, SubxtClient};
 use time_primitives::{
 	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
 	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
@@ -14,85 +14,68 @@ pub trait Runtime: Send + Sync + 'static {
 
 	fn account_id(&self) -> &AccountId;
 
-	async fn balance(&self, account: &AccountId, block: Option<BlockHash>) -> Result<u128>;
+	async fn balance(&self, account: &AccountId, block: SubxtBlock) -> Result<u128>;
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
-	async fn is_registered(&self, block: Option<BlockHash>) -> Result<bool>;
+	async fn is_registered(&self, block: SubxtBlock) -> Result<bool>;
 
 	async fn get_network(
 		&self,
 		network: NetworkId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<(ChainName, ChainNetwork)>>;
 
 	async fn get_member_peer_id(
 		&self,
 		account: &AccountId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<PeerId>>;
 
-	async fn get_heartbeat_timeout(&self, block: Option<BlockHash>) -> Result<BlockNumber>;
+	async fn get_heartbeat_timeout(&self, block: SubxtBlock) -> Result<BlockNumber>;
 
-	async fn get_shards(
-		&self,
-		account: &AccountId,
-		block: Option<BlockHash>,
-	) -> Result<Vec<ShardId>>;
+	async fn get_shards(&self, account: &AccountId, block: SubxtBlock) -> Result<Vec<ShardId>>;
 
 	async fn get_shard_members(
 		&self,
 		shard_id: ShardId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Vec<(AccountId, MemberStatus)>>;
 
-	async fn get_shard_threshold(&self, shard_id: ShardId, block: Option<BlockHash>)
-		-> Result<u16>;
+	async fn get_shard_threshold(&self, shard_id: ShardId, block: SubxtBlock) -> Result<u16>;
 
-	async fn get_shard_status(
-		&self,
-		shard_id: ShardId,
-		block: Option<BlockHash>,
-	) -> Result<ShardStatus>;
+	async fn get_shard_status(&self, shard_id: ShardId, block: SubxtBlock) -> Result<ShardStatus>;
 
 	async fn get_shard_commitment(
 		&self,
 		shard_id: ShardId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<Commitment>>;
 
-	async fn get_shard_tasks(
-		&self,
-		shard_id: ShardId,
-		block: Option<BlockHash>,
-	) -> Result<Vec<TaskId>>;
+	async fn get_shard_tasks(&self, shard_id: ShardId, block: SubxtBlock) -> Result<Vec<TaskId>>;
 
-	async fn get_task(&self, task_id: TaskId, block: Option<BlockHash>) -> Result<Option<Task>>;
+	async fn get_task(&self, task_id: TaskId, block: SubxtBlock) -> Result<Option<Task>>;
 
 	async fn get_task_submitter(
 		&self,
 		task_id: TaskId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<PublicKey>>;
 
 	async fn get_batch_message(
 		&self,
 		batch_id: BatchId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<GatewayMessage>>;
 
-	async fn get_gateway(
-		&self,
-		network: NetworkId,
-		block: Option<BlockHash>,
-	) -> Result<Option<Gateway>>;
+	async fn get_gateway(&self, network: NetworkId, block: SubxtBlock) -> Result<Option<Gateway>>;
 
 	async fn get_cctp_info(
 		&self,
 		network: NetworkId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<(Vec<Address>, String)>>;
 
 	async fn submit_heartbeat(&self) -> Result<()>;
@@ -119,8 +102,8 @@ impl Runtime for SubxtClient {
 		self.account_id()
 	}
 
-	async fn balance(&self, account: &AccountId, block: Option<BlockHash>) -> Result<u128> {
-		self.balance(account, block.into()).await
+	async fn balance(&self, account: &AccountId, block: SubxtBlock) -> Result<u128> {
+		self.balance(account, block).await
 	}
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
@@ -131,14 +114,14 @@ impl Runtime for SubxtClient {
 		self.finality_notification_stream()
 	}
 
-	async fn is_registered(&self, block: Option<BlockHash>) -> Result<bool> {
+	async fn is_registered(&self, block: SubxtBlock) -> Result<bool> {
 		Ok(self.member_registered(self.account_id(), block).await?)
 	}
 
 	async fn get_network(
 		&self,
 		network: NetworkId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<(ChainName, ChainNetwork)>> {
 		self.network_name(network, block).await
 	}
@@ -146,67 +129,55 @@ impl Runtime for SubxtClient {
 	async fn get_member_peer_id(
 		&self,
 		account: &AccountId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<PeerId>> {
 		self.member_peer_id(account, block).await
 	}
 
-	async fn get_heartbeat_timeout(&self, block: Option<BlockHash>) -> Result<BlockNumber> {
+	async fn get_heartbeat_timeout(&self, block: SubxtBlock) -> Result<BlockNumber> {
 		self.heartbeat_timeout(block).await
 	}
 
-	async fn get_shards(
-		&self,
-		account: &AccountId,
-		block: Option<BlockHash>,
-	) -> Result<Vec<ShardId>> {
+	async fn get_shards(&self, account: &AccountId, block: SubxtBlock) -> Result<Vec<ShardId>> {
 		self.member_shards(account, block).await
 	}
 
 	async fn get_shard_members(
 		&self,
 		shard: ShardId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
-		self.shard_members(shard, block.into()).await
+		self.shard_members(shard, block).await
 	}
 
-	async fn get_shard_threshold(&self, shard: ShardId, block: Option<BlockHash>) -> Result<u16> {
+	async fn get_shard_threshold(&self, shard: ShardId, block: SubxtBlock) -> Result<u16> {
 		self.shard_threshold(shard, block).await
 	}
 
-	async fn get_shard_status(
-		&self,
-		shard: ShardId,
-		block: Option<BlockHash>,
-	) -> Result<ShardStatus> {
+	async fn get_shard_status(&self, shard: ShardId, block: SubxtBlock) -> Result<ShardStatus> {
 		self.shard_status(shard, block).await
 	}
 
 	async fn get_shard_commitment(
 		&self,
 		shard: ShardId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<Commitment>> {
 		self.shard_commitment(shard, block).await
 	}
 
-	async fn get_shard_tasks(
-		&self,
-		shard: ShardId,
-		block: Option<BlockHash>,
-	) -> Result<Vec<TaskId>> {
+	async fn get_shard_tasks(&self, shard: ShardId, block: SubxtBlock) -> Result<Vec<TaskId>> {
 		self.assigned_tasks(shard, block).await
 	}
 
-	async fn get_task(&self, task_id: TaskId, block: Option<BlockHash>) -> Result<Option<Task>> {
+	async fn get_task(&self, task_id: TaskId, block: SubxtBlock) -> Result<Option<Task>> {
 		self.task(task_id, block).await
 	}
 
 	async fn get_batch_message(
 		&self,
 		batch: BatchId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<GatewayMessage>> {
 		self.batch_message(batch, block).await
 	}
@@ -214,25 +185,21 @@ impl Runtime for SubxtClient {
 	async fn get_task_submitter(
 		&self,
 		task_id: TaskId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<PublicKey>> {
 		self.task_submitter(task_id, block).await
 	}
 
-	async fn get_gateway(
-		&self,
-		network: NetworkId,
-		block: Option<BlockHash>,
-	) -> Result<Option<Gateway>> {
+	async fn get_gateway(&self, network: NetworkId, block: SubxtBlock) -> Result<Option<Gateway>> {
 		self.network_gateway(network, block).await
 	}
 
 	async fn get_cctp_info(
 		&self,
 		network: NetworkId,
-		block: Option<BlockHash>,
+		block: SubxtBlock,
 	) -> Result<Option<(Vec<Address>, String)>> {
-		let contracts_opt = self.get_cctp_contracts(network, block).await?;
+		let contracts_opt = self.get_cctp_contracts(network, block.clone()).await?;
 		let url_opt = self.get_cctp_url(network, block).await?;
 
 		match (contracts_opt, url_opt) {

@@ -129,12 +129,12 @@ pub async fn run_chronicle(
 	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
 	let (chain, subchain) = loop {
-		let network = substrate.get_network(config.network_id, None).await?;
+		let Some((hash, _)) = ticker.next().await else { continue };
+		let network = substrate.get_network(config.network_id, hash.into()).await?;
 		if let Some(network) = network {
 			break network;
 		}
 		tracing::warn!("network {} isn't registered", config.network_id);
-		ticker.next().await;
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
@@ -185,11 +185,11 @@ pub async fn run_chronicle(
 		}))
 		.await?;
 	loop {
-		if substrate.is_registered(None).await? {
+		let Some((hash, _)) = ticker.next().await else { continue };
+		if substrate.is_registered(hash).await? {
 			break;
 		}
 		tracing::warn!(parent: &span, "chronicle isn't registered");
-		ticker.next().await;
 	}
 
 	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
@@ -214,8 +214,9 @@ mod tests {
 	use polkadot_sdk::sp_runtime::BoundedVec;
 	use scale_codec::Encode;
 	use std::time::Duration;
+	use tc_subxt::SubxtBlock;
 	use time_primitives::traits::IdentifyAccount;
-	use time_primitives::{AccountId, ChainName, ChainNetwork, ShardStatus, Task};
+	use time_primitives::{AccountId, BlockHash, ChainName, ChainNetwork, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
 	///
@@ -277,6 +278,7 @@ mod tests {
 		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
+		let block: SubxtBlock = BlockHash::from([0u8; 32]).into();
 		let network_id = mock.create_network(
 			ChainName(BoundedVec::truncate_from("rust".encode())),
 			ChainNetwork(BoundedVec::truncate_from("rust".encode())),

@@ -174,3 +174,18 @@ fn block_stream<
 	};
 	Box::pin(stream)
 }
+
+#[derive(Clone)]
+pub struct SubxtBlock(subxt::utils::H256);
+
+impl From<BlockHash> for SubxtBlock {
+	fn from(value: BlockHash) -> Self {
+		SubxtBlock(subxt::utils::H256::from(value.0))
+	}
+}
+
+impl SubxtBlock {
+	pub fn value(&self) -> subxt::utils::H256 {
+		self.0
+	}
+}

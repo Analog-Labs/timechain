@@ -6,6 +6,7 @@ use polkadot_sdk::sp_runtime::BoundedVec;
 use schnorr_evm::k256::ProjectivePoint;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tc_subxt::SubxtBlock;
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
 	sr25519, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
@@ -171,7 +172,7 @@ impl Runtime for Mock {
 		self.account_id.as_ref().unwrap()
 	}
 
-	async fn balance(&self, _account: &AccountId, _: Option<BlockHash>) -> Result<u128> {
+	async fn balance(&self, _account: &AccountId, _: SubxtBlock) -> Result<u128> {
 		Ok(100_000)
 	}
 
@@ -191,14 +192,14 @@ impl Runtime for Mock {
 		self.block_notification_stream().boxed()
 	}
 
-	async fn is_registered(&self, _: Option<BlockHash>) -> Result<bool> {
+	async fn is_registered(&self, _: SubxtBlock) -> Result<bool> {
 		Ok(true)
 	}
 
 	async fn get_network(
 		&self,
 		network: NetworkId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Option<(ChainName, ChainNetwork)>> {
 		Ok(self
 			.networks
@@ -211,7 +212,7 @@ impl Runtime for Mock {
 	async fn get_member_peer_id(
 		&self,
 		account: &AccountId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Option<PeerId>> {
 		let members = self.members.lock().unwrap();
 		Ok(members
@@ -224,16 +225,16 @@ impl Runtime for Mock {
 	async fn get_cctp_info(
 		&self,
 		_network: NetworkId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Option<(Vec<Address>, String)>> {
 		Ok(None)
 	}
 
-	async fn get_heartbeat_timeout(&self, _: Option<BlockHash>) -> Result<BlockNumber> {
+	async fn get_heartbeat_timeout(&self, _: SubxtBlock) -> Result<BlockNumber> {
 		Ok(1000)
 	}
 
-	async fn get_shards(&self, account: &AccountId, _: Option<BlockHash>) -> Result<Vec<ShardId>> {
+	async fn get_shards(&self, account: &AccountId, _: SubxtBlock) -> Result<Vec<ShardId>> {
 		let shards = self.shards.lock().unwrap();
 		let shards = shards
 			.iter()
@@ -246,24 +247,20 @@ impl Runtime for Mock {
 	async fn get_shard_members(
 		&self,
 		shard_id: ShardId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
 		let shards = self.shards.lock().unwrap();
 		let members = shards.get(&shard_id).map(|shard| shard.members.clone()).unwrap_or_default();
 		Ok(members)
 	}
 
-	async fn get_shard_threshold(&self, shard_id: ShardId, _: Option<BlockHash>) -> Result<u16> {
+	async fn get_shard_threshold(&self, shard_id: ShardId, _: SubxtBlock) -> Result<u16> {
 		let shards = self.shards.lock().unwrap();
 		let threshold = shards.get(&shard_id).map(|shard| shard.threshold).unwrap_or_default();
 		Ok(threshold)
 	}
 
-	async fn get_shard_status(
-		&self,
-		shard_id: ShardId,
-		_: Option<BlockHash>,
-	) -> Result<ShardStatus> {
+	async fn get_shard_status(&self, shard_id: ShardId, _: SubxtBlock) -> Result<ShardStatus> {
 		let shards = self.shards.lock().unwrap();
 		let Some(shard) = shards.get(&shard_id) else {
 			return Ok(ShardStatus::Offline);
@@ -280,7 +277,7 @@ impl Runtime for Mock {
 	async fn get_shard_commitment(
 		&self,
 		shard_id: ShardId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Option<Commitment>> {
 		let shards = self.shards.lock().unwrap();
 		let Some(shard) = shards.get(&shard_id) else {
@@ -302,11 +299,7 @@ impl Runtime for Mock {
 		))))
 	}
 
-	async fn get_shard_tasks(
-		&self,
-		shard_id: ShardId,
-		_: Option<BlockHash>,
-	) -> Result<Vec<TaskId>> {
+	async fn get_shard_tasks(&self, shard_id: ShardId, _: SubxtBlock) -> Result<Vec<TaskId>> {
 		let assigned_tasks = self.assigned_tasks.lock().unwrap();
 		let tasks = assigned_tasks
 			.iter()
@@ -316,7 +309,7 @@ impl Runtime for Mock {
 		Ok(tasks)
 	}
 
-	async fn get_task(&self, task_id: TaskId, _: Option<BlockHash>) -> Result<Option<Task>> {
+	async fn get_task(&self, task_id: TaskId, _: SubxtBlock) -> Result<Option<Task>> {
 		let tasks = self.tasks.lock().unwrap();
 		Ok(tasks.get(&task_id).map(|task| task.task.clone()))
 	}
@@ -324,7 +317,7 @@ impl Runtime for Mock {
 	async fn get_task_submitter(
 		&self,
 		task_id: TaskId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Option<PublicKey>> {
 		let tasks = self.tasks.lock().unwrap();
 		Ok(tasks.get(&task_id).unwrap().submitter.clone())
@@ -333,17 +326,13 @@ impl Runtime for Mock {
 	async fn get_batch_message(
 		&self,
 		batch: BatchId,
-		_: Option<BlockHash>,
+		_: SubxtBlock,
 	) -> Result<Option<GatewayMessage>> {
 		let batches = self.batches.lock().unwrap();
 		Ok(batches.get(&batch).map(|b| b.message.clone()))
 	}
 
-	async fn get_gateway(
-		&self,
-		_network: NetworkId,
-		_: Option<BlockHash>,
-	) -> Result<Option<Gateway>> {
+	async fn get_gateway(&self, _network: NetworkId, _: SubxtBlock) -> Result<Option<Gateway>> {
 		Ok(Some([0; 32]))
 	}
 

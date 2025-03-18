@@ -1,19 +1,15 @@
+use alloy::eips::{BlockId, BlockNumberOrTag};
+use alloy::network::{TransactionBuilder,Ethereum};
 use alloy::primitives::{B256, U256};
+use alloy::providers::{Provider, ProviderBuilder, WalletProvider, WsConnect};
+use alloy::rpc::types::{Filter, TransactionRequest};
+use alloy::signers::local::coins_bip39::English;
+use alloy::signers::local::MnemonicBuilder;
 use alloy::sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
-use rosetta_client::{
-	query::GetLogs,
-	rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc},
-	rosetta_server::ws::{default_client, DefaultClient},
-	rosetta_server_ethereum::utils::{
-		DefaultFeeEstimatorConfig, EthereumRpcExt, PolygonFeeEstimatorConfig,
-	},
-	types::AccountIdentifier,
-	AtBlock, Blockchain, CallResult, FilterBlockOption, SubmitResult, TransactionReceipt, Wallet,
-};
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
 use sol::{u256, TssKey};
@@ -23,131 +19,48 @@ use std::process::Command;
 use std::sync::Arc;
 use thiserror::Error;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address32, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash,
+	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
+	TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 
 use crate::sol::CCTP;
 use crate::sol::{ProxyContext, ProxyDigest};
 
-type AlloyAddress = alloy::primitives::Address;
+type Address20 = alloy::primitives::Address;
 type CctpRetryCount = u8;
 const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
 pub(crate) mod sol;
 
-fn a_addr(address: Address) -> AlloyAddress {
-	let address: [u8; 20] = address[12..32].try_into().unwrap();
-	AlloyAddress::from(address)
+fn a_addr(address: Address32) -> Address20 {
+	Address20::from_word(address.into())
 }
 
-fn t_addr(address: alloy::primitives::Address) -> Address {
-	let mut addr = [0; 32];
-	addr[12..32].copy_from_slice(&address.0[..]);
-	addr
+fn t_addr(address: Address20) -> Address32 {
+	address.into_word().into()
 }
 
 #[derive(Clone)]
 pub struct Connector {
 	network_id: NetworkId,
-	wallet: Arc<Wallet>,
-	backend: Adapter<DefaultClient>,
-	url: String,
+	rpc: Arc<dyn PW>,
 	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
 }
 
+trait PW: Provider + WalletProvider<Ethereum> {}
+
 impl Connector {
-	async fn raw_evm_call(
-		&self,
-		contract: [u8; 20],
-		call: Vec<u8>,
-		amount: u128,
-		nonce: Option<u64>,
-		gas_limit: Option<u64>,
-	) -> Result<(Vec<u8>, TransactionReceipt, [u8; 32])> {
-		let guard = self.wallet_guard.lock().await;
-		let result = self.wallet.eth_send_call(contract, call, amount, nonce, gas_limit).await?;
-		drop(guard);
-		let (result, receipt, tx_hash) = match result {
-			SubmitResult::Executed { result, receipt, tx_hash } => (result, receipt, tx_hash),
-			SubmitResult::Timeout { tx_hash } => {
-				anyhow::bail!("tx 0x{} timed out", hex::encode(tx_hash))
-			},
-		};
-		let result = match result {
-			CallResult::Success(result) => {
-				tracing::info!("tx 0x{} succeeded", hex::encode(tx_hash));
-				result
-			},
-			CallResult::Revert(reason) => {
-				anyhow::bail!(
-					"tx 0x{} reverted because {}",
-					hex::encode(tx_hash),
-					hex::encode(reason)
-				);
-			},
-			CallResult::Error => anyhow::bail!("tx 0x{} failed", hex::encode(tx_hash)),
-		};
-		Ok((result, receipt, tx_hash.into()))
-	}
-
-	async fn evm_call<T: SolCall>(
-		&self,
-		contract: Address,
-		call: T,
-		amount: u128,
-		nonce: Option<u64>,
-		gas_limit: Option<u64>,
-	) -> Result<(T::Return, TransactionReceipt, [u8; 32])> {
-		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
-		let (result, receipt, tx_hash) =
-			self.raw_evm_call(contract, call.abi_encode(), amount, nonce, gas_limit).await?;
-		Ok((T::abi_decode_returns(&result, true)?, receipt, tx_hash))
-	}
-
-	async fn evm_view<T: SolCall>(
-		&self,
-		contract: Address,
-		call: T,
-		block: Option<u64>,
-	) -> Result<T::Return> {
-		let contract: [u8; 20] = contract[12..32].try_into().unwrap();
-		let block: AtBlock = if let Some(block) = block { block.into() } else { AtBlock::Latest };
-		let result = self.wallet.eth_view_call(contract, call.abi_encode(), block).await?;
-		let CallResult::Success(result) = result else { anyhow::bail!("{:?}", result) };
-		Ok(T::abi_decode_returns(&result, true)?)
-	}
-
-	async fn deploy_contract(
-		&self,
-		mut bytecode: Vec<u8>,
-		constructor: impl SolConstructor,
-	) -> Result<(Address, u64)> {
-		bytecode.extend(constructor.abi_encode());
-		let tx_hash = self.wallet.eth_deploy_contract(bytecode).await?.tx_hash();
-		let tx_receipt = self.wallet.eth_transaction_receipt(tx_hash.0).await?.unwrap();
-		let address = tx_receipt.contract_address.unwrap();
-		let block_number = tx_receipt.block_number.unwrap();
-		tracing::info!(
-			"contract deployed at {:?} in block {} with tx {:?}",
-			address,
-			block_number,
-			tx_hash
-		);
-		Ok((t_addr(address.0.into()), block_number))
-	}
-
 	///
 	/// init_code == contract_bytecode + contractor_code
 	async fn deploy_contract_with_factory(
 		&self,
 		config: &DeploymentConfig,
 		call: Vec<u8>,
-	) -> Result<(AlloyAddress, u64)> {
+	) -> Result<(Address20, u64)> {
 		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
 		let (_, receipt, tx_hash) =
 			self.raw_evm_call(factory_address, call, 0, None, Some(20_000_000)).await?;
@@ -162,7 +75,7 @@ impl Connector {
 			.first()
 			.with_context(|| format!("tx {} topic not found", hex::encode(tx_hash)))?
 			.as_bytes();
-		let contract_address = AlloyAddress::from_slice(&topic[12..]);
+		let contract_address = Address20::from_slice(&topic[12..]);
 		Ok((contract_address, receipt.block_number.unwrap()))
 	}
 
@@ -185,9 +98,9 @@ impl Connector {
 	async fn deploy_gateway_contract(
 		&self,
 		config: &DeploymentConfig,
-		proxy: AlloyAddress,
+		proxy: Address20,
 		mut bytecode: Vec<u8>,
-	) -> Result<AlloyAddress> {
+	) -> Result<Address20> {
 		let constructor = sol::Gateway::constructorCall {
 			network: self.network_id,
 			proxy,
@@ -206,10 +119,10 @@ impl Connector {
 	async fn deploy_proxy_contract(
 		&self,
 		config: &DeploymentConfig,
-		proxy_addr: AlloyAddress,
-		gateway_address: AlloyAddress,
+		proxy_addr: Address20,
+		gateway_address: Address20,
 		mut bytecode: Vec<u8>,
-	) -> Result<(AlloyAddress, u64)> {
+	) -> Result<(Address20, u64)> {
 		// constructor params
 		let admin = a_addr(self.address());
 		let constructor = sol::GatewayProxy::constructorCall { admin };
@@ -352,28 +265,16 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		let (blockchain, private_key) = if params.blockchain == "anvil" {
-			let private_key = hex_literal::hex![
-				"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-			];
-			(Blockchain::Ethereum, Some(private_key))
-		} else {
-			(params.blockchain.parse()?, None)
-		};
-		let wallet = Arc::new(
-			Wallet::new(blockchain, &params.network, &params.url, &params.mnemonic, private_key)
-				.await?,
-		);
-		let client = default_client(&params.url, None)
-			.await
-			.with_context(|| "Cannot get ws client for url: {url}")?;
-		let adapter = Adapter(client);
+		let wallet = MnemonicBuilder::<English>::default()
+			.phrase(params.mnemonic)
+			.index(0)?
+			.build()?;
+		let ws = WsConnect::new(params.url);
+		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).on_ws(ws).await?);
 
 		let connector = Self {
 			network_id: params.network_id,
-			wallet,
-			backend: adapter,
-			url: params.url,
+			rpc,
 			cctp_queue: Default::default(),
 			wallet_guard: Default::default(),
 		};
@@ -384,49 +285,51 @@ impl IConnectorBuilder for Connector {
 #[async_trait]
 impl IChain for Connector {
 	/// Formats an address into a string.
-	fn format_address(&self, address: Address) -> String {
+	fn format_address(&self, address: Address32) -> String {
 		a_addr(address).to_string()
 	}
 	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address> {
-		let address: AlloyAddress = address.parse()?;
-		Ok(t_addr(address))
+	fn parse_address(&self, address: &str) -> Result<Address32> {
+		Ok(address.parse::<Address20>().map(t_addr)?)
 	}
 	/// Network identifier.
 	fn network_id(&self) -> NetworkId {
 		self.network_id
 	}
 	/// Human readable connector account identifier.
-	fn address(&self) -> Address {
-		self.parse_address(&self.wallet.account().address).unwrap()
+	fn address(&self) -> Address32 {
+		&self.rpc.wallet().address()
 	}
 	fn currency(&self) -> (u32, &str) {
-		let config = self.wallet.config();
-		(config.currency_decimals, config.currency_symbol)
+		(18, "ETH")
 	}
 	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self, balance: u128) -> Result<()> {
-		self.wallet.faucet(balance, None).await?;
-		Ok(())
+	async fn faucet(&self, _balance: u128) -> Result<()> {
+		Err(anyhow!("Faucet not supported"))
 	}
 	/// Transfers an amount to an account.
-	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
-		let address = self.format_address(address);
-		self.wallet
-			.transfer(&AccountIdentifier::new(address), amount, None, None)
-			.await?;
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
+		let to = a_addr(address);
+		let tx = TransactionRequest::default()
+			.with_from(self.rpc.wallet().address())
+			.with_to(to)
+			.with_value(U256::from(amount));
+		let _tx_hash = self.rpc.send_transaction(tx).await?.watch().await?;
+
 		Ok(())
 	}
 	/// Queries the account balance.
-	async fn balance(&self, address: Address) -> Result<u128> {
-		self.wallet.balance(a_addr(address).to_string()).await
+	async fn balance(&self, address: Address32) -> Result<u128> {
+		Ok(self.rpc.get_balance(a_addr(address)).await?.try_into()?)
 	}
 	async fn finalized_block(&self) -> Result<u64> {
-		Ok(self.wallet.status().await?.index)
+		Ok(self.rpc.get_block(BlockId::finalized()).await??.header.number)
 	}
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		self.wallet.block_stream()
+		// let subscription = self.rpc.subscribe_blocks().await?;
+		// let mut stream = subscription.into_stream();
+		todo!()
 	}
 }
 
@@ -437,23 +340,20 @@ impl IConnector for Connector {
 		&self,
 		gateway: Gateway,
 		blocks: Range<u64>,
-		cctp_info: Option<(Vec<Address>, String)>,
+		cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>> {
-		let contract: [u8; 20] = a_addr(gateway).0.into();
-		let logs = self
-			.wallet
-			.query(GetLogs {
-				contracts: vec![contract.into()],
-				topics: vec![],
-				block: FilterBlockOption::Range {
-					from_block: Some(blocks.start.into()),
-					// Evm fetches logs from both blocks that is provided in range. This makes end block exclusive.
-					to_block: Some((blocks.end - 1).into()),
-				},
-			})
-			.await?;
+		let contract = a_addr(gateway);
+		let filter = Filter::new()
+			.address(contract)
+			.from_block(BlockNumberOrTag::Number(blocks.start))
+			// NOTE: rust range is end exclusive, whereas ETH RPC is end inclusive
+			.to_block(BlockNumberOrTag::Number(blocks.end - 1));
+
+		 let sub = self.rpc.subscribe_logs(&filter).await?;
+		 let mut stream = sub.into_stream();
+
 		let mut events = vec![];
-		for outer_log in logs {
+		while let Some(outer_log) = stream.next().await {
 			let topics =
 				outer_log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
 			let log = alloy::primitives::Log::new(
@@ -555,6 +455,8 @@ impl IConnector for Connector {
 			},
 		};
 		tracing::info!("submitting batch {batch} with {gas_limit} gas");
+
+
 		self.evm_call(gateway, call, 0, None, Some(gas_limit)).await.map_err(|err| {
 			tracing::info!("failed to submit batch: {:?}", err);
 			err.to_string()
@@ -571,7 +473,7 @@ impl IConnectorAdmin for Connector {
 		additional_params: &[u8],
 		proxy: &[u8],
 		gateway: &[u8],
-	) -> Result<(Address, u64)> {
+	) -> Result<(Address32, u64)> {
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let proxy = extract_bytecode(proxy)?;
 		let gateway = extract_bytecode(gateway)?;
@@ -612,7 +514,7 @@ impl IConnectorAdmin for Connector {
 	async fn redeploy_gateway(
 		&self,
 		additional_params: &[u8],
-		proxy: Address,
+		proxy: Address32,
 		gateway: &[u8],
 	) -> Result<()> {
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
@@ -626,24 +528,24 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Returns the gateway admin.
-	async fn admin(&self, gateway: Address) -> Result<Address> {
+	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let result = self.evm_view(gateway, sol::Gateway::adminCall {}, None).await?;
 		Ok(t_addr(result._0))
 	}
 	/// Sets the gateway admin.
-	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()> {
+	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
 	}
 	/// Returns the registered shard keys.
-	async fn shards(&self, gateway: Address) -> Result<Vec<TssPublicKey>> {
+	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
 		let result = self.evm_view(gateway, sol::Gateway::shardsCall {}, None).await?;
 		let keys = result._0.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
 	/// Sets the registered shard keys. Overwrites any other keys.
-	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
+	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
 		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
@@ -651,13 +553,13 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Returns the gateway routing table.
-	async fn routes(&self, gateway: Address) -> Result<Vec<Route>> {
+	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
 		let result = self.evm_view(gateway, sol::Gateway::routesCall {}, None).await?;
 		let networks = result._0.into_iter().map(Into::into).collect();
 		Ok(networks)
 	}
 	/// Updates an entry in the gateway routing table.
-	async fn set_route(&self, gateway: Address, route: Route) -> Result<()> {
+	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = sol::Gateway::setRouteCall { info: route.into() };
 		self.evm_call(gateway, call, 0, None, None).await?;
 		Ok(())
@@ -665,9 +567,9 @@ impl IConnectorAdmin for Connector {
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,
-		contract: Address,
+		contract: Address32,
 		src_network: NetworkId,
-		src: Address,
+		src: Address32,
 		payload: Vec<u8>,
 	) -> Result<u128> {
 		let call = sol::IGmpReceiver::onGmpReceivedCall {
@@ -686,7 +588,7 @@ impl IConnectorAdmin for Connector {
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,
-		gateway: Address,
+		gateway: Address32,
 		dest_network: NetworkId,
 		gas_limit: u128,
 		payload: Vec<u8>,
@@ -712,7 +614,7 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
 		let bytecode = extract_bytecode(tester)?;
 		self.deploy_contract(bytecode, sol::GmpTester::constructorCall { gateway: a_addr(gateway) })
 			.await
@@ -721,9 +623,9 @@ impl IConnectorAdmin for Connector {
 	// Sends a message using the test contract.
 	async fn send_message(
 		&self,
-		contract: Address,
+		contract: Address32,
 		dest_network: NetworkId,
-		dest: Address,
+		dest: Address32,
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
@@ -747,7 +649,7 @@ impl IConnectorAdmin for Connector {
 	/// Receives messages from test contract.
 	async fn recv_messages(
 		&self,
-		contract: Address,
+		contract: Address32,
 		blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
 		let contract: [u8; 20] = a_addr(contract).0.into();
@@ -804,9 +706,9 @@ impl IConnectorAdmin for Connector {
 	/// Withdraw gateway funds.
 	async fn withdraw_funds(
 		&self,
-		gateway: Address,
+		gateway: Address32,
 		amount: u128,
-		receipient: Address,
+		receipient: Address32,
 	) -> Result<()> {
 		let call = sol::Gateway::withdrawCall {
 			amount: U256::from(amount),
@@ -887,7 +789,7 @@ fn compute_create2_address(
 	salt: [u8; 32],
 	bytecode: &[u8],
 	constructor: impl SolConstructor,
-) -> Result<AlloyAddress> {
+) -> Result<Address20> {
 	// solidity
 	// bytes32 create2hash = keccak256(abi.encodePacked(uint8(0xff), address(factory), salt, initcodeHash));
 	// return address(uint160(uint256(create2hash)));
@@ -903,7 +805,7 @@ fn compute_create2_address(
 	hasher.update(init_code_hash);
 	let proxy_hashed = hasher.finalize();
 
-	Ok(AlloyAddress::from_slice(&proxy_hashed[12..]))
+	Ok(Address20::from_slice(&proxy_hashed[12..]))
 }
 
 fn extract_bytecode(json_abi: &[u8]) -> Result<Vec<u8>> {

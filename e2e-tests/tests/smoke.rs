@@ -2,7 +2,7 @@ use crate::common::TestEnv;
 use anyhow::{Context, Result};
 use futures::StreamExt;
 use tc_cli::Tc;
-use time_primitives::{Address, NetworkId};
+use time_primitives::{Address32, NetworkId};
 use tracing_subscriber::filter::EnvFilter;
 
 mod common;
@@ -10,7 +10,7 @@ mod common;
 const SRC: NetworkId = 2;
 const DEST: NetworkId = 3;
 
-async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()> {
+async fn run_smoke(tc: &Tc, src_addr: Address32, dest_addr: Address32) -> Result<()> {
 	let mut blockstream = tc.finality_notification_stream();
 	let (_, start) = blockstream.next().await.context("expected block")?;
 	let gas_limit = tc.estimate_message_gas_limit(DEST, dest_addr, SRC, src_addr, vec![]).await?;

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_big_array::Array;
 use time_primitives::{
-	Address, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, MessageId, NetworkId, Route,
+	Address32, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, MessageId, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
 
@@ -15,7 +15,7 @@ pub struct FaucetResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct TransferRequest {
-	pub address: Address,
+	pub address: Address32,
 	pub amount: u128,
 }
 
@@ -24,7 +24,7 @@ pub struct TransferResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct BalanceRequest {
-	pub address: Address,
+	pub address: Address32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -82,13 +82,13 @@ pub struct DeployGatewayRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct DeployGatewayResponse {
-	pub address: Address,
+	pub address: Address32,
 	pub block: u64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct RedeployGatewayRequest {
-	pub proxy: Address,
+	pub proxy: Address32,
 	pub gateway: Vec<u8>,
 }
 
@@ -102,13 +102,13 @@ pub struct AdminRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct AdminResponse {
-	pub address: Address,
+	pub address: Address32,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SetAdminRequest {
 	pub gateway: Gateway,
-	pub admin: Address,
+	pub admin: Address32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -154,21 +154,21 @@ pub struct SetRouteResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct DeployTestRequest {
-	pub gateway: Address,
+	pub gateway: Address32,
 	pub tester: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DeployTestResponse {
-	pub address: Address,
+	pub address: Address32,
 	pub block: u64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct EstimateMessageGasLimitRequest {
-	pub contract: Address,
+	pub contract: Address32,
 	pub src_network: NetworkId,
-	pub src: Address,
+	pub src: Address32,
 	pub payload: Vec<u8>,
 }
 
@@ -179,7 +179,7 @@ pub struct EstimateMessageGasLimitResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct EstimateMessageCostRequest {
-	pub gateway: Address,
+	pub gateway: Address32,
 	pub dest_network: NetworkId,
 	pub gas_limit: u128,
 	pub payload: Vec<u8>,
@@ -192,9 +192,9 @@ pub struct EstimateMessageCostResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct SendMessageRequest {
-	pub src: Address,
+	pub src: Address32,
 	pub dest_network: NetworkId,
-	pub dest: Address,
+	pub dest: Address32,
 	pub gas_limit: u128,
 	pub gas_cost: u128,
 	pub payload: Vec<u8>,
@@ -207,7 +207,7 @@ pub struct SendMessageResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct RecvMessagesRequest {
-	pub contract: Address,
+	pub contract: Address32,
 	pub start_block: u64,
 	pub end_block: u64,
 }
@@ -235,9 +235,9 @@ pub struct BlockGasLimitResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct WithdrawFundsRequest {
-	pub gateway: Address,
+	pub gateway: Address32,
 	pub amount: u128,
-	pub address: Address,
+	pub address: Address32,
 }
 
 #[derive(Serialize, Deserialize)]

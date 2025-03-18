@@ -8,7 +8,7 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 use time_primitives::{
-	Address, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId, PublicKey,
+	Address32, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId, PublicKey,
 	ShardsInterface,
 };
 
@@ -20,7 +20,7 @@ pub type Signature = MultiSignature;
 pub struct MockNetworks;
 
 impl NetworksInterface for MockNetworks {
-	fn gateway(_network: NetworkId) -> Option<Address> {
+	fn gateway(_network: NetworkId) -> Option<Address32> {
 		Some([0; 32])
 	}
 	fn get_networks() -> Vec<NetworkId> {

@@ -16,28 +16,28 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
 	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
 
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
-const BALANCE: TableDefinition<Address, u128> = TableDefinition::new("balance");
-const ADMIN: TableDefinition<Address, Address> = TableDefinition::new("admin");
-const NONCE: TableDefinition<(Address, Address), u64> = TableDefinition::new("nonce");
-const EVENTS: MultimapTableDefinition<(Address, u64), Bincode<GmpEvent>> =
+const BALANCE: TableDefinition<Address32, u128> = TableDefinition::new("balance");
+const ADMIN: TableDefinition<Address32, Address32> = TableDefinition::new("admin");
+const NONCE: TableDefinition<(Address32, Address32), u64> = TableDefinition::new("nonce");
+const EVENTS: MultimapTableDefinition<(Address32, u64), Bincode<GmpEvent>> =
 	MultimapTableDefinition::new("events");
-const SHARDS: MultimapTableDefinition<Address, TssPublicKey> =
+const SHARDS: MultimapTableDefinition<Address32, TssPublicKey> =
 	MultimapTableDefinition::new("shards");
-const ROUTES: TableDefinition<(Address, NetworkId), Bincode<Route>> =
+const ROUTES: TableDefinition<(Address32, NetworkId), Bincode<Route>> =
 	TableDefinition::new("routes");
-const GATEWAY: TableDefinition<Address, Address> = TableDefinition::new("gateway");
-const TESTERS: MultimapTableDefinition<Address, Address> = MultimapTableDefinition::new("testers");
+const GATEWAY: TableDefinition<Address32, Address32> = TableDefinition::new("gateway");
+const TESTERS: MultimapTableDefinition<Address32, Address32> = MultimapTableDefinition::new("testers");
 
 #[derive(Clone)]
 pub struct Connector {
 	network_id: NetworkId,
-	address: Address,
+	address: Address32,
 	db: Arc<Database>,
 	genesis: SystemTime,
 	block_time: u64,
@@ -49,7 +49,7 @@ impl Connector {
 		self.with_address(mnemonic_to_address(mnemonic))
 	}
 
-	pub fn with_address(&self, address: Address) -> Self {
+	pub fn with_address(&self, address: Address32) -> Self {
 		let mut clone = Clone::clone(self);
 		clone.address = address;
 		clone
@@ -60,7 +60,7 @@ impl Connector {
 		elapsed.as_secs() / self.block_time
 	}
 
-	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address) -> Result<()> {
+	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address32) -> Result<()> {
 		let t = tx.open_table(ADMIN)?;
 		let admin = read_admin(&t, gateway)?;
 		if admin != self.address {
@@ -72,8 +72,8 @@ impl Connector {
 	fn transfer_from(
 		&self,
 		tx: &WriteTransaction,
-		from: Address,
-		to: Address,
+		from: Address32,
+		to: Address32,
 		amount: u128,
 	) -> Result<()> {
 		let mut t = tx.open_table(BALANCE)?;
@@ -88,15 +88,15 @@ impl Connector {
 	}
 }
 
-pub fn mnemonic_to_address(mnemonic: String) -> Address {
+pub fn mnemonic_to_address(mnemonic: String) -> Address32 {
 	*blake3::hash(mnemonic.as_bytes()).as_bytes()
 }
 
-pub fn format_address(address: Address) -> String {
+pub fn format_address(address: Address32) -> String {
 	hex::encode(address)
 }
 
-pub fn parse_address(address: &str) -> Result<Address> {
+pub fn parse_address(address: &str) -> Result<Address32> {
 	let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
 	let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
 	Ok(addr)
@@ -111,11 +111,11 @@ pub fn currency() -> (u32, &'static str) {
 	(3, "TT")
 }
 
-fn read_balance<T: ReadableTable<Address, u128>>(table: &T, addr: Address) -> Result<u128> {
+fn read_balance<T: ReadableTable<Address32, u128>>(table: &T, addr: Address32) -> Result<u128> {
 	Ok(if let Some(value) = table.get(addr)? { value.value() } else { 0 })
 }
 
-fn read_admin<T: ReadableTable<Address, Address>>(table: &T, gateway: Address) -> Result<Address> {
+fn read_admin<T: ReadableTable<Address32, Address32>>(table: &T, gateway: Address32) -> Result<Address32> {
 	Ok(table.get(gateway)?.context("invalid gateway")?.value())
 }
 
@@ -173,12 +173,12 @@ impl IConnectorBuilder for Connector {
 #[async_trait::async_trait]
 impl IChain for Connector {
 	/// Formats an address into a string.
-	fn format_address(&self, address: Address) -> String {
+	fn format_address(&self, address: Address32) -> String {
 		format_address(address)
 	}
 
 	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address> {
+	fn parse_address(&self, address: &str) -> Result<Address32> {
 		parse_address(address)
 	}
 
@@ -188,7 +188,7 @@ impl IChain for Connector {
 	}
 
 	/// Human readable connector account identifier.
-	fn address(&self) -> Address {
+	fn address(&self) -> Address32 {
 		self.address
 	}
 
@@ -207,7 +207,7 @@ impl IChain for Connector {
 	}
 
 	/// Queries the account balance.
-	async fn balance(&self, addr: Address) -> Result<u128> {
+	async fn balance(&self, addr: Address32) -> Result<u128> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(BALANCE)?;
 		let Some(balance) = t.get(addr)? else {
@@ -216,7 +216,7 @@ impl IChain for Connector {
 		Ok(balance.value())
 	}
 
-	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.transfer_from(&tx, self.address, address, amount)?;
 		tx.commit()?;
@@ -245,9 +245,9 @@ impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(
 		&self,
-		gateway: Address,
+		gateway: Address32,
 		blocks: Range<u64>,
-		_cctp_info: Option<(Vec<Address>, String)>,
+		_cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(EVENTS)?;
@@ -265,7 +265,7 @@ impl IConnector for Connector {
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
-		gateway: Address,
+		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
 		signer: TssPublicKey,
@@ -322,7 +322,7 @@ impl IConnectorAdmin for Connector {
 		_additional_params: &[u8],
 		_gateway: &[u8],
 		_gateway_impl: &[u8],
-	) -> Result<(Address, u64)> {
+	) -> Result<(Address32, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::getrandom(&mut gateway).unwrap();
 		let block = self.block();
@@ -338,21 +338,21 @@ impl IConnectorAdmin for Connector {
 	async fn redeploy_gateway(
 		&self,
 		_additional_params: &[u8],
-		gateway: Address,
+		gateway: Address32,
 		_gateway_impl: &[u8],
 	) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.ensure_admin(&tx, gateway)
 	}
 
-	async fn admin(&self, gateway: Address) -> Result<Address> {
+	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ADMIN)?;
 		let admin = read_admin(&t, gateway)?;
 		Ok(admin)
 	}
 
-	async fn set_admin(&self, gateway: Address, new_admin: Address) -> Result<()> {
+	async fn set_admin(&self, gateway: Address32, new_admin: Address32) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.ensure_admin(&tx, gateway)?;
 		let mut t = tx.open_table(ADMIN)?;
@@ -360,7 +360,7 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn shards(&self, gateway: Address) -> Result<Vec<TssPublicKey>> {
+	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(SHARDS)?;
 		let values = t.get(gateway)?;
@@ -372,7 +372,7 @@ impl IConnectorAdmin for Connector {
 		Ok(shards)
 	}
 
-	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
+	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
 			self.ensure_admin(&tx, gateway)?;
@@ -400,7 +400,7 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn routes(&self, gateway: Address) -> Result<Vec<Route>> {
+	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ROUTES)?;
 		let mut routes = vec![];
@@ -415,7 +415,7 @@ impl IConnectorAdmin for Connector {
 		Ok(routes)
 	}
 
-	async fn set_route(&self, gateway: Address, new_route: Route) -> Result<()> {
+	async fn set_route(&self, gateway: Address32, new_route: Route) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
 			self.ensure_admin(&tx, gateway)?;
@@ -442,7 +442,7 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn deploy_test(&self, gateway: Address, _path: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_test(&self, gateway: Address32, _path: &[u8]) -> Result<(Address32, u64)> {
 		let mut tester = [0; 32];
 		getrandom::getrandom(&mut tester).unwrap();
 		let block = self.block();
@@ -459,9 +459,9 @@ impl IConnectorAdmin for Connector {
 
 	async fn estimate_message_gas_limit(
 		&self,
-		_contract: Address,
+		_contract: Address32,
 		_src_network: NetworkId,
-		_src: Address,
+		_src: Address32,
 		_payload: Vec<u8>,
 	) -> Result<u128> {
 		Ok(100_000)
@@ -469,7 +469,7 @@ impl IConnectorAdmin for Connector {
 
 	async fn estimate_message_cost(
 		&self,
-		_gateway: Address,
+		_gateway: Address32,
 		_dest_network: NetworkId,
 		gas_limit: u128,
 		payload: Vec<u8>,
@@ -478,9 +478,9 @@ impl IConnectorAdmin for Connector {
 	}
 	async fn send_message(
 		&self,
-		src: Address,
+		src: Address32,
 		dest_network: NetworkId,
-		dest: Address,
+		dest: Address32,
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
@@ -519,7 +519,7 @@ impl IConnectorAdmin for Connector {
 		Ok(id)
 	}
 
-	async fn recv_messages(&self, addr: Address, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
+	async fn recv_messages(&self, addr: Address32, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(EVENTS)?;
 		let mut msgs = vec![];
@@ -545,7 +545,7 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()> {
+	async fn withdraw_funds(&self, gateway: Address32, amount: u128, address: Address32) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.ensure_admin(&tx, gateway)?;
 		self.transfer_from(&tx, gateway, address, amount)?;
@@ -620,7 +620,7 @@ mod tests {
 		.await
 	}
 
-	fn gmp_msg(src: Address, dest: Address) -> GmpMessage {
+	fn gmp_msg(src: Address32, dest: Address32) -> GmpMessage {
 		GmpMessage {
 			src_network: 0,
 			dest_network: 0,

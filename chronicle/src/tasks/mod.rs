@@ -7,7 +7,7 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector, NetworkId, ShardId,
+	Address32, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector, NetworkId, ShardId,
 	Task, TaskId, TaskResult, TssSignature, TssSigningRequest, MAX_GMP_EVENTS,
 };
 use tokio::sync::Mutex;
@@ -119,9 +119,9 @@ impl TaskParams {
 	async fn execute(
 		self,
 		block_number: BlockNumber,
-		cctp_info: Option<(Vec<Address>, String)>,
+		cctp_info: Option<(Vec<Address32>, String)>,
 		network_id: NetworkId,
-		gateway: Address,
+		gateway: Address32,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,

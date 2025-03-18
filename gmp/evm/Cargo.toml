@@ -23,7 +23,6 @@ async-trait.workspace = true
 futures.workspace = true
 hex.workspace = true
 reqwest.workspace = true
-rosetta-client = { git = "https://github.com/analog-labs/chain-connectors", rev = "e066b7d130db482a93672a4c0153312832353a90" }
 sha3 = { version = "0.10", default-features = false }
 serde.workspace = true
 serde_json.workspace = true

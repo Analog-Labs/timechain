@@ -6,8 +6,8 @@ use scale_info::{prelude::vec::Vec, TypeInfo};
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 
-pub type Address = [u8; 32];
-pub type Gateway = Address;
+pub type Address32 = [u8; 32];
+pub type Gateway = Address32;
 pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
@@ -40,8 +40,8 @@ impl GmpParams {
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
-	pub src: Address,
-	pub dest: Address,
+	pub src: Address32,
+	pub dest: Address32,
 	pub nonce: u64,
 	pub gas_limit: u128,
 	pub gas_cost: u128,
@@ -312,9 +312,9 @@ impl Route {
 #[async_trait::async_trait]
 pub trait IChain: Send + Sync + 'static {
 	/// Formats an address into a string.
-	fn format_address(&self, address: Address) -> String;
+	fn format_address(&self, address: Address32) -> String;
 	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address>;
+	fn parse_address(&self, address: &str) -> Result<Address32>;
 	/// Returns the currency decimals and symobl.
 	fn currency(&self) -> (u32, &str);
 	/// Formats a balance into a string.
@@ -330,13 +330,13 @@ pub trait IChain: Send + Sync + 'static {
 	/// Network identifier.
 	fn network_id(&self) -> NetworkId;
 	/// Human readable connector account identifier.
-	fn address(&self) -> Address;
+	fn address(&self) -> Address32;
 	/// Uses a faucet to fund the account when possible.
 	async fn faucet(&self, balance: u128) -> Result<()>;
 	/// Transfers an amount to an account.
-	async fn transfer(&self, address: Address, amount: u128) -> Result<()>;
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()>;
 	/// Queries the account balance.
-	async fn balance(&self, address: Address) -> Result<u128>;
+	async fn balance(&self, address: Address32) -> Result<u128>;
 	/// Returns the last finalized block.
 	async fn finalized_block(&self) -> Result<u64>;
 	/// Stream of finalized block indexes.
@@ -351,7 +351,7 @@ pub trait IConnector: IChain {
 		&self,
 		gateway: Gateway,
 		blocks: Range<u64>,
-		cctp_info: Option<(Vec<Address>, String)>,
+		cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
@@ -373,40 +373,40 @@ pub trait IConnectorAdmin: IConnector {
 		additional_params: &[u8],
 		proxy: &[u8],
 		gateway: &[u8],
-	) -> Result<(Address, u64)>;
+	) -> Result<(Address32, u64)>;
 	/// Redeploys the gateway contract.
 	async fn redeploy_gateway(
 		&self,
 		additional_params: &[u8],
-		proxy: Address,
+		proxy: Address32,
 		gateway: &[u8],
 	) -> Result<()>;
 	/// Returns the gateway admin.
-	async fn admin(&self, gateway: Address) -> Result<Address>;
+	async fn admin(&self, gateway: Address32) -> Result<Address32>;
 	/// Sets the gateway admin.
-	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()>;
+	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()>;
 	/// Returns the registered shard keys.
-	async fn shards(&self, gateway: Address) -> Result<Vec<TssPublicKey>>;
+	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>>;
 	/// Sets the registered shard keys. Overwrites any other keys.
-	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()>;
+	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()>;
 	/// Returns the gateway routing table.
-	async fn routes(&self, gateway: Address) -> Result<Vec<Route>>;
+	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>>;
 	/// Updates an entry in the gateway routing table.
-	async fn set_route(&self, gateway: Address, route: Route) -> Result<()>;
+	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)>;
+	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)>;
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,
-		contract: Address,
+		contract: Address32,
 		src_network: NetworkId,
-		src: Address,
+		src: Address32,
 		payload: Vec<u8>,
 	) -> Result<u128>;
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,
-		gateway: Address,
+		gateway: Address32,
 		dest_network: NetworkId,
 		gas_limit: u128,
 		payload: Vec<u8>,
@@ -414,22 +414,22 @@ pub trait IConnectorAdmin: IConnector {
 	/// Sends a message using the test contract and returns the message id.
 	async fn send_message(
 		&self,
-		src: Address,
+		src: Address32,
 		dest_network: NetworkId,
-		dest: Address,
+		dest: Address32,
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId>;
 	/// Receives messages from test contract.
-	async fn recv_messages(&self, contract: Address, blocks: Range<u64>)
+	async fn recv_messages(&self, contract: Address32, blocks: Range<u64>)
 		-> Result<Vec<GmpMessage>>;
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
 	async fn max_fee_per_gas(&self) -> Result<u128>;
 	/// Calculate returns the latest block gas_limit for a chain.
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()>;
+	async fn withdraw_funds(&self, gateway: Address32, amount: u128, address: Address32) -> Result<()>;
 	/// Debug a transaction.
 	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
 		anyhow::bail!("debugging transactions is not supported on this backend");

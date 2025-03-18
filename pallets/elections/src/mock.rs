@@ -9,7 +9,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Address, NetworkId, NetworksInterface, PublicKey, ShardId, TasksInterface};
+use time_primitives::{Address32, NetworkId, NetworksInterface, PublicKey, ShardId, TasksInterface};
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -27,7 +27,7 @@ impl TasksInterface for MockTasks {
 pub struct MockNetworks;
 
 impl NetworksInterface for MockNetworks {
-	fn gateway(_network: NetworkId) -> Option<Address> {
+	fn gateway(_network: NetworkId) -> Option<Address32> {
 		Some([0; 32])
 	}
 	fn get_networks() -> Vec<NetworkId> {

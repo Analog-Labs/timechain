@@ -88,9 +88,10 @@ impl SubxtClient {
 		&self.account_id
 	}
 
-	pub async fn latest_block(&self) -> Result<u64> {
-		Ok(self.client.blocks().at_latest().await?.number().into())
-	}
+	// pub async fn latest_block(&self) -> Result<(BlockHash, BlockNumber)> {
+	// 	let block = self.client.blocks().at_latest().await?;
+	// 	Ok((BlockHash::from(block.hash().0), block.number().into()))
+	// }
 
 	pub fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		let client = self.client.clone();
@@ -120,10 +121,11 @@ impl SubxtClient {
 		Ok(())
 	}
 
-	pub async fn balance(&self, account: &AccountId, block: Option<BlockHash>) -> Result<u128> {
+	pub async fn balance(&self, account: &AccountId, block: BlockHash) -> Result<u128> {
+		let block = subxt::utils::H256(block.0);
 		let storage_query =
 			metadata::storage().system().account(subxt::utils::Static(account.clone()));
-		let result = self.st_at_or_latest(block).await?.fetch(&storage_query).await?;
+		let result = self.client.storage().at(block).fetch(&storage_query).await?;
 		Ok(if let Some(info) = result { info.data.free } else { 0 })
 	}
 
@@ -173,19 +175,4 @@ fn block_stream<
 		}
 	};
 	Box::pin(stream)
-}
-
-#[derive(Clone)]
-pub struct SubxtBlock(subxt::utils::H256);
-
-impl From<BlockHash> for SubxtBlock {
-	fn from(value: BlockHash) -> Self {
-		SubxtBlock(subxt::utils::H256::from(value.0))
-	}
-}
-
-impl SubxtBlock {
-	pub fn value(&self) -> subxt::utils::H256 {
-		self.0
-	}
 }

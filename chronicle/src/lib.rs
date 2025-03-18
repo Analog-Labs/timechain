@@ -186,7 +186,7 @@ pub async fn run_chronicle(
 		.await?;
 	loop {
 		let Some((hash, _)) = ticker.next().await else { continue };
-		if substrate.is_registered(hash).await? {
+		if substrate.is_registered(hash.into()).await? {
 			break;
 		}
 		tracing::warn!(parent: &span, "chronicle isn't registered");
@@ -214,7 +214,6 @@ mod tests {
 	use polkadot_sdk::sp_runtime::BoundedVec;
 	use scale_codec::Encode;
 	use std::time::Duration;
-	use tc_subxt::SubxtBlock;
 	use time_primitives::traits::IdentifyAccount;
 	use time_primitives::{AccountId, BlockHash, ChainName, ChainNetwork, ShardStatus, Task};
 
@@ -278,7 +277,7 @@ mod tests {
 		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
-		let block: SubxtBlock = BlockHash::from([0u8; 32]).into();
+		let block: BlockHash = BlockHash::from([0u8; 32]).into();
 		let network_id = mock.create_network(
 			ChainName(BoundedVec::truncate_from("rust".encode())),
 			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
@@ -311,7 +310,7 @@ mod tests {
 		// Wait for the shard to be online.
 		loop {
 			tracing::info!("waiting for shard");
-			if mock.get_shard_status(shard_id).await.unwrap() != ShardStatus::Online {
+			if mock.get_shard_status(shard_id, block).await.unwrap() != ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
@@ -341,6 +340,7 @@ mod tests {
 		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
+		let block: BlockHash = BlockHash::from([0u8; 32]).into();
 		let network_id = mock.create_network(
 			ChainName(BoundedVec::truncate_from("rust".encode())),
 			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
@@ -376,7 +376,7 @@ mod tests {
 		// Wait for the shard to be online.
 		loop {
 			tracing::info!("waiting for shard");
-			if mock.get_shard_status(shard_id).await.unwrap() != ShardStatus::Online {
+			if mock.get_shard_status(shard_id, block).await.unwrap() != ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}

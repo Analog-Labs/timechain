@@ -1,9 +1,10 @@
 use crate::worker::Tx;
-use crate::{metadata, SubxtBlock, SubxtClient};
+use crate::{metadata, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
+use subxt::utils::H256;
 use time_primitives::{
-	AccountId, Commitment, MemberStatus, NetworkId, ShardId, ShardStatus, TssPublicKey,
+	AccountId, BlockHash, Commitment, MemberStatus, NetworkId, ShardId, ShardStatus, TssPublicKey,
 };
 
 impl SubxtClient {
@@ -18,58 +19,65 @@ impl SubxtClient {
 		Ok(shards)
 	}*/
 
-	pub async fn shard_id_counter(&self, block: SubxtBlock) -> Result<u64> {
+	pub async fn shard_id_counter(&self, block: BlockHash) -> Result<u64> {
+		let block = H256(block.0);
 		let storage_query = metadata::storage().shards().shard_id_counter();
-		Ok(self.client.storage().at(block.value()).fetch_or_default(&storage_query).await?)
+		Ok(self.client.storage().at(block).fetch_or_default(&storage_query).await?)
 	}
 
 	pub async fn shard_network(
 		&self,
 		shard_id: u64,
-		block: SubxtBlock,
+		block: BlockHash,
 	) -> Result<Option<NetworkId>> {
+		let block = H256(block.0);
 		let storage_query = metadata::storage().shards().shard_network(shard_id);
-		Ok(self.client.storage().at(block.value()).fetch(&storage_query).await?)
+		Ok(self.client.storage().at(block).fetch(&storage_query).await?)
 	}
 
 	pub async fn member_shards(
 		&self,
 		account: &AccountId,
-		block: SubxtBlock,
+		block: BlockHash,
 	) -> Result<Vec<ShardId>> {
+		let block = H256(block.0);
 		let account = subxt::utils::Static(account.clone());
 		let runtime_call = metadata::apis().shards_api().get_shards(account);
-		Ok(self.client.runtime_api().at(block.value()).call(runtime_call).await?)
+		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
 	pub async fn shard_members(
 		&self,
 		shard_id: ShardId,
-		block: SubxtBlock,
+		block: BlockHash,
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
+		let block = H256(block.0);
 		let runtime_call = metadata::apis().shards_api().get_shard_members(shard_id);
-		let data = self.client.runtime_api().at(block.value()).call(runtime_call).await?;
+		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data.into_iter().map(|(account, status)| (account.0, status.0)).collect())
 	}
 
-	pub async fn shard_threshold(&self, shard_id: ShardId, block: SubxtBlock) -> Result<u16> {
+	pub async fn shard_threshold(&self, shard_id: ShardId, block: BlockHash) -> Result<u16> {
+		let block = H256(block.0);
 		let runtime_call = metadata::apis().shards_api().get_shard_threshold(shard_id);
-		Ok(self.client.runtime_api().at(block.value()).call(runtime_call).await?)
+		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
-	pub async fn shard_status(&self, shard_id: ShardId, block: SubxtBlock) -> Result<ShardStatus> {
+	pub async fn shard_status(&self, shard_id: ShardId, block: BlockHash) -> Result<ShardStatus> {
+		let block = H256(block.0);
 		let runtime_call = metadata::apis().shards_api().get_shard_status(shard_id);
-		let data = self.client.runtime_api().at(block.value()).call(runtime_call).await?;
+		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data.0)
 	}
 
 	pub async fn shard_commitment(
 		&self,
 		shard_id: ShardId,
-		block: SubxtBlock,
+		block: BlockHash,
 	) -> Result<Option<Commitment>> {
+		let block = H256(block.0);
 		let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
-		let output = self.client.runtime_api().at(block.value()).call(runtime_call).await?;
+		let output = self.client.runtime_api().at(block).call(runtime_call).await?;
 		let output_converted = output.map(|static_commitment| (*static_commitment).clone());
 		Ok(output_converted)
 	}
@@ -77,7 +85,7 @@ impl SubxtClient {
 	pub async fn shard_public_key(
 		&self,
 		shard_id: ShardId,
-		block: SubxtBlock,
+		block: BlockHash,
 	) -> Result<Option<TssPublicKey>> {
 		Ok(self.shard_commitment(shard_id, block).await?.map(|v| v.0[0]))
 	}

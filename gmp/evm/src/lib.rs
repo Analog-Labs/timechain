@@ -1,5 +1,5 @@
-use alloy_primitives::{B256, U256};
-use alloy_sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
+use alloy::primitives::{B256, U256};
+use alloy::sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 use crate::sol::CCTP;
 use crate::sol::{ProxyContext, ProxyDigest};
 
-type AlloyAddress = alloy_primitives::Address;
+type AlloyAddress = alloy::primitives::Address;
 type CctpRetryCount = u8;
 const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
@@ -43,7 +43,7 @@ fn a_addr(address: Address) -> AlloyAddress {
 	AlloyAddress::from(address)
 }
 
-fn t_addr(address: alloy_primitives::Address) -> Address {
+fn t_addr(address: alloy::primitives::Address) -> Address {
 	let mut addr = [0; 32];
 	addr[12..32].copy_from_slice(&address.0[..]);
 	addr
@@ -456,7 +456,7 @@ impl IConnector for Connector {
 		for outer_log in logs {
 			let topics =
 				outer_log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
-			let log = alloy_primitives::Log::new(
+			let log = alloy::primitives::Log::new(
 				a_addr(gateway),
 				topics,
 				outer_log.data.0.to_vec().into(),
@@ -766,7 +766,7 @@ impl IConnectorAdmin for Connector {
 		for log in logs {
 			let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
 			let log =
-				alloy_primitives::Log::new(contract.into(), topics, log.data.0.to_vec().into())
+				alloy::primitives::Log::new(contract.into(), topics, log.data.0.to_vec().into())
 					.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			for topic in log.topics() {
 				let sol::GmpTester::MessageReceived::SIGNATURE_HASH = *topic else {

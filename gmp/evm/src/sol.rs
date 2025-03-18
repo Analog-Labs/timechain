@@ -1,9 +1,8 @@
-use alloy_primitives::U256;
-use alloy_sol_types::SolValue;
+use alloy::{primitives::U256, sol, sol_types::SolValue};
 
 use crate::{a_addr, t_addr};
 
-alloy_sol_types::sol! {
+sol! {
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct TssKey {
 		uint8 yParity;

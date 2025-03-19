@@ -71,215 +71,6 @@ pub struct Connector {
 	wallet_guard: Arc<Mutex<()>>,
 }
 
-impl Connector {
-	///
-	/// init_code == contract_bytecode + contractor_code
-	async fn deploy_contract_with_factory(
-		&self,
-		config: &DeploymentConfig,
-		call: Vec<u8>,
-	) -> Result<(Address20, u64)> {
-		// let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
-		// let (_, receipt, tx_hash) =
-		// 	self.raw_evm_call(factory_address, call, 0, None, Some(20_000_000)).await?;
-		// tracing::debug!("{receipt:?}");
-		// let log = receipt
-		// 	.logs
-		// 	.iter()
-		// 	.find(|log| log.address.as_bytes() == factory_address)
-		// 	.with_context(|| format!("tx {} logs not found", hex::encode(tx_hash)))?;
-		// let topic = log
-		// 	.topics
-		// 	.first()
-		// 	.with_context(|| format!("tx {} topic not found", hex::encode(tx_hash)))?
-		// 	.as_bytes();
-		// let contract_address = Address20::from_slice(&topic[12..]);
-		// Ok((contract_address, receipt.block_number.unwrap()))
-		Err(anyhow!("not implemented yet"))
-	}
-
-	async fn deploy_factory_contract(&self, config: &DeploymentConfig) -> Result<()> {
-		// let deployer_address = self.parse_address(&config.factory_deployer)?;
-
-		// // Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		// self.transfer(deployer_address, config.required_balance).await?;
-
-		// //Step2: load transaction from config
-		// let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
-
-		// //Step3: send eth_rawTransaction
-		// let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
-
-		// tracing::info!("factory deployed with tx {:?}", tx_hash);
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
-	}
-
-	async fn deploy_gateway_contract(
-		&self,
-		config: &DeploymentConfig,
-		proxy: Address20,
-		mut bytecode: Vec<u8>,
-	) -> Result<Address20> {
-		// let constructor = sol::Gateway::constructorCall {
-		// 	network: self.network_id,
-		// 	proxy,
-		// };
-		// bytecode.extend(constructor.abi_encode());
-		// let call = sol::IUniversalFactory::create2_0Call {
-		// 	salt: config.deployment_salt.into(),
-		// 	creationCode: bytecode.into(),
-		// }
-		// .abi_encode();
-		// let (gateway_address, _) = self.deploy_contract_with_factory(config, call).await?;
-		// tracing::info!("gateway deployed at {}", gateway_address);
-		// Ok(gateway_address)
-		Err(anyhow!("not implemented yet"))
-	}
-
-	async fn deploy_proxy_contract(
-		&self,
-		config: &DeploymentConfig,
-		proxy_addr: Address20,
-		gateway_address: Address20,
-		mut bytecode: Vec<u8>,
-	) -> Result<(Address20, u64)> {
-		// // constructor params
-		// let admin = a_addr(self.address());
-		// let constructor = sol::GatewayProxy::constructorCall { admin };
-		// bytecode.extend(constructor.abi_encode());
-
-		// // computing signature for security purpose
-		// let digest = ProxyDigest {
-		// 	proxy: proxy_addr,
-		// 	implementation: gateway_address,
-		// }
-		// .abi_encode();
-		// let payload: [u8; 32] = Keccak256::digest(digest).into();
-		// let sig = self.wallet.sign_prehashed(&payload)?.to_bytes();
-		// debug_assert!(sig.len() == 65);
-		// let r: [u8; 32] = sig[0..32].try_into()?;
-		// let s: [u8; 32] = sig[32..64].try_into()?;
-		// let v = sig[64];
-		// let arguments = ProxyContext {
-		// 	// Ethereum verification uses 27,28 instead of 0,1 for recovery id
-		// 	v: v + 27,
-		// 	r: r.into(),
-		// 	s: s.into(),
-		// 	implementation: gateway_address,
-		// }
-		// .abi_encode();
-
-		// let initializer = sol::Gateway::initializeCall {
-		// 	admin,
-		// 	keys: vec![],
-		// 	networks: vec![],
-		// }
-		// .abi_encode();
-
-		// // Proxy creation
-		// let call = sol::IUniversalFactory::create2_1Call {
-		// 	salt: config.deployment_salt.into(),
-		// 	creationCode: bytecode.into(),
-		// 	arguments: arguments.into(),
-		// 	callback: initializer.into(),
-		// }
-		// .abi_encode();
-
-		// let (proxy_address, block) = self.deploy_contract_with_factory(config, call).await?;
-
-		// if proxy_address != proxy_addr {
-		// 	anyhow::bail!(
-		// 		"Unable to compute proxy address: expected: {:?}, got {:?}",
-		// 		proxy_addr,
-		// 		proxy_address
-		// 	);
-		// }
-		// tracing::info!("proxy deployed at {}", proxy_address);
-		// Ok((proxy_address, block))
-		Err(anyhow!("not implemented yet"))
-	}
-
-	async fn process_cctp_msg(&self, request: &mut CctpRequest) -> Result<(), CctpError> {
-		let payload = request.msg.bytes.clone();
-		let mut cctp_payload =
-			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
-		if cctp_payload.get_version().map_err(|_| CctpError::InvalidPayload)? != 0 {
-			return Err(CctpError::InvalidVersion);
-		}
-		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
-		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
-		let attestation_response = self.get_cctp_attestation(burn_hash, &request.url).await?;
-		let signature =
-			attestation_response.attestation.clone().ok_or(CctpError::AttestationResponse)?;
-		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
-		let attestation = hex::decode(signature).map_err(|_| CctpError::InvalidSignature)?;
-		cctp_payload.attestation = attestation.into();
-		request.msg.bytes = cctp_payload.abi_encode();
-		Ok(())
-	}
-
-	async fn get_cctp_attestation(
-		&self,
-		burn_hash: [u8; 32],
-		uri: &str,
-	) -> Result<AttestationResponse, CctpError> {
-		let uri = uri.trim_end_matches('/');
-		let url = format!("{}/0x{}", uri, hex::encode(burn_hash));
-		let client = Client::new();
-		let response = client
-			.get(&url)
-			.send()
-			.await
-			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?
-			.error_for_status()
-			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
-		let attestation_response: AttestationResponse =
-			response.json().await.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
-		if attestation_response.status == "complete" {
-			return Ok(attestation_response);
-		}
-		Err(CctpError::AttestationPending)
-	}
-
-	async fn process_cctp_queue(&self) -> Vec<GmpMessage> {
-		let mut queue = self.cctp_queue.lock().await;
-		if queue.is_empty() {
-			return vec![];
-		}
-
-		let mut attested_msgs = vec![];
-
-		let msgs = std::mem::take(&mut *queue);
-		for mut request in msgs {
-			match self.process_cctp_msg(&mut request).await {
-				Ok(()) => attested_msgs.push(request.msg),
-				Err(CctpError::AttestationPending) => {
-					request.retry_count += 1;
-					if request.retry_count >= MAX_CCTP_RETRY {
-						tracing::info!("Dropping Cctp message due to count: {:?}", request);
-					} else {
-						tracing::info!("Attestation is pending for msg: {:?}", request.msg);
-						queue.push(request);
-					}
-				},
-				Err(error) => {
-					tracing::error!(
-						"Failed to process cctp message: {:?}: {:?}",
-						request.msg,
-						error
-					);
-				},
-			}
-		}
-
-		if !queue.is_empty() {
-			tracing::info!("{} Cctp messages have pending attestations.", queue.len());
-		}
-		attested_msgs
-	}
-}
-
 #[async_trait]
 impl IConnectorBuilder for Connector {
 	/// Creates a new connector.
@@ -356,10 +147,11 @@ impl IChain for Connector {
 			.number)
 	}
 	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		// let subscription = self.rpc.subscribe_blocks().await?;
-		// let mut stream = subscription.into_stream();
-		todo!()
+	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send>>> {
+		let subscription = self.rpc.subscribe_blocks().await?;
+		let stream = subscription.into_stream().map(|b| b.inner.number);
+
+		Ok(stream.boxed() as Pin<Box<dyn Stream<Item = u64> + Send>>)
 	}
 }
 
@@ -486,10 +278,11 @@ impl IConnector for Connector {
 		let address = a_addr(gateway);
 		let gw = IExecutorInstance::new(address, self.rpc.clone());
 
-		let _pending_tx = gw.batchExecute(signature, message).gas(gas_limit).send().await.map_err(|err| {
-			tracing::info!("failed to submit batch: {:?}", err);
-			err.to_string()
-		})?;
+		let _pending_tx =
+			gw.batchExecute(signature, message).gas(gas_limit).send().await.map_err(|err| {
+				tracing::info!("failed to submit batch: {:?}", err);
+				err.to_string()
+			})?;
 
 		Ok(())
 	}
@@ -828,6 +621,215 @@ impl IConnectorAdmin for Connector {
 		}
 
 		Ok(())
+	}
+}
+
+impl Connector {
+	///
+	/// init_code == contract_bytecode + contractor_code
+	async fn deploy_contract_with_factory(
+		&self,
+		config: &DeploymentConfig,
+		call: Vec<u8>,
+	) -> Result<(Address20, u64)> {
+		// let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		// let (_, receipt, tx_hash) =
+		// 	self.raw_evm_call(factory_address, call, 0, None, Some(20_000_000)).await?;
+		// tracing::debug!("{receipt:?}");
+		// let log = receipt
+		// 	.logs
+		// 	.iter()
+		// 	.find(|log| log.address.as_bytes() == factory_address)
+		// 	.with_context(|| format!("tx {} logs not found", hex::encode(tx_hash)))?;
+		// let topic = log
+		// 	.topics
+		// 	.first()
+		// 	.with_context(|| format!("tx {} topic not found", hex::encode(tx_hash)))?
+		// 	.as_bytes();
+		// let contract_address = Address20::from_slice(&topic[12..]);
+		// Ok((contract_address, receipt.block_number.unwrap()))
+		Err(anyhow!("not implemented yet"))
+	}
+
+	async fn deploy_factory_contract(&self, config: &DeploymentConfig) -> Result<()> {
+		// let deployer_address = self.parse_address(&config.factory_deployer)?;
+
+		// // Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		// self.transfer(deployer_address, config.required_balance).await?;
+
+		// //Step2: load transaction from config
+		// let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
+
+		// //Step3: send eth_rawTransaction
+		// let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
+
+		// tracing::info!("factory deployed with tx {:?}", tx_hash);
+		// Ok(())
+		Err(anyhow!("not implemented yet"))
+	}
+
+	async fn deploy_gateway_contract(
+		&self,
+		config: &DeploymentConfig,
+		proxy: Address20,
+		mut bytecode: Vec<u8>,
+	) -> Result<Address20> {
+		// let constructor = sol::Gateway::constructorCall {
+		// 	network: self.network_id,
+		// 	proxy,
+		// };
+		// bytecode.extend(constructor.abi_encode());
+		// let call = sol::IUniversalFactory::create2_0Call {
+		// 	salt: config.deployment_salt.into(),
+		// 	creationCode: bytecode.into(),
+		// }
+		// .abi_encode();
+		// let (gateway_address, _) = self.deploy_contract_with_factory(config, call).await?;
+		// tracing::info!("gateway deployed at {}", gateway_address);
+		// Ok(gateway_address)
+		Err(anyhow!("not implemented yet"))
+	}
+
+	async fn deploy_proxy_contract(
+		&self,
+		config: &DeploymentConfig,
+		proxy_addr: Address20,
+		gateway_address: Address20,
+		mut bytecode: Vec<u8>,
+	) -> Result<(Address20, u64)> {
+		// // constructor params
+		// let admin = a_addr(self.address());
+		// let constructor = sol::GatewayProxy::constructorCall { admin };
+		// bytecode.extend(constructor.abi_encode());
+
+		// // computing signature for security purpose
+		// let digest = ProxyDigest {
+		// 	proxy: proxy_addr,
+		// 	implementation: gateway_address,
+		// }
+		// .abi_encode();
+		// let payload: [u8; 32] = Keccak256::digest(digest).into();
+		// let sig = self.wallet.sign_prehashed(&payload)?.to_bytes();
+		// debug_assert!(sig.len() == 65);
+		// let r: [u8; 32] = sig[0..32].try_into()?;
+		// let s: [u8; 32] = sig[32..64].try_into()?;
+		// let v = sig[64];
+		// let arguments = ProxyContext {
+		// 	// Ethereum verification uses 27,28 instead of 0,1 for recovery id
+		// 	v: v + 27,
+		// 	r: r.into(),
+		// 	s: s.into(),
+		// 	implementation: gateway_address,
+		// }
+		// .abi_encode();
+
+		// let initializer = sol::Gateway::initializeCall {
+		// 	admin,
+		// 	keys: vec![],
+		// 	networks: vec![],
+		// }
+		// .abi_encode();
+
+		// // Proxy creation
+		// let call = sol::IUniversalFactory::create2_1Call {
+		// 	salt: config.deployment_salt.into(),
+		// 	creationCode: bytecode.into(),
+		// 	arguments: arguments.into(),
+		// 	callback: initializer.into(),
+		// }
+		// .abi_encode();
+
+		// let (proxy_address, block) = self.deploy_contract_with_factory(config, call).await?;
+
+		// if proxy_address != proxy_addr {
+		// 	anyhow::bail!(
+		// 		"Unable to compute proxy address: expected: {:?}, got {:?}",
+		// 		proxy_addr,
+		// 		proxy_address
+		// 	);
+		// }
+		// tracing::info!("proxy deployed at {}", proxy_address);
+		// Ok((proxy_address, block))
+		Err(anyhow!("not implemented yet"))
+	}
+
+	async fn process_cctp_msg(&self, request: &mut CctpRequest) -> Result<(), CctpError> {
+		let payload = request.msg.bytes.clone();
+		let mut cctp_payload =
+			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
+		if cctp_payload.get_version().map_err(|_| CctpError::InvalidPayload)? != 0 {
+			return Err(CctpError::InvalidVersion);
+		}
+		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
+		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
+		let attestation_response = self.get_cctp_attestation(burn_hash, &request.url).await?;
+		let signature =
+			attestation_response.attestation.clone().ok_or(CctpError::AttestationResponse)?;
+		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
+		let attestation = hex::decode(signature).map_err(|_| CctpError::InvalidSignature)?;
+		cctp_payload.attestation = attestation.into();
+		request.msg.bytes = cctp_payload.abi_encode();
+		Ok(())
+	}
+
+	async fn get_cctp_attestation(
+		&self,
+		burn_hash: [u8; 32],
+		uri: &str,
+	) -> Result<AttestationResponse, CctpError> {
+		let uri = uri.trim_end_matches('/');
+		let url = format!("{}/0x{}", uri, hex::encode(burn_hash));
+		let client = Client::new();
+		let response = client
+			.get(&url)
+			.send()
+			.await
+			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?
+			.error_for_status()
+			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
+		let attestation_response: AttestationResponse =
+			response.json().await.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
+		if attestation_response.status == "complete" {
+			return Ok(attestation_response);
+		}
+		Err(CctpError::AttestationPending)
+	}
+
+	async fn process_cctp_queue(&self) -> Vec<GmpMessage> {
+		let mut queue = self.cctp_queue.lock().await;
+		if queue.is_empty() {
+			return vec![];
+		}
+
+		let mut attested_msgs = vec![];
+
+		let msgs = std::mem::take(&mut *queue);
+		for mut request in msgs {
+			match self.process_cctp_msg(&mut request).await {
+				Ok(()) => attested_msgs.push(request.msg),
+				Err(CctpError::AttestationPending) => {
+					request.retry_count += 1;
+					if request.retry_count >= MAX_CCTP_RETRY {
+						tracing::info!("Dropping Cctp message due to count: {:?}", request);
+					} else {
+						tracing::info!("Attestation is pending for msg: {:?}", request.msg);
+						queue.push(request);
+					}
+				},
+				Err(error) => {
+					tracing::error!(
+						"Failed to process cctp message: {:?}: {:?}",
+						request.msg,
+						error
+					);
+				},
+			}
+		}
+
+		if !queue.is_empty() {
+			tracing::info!("{} Cctp messages have pending attestations.", queue.len());
+		}
+		attested_msgs
 	}
 }
 

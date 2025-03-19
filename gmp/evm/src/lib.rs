@@ -360,9 +360,17 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
-		// let result = self.evm_view(gateway, sol::Gateway::adminCall {}, None).await?;
-		// Ok(t_addr(result._0))
-		Err(anyhow!("not implemented yet"))
+		let call = sol::Gateway::adminCall {};
+
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		let result = self.rpc.call(tx).await?;
+		let admin_address = sol::Gateway::adminCall::abi_decode_returns(&result, true)?._0;
+
+		Ok(t_addr(admin_address))
 	}
 	/// Sets the gateway admin.
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {

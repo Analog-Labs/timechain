@@ -134,6 +134,10 @@ impl Tc {
 		self.runtime.finality_notification_stream()
 	}
 
+	pub async fn latest_block(&self) -> Result<(BlockHash, BlockNumber)> {
+		self.runtime.latest_block().await
+	}
+
 	pub async fn runtime_upgrade(&self, path: &Path) -> Result<()> {
 		self.println(None, "runtime-upgrade").await?;
 		let bytecode = std::fs::read(path)?;
@@ -1380,10 +1384,9 @@ impl Tc {
 	}
 
 	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
-		let mut stream = self.finality_notification_stream();
-		let (block_hash, _) = stream.next().await.context("latest block not found")?;
+		let (block_hash, _) = self.latest_block().await?;
 		self.deploy(block_hash).await?;
-		let (block_hash, _) = stream.next().await.context("latest block not found")?;
+		let (block_hash, _) = self.latest_block().await?;
 		let testers = self.deploy_testers(block_hash).await?;
 		self.register_all_shards().await?;
 		Ok(testers)

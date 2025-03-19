@@ -459,7 +459,7 @@ async fn real_main() -> Result<()> {
 				}
 			}
 
-			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
+			let (block_hash, _) = tc.latest_block().await?;
 			tc.assert_reimbursement(block_hash).await?;
 			let total_funds = tc.total_gateway_funds()?;
 			let total_balance = tc.total_gateway_balance(block_hash).await?;
@@ -469,6 +469,7 @@ async fn real_main() -> Result<()> {
 			)
 			.await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
+			let (block_hash, _) = tc.latest_block().await?;
 			tc.assert_reimbursement(block_hash).await?;
 			let total_balance_after = tc.total_gateway_balance(block_hash).await?;
 			tc.println(
@@ -479,7 +480,6 @@ async fn real_main() -> Result<()> {
 			anyhow::ensure!(total_balance_after >= total_balance);
 		},
 		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
-			let mut stream = tc.finality_notification_stream();
 			let testers = match (src_addr, dest_addr) {
 				(Some(src_addr), Some(dest_addr)) => {
 					let src_addr = tc.parse_address(Some(src), &src_addr)?;
@@ -491,7 +491,7 @@ async fn real_main() -> Result<()> {
 				},
 				_ => tc.setup_test().await?,
 			};
-			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
+			let (block_hash, _) = tc.latest_block().await?;
 			let src_addr = testers.get(&src).context("missing tester")?.0;
 			let dest_addr = testers.get(&dest).context("missing tester")?.0;
 			tc.set_network_config(src, Some(src_addr), block_hash).await?;
@@ -514,11 +514,10 @@ async fn real_main() -> Result<()> {
 			num_messages_per_block,
 			num_blocks,
 		} => {
-			let mut stream = tc.finality_notification_stream();
 			let testers = tc.setup_test().await?;
+			let (block_hash, _) = tc.latest_block().await?;
 			let mut benchmark =
 				Benchmark::new(tc, testers, vec![42], num_messages_per_block, num_blocks);
-			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
 			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;

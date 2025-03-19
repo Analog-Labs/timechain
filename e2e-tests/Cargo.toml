@@ -10,14 +10,11 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-docker-compose-types = "0.16.0"
 futures.workspace = true
 hex.workspace = true
-indexmap = "2.8.0"
-rusty-docker-compose = "0.3.1"
-serde_yaml = "0.9.33"
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }
 tempfile = "3.19.0"
+testcontainers = "0.23.3"
 time-primitives = { workspace = true, features = ["testnet", "develop"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing.workspace = true

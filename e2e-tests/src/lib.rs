@@ -1,51 +1,65 @@
 use anyhow::{Context, Result};
-use docker_compose_types::{Command as ServiceCommand, Compose, Environment, Service, SingleValue};
-use indexmap::IndexMap;
-use rusty_docker_compose::DockerCompose;
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 use tc_cli::{
 	config::{ConfigYaml, ContractsConfig, GlobalConfig, NetworkConfig},
 	Backend, Config, Mnemonics, NetworkId, Sender, Tc,
 };
 use tempfile::TempDir;
+use testcontainers::{
+	core::{ContainerAsync, IntoContainerPort},
+	runners::AsyncRunner,
+	GenericImage, ImageExt,
+};
 use tracing_subscriber::filter::EnvFilter;
 
+pub type Container = ContainerAsync<GenericImage>;
+
 pub struct TestEnvBuilder {
-	compose: Compose,
+	temp: TempDir,
+	network: String,
+	validator: Container,
+	chains: HashMap<NetworkId, Container>,
+	chronicles: HashMap<NetworkId, Vec<Container>>,
 	config: ConfigYaml,
 	prices: HashMap<NetworkId, (String, f64)>,
 }
 
 impl TestEnvBuilder {
-	pub fn new() -> Self {
-		Self {
-			compose: {
-				let mut service = Service::default();
-				service.image = Some("analoglabs/timechain-node-develop".into());
-				service.command = Some(ServiceCommand::Args(vec![
-					"--chain=dev".into(),
-					"--base-path=/data".into(),
-					"--rpc-cors=all".into(),
-					"--rpc-methods=unsafe".into(),
-					"--alice".into(),
-					"--validator".into(),
-					"--force-authoring".into(),
-					"--node-key=0000000000000000000000000000000000000000000000000000000000000001"
-						.into(),
-					"-ltxpool=trace,basic_authorship=trace,runtime=trace".into(),
-				]));
-				let mut compose = Compose::default();
-				compose.services.0.insert("validator".into(), Some(service));
-				compose
-			},
+	pub async fn new() -> Result<Self> {
+		let temp = TempDir::new()?;
+		let network = temp.path().file_name().unwrap().to_str().unwrap().to_string();
+		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
+			.with_exposed_port(9944.tcp())
+			.with_container_name("validator")
+			.with_network(network.clone())
+			.with_cmd([
+				"--chain=dev",
+				"--base-path=/data",
+				"--rpc-cors=all",
+				"--rpc-methods=unsafe",
+				"--alice",
+				"--validator",
+				"--force-authoring",
+				"--node-key=0000000000000000000000000000000000000000000000000000000000000001",
+				"-ltxpool=trace,basic_authorship=trace,runtime=trace",
+			])
+			.start()
+			.await?;
+		let validator_host = validator.get_host().await?;
+		let validator_port = validator.get_host_port_ipv4(9944).await?;
+		let validator_url = format!("ws://{validator_host}:{validator_port}");
+		Ok(Self {
+			temp,
+			network,
+			validator,
+			chains: Default::default(),
+			chronicles: Default::default(),
 			config: ConfigYaml {
 				config: GlobalConfig {
 					prices_path: "prices.csv".into(),
 					chronicle_funds: "1.".into(),
-					timechain_url: "ws://validator:9944".into(),
+					timechain_url: validator_url,
 				},
 				contracts: {
 					let mut contracts = HashMap::default();
@@ -64,25 +78,30 @@ impl TestEnvBuilder {
 				chronicles: Default::default(),
 			},
 			prices: Default::default(),
-		}
+		})
 	}
 
-	pub fn add_grpc(&mut self, network: NetworkId, shard_size: u16, shard_threshold: u16) {
-		let chain_name = format!("chain-grpc-{network}");
-		let chain_url = format!("http://{chain_name}:3000");
-
+	pub async fn add_grpc(
+		&mut self,
+		network: NetworkId,
+		shard_size: u16,
+		shard_threshold: u16,
+	) -> Result<()> {
 		// add chain to docker compose
-		let mut chain = Service::default();
-		chain.image = Some("analoglabs/gmp-grpc-develop".into());
-		chain.command = Some(ServiceCommand::Args(vec![format!("--network-id={network}")]));
-		let mut env = IndexMap::default();
-		env.insert(
-			"RUST_LOG".into(),
-			Some(SingleValue::String("gmp_grpc=debug,gmp_rust=debug".into())),
-		);
-		env.insert("RUST_BACKTRACE".into(), Some(SingleValue::String("1".into())));
-		chain.environment = Environment::KvPair(env);
-		self.compose.services.0.insert(chain_name.clone(), Some(chain));
+		let chain_name = format!("chain-grpc-{network}");
+		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
+			.with_exposed_port(3000.tcp())
+			.with_container_name(chain_name)
+			.with_network(self.network.clone())
+			.with_env_var("RUST_LOG", "gmp_grpc=debug,gmp_rust=debug")
+			.with_env_var("RUST_BACKTRACE", "1")
+			.with_cmd([format!("--network-id={network}")])
+			.start()
+			.await?;
+		let chain_host = chain.get_host().await?;
+		let chain_port = chain.get_host_port_ipv4(3000).await?;
+		let chain_url = format!("http://{chain_host}:{chain_port}");
+		self.chains.insert(network, chain);
 
 		// add network config
 		self.config.networks.insert(
@@ -115,28 +134,38 @@ impl TestEnvBuilder {
 
 		// add chronicles
 		for i in 0..shard_size {
-			self.add_chronicle(network, Backend::Grpc, i, &chain_url);
+			self.add_chronicle(network, Backend::Grpc, i, &chain_url).await?;
 		}
+		Ok(())
 	}
 
-	pub fn add_evm(&mut self, network: NetworkId, shard_size: u16, shard_threshold: u16) {
-		let chain_name = format!("chain-evm-{network}");
-		let chain_url = format!("ws://{chain_name}:8454");
-
+	pub async fn add_evm(
+		&mut self,
+		network: NetworkId,
+		shard_size: u16,
+		shard_threshold: u16,
+	) -> Result<()> {
 		// add chain to docker compose
-		let mut chain = Service::default();
-		chain.image = Some("ghcr.io/foundry-rs/foundry:latest".into());
-		chain.command = Some(ServiceCommand::Args(vec![
-			"anvil".into(),
-			"-b=2".into(),
-			"--steps-tracing".into(),
-			"--order=fifo".into(),
-			"--base-fee=0".into(),
-			"--no-request-size-limit".into(),
-		]));
-		let mut env = IndexMap::default();
-		env.insert("ANVIL_IP_ADDR".into(), Some(SingleValue::String("0.0.0.0".into())));
-		chain.environment = Environment::KvPair(env);
+		let chain_name = format!("chain-evm-{network}");
+		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
+			.with_exposed_port(8454.tcp())
+			.with_container_name(chain_name)
+			.with_network(self.network.clone())
+			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
+			.with_cmd([
+				"anvil",
+				"-b=2",
+				"--steps-tracing",
+				"--order=fifo",
+				"--base-fee=0",
+				"--no-request-size-limit",
+			])
+			.start()
+			.await?;
+		let chain_host = chain.get_host().await?;
+		let chain_port = chain.get_host_port_ipv4(3000).await?;
+		let chain_url = format!("ws://{chain_host}:{chain_port}");
+		self.chains.insert(network, chain);
 
 		// add network config
 		self.config.networks.insert(
@@ -144,7 +173,7 @@ impl TestEnvBuilder {
 			NetworkConfig {
 				backend: Backend::Evm,
 				blockchain: "anvil".into(),
-				network: format!("anvil-{network}"),
+				network: "dev".into(),
 				url: chain_url.clone(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
@@ -169,76 +198,85 @@ impl TestEnvBuilder {
 
 		// add chronicles
 		for i in 0..shard_size {
-			self.add_chronicle(network, Backend::Evm, i, &chain_url);
+			self.add_chronicle(network, Backend::Evm, i, &chain_url).await?;
 		}
+		Ok(())
 	}
 
-	fn add_chronicle(&mut self, network: NetworkId, backend: Backend, i: u16, target_url: &str) {
-		let mut chronicle = Service::default();
-		chronicle.image = Some("analoglabs/chronicle-develop".into());
-		chronicle.command = Some(ServiceCommand::Args(vec![
-			"--timechain-url=ws://validator:9944".into(),
-			format!("--target-url={target_url}"),
-			format!("--backend={backend}"),
-			format!("--network-id={network}"),
-		]));
-		let mut env = IndexMap::default();
-		env.insert(
-			"RUST_LOG".into(),
-			Some(SingleValue::String(
-				"tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info".into(),
-			)),
-		);
-		chronicle.environment = Environment::KvPair(env);
-		let service_name = format!("chronicle-{backend}-{network}-{i}");
-		self.config.chronicles.push(format!("http://{service_name}:8080"));
-		self.compose.services.0.insert(service_name, Some(chronicle));
+	async fn add_chronicle(
+		&mut self,
+		network: NetworkId,
+		backend: Backend,
+		i: u16,
+		target_url: &str,
+	) -> Result<()> {
+		let chronicle_name = format!("chronicle-{backend}-{network}-{i}");
+		let chronicle = GenericImage::new("analoglabs/chronicle-develop", "latest")
+			.with_exposed_port(8080.tcp())
+			.with_container_name(chronicle_name)
+			.with_network(self.network.clone())
+			.with_env_var("RUST_LOG", "tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info")
+			.with_env_var("RUST_BACKTRACE", "1")
+			.with_cmd([
+				format!("--timechain-url={}", &self.config.config.timechain_url),
+				format!("--target-url={target_url}"),
+				format!("--backend={backend}"),
+				format!("--network-id={network}"),
+			])
+			.start()
+			.await?;
+		let chronicle_host = chronicle.get_host().await?;
+		let chronicle_port = chronicle.get_host_port_ipv4(8080).await?;
+		let chronicle_url = format!("http://{chronicle_host}:{chronicle_port}");
+		self.config.chronicles.push(chronicle_url);
+		self.chronicles.entry(network).or_default().push(chronicle);
+		Ok(())
 	}
 
 	pub async fn build(self) -> Result<TestEnv> {
-		let temp = TempDir::new()?;
-		let compose = serde_yaml::to_string(&self.compose)?;
-		let compose_path = temp.path().join("docker-compose.yml");
-		std::fs::write(&compose_path, compose)?;
-		let config = Config::new(temp.path().into(), self.config, self.prices);
-		TestEnv::new(temp, compose_path, config).await
+		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
+		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
+		let config = Config::new(self.temp.path().into(), self.config, self.prices);
+		let tc = Tc::new(
+			config,
+			Mnemonics::default(),
+			Sender::default(),
+			self.temp.path().join("tc-cli-tx.redb"),
+		)
+		.await
+		.context("Error creating Tc client")?;
+		Ok(TestEnv {
+			_temp: self.temp,
+			validator: self.validator,
+			chains: self.chains,
+			chronicles: self.chronicles,
+			tc,
+		})
 	}
 }
 
 pub struct TestEnv {
 	_temp: TempDir,
-	_docker: DockerCompose,
-	compose_path: PathBuf,
+	validator: Container,
+	chains: HashMap<NetworkId, Container>,
+	chronicles: HashMap<NetworkId, Vec<Container>>,
 	tc: Tc,
 }
 
 impl TestEnv {
-	async fn new(temp: TempDir, compose_path: PathBuf, config: Config) -> Result<Self> {
-		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
-		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
-
-		let docker =
-			DockerCompose::new(compose_path.to_str().unwrap(), temp.path().to_str().unwrap());
-		let tc = Tc::new(
-			config,
-			Mnemonics::default(),
-			Sender::default(),
-			temp.path().join("tc-cli-tx.redb"),
-		)
-		.await
-		.context("Error creating Tc client")?;
-
-		Ok(TestEnv {
-			_temp: temp,
-			_docker: docker,
-			compose_path,
-			tc,
-		})
+	/// Returns the validator container
+	pub fn validator_container(&self) -> &Container {
+		&self.validator
 	}
 
-	/// Restarts the containers
-	pub fn restart(&self, containers: &[&str]) -> Result<()> {
-		docker_restart(&self.compose_path, containers)
+	/// Returns the chain container.
+	pub fn chain_container(&self, network: NetworkId) -> Result<&Container> {
+		self.chains.get(&network).context("no chain for network")
+	}
+
+	/// Returns the chronicle containers.
+	pub fn chronicle_containers(&self, network: NetworkId) -> Result<&[Container]> {
+		Ok(self.chronicles.get(&network).context("no chronicles for network")?.as_slice())
 	}
 }
 
@@ -248,30 +286,4 @@ impl Deref for TestEnv {
 	fn deref(&self) -> &Self::Target {
 		&self.tc
 	}
-}
-
-fn docker_restart(path: &Path, containers: &[&str]) -> Result<()> {
-	let status = Command::new("docker")
-		.arg("compose")
-		.arg("-f")
-		.arg(path)
-		.arg("stop")
-		.args(containers)
-		.status()
-		.context("failed to stop containers")?;
-	if !status.success() {
-		anyhow::bail!("stopping containers returned status {status}");
-	}
-	let status = Command::new("docker")
-		.arg("compose")
-		.arg("-f")
-		.arg(path)
-		.arg("start")
-		.args(containers)
-		.status()
-		.context("failed to start containers")?;
-	if !status.success() {
-		anyhow::bail!("starting containers returned status {status}");
-	}
-	Ok(())
 }

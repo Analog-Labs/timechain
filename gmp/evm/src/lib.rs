@@ -20,6 +20,7 @@ use serde::Deserialize;
 use sha3::{Digest, Keccak256};
 use sol::IExecutor::{self, IExecutorInstance};
 use sol::{u256, TssKey};
+use std::any::Any;
 use std::ops::Range;
 use std::pin::Pin;
 use std::process::Command;
@@ -358,56 +359,83 @@ impl IConnectorAdmin for Connector {
 
 		Ok(())
 	}
+
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
-		let call = sol::Gateway::adminCall {};
+		let admin_address = self.evm_call(gateway, sol::Gateway::adminCall {}).await?._0;
+		Ok(t_addr(admin_address))
+	}
+	/// Sets the gateway admin.
+	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
+		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
 
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(gateway))
 			.with_chain_id(self.rpc.get_chain_id().await?)
 			.with_call(&call);
 
-		let result = self.rpc.call(tx).await?;
-		let admin_address = sol::Gateway::adminCall::abi_decode_returns(&result, true)?._0;
+		let _tx_hash = self
+			.rpc
+			.send_transaction(tx)
+			.await?
+			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.watch()
+			.await?;
 
-		Ok(t_addr(admin_address))
-	}
-	/// Sets the gateway admin.
-	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
-		// let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-		// self.evm_call(gateway, call, 0, None, None).await?;
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
+		Ok(())
 	}
 	/// Returns the registered shard keys.
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
-		// let result = self.evm_view(gateway, sol::Gateway::shardsCall {}, None).await?;
-		// let keys = result._0.into_iter().map(Into::into).collect();
-		// Ok(keys)
-		Err(anyhow!("not implemented yet"))
+		let keys = self.evm_call(gateway, sol::Gateway::shardsCall {}).await?._0;
+		let keys = keys.into_iter().map(Into::into).collect();
+		Ok(keys)
 	}
 	/// Sets the registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
-		// let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
-		// shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
-		// let call = sol::Gateway::setShardsCall { publicKeys: shards };
-		// self.evm_call(gateway, call, 0, None, None).await?;
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
+		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
+		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
+		let call = sol::Gateway::setShardsCall { publicKeys: shards };
+
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		let _tx_hash = self
+			.rpc
+			.send_transaction(tx)
+			.await?
+			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.watch()
+			.await?;
+
+		Ok(())
 	}
 	/// Returns the gateway routing table.
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
-		// let result = self.evm_view(gateway, sol::Gateway::routesCall {}, None).await?;
-		// let networks = result._0.into_iter().map(Into::into).collect();
-		// Ok(networks)
-		Err(anyhow!("not implemented yet"))
+		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?._0;
+		let routes = routes.into_iter().map(Into::into).collect();
+
+		Ok(routes)
 	}
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
-		// let call = sol::Gateway::setRouteCall { info: route.into() };
-		// self.evm_call(gateway, call, 0, None, None).await?;
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
+		let call = sol::Gateway::setRouteCall { info: route.into() };
+
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		let _tx_hash = self
+			.rpc
+			.send_transaction(tx)
+			.await?
+			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.watch()
+			.await?;
+
+		Ok(())
 	}
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
@@ -638,6 +666,17 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
+	async fn evm_call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(to))
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		let result = self.rpc.call(tx).await?;
+
+		Ok(C::abi_decode_returns(&result, true)?)
+	}
+
 	/// init_code == contract_bytecode + contractor_code
 	async fn deploy_contract_with_factory(
 		&self,

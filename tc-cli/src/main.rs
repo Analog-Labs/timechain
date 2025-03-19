@@ -380,7 +380,7 @@ async fn real_main() -> Result<()> {
 			tc.println(None, format!("{address} {block}")).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
-		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id).await?,
+		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id, tc.init_block).await?,
 		Command::EstimateMessageGasLimit {
 			dest_network,
 			dest_addr,
@@ -439,15 +439,15 @@ async fn real_main() -> Result<()> {
 
 			// collect shard tasks
 			let mut tasks = HashSet::new();
+			let (block_hash, _) = tc.latest_block().await?;
 			for shard in tc.shards(block_hash).await? {
 				if let Some(batch) = shard.batch_register {
-					let task = tc.batch(batch).await?.task;
+					let task = tc.batch(batch, block_hash).await?.task;
 					tasks.insert((task, batch));
 				}
 			}
 			// wait for shard batches to execute
 			for (task, batch) in tasks {
-				let mut blocks = tc.finality_notification_stream();
 				loop {
 					let Some((hash, _)) = stream.next().await else {
 						continue;

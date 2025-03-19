@@ -406,19 +406,19 @@ impl IConnectorAdmin for Connector {
 		src: Address32,
 		payload: Vec<u8>,
 	) -> Result<u128> {
-		// let call = sol::IGmpReceiver::onGmpReceivedCall {
-		// 	id: [0; 32].into(),
-		// 	network: src_network.into(),
-		// 	source: src.into(),
-		// 	nonce: 0,
-		// 	payload: payload.into(),
-		// };
-		// let gas_limit = self
-		// 	.wallet
-		// 	.eth_send_call_estimate_gas(a_addr(contract).into(), call.abi_encode(), 0)
-		// 	.await?;
-		// Ok(gas_limit)
-		Err(anyhow!("not implemented yet"))
+		let call = sol::IGmpReceiver::onGmpReceivedCall {
+			id: [0; 32].into(),
+			network: src_network.into(),
+			source: src.into(),
+			nonce: 0,
+			payload: payload.into(),
+		};
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(contract))
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		Ok(self.rpc.estimate_gas(tx).await? as u128)
 	}
 	/// Estimates the message cost.
 	async fn estimate_message_cost(

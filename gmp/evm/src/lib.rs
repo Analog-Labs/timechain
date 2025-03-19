@@ -7,9 +7,9 @@ use alloy::providers::fillers::{
 use alloy::providers::{Provider, ProviderBuilder, RootProvider, WsConnect};
 use alloy::rpc::types::{Filter, TransactionRequest};
 use alloy::signers::k256::ecdsa::SigningKey;
-use alloy::signers::k256::Secp256k1;
 use alloy::signers::local::coins_bip39::English;
 use alloy::signers::local::{LocalSigner, MnemonicBuilder};
+use alloy::signers::SignerSync;
 use alloy::sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -20,7 +20,6 @@ use serde::Deserialize;
 use sha3::{Digest, Keccak256};
 use sol::IExecutor::{self, IExecutorInstance};
 use sol::{u256, TssKey};
-use std::any::Any;
 use std::ops::Range;
 use std::pin::Pin;
 use std::process::Command;
@@ -749,60 +748,59 @@ impl Connector {
 		gateway_address: Address20,
 		mut bytecode: Vec<u8>,
 	) -> Result<(Address20, u64)> {
-		// // constructor params
-		// let admin = a_addr(self.address());
-		// let constructor = sol::GatewayProxy::constructorCall { admin };
-		// bytecode.extend(constructor.abi_encode());
+		// constructor params
+		let admin = a_addr(self.address());
+		let constructor = sol::GatewayProxy::constructorCall { admin };
+		bytecode.extend(constructor.abi_encode());
+		// computing signature for security purpose
+		let digest = ProxyDigest {
+			proxy: proxy_addr,
+			implementation: gateway_address,
+		}
+		.abi_encode();
+		let payload: [u8; 32] = Keccak256::digest(digest).into();
+		let sig = self.signer.sign_hash_sync(&payload.into())?.as_bytes();
+		debug_assert!(sig.len() == 65);
+		let r: [u8; 32] = sig[0..32].try_into()?;
+		let s: [u8; 32] = sig[32..64].try_into()?;
+		let v = sig[64];
+		let arguments = ProxyContext {
+			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
+			v: v + 27,
+			r: r.into(),
+			s: s.into(),
+			implementation: gateway_address,
+		}
+		.abi_encode();
 
-		// // computing signature for security purpose
-		// let digest = ProxyDigest {
-		// 	proxy: proxy_addr,
-		// 	implementation: gateway_address,
-		// }
-		// .abi_encode();
-		// let payload: [u8; 32] = Keccak256::digest(digest).into();
-		// let sig = self.wallet.sign_prehashed(&payload)?.to_bytes();
-		// debug_assert!(sig.len() == 65);
-		// let r: [u8; 32] = sig[0..32].try_into()?;
-		// let s: [u8; 32] = sig[32..64].try_into()?;
-		// let v = sig[64];
-		// let arguments = ProxyContext {
-		// 	// Ethereum verification uses 27,28 instead of 0,1 for recovery id
-		// 	v: v + 27,
-		// 	r: r.into(),
-		// 	s: s.into(),
-		// 	implementation: gateway_address,
-		// }
-		// .abi_encode();
+		let initializer = sol::Gateway::initializeCall {
+			admin,
+			keys: vec![],
+			networks: vec![],
+		}
+		.abi_encode();
 
-		// let initializer = sol::Gateway::initializeCall {
-		// 	admin,
-		// 	keys: vec![],
-		// 	networks: vec![],
-		// }
-		// .abi_encode();
+		// Proxy creation
+		let call = sol::IUniversalFactory::create2_1Call {
+			salt: config.deployment_salt.into(),
+			creationCode: bytecode.into(),
+			arguments: arguments.into(),
+			callback: initializer.into(),
+		}
+		.abi_encode();
 
-		// // Proxy creation
-		// let call = sol::IUniversalFactory::create2_1Call {
-		// 	salt: config.deployment_salt.into(),
-		// 	creationCode: bytecode.into(),
-		// 	arguments: arguments.into(),
-		// 	callback: initializer.into(),
-		// }
-		// .abi_encode();
+		let (proxy_address, block) = self.deploy_contract_with_factory(config, call).await?;
 
-		// let (proxy_address, block) = self.deploy_contract_with_factory(config, call).await?;
+		if proxy_address != proxy_addr {
+			anyhow::bail!(
+				"Unable to compute proxy address: expected: {:?}, got {:?}",
+				proxy_addr,
+				proxy_address
+			);
+		}
+		tracing::info!("proxy deployed at {}", proxy_address);
 
-		// if proxy_address != proxy_addr {
-		// 	anyhow::bail!(
-		// 		"Unable to compute proxy address: expected: {:?}, got {:?}",
-		// 		proxy_addr,
-		// 		proxy_address
-		// 	);
-		// }
-		// tracing::info!("proxy deployed at {}", proxy_address);
-		// Ok((proxy_address, block))
-		Err(anyhow!("not implemented yet"))
+		Ok((proxy_address, block))
 	}
 
 	async fn process_cctp_msg(&self, request: &mut CctpRequest) -> Result<(), CctpError> {

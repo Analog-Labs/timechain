@@ -335,16 +335,28 @@ impl IConnectorAdmin for Connector {
 		proxy: Address32,
 		gateway: &[u8],
 	) -> Result<()> {
-		// let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
-		// let gateway = extract_bytecode(gateway)?;
+		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+		let gateway = extract_bytecode(gateway)?;
+		let proxy_address = a_addr(proxy);
 
-		// let gateway_addr = self.deploy_gateway_contract(&config, a_addr(proxy), gateway).await?;
-		// let call = sol::Gateway::upgradeCall {
-		// 	newImplementation: gateway_addr,
-		// };
-		// self.evm_call(proxy, call, 0, None, None).await?;
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
+		let gateway_addr = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
+		let call = sol::Gateway::upgradeCall {
+			newImplementation: gateway_addr,
+		};
+
+		let tx = TransactionRequest::default()
+			.with_to(proxy_address)
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		self.rpc
+			.send_transaction(tx)
+			.await?
+			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.watch()
+			.await?;
+
+		Ok(())
 	}
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
@@ -667,7 +679,7 @@ impl Connector {
 			.rpc
 			.send_raw_transaction(&encoded_tx)
 			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(15)))
+			.with_timeout(Some(std::time::Duration::from_secs(60)))
 			.watch()
 			.await?;
 		tracing::info!("factory deployed with tx {:?}", tx_hash);

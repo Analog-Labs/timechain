@@ -14,6 +14,7 @@ use alloy::signers::SignerSync;
 use alloy::sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use futures::future;
 use futures::Stream;
 use futures::StreamExt;
 use reqwest::Client;
@@ -485,6 +486,7 @@ impl IConnectorAdmin for Connector {
 			data: payload.into(),
 		};
 		tracing::debug!("Sending GMP message: {:#?}", &msg);
+		// TODO why this contract is used here?
 		let call = sol::GmpTester::sendMessageCall { msg };
 		let receipt = self.evm_send(contract, call, gas_cost).await?;
 
@@ -504,35 +506,26 @@ impl IConnectorAdmin for Connector {
 		contract: Address32,
 		blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
-		// let contract: [u8; 20] = a_addr(contract).0.into();
-		// let logs = self
-		// 	.wallet
-		// 	.query(GetLogs {
-		// 		contracts: vec![contract.into()],
-		// 		topics: vec![],
-		// 		block: FilterBlockOption::Range {
-		// 			from_block: Some(blocks.start.into()),
-		// 			to_block: Some(blocks.end.into()),
-		// 		},
-		// 	})
-		// 	.await?;
-		// let mut msgs = vec![];
-		// for log in logs {
-		// 	let topics = log.topics.iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
-		// 	let log =
-		// 		alloy::primitives::Log::new(contract.into(), topics, log.data.0.to_vec().into())
-		// 			.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
-		// 	for topic in log.topics() {
-		// 		let sol::GmpTester::MessageReceived::SIGNATURE_HASH = *topic else {
-		// 			continue;
-		// 		};
-		// 		let log = sol::GmpTester::MessageReceived::decode_log(&log, true)?;
-		// 		let msg: GmpMessage = log.msg.clone().into();
-		// 		msgs.push(msg);
-		// 	}
-		// }
-		// Ok(msgs)
-		Err(anyhow!("not implemented yet"))
+		let contract = a_addr(contract);
+		let filter = Filter::new()
+			.address(contract)
+			.from_block(BlockNumberOrTag::Number(blocks.start))
+			// NOTE: rust range is end exclusive, whereas ETH RPC is end inclusive
+			.to_block(BlockNumberOrTag::Number(blocks.end - 1));
+
+		let sub = self.rpc.subscribe_logs(&filter).await?;
+		let logs = sub.into_stream();
+
+		Ok(logs
+			.filter(|e| {
+				future::ready(e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
+			})
+			.filter_map(|e| async move {
+				sol::GmpTester::MessageReceived::decode_log_data(&e.data(), true).ok()
+			})
+			.map(|e| e.msg.into())
+			.collect::<Vec<_>>()
+			.await)
 	}
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.

@@ -88,10 +88,10 @@ impl SubxtClient {
 		&self.account_id
 	}
 
-	// pub async fn latest_block(&self) -> Result<(BlockHash, BlockNumber)> {
-	// 	let block = self.client.blocks().at_latest().await?;
-	// 	Ok((BlockHash::from(block.hash().0), block.number().into()))
-	// }
+	pub async fn latest_block(&self) -> Result<(BlockHash, BlockNumber)> {
+		let block = self.client.blocks().at_latest().await?;
+		Ok((BlockHash::from(block.hash().0), block.number().into()))
+	}
 
 	pub fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
 		let client = self.client.clone();

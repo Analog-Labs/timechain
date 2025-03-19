@@ -339,9 +339,9 @@ impl Gmp for ConnectorWrapper {
 struct Args {
 	#[arg(long)]
 	network_id: NetworkId,
-	#[arg(long)]
+	#[arg(long, default_value = "3000")]
 	port: u16,
-	#[arg(long)]
+	#[arg(long, default_value = "/etc/db")]
 	db: PathBuf,
 }
 

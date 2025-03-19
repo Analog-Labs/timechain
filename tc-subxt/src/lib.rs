@@ -5,6 +5,7 @@ use db::TransactionsDB;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::BoxStream;
 use std::future::Future;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::backend::rpc::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as Client};
@@ -40,7 +41,7 @@ pub struct SubxtClient {
 }
 
 impl SubxtClient {
-	pub async fn new(url: &str, keypair: Keypair, tx_db: &str) -> Result<Self> {
+	pub async fn new(url: &str, keypair: Keypair, tx_db: &Path) -> Result<Self> {
 		let rpc = Self::get_client(url).await?;
 		let client = OnlineClient::from_rpc_client(rpc.clone())
 			.await
@@ -63,7 +64,7 @@ impl SubxtClient {
 		})
 	}
 
-	pub async fn with_key(url: &str, mnemonic: &str, tx_db: &str) -> Result<Self> {
+	pub async fn with_key(url: &str, mnemonic: &str, tx_db: &Path) -> Result<Self> {
 		let secret =
 			SecretUri::from_str(mnemonic.trim()).context("failed to parse substrate keyfile")?;
 		let keypair = Keypair::from_uri(&secret).context("substrate keyfile contains uri")?;

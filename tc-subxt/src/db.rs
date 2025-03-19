@@ -2,6 +2,7 @@ use anyhow::Result;
 use redb::{Database, ReadableTable, TableDefinition};
 use scale_codec::{Decode, Encode};
 use std::collections::VecDeque;
+use std::path::Path;
 use subxt::utils::H256;
 
 use crate::{timechain_client::ITransactionDbOps, worker::TxData};
@@ -14,7 +15,7 @@ pub struct TransactionsDB {
 }
 
 impl TransactionsDB {
-	pub fn new(path: &str, public_key: [u8; 32]) -> Result<Self> {
+	pub fn new(path: &Path, public_key: [u8; 32]) -> Result<Self> {
 		let db = Database::create(path)?;
 
 		let write_tx = db.begin_write()?;

@@ -1,13 +1,12 @@
-use alloy::consensus::Receipt;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
-use alloy::primitives::{FixedBytes, B256, U256};
+use alloy::primitives::{B256, U256};
 use alloy::providers::fillers::{
 	BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
 use alloy::providers::utils::Eip1559Estimator;
 use alloy::providers::{Provider, ProviderBuilder, RootProvider, WsConnect};
-use alloy::rpc::types::{Filter, TransactionReceipt, TransactionRequest};
+use alloy::rpc::types::{Filter, Header, TransactionReceipt, TransactionRequest};
 use alloy::signers::k256::ecdsa::SigningKey;
 use alloy::signers::local::coins_bip39::English;
 use alloy::signers::local::{LocalSigner, MnemonicBuilder};
@@ -141,13 +140,11 @@ impl IChain for Connector {
 		Ok(self.rpc.get_balance(a_addr(address)).await?.try_into()?)
 	}
 	async fn finalized_block(&self) -> Result<u64> {
-		Ok(self
-			.rpc
+		self.rpc
 			.get_block(BlockId::finalized())
 			.await?
-			.ok_or(anyhow!("failed querying finalized block"))?
-			.header
-			.number)
+			.map(|b| b.header.number)
+			.ok_or(anyhow!("failed querying finalized block"))
 	}
 	/// Stream of finalized block indexes.
 	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send>>> {
@@ -540,13 +537,8 @@ impl IConnectorAdmin for Connector {
 		const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 10;
 		const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 5.0;
 
-		let block = self
-			.rpc
-			.get_block(BlockNumberOrTag::Latest.into())
-			.await?
-			.ok_or(anyhow!("Failed to get latest block"))?;
-		let base_fee =
-			block.header.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
+		let block = self.latest_block().await?;
+		let base_fee = block.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
 
 		let rewards = self
 			.rpc
@@ -564,13 +556,7 @@ impl IConnectorAdmin for Connector {
 
 	/// Returns gas limit of latest block.
 	async fn block_gas_limit(&self) -> Result<u64> {
-		// let block = self
-		// 	.backend
-		// 	.block(AtBlock::Latest)
-		// 	.await?
-		// 	.with_context(|| "Cannot find latest block")?;
-		// Ok(block.header.gas_limit)
-		Err(anyhow!("not implemented yet"))
+		self.latest_block().await.map(|b| b.gas_limit)
 	}
 
 	/// Withdraw gateway funds.
@@ -680,6 +666,14 @@ impl Connector {
 			.with_value(U256::from(value));
 
 		Ok(self.rpc.send_transaction(tx).await?.get_receipt().await?)
+	}
+
+	async fn latest_block(&self) -> Result<Header> {
+		self.rpc
+			.get_block(BlockId::latest())
+			.await?
+			.map(|b| b.header)
+			.ok_or(anyhow!("failed querying finalized block"))
 	}
 
 	/// init_code == contract_bytecode + contractor_code

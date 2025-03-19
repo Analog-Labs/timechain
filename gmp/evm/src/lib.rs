@@ -1,6 +1,6 @@
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{EthereumWallet, TransactionBuilder};
-use alloy::primitives::{B256, U256};
+use alloy::primitives::{FixedBytes, B256, U256};
 use alloy::providers::fillers::{
 	BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
@@ -368,20 +368,7 @@ impl IConnectorAdmin for Connector {
 	/// Sets the gateway admin.
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(gateway))
-			.with_chain_id(self.rpc.get_chain_id().await?)
-			.with_call(&call);
-
-		let _tx_hash = self
-			.rpc
-			.send_transaction(tx)
-			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(60)))
-			.watch()
-			.await?;
-
+		let _tx_hash = self.evm_send(gateway, call).await?;
 		Ok(())
 	}
 	/// Returns the registered shard keys.
@@ -396,45 +383,19 @@ impl IConnectorAdmin for Connector {
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
 
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(gateway))
-			.with_chain_id(self.rpc.get_chain_id().await?)
-			.with_call(&call);
-
-		let _tx_hash = self
-			.rpc
-			.send_transaction(tx)
-			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(60)))
-			.watch()
-			.await?;
-
+		let _tx_hash = self.evm_send(gateway, call).await?;
 		Ok(())
 	}
 	/// Returns the gateway routing table.
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
 		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?._0;
 		let routes = routes.into_iter().map(Into::into).collect();
-
 		Ok(routes)
 	}
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = sol::Gateway::setRouteCall { info: route.into() };
-
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(gateway))
-			.with_chain_id(self.rpc.get_chain_id().await?)
-			.with_call(&call);
-
-		let _tx_hash = self
-			.rpc
-			.send_transaction(tx)
-			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(60)))
-			.watch()
-			.await?;
-
+		let _tx_hash = self.evm_send(gateway, call).await?;
 		Ok(())
 	}
 	/// Estimates the message gas limit.
@@ -675,6 +636,23 @@ impl Connector {
 		let result = self.rpc.call(tx).await?;
 
 		Ok(C::abi_decode_returns(&result, true)?)
+	}
+
+	async fn evm_send<C: SolCall>(&self, to: Address32, call: C) -> Result<FixedBytes<32>> {
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(to))
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_call(&call);
+
+		let tx_hash = self
+			.rpc
+			.send_transaction(tx)
+			.await?
+			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.watch()
+			.await?;
+
+		Ok(tx_hash)
 	}
 
 	/// init_code == contract_bytecode + contractor_code

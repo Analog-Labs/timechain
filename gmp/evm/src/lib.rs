@@ -1,5 +1,5 @@
 use alloy::eips::{BlockId, BlockNumberOrTag};
-use alloy::network::{EthereumWallet, TransactionBuilder};
+use alloy::network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
 use alloy::primitives::{FixedBytes, B256, U256};
 use alloy::providers::fillers::{
 	BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
@@ -291,7 +291,7 @@ impl IConnector for Connector {
 
 #[async_trait]
 impl IConnectorAdmin for Connector {
-	/// Deploys the gateway contract.
+	/// Deploys gateway contract
 	async fn deploy_gateway(
 		&self,
 		additional_params: &[u8],
@@ -328,8 +328,7 @@ impl IConnectorAdmin for Connector {
 
 		Ok((t_addr(proxy_address), block))
 	}
-
-	/// Redeploys the gateway contract.
+	/// Redeploys gateway contract
 	async fn redeploy_gateway(
 		&self,
 		additional_params: &[u8],
@@ -359,25 +358,43 @@ impl IConnectorAdmin for Connector {
 
 		Ok(())
 	}
+	/// Deploys test contract
+	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+		let call = sol::GmpTester::constructorCall { gateway: a_addr(gateway) };
+		let mut bytecode = extract_bytecode(tester)?;
+		bytecode.extend(call.abi_encode());
 
-	/// Returns the gateway admin.
+		let tx = TransactionRequest::default().with_deploy_code(bytecode);
+
+		let receipt = self.rpc.send_transaction(tx).await?.get_receipt().await?;
+		let contract_address = receipt
+			.contract_address()
+			.ok_or(anyhow!("Failed to get deployed contract address"))?;
+		let block_number = receipt
+			.block_number
+			.ok_or(anyhow!("Failed to get contract deployement block"))?;
+
+		Ok((t_addr(contract_address), block_number))
+	}
+
+	/// Returns gateway admin
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let admin_address = self.evm_call(gateway, sol::Gateway::adminCall {}).await?._0;
 		Ok(t_addr(admin_address))
 	}
-	/// Sets the gateway admin.
+	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
 		let _tx_hash = self.evm_send(gateway, call).await?;
 		Ok(())
 	}
-	/// Returns the registered shard keys.
+	/// Returns registered shard keys
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
 		let keys = self.evm_call(gateway, sol::Gateway::shardsCall {}).await?._0;
 		let keys = keys.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
-	/// Sets the registered shard keys. Overwrites any other keys.
+	/// Sets registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
 		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
@@ -386,19 +403,19 @@ impl IConnectorAdmin for Connector {
 		let _tx_hash = self.evm_send(gateway, call).await?;
 		Ok(())
 	}
-	/// Returns the gateway routing table.
+	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
 		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?._0;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
-	/// Updates an entry in the gateway routing table.
+	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = sol::Gateway::setRouteCall { info: route.into() };
 		let _tx_hash = self.evm_send(gateway, call).await?;
 		Ok(())
 	}
-	/// Estimates the message gas limit.
+	/// Estimates message gas limit
 	async fn estimate_message_gas_limit(
 		&self,
 		contract: Address32,
@@ -420,7 +437,7 @@ impl IConnectorAdmin for Connector {
 
 		Ok(self.rpc.estimate_gas(tx).await? as u128)
 	}
-	/// Estimates the message cost.
+	/// Estimates message cost
 	async fn estimate_message_cost(
 		&self,
 		gateway: Address32,
@@ -448,16 +465,7 @@ impl IConnectorAdmin for Connector {
 
 		Ok(msg_cost)
 	}
-
-	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
-		// let bytecode = extract_bytecode(tester)?;
-		// self.deploy_contract(bytecode, sol::GmpTester::constructorCall { gateway: a_addr(gateway) })
-		// 	.await
-		Err(anyhow!("not implemented yet"))
-	}
-
-	// Sends a message using the test contract.
+	// Sends a message using the test contract
 	async fn send_message(
 		&self,
 		contract: Address32,
@@ -484,7 +492,7 @@ impl IConnectorAdmin for Connector {
 		Err(anyhow!("not implemented yet"))
 	}
 
-	/// Receives messages from test contract.
+	/// Receives messages from test contract
 	async fn recv_messages(
 		&self,
 		contract: Address32,

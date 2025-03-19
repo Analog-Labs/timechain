@@ -94,7 +94,12 @@ impl Benchmark {
 		}
 	}
 
-	async fn route_stats(&self, src: NetworkId, dest: NetworkId) -> Result<RouteStats> {
+	async fn route_stats(
+		&self,
+		src: NetworkId,
+		dest: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<RouteStats> {
 		let src_addr = self.testers.get(&src).context("missing tester")?.0;
 		let dest_addr = self.testers.get(&dest).context("missing tester")?.0;
 		let gas_limit = self
@@ -103,18 +108,18 @@ impl Benchmark {
 			.await?;
 		let gas_cost = self
 			.tc
-			.estimate_message_cost(src, dest, gas_limit, self.payload.clone())
+			.estimate_message_cost(src, dest, gas_limit, self.payload.clone(), block_hash)
 			.await?;
 		let msg_cost = self.tc.balance_to_usd(src, gas_cost)?;
 		Ok(RouteStats::new(src_addr, dest_addr, gas_limit, gas_cost, msg_cost))
 	}
 
-	pub async fn add_routes(&mut self) -> Result<()> {
+	pub async fn add_routes(&mut self, block_hash: BlockHash) -> Result<()> {
 		let routes = FuturesUnordered::new();
 		for src in self.testers.keys().copied() {
 			for dest in self.testers.keys().copied() {
 				if src != dest {
-					let fut = self.route_stats(src, dest);
+					let fut = self.route_stats(src, dest, block_hash);
 					routes.push(async move {
 						let route = fut.await?;
 						Ok::<_, anyhow::Error>((src, dest, route))

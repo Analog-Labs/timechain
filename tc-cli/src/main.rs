@@ -287,11 +287,11 @@ async fn real_main() -> Result<()> {
 			tc.print_table(None, "members", members).await?;
 		},
 		Command::Routes { network } => {
-			let routes = tc.routes(network).await?;
+			let routes = tc.routes(network, tc.init_block).await?;
 			tc.print_table(None, "routes", routes).await?;
 		},
 		Command::Events { network, start, end } => {
-			let events = tc.events(network, start..end).await?;
+			let events = tc.events(network, start..end, tc.init_block).await?;
 			tc.print_table(None, "events", events).await?;
 		},
 		Command::Messages { network, tester, start, end } => {
@@ -366,16 +366,16 @@ async fn real_main() -> Result<()> {
 		Command::RegisterShards => {
 			tc.register_online_shards(tc.init_block).await?;
 		},
-		Command::RegisterRoutes => tc.register_all_routes().await?,
+		Command::RegisterRoutes => tc.register_all_routes(tc.init_block).await?,
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
-			tc.set_gateway_admin(network, admin).await?;
+			tc.set_gateway_admin(network, admin, tc.init_block).await?;
 		},
 		Command::RedeployGateway { network } => {
-			tc.redeploy_gateway(network).await?;
+			tc.redeploy_gateway(network, tc.init_block).await?;
 		},
 		Command::DeployTester { network } => {
-			let (address, block) = tc.deploy_tester(network).await?;
+			let (address, block) = tc.deploy_tester(network, tc.init_block).await?;
 			let address = tc.format_address(Some(network), address)?;
 			tc.println(None, format!("{address} {block}")).await?;
 		},
@@ -403,8 +403,9 @@ async fn real_main() -> Result<()> {
 			payload,
 		} => {
 			let payload = hex::decode(payload)?;
-			let gas_cost =
-				tc.estimate_message_cost(src_network, dest_network, gas_limit, payload).await?;
+			let gas_cost = tc
+				.estimate_message_cost(src_network, dest_network, gas_limit, payload, tc.init_block)
+				.await?;
 			tc.println(None, gas_cost.to_string()).await?;
 		},
 		Command::SendMessage {
@@ -433,8 +434,8 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let block_hash = tc.init_block;
-			let testers = tc.setup_test(block_hash).await?;
+			let mut stream = tc.finality_notification_stream();
+			let testers = tc.setup_test().await?;
 
 			// collect shard tasks
 			let mut tasks = HashSet::new();
@@ -448,7 +449,7 @@ async fn real_main() -> Result<()> {
 			for (task, batch) in tasks {
 				let mut blocks = tc.finality_notification_stream();
 				loop {
-					let Some((hash, _)) = blocks.next().await else {
+					let Some((hash, _)) = stream.next().await else {
 						continue;
 					};
 					if tc.is_task_executed(task, hash).await? {
@@ -458,18 +459,18 @@ async fn real_main() -> Result<()> {
 				}
 			}
 
-			let (latest_block, _) = blocks.next().await.context("Latest block not found")?;
-			tc.assert_reimbursement(latest_block).await?;
+			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
+			tc.assert_reimbursement(block_hash).await?;
 			let total_funds = tc.total_gateway_funds()?;
-			let total_balance = tc.total_gateway_balance(latest_block).await?;
+			let total_balance = tc.total_gateway_balance(block_hash).await?;
 			tc.println(
 				None,
 				format!("shard registration msgs cost {}$", total_funds - total_balance),
 			)
 			.await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
-			tc.assert_reimbursement(latest_block).await?;
-			let total_balance_after = tc.total_gateway_balance(latest_block).await?;
+			tc.assert_reimbursement(block_hash).await?;
+			let total_balance_after = tc.total_gateway_balance(block_hash).await?;
 			tc.println(
 				None,
 				format!("made {}$ of profit with msg", total_balance_after - total_balance),
@@ -479,7 +480,6 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
 			let mut stream = tc.finality_notification_stream();
-			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
 			let testers = match (src_addr, dest_addr) {
 				(Some(src_addr), Some(dest_addr)) => {
 					let src_addr = tc.parse_address(Some(src), &src_addr)?;
@@ -489,7 +489,7 @@ async fn real_main() -> Result<()> {
 					testers.insert(dest, (dest_addr, 0));
 					testers
 				},
-				_ => tc.setup_test(block_hash).await?,
+				_ => tc.setup_test().await?,
 			};
 			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
 			let src_addr = testers.get(&src).context("missing tester")?.0;
@@ -514,11 +514,12 @@ async fn real_main() -> Result<()> {
 			num_messages_per_block,
 			num_blocks,
 		} => {
-			let block_hash = tc.init_block;
-			let testers = tc.setup_test(block_hash).await?;
+			let mut stream = tc.finality_notification_stream();
+			let testers = tc.setup_test().await?;
 			let mut benchmark =
 				Benchmark::new(tc, testers, vec![42], num_messages_per_block, num_blocks);
-			benchmark.add_routes().await?;
+			let (block_hash, _) = stream.next().await.context("Latest block not found")?;
+			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
@@ -526,12 +527,11 @@ async fn real_main() -> Result<()> {
 			tc.log(query, since).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
-			let block_hash = tc.init_block;
-			tc.force_shard_offline(shard_id, block_hash).await?;
+			tc.force_shard_offline(shard_id, tc.init_block).await?;
 		},
 		Command::WithdrawFunds { network, amount, address } => {
 			let address = tc.parse_address(Some(network), &address)?;
-			tc.withdraw_funds(network, amount, address).await?;
+			tc.withdraw_funds(network, amount, address, tc.init_block).await?;
 		},
 		Command::DebugTransaction { network, hash } => {
 			let hash = hash.strip_prefix("0x").unwrap_or(&hash);

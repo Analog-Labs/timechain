@@ -1287,7 +1287,7 @@ impl Tc {
 		let mut deploy_tester = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
 			deploy_tester.push(async move {
-				let tester = self.deploy_tester(block_hash).await?;
+				let tester = self.deploy_tester(network, block_hash).await?;
 				Ok::<_, anyhow::Error>((network, tester))
 			});
 		}
@@ -1338,7 +1338,7 @@ impl Tc {
 				let Some((hash, _)) = blocks.next().await else { continue };
 				let keys = self.find_online_shard_keys(network, hash).await?;
 				if keys.len() == num_shards as usize {
-					register_shards.push(self.register_shards(network, keys));
+					register_shards.push(self.register_shards(network, keys, hash));
 					break;
 				}
 				let shards = self.shards(hash).await?;
@@ -1379,12 +1379,12 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn setup_test(
-		&self,
-		block_hash: BlockHash,
-	) -> Result<HashMap<NetworkId, (Address, u64)>> {
+	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+		let mut stream = self.finality_notification_stream();
+		let (block_hash, _) = stream.next().await.context("latest block not found")?;
 		self.deploy(block_hash).await?;
-		let testers = self.deploy_testers().await?;
+		let (block_hash, _) = stream.next().await.context("latest block not found")?;
+		let testers = self.deploy_testers(block_hash).await?;
 		self.register_all_shards().await?;
 		Ok(testers)
 	}
@@ -1495,13 +1495,16 @@ impl Tc {
 		testers: &HashMap<NetworkId, (Address, u64)>,
 		payload: Vec<u8>,
 	) -> Result<GmpMessage> {
+		let mut blocks = self.finality_notification_stream();
+		let (hash, _) = blocks.next().await.context("expected block")?;
 		// prepare
 		let src_addr = testers.get(&src).context("missing tester")?.0;
 		let dest_addr = testers.get(&dest).context("missing tester")?.0;
 		let gas_limit = self
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 			.await?;
-		let gas_cost = self.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+		let gas_cost =
+			self.estimate_message_cost(src, dest, gas_limit, payload.clone(), hash).await?;
 
 		// send message
 		let mut blocks = self.finality_notification_stream();

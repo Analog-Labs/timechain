@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use docker_compose_types::{Command as ServiceCommand, Compose, Environment, Service};
+use docker_compose_types::{Command as ServiceCommand, Compose, Environment, Service, SingleValue};
 use indexmap::IndexMap;
 use rusty_docker_compose::DockerCompose;
 use std::collections::HashMap;
@@ -76,8 +76,11 @@ impl TestEnvBuilder {
 		chain.image = Some("analoglabs/gmp-grpc-develop".into());
 		chain.command = Some(ServiceCommand::Args(vec![format!("--network-id={network}")]));
 		let mut env = IndexMap::default();
-		env.insert("RUST_LOG".into(), Some("gmp_grpc=debug,gmp_rust=debug".into()));
-		env.insert("RUST_BACKTRACE".into(), Some("1".into()));
+		env.insert(
+			"RUST_LOG".into(),
+			Some(SingleValue::String("gmp_grpc=debug,gmp_rust=debug".into())),
+		);
+		env.insert("RUST_BACKTRACE".into(), Some(SingleValue::String("1".into())));
 		chain.environment = Environment::KvPair(env);
 		self.compose.services.0.insert(chain_name.clone(), Some(chain));
 
@@ -132,7 +135,7 @@ impl TestEnvBuilder {
 			"--no-request-size-limit".into(),
 		]));
 		let mut env = IndexMap::default();
-		env.insert("ANVIL_IP_ADDR".into(), Some("0.0.0.0".into()));
+		env.insert("ANVIL_IP_ADDR".into(), Some(SingleValue::String("0.0.0.0".into())));
 		chain.environment = Environment::KvPair(env);
 
 		// add network config
@@ -182,27 +185,29 @@ impl TestEnvBuilder {
 		let mut env = IndexMap::default();
 		env.insert(
 			"RUST_LOG".into(),
-			Some("tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info".into()),
+			Some(SingleValue::String(
+				"tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info".into(),
+			)),
 		);
 		chronicle.environment = Environment::KvPair(env);
 		let service_name = format!("chronicle-{backend}-{network}-{i}");
-		self.compose.services.0.insert(service_name, Some(chronicle));
 		self.config.chronicles.push(format!("http://{service_name}:8080"));
+		self.compose.services.0.insert(service_name, Some(chronicle));
 	}
 
 	pub async fn build(self) -> Result<TestEnv> {
 		let temp = TempDir::new()?;
 		let compose = serde_yaml::to_string(&self.compose)?;
 		let compose_path = temp.path().join("docker-compose.yml");
-		std::fs::write(compose_path, compose)?;
-		let config = Config::new(temp.path(), self.config, self.prices);
+		std::fs::write(&compose_path, compose)?;
+		let config = Config::new(temp.path().into(), self.config, self.prices);
 		TestEnv::new(temp, compose_path, config).await
 	}
 }
 
 pub struct TestEnv {
-	temp: TempDir,
-	docker: DockerCompose,
+	_temp: TempDir,
+	_docker: DockerCompose,
 	compose_path: PathBuf,
 	tc: Tc,
 }
@@ -212,7 +217,8 @@ impl TestEnv {
 		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
 		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
 
-		let docker = DockerCompose::new(compose_path, temp.path());
+		let docker =
+			DockerCompose::new(compose_path.to_str().unwrap(), temp.path().to_str().unwrap());
 		let tc = Tc::new(
 			config,
 			Mnemonics::default(),
@@ -222,7 +228,12 @@ impl TestEnv {
 		.await
 		.context("Error creating Tc client")?;
 
-		Ok(TestEnv { temp, docker, compose_path, tc })
+		Ok(TestEnv {
+			_temp: temp,
+			_docker: docker,
+			compose_path,
+			tc,
+		})
 	}
 
 	/// Restarts the containers

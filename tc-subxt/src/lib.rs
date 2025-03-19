@@ -90,7 +90,7 @@ impl SubxtClient {
 
 	pub async fn latest_block(&self) -> Result<(BlockHash, BlockNumber)> {
 		let block = self.client.blocks().at_latest().await?;
-		Ok((BlockHash::from(block.hash().0), block.number().into()))
+		Ok((BlockHash::from(block.hash().0), block.number()))
 	}
 
 	pub fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {

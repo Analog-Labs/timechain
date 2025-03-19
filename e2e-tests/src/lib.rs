@@ -7,6 +7,7 @@ use tc_cli::{
 };
 use tempfile::TempDir;
 use testcontainers::{
+	core::wait::WaitFor,
 	core::{ContainerAsync, IntoContainerPort},
 	runners::AsyncRunner,
 	GenericImage, ImageExt,
@@ -31,6 +32,7 @@ impl TestEnvBuilder {
 		let network = temp.path().file_name().unwrap().to_str().unwrap().to_string();
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
+			.with_wait_for(WaitFor::message_on_stderr("Idle"))
 			.with_container_name("validator")
 			.with_network(network.clone())
 			.with_cmd([
@@ -149,6 +151,7 @@ impl TestEnvBuilder {
 		let chain_name = format!("chain-evm-{network}");
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
 			.with_exposed_port(8454.tcp())
+			.with_wait_for(WaitFor::message_on_stdout("Block Number:"))
 			.with_container_name(chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
@@ -163,7 +166,7 @@ impl TestEnvBuilder {
 			.start()
 			.await?;
 		let chain_host = chain.get_host().await?;
-		let chain_port = chain.get_host_port_ipv4(3000).await?;
+		let chain_port = chain.get_host_port_ipv4(8454).await?;
 		let chain_url = format!("ws://{chain_host}:{chain_port}");
 		self.chains.insert(network, chain);
 

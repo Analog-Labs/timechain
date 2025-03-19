@@ -35,13 +35,15 @@ struct Args {
 	env: PathBuf,
 	#[arg(long, default_value = "config.yaml")]
 	config: String,
+	#[arg(long, default_value = "cached_tx.redb")]
+	db: PathBuf,
 	#[clap(subcommand)]
 	cmd: Command,
 }
 
 impl Args {
 	async fn tc(&self, sender: Sender) -> Result<Tc> {
-		let tc = Tc::new(self.env.clone(), &self.config, sender).await?;
+		let tc = Tc::from_env(self.env.clone(), &self.config, sender, self.db.clone()).await?;
 		Ok(tc)
 	}
 }
@@ -238,7 +240,7 @@ async fn real_main() -> Result<()> {
 	let args = Args::parse();
 	tracing::info!("main");
 	let now = std::time::SystemTime::now();
-	let tc = args.tc(sender).await?;
+	let mut tc = args.tc(sender).await?;
 	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
 	match args.cmd {

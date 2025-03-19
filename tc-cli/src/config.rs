@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
+use csv::{Reader, Writer};
 use gmp::Backend;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use time_primitives::NetworkId;
 
@@ -9,6 +11,14 @@ use time_primitives::NetworkId;
 pub struct Config {
 	path: PathBuf,
 	yaml: ConfigYaml,
+	prices: HashMap<NetworkId, (String, f64)>,
+}
+
+#[derive(Clone, Deserialize)]
+struct NetworkPrice {
+	pub network_id: NetworkId,
+	pub symbol: String,
+	pub usd_price: f64,
 }
 
 impl Config {
@@ -18,7 +28,17 @@ impl Config {
 			.with_context(|| format!("failed to read config file {}", config_path.display()))?;
 		let yaml = serde_yaml::from_str(&config)
 			.with_context(|| format!("failed to parse config file {}", config_path.display()))?;
-		Ok(Self { path, yaml })
+		let mut me = Self {
+			path,
+			yaml,
+			prices: Default::default(),
+		};
+		me.load_prices()?;
+		Ok(me)
+	}
+
+	pub fn new(env: PathBuf, yaml: ConfigYaml, prices: HashMap<NetworkId, (String, f64)>) -> Self {
+		Self { path: env, yaml, prices }
 	}
 
 	fn relative_path(&self, other: &Path) -> PathBuf {
@@ -28,8 +48,40 @@ impl Config {
 		self.path.join(other)
 	}
 
-	pub fn prices(&self) -> PathBuf {
-		self.relative_path(&self.yaml.config.prices_path)
+	pub fn token_price_usd(&self, network: NetworkId) -> Result<f64> {
+		self.prices
+			.get(&network)
+			.map(|(_, price)| *price)
+			.ok_or_else(|| anyhow::anyhow!("Not token price data for network {}", network))
+	}
+
+	pub fn load_prices(&mut self) -> Result<()> {
+		let price_path = self.relative_path(&self.yaml.config.prices_path);
+		if !price_path.exists() {
+			return Ok(());
+		}
+		let mut rdr = Reader::from_path(&price_path)
+			.with_context(|| format!("failed to open {}", price_path.display()))?;
+
+		for result in rdr.deserialize() {
+			let record: NetworkPrice = result?;
+			self.prices.insert(record.network_id, (record.symbol, record.usd_price));
+		}
+		Ok(())
+	}
+
+	pub fn save_prices(&mut self, prices: HashMap<NetworkId, (String, f64)>) -> Result<()> {
+		let price_path = self.relative_path(&self.yaml.config.prices_path);
+		let file = File::create(&price_path)
+			.with_context(|| format!("failed to create {}", price_path.display()))?;
+		let mut wtr = Writer::from_writer(file);
+		wtr.write_record(["network_id", "symbol", "usd_price"])?;
+		for (network, (symbol, usd_price)) in &prices {
+			wtr.write_record(&[network.to_string(), symbol.to_string(), usd_price.to_string()])?;
+		}
+		wtr.flush()?;
+		self.prices = prices;
+		Ok(())
 	}
 
 	pub fn global(&self) -> &GlobalConfig {
@@ -83,30 +135,30 @@ impl Config {
 	}
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ConfigYaml {
-	config: GlobalConfig,
-	contracts: HashMap<Backend, ContractsConfig>,
-	networks: HashMap<NetworkId, NetworkConfig>,
-	chronicles: Vec<String>,
+pub struct ConfigYaml {
+	pub config: GlobalConfig,
+	pub contracts: HashMap<Backend, ContractsConfig>,
+	pub networks: HashMap<NetworkId, NetworkConfig>,
+	pub chronicles: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
-	prices_path: PathBuf,
+	pub prices_path: PathBuf,
 	pub chronicle_funds: String,
 	pub timechain_url: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ContractsConfig {
-	additional_params: PathBuf,
-	proxy: PathBuf,
-	gateway: PathBuf,
-	tester: PathBuf,
+pub struct ContractsConfig {
+	pub additional_params: PathBuf,
+	pub proxy: PathBuf,
+	pub gateway: PathBuf,
+	pub tester: PathBuf,
 }
 
 #[derive(Default)]
@@ -170,9 +222,7 @@ mod tests {
 				println!("  config {}", config);
 				let config = Config::from_env(env_dir.path(), &config).unwrap();
 				networks.extend(config.networks().keys().copied());
-				let prices_path = config.prices();
-				let prices_csv = crate::gas_price::read_csv_token_prices(&prices_path).unwrap();
-				prices.extend(prices_csv.keys().copied());
+				prices.extend(config.prices.keys().copied());
 			}
 			assert_eq!(prices, networks, "{}", env_dir.path().display());
 		}

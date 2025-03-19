@@ -11,10 +11,19 @@ impl Mnemonics {
 	pub fn from_env() -> Result<Self> {
 		Ok(Self {
 			timechain_mnemonic: std::env::var("TIMECHAIN_MNEMONIC")
-				.unwrap_or_else(|_| DEFAULT_MNEMONIC.to_string()),
+				.unwrap_or_else(|_| "//Eve".to_string()),
 			target_mnemonic: std::env::var("TARGET_MNEMONIC")
 				.unwrap_or_else(|_| DEFAULT_MNEMONIC.to_string()),
 		})
+	}
+}
+
+impl Default for Mnemonics {
+	fn default() -> Self {
+		Self {
+			timechain_mnemonic: "//Eve".into(),
+			target_mnemonic: DEFAULT_MNEMONIC.into(),
+		}
 	}
 }
 

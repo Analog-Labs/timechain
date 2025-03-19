@@ -1,6 +1,3 @@
-use crate::config::Config;
-use crate::env::Mnemonics;
-use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
@@ -16,14 +13,13 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address, BatchId, BlockHash,
-	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
-	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
-	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	BlockNumber, CctpContracts, CctpUrl, ChainName, ChainNetwork, ConnectorParams, Gateway,
+	GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus,
+	MessageId, NetworkConfig, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
-use time_primitives::{CctpContracts, CctpUrl};
 
 mod benchmark;
-mod config;
+pub mod config;
 mod env;
 mod gas_price;
 mod loki;
@@ -31,8 +27,12 @@ mod slack;
 mod table;
 
 pub use crate::benchmark::{Benchmark, BenchmarkStats};
+pub use crate::config::Config;
+pub use crate::env::Mnemonics;
 pub use crate::loki::{Log, Query};
 pub use crate::slack::{Sender, TableRef, TextRef};
+pub use gmp::Backend;
+pub use time_primitives::NetworkId;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -52,20 +52,23 @@ pub struct Tc {
 }
 
 impl Tc {
-	pub async fn new(env: PathBuf, config: &str, msg: Sender) -> Result<Self> {
+	pub async fn from_env(env: PathBuf, config: &str, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;
+		Self::new(config, env, msg, tx_db).await
+	}
+
+	pub async fn new(config: Config, env: Mnemonics, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		let timechain_url = config.global().timechain_url.clone();
 		let runtime = tokio::task::spawn(async move {
 			while let Err(err) = SubxtClient::get_client(&timechain_url).await {
 				tracing::info!("waiting for chain to start: {err:?}");
 				sleep_or_abort(Duration::from_secs(10)).await?;
 			}
-			let runtime =
-				SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic, "cached_tx.redb")
-					.await
-					.context("failed to connect to timechain")?;
+			let runtime = SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic, &tx_db)
+				.await
+				.context("failed to connect to timechain")?;
 			Ok::<_, anyhow::Error>(runtime)
 		});
 		let mut connectors = HashMap::new();
@@ -812,14 +815,7 @@ impl Tc {
 			let routes = connector.routes(src_gateway).await?;
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
-				let network_prices = self.read_csv_token_prices()?;
-				let src_price = get_network_price(&network_prices, &src)?;
-				let dest_price = get_network_price(&network_prices, &dest)?;
-				let dest_gas_fee = self.max_fee_per_gas(dest).await?;
-				let ratio =
-					self.calculate_relative_price(src, dest, src_price, dest_price, dest_gas_fee)?;
-				let numerator = convert_bigint_to_u128(ratio.numer())?;
-				let denominator = convert_bigint_to_u128(ratio.denom())?;
+				let (numerator, denominator) = self.relative_gas_price(src, dest).await?;
 				let route = Route {
 					network_id: dest,
 					gateway: dest_gateway,

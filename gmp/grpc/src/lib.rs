@@ -346,7 +346,12 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(&self, gateway: Address32, amount: u128, address: Address32) -> Result<()> {
+	async fn withdraw_funds(
+		&self,
+		gateway: Address32,
+		amount: u128,
+		address: Address32,
+	) -> Result<()> {
 		let request = Request::new(proto::WithdrawFundsRequest { gateway, amount, address });
 		self.client.lock().await.withdraw_funds(request).await?.into_inner();
 		Ok(())

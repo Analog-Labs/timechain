@@ -16,8 +16,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams,
-	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
+	GmpParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
 
@@ -32,7 +32,8 @@ const SHARDS: MultimapTableDefinition<Address32, TssPublicKey> =
 const ROUTES: TableDefinition<(Address32, NetworkId), Bincode<Route>> =
 	TableDefinition::new("routes");
 const GATEWAY: TableDefinition<Address32, Address32> = TableDefinition::new("gateway");
-const TESTERS: MultimapTableDefinition<Address32, Address32> = MultimapTableDefinition::new("testers");
+const TESTERS: MultimapTableDefinition<Address32, Address32> =
+	MultimapTableDefinition::new("testers");
 
 #[derive(Clone)]
 pub struct Connector {
@@ -115,7 +116,10 @@ fn read_balance<T: ReadableTable<Address32, u128>>(table: &T, addr: Address32) -
 	Ok(if let Some(value) = table.get(addr)? { value.value() } else { 0 })
 }
 
-fn read_admin<T: ReadableTable<Address32, Address32>>(table: &T, gateway: Address32) -> Result<Address32> {
+fn read_admin<T: ReadableTable<Address32, Address32>>(
+	table: &T,
+	gateway: Address32,
+) -> Result<Address32> {
 	Ok(table.get(gateway)?.context("invalid gateway")?.value())
 }
 
@@ -545,7 +549,12 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(&self, gateway: Address32, amount: u128, address: Address32) -> Result<()> {
+	async fn withdraw_funds(
+		&self,
+		gateway: Address32,
+		amount: u128,
+		address: Address32,
+	) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.ensure_admin(&tx, gateway)?;
 		self.transfer_from(&tx, gateway, address, amount)?;

@@ -422,14 +422,22 @@ pub trait IConnectorAdmin: IConnector {
 		payload: Vec<u8>,
 	) -> Result<MessageId>;
 	/// Receives messages from test contract.
-	async fn recv_messages(&self, contract: Address32, blocks: Range<u64>)
-		-> Result<Vec<GmpMessage>>;
+	async fn recv_messages(
+		&self,
+		contract: Address32,
+		blocks: Range<u64>,
+	) -> Result<Vec<GmpMessage>>;
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
 	async fn max_fee_per_gas(&self) -> Result<u128>;
 	/// Calculate returns the latest block gas_limit for a chain.
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(&self, gateway: Address32, amount: u128, address: Address32) -> Result<()>;
+	async fn withdraw_funds(
+		&self,
+		gateway: Address32,
+		amount: u128,
+		address: Address32,
+	) -> Result<()>;
 	/// Debug a transaction.
 	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
 		anyhow::bail!("debugging transactions is not supported on this backend");

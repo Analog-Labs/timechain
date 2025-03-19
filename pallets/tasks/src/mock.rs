@@ -8,8 +8,8 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 use time_primitives::{
-	Address32, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId, PublicKey,
-	ShardsInterface,
+	Address32, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
+	PublicKey, ShardsInterface,
 };
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;

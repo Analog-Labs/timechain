@@ -365,7 +365,8 @@ where
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
 		let task_params = self.task_params.clone();
-		let mut block_stream = task_params.block_stream().await.expect("Failed to get block stream").fuse();
+		let mut block_stream =
+			task_params.block_stream().await.expect("Failed to get block stream").fuse();
 		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		event!(parent: span, Level::INFO, "Started chronicle loop");

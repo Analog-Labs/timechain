@@ -1,3 +1,4 @@
+use alloy::consensus::Receipt;
 use alloy::eips::{BlockId, BlockNumberOrTag};
 use alloy::network::{EthereumWallet, ReceiptResponse, TransactionBuilder};
 use alloy::primitives::{FixedBytes, B256, U256};
@@ -5,7 +6,7 @@ use alloy::providers::fillers::{
 	BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
 use alloy::providers::{Provider, ProviderBuilder, RootProvider, WsConnect};
-use alloy::rpc::types::{Filter, TransactionRequest};
+use alloy::rpc::types::{Filter, TransactionReceipt, TransactionRequest};
 use alloy::signers::k256::ecdsa::SigningKey;
 use alloy::signers::local::coins_bip39::English;
 use alloy::signers::local::{LocalSigner, MnemonicBuilder};
@@ -384,7 +385,7 @@ impl IConnectorAdmin for Connector {
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-		let _tx_hash = self.evm_send(gateway, call).await?;
+		let _receipt = self.evm_send(gateway, call, 0).await?;
 		Ok(())
 	}
 	/// Returns registered shard keys
@@ -399,7 +400,7 @@ impl IConnectorAdmin for Connector {
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
 
-		let _tx_hash = self.evm_send(gateway, call).await?;
+		let _receipt = self.evm_send(gateway, call, 0).await?;
 		Ok(())
 	}
 	/// Returns gateway routing table
@@ -411,7 +412,7 @@ impl IConnectorAdmin for Connector {
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = sol::Gateway::setRouteCall { info: route.into() };
-		let _tx_hash = self.evm_send(gateway, call).await?;
+		let _receipt = self.evm_send(gateway, call, 0).await?;
 		Ok(())
 	}
 	/// Estimates message gas limit
@@ -474,21 +475,27 @@ impl IConnectorAdmin for Connector {
 		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
-		// let msg = sol::GmpMessage {
-		// 	srcNetwork: self.network_id,
-		// 	source: contract.into(),
-		// 	destNetwork: dest_network,
-		// 	dest: a_addr(dest),
-		// 	nonce: 0,
-		// 	gasLimit: gas_limit as _,
-		// 	data: payload.into(),
-		// };
-		// tracing::debug!("Sending GMP message: {:#?}", &msg);
-		// let call = sol::GmpTester::sendMessageCall { msg };
-		// let result = self.evm_call(contract, call, gas_cost, None, None).await?;
-		// let id: MessageId = *result.0._0;
-		// Ok(id)
-		Err(anyhow!("not implemented yet"))
+		let msg = sol::GmpMessage {
+			srcNetwork: self.network_id,
+			source: contract.into(),
+			destNetwork: dest_network,
+			dest: a_addr(dest),
+			nonce: 0,
+			gasLimit: gas_limit as _,
+			data: payload.into(),
+		};
+		tracing::debug!("Sending GMP message: {:#?}", &msg);
+		let call = sol::GmpTester::sendMessageCall { msg };
+		let receipt = self.evm_send(contract, call, gas_cost).await?;
+
+		receipt
+			.logs()
+			.iter()
+			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
+			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(&e.data(), true).ok())
+			.map(|e| e.id.into())
+			.next()
+			.ok_or(anyhow!("Failed to send message"))
 	}
 
 	/// Receives messages from test contract
@@ -645,21 +652,19 @@ impl Connector {
 		Ok(C::abi_decode_returns(&result, true)?)
 	}
 
-	async fn evm_send<C: SolCall>(&self, to: Address32, call: C) -> Result<FixedBytes<32>> {
+	async fn evm_send<C: SolCall>(
+		&self,
+		to: Address32,
+		call: C,
+		value: u128,
+	) -> Result<TransactionReceipt> {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
 			.with_chain_id(self.rpc.get_chain_id().await?)
-			.with_call(&call);
+			.with_call(&call)
+			.with_value(U256::from(value));
 
-		let tx_hash = self
-			.rpc
-			.send_transaction(tx)
-			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(60)))
-			.watch()
-			.await?;
-
-		Ok(tx_hash)
+		Ok(self.rpc.send_transaction(tx).await?.get_receipt().await?)
 	}
 
 	/// init_code == contract_bytecode + contractor_code

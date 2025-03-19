@@ -5,6 +5,7 @@ use alloy::primitives::{FixedBytes, B256, U256};
 use alloy::providers::fillers::{
 	BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
+use alloy::providers::utils::Eip1559Estimator;
 use alloy::providers::{Provider, ProviderBuilder, RootProvider, WsConnect};
 use alloy::rpc::types::{Filter, TransactionReceipt, TransactionRequest};
 use alloy::signers::k256::ecdsa::SigningKey;
@@ -530,14 +531,35 @@ impl IConnectorAdmin for Connector {
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		// let fee_estimator = if self.wallet.config().blockchain == "polygon" {
-		// 	self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
-		// } else {
-		// 	self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
-		// };
-		// Ok(u128::try_from(fee_estimator.0)
-		// 	.map_err(|_| anyhow::anyhow!("Failed to convert value from U256 to u128"))?)
-		Err(anyhow!("not implemented yet"))
+		// TODO add Eip1559Estimator::Custom for other chains
+		let fee_estimator = Eip1559Estimator::Default;
+		// TODO detect chain and apply these if Polygon
+		// const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 15;
+		// const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 10.0;
+
+		const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 10;
+		const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 5.0;
+
+		let block = self
+			.rpc
+			.get_block(BlockNumberOrTag::Latest.into())
+			.await?
+			.ok_or(anyhow!("Failed to get latest block"))?;
+		let base_fee =
+			block.header.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
+
+		let rewards = self
+			.rpc
+			.get_fee_history(
+				EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
+				BlockNumberOrTag::Latest,
+				&[EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
+			)
+			.await?
+			.reward
+			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
+
+		Ok(fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas)
 	}
 
 	/// Returns gas limit of latest block.

@@ -22,6 +22,7 @@ use sp_runtime::{
 	curve::PiecewiseLinear, traits::AccountIdConversion, transaction_validity::TransactionPriority,
 	FixedU128, Perbill, Percent,
 };
+use sp_staking::OnStakingUpdate;
 use sp_std::prelude::*;
 
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
@@ -401,6 +402,42 @@ impl pallet_delegated_staking::Config for Runtime {
 	type SlashRewardFraction = SlashRewardFraction;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;
+}
+pub struct RepeatMissedStakingEvents<T>(sp_std::marker::PhantomData<T>);
+
+#[cfg(not(feature = "develop"))]
+const MISSED_WITHDRAWS: &[u128] = &[431292290133226741, 1604142936180618865, 223849342984982840];
+
+#[cfg(feature = "develop")]
+const MISSED_WITHDRAWS: &[u128] =
+	&[28400000000000, 10042916949407405590, 19334200000000, 11201100000000];
+
+const POOL_STAKER: AccountId = AccountId::new(sp_core::hex2array!(
+	"6d6f646c74696d656e6d706c0001000000000000000000000000000000000000"
+));
+
+impl<T: frame_system::Config + pallet_delegated_staking::Config>
+	frame_support::traits::OnRuntimeUpgrade for RepeatMissedStakingEvents<T>
+{
+	fn on_runtime_upgrade() -> Weight {
+		// Wrap storage migration indside transactions that reverts on failure
+		if let Err(error) = frame_support::storage::with_storage_layer(|| {
+			let mut total = 0;
+
+			for amount in MISSED_WITHDRAWS {
+				DelegatedStaking::on_withdraw(&POOL_STAKER, *amount);
+				total += *amount;
+			}
+
+			log::info!("🎱 Total amount repeated: {total}");
+
+			Ok::<(), &str>(())
+		}) {
+			log::error!("🎱 Migration failed: {error}");
+		}
+
+		Weight::zero()
+	}
 }
 
 #[cfg(test)]

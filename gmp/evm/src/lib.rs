@@ -297,42 +297,35 @@ impl IConnectorAdmin for Connector {
 		proxy: &[u8],
 		gateway: &[u8],
 	) -> Result<(Address32, u64)> {
-		// let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
-		// let proxy = extract_bytecode(proxy)?;
-		// let gateway = extract_bytecode(gateway)?;
+		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+		let proxy = extract_bytecode(proxy)?;
+		let gateway = extract_bytecode(gateway)?;
+		// deploy factory
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
+		let factory_deployed_code = self.rpc.get_code_at(factory_address.into()).await?;
 
-		// // deploy factory
-		// let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
-		// let is_factory_deployed =
-		// 	self.backend.get_code(factory_address.into(), AtBlock::Latest).await?;
-		// if is_factory_deployed.is_empty() {
-		// 	self.deploy_factory_contract(&config).await?;
-		// }
+		if factory_deployed_code.is_empty() {
+			self.deploy_factory_contract(&config).await?;
+		}
+		// compute proxy address
+		let admin = a_addr(self.address());
+		let constructor = sol::GatewayProxy::constructorCall { admin };
+		let proxy_address =
+			compute_create2_address(factory_address, config.deployment_salt, &proxy, constructor)?;
+		// check if proxy is deployed
+		let proxy_deployed_code = self.rpc.get_code_at(proxy_address.into()).await?;
+		if !proxy_deployed_code.is_empty() {
+			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
+			return Ok((t_addr(proxy_address), 0));
+		}
+		// deploy gateway
+		let gateway_address = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
+		// compute proxy arguments
+		let (proxy_address, block) = self
+			.deploy_proxy_contract(&config, proxy_address, gateway_address, proxy)
+			.await?;
 
-		// // proxy address computation
-		// let admin = a_addr(self.address());
-		// let constructor = sol::GatewayProxy::constructorCall { admin };
-		// let proxy_addr =
-		// 	compute_create2_address(factory_address, config.deployment_salt, &proxy, constructor)?;
-
-		// // check if proxy is deployed
-		// let is_proxy_deployed =
-		// 	self.backend.get_code(proxy_addr.0 .0.into(), AtBlock::Latest).await?;
-		// if !is_proxy_deployed.is_empty() {
-		// 	tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
-		// 	return Ok((t_addr(proxy_addr), 0));
-		// }
-
-		// // gateway deployment
-		// let gateway_addr = self.deploy_gateway_contract(&config, proxy_addr, gateway).await?;
-
-		// // compute proxy arguments
-		// let (proxy_address, block) =
-		// 	self.deploy_proxy_contract(&config, proxy_addr, gateway_addr, proxy).await?;
-
-		// Ok((t_addr(proxy_address), block))
-
-		Err(anyhow!("not implemented yet"))
+		Ok((t_addr(proxy_address), block))
 	}
 
 	/// Redeploys the gateway contract.
@@ -625,47 +618,61 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
-	///
 	/// init_code == contract_bytecode + contractor_code
 	async fn deploy_contract_with_factory(
 		&self,
 		config: &DeploymentConfig,
 		call: Vec<u8>,
 	) -> Result<(Address20, u64)> {
-		// let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
-		// let (_, receipt, tx_hash) =
-		// 	self.raw_evm_call(factory_address, call, 0, None, Some(20_000_000)).await?;
-		// tracing::debug!("{receipt:?}");
-		// let log = receipt
-		// 	.logs
-		// 	.iter()
-		// 	.find(|log| log.address.as_bytes() == factory_address)
-		// 	.with_context(|| format!("tx {} logs not found", hex::encode(tx_hash)))?;
-		// let topic = log
-		// 	.topics
-		// 	.first()
-		// 	.with_context(|| format!("tx {} topic not found", hex::encode(tx_hash)))?
-		// 	.as_bytes();
-		// let contract_address = Address20::from_slice(&topic[12..]);
-		// Ok((contract_address, receipt.block_number.unwrap()))
-		Err(anyhow!("not implemented yet"))
+		let factory_address = a_addr(self.parse_address(&config.factory_address)?);
+
+		let tx = TransactionRequest::default()
+			.with_to(factory_address)
+			.with_chain_id(self.rpc.get_chain_id().await?)
+			// TODO why magic value
+			.with_gas_limit(20_000_000)
+			.with_input(call);
+
+		let guard = self.wallet_guard.lock().await;
+		let pending_tx = self.rpc.send_transaction(tx).await?;
+		drop(guard);
+		let tx_hash = pending_tx.tx_hash().clone();
+		tracing::debug!("deployment tx: {tx_hash}");
+
+		let receipt = pending_tx.get_receipt().await?;
+		tracing::debug!("deployment tx receipt: {receipt:?}");
+
+		let log = receipt
+			.logs()
+			.iter()
+			.find(|log| log.address() == factory_address)
+			.with_context(|| format!("tx {tx_hash} logs not found"))?;
+
+		let topic =
+			log.topics().first().with_context(|| format!("tx {tx_hash} topic not found"))?;
+
+		let contract_address = Address20::from_slice(&topic[12..]);
+		Ok((contract_address, receipt.block_number.unwrap()))
 	}
 
+	// TODO this needs refactoring: why deployer and contract bytecode are hard-coded?
 	async fn deploy_factory_contract(&self, config: &DeploymentConfig) -> Result<()> {
-		// let deployer_address = self.parse_address(&config.factory_deployer)?;
+		let deployer_address = self.parse_address(&config.factory_deployer)?;
+		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
+		self.transfer(deployer_address, config.required_balance).await?;
+		//Step2: load transaction from config
+		let encoded_tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
+		//Step3: send eth_rawTransaction
+		let tx_hash = self
+			.rpc
+			.send_raw_transaction(&encoded_tx)
+			.await?
+			.with_timeout(Some(std::time::Duration::from_secs(15)))
+			.watch()
+			.await?;
+		tracing::info!("factory deployed with tx {:?}", tx_hash);
 
-		// // Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		// self.transfer(deployer_address, config.required_balance).await?;
-
-		// //Step2: load transaction from config
-		// let tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
-
-		// //Step3: send eth_rawTransaction
-		// let tx_hash = self.backend.send_raw_transaction(tx.into()).await?;
-
-		// tracing::info!("factory deployed with tx {:?}", tx_hash);
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
+		Ok(())
 	}
 
 	async fn deploy_gateway_contract(
@@ -674,20 +681,20 @@ impl Connector {
 		proxy: Address20,
 		mut bytecode: Vec<u8>,
 	) -> Result<Address20> {
-		// let constructor = sol::Gateway::constructorCall {
-		// 	network: self.network_id,
-		// 	proxy,
-		// };
-		// bytecode.extend(constructor.abi_encode());
-		// let call = sol::IUniversalFactory::create2_0Call {
-		// 	salt: config.deployment_salt.into(),
-		// 	creationCode: bytecode.into(),
-		// }
-		// .abi_encode();
-		// let (gateway_address, _) = self.deploy_contract_with_factory(config, call).await?;
-		// tracing::info!("gateway deployed at {}", gateway_address);
-		// Ok(gateway_address)
-		Err(anyhow!("not implemented yet"))
+		let constructor = sol::Gateway::constructorCall {
+			network: self.network_id,
+			proxy,
+		};
+		bytecode.extend(constructor.abi_encode());
+		let call = sol::IUniversalFactory::create2_0Call {
+			salt: config.deployment_salt.into(),
+			creationCode: bytecode.into(),
+		}
+		.abi_encode();
+		let (gateway_address, _) = self.deploy_contract_with_factory(config, call).await?;
+		tracing::info!("gateway deployed at {}", gateway_address);
+
+		Ok(gateway_address)
 	}
 
 	async fn deploy_proxy_contract(

@@ -526,7 +526,7 @@ impl IConnectorAdmin for Connector {
 			.await)
 	}
 
-	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain
 	async fn max_fee_per_gas(&self) -> Result<u128> {
 		// TODO add Eip1559Estimator::Custom for other chains
 		let fee_estimator = Eip1559Estimator::Default;
@@ -554,28 +554,28 @@ impl IConnectorAdmin for Connector {
 		Ok(fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas)
 	}
 
-	/// Returns gas limit of latest block.
+	/// Returns gas limit of latest block
 	async fn block_gas_limit(&self) -> Result<u64> {
 		self.latest_block().await.map(|b| b.gas_limit)
 	}
 
-	/// Withdraw gateway funds.
+	/// Withdraw gateway funds
 	async fn withdraw_funds(
 		&self,
 		gateway: Address32,
 		amount: u128,
-		receipient: Address32,
+		recipient: Address32,
 	) -> Result<()> {
-		// let call = sol::Gateway::withdrawCall {
-		// 	amount: U256::from(amount),
-		// 	recipient: a_addr(receipient),
-		// 	data: vec![].into(),
-		// };
-		// self.evm_call(gateway, call, 0, None, None).await?;
-		// Ok(())
-		Err(anyhow!("not implemented yet"))
+		let call = sol::Gateway::withdrawCall {
+			amount: U256::from(amount),
+			recipient: a_addr(recipient),
+			data: vec![].into(),
+		};
+		let _receipt = self.evm_send(gateway, call, 0).await?;
+		Ok(())
 	}
 	/// Debug a transaction.
+	// TODO could be done with alloy as well
 	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
 		let analog_gmp_dir =
 			std::env::var("ANALOG_GMP_DIR").context("failed to find ANALOG_GMP_DIR")?;

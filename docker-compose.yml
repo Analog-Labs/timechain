@@ -21,8 +21,6 @@ services:
     image: 'analoglabs/gmp-grpc-develop'
     command:
     - '--network-id=0'
-    - '--port=3000'
-    - '--db=/etc/db'
     environment:
       RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
       RUST_BACKTRACE: 1
@@ -32,10 +30,6 @@ services:
   chronicle-0-grpc:
     image: 'analoglabs/chronicle-develop'
     command:
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--network-keyfile=/etc/network_keyfile'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://chain-0-grpc:3000'
     - '--network-id=0'
@@ -52,8 +46,6 @@ services:
     image: 'analoglabs/gmp-grpc-develop'
     command:
     - '--network-id=1'
-    - '--port=3000'
-    - '--db=/etc/db'
     environment:
       RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
       RUST_BACKTRACE: 1
@@ -63,10 +55,6 @@ services:
   chronicle-1-grpc:
     image: 'analoglabs/chronicle-develop'
     command:
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--network-keyfile=/etc/network_keyfile'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=http://chain-1-grpc:3000'
     - '--network-id=1'
@@ -93,10 +81,6 @@ services:
   chronicle-2-evm:
     image: 'analoglabs/chronicle-develop'
     command:
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--network-keyfile=/etc/network_keyfile'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=ws://chain-2-evm:8545'
     - '--network-id=2'
@@ -123,10 +107,6 @@ services:
   chronicle-3-evm:
     image: 'analoglabs/chronicle-develop'
     command:
-    - '--timechain-keyfile=/etc/timechain_keyfile'
-    - '--network-keyfile=/etc/network_keyfile'
-    - '--target-keyfile=/etc/target_keyfile'
-    - '--tss-keyshare-cache=/etc/tss'
     - '--timechain-url=ws://validator:9944'
     - '--target-url=ws://chain-3-evm:8545'
     - '--network-id=3'

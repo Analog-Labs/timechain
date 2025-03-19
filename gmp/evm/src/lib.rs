@@ -428,25 +428,25 @@ impl IConnectorAdmin for Connector {
 		gas_limit: u128,
 		payload: Vec<u8>,
 	) -> Result<u128> {
-		// let msg = sol::GmpMessage {
-		// 	source: [0; 32].into(),
-		// 	srcNetwork: 0,
-		// 	dest: [0; 20].into(),
-		// 	destNetwork: 0,
-		// 	gasLimit: 0,
-		// 	nonce: 0,
-		// 	data: payload.into(),
-		// };
-		// let call = sol::Gateway::estimateMessageCostCall {
-		// 	networkid: dest_network,
-		// 	// abi_encoded_size returns the size without the 4 byte selector
-		// 	messageSize: U256::from(msg.abi_encoded_size() + 4),
-		// 	gasLimit: U256::from(gas_limit),
-		// };
-		// let result = self.evm_view(gateway, call, None).await?;
-		// let msg_cost: u128 = result._0.try_into().unwrap();
-		// Ok(msg_cost)
-		Err(anyhow!("not implemented yet"))
+		let msg = sol::GmpMessage {
+			source: [0; 32].into(),
+			srcNetwork: 0,
+			dest: [0; 20].into(),
+			destNetwork: 0,
+			gasLimit: 0,
+			nonce: 0,
+			data: payload.into(),
+		};
+		let call = sol::Gateway::estimateMessageCostCall {
+			networkid: dest_network,
+			// abi_encoded_size returns the size without the 4 byte selector
+			messageSize: U256::from(msg.abi_encoded_size() + 4),
+			gasLimit: U256::from(gas_limit),
+		};
+		let result = self.evm_call(gateway, call).await?;
+		let msg_cost: u128 = result._0.try_into().map_err(|e| anyhow!("{e}"))?;
+
+		Ok(msg_cost)
 	}
 
 	/// Deploys a test contract.

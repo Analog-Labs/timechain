@@ -2,7 +2,7 @@ use crate::common::TestEnv;
 use anyhow::{Context, Result};
 use futures::StreamExt;
 use tc_cli::Tc;
-use time_primitives::{Address, BlockHash, NetworkId};
+use time_primitives::{Address, NetworkId};
 use tracing_subscriber::filter::EnvFilter;
 
 mod common;
@@ -28,7 +28,7 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>
 		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
 		id = Some(tc.print_table(id, "message", vec![trace]).await?);
 		if let Some(exec) = exec {
-			break (exec, end, block_hash);
+			break (exec, end, hash);
 		}
 	};
 	let blocks = tc.read_events_blocks(exec, block_hash).await?;

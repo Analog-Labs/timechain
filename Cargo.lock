@@ -9723,7 +9723,7 @@ dependencies = [
  "bytes",
  "http 1.2.0",
  "opentelemetry",
- "reqwest",
+ "reqwest 0.12.12",
  "tracing",
 ]
 
@@ -9741,7 +9741,7 @@ dependencies = [
  "opentelemetry-proto",
  "opentelemetry_sdk",
  "prost 0.13.4",
- "reqwest",
+ "reqwest 0.12.12",
  "thiserror 2.0.11",
  "tokio",
  "tonic",

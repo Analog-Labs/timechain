@@ -3,7 +3,7 @@ use std::{ops::Range, pin::Pin, sync::Arc};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::Stream;
-use solana_client::rpc_client::RpcClient;
+use solana_client::nonblocking::rpc_client::RpcClient;
 
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
@@ -11,8 +11,6 @@ use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::system_instruction;
 use solana_sdk::transaction::Transaction;
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-
-// TODO solana functions use self.invoke() which uses tokio::block_in_place. fix and use in async context
 
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
@@ -36,14 +34,14 @@ pub struct Connector {
 
 impl Connector {
 	pub async fn send_transaction(&self, instruction: Instruction) -> Result<()> {
-		let recent_blockhash = self.client.get_latest_blockhash().unwrap();
+		let recent_blockhash = self.client.get_latest_blockhash().await?;
 		let transaction = Transaction::new_signed_with_payer(
 			&[instruction],
 			Some(&self.wallet.pubkey()),
 			&[&self.wallet],
 			recent_blockhash,
 		);
-		let hash = self.client.send_and_confirm_transaction(&transaction).unwrap();
+		let hash = self.client.send_and_confirm_transaction(&transaction).await?;
 		tracing::info!("tx send with hash: {}", hash);
 		Ok(())
 	}
@@ -85,7 +83,7 @@ impl IChain for Connector {
 	}
 	async fn faucet(&self, balance: u128) -> Result<()> {
 		// TODO add faucet for local devnode only
-		self.client.request_airdrop(&self.wallet.pubkey(), balance as u64)?;
+		self.client.request_airdrop(&self.wallet.pubkey(), balance as u64).await?;
 		Ok(())
 	}
 	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
@@ -95,12 +93,12 @@ impl IChain for Connector {
 	}
 
 	async fn balance(&self, address: Address) -> Result<u128> {
-		let balance = self.client.get_balance(&a_addr(address))?;
+		let balance = self.client.get_balance(&a_addr(address)).await?;
 		Ok(balance as u128)
 	}
 
 	async fn finalized_block(&self) -> Result<u64> {
-		let block = self.client.get_slot_with_commitment(CommitmentConfig::finalized())?;
+		let block = self.client.get_slot_with_commitment(CommitmentConfig::finalized()).await?;
 		Ok(block)
 	}
 
@@ -184,12 +182,16 @@ impl IConnectorAdmin for Connector {
 	) -> Result<Vec<GmpMessage>> {
 		todo!("Need gateway implementation")
 	}
-	async fn transaction_base_fee(&self) -> Result<u128> {
+	async fn max_fee_per_gas(&self) -> Result<u128> {
 		// reference: <https://solana.com/docs/core/fees#key-points>
+		// 5000 per signature is base fee of solana
 		Ok(5000)
 	}
+
 	async fn block_gas_limit(&self) -> Result<u64> {
 		// reference: <https://solana.com/docs/core/fees#compute-units-and-limits>
+		// single instruction can use upto 200k units
+		// single transaction (multiple instructions) can use upto 1.4m units
 		Ok(1_400_000)
 	}
 
@@ -205,7 +207,12 @@ impl IConnectorAdmin for Connector {
 
 #[async_trait]
 impl IConnector for Connector {
-	async fn read_events(&self, _gateway: Gateway, _blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
+	async fn read_events(
+		&self,
+		_gateway: Gateway,
+		_blocks: Range<u64>,
+		_cctp_info: Option<(Vec<Address>, String)>,
+	) -> Result<Vec<GmpEvent>> {
 		todo!("Need gateway implementation")
 	}
 	async fn submit_commands(

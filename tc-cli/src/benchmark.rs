@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::collections::HashMap;
-use time_primitives::{Address, BlockNumber, MessageId, NetworkId};
+use time_primitives::{Address, BlockHash, BlockNumber, MessageId, NetworkId};
 
 #[derive(Clone, Copy)]
 struct RouteStats {
@@ -94,7 +94,12 @@ impl Benchmark {
 		}
 	}
 
-	async fn route_stats(&self, src: NetworkId, dest: NetworkId) -> Result<RouteStats> {
+	async fn route_stats(
+		&self,
+		src: NetworkId,
+		dest: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<RouteStats> {
 		let src_addr = self.testers.get(&src).context("missing tester")?.0;
 		let dest_addr = self.testers.get(&dest).context("missing tester")?.0;
 		let gas_limit = self
@@ -103,18 +108,18 @@ impl Benchmark {
 			.await?;
 		let gas_cost = self
 			.tc
-			.estimate_message_cost(src, dest, gas_limit, self.payload.clone())
+			.estimate_message_cost(src, dest, gas_limit, self.payload.clone(), block_hash)
 			.await?;
 		let msg_cost = self.tc.balance_to_usd(src, gas_cost)?;
 		Ok(RouteStats::new(src_addr, dest_addr, gas_limit, gas_cost, msg_cost))
 	}
 
-	pub async fn add_routes(&mut self) -> Result<()> {
+	pub async fn add_routes(&mut self, block_hash: BlockHash) -> Result<()> {
 		let routes = FuturesUnordered::new();
 		for src in self.testers.keys().copied() {
 			for dest in self.testers.keys().copied() {
 				if src != dest {
-					let fut = self.route_stats(src, dest);
+					let fut = self.route_stats(src, dest, block_hash);
 					routes.push(async move {
 						let route = fut.await?;
 						Ok::<_, anyhow::Error>((src, dest, route))
@@ -167,10 +172,10 @@ impl Benchmark {
 		Ok(())
 	}
 
-	async fn receive_messages(&mut self, block: BlockNumber) -> Result<()> {
+	async fn receive_messages(&mut self, block: (BlockHash, BlockNumber)) -> Result<()> {
 		let mut messages = FuturesUnordered::new();
 		for message_id in self.messages.keys().copied() {
-			let fut = self.tc.is_message_executed(message_id);
+			let fut = self.tc.is_message_executed(message_id, block.0);
 			messages.push(async move {
 				let is_executed = fut.await?;
 				Ok::<_, anyhow::Error>((message_id, is_executed))
@@ -185,7 +190,7 @@ impl Benchmark {
 				let Some(route) = self.routes.get_mut(&(msg.src, msg.dest)) else {
 					continue;
 				};
-				let latency = block - msg.block;
+				let latency = block.1 - msg.block;
 				route.num_received += 1;
 				route.sum_latency += latency as u64;
 			}
@@ -193,11 +198,11 @@ impl Benchmark {
 		Ok(())
 	}
 
-	async fn on_block(&mut self, block: BlockNumber) -> Result<bool> {
+	async fn on_block(&mut self, block: (BlockHash, BlockNumber)) -> Result<bool> {
 		let mut finished = true;
 		if self.num_blocks > self.blocks {
 			self.blocks += 1;
-			self.send_messages(block).await?;
+			self.send_messages(block.1).await?;
 			finished = false;
 		}
 		if !self.messages.is_empty() {
@@ -228,8 +233,8 @@ impl Benchmark {
 		let mut blocks = self.tc.finality_notification_stream();
 		let mut id = None;
 		loop {
-			let (_, block) = blocks.next().await.context("expected block")?;
-			let finished = self.on_block(block).await?;
+			let (hash, block) = blocks.next().await.context("expected block")?;
+			let finished = self.on_block((hash, block)).await?;
 			id = Some(self.print_stats(id).await?);
 			if finished {
 				break;

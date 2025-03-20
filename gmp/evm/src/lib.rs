@@ -138,7 +138,10 @@ impl IChain for Connector {
 			.with_to(a_addr(self.address()))
 			.with_value(U256::from(balance))
 			.with_gas_limit(21_000);
+
+		let guard = self.wallet_guard.lock().await;
 		let tx_hash = provider.send_transaction(tx).await?.watch().await?;
+		drop(guard);
 		tracing::info!("Faucet sent {balance} to {}, tx_hash: {tx_hash}", a_addr(self.address()));
 
 		Ok(())
@@ -150,7 +153,10 @@ impl IChain for Connector {
 			.with_from(self.signer.address())
 			.with_to(to)
 			.with_value(U256::from(amount));
+
+		let guard = self.wallet_guard.lock().await;
 		let _tx_hash = self.rpc.send_transaction(tx).await?.watch().await?;
+		drop(guard);
 
 		Ok(())
 	}
@@ -683,6 +689,8 @@ impl Connector {
 			.with_chain_id(self.rpc.get_chain_id().await?)
 			.with_call(&call)
 			.with_value(U256::from(value));
+
+		let _guard = self.wallet_guard.lock().await;
 
 		Ok(self.rpc.send_transaction(tx).await?.get_receipt().await?)
 	}

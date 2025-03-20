@@ -21,19 +21,16 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>
 		.await?;
 
 	let mut id = None;
-	let mut block_hash: Option<BlockHash> = None;
-	let (exec, end) = loop {
+	let (exec, end, block_hash) = loop {
 		let (hash, end) = blockstream.next().await.context("expected block")?;
-		block_hash = Some(hash);
 		let trace = tc.message_trace(SRC, msg_id, hash).await?;
 		let exec = trace.exec.as_ref().map(|t| t.task);
 		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
 		id = Some(tc.print_table(id, "message", vec![trace]).await?);
 		if let Some(exec) = exec {
-			break (exec, end);
+			break (exec, end, block_hash);
 		}
 	};
-	let block_hash = block_hash.context("Block hash not found")?;
 	let blocks = tc.read_events_blocks(exec, block_hash).await?;
 	let msgs = tc.messages(DEST, dest_addr, blocks).await?;
 	let msg = msgs

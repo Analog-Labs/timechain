@@ -338,7 +338,7 @@ impl IConnectorAdmin for Connector {
 		let proxy_address =
 			compute_create2_address(factory_address, config.deployment_salt, &proxy, constructor)?;
 		// check if proxy is deployed
-		let proxy_deployed_code = self.rpc.get_code_at(proxy_address.into()).await?;
+		let proxy_deployed_code = self.rpc.get_code_at(proxy_address).await?;
 		if !proxy_deployed_code.is_empty() {
 			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
 			return Ok((t_addr(proxy_address), 0));
@@ -517,7 +517,7 @@ impl IConnectorAdmin for Connector {
 			.logs()
 			.iter()
 			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
-			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(&e.data(), true).ok())
+			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data(), true).ok())
 			.map(|e| e.id.into())
 			.next()
 			.ok_or(anyhow!("Failed to send message"))
@@ -544,7 +544,7 @@ impl IConnectorAdmin for Connector {
 				future::ready(e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
 			})
 			.filter_map(|e| async move {
-				sol::GmpTester::MessageReceived::decode_log_data(&e.data(), true).ok()
+				sol::GmpTester::MessageReceived::decode_log_data(e.data(), true).ok()
 			})
 			.map(|e| e.msg.into())
 			.collect::<Vec<_>>()
@@ -721,7 +721,7 @@ impl Connector {
 		let guard = self.wallet_guard.lock().await;
 		let pending_tx = self.rpc.send_transaction(tx).await?;
 		drop(guard);
-		let tx_hash = pending_tx.tx_hash().clone();
+		let tx_hash = *pending_tx.tx_hash();
 		tracing::debug!("deployment tx: {tx_hash}");
 
 		let receipt = pending_tx.get_receipt().await?;
@@ -803,7 +803,7 @@ impl Connector {
 		let sig = self.signer.sign_hash_sync(&payload.into())?;
 		let arguments = ProxyContext {
 			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
-			v: (sig.v() as u8 + 27).into(),
+			v: sig.v() as u8 + 27,
 			r: sig.r().into(),
 			s: sig.s().into(),
 			implementation: gateway_address,

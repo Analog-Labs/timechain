@@ -8,6 +8,7 @@ use tc_cli::{
 };
 use tempfile::TempDir;
 use testcontainers::{
+	core::logs::consumer::logging_consumer::LoggingConsumer,
 	core::{ContainerAsync, IntoContainerPort},
 	runners::AsyncRunner,
 	GenericImage, ImageExt,
@@ -56,7 +57,8 @@ impl TestEnvBuilder {
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
 		let workspace =
 			Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).parent().unwrap().to_path_buf();
-		tracing::info!("{}", workspace.display());
+		tracing::info!("workspace: {}", workspace.display());
+		tracing::info!("tempdir: {}", temp.path().display());
 		Ok(Self {
 			temp,
 			network,
@@ -105,6 +107,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "gmp_grpc=debug,gmp_rust=debug")
 			.with_env_var("RUST_BACKTRACE", "1")
+			.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([format!("--network-id={network}")])
 			.start()
 			.await?;
@@ -162,6 +165,7 @@ impl TestEnvBuilder {
 			.with_container_name(chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
+			.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
 				"anvil",
 				"-b",

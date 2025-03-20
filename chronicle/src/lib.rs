@@ -277,7 +277,7 @@ mod tests {
 		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
-		let block: BlockHash = BlockHash::from([0u8; 32]).into();
+		let block: BlockHash = BlockHash::from([0u8; 32]);
 		let network_id = mock.create_network(
 			ChainName(BoundedVec::truncate_from("rust".encode())),
 			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
@@ -340,7 +340,7 @@ mod tests {
 		init_opentelemetry();
 
 		let mock = Mock::default().instance(42);
-		let block: BlockHash = BlockHash::from([0u8; 32]).into();
+		let block: BlockHash = BlockHash::from([0u8; 32]);
 		let network_id = mock.create_network(
 			ChainName(BoundedVec::truncate_from("rust".encode())),
 			ChainNetwork(BoundedVec::truncate_from("rust".encode())),

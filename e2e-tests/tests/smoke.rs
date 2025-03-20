@@ -12,26 +12,26 @@ const DEST: NetworkId = 3;
 
 async fn run_smoke(tc: &Tc, src_addr: Address32, dest_addr: Address32) -> Result<()> {
 	let mut blockstream = tc.finality_notification_stream();
-	let (_, start) = blockstream.next().await.context("expected block")?;
+	let (hash, start) = blockstream.next().await.context("expected block")?;
 	let gas_limit = tc.estimate_message_gas_limit(DEST, dest_addr, SRC, src_addr, vec![]).await?;
-	let gas_cost = tc.estimate_message_cost(SRC, DEST, gas_limit, vec![]).await?;
+	let gas_cost = tc.estimate_message_cost(SRC, DEST, gas_limit, vec![], hash).await?;
 
 	let msg_id = tc
 		.send_message(SRC, src_addr, DEST, dest_addr, gas_limit, gas_cost, vec![])
 		.await?;
 
 	let mut id = None;
-	let (exec, end) = loop {
-		let (_, end) = blockstream.next().await.context("expected block")?;
-		let trace = tc.message_trace(SRC, msg_id).await?;
+	let (exec, end, block_hash) = loop {
+		let (hash, end) = blockstream.next().await.context("expected block")?;
+		let trace = tc.message_trace(SRC, msg_id, hash).await?;
 		let exec = trace.exec.as_ref().map(|t| t.task);
 		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
 		id = Some(tc.print_table(id, "message", vec![trace]).await?);
 		if let Some(exec) = exec {
-			break (exec, end);
+			break (exec, end, hash);
 		}
 	};
-	let blocks = tc.read_events_blocks(exec).await?;
+	let blocks = tc.read_events_blocks(exec, block_hash).await?;
 	let msgs = tc.messages(DEST, dest_addr, blocks).await?;
 	let msg = msgs
 		.into_iter()

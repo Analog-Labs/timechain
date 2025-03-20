@@ -96,6 +96,7 @@ impl Tc {
 			}
 		}
 		let runtime = runtime.await??;
+
 		Ok(Self {
 			config,
 			runtime,
@@ -111,11 +112,15 @@ impl Tc {
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	pub async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	pub async fn gateway(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
-			.network_gateway(network)
+			.network_gateway(network, block_hash)
 			.await?
 			.with_context(|| format!("no gateway configured for {network}"))?;
 		Ok((connector, gateway))
@@ -125,17 +130,25 @@ impl Tc {
 		self.runtime.finality_notification_stream()
 	}
 
+	pub async fn latest_block(&self) -> Result<(BlockHash, BlockNumber)> {
+		self.runtime.latest_block().await
+	}
+
 	pub async fn runtime_upgrade(&self, path: &Path) -> Result<()> {
 		self.println(None, "runtime-upgrade").await?;
 		let bytecode = std::fs::read(path)?;
 		self.runtime.set_code(bytecode).await
 	}
 
-	pub async fn find_online_shard_keys(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
-		let shard_id_counter = self.runtime.shard_id_counter().await?;
+	pub async fn find_online_shard_keys(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<Vec<TssPublicKey>> {
+		let shard_id_counter = self.runtime.shard_id_counter(block_hash).await?;
 		let mut shards = vec![];
 		for shard_id in 0..shard_id_counter {
-			match self.runtime.shard_network(shard_id).await {
+			match self.runtime.shard_network(shard_id, block_hash).await {
 				Ok(Some(shard_network)) if shard_network == network => {},
 				Ok(_) => continue,
 				Err(err) => {
@@ -143,7 +156,7 @@ impl Tc {
 					continue;
 				},
 			};
-			match self.runtime.shard_status(shard_id).await {
+			match self.runtime.shard_status(shard_id, block_hash).await {
 				Ok(ShardStatus::Online) => {},
 				Ok(_) => continue,
 				Err(err) => {
@@ -151,7 +164,7 @@ impl Tc {
 					continue;
 				},
 			}
-			let shard_key = match self.runtime.shard_public_key(shard_id).await {
+			let shard_key = match self.runtime.shard_public_key(shard_id, block_hash).await {
 				Ok(Some(key)) => key,
 				Ok(_) => continue,
 				Err(err) => {
@@ -216,13 +229,14 @@ impl Tc {
 		})
 	}
 
-	pub async fn faucet(&self, network: NetworkId) -> Result<()> {
+	pub async fn faucet(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
 		let config = self.config.network(network)?;
 		let Some(admin_funds) = config.admin_funds.as_ref() else {
 			return Ok(());
 		};
 		let admin_funds = self.parse_balance(Some(network), admin_funds)?;
-		let current_admin_funds = self.balance(Some(network), self.address(Some(network))?).await?;
+		let current_admin_funds =
+			self.balance(Some(network), self.address(Some(network))?, block_hash).await?;
 		let faucet = admin_funds.saturating_sub(current_admin_funds);
 		if faucet == 0 {
 			return Ok(());
@@ -242,11 +256,16 @@ impl Tc {
 		})
 	}
 
-	pub async fn balance(&self, network: Option<NetworkId>, address: Address32) -> Result<u128> {
+	pub async fn balance(
+		&self,
+		network: Option<NetworkId>,
+		address: Address,
+		block_hash: BlockHash,
+	) -> Result<u128> {
 		if let Some(network) = network {
 			self.connector(network)?.balance(address).await
 		} else {
-			self.runtime.balance(&address.into()).await
+			self.runtime.balance(&address.into(), block_hash).await
 		}
 	}
 
@@ -279,8 +298,9 @@ impl Tc {
 		address: Address32,
 		min_balance: u128,
 		label: &str,
+		block_hash: BlockHash,
 	) -> Result<()> {
-		let balance = self.balance(network, address).await?;
+		let balance = self.balance(network, address, block_hash).await?;
 		let diff = min_balance.saturating_sub(balance);
 		if diff > 0 {
 			self.println(None, format!("funding {label}")).await?;
@@ -425,18 +445,29 @@ fn same<T: PartialEq>(a: &[T], b: &[T]) -> bool {
 }
 
 impl Tc {
-	pub async fn read_events_blocks(&self, task: TaskId) -> Result<Range<u64>> {
-		let task = self.runtime.task(task).await?.context("no read event task")?;
+	pub async fn read_events_blocks(
+		&self,
+		task: TaskId,
+		block_hash: BlockHash,
+	) -> Result<Range<u64>> {
+		let task = self.runtime.task(task, block_hash).await?.context("no read event task")?;
 		let time_primitives::Task::ReadGatewayEvents { blocks } = task else {
 			anyhow::bail!("invalid read event task descriptor");
 		};
 		Ok(blocks)
 	}
 
-	pub async fn sync_status(&self, network: NetworkId) -> Result<SyncStatus> {
-		let sync_task =
-			self.runtime.read_events_task(network).await?.context("no read events task")?;
-		let blocks = self.read_events_blocks(sync_task).await?;
+	pub async fn sync_status(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<SyncStatus> {
+		let sync_task = self
+			.runtime
+			.read_events_task(network, block_hash)
+			.await?
+			.context("no read events task")?;
+		let blocks = self.read_events_blocks(sync_task, block_hash).await?;
 		let block = self
 			.connector(network)?
 			.finalized_block()
@@ -451,23 +482,27 @@ impl Tc {
 		})
 	}
 
-	pub async fn networks(&self) -> Result<Vec<Network>> {
-		let network_ids = self.runtime.networks().await?;
+	pub async fn networks(&self, block_hash: BlockHash) -> Result<Vec<Network>> {
+		let network_ids = self.runtime.networks(block_hash).await?;
 		let mut networks = vec![];
 		for network in network_ids {
-			let (chain_name, chain_network) =
-				self.runtime.network_name(network).await?.context("invalid network")?;
+			let (chain_name, chain_network) = self
+				.runtime
+				.network_name(network, block_hash)
+				.await?
+				.context("invalid network")?;
 			let chain_name =
 				String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
 			let chain_network =
 				String::decode(&mut chain_network.0.to_vec().as_slice()).unwrap_or_default();
-			let info = match self.gateway(network).await {
+			let info = match self.gateway(network, block_hash).await {
 				Ok((connector, gateway)) => {
 					let gateway_balance = connector.balance(gateway).await?;
 					let admin = connector.admin(gateway).await?;
 					let admin_balance = connector.balance(admin).await?;
-					let sync_status = self.sync_status(network).await?;
-					let unassigned_tasks = self.runtime.unassigned_tasks(network).await?;
+					let sync_status = self.sync_status(network, block_hash).await?;
+					let unassigned_tasks =
+						self.runtime.unassigned_tasks(network, block_hash).await?;
 					Some(NetworkInfo {
 						gateway,
 						gateway_balance,
@@ -489,14 +524,14 @@ impl Tc {
 		Ok(networks)
 	}
 
-	pub async fn chronicles(&self) -> Result<Vec<Chronicle>> {
+	pub async fn chronicles(&self, block_hash: BlockHash) -> Result<Vec<Chronicle>> {
 		let mut chronicles = vec![];
 		for chronicle in self.config.chronicles() {
 			let config = self.chronicle_config(chronicle).await?;
-			let status = self.chronicle_status(&config.account).await?;
+			let status = self.chronicle_status(&config.account, block_hash).await?;
 			let network = config.network;
-			let balance = self.balance(None, config.account.clone().into()).await?;
-			let target_balance = self.balance(Some(network), config.address).await?;
+			let balance = self.balance(None, config.account.clone().into(), block_hash).await?;
+			let target_balance = self.balance(Some(network), config.address, block_hash).await?;
 			chronicles.push(Chronicle {
 				address: chronicle.clone(),
 				network,
@@ -511,35 +546,39 @@ impl Tc {
 		Ok(chronicles)
 	}
 
-	async fn registered_shards(&self, network: NetworkId) -> Result<Vec<TssPublicKey>> {
-		let (connector, gateway) = self.gateway(network).await?;
+	async fn registered_shards(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<Vec<TssPublicKey>> {
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		connector.shards(gateway).await
 	}
 
-	pub async fn shards(&self) -> Result<Vec<Shard>> {
-		let shard_id_counter = self.runtime.shard_id_counter().await?;
+	pub async fn shards(&self, block_hash: BlockHash) -> Result<Vec<Shard>> {
+		let shard_id_counter = self.runtime.shard_id_counter(block_hash).await?;
 		let mut shards = vec![];
 		let mut registered_shards = HashMap::new();
 		for shard in 0..shard_id_counter {
-			let Some(network) = self.runtime.shard_network(shard).await? else {
+			let Some(network) = self.runtime.shard_network(shard, block_hash).await? else {
 				continue;
 			};
 			if let Entry::Vacant(e) = registered_shards.entry(network) {
-				e.insert(self.registered_shards(network).await?);
+				e.insert(self.registered_shards(network, block_hash).await?);
 			}
-			let status = self.runtime.shard_status(shard).await?;
-			let key = self.runtime.shard_commitment(shard).await?.map(|c| c.0[0]);
-			let size = self.runtime.shard_members(shard).await?.len() as u16;
-			let threshold = self.runtime.shard_threshold(shard).await?;
+			let status = self.runtime.shard_status(shard, block_hash).await?;
+			let key = self.runtime.shard_commitment(shard, block_hash).await?.map(|c| c.0[0]);
+			let size = self.runtime.shard_members(shard, block_hash).await?.len() as u16;
+			let threshold = self.runtime.shard_threshold(shard, block_hash).await?;
 			let mut registered = false;
 			let mut batch_register = None;
 			let mut batch_unregister = None;
 			if let Some(key) = key {
 				registered = registered_shards.get(&network).unwrap().contains(&key);
-				batch_register = self.runtime.shard_register_batch(key).await?;
-				batch_unregister = self.runtime.shard_unregister_batch(key).await?;
+				batch_register = self.runtime.shard_register_batch(key, block_hash).await?;
+				batch_unregister = self.runtime.shard_unregister_batch(key, block_hash).await?;
 			}
-			let assigned = self.runtime.assigned_tasks(shard).await?.len();
+			let assigned = self.runtime.assigned_tasks(shard, block_hash).await?.len();
 			shards.push(Shard {
 				shard,
 				network,
@@ -556,35 +595,39 @@ impl Tc {
 		Ok(shards)
 	}
 
-	pub async fn unassigned_tasks(&self, network: NetworkId) -> Result<Vec<Task>> {
-		let task_ids = self.runtime.unassigned_tasks(network).await?;
+	pub async fn unassigned_tasks(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<Vec<Task>> {
+		let task_ids = self.runtime.unassigned_tasks(network, block_hash).await?;
 		let mut tasks = Vec::with_capacity(task_ids.len());
 		for id in task_ids {
-			tasks.push(self.task(id).await?);
+			tasks.push(self.task(id, block_hash).await?);
 		}
 		Ok(tasks)
 	}
 
-	pub async fn assigned_tasks(&self, shard: ShardId) -> Result<Vec<Task>> {
-		let task_ids = self.runtime.assigned_tasks(shard).await?;
+	pub async fn assigned_tasks(&self, shard: ShardId, block_hash: BlockHash) -> Result<Vec<Task>> {
+		let task_ids = self.runtime.assigned_tasks(shard, block_hash).await?;
 		let mut tasks = Vec::with_capacity(task_ids.len());
 		for id in task_ids {
-			tasks.push(self.task(id).await?);
+			tasks.push(self.task(id, block_hash).await?);
 		}
 		Ok(tasks)
 	}
 
-	pub async fn get_failed_batches(&self) -> Result<Vec<Batch>> {
-		let batch_ids = self.runtime.get_failed_tasks().await?;
+	pub async fn get_failed_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
+		let batch_ids = self.runtime.get_failed_tasks(block_hash).await?;
 		let mut batches = Vec::with_capacity(batch_ids.len());
 		for id in batch_ids {
-			batches.push(self.batch(id).await?);
+			batches.push(self.batch(id, block_hash).await?);
 		}
 		Ok(batches)
 	}
 
-	pub async fn members(&self, shard: ShardId) -> Result<Vec<Member>> {
-		let shard_members = self.runtime.shard_members(shard).await?;
+	pub async fn members(&self, shard: ShardId, block_hash: BlockHash) -> Result<Vec<Member>> {
+		let shard_members = self.runtime.shard_members(shard, block_hash).await?;
 		let mut members = Vec::with_capacity(shard_members.len());
 		for (account, status) in shard_members {
 			members.push(Member { account, status })
@@ -592,13 +635,18 @@ impl Tc {
 		Ok(members)
 	}
 
-	pub async fn routes(&self, network: NetworkId) -> Result<Vec<Route>> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn routes(&self, network: NetworkId, block_hash: BlockHash) -> Result<Vec<Route>> {
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		connector.routes(gateway).await
 	}
 
-	pub async fn events(&self, network: NetworkId, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn events(
+		&self,
+		network: NetworkId,
+		blocks: Range<u64>,
+		block_hash: BlockHash,
+	) -> Result<Vec<GmpEvent>> {
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		connector.read_events(gateway, blocks, None).await
 	}
 
@@ -612,16 +660,20 @@ impl Tc {
 		connector.recv_messages(tester, blocks).await
 	}
 
-	pub async fn task(&self, task: TaskId) -> Result<Task> {
+	pub async fn task(&self, task: TaskId, block_hash: BlockHash) -> Result<Task> {
 		Ok(Task {
 			task,
-			network: self.runtime.task_network(task).await?.context("invalid task id")?,
-			descriptor: self.runtime.task(task).await?.context("invalid task id")?,
-			output: self.runtime.task_output(task).await?.map(|o| {
+			network: self
+				.runtime
+				.task_network(task, block_hash)
+				.await?
+				.context("invalid task id")?,
+			descriptor: self.runtime.task(task, block_hash).await?.context("invalid task id")?,
+			output: self.runtime.task_output(task, block_hash).await?.map(|o| {
 				o.map_err(|e| String::decode(&mut e.0.to_vec().as_slice()).unwrap_or_default())
 			}),
-			shard: self.runtime.assigned_shard(task).await?,
-			submitter: self.runtime.task_submitter(task).await?,
+			shard: self.runtime.assigned_shard(task, block_hash).await?,
+			submitter: self.runtime.task_submitter(task, block_hash).await?,
 		})
 	}
 
@@ -643,54 +695,69 @@ impl Tc {
 		Ok(gas_limit)
 	}
 
-	pub async fn batch(&self, batch: BatchId) -> Result<Batch> {
+	pub async fn batch(&self, batch: BatchId, block_hash: BlockHash) -> Result<Batch> {
 		Ok(Batch {
 			batch,
-			msg: self.runtime.batch_message(batch).await?.context("invalid batch id")?,
-			task: self.runtime.batch_task(batch).await?.context("invalid batch id")?,
-			tx: self.runtime.batch_tx_hash(batch).await?,
+			msg: self
+				.runtime
+				.batch_message(batch, block_hash)
+				.await?
+				.context("invalid batch id")?,
+			task: self.runtime.batch_task(batch, block_hash).await?.context("invalid batch id")?,
+			tx: self.runtime.batch_tx_hash(batch, block_hash).await?,
 		})
 	}
 
-	pub async fn message(&self, message: MessageId) -> Result<Message> {
+	pub async fn message(&self, message: MessageId, block_hash: BlockHash) -> Result<Message> {
 		Ok(Message {
 			message,
-			recv: self.runtime.message_received_task(message).await?,
-			batch: self.runtime.message_batch(message).await?,
-			exec: self.runtime.message_executed_task(message).await?,
+			recv: self.runtime.message_received_task(message, block_hash).await?,
+			batch: self.runtime.message_batch(message, block_hash).await?,
+			exec: self.runtime.message_executed_task(message, block_hash).await?,
 		})
 	}
 
-	pub async fn is_message_executed(&self, message: MessageId) -> Result<bool> {
-		Ok(self.runtime.message_executed_task(message).await?.is_some())
+	pub async fn is_message_executed(
+		&self,
+		message: MessageId,
+		block_hash: BlockHash,
+	) -> Result<bool> {
+		Ok(self.runtime.message_executed_task(message, block_hash).await?.is_some())
 	}
 
-	pub async fn is_task_executed(&self, task: TaskId) -> Result<bool> {
-		Ok(self.runtime.task_output(task).await?.is_some())
+	pub async fn is_task_executed(&self, task: TaskId, block_hash: BlockHash) -> Result<bool> {
+		Ok(self.runtime.task_output(task, block_hash).await?.is_some())
+	}
+
+	pub async fn is_batch_executed(&self, batch: BatchId, block_hash: BlockHash) -> Result<bool> {
+		Ok(self.runtime.batch_tx_hash(batch, block_hash).await?.is_some())
 	}
 
 	pub async fn message_trace(
 		&self,
 		network: NetworkId,
 		message: MessageId,
+		block_hash: BlockHash,
 	) -> Result<MessageTrace> {
-		let msg = self.message(message).await?;
-		let src = self.sync_status(network).await?;
-		let recv = if let Some(recv) = msg.recv { Some(self.task(recv).await?) } else { None };
+		let msg = self.message(message, block_hash).await?;
+		let src = self.sync_status(network, block_hash).await?;
+		let recv =
+			if let Some(recv) = msg.recv { Some(self.task(recv, block_hash).await?) } else { None };
 		let (dest, submit) = if let Some(batch) = msg.batch {
-			let batch = self.batch(batch).await?;
-			let submit = self.task(batch.task).await?;
+			let batch = self.batch(batch, block_hash).await?;
+			let submit = self.task(batch.task, block_hash).await?;
 
 			if let Some(Err(err)) = submit.output.clone() {
 				anyhow::bail!("Submit task {} failed with error: {}", submit.task, err);
 			}
 
-			let dest = self.sync_status(submit.network).await?;
+			let dest = self.sync_status(submit.network, block_hash).await?;
 			(Some(dest), Some(submit))
 		} else {
 			(None, None)
 		};
-		let exec = if let Some(exec) = msg.exec { Some(self.task(exec).await?) } else { None };
+		let exec =
+			if let Some(exec) = msg.exec { Some(self.task(exec, block_hash).await?) } else { None };
 		Ok(MessageTrace {
 			message,
 			src,
@@ -703,12 +770,14 @@ impl Tc {
 }
 
 impl Tc {
-	async fn register_network(&self, network: NetworkId) -> Result<Gateway> {
+	async fn register_network(&self, network: NetworkId, block_hash: BlockHash) -> Result<Gateway> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
-		let gateway = if let Some(gateway) = self.runtime.network_gateway(network).await? {
-			self.set_network_config(network, None).await?;
+		let gateway = if let Some(gateway) =
+			self.runtime.network_gateway(network, block_hash).await?
+		{
+			self.set_network_config(network, None, block_hash).await?;
 			gateway
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
@@ -750,7 +819,8 @@ impl Tc {
 	pub async fn set_network_config(
 		&self,
 		network: NetworkId,
-		additional_contract: Option<Address32>,
+		additional_contract: Option<Address>,
+		block_hash: BlockHash,
 	) -> Result<()> {
 		let config = self.config.network(network)?;
 		let mut cctp_contracts =
@@ -780,14 +850,14 @@ impl Tc {
 			cctp_url: cctp_url.clone(),
 		};
 
-		let batch_size = self.runtime.network_batch_size(network).await?;
-		let batch_offset = self.runtime.network_batch_offset(network).await?;
-		let batch_gas_limit = self.runtime.network_batch_gas_limit(network).await?;
-		let shard_task_limit = self.runtime.network_shard_task_limit(network).await?;
-		let shard_size = self.runtime.network_shard_size(network).await?;
-		let shard_threshold = self.runtime.network_shard_threshold(network).await?;
-		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network).await?;
-		let runtime_cctp_url = self.runtime.get_cctp_url(network).await?;
+		let batch_size = self.runtime.network_batch_size(network, block_hash).await?;
+		let batch_offset = self.runtime.network_batch_offset(network, block_hash).await?;
+		let batch_gas_limit = self.runtime.network_batch_gas_limit(network, block_hash).await?;
+		let shard_task_limit = self.runtime.network_shard_task_limit(network, block_hash).await?;
+		let shard_size = self.runtime.network_shard_size(network, block_hash).await?;
+		let shard_threshold = self.runtime.network_shard_threshold(network, block_hash).await?;
+		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network, block_hash).await?;
+		let runtime_cctp_url = self.runtime.get_cctp_url(network, block_hash).await?;
 
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset
@@ -845,10 +915,10 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_all_routes(&self) -> Result<()> {
+	pub async fn register_all_routes(&self, block_hash: BlockHash) -> Result<()> {
 		let gateways = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
-			let fut = self.gateway(network);
+			let fut = self.gateway(network, block_hash);
 			gateways.push(async move {
 				let (_, gateway) = fut.await?;
 				Ok::<_, anyhow::Error>((network, gateway))
@@ -874,11 +944,15 @@ impl Tc {
 		})
 	}
 
-	async fn chronicle_status(&self, account: &AccountId) -> Result<ChronicleStatus> {
-		if !self.runtime.member_registered(account).await? {
+	async fn chronicle_status(
+		&self,
+		account: &AccountId,
+		block_hash: BlockHash,
+	) -> Result<ChronicleStatus> {
+		if !self.runtime.member_registered(account, block_hash).await? {
 			return Ok(ChronicleStatus::Unregistered);
 		}
-		if !self.runtime.member_online(account).await? {
+		if !self.runtime.member_online(account, block_hash).await? {
 			return Ok(ChronicleStatus::Registered);
 		}
 		Ok(ChronicleStatus::Online)
@@ -906,9 +980,10 @@ impl Tc {
 		network: NetworkId,
 		public_key: PublicKey,
 		peer_id: PeerId,
+		block_hash: BlockHash,
 	) -> Result<()> {
 		let member = public_key.clone().into_account();
-		if self.runtime.member_registered(&member).await? {
+		if self.runtime.member_registered(&member, block_hash).await? {
 			return Ok(());
 		}
 		self.println(
@@ -920,8 +995,8 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn unregister_member(&self, member: AccountId) -> Result<()> {
-		if !self.runtime.member_registered(&member).await? {
+	pub async fn unregister_member(&self, member: AccountId, block_hash: BlockHash) -> Result<()> {
+		if !self.runtime.member_registered(&member, block_hash).await? {
 			return Ok(());
 		}
 		self.println(
@@ -933,8 +1008,8 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn force_shard_offline(&self, shard: ShardId) -> Result<()> {
-		if matches!(self.runtime.shard_status(shard).await?, ShardStatus::Offline) {
+	pub async fn force_shard_offline(&self, shard: ShardId, block_hash: BlockHash) -> Result<()> {
+		if matches!(self.runtime.shard_status(shard, block_hash).await?, ShardStatus::Offline) {
 			return Ok(());
 		}
 		self.println(None, format!("force_shard_offline {}", shard)).await?;
@@ -949,20 +1024,29 @@ impl Tc {
 }
 
 impl Tc {
-	pub async fn deploy_network(&self, network: NetworkId) -> Result<Gateway> {
+	pub async fn deploy_network(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<Gateway> {
 		let config = self.config.network(network)?;
-		self.faucet(network).await?;
-		let gateway = self.register_network(network).await?;
+		self.faucet(network, block_hash).await?;
+		let gateway = self.register_network(network, block_hash).await?;
 		let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
-		self.fund(Some(network), gateway, gateway_funds, "gateway").await?;
+		self.fund(Some(network), gateway, gateway_funds, "gateway", block_hash).await?;
 		Ok(gateway)
 	}
 
-	pub async fn deploy_chronicle(&self, chronicle: &str) -> Result<()> {
+	pub async fn deploy_chronicle(&self, chronicle: &str, block_hash: BlockHash) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
 		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
-		let fund_tc =
-			self.fund(None, chronicle.account.clone().into(), funds, "chronicle timechain account");
+		let fund_tc = self.fund(
+			None,
+			chronicle.account.clone().into(),
+			funds,
+			"chronicle timechain account",
+			block_hash,
+		);
 		let config = self.config.network(chronicle.network)?;
 		let chronicle_funds =
 			self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
@@ -971,20 +1055,26 @@ impl Tc {
 			chronicle.address,
 			chronicle_funds,
 			"chronicle target account",
+			block_hash,
 		);
 		let (result_tc, result_target) = futures::future::join(fund_tc, fund_target).await;
 		result_tc?;
 		result_target?;
-		self.register_member(chronicle.network, chronicle.public_key, chronicle.peer_id)
-			.await?;
+		self.register_member(
+			chronicle.network,
+			chronicle.public_key,
+			chronicle.peer_id,
+			block_hash,
+		)
+		.await?;
 		Ok(())
 	}
 
-	pub async fn deploy(&self) -> Result<()> {
+	pub async fn deploy(&self, block_hash: BlockHash) -> Result<()> {
 		let mut deploy_network = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
 			deploy_network.push(async move {
-				let gateway = self.deploy_network(network).await?;
+				let gateway = self.deploy_network(network, block_hash).await?;
 				Ok::<_, anyhow::Error>((network, gateway))
 			});
 		}
@@ -998,7 +1088,7 @@ impl Tc {
 
 		let mut deploy_chronicle = FuturesUnordered::new();
 		for chronicle in self.config.chronicles() {
-			deploy_chronicle.push(self.deploy_chronicle(chronicle));
+			deploy_chronicle.push(self.deploy_chronicle(chronicle, block_hash));
 		}
 		while let Some(result) = deploy_chronicle.next().await {
 			result?;
@@ -1006,11 +1096,11 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_online_shards(&self) -> Result<()> {
+	pub async fn register_online_shards(&self, block_hash: BlockHash) -> Result<()> {
 		let mut register_shards = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
-			let keys = self.find_online_shard_keys(network).await?;
-			register_shards.push(self.register_shards(network, keys));
+			let keys = self.find_online_shard_keys(network, block_hash).await?;
+			register_shards.push(self.register_shards(network, keys, block_hash));
 		}
 		while let Some(result) = register_shards.next().await {
 			result?;
@@ -1018,8 +1108,13 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_shards(&self, network: NetworkId, keys: Vec<TssPublicKey>) -> Result<()> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn register_shards(
+		&self,
+		network: NetworkId,
+		keys: Vec<TssPublicKey>,
+		block_hash: BlockHash,
+	) -> Result<()> {
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let shards = connector.shards(gateway).await?;
 		if same(&keys, &shards) {
 			return Ok(());
@@ -1028,8 +1123,13 @@ impl Tc {
 		connector.set_shards(gateway, &keys).await
 	}
 
-	pub async fn set_gateway_admin(&self, network: NetworkId, admin: Address32) -> Result<()> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn set_gateway_admin(
+		&self,
+		network: NetworkId,
+		admin: Address,
+		block_hash: BlockHash,
+	) -> Result<()> {
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		if connector.admin(gateway).await? == admin {
 			return Ok(());
 		}
@@ -1042,8 +1142,8 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn redeploy_gateway(&self, network: NetworkId) -> Result<()> {
-		let (connector, gateway) = self.gateway(network).await?;
+	pub async fn redeploy_gateway(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let contracts = self.config.contracts(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
 		connector
@@ -1052,9 +1152,13 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn deploy_tester(&self, network: NetworkId) -> Result<(Address32, u64)> {
+	pub async fn deploy_tester(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<(Address, u64)> {
 		let contracts = self.config.contracts(network)?;
-		let (connector, gateway) = self.gateway(network).await?;
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
 		let tester = connector.deploy_test(gateway, &contracts.tester).await?;
 		self.println(
@@ -1089,8 +1193,9 @@ impl Tc {
 		dest_network: NetworkId,
 		gas_limit: u128,
 		payload: Vec<u8>,
+		block_hash: BlockHash,
 	) -> Result<u128> {
-		let (connector, gateway) = self.gateway(src_network).await?;
+		let (connector, gateway) = self.gateway(src_network, block_hash).await?;
 		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
 	}
 
@@ -1146,10 +1251,17 @@ impl Tc {
 		self.runtime.remove_task(task_id).await
 	}
 
-	pub async fn complete_batch(&self, batch_id: BatchId) -> Result<()> {
-		let task_id = self.runtime.batch_task(batch_id).await?.context("batch task not found")?;
-		let network =
-			self.runtime.task_network(task_id).await?.context("task network not found")?;
+	pub async fn complete_batch(&self, batch_id: BatchId, block_hash: BlockHash) -> Result<()> {
+		let task_id = self
+			.runtime
+			.batch_task(batch_id, block_hash)
+			.await?
+			.context("batch task not found")?;
+		let network = self
+			.runtime
+			.task_network(task_id, block_hash)
+			.await?
+			.context("task network not found")?;
 		let gmp_event = GmpEvent::BatchExecuted { batch_id, tx_hash: None };
 		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
 		self.runtime.submit_gmp_events(network, events).await
@@ -1160,8 +1272,9 @@ impl Tc {
 		network: NetworkId,
 		amount: u128,
 		address: Address32,
+		block_hash: BlockHash,
 	) -> Result<()> {
-		let (connector, gateway) = self.gateway(network).await?;
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		self.println(
 			None,
 			format!(
@@ -1174,11 +1287,14 @@ impl Tc {
 		connector.withdraw_funds(gateway, amount, address).await
 	}
 
-	async fn deploy_testers(&self) -> Result<HashMap<NetworkId, (Address32, u64)>> {
+	async fn deploy_testers(
+		&self,
+		block_hash: BlockHash,
+	) -> Result<HashMap<NetworkId, (Address, u64)>> {
 		let mut deploy_tester = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
 			deploy_tester.push(async move {
-				let tester = self.deploy_tester(network).await?;
+				let tester = self.deploy_tester(network, block_hash).await?;
 				Ok::<_, anyhow::Error>((network, tester))
 			});
 		}
@@ -1194,8 +1310,10 @@ impl Tc {
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
 		loop {
-			blocks.next().await;
-			let chronicles = self.chronicles().await?;
+			let Some((hash, _)) = blocks.next().await else {
+				continue;
+			};
+			let chronicles = self.chronicles(hash).await?;
 			let online = chronicles.iter().all(|c| c.status == ChronicleStatus::Online);
 			tracing::info!("waiting for chronicles to be registered");
 			id = Some(self.print_table(id, "chronicles", chronicles).await?);
@@ -1224,12 +1342,13 @@ impl Tc {
 			let num_shards = chronicles / shard_size;
 			shards_per_network.insert(network, num_shards);
 			loop {
-				let keys = self.find_online_shard_keys(network).await?;
+				let Some((hash, _)) = blocks.next().await else { continue };
+				let keys = self.find_online_shard_keys(network, hash).await?;
 				if keys.len() == num_shards as usize {
-					register_shards.push(self.register_shards(network, keys));
+					register_shards.push(self.register_shards(network, keys, hash));
 					break;
 				}
-				let shards = self.shards().await?;
+				let shards = self.shards(hash).await?;
 				id = Some(self.print_table(id, "shards", shards).await?);
 				tracing::info!(
 					"waiting for {}/{} shards to come online for {}",
@@ -1237,7 +1356,6 @@ impl Tc {
 					num_shards,
 					network
 				);
-				blocks.next().await;
 			}
 		}
 
@@ -1247,7 +1365,8 @@ impl Tc {
 
 		for (network, num_shards) in shards_per_network {
 			loop {
-				let shards = self.shards().await?;
+				let Some((hash, _)) = blocks.next().await else { continue };
+				let shards = self.shards(hash).await?;
 				let num_registered = shards
 					.iter()
 					.filter(|shard| shard.network == network && shard.registered)
@@ -1262,23 +1381,24 @@ impl Tc {
 					num_shards,
 					network
 				);
-				blocks.next().await;
 			}
 		}
 		Ok(())
 	}
 
-	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address32, u64)>> {
-		self.deploy().await?;
-		let testers = self.deploy_testers().await?;
+	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+		let (block_hash, _) = self.latest_block().await?;
+		self.deploy(block_hash).await?;
+		let (block_hash, _) = self.latest_block().await?;
+		let testers = self.deploy_testers(block_hash).await?;
 		self.register_all_shards().await?;
 		Ok(testers)
 	}
 
 	pub async fn wait_for_sync(&self, network: NetworkId) -> Result<()> {
 		let mut blocks = self.finality_notification_stream();
-		while blocks.next().await.is_some() {
-			let status = self.sync_status(network).await?;
+		while let Some((hash, _)) = blocks.next().await {
+			let status = self.sync_status(network, hash).await?;
 			tracing::info!(
 				"waiting for network {network} to sync {} / {}",
 				status.sync,
@@ -1332,14 +1452,15 @@ impl Tc {
 		connector.load_state(state).await
 	}
 
-	pub async fn assert_reimbursement(&self) -> Result<()> {
+	pub async fn assert_reimbursement(&self, block_hash: BlockHash) -> Result<()> {
 		// all chronicles should have the configured balance
 		for chronicle in self.config.chronicles() {
 			let chronicle = self.chronicle_config(chronicle).await?;
 			let config = self.config.network(chronicle.network)?;
 			let chronicle_funds =
 				self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
-			let balance = self.balance(Some(chronicle.network), chronicle.address).await?;
+			let balance =
+				self.balance(Some(chronicle.network), chronicle.address, block_hash).await?;
 			tracing::info!(
 				"initial chronicle balance {}",
 				self.format_balance(Some(chronicle.network), chronicle_funds)?
@@ -1363,11 +1484,11 @@ impl Tc {
 		Ok(total_funds)
 	}
 
-	pub async fn total_gateway_balance(&self) -> Result<f64> {
+	pub async fn total_gateway_balance(&self, block_hash: BlockHash) -> Result<f64> {
 		let mut total_balance = 0.;
 		for network in self.connectors.keys().copied() {
-			let (_connector, gateway) = self.gateway(network).await?;
-			let balance = self.balance(Some(network), gateway).await?;
+			let (_connector, gateway) = self.gateway(network, block_hash).await?;
+			let balance = self.balance(Some(network), gateway, block_hash).await?;
 			total_balance += self.balance_to_usd(network, balance)?;
 		}
 		Ok(total_balance)
@@ -1380,13 +1501,16 @@ impl Tc {
 		testers: &HashMap<NetworkId, (Address32, u64)>,
 		payload: Vec<u8>,
 	) -> Result<GmpMessage> {
+		let mut blocks = self.finality_notification_stream();
+		let (hash, _) = blocks.next().await.context("expected block")?;
 		// prepare
 		let src_addr = testers.get(&src).context("missing tester")?.0;
 		let dest_addr = testers.get(&dest).context("missing tester")?.0;
 		let gas_limit = self
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 			.await?;
-		let gas_cost = self.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
+		let gas_cost =
+			self.estimate_message_cost(src, dest, gas_limit, payload.clone(), hash).await?;
 
 		// send message
 		let mut blocks = self.finality_notification_stream();
@@ -1398,8 +1522,8 @@ impl Tc {
 		// track message
 		let mut id = None;
 		let (exec, end) = loop {
-			let (_, end) = blocks.next().await.context("expected block")?;
-			let trace = self.message_trace(src, msg_id).await?;
+			let (hash, end) = blocks.next().await.context("expected block")?;
+			let trace = self.message_trace(src, msg_id, hash).await?;
 			let exec = trace.exec.as_ref().map(|t| t.task);
 			tracing::info!("waiting for message {}", hex::encode(msg_id));
 			id = Some(self.print_table(id, "message", vec![trace]).await?);
@@ -1409,7 +1533,8 @@ impl Tc {
 		};
 
 		// read message
-		let blocks = self.read_events_blocks(exec).await?;
+		let (hash, _) = blocks.next().await.context("expected block")?;
+		let blocks = self.read_events_blocks(exec, hash).await?;
 		let msgs = self.messages(dest, dest_addr, blocks).await?;
 		let msg = msgs
 			.into_iter()

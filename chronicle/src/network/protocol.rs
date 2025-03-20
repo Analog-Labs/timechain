@@ -62,12 +62,12 @@ impl TssEndpoint {
 				"waiting for peer id to be registered",
 			);
 			let addr = match endpoint.resolve(peer_id).await {
-				Ok(addr) => { addr }
+				Ok(addr) => addr,
 				Err(e) => {
 					tracing::warn!("FAILED to resolve peer_id: {e}");
 					tokio::time::sleep(Duration::from_secs(1)).await;
 					continue;
-				}
+				},
 			};
 			let dbg = endpoint.addr().await?.info;
 			if addr != dbg {

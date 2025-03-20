@@ -7,8 +7,8 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address32, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest, MAX_GMP_EVENTS,
+	Address32, BlockHash, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector,
+	NetworkId, ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest, MAX_GMP_EVENTS,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -64,6 +64,7 @@ impl TaskParams {
 
 	async fn is_executable(
 		&self,
+		block_hash: BlockHash,
 		task_id: TaskId,
 		task: &Task,
 		target_block_height: u64,
@@ -82,7 +83,8 @@ impl TaskParams {
 			return Ok(false);
 		}
 		if task.needs_signer() {
-			let Some(public_key) = self.runtime.get_task_submitter(task_id).await? else {
+			let Some(public_key) = self.runtime.get_task_submitter(task_id, block_hash).await?
+			else {
 				tracing::debug!(
 					parent: span,
 					"no submitter set for task",
@@ -118,6 +120,7 @@ impl TaskParams {
 	#[allow(clippy::too_many_arguments)]
 	async fn execute(
 		self,
+		block_hash: BlockHash,
 		block_number: BlockNumber,
 		cctp_info: Option<(Vec<Address32>, String)>,
 		network_id: NetworkId,
@@ -153,14 +156,20 @@ impl TaskParams {
 				}
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
-				let msg =
-					self.runtime.get_batch_message(batch_id).await?.context("invalid task")?;
+				let msg = self
+					.runtime
+					.get_batch_message(batch_id, block_hash)
+					.await?
+					.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
 				let signature =
 					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
-				let signer =
-					self.runtime.get_shard_commitment(shard_id).await?.context("invalid shard")?.0
-						[0];
+				let signer = self
+					.runtime
+					.get_shard_commitment(shard_id, block_hash)
+					.await?
+					.context("invalid shard")?
+					.0[0];
 				if let Err(mut e) =
 					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
 				{
@@ -194,6 +203,7 @@ impl TaskExecutor {
 	#[tracing::instrument(skip(self))]
 	pub async fn process_tasks(
 		&mut self,
+		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
 		target_block_height: u64,
@@ -203,12 +213,12 @@ impl TaskExecutor {
 		let gateway = self
 			.params
 			.runtime
-			.get_gateway(network)
+			.get_gateway(network, block_hash)
 			.await?
 			.context("no gateway registered")?;
-		let cctp_info = self.params.runtime.get_cctp_info(network).await?;
+		let cctp_info = self.params.runtime.get_cctp_info(network, block_hash).await?;
 		let mut start_sessions = vec![];
-		let tasks = self.params.runtime.get_shard_tasks(shard_id).await?;
+		let tasks = self.params.runtime.get_shard_tasks(shard_id, block_hash).await?;
 
 		let failed_tasks: Arc<Mutex<u64>> = Default::default();
 		for task_id in tasks.iter().copied() {
@@ -217,8 +227,17 @@ impl TaskExecutor {
 			if self.running_tasks.contains_key(&task_id) {
 				continue;
 			}
-			let task = self.params.runtime.get_task(task_id).await?.context("invalid task")?;
-			if !self.params.is_executable(task_id, &task, target_block_height, span).await? {
+			let task = self
+				.params
+				.runtime
+				.get_task(task_id, block_hash)
+				.await?
+				.context("invalid task")?;
+			if !self
+				.params
+				.is_executable(block_hash, task_id, &task, target_block_height, span)
+				.await?
+			{
 				continue;
 			}
 
@@ -234,6 +253,7 @@ impl TaskExecutor {
 			let handle = tokio::task::spawn(async move {
 				match exec
 					.execute(
+						block_hash,
 						block_number,
 						cctp_info,
 						network,

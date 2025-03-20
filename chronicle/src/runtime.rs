@@ -14,41 +14,69 @@ pub trait Runtime: Send + Sync + 'static {
 
 	fn account_id(&self) -> &AccountId;
 
-	async fn balance(&self, account: &AccountId) -> Result<u128>;
+	async fn balance(&self, account: &AccountId, block: BlockHash) -> Result<u128>;
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
 	fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)>;
 
-	async fn is_registered(&self) -> Result<bool>;
+	async fn is_registered(&self, block: BlockHash) -> Result<bool>;
 
-	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>>;
+	async fn get_network(
+		&self,
+		network: NetworkId,
+		block: BlockHash,
+	) -> Result<Option<(ChainName, ChainNetwork)>>;
 
-	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>>;
+	async fn get_member_peer_id(
+		&self,
+		account: &AccountId,
+		block: BlockHash,
+	) -> Result<Option<PeerId>>;
 
-	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber>;
+	async fn get_heartbeat_timeout(&self, block: BlockHash) -> Result<BlockNumber>;
 
-	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>>;
+	async fn get_shards(&self, account: &AccountId, block: BlockHash) -> Result<Vec<ShardId>>;
 
-	async fn get_shard_members(&self, shard_id: ShardId) -> Result<Vec<(AccountId, MemberStatus)>>;
+	async fn get_shard_members(
+		&self,
+		shard_id: ShardId,
+		block: BlockHash,
+	) -> Result<Vec<(AccountId, MemberStatus)>>;
 
-	async fn get_shard_threshold(&self, shard_id: ShardId) -> Result<u16>;
+	async fn get_shard_threshold(&self, shard_id: ShardId, block: BlockHash) -> Result<u16>;
 
-	async fn get_shard_status(&self, shard_id: ShardId) -> Result<ShardStatus>;
+	async fn get_shard_status(&self, shard_id: ShardId, block: BlockHash) -> Result<ShardStatus>;
 
-	async fn get_shard_commitment(&self, shard_id: ShardId) -> Result<Option<Commitment>>;
+	async fn get_shard_commitment(
+		&self,
+		shard_id: ShardId,
+		block: BlockHash,
+	) -> Result<Option<Commitment>>;
 
-	async fn get_shard_tasks(&self, shard_id: ShardId) -> Result<Vec<TaskId>>;
+	async fn get_shard_tasks(&self, shard_id: ShardId, block: BlockHash) -> Result<Vec<TaskId>>;
 
-	async fn get_task(&self, task_id: TaskId) -> Result<Option<Task>>;
+	async fn get_task(&self, task_id: TaskId, block: BlockHash) -> Result<Option<Task>>;
 
-	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>>;
+	async fn get_task_submitter(
+		&self,
+		task_id: TaskId,
+		block: BlockHash,
+	) -> Result<Option<PublicKey>>;
 
-	async fn get_batch_message(&self, batch_id: BatchId) -> Result<Option<GatewayMessage>>;
+	async fn get_batch_message(
+		&self,
+		batch_id: BatchId,
+		block: BlockHash,
+	) -> Result<Option<GatewayMessage>>;
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>>;
+	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>>;
 
-	async fn get_cctp_info(&self, network: NetworkId) -> Result<Option<(Vec<Address32>, String)>>;
+	async fn get_cctp_info(
+		&self,
+		network: NetworkId,
+		block: BlockHash,
+	) -> Result<Option<(Vec<Address32>, String)>>;
 
 	async fn submit_heartbeat(&self) -> Result<()>;
 
@@ -74,8 +102,8 @@ impl Runtime for SubxtClient {
 		self.account_id()
 	}
 
-	async fn balance(&self, account: &AccountId) -> Result<u128> {
-		self.balance(account).await
+	async fn balance(&self, account: &AccountId, block: BlockHash) -> Result<u128> {
+		self.balance(account, block).await
 	}
 
 	fn block_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {
@@ -86,65 +114,93 @@ impl Runtime for SubxtClient {
 		self.finality_notification_stream()
 	}
 
-	async fn is_registered(&self) -> Result<bool> {
-		Ok(self.member_registered(self.account_id()).await?)
+	async fn is_registered(&self, block: BlockHash) -> Result<bool> {
+		Ok(self.member_registered(self.account_id(), block).await?)
 	}
 
-	async fn get_network(&self, network: NetworkId) -> Result<Option<(ChainName, ChainNetwork)>> {
-		self.network_name(network).await
+	async fn get_network(
+		&self,
+		network: NetworkId,
+		block: BlockHash,
+	) -> Result<Option<(ChainName, ChainNetwork)>> {
+		self.network_name(network, block).await
 	}
 
-	async fn get_member_peer_id(&self, account: &AccountId) -> Result<Option<PeerId>> {
-		self.member_peer_id(account).await
+	async fn get_member_peer_id(
+		&self,
+		account: &AccountId,
+		block: BlockHash,
+	) -> Result<Option<PeerId>> {
+		self.member_peer_id(account, block).await
 	}
 
-	async fn get_heartbeat_timeout(&self) -> Result<BlockNumber> {
-		self.heartbeat_timeout().await
+	async fn get_heartbeat_timeout(&self, block: BlockHash) -> Result<BlockNumber> {
+		self.heartbeat_timeout(block).await
 	}
 
-	async fn get_shards(&self, account: &AccountId) -> Result<Vec<ShardId>> {
-		self.member_shards(account).await
+	async fn get_shards(&self, account: &AccountId, block: BlockHash) -> Result<Vec<ShardId>> {
+		self.member_shards(account, block).await
 	}
 
-	async fn get_shard_members(&self, shard: ShardId) -> Result<Vec<(AccountId, MemberStatus)>> {
-		self.shard_members(shard).await
+	async fn get_shard_members(
+		&self,
+		shard: ShardId,
+		block: BlockHash,
+	) -> Result<Vec<(AccountId, MemberStatus)>> {
+		self.shard_members(shard, block).await
 	}
 
-	async fn get_shard_threshold(&self, shard: ShardId) -> Result<u16> {
-		self.shard_threshold(shard).await
+	async fn get_shard_threshold(&self, shard: ShardId, block: BlockHash) -> Result<u16> {
+		self.shard_threshold(shard, block).await
 	}
 
-	async fn get_shard_status(&self, shard: ShardId) -> Result<ShardStatus> {
-		self.shard_status(shard).await
+	async fn get_shard_status(&self, shard: ShardId, block: BlockHash) -> Result<ShardStatus> {
+		self.shard_status(shard, block).await
 	}
 
-	async fn get_shard_commitment(&self, shard: ShardId) -> Result<Option<Commitment>> {
-		self.shard_commitment(shard).await
+	async fn get_shard_commitment(
+		&self,
+		shard: ShardId,
+		block: BlockHash,
+	) -> Result<Option<Commitment>> {
+		self.shard_commitment(shard, block).await
 	}
 
-	async fn get_shard_tasks(&self, shard: ShardId) -> Result<Vec<TaskId>> {
-		self.assigned_tasks(shard).await
+	async fn get_shard_tasks(&self, shard: ShardId, block: BlockHash) -> Result<Vec<TaskId>> {
+		self.assigned_tasks(shard, block).await
 	}
 
-	async fn get_task(&self, task_id: TaskId) -> Result<Option<Task>> {
-		self.task(task_id).await
+	async fn get_task(&self, task_id: TaskId, block: BlockHash) -> Result<Option<Task>> {
+		self.task(task_id, block).await
 	}
 
-	async fn get_batch_message(&self, batch: BatchId) -> Result<Option<GatewayMessage>> {
-		self.batch_message(batch).await
+	async fn get_batch_message(
+		&self,
+		batch: BatchId,
+		block: BlockHash,
+	) -> Result<Option<GatewayMessage>> {
+		self.batch_message(batch, block).await
 	}
 
-	async fn get_task_submitter(&self, task_id: TaskId) -> Result<Option<PublicKey>> {
-		self.task_submitter(task_id).await
+	async fn get_task_submitter(
+		&self,
+		task_id: TaskId,
+		block: BlockHash,
+	) -> Result<Option<PublicKey>> {
+		self.task_submitter(task_id, block).await
 	}
 
-	async fn get_gateway(&self, network: NetworkId) -> Result<Option<Gateway>> {
-		self.network_gateway(network).await
+	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>> {
+		self.network_gateway(network, block).await
 	}
 
-	async fn get_cctp_info(&self, network: NetworkId) -> Result<Option<(Vec<Address32>, String)>> {
-		let contracts_opt = self.get_cctp_contracts(network).await?;
-		let url_opt = self.get_cctp_url(network).await?;
+	async fn get_cctp_info(
+		&self,
+		network: NetworkId,
+		block: BlockHash,
+	) -> Result<Option<(Vec<Address32>, String)>> {
+		let contracts_opt = self.get_cctp_contracts(network, block).await?;
+		let url_opt = self.get_cctp_url(network, block).await?;
 
 		match (contracts_opt, url_opt) {
 			(Some(contracts), Some(url)) => {

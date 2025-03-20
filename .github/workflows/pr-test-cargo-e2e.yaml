@@ -7,22 +7,42 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-cargo:
-    if: false
-    runs-on: [self-hosted, general]
+    runs-on: [self-hosted, integration]
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Setup Rust cache
+        uses: actions/cache@v4
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build dev containers
+        run: |
+          ./scripts/build_docker.sh
+
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features --no-run
+          args: -p e2e-tests --no-run
+
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features -p timechain --tests
+          args: -p e2e-tests
           cache: false
           annotate: false
+
+      - name: Cleanup working dir
+        if: ${{ always() }}
+        uses: eviden-actions/clean-self-hosted-runner@v1

@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::path::Path;
 use tc_cli::{
 	config::{ConfigYaml, ContractsConfig, GlobalConfig, NetworkConfig},
-	Backend, Config, Mnemonics, NetworkId, Sender, Tc,
+	Config, Mnemonics, NetworkId, Sender, Tc,
 };
 use tempfile::TempDir;
 use testcontainers::{
@@ -13,9 +13,11 @@ use testcontainers::{
 	runners::AsyncRunner,
 	GenericImage, ImageExt,
 };
+use time_primitives::{Address, GmpMessage};
 use tracing_subscriber::filter::EnvFilter;
 
 pub type Container = ContainerAsync<GenericImage>;
+pub use tc_cli::Backend;
 
 pub struct TestEnvBuilder {
 	temp: TempDir,
@@ -260,13 +262,34 @@ impl TestEnvBuilder {
 		)
 		.await
 		.context("Error creating Tc client")?;
+		let testers = tc.setup_test().await?;
 		Ok(TestEnv {
 			_temp: self.temp,
 			validator: self.validator,
 			chains: self.chains,
 			chronicles: self.chronicles,
 			tc,
+			testers,
 		})
+	}
+
+	pub async fn setup(backend: Backend, shard_size: u16, shard_threshold: u16) -> Result<TestEnv> {
+		let mut builder = TestEnvBuilder::new().await?;
+		match backend {
+			Backend::Evm => {
+				builder.add_evm(0, shard_size, shard_threshold).await?;
+				builder.add_evm(1, shard_size, shard_threshold).await?;
+			},
+			Backend::Grpc => {
+				builder.add_grpc(0, shard_size, shard_threshold).await?;
+				builder.add_grpc(1, shard_size, shard_threshold).await?;
+			},
+			Backend::Rust => {
+				anyhow::bail!("unsupported backend {backend}");
+			},
+		}
+		let tc = builder.build().await?;
+		Ok(tc)
 	}
 }
 
@@ -276,9 +299,20 @@ pub struct TestEnv {
 	chains: HashMap<NetworkId, Container>,
 	chronicles: HashMap<NetworkId, Vec<Container>>,
 	tc: Tc,
+	testers: HashMap<NetworkId, (Address, u64)>,
 }
 
 impl TestEnv {
+	/// Returns the testers
+	pub fn testers(&self) -> &HashMap<NetworkId, (Address, u64)> {
+		&self.testers
+	}
+
+	/// Runs a smoke test
+	pub async fn smoke_test(&self, payload: Vec<u8>) -> Result<GmpMessage> {
+		self.exec_smoke(0, 1, &self.testers, payload).await
+	}
+
 	/// Returns the validator container
 	pub fn validator_container(&self) -> &Container {
 		&self.validator

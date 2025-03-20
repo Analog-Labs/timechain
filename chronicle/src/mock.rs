@@ -6,7 +6,6 @@ use polkadot_sdk::sp_runtime::BoundedVec;
 use schnorr_evm::k256::ProjectivePoint;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tc_subxt::BlockHash;
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
 	sr25519, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,

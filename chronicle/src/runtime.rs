@@ -199,7 +199,7 @@ impl Runtime for SubxtClient {
 		network: NetworkId,
 		block: BlockHash,
 	) -> Result<Option<(Vec<Address>, String)>> {
-		let contracts_opt = self.get_cctp_contracts(network, block.clone()).await?;
+		let contracts_opt = self.get_cctp_contracts(network, block).await?;
 		let url_opt = self.get_cctp_url(network, block).await?;
 
 		match (contracts_opt, url_opt) {

@@ -130,7 +130,7 @@ pub async fn run_chronicle(
 	// Initialize connector
 	let (chain, subchain) = loop {
 		let Some((hash, _)) = ticker.next().await else { continue };
-		let network = substrate.get_network(config.network_id, hash.into()).await?;
+		let network = substrate.get_network(config.network_id, hash).await?;
 		if let Some(network) = network {
 			break network;
 		}
@@ -186,7 +186,7 @@ pub async fn run_chronicle(
 		.await?;
 	loop {
 		let Some((hash, _)) = ticker.next().await else { continue };
-		if substrate.is_registered(hash.into()).await? {
+		if substrate.is_registered(hash).await? {
 			break;
 		}
 		tracing::warn!(parent: &span, "chronicle isn't registered");

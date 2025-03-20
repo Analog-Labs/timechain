@@ -259,7 +259,7 @@ impl Tc {
 	pub async fn balance(
 		&self,
 		network: Option<NetworkId>,
-		address: Address,
+		address: Address32,
 		block_hash: BlockHash,
 	) -> Result<u128> {
 		if let Some(network) = network {
@@ -819,7 +819,7 @@ impl Tc {
 	pub async fn set_network_config(
 		&self,
 		network: NetworkId,
-		additional_contract: Option<Address>,
+		additional_contract: Option<Address32>,
 		block_hash: BlockHash,
 	) -> Result<()> {
 		let config = self.config.network(network)?;
@@ -1126,7 +1126,7 @@ impl Tc {
 	pub async fn set_gateway_admin(
 		&self,
 		network: NetworkId,
-		admin: Address,
+		admin: Address32,
 		block_hash: BlockHash,
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
@@ -1156,7 +1156,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		block_hash: BlockHash,
-	) -> Result<(Address, u64)> {
+	) -> Result<(Address32, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
@@ -1290,7 +1290,7 @@ impl Tc {
 	async fn deploy_testers(
 		&self,
 		block_hash: BlockHash,
-	) -> Result<HashMap<NetworkId, (Address, u64)>> {
+	) -> Result<HashMap<NetworkId, (Address32, u64)>> {
 		let mut deploy_tester = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
 			deploy_tester.push(async move {
@@ -1386,7 +1386,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address32, u64)>> {
 		let (block_hash, _) = self.latest_block().await?;
 		self.deploy(block_hash).await?;
 		let (block_hash, _) = self.latest_block().await?;

@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::collections::HashMap;
-use time_primitives::{Address, BlockHash, BlockNumber, MessageId, NetworkId};
+use time_primitives::{Address32, BlockHash, BlockNumber, MessageId, NetworkId};
 
 #[derive(Clone, Copy)]
 struct RouteStats {

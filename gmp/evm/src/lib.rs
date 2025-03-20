@@ -29,12 +29,7 @@ use sol::{
 	IExecutor::{self, IExecutorInstance},
 	TssKey,
 };
-use std::{
-	ops::Range,
-	pin::Pin,
-	process::Command,
-	sync::Arc,
-};
+use std::{ops::Range, pin::Pin, process::Command, sync::Arc};
 use thiserror::Error;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash,
@@ -128,19 +123,24 @@ impl IChain for Connector {
 	fn currency(&self) -> (u32, &str) {
 		(18, "ETH")
 	}
-	/// Uses a faucet to fund the account when possible.
+	/// Funds Connector's account
 	async fn faucet(&self, balance: u128) -> Result<()> {
-		let provider = ProviderBuilder::new().on_http(self.url.parse()?);
+		let ws = WsConnect::new(self.url.clone());
+		let provider = ProviderBuilder::new().on_ws(ws).await?;
+		let sponsor = provider
+			.get_accounts()
+			.await?
+			.first()
+			.ok_or(anyhow!("Node owns no account"))?
+			.to_owned();
 		let tx = TransactionRequest::default()
+			.with_from(sponsor)
+			.with_nonce(0)
 			.with_to(a_addr(self.address()))
 			.with_value(U256::from(balance))
 			.with_gas_limit(21_000);
-
 		let tx_hash = provider.send_transaction(tx).await?.watch().await?;
-		tracing::info!(
-			"Faucet sent {balance} to {}, tx_hash: {tx_hash}",
-			a_addr(self.address())
-		);
+		tracing::info!("Faucet sent {balance} to {}, tx_hash: {tx_hash}", a_addr(self.address()));
 
 		Ok(())
 	}

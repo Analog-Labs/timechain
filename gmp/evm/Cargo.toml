@@ -15,7 +15,6 @@ alloy = { version = "^0.12", features = [
     "rpc-types-trace",
     "json-rpc",
     "rpc-client",
-    "signer-ledger",
     "signer-mnemonic",
 ] }
 anyhow.workspace = true

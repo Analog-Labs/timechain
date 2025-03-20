@@ -373,6 +373,7 @@ where
 		loop {
 			futures::select! {
 				notification = block_notifications.next().fuse() => {
+					let _enter = span.enter();
 					let Some((_block_hash, block)) = notification else {
 						event!(
 							parent: span,

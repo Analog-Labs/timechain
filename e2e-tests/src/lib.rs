@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::ops::Deref;
+use std::path::Path;
 use tc_cli::{
 	config::{ConfigYaml, ContractsConfig, GlobalConfig, NetworkConfig},
 	Backend, Config, Mnemonics, NetworkId, Sender, Tc,
@@ -53,6 +54,9 @@ impl TestEnvBuilder {
 		let validator_host = validator.get_host().await?;
 		let validator_port = validator.get_host_port_ipv4(9944).await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
+		let workspace =
+			Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).parent().unwrap().to_path_buf();
+		tracing::info!("{}", workspace.display());
 		Ok(Self {
 			temp,
 			network,
@@ -70,10 +74,12 @@ impl TestEnvBuilder {
 					contracts.insert(
 						Backend::Evm,
 						ContractsConfig {
-							additional_params: "factory/additional_config.json".into(),
-							proxy: "contracts/GatewayProxy.sol/GatewayProxy.json".into(),
-							gateway: "contracts/Gateway.sol/Gateway.json".into(),
-							tester: "contracts/GmpProxy.sol/GmpProxy.json".into(),
+							additional_params: workspace
+								.join("gmp/evm/factory/additional_config.json"),
+							proxy: workspace
+								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
+							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
+							tester: workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
 						},
 					);
 					contracts
@@ -124,7 +130,7 @@ impl TestEnvBuilder {
 				gmp_margin: 0.,
 				shard_task_limit: 50,
 				route_gas_limit: 10_000_000,
-				route_base_fee: 0,
+				route_base_fee: 1_400_000_000,
 				shard_size,
 				shard_threshold,
 				coin_id: 825,
@@ -191,7 +197,7 @@ impl TestEnvBuilder {
 				gmp_margin: 0.,
 				shard_task_limit: 50,
 				route_gas_limit: 10_000_000,
-				route_base_fee: 0,
+				route_base_fee: 1_400_000_000,
 				shard_size,
 				shard_threshold,
 				coin_id: 1027,
@@ -201,7 +207,7 @@ impl TestEnvBuilder {
 		);
 
 		// add price data
-		self.prices.insert(network, ("ETH".into(), 1950.0));
+		self.prices.insert(network, ("ETH".into(), 0.01));
 
 		// add chronicles
 		for i in 0..shard_size {

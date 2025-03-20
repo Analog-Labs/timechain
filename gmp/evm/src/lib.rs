@@ -87,7 +87,6 @@ impl IConnectorBuilder for Connector {
 			.phrase(params.mnemonic)
 			.index(0)?
 			.build()?;
-
 		let ws = WsConnect::new(params.url.clone());
 		let provider = Arc::new(ProviderBuilder::new().wallet(signer.clone()).on_ws(ws).await?);
 
@@ -793,16 +792,12 @@ impl Connector {
 		}
 		.abi_encode();
 		let payload: [u8; 32] = Keccak256::digest(digest).into();
-		let sig = self.signer.sign_hash_sync(&payload.into())?.as_bytes();
-		debug_assert!(sig.len() == 65);
-		let r: [u8; 32] = sig[0..32].try_into()?;
-		let s: [u8; 32] = sig[32..64].try_into()?;
-		let v = sig[64];
+		let sig = self.signer.sign_hash_sync(&payload.into())?;
 		let arguments = ProxyContext {
 			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
-			v: v + 27,
-			r: r.into(),
-			s: s.into(),
+			v: (sig.v() as u8 + 27).into(),
+			r: sig.r().into(),
+			s: sig.s().into(),
 			implementation: gateway_address,
 		}
 		.abi_encode();

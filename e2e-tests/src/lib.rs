@@ -7,7 +7,6 @@ use tc_cli::{
 };
 use tempfile::TempDir;
 use testcontainers::{
-	core::wait::WaitFor,
 	core::{ContainerAsync, IntoContainerPort},
 	runners::AsyncRunner,
 	GenericImage, ImageExt,
@@ -28,11 +27,13 @@ pub struct TestEnvBuilder {
 
 impl TestEnvBuilder {
 	pub async fn new() -> Result<Self> {
+		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
+		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
+
 		let temp = TempDir::new()?;
 		let network = temp.path().file_name().unwrap().to_str().unwrap().to_string();
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
-			.with_wait_for(WaitFor::message_on_stderr("Idle"))
 			.with_container_name("validator")
 			.with_network(network.clone())
 			.with_cmd([
@@ -40,6 +41,7 @@ impl TestEnvBuilder {
 				"--base-path=/data",
 				"--rpc-cors=all",
 				"--rpc-methods=unsafe",
+				"--unsafe-rpc-external",
 				"--alice",
 				"--validator",
 				"--force-authoring",
@@ -150,23 +152,25 @@ impl TestEnvBuilder {
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
-			.with_exposed_port(8454.tcp())
-			.with_wait_for(WaitFor::message_on_stdout("Block Number:"))
+			.with_exposed_port(8545.tcp())
 			.with_container_name(chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
 				"anvil",
-				"-b=2",
+				"-b",
+				"2",
 				"--steps-tracing",
-				"--order=fifo",
-				"--base-fee=0",
+				"--order",
+				"fifo",
+				"--base-fee",
+				"0",
 				"--no-request-size-limit",
 			])
 			.start()
 			.await?;
 		let chain_host = chain.get_host().await?;
-		let chain_port = chain.get_host_port_ipv4(8454).await?;
+		let chain_port = chain.get_host_port_ipv4(8545).await?;
 		let chain_url = format!("ws://{chain_host}:{chain_port}");
 		self.chains.insert(network, chain);
 
@@ -237,8 +241,6 @@ impl TestEnvBuilder {
 	}
 
 	pub async fn build(self) -> Result<TestEnv> {
-		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
-		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
 		let config = Config::new(self.temp.path().into(), self.config, self.prices);
 		let tc = Tc::new(
 			config,

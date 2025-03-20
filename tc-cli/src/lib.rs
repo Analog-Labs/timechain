@@ -63,7 +63,7 @@ impl Tc {
 		let timechain_url = config.global().timechain_url.clone();
 		let runtime = tokio::task::spawn(async move {
 			while let Err(err) = SubxtClient::get_client(&timechain_url).await {
-				tracing::info!("waiting for chain to start: {err:?}");
+				tracing::info!("waiting for timechain to start: {err:?}");
 				sleep_or_abort(Duration::from_secs(10)).await?;
 			}
 			let runtime = SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic, &tx_db)
@@ -84,12 +84,15 @@ impl Tc {
 					mnemonic: env.target_mnemonic.clone(),
 				};
 				let connector = async move {
-					let connector = network
-						.backend
-						.connect_admin(&params)
-						.await
-						.with_context(|| format!("failed to connect to backend {id}"))?;
-					Ok::<_, anyhow::Error>((id, connector))
+					loop {
+						match network.backend.connect_admin(&params).await {
+							Ok(connector) => return Ok::<_, anyhow::Error>((id, connector)),
+							Err(err) => {
+								tracing::info!("waiting for chain {id} to start: {err:?}");
+								sleep_or_abort(Duration::from_secs(1)).await?;
+							},
+						}
+					}
 				};
 				connector_futures.push(connector);
 			}

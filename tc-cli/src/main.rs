@@ -6,7 +6,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Benchmark, Query, Sender, Tc};
-use time_primitives::{BatchId, BlockNumber, CCTPMessage, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{
+	BatchId, BlockHash, BlockNumber, CCTPMessage, Hash, NetworkId, ShardId, TaskId,
+};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -243,10 +245,11 @@ async fn real_main() -> Result<()> {
 	let mut tc = args.tc(sender).await?;
 	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
+	let block = tc.latest_block().await?.0;
 	match args.cmd {
 		// balances
 		Command::Faucet { network } => {
-			tc.faucet(network).await?;
+			tc.faucet(network, block).await?;
 		},
 		Command::Address { network } => {
 			let address = tc.address(network)?;
@@ -259,7 +262,7 @@ async fn real_main() -> Result<()> {
 			} else {
 				tc.address(network)?
 			};
-			let balance = tc.balance(network, address).await?;
+			let balance = tc.balance(network, address, block).await?;
 			let balance = tc.format_balance(network, balance)?;
 			tc.println(None, balance).await?;
 		},
@@ -273,27 +276,27 @@ async fn real_main() -> Result<()> {
 			tc.fetch_token_prices().await?;
 		},
 		Command::Networks => {
-			let networks = tc.networks().await?;
+			let networks = tc.networks(block).await?;
 			tc.print_table(None, "networks", networks).await?;
 		},
 		Command::Chronicles => {
-			let chronicles = tc.chronicles().await?;
+			let chronicles = tc.chronicles(block).await?;
 			tc.print_table(None, "chronicles", chronicles).await?;
 		},
 		Command::Shards => {
-			let shards = tc.shards().await?;
+			let shards = tc.shards(block).await?;
 			tc.print_table(None, "shards", shards).await?;
 		},
 		Command::Members { shard } => {
-			let members = tc.members(shard).await?;
+			let members = tc.members(shard, block).await?;
 			tc.print_table(None, "members", members).await?;
 		},
 		Command::Routes { network } => {
-			let routes = tc.routes(network).await?;
+			let routes = tc.routes(network, block).await?;
 			tc.print_table(None, "routes", routes).await?;
 		},
 		Command::Events { network, start, end } => {
-			let events = tc.events(network, start..end).await?;
+			let events = tc.events(network, start..end, block).await?;
 			tc.print_table(None, "events", events).await?;
 		},
 		Command::Messages { network, tester, start, end } => {
@@ -302,19 +305,19 @@ async fn real_main() -> Result<()> {
 			tc.print_table(None, "messages", msgs).await?;
 		},
 		Command::Task { task } => {
-			let task = tc.task(task).await?;
+			let task = tc.task(task, block).await?;
 			tc.print_table(None, "task", vec![task]).await?;
 		},
 		Command::UnassignedTasks { network } => {
-			let tasks = tc.unassigned_tasks(network).await?;
+			let tasks = tc.unassigned_tasks(network, block).await?;
 			tc.print_table(None, "unassigned-tasks", tasks).await?;
 		},
 		Command::AssignedTasks { shard } => {
-			let tasks = tc.assigned_tasks(shard).await?;
+			let tasks = tc.assigned_tasks(shard, block).await?;
 			tc.print_table(None, "assigned-tasks", tasks).await?;
 		},
 		Command::FailedBatches => {
-			let batches = tc.get_failed_batches().await?;
+			let batches = tc.get_failed_batches(block).await?;
 			tc.print_table(None, "failed-batches", batches).await?;
 		},
 		Command::MaxFeePerGas { network } => {
@@ -326,7 +329,7 @@ async fn real_main() -> Result<()> {
 			.await?;
 		},
 		Command::Batch { batch } => {
-			let mut batch = tc.batch(batch).await?;
+			let mut batch = tc.batch(batch, block).await?;
 			let ops = std::mem::take(&mut batch.msg.ops);
 			tc.print_table(None, "batch", vec![batch]).await?;
 			tc.print_table(None, "ops", ops).await?;
@@ -341,14 +344,14 @@ async fn real_main() -> Result<()> {
 			let message = hex::decode(message)?
 				.try_into()
 				.map_err(|_| anyhow::anyhow!("invalid message id"))?;
-			let message = tc.message(message).await?;
+			let message = tc.message(message, block).await?;
 			tc.print_table(None, "messages", vec![message]).await?;
 		},
 		Command::MessageTrace { network, message } => {
 			let message = hex::decode(message)?
 				.try_into()
 				.map_err(|_| anyhow::anyhow!("invalid message id"))?;
-			let trace = tc.message_trace(network, message).await?;
+			let trace = tc.message_trace(network, message, block).await?;
 			tc.print_table(None, "message", vec![trace]).await?;
 		},
 		// management
@@ -356,33 +359,33 @@ async fn real_main() -> Result<()> {
 			tc.runtime_upgrade(&path).await?;
 		},
 		Command::Deploy => {
-			tc.deploy().await?;
+			tc.deploy(block).await?;
 		},
 		Command::DeployChronicle { url } => {
-			tc.deploy_chronicle(&url).await?;
+			tc.deploy_chronicle(&url, block).await?;
 		},
 		Command::UnregisterMember { member } => {
 			let member = tc.parse_address(None, &member)?;
-			tc.unregister_member(member.into()).await?;
+			tc.unregister_member(member.into(), block).await?;
 		},
 		Command::RegisterShards => {
-			tc.register_online_shards().await?;
+			tc.register_online_shards(block).await?;
 		},
-		Command::RegisterRoutes => tc.register_all_routes().await?,
+		Command::RegisterRoutes => tc.register_all_routes(block).await?,
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
-			tc.set_gateway_admin(network, admin).await?;
+			tc.set_gateway_admin(network, admin, block).await?;
 		},
 		Command::RedeployGateway { network } => {
-			tc.redeploy_gateway(network).await?;
+			tc.redeploy_gateway(network, block).await?;
 		},
 		Command::DeployTester { network } => {
-			let (address, block) = tc.deploy_tester(network).await?;
+			let (address, block) = tc.deploy_tester(network, block).await?;
 			let address = tc.format_address(Some(network), address)?;
 			tc.println(None, format!("{address} {block}")).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
-		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id).await?,
+		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id, block).await?,
 		Command::EstimateMessageGasLimit {
 			dest_network,
 			dest_addr,
@@ -405,8 +408,9 @@ async fn real_main() -> Result<()> {
 			payload,
 		} => {
 			let payload = hex::decode(payload)?;
-			let gas_cost =
-				tc.estimate_message_cost(src_network, dest_network, gas_limit, payload).await?;
+			let gas_cost = tc
+				.estimate_message_cost(src_network, dest_network, gas_limit, payload, block)
+				.await?;
 			tc.println(None, gas_cost.to_string()).await?;
 		},
 		Command::SendMessage {
@@ -435,39 +439,46 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
+			let mut stream = tc.finality_notification_stream();
 			let testers = tc.setup_test().await?;
 
 			// collect shard tasks
 			let mut tasks = HashSet::new();
-			for shard in tc.shards().await? {
+			let (block_hash, _) = tc.latest_block().await?;
+			for shard in tc.shards(block_hash).await? {
 				if let Some(batch) = shard.batch_register {
-					let task = tc.batch(batch).await?.task;
+					let task = tc.batch(batch, block_hash).await?.task;
 					tasks.insert((task, batch));
 				}
 			}
 			// wait for shard batches to execute
+			let mut block_hash: Option<BlockHash> = None;
 			for (task, batch) in tasks {
-				let mut blocks = tc.finality_notification_stream();
 				loop {
-					if tc.is_task_executed(task).await? {
+					let Some((hash, _)) = stream.next().await else {
+						continue;
+					};
+					block_hash = Some(hash);
+					if tc.is_task_executed(task, hash).await? {
 						break;
 					}
 					tracing::info!("waiting for task {task} / batch {batch}");
-					blocks.next().await.context("expected block")?;
 				}
 			}
 
-			tc.assert_reimbursement().await?;
+			let block_hash = block_hash.context("Block hash not found")?;
+			tc.assert_reimbursement(block_hash).await?;
 			let total_funds = tc.total_gateway_funds()?;
-			let total_balance = tc.total_gateway_balance().await?;
+			let total_balance = tc.total_gateway_balance(block_hash).await?;
 			tc.println(
 				None,
 				format!("shard registration msgs cost {}$", total_funds - total_balance),
 			)
 			.await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
-			tc.assert_reimbursement().await?;
-			let total_balance_after = tc.total_gateway_balance().await?;
+			let (block_hash, _) = tc.latest_block().await?;
+			tc.assert_reimbursement(block_hash).await?;
+			let total_balance_after = tc.total_gateway_balance(block_hash).await?;
 			tc.println(
 				None,
 				format!("made {}$ of profit with msg", total_balance_after - total_balance),
@@ -487,10 +498,11 @@ async fn real_main() -> Result<()> {
 				},
 				_ => tc.setup_test().await?,
 			};
+			let (block_hash, _) = tc.latest_block().await?;
 			let src_addr = testers.get(&src).context("missing tester")?.0;
 			let dest_addr = testers.get(&dest).context("missing tester")?.0;
-			tc.set_network_config(src, Some(src_addr)).await?;
-			tc.set_network_config(dest, Some(dest_addr)).await?;
+			tc.set_network_config(src, Some(src_addr), block_hash).await?;
+			tc.set_network_config(dest, Some(dest_addr), block_hash).await?;
 			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
 			let msg_data =
 				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
@@ -510,9 +522,10 @@ async fn real_main() -> Result<()> {
 			num_blocks,
 		} => {
 			let testers = tc.setup_test().await?;
+			let (block_hash, _) = tc.latest_block().await?;
 			let mut benchmark =
 				Benchmark::new(tc, testers, vec![42], num_messages_per_block, num_blocks);
-			benchmark.add_routes().await?;
+			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
@@ -520,11 +533,11 @@ async fn real_main() -> Result<()> {
 			tc.log(query, since).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
-			tc.force_shard_offline(shard_id).await?;
+			tc.force_shard_offline(shard_id, block).await?;
 		},
 		Command::WithdrawFunds { network, amount, address } => {
 			let address = tc.parse_address(Some(network), &address)?;
-			tc.withdraw_funds(network, amount, address).await?;
+			tc.withdraw_funds(network, amount, address, block).await?;
 		},
 		Command::DebugTransaction { network, hash } => {
 			let hash = hash.strip_prefix("0x").unwrap_or(&hash);

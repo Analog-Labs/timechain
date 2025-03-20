@@ -2,7 +2,7 @@ use crate::common::TestEnv;
 use anyhow::{Context, Result};
 use futures::StreamExt;
 use tc_cli::Tc;
-use time_primitives::{Address, NetworkId};
+use time_primitives::{Address, BlockHash, NetworkId};
 use tracing_subscriber::filter::EnvFilter;
 
 mod common;
@@ -21,8 +21,10 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>
 		.await?;
 
 	let mut id = None;
+	let mut block_hash: Option<BlockHash> = None;
 	let (exec, end) = loop {
 		let (hash, end) = blockstream.next().await.context("expected block")?;
+		block_hash = Some(hash);
 		let trace = tc.message_trace(SRC, msg_id, hash).await?;
 		let exec = trace.exec.as_ref().map(|t| t.task);
 		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
@@ -31,8 +33,8 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) -> Result<()>
 			break (exec, end);
 		}
 	};
-	let block = tc.latest_block().await?;
-	let blocks = tc.read_events_blocks(exec, block.0).await?;
+	let block_hash = block_hash.context("Block hash not found")?;
+	let blocks = tc.read_events_blocks(exec, block_hash).await?;
 	let msgs = tc.messages(DEST, dest_addr, blocks).await?;
 	let msg = msgs
 		.into_iter()

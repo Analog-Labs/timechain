@@ -49,7 +49,6 @@ pub struct Tc {
 	runtime: SubxtClient,
 	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
 	msg: Sender,
-	pub init_block: BlockHash,
 }
 
 impl Tc {
@@ -97,15 +96,12 @@ impl Tc {
 			}
 		}
 		let runtime = runtime.await??;
-		let (hash, _) = runtime.latest_block().await?;
-		let init_block = hash;
 
 		Ok(Self {
 			config,
 			runtime,
 			connectors,
 			msg,
-			init_block,
 		})
 	}
 

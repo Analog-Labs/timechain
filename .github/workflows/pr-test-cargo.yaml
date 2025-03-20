@@ -43,7 +43,3 @@ jobs:
           args: --all-features --exclude e2e-tests
           cache: false
           annotate: false
-
-      - name: Cleanup working dir
-        if: ${{ always() }}
-        uses: eviden-actions/clean-self-hosted-runner@v1

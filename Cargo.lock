@@ -6010,6 +6010,7 @@ dependencies = [
  "solana-sdk",
  "time-primitives",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 

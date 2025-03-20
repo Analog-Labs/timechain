@@ -18,5 +18,6 @@ solana-client = "2.2.0"
 solana-sdk = "2.2.1"
 time-primitives.workspace = true
 tokio.workspace = true
+tokio-stream = { version = "0.1", features = ["sync"]}
 tracing.workspace = true
 

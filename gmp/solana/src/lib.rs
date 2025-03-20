@@ -2,9 +2,11 @@ use std::{ops::Range, pin::Pin, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use futures::Stream;
+use futures::{Stream, StreamExt};
+use solana_client::nonblocking::pubsub_client::PubsubClient;
 use solana_client::nonblocking::rpc_client::RpcClient;
 
+use solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::signer::keypair::Keypair;
@@ -17,6 +19,8 @@ use time_primitives::{
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 fn a_addr(address: Address) -> Pubkey {
 	Pubkey::new_from_array(address)
@@ -29,6 +33,7 @@ fn t_addr(pubkey: Pubkey) -> Address {
 pub struct Connector {
 	network_id: NetworkId,
 	client: RpcClient,
+	pubsub_client: Arc<PubsubClient>,
 	wallet: Arc<Keypair>,
 }
 
@@ -53,11 +58,19 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		let client = RpcClient::new(params.url);
+		let urls: Vec<_> = params.url.split(";").collect();
+		if urls.len() != 2 {
+			anyhow::bail!("Invalid url for solana");
+		}
+		let http_url = urls[0];
+		let ws_url = urls[1];
+		let client = RpcClient::new(http_url.to_string());
+		let pubsub_client = PubsubClient::new(ws_url).await?;
 		let connector = Self {
 			network_id: params.network_id,
 			client,
 			wallet: Arc::new(Keypair::new()),
+			pubsub_client: Arc::new(pubsub_client),
 		};
 		Ok(connector)
 	}
@@ -102,8 +115,33 @@ impl IChain for Connector {
 		Ok(block)
 	}
 
+	// TODO add retry logic
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>> {
-		todo!()
+		let filter = RpcBlockSubscribeFilter::All;
+		let config = RpcBlockSubscribeConfig {
+			commitment: Some(CommitmentConfig::finalized()),
+			encoding: None,
+			transaction_details: None,
+			show_rewards: Some(false),
+			max_supported_transaction_version: None,
+		};
+
+		let pubsub_client = self.pubsub_client.clone();
+		let (tx, rx) = mpsc::unbounded_channel::<u64>();
+
+		tokio::spawn(async move {
+			let block_subscribe = pubsub_client.block_subscribe(filter, Some(config));
+			let (mut subscription, _) = block_subscribe.await.expect("Block subscription failed");
+
+			while let Some(response) = subscription.next().await {
+				let slot = response.value.slot;
+				if tx.send(slot).is_err() {
+					break;
+				}
+			}
+		});
+
+		Box::pin(UnboundedReceiverStream::new(rx))
 	}
 }
 

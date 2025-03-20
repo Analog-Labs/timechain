@@ -29,7 +29,12 @@ use sol::{
 	IExecutor::{self, IExecutorInstance},
 	TssKey,
 };
-use std::{ops::Range, pin::Pin, process::Command, sync::Arc};
+use std::{
+	ops::Range,
+	pin::{pin, Pin},
+	process::Command,
+	sync::Arc,
+};
 use thiserror::Error;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash,
@@ -124,8 +129,36 @@ impl IChain for Connector {
 		(18, "ETH")
 	}
 	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self, _balance: u128) -> Result<()> {
-		Err(anyhow!("Faucet not supported"))
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		let amount = U256::from(balance);
+		// let node_accounts = self.rpc.get_accounts().await?;
+		// let stream = pin!(futures::stream::iter(node_accounts));
+		// let (sponsor, _bal) = pin!(stream
+		// 	.filter_map(|acc| async move {
+		// 		self.rpc
+		// 			.get_balance(Into::<Address20>::into(acc))
+		// 			.await
+		// 			.ok()
+		// 			.map(|bal| (acc, bal))
+		// 	})
+		// 	.filter(|(_acc, bal)| future::ready(*bal > amount)))
+		// .next()
+		// .await
+		// .ok_or(anyhow!("Node owns no accounts with balance enough for faucet"))?;
+
+		let provider = ProviderBuilder::new().on_http(self.url.parse()?);
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(self.address()))
+			.with_value(amount)
+			.with_gas_limit(21_000);
+
+		let tx_hash = provider.send_transaction(tx).await?.watch().await?;
+		tracing::info!(
+			"Faucet sent {amount} to {}, tx_hash: {tx_hash}",
+			a_addr(self.address())
+		);
+
+		Ok(())
 	}
 	/// Transfers an amount to an account.
 	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {

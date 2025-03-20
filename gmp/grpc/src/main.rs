@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use futures::{Stream, StreamExt};
+use futures::{Stream, StreamExt, TryFutureExt};
 use gmp_grpc::{proto, Gmp, GmpServer};
 use gmp_rust::Connector;
 use std::net::SocketAddr;
@@ -104,8 +104,11 @@ impl Gmp for ConnectorWrapper {
 		request: Request<proto::BlockStreamRequest>,
 	) -> GmpResult<Self::BlockStreamStream> {
 		let (connector, _) = self.connector(request)?;
-		let stream = connector.block_stream().map(|block| Ok(proto::BlockStreamResponse { block }));
-		Ok(Response::new(stream.boxed()))
+		let stream =
+			connector.block_stream().map_err(|err| Status::unknown(err.to_string())).await?;
+		let stream = stream.map(|block| Ok(proto::BlockStreamResponse { block }));
+
+		Ok(Response::new(Box::pin(stream)))
 	}
 
 	async fn read_events(

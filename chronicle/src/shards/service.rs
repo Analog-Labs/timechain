@@ -414,6 +414,7 @@ where
 					}
 				},
 				notification = finality_notifications.next().fuse() => {
+					let _enter = span.enter();
 					let Some((block_hash, block)) = notification else {
 						event!(
 							parent: span,
@@ -432,6 +433,7 @@ where
 					}
 				},
 				tss_request = self.tss_request.next().fuse() => {
+					let _enter = span.enter();
 					let Some(TssSigningRequest { task_id, shard_id, data, tx, block }) = tss_request else {
 						continue;
 					};

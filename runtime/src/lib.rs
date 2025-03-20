@@ -106,7 +106,6 @@ pub use configs::core::{
 #[cfg(feature = "testnet")]
 pub use configs::custom::PrevalidateFeeless;
 pub use configs::governance::DefaultAdminOrigin;
-pub use configs::staking::RepeatMissedStakingEvents;
 pub use configs::tokenomics::{ExistentialDeposit, LengthToFee, WeightToFee};
 
 /// Import variant constants and macros
@@ -627,7 +626,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = RepeatMissedStakingEvents<Runtime>;
+type Migrations = ();
 
 #[cfg(test)]
 mod core_tests {

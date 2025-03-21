@@ -34,6 +34,8 @@ jobs:
         with:
           command: test
           args: -p e2e-tests --no-run
+          # Handling cache in the Actions Cache
+          cache: false
 
       - name: Run testsuite
         uses: ./.github/actions/cargo-command

@@ -4,9 +4,9 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address32 as Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address32 as Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
+	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
+	TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};

@@ -108,6 +108,7 @@ where
 			block = block,
 			block_hash = format!("{block_hash:?}"),
 		);
+		event!(parent: &span, Level::DEBUG, "on_finality");
 		let account_id = self.substrate.account_id();
 		let shards = self.substrate.get_shards(account_id, block_hash).await?;
 		self.tss_states.retain(|shard_id, _| shards.contains(shard_id));
@@ -457,6 +458,7 @@ where
 					self.channels.insert(task_id, tx);
 				},
 				msg = self.net_request.next().fuse() => {
+					let _enter = span.enter();
 					let Some((peer, Message { shard_id, block, payload })) = msg else {
 						continue;
 					};
@@ -472,6 +474,7 @@ where
 					self.messages.entry(block).or_default().push((shard_id, peer, payload));
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
+					let _enter = span.enter();
 					let Some((result, span)) = outgoing_request else {
 						continue;
 					};
@@ -492,6 +495,7 @@ where
 					}
 				}
 				data = block_stream.next() => {
+					let _enter = span.enter();
 					if let Some(index) = data {
 						self.block_height = index;
 						if let Err(e) = self.admin_request.send(AdminMsg::TargetBlockReceived).await {

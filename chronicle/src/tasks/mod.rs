@@ -62,42 +62,6 @@ impl TaskParams {
 		Ok(sig)
 	}
 
-	async fn is_executable(
-		&self,
-		block_hash: BlockHash,
-		task_id: TaskId,
-		task: &Task,
-		target_block_height: u64,
-		span: &Span,
-	) -> Result<bool> {
-		if target_block_height < task.start_block() {
-			tracing::debug!(
-				parent: span,
-				task_id,
-				task = task.to_string(),
-				target_block_height,
-				"task scheduled for future {:?}/{:?}",
-				target_block_height,
-				task.start_block(),
-			);
-			return Ok(false);
-		}
-		if task.needs_signer() {
-			let Some(public_key) = self.runtime.get_task_submitter(task_id, block_hash).await?
-			else {
-				tracing::debug!(
-					parent: span,
-					"no submitter set for task",
-				);
-				return Ok(false);
-			};
-			if &public_key != self.runtime.public_key() {
-				return Ok(false);
-			}
-		}
-		Ok(true)
-	}
-
 	async fn submit_events(
 		&self,
 		block_number: BlockNumber,
@@ -106,14 +70,14 @@ impl TaskParams {
 		events: Vec<GmpEvent>,
 		span: &Span,
 	) -> Result<()> {
-		let span = span!(parent: span, Level::INFO, "submit_events", task_id, ?events,);
+		let span = span!(parent: span, Level::INFO, "submit_events", task_id, ?events);
 		let payload = time_primitives::encode_gmp_events(task_id, &events);
 		let signature = self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 		let result = TaskResult::ReadGatewayEvents {
 			events: GmpEvents(BoundedVec::truncate_from(events)),
 			signature,
 		};
-		tracing::debug!("submitting task result",);
+		event!(parent: span, Level::DEBUG, "submitting task result");
 		self.runtime.submit_task_result(task_id, result).await
 	}
 
@@ -130,13 +94,14 @@ impl TaskParams {
 		task: Task,
 		span: Span,
 	) -> Result<()> {
-		span!(
+		let span = span!(
 			parent: &span,
 			Level::INFO,
 			"executing_task",
 			task_id,
 			%task,
 		);
+		event!(parent: &span, Level::DEBUG, "executing task");
 		match task {
 			Task::ReadGatewayEvents { blocks } => {
 				let events = self
@@ -170,16 +135,24 @@ impl TaskParams {
 					.await?
 					.context("invalid shard")?
 					.0[0];
-				if let Err(mut e) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
-				{
-					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
-					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-					let result = TaskResult::SubmitGatewayMessage {
-						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-					};
-					tracing::debug!(parent: &span, "submitting task result");
-					self.runtime.submit_task_result(task_id, result).await?;
+				let Some(public_key) = self.runtime.get_task_submitter(task_id, block_hash).await?
+				else {
+					anyhow::bail!("no submitter set for task");
+				};
+				if &public_key != self.runtime.public_key() {
+					if let Err(mut e) = self
+						.connector
+						.submit_commands(gateway, batch_id, msg, signer, signature)
+						.await
+					{
+						tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
+						e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
+						let result = TaskResult::SubmitGatewayMessage {
+							error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
+						};
+						tracing::debug!(parent: &span, "submitting task result");
+						self.runtime.submit_task_result(task_id, result).await?;
+					}
 				}
 			},
 		}
@@ -200,7 +173,6 @@ impl TaskExecutor {
 		}
 	}
 
-	#[tracing::instrument(skip(self))]
 	pub async fn process_tasks(
 		&mut self,
 		block_hash: BlockHash,
@@ -233,11 +205,17 @@ impl TaskExecutor {
 				.get_task(task_id, block_hash)
 				.await?
 				.context("invalid task")?;
-			if !self
-				.params
-				.is_executable(block_hash, task_id, &task, target_block_height, span)
-				.await?
-			{
+
+			if target_block_height < task.start_block() {
+				tracing::debug!(
+					parent: span,
+					task_id,
+					task = task.to_string(),
+					target_block_height,
+					"task scheduled for future {:?}/{:?}",
+					target_block_height,
+					task.start_block(),
+				);
 				continue;
 			}
 
@@ -251,6 +229,7 @@ impl TaskExecutor {
 			let exec = self.params.clone();
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
+				let _enter = span2.enter();
 				match exec
 					.execute(
 						block_hash,
@@ -261,16 +240,16 @@ impl TaskExecutor {
 						shard_id,
 						task_id,
 						task,
-						span2,
+						span2.clone(),
 					)
 					.await
 				{
 					Ok(()) => {
-						tracing::info!(parent: &span, task_id, target_block_height, "task completed");
+						tracing::info!(parent: &span, "task completed");
 					},
 					Err(error) => {
 						*total_failed.lock().await += 1;
-						tracing::error!(parent: &span, task_id, target_block_height, ?error, "task failed");
+						tracing::error!(parent: &span, ?error, "task failed");
 					},
 				};
 			});

@@ -32,6 +32,7 @@ jobs:
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:
+          feature: 'testnet'
           command: test
           args: -p e2e-tests --no-run
           # Handling cache in the Actions Cache

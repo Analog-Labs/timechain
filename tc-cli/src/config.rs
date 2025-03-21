@@ -133,6 +133,14 @@ impl Config {
 	pub fn network(&self, network: NetworkId) -> Result<&NetworkConfig> {
 		self.yaml.networks.get(&network).context("no network config")
 	}
+
+	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: String) -> Result<()> {
+		let config = self.yaml.networks.get_mut(&network).context("no network config")?;
+		let mut contracts = config.cctp_contracts.take().unwrap_or_default();
+		contracts.push(contract);
+		config.cctp_contracts = Some(contracts);
+		Ok(())
+	}
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

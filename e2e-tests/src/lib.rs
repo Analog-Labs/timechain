@@ -208,7 +208,7 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 1027,
-				cctp_url: None,
+				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
 				cctp_contracts: None,
 			},
 		);

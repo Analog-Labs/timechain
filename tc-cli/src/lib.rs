@@ -776,6 +776,40 @@ impl Tc {
 }
 
 impl Tc {
+	fn network_config(&self, network: NetworkId) -> Result<NetworkConfig> {
+		let config = self.config.network(network)?;
+		let (cctp_url, cctp_contracts) = if let (Some(cctp_url), Some(cctp_contracts)) =
+			(config.cctp_url.as_ref(), config.cctp_contracts.as_ref())
+		{
+			let mut contracts = Vec::with_capacity(cctp_contracts.len());
+			for contract in cctp_contracts {
+				contracts.push(self.parse_address(Some(network), contract)?);
+			}
+			(
+				Some(CctpUrl(
+					BoundedVec::try_from(cctp_url.as_bytes().to_vec())
+						.map_err(|_| anyhow::anyhow!("cctp url too long"))?,
+				)),
+				Some(CctpContracts(
+					BoundedVec::try_from(contracts)
+						.map_err(|_| anyhow::anyhow!("too many cctp contracts"))?,
+				)),
+			)
+		} else {
+			(None, None)
+		};
+		Ok(NetworkConfig {
+			batch_size: config.batch_size,
+			batch_offset: config.batch_offset,
+			batch_gas_limit: config.batch_gas_limit,
+			shard_task_limit: config.shard_task_limit,
+			shard_size: config.shard_size,
+			shard_threshold: config.shard_threshold,
+			cctp_contracts,
+			cctp_url,
+		})
+	}
+
 	async fn register_network(&self, network: NetworkId, block_hash: BlockHash) -> Result<Gateway> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
@@ -783,20 +817,13 @@ impl Tc {
 		let gateway = if let Some(gateway) =
 			self.runtime.network_gateway(network, block_hash).await?
 		{
-			self.set_network_config(network, None, block_hash).await?;
+			self.set_network_config(network, block_hash).await?;
 			gateway
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
 				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
 				.await?;
-			let cctp_contracts =
-				config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
-			let cctp_url = config
-				.cctp_url
-				.clone()
-				.map(|item| CctpUrl::try_from(item.as_str()))
-				.transpose()?;
 			self.println(None, format!("register_network {network}")).await?;
 			self.runtime
 				.register_network(time_primitives::Network {
@@ -805,16 +832,7 @@ impl Tc {
 					chain_network: ChainNetwork(BoundedVec::truncate_from(config.network.encode())),
 					gateway,
 					gateway_block: block,
-					config: NetworkConfig {
-						batch_size: config.batch_size,
-						batch_offset: config.batch_offset,
-						batch_gas_limit: config.batch_gas_limit,
-						shard_task_limit: config.shard_task_limit,
-						shard_size: config.shard_size,
-						shard_threshold: config.shard_threshold,
-						cctp_contracts,
-						cctp_url,
-					},
+					config: self.network_config(network)?,
 				})
 				.await?;
 			gateway
@@ -825,36 +843,9 @@ impl Tc {
 	pub async fn set_network_config(
 		&self,
 		network: NetworkId,
-		additional_contract: Option<Address>,
 		block_hash: BlockHash,
 	) -> Result<()> {
-		let config = self.config.network(network)?;
-		let mut cctp_contracts =
-			config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
-		if let Some(new_contract) = additional_contract {
-			if let Some(contracts) = cctp_contracts.as_mut() {
-				contracts.push_unique(new_contract)?;
-			} else {
-				let bounded = BoundedVec::try_from(vec![new_contract])
-					.map_err(|_| anyhow::anyhow!("failed to make bounded vec from new contract"))?;
-				cctp_contracts = Some(CctpContracts(bounded));
-			}
-		}
-		let cctp_url = config
-			.cctp_url
-			.clone()
-			.map(|item| CctpUrl::try_from(item.as_str()))
-			.transpose()?;
-		let config = NetworkConfig {
-			batch_size: config.batch_size,
-			batch_offset: config.batch_offset,
-			batch_gas_limit: config.batch_gas_limit,
-			shard_task_limit: config.shard_task_limit,
-			shard_size: config.shard_size,
-			shard_threshold: config.shard_threshold,
-			cctp_contracts: cctp_contracts.clone(),
-			cctp_url: cctp_url.clone(),
-		};
+		let config = self.network_config(network)?;
 
 		let batch_size = self.runtime.network_batch_size(network, block_hash).await?;
 		let batch_offset = self.runtime.network_batch_offset(network, block_hash).await?;
@@ -871,8 +862,8 @@ impl Tc {
 			&& shard_task_limit == config.shard_task_limit
 			&& shard_size == config.shard_size
 			&& shard_threshold == config.shard_threshold
-			&& runtime_cctp_contracts == cctp_contracts
-			&& runtime_cctp_url == cctp_url
+			&& runtime_cctp_contracts == config.cctp_contracts
+			&& runtime_cctp_url == config.cctp_url
 		{
 			return Ok(());
 		}
@@ -1543,5 +1534,10 @@ impl Tc {
 		self.println(None, format!("received message after {} blocks", end - start))
 			.await?;
 		Ok(msg)
+	}
+
+	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: Address) -> Result<()> {
+		self.config
+			.add_cctp_contract(network, self.format_address(Some(network), contract)?)
 	}
 }

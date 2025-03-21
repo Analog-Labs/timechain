@@ -176,7 +176,7 @@ where
 			let commitment =
 				self.substrate.get_shard_commitment(shard_id, block_hash).await?.unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
-			tss.on_commit(commitment);
+			tss.on_commit(commitment, &span);
 			self.poll_actions(&span, shard_id, block).await;
 		}
 		while let Some(n) = self.requests.keys().copied().next() {
@@ -202,7 +202,7 @@ where
 					self.channels.remove(&task_id);
 					continue;
 				};
-				tss.on_sign(task_id, data.to_vec());
+				tss.on_sign(task_id, data.to_vec(), &span);
 				self.poll_actions(&span, shard_id, block).await;
 			}
 		}
@@ -250,10 +250,10 @@ where
 				continue;
 			};
 			for session in complete_sessions {
-				tss.on_complete(session);
+				tss.on_complete(session, &span);
 			}
 			for session in start_sessions {
-				tss.on_start(session);
+				tss.on_start(session, &span);
 			}
 		}
 		while let Some(n) = self.messages.keys().copied().next() {
@@ -273,7 +273,7 @@ where
 					);
 					continue;
 				};
-				tss.on_message(peer_id, msg)?;
+				tss.on_message(peer_id, msg, &span)?;
 				self.poll_actions(&span, shard_id, n).await;
 			}
 		}
@@ -285,7 +285,7 @@ where
 			.tss_states
 			.get_mut(&shard_id)
 			.unwrap()
-			.next_action(&self.tss_keyshare_cache)
+			.next_action(&self.tss_keyshare_cache, span)
 		{
 			match action {
 				TssAction::Send(msgs) => {
@@ -474,7 +474,6 @@ where
 					self.messages.entry(block).or_default().push((shard_id, peer, payload));
 				},
 				outgoing_request = self.outgoing_requests.next().fuse() => {
-					let _enter = span.enter();
 					let Some((result, span)) = outgoing_request else {
 						continue;
 					};

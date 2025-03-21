@@ -19,5 +19,5 @@ async fn smoke_grpc() -> Result<()> {
 
 #[tokio::test]
 async fn smoke_grpc_tss() -> Result<()> {
-	smoke(Backend::Grpc, 3).await
+	smoke(Backend::Grpc, 2).await
 }

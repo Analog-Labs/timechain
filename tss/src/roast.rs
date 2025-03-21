@@ -45,19 +45,16 @@ struct RoastSigner {
 	data: Option<Vec<u8>>,
 	coordinators: BTreeMap<Identifier, SigningNonces>,
 	requests: VecDeque<(Identifier, RoastSignerRequest)>,
-	span: Span,
 }
 
 impl RoastSigner {
 	/// Creates a new `RoastSigner` instance with the given key package.
-	pub fn new(key_package: KeyPackage, span: &Span) -> Self {
-		let span = tracing::span!(parent: span, Level::INFO, "signer");
+	pub fn new(key_package: KeyPackage) -> Self {
 		Self {
 			key_package,
 			data: None,
 			coordinators: Default::default(),
 			requests: Default::default(),
-			span,
 		}
 	}
 
@@ -84,7 +81,7 @@ impl RoastSigner {
 	}
 
 	/// Generates a message with the signature share for a coordinator.
-	pub fn message(&mut self) -> Option<(Identifier, RoastSignerResponse)> {
+	pub fn message(&mut self, span: &Span) -> Option<(Identifier, RoastSignerResponse)> {
 		let data = self.data.as_deref()?;
 		loop {
 			let (coordinator, request) = self.requests.pop_front()?;
@@ -97,7 +94,7 @@ impl RoastSigner {
 			let signature_share = match round2::sign(&signing_package, &nonces, &self.key_package) {
 				Ok(ss) => ss,
 				Err(err) => {
-					tracing::error!(parent: &self.span, session_id = session_id, "invalid signing package {err:?}");
+					tracing::error!(parent: span, session_id = session_id, "invalid signing package {err:?}");
 					continue;
 				},
 			};
@@ -118,26 +115,29 @@ impl RoastSigner {
 struct RoastSession {
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 	signature_shares: HashMap<Identifier, SignatureShare>,
-	span: Span,
 }
 
 impl RoastSession {
 	/// Creates a new `RoastSession` instance with the given commitments.
-	fn new(commitments: BTreeMap<Identifier, SigningCommitments>, span: Span) -> Self {
+	fn new(commitments: BTreeMap<Identifier, SigningCommitments>) -> Self {
 		Self {
 			commitments,
 			signature_shares: Default::default(),
-			span,
 		}
 	}
 
 	/// Handles a signature share from a peer.
-	fn on_signature_share(&mut self, peer: Identifier, signature_share: SignatureShare) {
+	fn on_signature_share(
+		&mut self,
+		peer: Identifier,
+		signature_share: SignatureShare,
+		span: &Span,
+	) {
 		if self.commitments.contains_key(&peer) {
 			self.signature_shares.insert(peer, signature_share);
 		}
 		tracing::debug!(
-			parent: &self.span,
+			parent: span,
 			"signing shares {}/{}",
 			self.signature_shares.len(),
 			self.commitments.len(),
@@ -157,20 +157,17 @@ struct RoastCoordinator {
 	commitments: BTreeMap<Identifier, SigningCommitments>,
 	sessions: BTreeMap<u16, RoastSession>,
 	committed: BTreeSet<Identifier>,
-	span: Span,
 }
 
 impl RoastCoordinator {
 	/// Creates a new `RoastCoordinator` instance with the given threshold.
-	fn new(threshold: u16, span: &Span) -> Self {
-		let span = tracing::span!(parent: span, Level::INFO, "coordinator");
+	fn new(threshold: u16) -> Self {
 		Self {
 			threshold,
 			session_id: 0,
 			commitments: Default::default(),
 			sessions: Default::default(),
 			committed: Default::default(),
-			span,
 		}
 	}
 
@@ -183,18 +180,20 @@ impl RoastCoordinator {
 	}
 
 	/// Handles a response from a peer.
-	fn on_response(&mut self, peer: Identifier, message: RoastSignerResponse) {
+	fn on_response(&mut self, peer: Identifier, message: RoastSignerResponse, span: &Span) {
+		let span =
+			tracing::span!(parent: span, Level::DEBUG, "session", session_id = self.session_id);
 		if let Some(session) = self.sessions.get_mut(&message.session_id) {
 			self.commitments.insert(peer, message.commitment);
-			session.on_signature_share(peer, message.signature_share);
+			session.on_signature_share(peer, message.signature_share, &span);
 		}
 	}
 
 	/// Starts a new signing session if enough commitments have been received.
-	fn start_session(&mut self) -> Option<RoastSignerRequest> {
-		let span = tracing::span!(parent: &self.span, Level::DEBUG, "session", session_id = self.session_id);
+	fn start_session(&mut self, span: &Span) -> Option<RoastSignerRequest> {
 		tracing::debug!(
-			parent: &span,
+			parent: span,
+			session_id = self.session_id,
 			"commitments {}/{}",
 			self.commitments.len(),
 			self.threshold
@@ -209,19 +208,19 @@ impl RoastCoordinator {
 			let (peer, commitment) = commitments.pop_last().unwrap();
 			self.commitments.insert(peer, commitment);
 		}
-		self.sessions.insert(session_id, RoastSession::new(commitments.clone(), span));
+		self.sessions.insert(session_id, RoastSession::new(commitments.clone()));
 		Some(RoastSignerRequest { session_id, commitments })
 	}
 
 	/// Aggregates the signature shares from a complete session.
-	fn aggregate_signature(&mut self) -> Option<RoastSession> {
+	fn aggregate_signature(&mut self, span: &Span) -> Option<RoastSession> {
 		let session_id = self
 			.sessions
 			.iter()
 			.filter(|(_, session)| session.is_complete())
 			.map(|(session_id, _)| *session_id)
 			.next()?;
-		tracing::debug!(parent: &self.span, session_id, "aggregate");
+		tracing::debug!(parent: span, session_id, "aggregate");
 		self.sessions.remove(&session_id)
 	}
 }
@@ -265,7 +264,6 @@ pub struct Roast {
 	coordinator: Option<RoastCoordinator>,
 	public_key_package: PublicKeyPackage,
 	coordinators: BTreeSet<Identifier>,
-	_span: Span,
 }
 
 impl Roast {
@@ -276,20 +274,13 @@ impl Roast {
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
 		coordinators: BTreeSet<Identifier>,
-		span: &Span,
 	) -> Self {
-		let span = tracing::span!(parent: span, Level::INFO, "roast");
 		let is_coordinator = coordinators.contains(&id);
 		Self {
-			signer: RoastSigner::new(key_package, &span),
-			coordinator: if is_coordinator {
-				Some(RoastCoordinator::new(threshold, &span))
-			} else {
-				None
-			},
+			signer: RoastSigner::new(key_package),
+			coordinator: if is_coordinator { Some(RoastCoordinator::new(threshold)) } else { None },
 			public_key_package,
 			coordinators,
-			_span: span,
 		}
 	}
 
@@ -299,7 +290,7 @@ impl Roast {
 	}
 
 	/// Handles an incoming message from a peer.
-	pub fn on_message(&mut self, peer: Identifier, msg: RoastMessage) {
+	pub fn on_message(&mut self, peer: Identifier, msg: RoastMessage, span: &Span) {
 		match msg {
 			RoastMessage::Commit(commitment) => {
 				if let Some(coordinator) = self.coordinator.as_mut() {
@@ -311,17 +302,17 @@ impl Roast {
 			},
 			RoastMessage::Signature(response) => {
 				if let Some(coordinator) = self.coordinator.as_mut() {
-					coordinator.on_response(peer, response);
+					coordinator.on_response(peer, response, span);
 				}
 			},
 		}
 	}
 
 	/// Determines the next action to be taken by the state machine.
-	pub fn next_action(&mut self) -> Option<RoastAction> {
+	pub fn next_action(&mut self, span: &Span) -> Option<RoastAction> {
 		if let Some(coordinator) = self.coordinator.as_mut() {
 			if let Some(data) = self.signer.data() {
-				if let Some(session) = coordinator.aggregate_signature() {
+				if let Some(session) = coordinator.aggregate_signature(span) {
 					let signing_package = SigningPackage::new(session.commitments, data);
 					if let Ok(signature) = frost_evm::aggregate(
 						&signing_package,
@@ -334,7 +325,7 @@ impl Roast {
 					}
 				}
 			}
-			if let Some(request) = coordinator.start_session() {
+			if let Some(request) = coordinator.start_session(&span) {
 				let peers = request.commitments.keys().copied().collect();
 				return Some(RoastAction::SendMany(peers, RoastMessage::Sign(request)));
 			}
@@ -345,7 +336,7 @@ impl Roast {
 				RoastMessage::Commit(self.signer.commit(coordinator)),
 			));
 		}
-		if let Some((coordinator, response)) = self.signer.message() {
+		if let Some((coordinator, response)) = self.signer.message(span) {
 			return Some(RoastAction::Send(coordinator, RoastMessage::Signature(response)));
 		}
 		None
@@ -363,6 +354,7 @@ mod tests {
 	#[test]
 	fn test_roast() -> Result<()> {
 		crate::tests::init_logger();
+		let span = tracing::span!(Level::INFO, "shard");
 		let signers = 3;
 		let threshold = 2;
 		let coordinator = 1;
@@ -381,7 +373,6 @@ mod tests {
 						KeyPackage::try_from(secret_share).unwrap(),
 						public_key_package.clone(),
 						coordinators.clone(),
-						&tracing::span!(Level::INFO, "shard"),
 					),
 				)
 			})
@@ -392,14 +383,18 @@ mod tests {
 		}
 		loop {
 			for from in &members {
-				if let Some(action) = roasts.get_mut(from).unwrap().next_action() {
+				if let Some(action) = roasts.get_mut(from).unwrap().next_action(&span) {
 					match action {
 						RoastAction::Send(to, commitment) => {
-							roasts.get_mut(&to).unwrap().on_message(*from, commitment);
+							roasts.get_mut(&to).unwrap().on_message(*from, commitment, &span);
 						},
 						RoastAction::SendMany(peers, request) => {
 							for to in peers {
-								roasts.get_mut(&to).unwrap().on_message(*from, request.clone());
+								roasts.get_mut(&to).unwrap().on_message(
+									*from,
+									request.clone(),
+									&span,
+								);
 							}
 						},
 						RoastAction::Complete(_hash, _signature) => {

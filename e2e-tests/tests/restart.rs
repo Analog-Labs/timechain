@@ -85,9 +85,8 @@ async fn validator_restart(backend: Backend, shard_size: u16) -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore]
 async fn chronicle_restart_evm_tss() -> Result<()> {
-	chronicle_restart(Backend::Evm, 3).await
+	chronicle_restart(Backend::Evm, 2).await
 }
 
 #[tokio::test]

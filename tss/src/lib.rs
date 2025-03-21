@@ -136,7 +136,6 @@ pub struct Tss<I, P> {
 	coordinators: BTreeSet<Identifier>,
 	state: TssState<I>,
 	committed: bool,
-	span: Span,
 }
 
 impl<I, P> Tss<I, P>
@@ -201,7 +200,6 @@ where
 				TssState::Dkg(Dkg::new(frost_id, members, threshold))
 			},
 			committed,
-			span,
 		}
 	}
 
@@ -242,9 +240,9 @@ where
 	/// 3. Converts the sender to a FROST identifier and validates it.
 	/// 4. Processes the message based on the current state (DKG or ROAST).
 	/// 5. Returns the result of the processing.
-	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) {
+	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>, span: &Span) {
 		let span = tracing::span!(
-			parent: &self.span,
+			parent: span,
 			Level::INFO, "on_message",
 			from = field::display(&peer_id),
 			msg = field::display(&msg),
@@ -270,7 +268,7 @@ where
 					session = field::display(&id),
 				);
 				if let Some(session) = signing_sessions.get_mut(&id) {
-					session.on_message(frost_id, msg);
+					session.on_message(frost_id, msg, &span);
 				} else {
 					tracing::info!(parent: &span, "no signing session");
 				}
@@ -287,15 +285,15 @@ where
 	/// 1. Logs the commit action.
 	/// 2. If in the DKG state, processes the commit and sets committed to true.
 	/// 3. Logs an error if not in the DKG state.
-	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
-		tracing::info!(parent: &self.span, "commit");
+	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment, span: &Span) {
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
+				tracing::info!(parent: span, "commit");
 				dkg.on_commit(commitment);
 				self.committed = true;
 			},
 			_ => {
-				tracing::error!(parent: &self.span, "unexpected commit")
+				tracing::error!(parent: span, "unexpected commit")
 			},
 		}
 	}
@@ -319,7 +317,6 @@ where
 					key_package.clone(),
 					public_key_package.clone(),
 					self.coordinators.clone(),
-					&self.span,
 				)
 			})),
 			_ => None,
@@ -331,16 +328,16 @@ where
 	/// 1. Logs the start action.
 	/// 2. Inserts a new session if it does not already exist.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_start(&mut self, id: I) {
+	pub fn on_start(&mut self, id: I, span: &Span) {
 		let span = tracing::span!(
-			parent: &self.span,
+			parent: span,
 			Level::INFO,
 			"start",
 			session = field::display(&id),
 		);
 		if self.get_or_insert_session(id.clone()).is_none() {
 			tracing::error!(
-				parent: &span,
+				parent: span,
 				"not ready to sign for",
 			);
 		}
@@ -352,18 +349,18 @@ where
 	/// 1. Logs the sign action.
 	/// 2. Sets the data for the session if it exists.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
-		let span = tracing::span!(
-			parent: &self.span,
-			Level::INFO,
-			"sign",
-			session = field::display(&id),
-		);
+	pub fn on_sign(&mut self, id: I, data: Vec<u8>, span: &Span) {
 		if let Some(session) = self.get_or_insert_session(id.clone()) {
+			tracing::event!(
+				parent: span,
+				Level::INFO,
+				session = field::display(&id),
+				"sign",
+			);
 			session.set_data(data)
 		} else {
 			tracing::error!(
-				parent: &span,
+				parent: span,
 				"not ready to sign",
 			);
 		}
@@ -375,20 +372,22 @@ where
 	/// 1. Logs the complete action.
 	/// 2. Removes the session if it exists.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_complete(&mut self, id: I) {
-		let span = tracing::span!(
-			parent: &self.span,
-			Level::INFO,
-			"complete",
-			session = field::display(&id),
-		);
+	pub fn on_complete(&mut self, id: I, span: &Span) {
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
+				tracing::event!(
+					parent: span,
+					Level::INFO,
+					session = field::display(&id),
+					"complete",
+				);
 				signing_sessions.remove(&id);
 			},
 			_ => {
-				tracing::error!(
-					parent: &span,
+				tracing::event!(
+					parent: span,
+					Level::ERROR,
+					session = field::display(&id),
 					"not ready to complete",
 				);
 			},
@@ -401,7 +400,7 @@ where
 	/// 1. If in the DKG state, returns the next DKG action.
 	/// 2. If in the ROAST state, returns the next ROAST action.
 	/// 3. Returns None if no action is available.
-	pub fn next_action(&mut self) -> Option<TssAction<I, P>> {
+	pub fn next_action(&mut self, span: &Span) -> Option<TssAction<I, P>> {
 		match &mut self.state {
 			// Handle the DKG state
 			TssState::Dkg(dkg) => {
@@ -430,13 +429,13 @@ where
 							public_key_package,
 							signing_sessions: Default::default(),
 						};
-						tracing::info!(parent: &self.span, "ready");
+						tracing::info!(parent: span, "ready");
 						return Some(TssAction::Ready(signing_share, commitment, public_key));
 					},
 					// If the DKG fails, transition to the Failed state
 					DkgAction::Failure(error) => {
 						tracing::error!(
-							parent: &self.span,
+							parent: span,
 							error = field::debug(&error),
 							"dkg failed",
 						);
@@ -450,7 +449,7 @@ where
 				let session_ids: Vec<_> = signing_sessions.keys().cloned().collect();
 				for id in session_ids {
 					let session = signing_sessions.get_mut(&id).unwrap();
-					while let Some(action) = session.next_action() {
+					while let Some(action) = session.next_action(span) {
 						let (peers, send_to_self, msg) = match action {
 							// If the next ROAST action is to send a message to a peer
 							RoastAction::Send(peer, msg) => {
@@ -477,7 +476,7 @@ where
 						};
 						// Handle sending the message to self if needed
 						if send_to_self {
-							session.on_message(self.frost_id, msg.clone());
+							session.on_message(self.frost_id, msg.clone(), span);
 						}
 						// Handle sending the message to peers if needed
 						if !peers.is_empty() {

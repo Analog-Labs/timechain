@@ -144,9 +144,9 @@ impl Tss {
 		}
 	}
 
-	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
+	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_commit(commitment),
+			Self::Enabled(tss) => tss.on_commit(commitment, span),
 			Self::Disabled(key, actions, committed) => {
 				*actions = Some(TssAction::PublicKey(key.public()));
 				*committed = true;
@@ -154,16 +154,16 @@ impl Tss {
 		}
 	}
 
-	pub fn on_start(&mut self, request_id: TaskId) {
+	pub fn on_start(&mut self, request_id: TaskId, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_start(request_id),
+			Self::Enabled(tss) => tss.on_start(request_id, span),
 			Self::Disabled(_, _, _) => {},
 		}
 	}
 
-	pub fn on_sign(&mut self, request_id: TaskId, data: Vec<u8>) {
+	pub fn on_sign(&mut self, request_id: TaskId, data: Vec<u8>, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_sign(request_id, data),
+			Self::Enabled(tss) => tss.on_sign(request_id, data, span),
 			Self::Disabled(key, actions, _) => {
 				let hash = VerifyingKey::message_hash(&data);
 				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
@@ -171,25 +171,25 @@ impl Tss {
 		}
 	}
 
-	pub fn on_complete(&mut self, request_id: TaskId) {
+	pub fn on_complete(&mut self, request_id: TaskId, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_complete(request_id),
+			Self::Enabled(tss) => tss.on_complete(request_id, span),
 			Self::Disabled(_, _, _) => {},
 		}
 	}
 
-	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<()> {
+	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage, span: &Span) -> Result<()> {
 		let peer_id = TssPeerId::new(peer_id)?;
 		match self {
-			Self::Enabled(tss) => tss.on_message(peer_id, msg),
+			Self::Enabled(tss) => tss.on_message(peer_id, msg, span),
 			Self::Disabled(_, _, _) => {},
 		};
 		Ok(())
 	}
 
-	pub fn next_action(&mut self, tss_keyshare_cache: &Path) -> Option<TssAction> {
+	pub fn next_action(&mut self, tss_keyshare_cache: &Path, span: &Span) -> Option<TssAction> {
 		let action = match self {
-			Self::Enabled(tss) => tss.next_action(),
+			Self::Enabled(tss) => tss.next_action(span),
 			Self::Disabled(_, action, _) => return action.take(),
 		}?;
 		Some(match action {

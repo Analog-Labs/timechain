@@ -48,7 +48,6 @@ async fn gateway_payments(backend: Backend, shard_size: u16) -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore]
 async fn gateway_payments_evm_tss() -> Result<()> {
-	gateway_payments(Backend::Evm, 3).await
+	gateway_payments(Backend::Evm, 2).await
 }

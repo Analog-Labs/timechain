@@ -170,7 +170,7 @@ impl TestEnvBuilder {
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
-				"anvil -b=2 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit",
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1",
 			])
 			.start()
 			.await?;
@@ -190,7 +190,7 @@ impl TestEnvBuilder {
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
-				batch_size: 64,
+				batch_size: 8,
 				batch_offset: 0,
 				batch_gas_limit: 10_000_000,
 				gmp_margin: 0.,

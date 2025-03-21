@@ -10,8 +10,8 @@ use solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::signer::keypair::Keypair;
-use solana_sdk::system_instruction;
 use solana_sdk::transaction::Transaction;
+use solana_sdk::{bpf_loader, loader_instruction, system_instruction};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use time_primitives::{
@@ -147,21 +147,88 @@ impl IChain for Connector {
 
 #[async_trait]
 impl IConnectorAdmin for Connector {
+	// dont need proxy since solana programs are upgradable
 	async fn deploy_gateway(
 		&self,
 		_additional_params: &[u8],
 		_proxy: &[u8],
-		_gateway: &[u8],
+		gateway: &[u8],
 	) -> Result<(Address, u64)> {
-		todo!("Need gateway implementation")
+		let program_keypair = Keypair::new();
+		let program_pubkey = program_keypair.pubkey();
+		let lamports = self.client.get_minimum_balance_for_rent_exemption(gateway.len()).await?;
+
+		let create_account_ix = system_instruction::create_account(
+			&self.wallet.pubkey(),
+			&program_pubkey,
+			lamports,
+			0,
+			&solana_sdk::loader_v4::id(),
+		);
+
+		let resize_ix = solana_sdk::loader_v4::set_program_length(
+			&program_pubkey,
+			&self.wallet.pubkey(),
+			gateway.len() as u32,
+			&self.wallet.pubkey(),
+		);
+
+		let write_ix = solana_sdk::loader_v4::write(
+			&program_pubkey,
+			&self.wallet.pubkey(),
+			0,
+			gateway.to_vec(),
+		);
+
+		let deploy_ix = solana_sdk::loader_v4::deploy(&program_pubkey, &self.wallet.pubkey());
+
+		let recent_blockhash = self.client.get_latest_blockhash().await?;
+
+		let transaction = Transaction::new_signed_with_payer(
+			&[create_account_ix, resize_ix, write_ix, deploy_ix],
+			Some(&self.wallet.pubkey()),
+			&[&self.wallet, &program_keypair],
+			recent_blockhash,
+		);
+
+		let signature = self.client.send_and_confirm_transaction(&transaction).await?;
+
+		tracing::info!("Deployed gateway at address: {:?}", signature);
+
+		let slot = self.client.get_slot().await?;
+
+		Ok((t_addr(program_pubkey), slot))
 	}
 	async fn redeploy_gateway(
 		&self,
 		_additional_params: &[u8],
-		_proxy: Address,
-		_gateway: &[u8],
+		proxy: Address,
+		gateway: &[u8],
 	) -> Result<()> {
-		todo!("Need gateway implementation")
+		let pubkey = a_addr(proxy);
+		let retract_ix = solana_sdk::loader_v4::retract(&pubkey, &self.wallet.pubkey());
+
+		let resize_ix = solana_sdk::loader_v4::set_program_length(
+			&pubkey,
+			&self.wallet.pubkey(),
+			gateway.len() as u32,
+			&self.wallet.pubkey(),
+		);
+
+		let write_ix =
+			solana_sdk::loader_v4::write(&pubkey, &self.wallet.pubkey(), 0, gateway.to_vec());
+
+		let deploy_ix = solana_sdk::loader_v4::deploy(&pubkey, &self.wallet.pubkey());
+
+		let recent_blockhash = self.client.get_latest_blockhash().await?;
+		let transaction = Transaction::new_signed_with_payer(
+			&[retract_ix, resize_ix, write_ix, deploy_ix],
+			Some(&self.wallet.pubkey()),
+			&[&self.wallet],
+			recent_blockhash,
+		);
+		self.client.send_and_confirm_transaction(&transaction).await?;
+		Ok(())
 	}
 	async fn admin(&self, _gateway: Address) -> Result<Address> {
 		todo!("Need gateway implementation")

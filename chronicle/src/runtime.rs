@@ -4,7 +4,7 @@ use futures::stream::BoxStream;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Task, TaskId, TaskResult,
 };
 
@@ -70,7 +70,7 @@ pub trait Runtime: Send + Sync + 'static {
 		block: BlockHash,
 	) -> Result<Option<GatewayMessage>>;
 
-	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>>;
+	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Address32>>;
 
 	async fn get_cctp_info(
 		&self,
@@ -190,7 +190,7 @@ impl Runtime for SubxtClient {
 		self.task_submitter(task_id, block).await
 	}
 
-	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>> {
+	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Address32>> {
 		self.network_gateway(network, block).await
 	}
 

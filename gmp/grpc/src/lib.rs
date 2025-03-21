@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address32 as Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage,
+	Address32 as Address, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage,
 	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
@@ -142,7 +142,7 @@ impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(
 		&self,
-		gateway: Gateway,
+		gateway: Address,
 		blocks: Range<u64>,
 		_cctp_info: Option<(Vec<Address>, String)>,
 	) -> Result<Vec<GmpEvent>> {
@@ -157,7 +157,7 @@ impl IConnector for Connector {
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
-		gateway: Gateway,
+		gateway: Address,
 		batch: BatchId,
 		msg: GatewayMessage,
 		signer: TssPublicKey,

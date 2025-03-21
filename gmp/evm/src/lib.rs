@@ -33,7 +33,7 @@ use sol::{
 use std::{ops::Range, pin::Pin, process::Command, sync::Arc};
 use thiserror::Error;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, Hash,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash,
 	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
 	TssPublicKey, TssSignature,
 };
@@ -184,7 +184,7 @@ impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(
 		&self,
-		gateway: Gateway,
+		gateway: Address32,
 		blocks: Range<u64>,
 		cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>> {
@@ -274,7 +274,7 @@ impl IConnector for Connector {
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
-		gateway: Gateway,
+		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
 		signer: TssPublicKey,

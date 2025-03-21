@@ -169,7 +169,6 @@ where
 				////////////////////////////////////////////////
 				StateMachine::Wait(mut delay) => match delay.poll_unpin(cx) {
 					Poll::Ready(()) => {
-						// TODO
 						let provider_call = self
 							.provider
 							.get_block_by_number(alloy::eips::BlockNumberOrTag::Finalized)

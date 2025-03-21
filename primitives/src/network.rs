@@ -1,4 +1,4 @@
-use crate::{Address32, Gateway};
+use crate::Address32;
 use anyhow::{anyhow, Result};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -38,7 +38,7 @@ pub struct Network {
 	pub id: NetworkId,
 	pub chain_name: ChainName,
 	pub chain_network: ChainNetwork,
-	pub gateway: Gateway,
+	pub gateway: Address32,
 	pub gateway_block: u64,
 	pub config: NetworkConfig,
 }

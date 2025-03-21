@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 
 pub type Address32 = [u8; 32];
-pub type Gateway = Address32;
 pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
@@ -17,11 +16,11 @@ const GMP_VERSION: &str = "Analog GMP v2";
 #[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
 pub struct GmpParams {
 	pub network: NetworkId,
-	pub gateway: Gateway,
+	pub gateway: Address32,
 }
 
 impl GmpParams {
-	pub fn new(network: NetworkId, gateway: Gateway) -> Self {
+	pub fn new(network: NetworkId, gateway: Address32) -> Self {
 		Self { network, gateway }
 	}
 
@@ -292,7 +291,7 @@ pub struct Route {
 	/// Destination network Id
 	pub network_id: NetworkId,
 	/// Destination gateway
-	pub gateway: Gateway,
+	pub gateway: Address32,
 	/// Gas price on destination network, expressed in source network token
 	pub relative_gas_price: (u128, u128),
 	/// Maximum amount of gas a message is allowed to spend on destination network
@@ -349,14 +348,14 @@ pub trait IConnector: IChain {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(
 		&self,
-		gateway: Gateway,
+		gateway: Address32,
 		blocks: Range<u64>,
 		cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
-		gateway: Gateway,
+		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
 		signer: TssPublicKey,

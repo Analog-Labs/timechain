@@ -16,7 +16,7 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
-	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
+	BlockNumber, ChainName, ChainNetwork, ConnectorParams, GatewayMessage, GmpEvent,
 	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
 	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
@@ -116,7 +116,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		block_hash: BlockHash,
-	) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	) -> Result<(&dyn IConnectorAdmin, Address32)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -770,7 +770,7 @@ impl Tc {
 }
 
 impl Tc {
-	async fn register_network(&self, network: NetworkId, block_hash: BlockHash) -> Result<Gateway> {
+	async fn register_network(&self, network: NetworkId, block_hash: BlockHash) -> Result<Address32> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
@@ -875,7 +875,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
+	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Address32>) -> Result<()> {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
@@ -925,7 +925,7 @@ impl Tc {
 			});
 		}
 
-		let routes: HashMap<NetworkId, Gateway> = gateways.try_collect().await?;
+		let routes: HashMap<NetworkId, Address32> = gateways.try_collect().await?;
 		self.register_routes(routes).await
 	}
 
@@ -1028,7 +1028,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		block_hash: BlockHash,
-	) -> Result<Gateway> {
+	) -> Result<Address32> {
 		let config = self.config.network(network)?;
 		self.faucet(network, block_hash).await?;
 		let gateway = self.register_network(network, block_hash).await?;

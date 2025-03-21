@@ -121,9 +121,9 @@ impl IChain for Connector {
 		Ok(response.get_ref().finalized_block)
 	}
 	/// Stream of finalized block indexes.
-	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send>>> {
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		let request = Request::new(proto::BlockStreamRequest {});
-		Ok(futures::executor::block_on(async move {
+		futures::executor::block_on(async move {
 			self.client
 				.lock()
 				.await
@@ -133,7 +133,7 @@ impl IChain for Connector {
 				.into_inner()
 				.filter_map(|res| async { res.ok().map(|msg| msg.block) })
 				.boxed()
-		}))
+		})
 	}
 }
 

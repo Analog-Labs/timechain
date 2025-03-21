@@ -20,6 +20,7 @@ use alloy::{
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use blocks::FinalizedBlockStream;
 use futures::{future, Stream, StreamExt};
 use reqwest::Client;
 use serde::Deserialize;
@@ -147,7 +148,7 @@ impl IChain for Connector {
 
 		Ok(())
 	}
-	/// Transfers an amount to an account.
+	/// Transfers an amount to an account
 	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
 		let to = a_addr(address);
 		let tx = TransactionRequest::default()
@@ -161,7 +162,7 @@ impl IChain for Connector {
 
 		Ok(())
 	}
-	/// Queries the account balance.
+	/// Queries the account balance
 	async fn balance(&self, address: Address32) -> Result<u128> {
 		Ok(self.rpc.get_balance(a_addr(address)).await?.try_into()?)
 	}
@@ -172,13 +173,9 @@ impl IChain for Connector {
 			.map(|b| b.header.number)
 			.ok_or(anyhow!("failed querying finalized block"))
 	}
-	/// Stream of finalized block indexes.
-	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send>>> {
-		// BUG this is new block headers, not finalized
-		let subscription = self.rpc.subscribe_blocks().await?;
-		let stream = subscription.into_stream().map(|b| b.inner.number);
-
-		Ok(stream.boxed() as Pin<Box<dyn Stream<Item = u64> + Send>>)
+	/// Stream of finalized block indicies
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
+		Box::pin(FinalizedBlockStream::new(self.rpc.clone()).map(|b| b.header.number))
 	}
 }
 

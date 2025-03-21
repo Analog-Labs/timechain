@@ -7,7 +7,9 @@ use alloy::{
 };
 use futures::{FutureExt, Stream};
 use std::{
-	future::IntoFuture, pin::Pin, task::{Context, Poll}
+	future::IntoFuture,
+	pin::Pin,
+	task::{Context, Poll},
 };
 use tokio::time::{sleep, Duration, Instant, Sleep};
 
@@ -118,9 +120,7 @@ pub struct FinalizedBlockStream<P: Provider> {
 	/// Latest known finalized block and the timestamp when it was received.
 	best_finalized_block: Option<(Block, Instant)>,
 	/// State machine that controls fetching the latest finalized block.
-	state: Option<
-		StateMachine<EthGetBlockParams, Option<Block>>,
-	>,
+	state: Option<StateMachine<EthGetBlockParams, Option<Block>>>,
 	/// Count of consecutive errors.
 	consecutive_errors: u32,
 }

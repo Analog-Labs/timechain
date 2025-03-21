@@ -232,15 +232,15 @@ impl IChain for Connector {
 	}
 
 	/// Stream of finalized block indexes.
-	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send>>> {
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
 		let genesis = self.genesis;
 		let block_time = self.block_time;
-		Ok(futures::stream::repeat(0)
+		futures::stream::repeat(0)
 			.then(move |_| async move {
 				tokio::time::sleep(Duration::from_secs(block_time)).await;
 				block(genesis, block_time)
 			})
-			.boxed())
+			.boxed()
 	}
 }
 

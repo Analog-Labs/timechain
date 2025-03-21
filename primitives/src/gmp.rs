@@ -340,7 +340,7 @@ pub trait IChain: Send + Sync + 'static {
 	/// Returns the last finalized block.
 	async fn finalized_block(&self) -> Result<u64>;
 	/// Stream of finalized block indicies.
-	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send + 'static>>>;
+	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>>;
 }
 
 #[cfg(feature = "std")]

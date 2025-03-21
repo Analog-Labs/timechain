@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
+	Address32 as Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
@@ -30,7 +30,7 @@ struct AddressInterceptor {
 }
 
 impl AddressInterceptor {
-	fn new(address: Address32) -> Self {
+	fn new(address: Address) -> Self {
 		Self {
 			address: gmp_rust::format_address(address).parse().unwrap(),
 		}
@@ -49,7 +49,7 @@ type GmpClientT = GmpClient<InterceptedService<Channel, AddressInterceptor>>;
 #[derive(Clone)]
 pub struct Connector {
 	network: NetworkId,
-	address: Address32,
+	address: Address,
 	client: Arc<Mutex<GmpClientT>>,
 }
 
@@ -79,11 +79,11 @@ impl IConnectorBuilder for Connector {
 #[tonic::async_trait]
 impl IChain for Connector {
 	/// Formats an address into a string.
-	fn format_address(&self, address: Address32) -> String {
+	fn format_address(&self, address: Address) -> String {
 		gmp_rust::format_address(address)
 	}
 	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address32> {
+	fn parse_address(&self, address: &str) -> Result<Address> {
 		gmp_rust::parse_address(address)
 	}
 	fn currency(&self) -> (u32, &str) {
@@ -94,7 +94,7 @@ impl IChain for Connector {
 		self.network
 	}
 	/// Human readable connector account identifier.
-	fn address(&self) -> Address32 {
+	fn address(&self) -> Address {
 		self.address
 	}
 	/// Uses a faucet to fund the account when possible.
@@ -104,13 +104,13 @@ impl IChain for Connector {
 		Ok(())
 	}
 	/// Transfers an amount to an account.
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
+	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
 		let request = Request::new(proto::TransferRequest { address, amount });
 		self.client.lock().await.transfer(request).await?;
 		Ok(())
 	}
 	/// Queries the account balance.
-	async fn balance(&self, address: Address32) -> Result<u128> {
+	async fn balance(&self, address: Address) -> Result<u128> {
 		let request = Request::new(proto::BalanceRequest { address });
 		let response = self.client.lock().await.balance(request).await?;
 		Ok(response.get_ref().balance)
@@ -144,7 +144,7 @@ impl IConnector for Connector {
 		&self,
 		gateway: Gateway,
 		blocks: Range<u64>,
-		_cctp_info: Option<(Vec<Address32>, String)>,
+		_cctp_info: Option<(Vec<Address>, String)>,
 	) -> Result<Vec<GmpEvent>> {
 		let request = Request::new(proto::ReadEventsRequest {
 			gateway,
@@ -188,7 +188,7 @@ impl IConnectorAdmin for Connector {
 		_additional_params: &[u8],
 		proxy: &[u8],
 		gateway: &[u8],
-	) -> Result<(Address32, u64)> {
+	) -> Result<(Address, u64)> {
 		let request = Request::new(proto::DeployGatewayRequest {
 			proxy: proxy.to_vec(),
 			gateway: gateway.to_vec(),
@@ -200,7 +200,7 @@ impl IConnectorAdmin for Connector {
 	async fn redeploy_gateway(
 		&self,
 		_additional_params: &[u8],
-		proxy: Address32,
+		proxy: Address,
 		gateway: &[u8],
 	) -> Result<()> {
 		let request = Request::new(proto::RedeployGatewayRequest {
@@ -211,19 +211,19 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Returns the gateway admin.
-	async fn admin(&self, gateway: Address32) -> Result<Address32> {
+	async fn admin(&self, gateway: Address) -> Result<Address> {
 		let request = Request::new(proto::AdminRequest { gateway });
 		let response = self.client.lock().await.admin(request).await?.into_inner();
 		Ok(response.address)
 	}
 	/// Sets the gateway admin.
-	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
+	async fn set_admin(&self, gateway: Address, admin: Address) -> Result<()> {
 		let request = Request::new(proto::SetAdminRequest { gateway, admin });
 		self.client.lock().await.set_admin(request).await?;
 		Ok(())
 	}
 	/// Returns the registered shard keys.
-	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
+	async fn shards(&self, gateway: Address) -> Result<Vec<TssPublicKey>> {
 		let request = Request::new(proto::ShardsRequest { gateway });
 		let response = self.client.lock().await.shards(request).await?.into_inner();
 		Ok(unsafe {
@@ -233,26 +233,26 @@ impl IConnectorAdmin for Connector {
 		})
 	}
 	/// Sets the registered shard keys. Overwrites any other keys.
-	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
+	async fn set_shards(&self, gateway: Address, keys: &[TssPublicKey]) -> Result<()> {
 		let shards = keys.iter().copied().map(serde_big_array::Array).collect();
 		let request = Request::new(proto::SetShardsRequest { gateway, shards });
 		self.client.lock().await.set_shards(request).await?;
 		Ok(())
 	}
 	/// Returns the gateway routing table.
-	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
+	async fn routes(&self, gateway: Address) -> Result<Vec<Route>> {
 		let request = Request::new(proto::RoutesRequest { gateway });
 		let response = self.client.lock().await.routes(request).await?.into_inner();
 		Ok(response.routes)
 	}
 	/// Updates an entry in the gateway routing table.
-	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
+	async fn set_route(&self, gateway: Address, route: Route) -> Result<()> {
 		let request = Request::new(proto::SetRouteRequest { gateway, route });
 		self.client.lock().await.set_route(request).await?;
 		Ok(())
 	}
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+	async fn deploy_test(&self, gateway: Address, tester: &[u8]) -> Result<(Address, u64)> {
 		let request = Request::new(proto::DeployTestRequest {
 			gateway,
 			tester: tester.to_vec(),
@@ -263,9 +263,9 @@ impl IConnectorAdmin for Connector {
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,
-		contract: Address32,
+		contract: Address,
 		src_network: NetworkId,
-		src: Address32,
+		src: Address,
 		payload: Vec<u8>,
 	) -> Result<u128> {
 		let request = Request::new(proto::EstimateMessageGasLimitRequest {
@@ -281,7 +281,7 @@ impl IConnectorAdmin for Connector {
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,
-		gateway: Address32,
+		gateway: Address,
 		dest_network: NetworkId,
 		gas_limit: u128,
 		payload: Vec<u8>,
@@ -298,9 +298,9 @@ impl IConnectorAdmin for Connector {
 	/// Sends a message using the test contract and returns the message id.
 	async fn send_message(
 		&self,
-		src: Address32,
+		src: Address,
 		dest_network: NetworkId,
-		dest: Address32,
+		dest: Address,
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
@@ -320,7 +320,7 @@ impl IConnectorAdmin for Connector {
 	/// Receives messages from test contract.
 	async fn recv_messages(
 		&self,
-		contract: Address32,
+		contract: Address,
 		blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
 		let request = Request::new(proto::RecvMessagesRequest {
@@ -346,12 +346,7 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Withdraw gateway funds.
-	async fn withdraw_funds(
-		&self,
-		gateway: Address32,
-		amount: u128,
-		address: Address32,
-	) -> Result<()> {
+	async fn withdraw_funds(&self, gateway: Address, amount: u128, address: Address) -> Result<()> {
 		let request = Request::new(proto::WithdrawFundsRequest { gateway, amount, address });
 		self.client.lock().await.withdraw_funds(request).await?.into_inner();
 		Ok(())

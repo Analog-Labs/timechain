@@ -143,7 +143,7 @@ services:
     image: 'analoglabs/tc-cli-develop'
     environment:
       RUST_BACKTRACE: 1
-      RUST_LOG: 'debug'
+      RUST_LOG: 'gmp-evm=info'
     profiles:
     - never
 

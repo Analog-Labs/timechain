@@ -4,7 +4,8 @@ use anyhow::Result;
 use futures::channel::oneshot;
 use subxt::utils::H256;
 use time_primitives::{
-	Address32, BlockHash, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig, NetworkId
+	Address32, BlockHash, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
+	NetworkId,
 };
 
 impl SubxtClient {

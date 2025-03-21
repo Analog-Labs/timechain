@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_big_array::Array;
 use time_primitives::{
-	Address32 as Address, BatchId, GatewayMessage, GmpEvent, GmpMessage, MessageId,
-	NetworkId, Route, TssPublicKey, TssSignature,
+	Address32 as Address, BatchId, GatewayMessage, GmpEvent, GmpMessage, MessageId, NetworkId,
+	Route, TssPublicKey, TssSignature,
 };
 
 #[derive(Serialize, Deserialize)]

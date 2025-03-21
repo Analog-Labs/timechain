@@ -33,9 +33,9 @@ use sol::{
 use std::{ops::Range, pin::Pin, process::Command, sync::Arc};
 use thiserror::Error;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash,
-	IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 use tokio::sync::Mutex;
 

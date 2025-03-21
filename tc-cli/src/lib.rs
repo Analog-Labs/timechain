@@ -16,9 +16,9 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
-	BlockNumber, ChainName, ChainNetwork, ConnectorParams, GatewayMessage, GmpEvent,
-	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
-	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	BlockNumber, ChainName, ChainNetwork, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents,
+	GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
+	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use time_primitives::{CctpContracts, CctpUrl};
 
@@ -770,7 +770,11 @@ impl Tc {
 }
 
 impl Tc {
-	async fn register_network(&self, network: NetworkId, block_hash: BlockHash) -> Result<Address32> {
+	async fn register_network(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<Address32> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;

@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use crate::{
-	encode_gmp_events, BatchId, BlockNumber, GatewayMessage, GmpEvent, GmpParams,
-	NetworkId, TaskId, Address32
+	encode_gmp_events, Address32, BatchId, BlockNumber, GatewayMessage, GmpEvent, GmpParams,
+	NetworkId, TaskId,
 };
 #[cfg(feature = "std")]
 use futures::channel::oneshot;

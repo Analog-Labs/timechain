@@ -34,14 +34,16 @@ jobs:
         with:
           feature: 'testnet'
           command: test
-          args: -p e2e-tests --no-run
+          package: e2e-tests
+          args: --no-run
           # Handling cache in the Actions Cache
           cache: false
 
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:
+          feature: 'testnet'
           command: test
-          args: -p e2e-tests
+          package: e2e-tests
           cache: false
           annotate: false

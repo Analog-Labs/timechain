@@ -32,7 +32,6 @@ jobs:
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:
-          feature: 'testnet'
           command: test
           package: e2e-tests
           args: --no-run
@@ -42,7 +41,6 @@ jobs:
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:
-          feature: 'testnet'
           command: test
           package: e2e-tests
           cache: false

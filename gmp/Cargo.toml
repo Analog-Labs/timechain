@@ -15,5 +15,6 @@ gmp-evm = { path = "evm" }
 gmp-grpc = { path = "grpc" }
 gmp-rust = { path = "rust" }
 gmp-solana = { path = "solana" }
+gmp-solana-contract = { path = "solana/contract" }
 serde = { workspace = true, features = ["derive"] }
 time-primitives.workspace = true

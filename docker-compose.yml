@@ -15,7 +15,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
     ports:
-      - 9944
+      - 9944:9944
 
   chain-0-grpc:
     image: 'analoglabs/gmp-grpc-develop'
@@ -143,7 +143,7 @@ services:
     image: 'analoglabs/tc-cli-develop'
     environment:
       RUST_BACKTRACE: 1
-      RUST_LOG: 'gmp_evm=info'
+      RUST_LOG: 'debug'
     profiles:
     - never
 

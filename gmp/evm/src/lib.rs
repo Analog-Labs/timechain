@@ -44,6 +44,7 @@ type Address20 = alloy::primitives::Address;
 type CctpRetryCount = u8;
 const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
+pub(crate) mod blocks;
 pub(crate) mod sol;
 
 fn a_addr(address: Address32) -> Address20 {
@@ -173,6 +174,7 @@ impl IChain for Connector {
 	}
 	/// Stream of finalized block indexes.
 	async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send>>> {
+		// BUG this is new block headers, not finalized
 		let subscription = self.rpc.subscribe_blocks().await?;
 		let stream = subscription.into_stream().map(|b| b.inner.number);
 

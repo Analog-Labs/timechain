@@ -139,7 +139,7 @@ impl TaskParams {
 				else {
 					anyhow::bail!("no submitter set for task");
 				};
-				if &public_key != self.runtime.public_key() {
+				if &public_key == self.runtime.public_key() {
 					if let Err(mut e) = self
 						.connector
 						.submit_commands(gateway, batch_id, msg, signer, signature)

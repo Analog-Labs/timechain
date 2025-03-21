@@ -34,8 +34,8 @@ impl TaskParams {
 		self.connector.network_id()
 	}
 
-	pub async fn block_stream(&self) -> Result<Pin<Box<dyn Stream<Item = u64> + Send + '_>>> {
-		self.connector.block_stream().await
+	pub fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
+		self.connector.block_stream()
 	}
 
 	async fn tss_sign(

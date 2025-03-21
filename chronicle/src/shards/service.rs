@@ -371,7 +371,7 @@ where
 
 		let task_params = self.task_params.clone();
 		let mut block_stream =
-			task_params.block_stream().await.expect("Failed to get block stream").fuse();
+			task_params.block_stream().fuse();
 		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		let block = finality_notifications.next().await.expect("Finality stream is not active");

@@ -21,3 +21,8 @@ async fn smoke_grpc() -> Result<()> {
 async fn smoke_grpc_tss() -> Result<()> {
 	smoke(Backend::Grpc, 2).await
 }
+
+#[tokio::test]
+async fn smoke_evm_tss() -> Result<()> {
+	smoke(Backend::Evm, 2).await
+}

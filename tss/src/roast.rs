@@ -325,7 +325,7 @@ impl Roast {
 					}
 				}
 			}
-			if let Some(request) = coordinator.start_session(&span) {
+			if let Some(request) = coordinator.start_session(span) {
 				let peers = request.commitments.keys().copied().collect();
 				return Some(RoastAction::SendMany(peers, RoastMessage::Sign(request)));
 			}

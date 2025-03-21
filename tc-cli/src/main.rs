@@ -1,11 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Benchmark, Query, Sender, Tc};
-use time_primitives::{BatchId, BlockNumber, CCTPMessage, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -174,12 +173,6 @@ enum Command {
 	SmokeTest {
 		src: NetworkId,
 		dest: NetworkId,
-	},
-	SmokeCctp {
-		src: NetworkId,
-		dest: NetworkId,
-		src_addr: Option<String>,
-		dest_addr: Option<String>,
 	},
 	WithdrawFunds {
 		network: NetworkId,
@@ -438,37 +431,6 @@ async fn real_main() -> Result<()> {
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
-		},
-		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
-			let testers = match (src_addr, dest_addr) {
-				(Some(src_addr), Some(dest_addr)) => {
-					let src_addr = tc.parse_address(Some(src), &src_addr)?;
-					let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-					let mut testers = HashMap::new();
-					testers.insert(src, (src_addr, 0));
-					testers.insert(dest, (dest_addr, 0));
-					testers
-				},
-				_ => tc.setup_test().await?,
-			};
-			let (block_hash, _) = tc.latest_block().await?;
-			let src_addr = testers.get(&src).context("missing tester")?.0;
-			let dest_addr = testers.get(&dest).context("missing tester")?.0;
-			tc.set_network_config(src, Some(src_addr), block_hash).await?;
-			tc.set_network_config(dest, Some(dest_addr), block_hash).await?;
-			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
-			let msg_data =
-				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
-			let cctp_payload = CCTPMessage {
-				attestation: vec![],
-				message: msg_data,
-				extra_data: [0u8; 32].to_vec(),
-			};
-			let msg = tc.exec_smoke(src, dest, &testers, cctp_payload.encode()).await?;
-			let attested =
-				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-			assert!(!attested.attestation.is_empty());
-			assert!(attested.extra_data == cctp_payload.extra_data);
 		},
 		Command::Benchmark {
 			num_messages_per_block,

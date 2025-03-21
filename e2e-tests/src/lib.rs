@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use tc_cli::{
 	config::{ConfigYaml, ContractsConfig, GlobalConfig, NetworkConfig},
@@ -105,7 +105,7 @@ impl TestEnvBuilder {
 		let chain_name = format!("chain-grpc-{network}");
 		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
 			.with_exposed_port(3000.tcp())
-			.with_container_name(chain_name)
+			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "gmp_grpc=debug,gmp_rust=debug")
 			.with_env_var("RUST_BACKTRACE", "1")
@@ -129,7 +129,7 @@ impl TestEnvBuilder {
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
-				batch_size: 64,
+				batch_size: 8,
 				batch_offset: 0,
 				batch_gas_limit: 10_000_000,
 				gmp_margin: 0.,
@@ -149,7 +149,8 @@ impl TestEnvBuilder {
 
 		// add chronicles
 		for i in 0..shard_size {
-			self.add_chronicle(network, Backend::Grpc, i, &chain_url).await?;
+			self.add_chronicle(network, Backend::Grpc, i, &format!("http://{chain_name}:3000"))
+				.await?;
 		}
 		Ok(())
 	}
@@ -164,7 +165,7 @@ impl TestEnvBuilder {
 		let chain_name = format!("chain-evm-{network}");
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
 			.with_exposed_port(8545.tcp())
-			.with_container_name(chain_name)
+			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_log_consumer(LoggingConsumer::new())
@@ -217,7 +218,8 @@ impl TestEnvBuilder {
 
 		// add chronicles
 		for i in 0..shard_size {
-			self.add_chronicle(network, Backend::Evm, i, &chain_url).await?;
+			self.add_chronicle(network, Backend::Evm, i, &format!("ws://{chain_name}:8545"))
+				.await?;
 		}
 		Ok(())
 	}
@@ -236,8 +238,9 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info")
 			.with_env_var("RUST_BACKTRACE", "1")
+			.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
-				format!("--timechain-url={}", &self.config.config.timechain_url),
+				"--timechain-url=ws://validator:9944".to_string(),
 				format!("--target-url={target_url}"),
 				format!("--backend={backend}"),
 				format!("--network-id={network}"),
@@ -308,6 +311,11 @@ impl TestEnv {
 		&self.testers
 	}
 
+	/// Returns the tester.
+	pub fn tester(&self, network: NetworkId) -> Result<Address> {
+		Ok(self.testers.get(&network).context("missing tester")?.0)
+	}
+
 	/// Runs a smoke test
 	pub async fn smoke_test(&self, payload: Vec<u8>) -> Result<GmpMessage> {
 		self.exec_smoke(0, 1, &self.testers, payload).await
@@ -334,5 +342,11 @@ impl Deref for TestEnv {
 
 	fn deref(&self) -> &Self::Target {
 		&self.tc
+	}
+}
+
+impl DerefMut for TestEnv {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.tc
 	}
 }

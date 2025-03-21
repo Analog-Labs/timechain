@@ -170,15 +170,7 @@ impl TestEnvBuilder {
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
-				"anvil",
-				"-b",
-				"2",
-				"--steps-tracing",
-				"--order",
-				"fifo",
-				"--base-fee",
-				"0",
-				"--no-request-size-limit",
+				"anvil -b=2 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit",
 			])
 			.start()
 			.await?;

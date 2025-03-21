@@ -27,6 +27,6 @@ async fn cctp(backend: Backend, shard_size: u16) -> Result<()> {
 }
 
 #[tokio::test]
-async fn cctp_grpc() -> Result<()> {
-	cctp(Backend::Grpc, 1).await
+async fn cctp_evm() -> Result<()> {
+	cctp(Backend::Evm, 1).await
 }

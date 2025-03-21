@@ -1,6 +1,7 @@
 FROM ghcr.io/foundry-rs/foundry:latest as foundry
 
 FROM ubuntu:22.04
+RUN apt update && apt install -y ca-certificates
 COPY --from=foundry /usr/local/bin/cast /bin/cast
 COPY tc-cli /bin/tc-cli
 COPY envs /etc/envs

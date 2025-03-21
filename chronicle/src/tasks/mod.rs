@@ -121,6 +121,7 @@ impl TaskParams {
 				}
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
+				let span = span!(parent: &span, Level::INFO, "submit_batch", batch_id);
 				let msg = self
 					.runtime
 					.get_batch_message(batch_id, block_hash)
@@ -140,6 +141,7 @@ impl TaskParams {
 					anyhow::bail!("no submitter set for task");
 				};
 				if &public_key == self.runtime.public_key() {
+					tracing::info!(parent: &span, "submitting batch");
 					if let Err(mut e) = self
 						.connector
 						.submit_commands(gateway, batch_id, msg, signer, signature)
@@ -153,6 +155,8 @@ impl TaskParams {
 						tracing::debug!(parent: &span, "submitting task result");
 						self.runtime.submit_task_result(task_id, result).await?;
 					}
+				} else {
+					tracing::info!(parent: &span, "not submitting batch");
 				}
 			},
 		}

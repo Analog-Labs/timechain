@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::{ops::Range, pin::Pin, sync::Arc};
 
 use anyhow::Result;
@@ -6,20 +7,25 @@ use futures::{Stream, StreamExt};
 use solana_client::nonblocking::pubsub_client::PubsubClient;
 use solana_client::nonblocking::rpc_client::RpcClient;
 
+use solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config;
 use solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
+use solana_sdk::message::Message;
+use solana_sdk::signature::Signature;
 use solana_sdk::signer::keypair::Keypair;
+use solana_sdk::system_instruction;
 use solana_sdk::transaction::Transaction;
-use solana_sdk::{bpf_loader, loader_instruction, system_instruction};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
+use solana_transaction_status::option_serializer::OptionSerializer;
+use solana_transaction_status::UiTransactionEncoding;
 use time_primitives::{
 	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
 	TssSignature,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 fn a_addr(address: Address) -> Pubkey {
@@ -32,7 +38,7 @@ fn t_addr(pubkey: Pubkey) -> Address {
 
 pub struct Connector {
 	network_id: NetworkId,
-	client: RpcClient,
+	client: Arc<RpcClient>,
 	pubsub_client: Arc<PubsubClient>,
 	wallet: Arc<Keypair>,
 }
@@ -68,7 +74,7 @@ impl IConnectorBuilder for Connector {
 		let pubsub_client = PubsubClient::new(ws_url).await?;
 		let connector = Self {
 			network_id: params.network_id,
-			client,
+			client: Arc::new(client),
 			wallet: Arc::new(Keypair::new()),
 			pubsub_client: Arc::new(pubsub_client),
 		};
@@ -199,6 +205,7 @@ impl IConnectorAdmin for Connector {
 
 		Ok((t_addr(program_pubkey), slot))
 	}
+
 	async fn redeploy_gateway(
 		&self,
 		_additional_params: &[u8],
@@ -230,27 +237,35 @@ impl IConnectorAdmin for Connector {
 		self.client.send_and_confirm_transaction(&transaction).await?;
 		Ok(())
 	}
+
 	async fn admin(&self, _gateway: Address) -> Result<Address> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn set_admin(&self, _gateway: Address, _admin: Address) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn shards(&self, _gateway: Address) -> Result<Vec<TssPublicKey>> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn set_shards(&self, _gateway: Address, _keys: &[TssPublicKey]) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn routes(&self, _gateway: Address) -> Result<Vec<Route>> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn set_route(&self, _gateway: Address, _route: Route) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn deploy_test(&self, _gateway: Address, _tester: &[u8]) -> Result<(Address, u64)> {
 		todo!("Not supported")
 	}
+
 	async fn estimate_message_gas_limit(
 		&self,
 		_contract: Address,
@@ -258,8 +273,10 @@ impl IConnectorAdmin for Connector {
 		_src: Address,
 		_payload: Vec<u8>,
 	) -> Result<u128> {
-		todo!("Not supported")
+		// Not supported
+		Ok(0)
 	}
+
 	async fn estimate_message_cost(
 		&self,
 		_gateway: Address,
@@ -267,8 +284,11 @@ impl IConnectorAdmin for Connector {
 		_gas_limit: u128,
 		_payload: Vec<u8>,
 	) -> Result<u128> {
-		todo!()
+		let msg = Message::new(&[], None);
+		let fee = self.client.get_fee_for_message(&msg).await?;
+		Ok(fee as u128)
 	}
+
 	async fn send_message(
 		&self,
 		_src: Address,
@@ -280,6 +300,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<MessageId> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn recv_messages(
 		&self,
 		_contract: Address,
@@ -287,6 +308,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<Vec<GmpMessage>> {
 		todo!("Need gateway implementation")
 	}
+
 	async fn max_fee_per_gas(&self) -> Result<u128> {
 		// reference: <https://solana.com/docs/core/fees#key-points>
 		// 5000 per signature is base fee of solana
@@ -314,11 +336,93 @@ impl IConnectorAdmin for Connector {
 impl IConnector for Connector {
 	async fn read_events(
 		&self,
-		_gateway: Gateway,
-		_blocks: Range<u64>,
+		gateway: Gateway,
+		blocks: Range<u64>,
 		_cctp_info: Option<(Vec<Address>, String)>,
 	) -> Result<Vec<GmpEvent>> {
-		todo!("Need gateway implementation")
+		// 1. Get signatures with slot-based pagination
+		let program_id = a_addr(gateway);
+		let mut all_signatures = Vec::new();
+		let mut before = None;
+		let commitment = self.client.commitment();
+
+		loop {
+			let config = GetConfirmedSignaturesForAddress2Config {
+				before: before.clone(),
+				until: None,
+				limit: Some(500),
+				commitment: Some(commitment),
+			};
+
+			let signatures = self
+				.client
+				.get_signatures_for_address_with_config(&program_id, config)
+				.await?
+				.into_iter()
+				.filter(|sig| blocks.contains(&sig.slot))
+				.collect::<Vec<_>>();
+
+			if signatures.is_empty() {
+				break;
+			}
+
+			all_signatures.extend(signatures);
+			// TODO remove unwrap
+			before = all_signatures
+				.last()
+				.map(|s| Signature::from_str(&s.signature.clone()).unwrap());
+
+			if let Some(last_slot) = all_signatures.last().map(|s| s.slot) {
+				if last_slot < blocks.start {
+					break;
+				}
+			}
+		}
+
+		let semaphore = Arc::new(Semaphore::new(10));
+		let mut handles = vec![];
+
+		for sig_info in all_signatures {
+			let client = self.client.clone();
+			let permit = semaphore.clone().acquire_owned().await?;
+
+			handles.push(tokio::spawn(async move {
+				let _permit = permit;
+				// TODO remove unwrap
+				let signature: Signature = sig_info.signature.parse().unwrap();
+				match client.get_transaction(&signature, UiTransactionEncoding::JsonParsed).await {
+					Ok(tx) => Ok((tx, sig_info)),
+					Err(e) => {
+						tracing::error!("Failed to fetch tx {}: {:?}", sig_info.signature, e);
+						Err(e)
+					},
+				}
+			}));
+		}
+
+		let mut events = Vec::new();
+		for handle in handles {
+			match handle.await {
+				Ok(Ok((tx, sig_info))) => {
+					if let Some(meta) = tx.transaction.meta {
+						if let OptionSerializer::Some(logs) = meta.log_messages {
+							for log in logs {
+								if let Some(_event) = parse_event_from_log(log) {
+									// TODO fix sig
+									let _sig: Signature = sig_info.signature.parse().unwrap();
+									let event =
+										GmpEvent::BatchExecuted { batch_id: 0, tx_hash: None };
+									events.push(event)
+								}
+							}
+						}
+					}
+				},
+				Ok(Err(e)) => tracing::warn!("Transaction processing failed: {:?}", e),
+				Err(join_err) => tracing::error!("Task failed: {:?}", join_err),
+			}
+		}
+		Ok(events)
 	}
 	async fn submit_commands(
 		&self,
@@ -330,4 +434,8 @@ impl IConnector for Connector {
 	) -> Result<(), String> {
 		todo!("Need gateway implementation")
 	}
+}
+
+fn parse_event_from_log(_log: String) -> Option<()> {
+	todo!()
 }

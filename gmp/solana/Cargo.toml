@@ -14,8 +14,9 @@ async-trait.workspace = true
 futures.workspace = true
 hex.workspace = true
 sha3 = { version = "0.10", default-features = false }
-solana-client = "2.2.0"
+solana-client = "2.2.3"
 solana-sdk = "2.2.1"
+solana-transaction-status = "2.2.3"
 time-primitives.workspace = true
 tokio.workspace = true
 tokio-stream = { version = "0.1", features = ["sync"]}

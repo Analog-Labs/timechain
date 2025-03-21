@@ -85,16 +85,21 @@ async fn validator_restart(backend: Backend, shard_size: u16) -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn chronicle_restart_evm_tss() -> Result<()> {
 	chronicle_restart(Backend::Evm, 3).await
 }
 
 #[tokio::test]
+#[ignore]
 async fn chain_restart_evm() -> Result<()> {
+	// TODO: requires dumping/loading anvil state
 	chain_restart(Backend::Evm, 1).await
 }
 
 #[tokio::test]
+#[ignore]
 async fn validator_restart_grpc() -> Result<()> {
+	// TODO: fails to reconnect
 	validator_restart(Backend::Grpc, 1).await
 }

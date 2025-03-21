@@ -12,6 +12,7 @@ repository.workspace = true
 anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true
+serde_yaml = "0.9.34"
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }
 tempfile = "3.19.0"
 testcontainers = "0.23.3"

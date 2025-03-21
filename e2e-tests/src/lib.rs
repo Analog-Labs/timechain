@@ -22,6 +22,7 @@ pub use tc_cli::Backend;
 pub struct TestEnvBuilder {
 	temp: TempDir,
 	network: String,
+	validator_name: String,
 	validator: Container,
 	chains: HashMap<NetworkId, Container>,
 	chronicles: HashMap<NetworkId, Vec<Container>>,
@@ -35,10 +36,19 @@ impl TestEnvBuilder {
 		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
 
 		let temp = TempDir::new()?;
-		let network = temp.path().file_name().unwrap().to_str().unwrap().to_string();
+		let network = temp
+			.path()
+			.file_name()
+			.unwrap()
+			.to_str()
+			.unwrap()
+			.strip_prefix('.')
+			.unwrap()
+			.to_string();
+		let validator_name = format!("{network}-validator");
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
-			.with_container_name("validator")
+			.with_container_name(validator_name.clone())
 			.with_network(network.clone())
 			.with_cmd([
 				"--chain=dev",
@@ -64,6 +74,7 @@ impl TestEnvBuilder {
 		Ok(Self {
 			temp,
 			network,
+			validator_name,
 			validator,
 			chains: Default::default(),
 			chronicles: Default::default(),
@@ -102,7 +113,7 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
-		let chain_name = format!("chain-grpc-{network}");
+		let chain_name = format!("{}-chain-grpc-{network}", &self.network);
 		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
 			.with_exposed_port(3000.tcp())
 			.with_container_name(&chain_name)
@@ -129,7 +140,7 @@ impl TestEnvBuilder {
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
-				batch_size: 8,
+				batch_size: if shard_size > 1 { 32 } else { 8 },
 				batch_offset: 0,
 				batch_gas_limit: 10_000_000,
 				gmp_margin: 0.,
@@ -162,7 +173,7 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
-		let chain_name = format!("chain-evm-{network}");
+		let chain_name = format!("{}-chain-evm-{network}", &self.network);
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
 			.with_exposed_port(8545.tcp())
 			.with_container_name(&chain_name)
@@ -190,7 +201,7 @@ impl TestEnvBuilder {
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
-				batch_size: 8,
+				batch_size: if shard_size > 1 { 32 } else { 8 },
 				batch_offset: 0,
 				batch_gas_limit: 10_000_000,
 				gmp_margin: 0.,
@@ -223,7 +234,7 @@ impl TestEnvBuilder {
 		i: u16,
 		target_url: &str,
 	) -> Result<()> {
-		let chronicle_name = format!("chronicle-{backend}-{network}-{i}");
+		let chronicle_name = format!("{}-chronicle-{backend}-{network}-{i}", &self.network);
 		let chronicle = GenericImage::new("analoglabs/chronicle-develop", "latest")
 			.with_exposed_port(8080.tcp())
 			.with_container_name(chronicle_name)
@@ -232,7 +243,7 @@ impl TestEnvBuilder {
 			.with_env_var("RUST_BACKTRACE", "1")
 			.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
-				"--timechain-url=ws://validator:9944".to_string(),
+				format!("--timechain-url=ws://{}:9944", &self.validator_name),
 				format!("--target-url={target_url}"),
 				format!("--backend={backend}"),
 				format!("--network-id={network}"),
@@ -248,7 +259,9 @@ impl TestEnvBuilder {
 	}
 
 	pub async fn build(self) -> Result<TestEnv> {
-		let config = Config::new(self.temp.path().into(), self.config, self.prices);
+		let env = self.temp.path().to_path_buf();
+		std::fs::write(env.join("config.yaml"), serde_yaml::to_string(&self.config)?)?;
+		let config = Config::new(env, self.config, self.prices);
 		let tc = Tc::new(
 			config,
 			Mnemonics::default(),

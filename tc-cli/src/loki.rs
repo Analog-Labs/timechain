@@ -59,6 +59,9 @@ pub enum Query {
 		#[arg(long)]
 		to: Option<String>,
 	},
+	Container {
+		name: String,
+	},
 	Raw {
 		query: String,
 	},
@@ -116,6 +119,7 @@ impl std::fmt::Display for Query {
 				}
 				Ok(())
 			},
+			Self::Container { name } => write!(f, r#"{{container="{name}"}}"#),
 			Self::Raw { query } => f.write_str(query),
 		}
 	}

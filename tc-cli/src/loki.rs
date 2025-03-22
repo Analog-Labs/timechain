@@ -67,6 +67,12 @@ pub enum Query {
 	},
 }
 
+impl Query {
+	pub fn raw(&self) -> bool {
+		!matches!(self, Query::Chronicle { .. })
+	}
+}
+
 impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
@@ -180,7 +186,7 @@ impl std::str::FromStr for Log {
 	}
 }
 
-pub async fn logs(query: Query, since: String) -> Result<Vec<Log>> {
+pub async fn raw_logs(query: Query, since: String) -> Result<Vec<String>> {
 	let query = query.to_string();
 	log::info!("{query}");
 	let env = Loki::from_env()?;
@@ -202,13 +208,21 @@ pub async fn logs(query: Query, since: String) -> Result<Vec<Log>> {
 	let resp: Response = resp.json().await?;
 	anyhow::ensure!(resp.status == "success", "unexpected status");
 	anyhow::ensure!(resp.data.result_type == "streams", "unexpected result type");
-
 	let logs = resp
 		.data
 		.result
 		.into_iter()
 		.flat_map(|v| v.values)
-		.map(|(_, log)| log.parse().unwrap())
-		.collect::<Vec<Log>>();
+		.map(|(_, log)| log)
+		.collect::<Vec<String>>();
+	Ok(logs)
+}
+
+pub async fn logs(query: Query, since: String) -> Result<Vec<Log>> {
+	let logs = raw_logs(query, since)
+		.await?
+		.into_iter()
+		.map(|log| log.parse().unwrap())
+		.collect();
 	Ok(logs)
 }

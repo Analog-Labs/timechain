@@ -445,7 +445,11 @@ async fn real_main() -> Result<()> {
 			benchmark.exec().await?;
 		},
 		Command::Log { query, since } => {
-			tc.log(query, since).await?;
+			if query.raw() {
+				tc.log_raw(query, since).await?;
+			} else {
+				tc.log(query, since).await?;
+			}
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id, block).await?;

@@ -1427,6 +1427,16 @@ impl Tc {
 		self.print_table(None, "logs", logs).await
 	}
 
+	pub async fn log_raw(&self, query: Query, since: String) -> Result<TextRef> {
+		let logs = loki::raw_logs(query, since).await?;
+		let mut text = String::new();
+		for log in logs {
+			text.push_str(&log);
+			text.push('\n');
+		}
+		self.println(None, text).await
+	}
+
 	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
 		let connector = self.connector(network)?;
 		connector.debug_transaction(hash).await

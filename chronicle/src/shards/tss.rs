@@ -224,7 +224,7 @@ mod tests {
 		}
 		let peerid = *members.iter().next().unwrap();
 		let mut tss = Tss::new(peerid, members.clone(), n as _, None, dir.path(), &span).unwrap();
-		let TssAction::Commit(commitment, _) = tss.next_action(dir.path()).unwrap() else {
+		let TssAction::Commit(commitment, _) = tss.next_action(dir.path(), &span).unwrap() else {
 			panic!();
 		};
 		Tss::new(peerid, members, n as _, Some(commitment), dir.path(), &span).unwrap();

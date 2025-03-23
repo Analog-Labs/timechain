@@ -253,7 +253,7 @@ pub async fn raw_logs(query: Query, since: String, limit: Option<u32>) -> Result
 pub fn structured_logs(logs: &[String]) -> Result<Vec<Log>> {
 	let mut slogs = Vec::with_capacity(logs.len());
 	for log in logs {
-		slogs.push(log.parse()?);
+		slogs.push(log.parse().with_context(|| format!("line {log}"))?);
 	}
 	Ok(slogs)
 }

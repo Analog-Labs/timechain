@@ -36,7 +36,7 @@ schnorr-evm = { version = "0.1.0" }
 sha3 = { version = "0.10" }
 tide = { version = "0.16.0", default-features = false, features = ["h1-server"] }
 tracing-panic = "0.1.1"
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 tracing-opentelemetry = "0.29.0"
 tracing-core = "0.1.28"
 opentelemetry = { version = "0.28.0", default-features = false, features = ["trace"] }

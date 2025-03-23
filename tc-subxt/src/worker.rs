@@ -336,7 +336,7 @@ where
 				futures::select! {
 					tx = rx.next().fuse() => {
 						let Some((command, channel)) = tx else { break; };
-						tracing::info!("tx added to pool");
+						tracing::debug!("tx added to pool");
 						self.add_tx_to_pool(command, Some(channel), None);
 					}
 					block_data = finalized_blocks.next() => {
@@ -387,7 +387,7 @@ where
 									number: block.number(),
 									hash: block.hash()
 								};
-								tracing::info!("best block stream hit: {}", self.latest_block.number);
+								tracing::debug!("best block stream hit: {}", self.latest_block.number);
 
 								if self.pending_tx.is_empty() {
 									continue;

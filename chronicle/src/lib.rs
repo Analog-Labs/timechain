@@ -44,7 +44,8 @@ fn resource() -> Resource {
 // Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
 pub fn init_opentelemetry() {
 	let log_subscriber = tracing_subscriber::fmt::layer()
-		.pretty()
+		.json()
+		.flatten_event(true)
 		.with_ansi(false)
 		.with_file(true)
 		.with_line_number(true);

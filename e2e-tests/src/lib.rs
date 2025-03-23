@@ -8,10 +8,11 @@ use tc_cli::{
 };
 use tempfile::TempDir;
 use testcontainers::{
-	core::logs::consumer::logging_consumer::LoggingConsumer,
+	//core::logs::consumer::logging_consumer::LoggingConsumer,
 	core::{ContainerAsync, IntoContainerPort},
 	runners::AsyncRunner,
-	GenericImage, ImageExt,
+	GenericImage,
+	ImageExt,
 };
 use time_primitives::{Address, GmpMessage};
 use tracing_subscriber::filter::EnvFilter;
@@ -120,7 +121,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "gmp_grpc=debug,gmp_rust=debug")
 			.with_env_var("RUST_BACKTRACE", "1")
-			.with_log_consumer(LoggingConsumer::new())
+			//.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([format!("--network-id={network}")])
 			.start()
 			.await?;
@@ -179,7 +180,7 @@ impl TestEnvBuilder {
 			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
-			.with_log_consumer(LoggingConsumer::new())
+			//.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
 				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1",
 			])
@@ -241,7 +242,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info")
 			.with_env_var("RUST_BACKTRACE", "1")
-			.with_log_consumer(LoggingConsumer::new())
+			//.with_log_consumer(LoggingConsumer::new())
 			.with_cmd([
 				format!("--timechain-url=ws://{}:9944", &self.validator_name),
 				format!("--target-url={target_url}"),

@@ -41,6 +41,15 @@ impl Config {
 		Self { path: env, yaml, prices }
 	}
 
+	pub fn prefix(&self) -> Option<&str> {
+		let prefix = self.path.file_name()?.to_str()?.strip_prefix('.')?;
+		if prefix.starts_with("tmp") {
+			Some(prefix)
+		} else {
+			None
+		}
+	}
+
 	fn relative_path(&self, other: &Path) -> PathBuf {
 		if other.is_absolute() {
 			return other.to_owned();

@@ -344,6 +344,7 @@ pub struct LogEntry {
 	net_from: Option<String>,
 	net_to: Option<String>,
 	tss_session: Option<TaskId>,
+	tss_coordinator: Option<bool>,
 	tss_session_id: Option<u64>,
 	gmp_network_id: Option<NetworkId>,
 	gmp_message_id: Option<String>,
@@ -352,6 +353,7 @@ pub struct LogEntry {
 	gmp_task_id: Option<TaskId>,
 	gmp_task: Option<String>,
 	gmp_shard_id: Option<ShardId>,
+	gmp_events: Option<String>,
 }
 
 impl IntoRow for Log {
@@ -375,6 +377,7 @@ impl IntoRow for Log {
 			net_from: self.net_from,
 			net_to: self.net_to,
 			tss_session: self.tss_session,
+			tss_coordinator: self.tss_coordinator,
 			tss_session_id: self.tss_session_id,
 			gmp_network_id: self.gmp_network_id,
 			gmp_message_id: self.gmp_message_id,
@@ -383,6 +386,7 @@ impl IntoRow for Log {
 			gmp_task_id: self.gmp_task_id,
 			gmp_task: self.gmp_task,
 			gmp_shard_id: self.gmp_shard_id,
+			gmp_events: self.gmp_events,
 		})
 	}
 }

@@ -193,7 +193,7 @@ impl RoastCoordinator {
 	fn start_session(&mut self, span: &Span) -> Option<RoastSignerRequest> {
 		tracing::debug!(
 			parent: span,
-			session_id = self.session_id,
+			tss_session_id = self.session_id,
 			"commitments {}/{}",
 			self.commitments.len(),
 			self.threshold
@@ -220,7 +220,7 @@ impl RoastCoordinator {
 			.filter(|(_, session)| session.is_complete())
 			.map(|(session_id, _)| *session_id)
 			.next()?;
-		tracing::debug!(parent: span, session_id, "aggregate");
+		tracing::debug!(parent: span, tss_session_id = session_id, "aggregate");
 		self.sessions.remove(&session_id)
 	}
 }

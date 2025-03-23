@@ -70,7 +70,7 @@ impl TaskParams {
 		events: Vec<GmpEvent>,
 		span: &Span,
 	) -> Result<()> {
-		let span = span!(parent: span, Level::INFO, "submit_events", task_id, ?events);
+		let span = span!(parent: span, Level::INFO, "submit_events", gmp_events = ?events);
 		let payload = time_primitives::encode_gmp_events(task_id, &events);
 		let signature = self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 		let result = TaskResult::ReadGatewayEvents {
@@ -98,8 +98,8 @@ impl TaskParams {
 			parent: &span,
 			Level::INFO,
 			"executing_task",
-			task_id,
-			%task,
+			gmp_task_id = task_id,
+			gmp_task = %task,
 		);
 		event!(parent: &span, Level::DEBUG, "executing task");
 		match task {
@@ -121,7 +121,8 @@ impl TaskParams {
 				}
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
-				let span = span!(parent: &span, Level::INFO, "submit_batch", batch_id);
+				let span =
+					span!(parent: &span, Level::INFO, "submit_batch", gmp_batch_id = batch_id);
 				let msg = self
 					.runtime
 					.get_batch_message(batch_id, block_hash)
@@ -147,7 +148,7 @@ impl TaskParams {
 						.submit_commands(gateway, batch_id, msg, signer, signature)
 						.await
 					{
-						tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
+						tracing::error!(parent: &span, "Error while executing batch: {e}");
 						e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
 						let result = TaskResult::SubmitGatewayMessage {
 							error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
@@ -210,12 +211,17 @@ impl TaskExecutor {
 				.await?
 				.context("invalid task")?;
 
+			let span = span!(
+				Level::INFO,
+				"task",
+				gmp_task_id = task_id,
+				gmp_task = %task,
+				chain_block = task.start_block(),
+			);
+
 			if target_block_height < task.start_block() {
 				tracing::debug!(
-					parent: span,
-					task_id,
-					task = task.to_string(),
-					target_block_height,
+					parent: &span,
 					"task scheduled for future {:?}/{:?}",
 					target_block_height,
 					task.start_block(),
@@ -223,13 +229,8 @@ impl TaskExecutor {
 				continue;
 			}
 
-			let span = span!(
-				Level::INFO,
-				"task started",
-				task_id,
-				%task,
-				target_block_height,
-			);
+			tracing::info!(parent: &span, "task started");
+
 			let exec = self.params.clone();
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {

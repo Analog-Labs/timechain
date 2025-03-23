@@ -53,6 +53,8 @@ pub struct Log {
 	#[arg(long)]
 	#[serde(rename = "line_number")]
 	pub log_line_number: Option<u64>,
+	#[serde(rename = "name")]
+	_log_name: Option<String>,
 	#[arg(long)]
 	pub tc_account: Option<String>,
 	#[arg(long)]
@@ -74,6 +76,8 @@ pub struct Log {
 	#[arg(long)]
 	pub tss_session: Option<TaskId>,
 	#[arg(long)]
+	pub tss_coordinator: Option<bool>,
+	#[arg(long)]
 	pub tss_session_id: Option<u64>,
 	#[arg(long)]
 	pub gmp_network_id: Option<NetworkId>,
@@ -89,6 +93,8 @@ pub struct Log {
 	pub gmp_task: Option<String>,
 	#[arg(long)]
 	pub gmp_shard_id: Option<ShardId>,
+	#[arg(long)]
+	pub gmp_events: Option<String>,
 }
 
 impl Log {
@@ -109,6 +115,7 @@ impl Log {
 			|| self.net_from.is_some()
 			|| self.net_to.is_some()
 			|| self.tss_session.is_some()
+			|| self.tss_coordinator.is_some()
 			|| self.tss_session_id.is_some()
 			|| self.gmp_network_id.is_some()
 			|| self.gmp_message_id.is_some()
@@ -117,6 +124,7 @@ impl Log {
 			|| self.gmp_task_id.is_some()
 			|| self.gmp_task.is_some()
 			|| self.gmp_shard_id.is_some()
+			|| self.gmp_events.is_some()
 	}
 
 	pub fn matches(&self, other: &Log) -> bool {
@@ -136,6 +144,7 @@ impl Log {
 			&& (self.net_from.is_none() || self.net_from == other.net_from)
 			&& (self.net_to.is_none() || self.net_to == other.net_to)
 			&& (self.tss_session.is_none() || self.tss_session == other.tss_session)
+			&& (self.tss_coordinator.is_none() || self.tss_coordinator == other.tss_coordinator)
 			&& (self.tss_session_id.is_none() || self.tss_session_id == other.tss_session_id)
 			&& (self.gmp_network_id.is_none() || self.gmp_network_id == other.gmp_network_id)
 			&& (self.gmp_message_id.is_none() || self.gmp_message_id == other.gmp_message_id)
@@ -144,6 +153,7 @@ impl Log {
 			&& (self.gmp_task_id.is_none() || self.gmp_task_id == other.gmp_task_id)
 			&& (self.gmp_task.is_none() || self.gmp_task == other.gmp_task)
 			&& (self.gmp_shard_id.is_none() || self.gmp_shard_id == other.gmp_shard_id)
+			&& (self.gmp_events.is_none() || self.gmp_events == other.gmp_events)
 	}
 }
 
@@ -225,7 +235,10 @@ pub async fn raw_logs(query: &Query, since: String, limit: Option<u32>) -> Resul
 pub fn structured_logs(filter: &Log, logs: &[String]) -> Result<Vec<Log>> {
 	let mut slogs = Vec::with_capacity(logs.len());
 	for log in logs {
-		let slog: Log = serde_json::from_str(log.as_str())?;
+		// allow duplicate keys
+		let slog: serde_json::Value = serde_json::from_str(log.as_str())?;
+		let slog: Log = serde_json::from_value(slog)
+			.map_err(|err| anyhow::anyhow!("failed to parse log: {err:?} {}", log.as_str()))?;
 		if filter.matches(&slog) {
 			slogs.push(slog);
 		}

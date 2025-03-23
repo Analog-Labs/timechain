@@ -127,6 +127,7 @@ pub async fn run_chronicle(
 	substrate: Arc<dyn Runtime>,
 	mut admin: mpsc::Sender<AdminMsg>,
 ) -> Result<()> {
+	let span = tracing::span!(Level::INFO, "run_chronicle");
 	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
 	let (chain, subchain) = loop {
@@ -135,7 +136,7 @@ pub async fn run_chronicle(
 		if let Some(network) = network {
 			break network;
 		}
-		tracing::warn!("network {} isn't registered", config.network_id);
+		tracing::warn!(parent: &span, "network {} isn't registered", config.network_id);
 	};
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
@@ -152,6 +153,7 @@ pub async fn run_chronicle(
 			Ok(connector) => break connector,
 			Err(error) => {
 				tracing::info!(
+					parent: &span,
 					"Initializing connector returned an error {:?}, retrying in one second",
 					error
 				);
@@ -162,13 +164,14 @@ pub async fn run_chronicle(
 
 	// initialize networking
 	let (network, network_requests) =
-		create_iroh_network(NetworkConfig { secret: config.network_key }).await?;
+		create_iroh_network(NetworkConfig { secret: config.network_key }, &span).await?;
 
 	// initialize wallets
 	let account = time_primitives::format_address(substrate.account_id());
 	let address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
 	let span = span!(
+		parent: &span,
 		Level::INFO,
 		"chronicle",
 		tc_account = account,

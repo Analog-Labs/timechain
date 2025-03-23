@@ -160,10 +160,6 @@ where
 		recover: Option<(SigningShare, VerifiableSecretSharingCommitment)>,
 		span: &Span,
 	) -> Self {
-		let span = tracing::span!(parent: span,
-			Level::INFO, "tss",
-			peer_id = field::display(&peer_id),
-		);
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_id.to_frost();
 		let frost_to_peer: BTreeMap<_, _> =
@@ -172,13 +168,7 @@ where
 		let coordinators: BTreeSet<_> =
 			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
 		let is_coordinator = coordinators.contains(&frost_id);
-		tracing::info!(
-			parent: &span,
-			threshold = threshold,
-			members = members.len(),
-			coordinator = is_coordinator,
-			"initialize",
-		);
+		tracing::info!(parent: span, tss_coordinator = is_coordinator, "initialize");
 		let committed = recover.is_some();
 		Self {
 			peer_id,
@@ -241,19 +231,13 @@ where
 	/// 4. Processes the message based on the current state (DKG or ROAST).
 	/// 5. Returns the result of the processing.
 	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>, span: &Span) {
-		let span = tracing::span!(
-			parent: span,
-			Level::INFO, "on_message",
-			from = field::display(&peer_id),
-			msg = field::display(&msg),
-		);
 		if self.peer_id == peer_id {
-			tracing::error!(parent: &span, "received message from self");
+			tracing::error!(parent: span, "received message from self");
 			return;
 		}
 		let frost_id = peer_id.to_frost();
 		if !self.frost_to_peer.contains_key(&frost_id) {
-			tracing::error!(parent: &span, "received message from unknown peer");
+			tracing::error!(parent: span, "received message from unknown peer");
 			return;
 		}
 		match (&mut self.state, msg) {
@@ -262,10 +246,10 @@ where
 			},
 			(TssState::Roast { signing_sessions, .. }, TssMessage::Roast { id, msg }) => {
 				let span = tracing::span!(
-					parent: &span,
+					parent: span,
 					Level::INFO,
 					"session",
-					session = field::display(&id),
+					tss_session = field::display(&id),
 				);
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg, &span);
@@ -274,7 +258,7 @@ where
 				}
 			},
 			(_, _) => {
-				tracing::error!(parent: &span, "unexpected message");
+				tracing::error!(parent: span, "unexpected message");
 			},
 		}
 	}
@@ -333,7 +317,7 @@ where
 			parent: span,
 			Level::INFO,
 			"start",
-			session = field::display(&id),
+			tss_session = field::display(&id),
 		);
 		if self.get_or_insert_session(id.clone()).is_none() {
 			tracing::error!(
@@ -354,7 +338,7 @@ where
 			tracing::event!(
 				parent: span,
 				Level::INFO,
-				session = field::display(&id),
+				tss_session = field::display(&id),
 				"sign",
 			);
 			session.set_data(data)
@@ -378,7 +362,7 @@ where
 				tracing::event!(
 					parent: span,
 					Level::INFO,
-					session = field::display(&id),
+					tss_session = field::display(&id),
 					"complete",
 				);
 				signing_sessions.remove(&id);
@@ -387,7 +371,7 @@ where
 				tracing::event!(
 					parent: span,
 					Level::ERROR,
-					session = field::display(&id),
+					tss_session = field::display(&id),
 					"not ready to complete",
 				);
 			},

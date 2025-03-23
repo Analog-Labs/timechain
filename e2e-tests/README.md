@@ -38,5 +38,5 @@ Using tc-cli for debugging:
 # after starting the test it should log:
 > 2025-03-23T10:55:55.899924Z  INFO e2e_tests: tempdir: /tmp/.tmpcZyl3c
 cd /tmp/.tmpcZyl3c
-tc-cli --env . log container tmpcZyl3c-chronicle
+tc-cli --env . log container chronicle-*
 ```

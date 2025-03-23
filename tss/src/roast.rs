@@ -94,7 +94,7 @@ impl RoastSigner {
 			let signature_share = match round2::sign(&signing_package, &nonces, &self.key_package) {
 				Ok(ss) => ss,
 				Err(err) => {
-					tracing::error!(parent: span, session_id = session_id, "invalid signing package {err:?}");
+					tracing::error!(parent: span, tss_session_id = session_id, "invalid signing package {err:?}");
 					continue;
 				},
 			};
@@ -182,7 +182,7 @@ impl RoastCoordinator {
 	/// Handles a response from a peer.
 	fn on_response(&mut self, peer: Identifier, message: RoastSignerResponse, span: &Span) {
 		let span =
-			tracing::span!(parent: span, Level::DEBUG, "session", session_id = self.session_id);
+			tracing::span!(parent: span, Level::DEBUG, "session", tss_session_id = self.session_id);
 		if let Some(session) = self.sessions.get_mut(&message.session_id) {
 			self.commitments.insert(peer, message.commitment);
 			session.on_signature_share(peer, message.signature_share, &span);

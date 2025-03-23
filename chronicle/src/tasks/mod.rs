@@ -271,7 +271,7 @@ impl TaskExecutor {
 					event!(
 						parent: span,
 						Level::DEBUG,
-						task_id,
+						gmp_task_id = task_id,
 						"task aborted",
 					);
 					handle.abort();

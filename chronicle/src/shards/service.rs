@@ -338,7 +338,7 @@ where
 					event!(
 						parent: span,
 						Level::DEBUG,
-						task_id,
+						gmp_task_id = task_id,
 						"signature 0x{}",
 						hex::encode(tss_signature),
 					);

@@ -34,12 +34,12 @@ mod tests;
 /// - Dkg(Dkg): State during the DKG process.
 /// - Roast: State during the ROAST process.
 /// - Failed: State when the process has failed.
-enum TssState<I> {
+enum TssState {
 	Dkg(Dkg),
 	Roast {
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
-		signing_sessions: BTreeMap<I, Roast>,
+		signing_sessions: BTreeMap<u64, Roast>,
 	},
 	Failed,
 }
@@ -47,28 +47,28 @@ enum TssState<I> {
 /// Represents possible actions in the TSS process.
 ///
 #[derive(Clone)]
-pub enum TssAction<I, P> {
+pub enum TssAction<P> {
 	/// Action to send messages.
-	Send(Vec<(P, TssMessage<I>)>),
+	Send(Vec<(P, TssMessage)>),
 	/// Action to commit a secret.
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	/// Action indicating readiness.
 	Ready(SigningShare, VerifiableSecretSharingCommitment, VerifyingKey),
 	/// Action to provide a signature.
-	Signature(I, [u8; 32], Signature),
+	Signature(u64, [u8; 32], Signature),
 }
 
 /// Represents messages in the TSS process.
 ///
 #[derive(Clone, Deserialize, Serialize)]
-pub enum TssMessage<I> {
+pub enum TssMessage {
 	/// Message for DKG.
 	Dkg { msg: DkgMessage },
 	/// Message for ROAST.
-	Roast { id: I, msg: RoastMessage },
+	Roast { id: u64, msg: RoastMessage },
 }
 
-impl<I> TssMessage<I> {
+impl TssMessage {
 	pub fn is_response(&self) -> bool {
 		match self {
 			Self::Roast { msg, .. } => msg.is_response(),
@@ -77,7 +77,7 @@ impl<I> TssMessage<I> {
 	}
 }
 
-impl<I: std::fmt::Display> std::fmt::Display for TssMessage<I> {
+impl std::fmt::Display for TssMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Dkg { msg } => write!(f, "dkg {}", msg),
@@ -128,19 +128,18 @@ pub fn verify_proof_of_knowledge(
 }
 
 /// Tss state machine.
-pub struct Tss<I, P> {
+pub struct Tss<P> {
 	peer_id: P,
 	frost_id: Identifier,
 	frost_to_peer: BTreeMap<Identifier, P>,
 	threshold: u16,
 	coordinators: BTreeSet<Identifier>,
-	state: TssState<I>,
+	state: TssState,
 	committed: bool,
 }
 
-impl<I, P> Tss<I, P>
+impl<P> Tss<P>
 where
-	I: Clone + Ord + std::fmt::Display,
 	P: Clone + Ord + std::fmt::Display + ToFrostIdentifier,
 {
 	/// Initializes a new TSS instance with the given parameters.
@@ -230,7 +229,7 @@ where
 	/// 3. Converts the sender to a FROST identifier and validates it.
 	/// 4. Processes the message based on the current state (DKG or ROAST).
 	/// 5. Returns the result of the processing.
-	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>, span: &Span) {
+	pub fn on_message(&mut self, peer_id: P, msg: TssMessage, span: &Span) {
 		if self.peer_id == peer_id {
 			tracing::error!(parent: span, "received message from self");
 			return;
@@ -249,7 +248,7 @@ where
 					parent: span,
 					Level::INFO,
 					"session",
-					tss_session = field::display(&id),
+					tss_session = id,
 				);
 				if let Some(session) = signing_sessions.get_mut(&id) {
 					session.on_message(frost_id, msg, &span);
@@ -287,7 +286,7 @@ where
 	/// Flow:
 	/// 1. If in the ROAST state, retrieves or inserts a signing session for the given ID.
 	/// 2. Returns the session or None if not in the ROAST state.
-	fn get_or_insert_session(&mut self, id: I) -> Option<&mut Roast> {
+	fn get_or_insert_session(&mut self, id: u64) -> Option<&mut Roast> {
 		match &mut self.state {
 			TssState::Roast {
 				key_package,
@@ -312,14 +311,14 @@ where
 	/// 1. Logs the start action.
 	/// 2. Inserts a new session if it does not already exist.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_start(&mut self, id: I, span: &Span) {
+	pub fn on_start(&mut self, id: u64, span: &Span) {
 		let span = tracing::span!(
 			parent: span,
 			Level::INFO,
 			"start",
-			tss_session = field::display(&id),
+			tss_session = id,
 		);
-		if self.get_or_insert_session(id.clone()).is_none() {
+		if self.get_or_insert_session(id).is_none() {
 			tracing::error!(
 				parent: span,
 				"not ready to sign for",
@@ -333,12 +332,12 @@ where
 	/// 1. Logs the sign action.
 	/// 2. Sets the data for the session if it exists.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_sign(&mut self, id: I, data: Vec<u8>, span: &Span) {
-		if let Some(session) = self.get_or_insert_session(id.clone()) {
+	pub fn on_sign(&mut self, id: u64, data: Vec<u8>, span: &Span) {
+		if let Some(session) = self.get_or_insert_session(id) {
 			tracing::event!(
 				parent: span,
 				Level::INFO,
-				tss_session = field::display(&id),
+				tss_session = id,
 				"sign",
 			);
 			session.set_data(data)
@@ -356,13 +355,13 @@ where
 	/// 1. Logs the complete action.
 	/// 2. Removes the session if it exists.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_complete(&mut self, id: I, span: &Span) {
+	pub fn on_complete(&mut self, id: u64, span: &Span) {
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
 				tracing::event!(
 					parent: span,
 					Level::INFO,
-					tss_session = field::display(&id),
+					tss_session = id,
 					"complete",
 				);
 				signing_sessions.remove(&id);
@@ -371,7 +370,7 @@ where
 				tracing::event!(
 					parent: span,
 					Level::ERROR,
-					tss_session = field::display(&id),
+					tss_session = id,
 					"not ready to complete",
 				);
 			},
@@ -384,7 +383,7 @@ where
 	/// 1. If in the DKG state, returns the next DKG action.
 	/// 2. If in the ROAST state, returns the next ROAST action.
 	/// 3. Returns None if no action is available.
-	pub fn next_action(&mut self, span: &Span) -> Option<TssAction<I, P>> {
+	pub fn next_action(&mut self, span: &Span) -> Option<TssAction<P>> {
 		match &mut self.state {
 			// Handle the DKG state
 			TssState::Dkg(dkg) => {
@@ -470,10 +469,7 @@ where
 									.map(|peer| {
 										(
 											self.frost_to_peer(peer),
-											TssMessage::Roast {
-												id: id.clone(),
-												msg: msg.clone(),
-											},
+											TssMessage::Roast { id, msg: msg.clone() },
 										)
 									})
 									.collect(),

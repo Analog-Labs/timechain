@@ -47,6 +47,7 @@ impl Args {
 }
 
 #[derive(Parser, Debug)]
+#[allow(clippy::large_enum_variant)]
 enum Command {
 	// balances
 	Address {

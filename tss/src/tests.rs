@@ -33,7 +33,7 @@ impl std::fmt::Display for Peer {
 	}
 }
 
-type Id = u8;
+type Id = u64;
 
 #[derive(Default)]
 struct TssEvents {
@@ -60,10 +60,10 @@ impl TssEvents {
 	}
 }
 
-type FaultInjector = Box<dyn FnMut(Peer, Peer, TssMessage<Id>) -> Option<TssMessage<Id>>>;
+type FaultInjector = Box<dyn FnMut(Peer, Peer, TssMessage) -> Option<TssMessage>>;
 
 struct TssTester {
-	tss: Vec<Tss<Id, Peer>>,
+	tss: Vec<Tss<Peer>>,
 	events: TssEvents,
 	fault_injector: FaultInjector,
 }
@@ -87,7 +87,7 @@ impl TssTester {
 		}
 	}
 
-	pub fn sign(&mut self, id: u8, data: &[u8], span: &Span) {
+	pub fn sign(&mut self, id: Id, data: &[u8], span: &Span) {
 		for tss in &mut self.tss {
 			tss.on_start(id, span);
 		}

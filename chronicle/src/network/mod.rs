@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
-use time_primitives::{BlockNumber, ShardId, TaskId};
+use time_primitives::{BlockNumber, ShardId};
 use tracing::Span;
 
 mod protocol;
 
 pub use time_primitives::PeerId;
 
-pub type TssMessage = tss::TssMessage<TaskId>;
+pub type TssMessage = tss::TssMessage;
 
 pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 

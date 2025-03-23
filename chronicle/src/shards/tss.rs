@@ -5,25 +5,24 @@ use serde::Serialize;
 use sha3::{Digest, Sha3_256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-pub use time_primitives::TaskId;
 use tracing::Span;
 pub use tss::{
 	ProofOfKnowledge, Signature, SigningKey, VerifiableSecretSharingCommitment, VerifyingKey,
 };
 
-pub type TssMessage = tss::TssMessage<TaskId>;
+pub type TssMessage = tss::TssMessage;
 
 #[derive(Clone)]
 pub enum TssAction {
 	Send(Vec<(PeerId, TssMessage)>),
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	PublicKey(VerifyingKey),
-	Signature(TaskId, [u8; 32], Signature),
+	Signature(u64, [u8; 32], Signature),
 }
 
 #[allow(clippy::large_enum_variant)]
 pub enum Tss {
-	Enabled(tss::Tss<TaskId, TssPeerId>),
+	Enabled(tss::Tss<TssPeerId>),
 	Disabled(SigningKey, Option<TssAction>, bool),
 }
 
@@ -154,14 +153,14 @@ impl Tss {
 		}
 	}
 
-	pub fn on_start(&mut self, request_id: TaskId, span: &Span) {
+	pub fn on_start(&mut self, request_id: u64, span: &Span) {
 		match self {
 			Self::Enabled(tss) => tss.on_start(request_id, span),
 			Self::Disabled(_, _, _) => {},
 		}
 	}
 
-	pub fn on_sign(&mut self, request_id: TaskId, data: Vec<u8>, span: &Span) {
+	pub fn on_sign(&mut self, request_id: u64, data: Vec<u8>, span: &Span) {
 		match self {
 			Self::Enabled(tss) => tss.on_sign(request_id, data, span),
 			Self::Disabled(key, actions, _) => {
@@ -171,7 +170,7 @@ impl Tss {
 		}
 	}
 
-	pub fn on_complete(&mut self, request_id: TaskId, span: &Span) {
+	pub fn on_complete(&mut self, request_id: u64, span: &Span) {
 		match self {
 			Self::Enabled(tss) => tss.on_complete(request_id, span),
 			Self::Disabled(_, _, _) => {},

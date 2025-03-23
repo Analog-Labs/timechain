@@ -11,7 +11,7 @@ use time_primitives::{BlockNumber, ShardId, TaskId};
 struct Request {
 	pub query: String,
 	pub since: String,
-	//pub limit: Option<u32>,
+	pub limit: Option<u32>,
 	//pub direction: Option<&'static str>,
 }
 
@@ -34,100 +34,132 @@ struct StreamValue {
 }
 
 #[derive(Clone, Debug, clap::Parser)]
+pub struct Filter {
+	#[arg(long)]
+	task_id: Option<TaskId>,
+	#[arg(long)]
+	shard_id: Option<ShardId>,
+	#[arg(long)]
+	task: Option<String>,
+	#[arg(long)]
+	account: Option<String>,
+	#[arg(long)]
+	target_address: Option<String>,
+	#[arg(long)]
+	peer_id: Option<String>,
+	#[arg(long)]
+	block: Option<BlockNumber>,
+	#[arg(long)]
+	block_hash: Option<String>,
+	#[arg(long)]
+	target_block: Option<u64>,
+	#[arg(long)]
+	from: Option<String>,
+	#[arg(long)]
+	to: Option<String>,
+}
+
+impl Filter {
+	pub fn has_filter(&self) -> bool {
+		self.task_id.is_some()
+			|| self.shard_id.is_some()
+			|| self.task.is_some()
+			|| self.account.is_some()
+			|| self.target_address.is_some()
+			|| self.peer_id.is_some()
+			|| self.block.is_some()
+			|| self.block_hash.is_some()
+			|| self.target_block.is_some()
+			|| self.from.is_some()
+			|| self.to.is_some()
+	}
+}
+
+impl std::fmt::Display for Filter {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		if let Some(task) = self.task_id {
+			write!(f, " |= `task_id: {task},`")?;
+		}
+		if let Some(shard) = self.shard_id {
+			write!(f, " |= `shard_id: {shard},`")?;
+		}
+		if let Some(task) = self.task.as_ref() {
+			write!(f, r#" |= `task: "{task}"`"#)?;
+		}
+		if let Some(account) = self.account.as_ref() {
+			write!(f, r#" |= `timechain: "{account}"`"#)?;
+		}
+		if let Some(address) = self.target_address.as_ref() {
+			write!(f, r#" |= `target: "{address}"`"#)?;
+		}
+		if let Some(peer_id) = self.peer_id.as_ref() {
+			write!(f, r#" |= `peer_id: "{peer_id}"`"#)?;
+		}
+		if let Some(block) = self.block {
+			write!(f, " |= `block: {block},`")?;
+		}
+		if let Some(block_hash) = self.block_hash.as_ref() {
+			write!(f, r#" |= `block_hash: "{block_hash}"`"#)?;
+		}
+		if let Some(block) = self.target_block {
+			write!(f, " |= `target_block_height: {block},`")?;
+		}
+		if let Some(from) = self.from.as_ref() {
+			write!(f, r#" |= `from: "{from}"`"#)?;
+		}
+		if let Some(to) = self.to.as_ref() {
+			write!(f, r#" |= `to: "{to}"`"#)?;
+		}
+		Ok(())
+	}
+}
+
+#[derive(Clone, Debug, clap::Parser)]
 pub enum Query {
-	Chronicle {
-		#[arg(long)]
-		task_id: Option<TaskId>,
-		#[arg(long)]
-		shard_id: Option<ShardId>,
-		#[arg(long)]
-		task: Option<String>,
-		#[arg(long)]
-		account: Option<String>,
-		#[arg(long)]
-		target_address: Option<String>,
-		#[arg(long)]
-		peer_id: Option<String>,
-		#[arg(long)]
-		block: Option<BlockNumber>,
-		#[arg(long)]
-		block_hash: Option<String>,
-		#[arg(long)]
-		target_block: Option<u64>,
-		#[arg(long)]
-		from: Option<String>,
-		#[arg(long)]
-		to: Option<String>,
+	App {
+		name: String,
+		#[command(flatten)]
+		filter: Filter,
 	},
 	Container {
 		name: String,
+		#[command(flatten)]
+		filter: Filter,
 	},
 	Raw {
 		query: String,
+		#[command(flatten)]
+		filter: Filter,
 	},
 }
 
 impl Query {
-	pub fn raw(&self) -> bool {
-		!matches!(self, Query::Chronicle { .. })
+	pub fn filter(&self) -> &Filter {
+		match self {
+			Self::App { filter, .. } => filter,
+			Self::Container { filter, .. } => filter,
+			Self::Raw { filter, .. } => filter,
+		}
 	}
 }
 
 impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::Chronicle {
-				task_id,
-				shard_id,
-				task,
-				account,
-				target_address,
-				peer_id,
-				block,
-				block_hash,
-				target_block,
-				from,
-				to,
-			} => {
-				write!(f, r#"{{app="chronicle"}}"#)?;
-				if let Some(task) = task_id {
-					write!(f, " |= `task_id: {task},`")?;
-				}
-				if let Some(shard) = shard_id {
-					write!(f, " |= `shard_id: {shard},`")?;
-				}
-				if let Some(task) = task {
-					write!(f, r#" |= `task: "{task}"`"#)?;
-				}
-				if let Some(account) = account {
-					write!(f, r#" |= `timechain: "{account}"`"#)?;
-				}
-				if let Some(address) = target_address {
-					write!(f, r#" |= `target: "{address}"`"#)?;
-				}
-				if let Some(peer_id) = peer_id {
-					write!(f, r#" |= `peer_id: "{peer_id}"`"#)?;
-				}
-				if let Some(block) = block {
-					write!(f, " |= `block: {block},`")?;
-				}
-				if let Some(block_hash) = block_hash {
-					write!(f, r#" |= `block_hash: "{block_hash}"`"#)?;
-				}
-				if let Some(block) = target_block {
-					write!(f, " |= `target_block_height: {block},`")?;
-				}
-				if let Some(from) = from {
-					write!(f, r#" |= `from: "{from}"`"#)?;
-				}
-				if let Some(to) = to {
-					write!(f, r#" |= `to: "{to}"`"#)?;
-				}
-				Ok(())
+		let filter = match self {
+			Self::App { name, filter } => {
+				write!(f, r#"{{app="{name}"}}"#)?;
+				filter
 			},
-			Self::Container { name } => write!(f, r#"{{container="{name}"}}"#),
-			Self::Raw { query } => f.write_str(query),
-		}
+			Self::Container { name, filter } => {
+				write!(f, r#"{{container=~"{name}"}}"#)?;
+				filter
+			},
+			Self::Raw { query, filter } => {
+				f.write_str(query)?;
+				filter
+			},
+		};
+		write!(f, "{filter}")
 	}
 }
 
@@ -186,7 +218,7 @@ impl std::str::FromStr for Log {
 	}
 }
 
-pub async fn raw_logs(query: Query, since: String) -> Result<Vec<String>> {
+pub async fn raw_logs(query: Query, since: String, limit: Option<u32>) -> Result<Vec<String>> {
 	let query = query.to_string();
 	log::info!("{query}");
 	let env = Loki::from_env()?;
@@ -195,7 +227,7 @@ pub async fn raw_logs(query: Query, since: String) -> Result<Vec<String>> {
 	let req = client
 		.get(url)
 		.basic_auth(env.loki_username, Some(env.loki_password))
-		.query(&Request { query, since })
+		.query(&Request { query, since, limit })
 		.build()
 		.context("invalid request")?;
 	log::debug!("GET {}", req.url());
@@ -218,11 +250,10 @@ pub async fn raw_logs(query: Query, since: String) -> Result<Vec<String>> {
 	Ok(logs)
 }
 
-pub async fn logs(query: Query, since: String) -> Result<Vec<Log>> {
-	let logs = raw_logs(query, since)
-		.await?
-		.into_iter()
-		.map(|log| log.parse().unwrap())
-		.collect();
-	Ok(logs)
+pub fn structured_logs(logs: &[String]) -> Result<Vec<Log>> {
+	let mut slogs = Vec::with_capacity(logs.len());
+	for log in logs {
+		slogs.push(log.parse()?);
+	}
+	Ok(slogs)
 }

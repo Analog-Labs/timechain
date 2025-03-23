@@ -1422,19 +1422,27 @@ impl Tc {
 		self.msg.text(id, line.into()).await
 	}
 
-	pub async fn log(&self, query: Query, since: String) -> Result<TableRef> {
-		let logs = loki::logs(query, since).await?;
-		self.print_table(None, "logs", logs).await
-	}
-
-	pub async fn log_raw(&self, query: Query, since: String) -> Result<TextRef> {
-		let logs = loki::raw_logs(query, since).await?;
+	pub async fn log(&self, query: Query, since: String, limit: Option<u32>) -> Result<()> {
+		let has_filter = query.filter().has_filter();
+		let logs = loki::raw_logs(query, since, limit).await?;
+		if has_filter {
+			match loki::structured_logs(&logs) {
+				Ok(logs) => {
+					self.print_table(None, "logs", logs).await?;
+					return Ok(());
+				},
+				Err(err) => {
+					tracing::error!("failed to parse logs: {err}");
+				},
+			}
+		}
 		let mut text = String::new();
 		for log in logs {
 			text.push_str(&log);
 			text.push('\n');
 		}
-		self.println(None, text).await
+		self.println(None, text).await?;
+		Ok(())
 	}
 
 	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {

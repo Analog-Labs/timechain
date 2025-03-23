@@ -190,6 +190,8 @@ enum Command {
 		query: Query,
 		#[arg(long, default_value = "7d")]
 		since: String,
+		#[arg(long, default_value = "100")]
+		limit: u32,
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
@@ -444,12 +446,8 @@ async fn real_main() -> Result<()> {
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
-		Command::Log { query, since } => {
-			if query.raw() {
-				tc.log_raw(query, since).await?;
-			} else {
-				tc.log(query, since).await?;
-			}
+		Command::Log { query, since, limit } => {
+			tc.log(query, since, Some(limit)).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id, block).await?;

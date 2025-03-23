@@ -1,8 +1,7 @@
 use crate::env::Loki;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use time_primitives::{BlockNumber, ShardId, TaskId};
+use time_primitives::{BatchId, BlockNumber, NetworkId, ShardId, TaskId};
 
 //const DIRECTION_FORWARD: &'static str = "FORWARD";
 //const DIRECTION_BACKWARD: &'static str = "BACKWARD";
@@ -33,84 +32,118 @@ struct StreamValue {
 	pub values: Vec<(String, String)>,
 }
 
-#[derive(Clone, Debug, clap::Parser)]
-pub struct Filter {
+#[derive(Clone, Debug, clap::Parser, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Log {
 	#[arg(long)]
-	task_id: Option<TaskId>,
+	#[serde(rename = "timestamp")]
+	pub log_timestamp: Option<String>,
 	#[arg(long)]
-	shard_id: Option<ShardId>,
+	#[serde(rename = "level")]
+	pub log_level: Option<String>,
 	#[arg(long)]
-	task: Option<String>,
+	#[serde(rename = "message")]
+	pub log_message: Option<String>,
 	#[arg(long)]
-	account: Option<String>,
+	#[serde(rename = "target")]
+	pub log_target: Option<String>,
 	#[arg(long)]
-	target_address: Option<String>,
+	#[serde(rename = "filename")]
+	pub log_filename: Option<String>,
 	#[arg(long)]
-	peer_id: Option<String>,
+	#[serde(rename = "line_number")]
+	pub log_line_number: Option<u64>,
 	#[arg(long)]
-	block: Option<BlockNumber>,
+	pub tc_account: Option<String>,
 	#[arg(long)]
-	block_hash: Option<String>,
+	pub tc_block: Option<BlockNumber>,
 	#[arg(long)]
-	target_block: Option<u64>,
+	pub tc_block_hash: Option<String>,
 	#[arg(long)]
-	from: Option<String>,
+	pub chain_address: Option<String>,
 	#[arg(long)]
-	to: Option<String>,
+	pub chain_block: Option<u64>,
+	#[arg(long)]
+	pub net_peer_id: Option<String>,
+	#[arg(long)]
+	pub net_message: Option<String>,
+	#[arg(long)]
+	pub net_from: Option<String>,
+	#[arg(long)]
+	pub net_to: Option<String>,
+	#[arg(long)]
+	pub tss_session: Option<TaskId>,
+	#[arg(long)]
+	pub tss_session_id: Option<u64>,
+	#[arg(long)]
+	pub gmp_network_id: Option<NetworkId>,
+	#[arg(long)]
+	pub gmp_message_id: Option<String>,
+	#[arg(long)]
+	pub gmp_batch_id: Option<BatchId>,
+	#[arg(long)]
+	pub gmp_batch: Option<String>,
+	#[arg(long)]
+	pub gmp_task_id: Option<TaskId>,
+	#[arg(long)]
+	pub gmp_task: Option<String>,
+	#[arg(long)]
+	pub gmp_shard_id: Option<ShardId>,
 }
 
-impl Filter {
-	pub fn has_filter(&self) -> bool {
-		self.task_id.is_some()
-			|| self.shard_id.is_some()
-			|| self.task.is_some()
-			|| self.account.is_some()
-			|| self.target_address.is_some()
-			|| self.peer_id.is_some()
-			|| self.block.is_some()
-			|| self.block_hash.is_some()
-			|| self.target_block.is_some()
-			|| self.from.is_some()
-			|| self.to.is_some()
+impl Log {
+	pub fn has_fields(&self) -> bool {
+		self.log_timestamp.is_some()
+			|| self.log_level.is_some()
+			|| self.log_message.is_some()
+			|| self.log_target.is_some()
+			|| self.log_filename.is_some()
+			|| self.log_line_number.is_some()
+			|| self.tc_account.is_some()
+			|| self.tc_block.is_some()
+			|| self.tc_block_hash.is_some()
+			|| self.chain_address.is_some()
+			|| self.chain_block.is_some()
+			|| self.net_peer_id.is_some()
+			|| self.net_message.is_some()
+			|| self.net_from.is_some()
+			|| self.net_to.is_some()
+			|| self.tss_session.is_some()
+			|| self.tss_session_id.is_some()
+			|| self.gmp_network_id.is_some()
+			|| self.gmp_message_id.is_some()
+			|| self.gmp_batch_id.is_some()
+			|| self.gmp_batch.is_some()
+			|| self.gmp_task_id.is_some()
+			|| self.gmp_task.is_some()
+			|| self.gmp_shard_id.is_some()
 	}
-}
 
-impl std::fmt::Display for Filter {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		if let Some(task) = self.task_id {
-			write!(f, " |= `task_id: {task},`")?;
-		}
-		if let Some(shard) = self.shard_id {
-			write!(f, " |= `shard_id: {shard},`")?;
-		}
-		if let Some(task) = self.task.as_ref() {
-			write!(f, r#" |= `task: "{task}"`"#)?;
-		}
-		if let Some(account) = self.account.as_ref() {
-			write!(f, r#" |= `timechain: "{account}"`"#)?;
-		}
-		if let Some(address) = self.target_address.as_ref() {
-			write!(f, r#" |= `target: "{address}"`"#)?;
-		}
-		if let Some(peer_id) = self.peer_id.as_ref() {
-			write!(f, r#" |= `peer_id: "{peer_id}"`"#)?;
-		}
-		if let Some(block) = self.block {
-			write!(f, " |= `block: {block},`")?;
-		}
-		if let Some(block_hash) = self.block_hash.as_ref() {
-			write!(f, r#" |= `block_hash: "{block_hash}"`"#)?;
-		}
-		if let Some(block) = self.target_block {
-			write!(f, " |= `target_block_height: {block},`")?;
-		}
-		if let Some(from) = self.from.as_ref() {
-			write!(f, r#" |= `from: "{from}"`"#)?;
-		}
-		if let Some(to) = self.to.as_ref() {
-			write!(f, r#" |= `to: "{to}"`"#)?;
-		}
-		Ok(())
+	pub fn matches(&self, other: &Log) -> bool {
+		(self.log_timestamp.is_none() || self.log_timestamp == other.log_timestamp)
+			&& (self.log_level.is_none() || self.log_level == other.log_level)
+			&& (self.log_message.is_none() || self.log_message == other.log_message)
+			&& (self.log_target.is_none() || self.log_target == other.log_target)
+			&& (self.log_filename.is_none() || self.log_filename == other.log_filename)
+			&& (self.log_line_number.is_none() || self.log_line_number == other.log_line_number)
+			&& (self.tc_account.is_none() || self.tc_account == other.tc_account)
+			&& (self.tc_block.is_none() || self.tc_block == other.tc_block)
+			&& (self.tc_block_hash.is_none() || self.tc_block_hash == other.tc_block_hash)
+			&& (self.chain_address.is_none() || self.chain_address == other.chain_address)
+			&& (self.chain_block.is_none() || self.chain_block == other.chain_block)
+			&& (self.net_peer_id.is_none() || self.net_peer_id == other.net_peer_id)
+			&& (self.net_message.is_none() || self.net_message == other.net_message)
+			&& (self.net_from.is_none() || self.net_from == other.net_from)
+			&& (self.net_to.is_none() || self.net_to == other.net_to)
+			&& (self.tss_session.is_none() || self.tss_session == other.tss_session)
+			&& (self.tss_session_id.is_none() || self.tss_session_id == other.tss_session_id)
+			&& (self.gmp_network_id.is_none() || self.gmp_network_id == other.gmp_network_id)
+			&& (self.gmp_message_id.is_none() || self.gmp_message_id == other.gmp_message_id)
+			&& (self.gmp_batch_id.is_none() || self.gmp_batch_id == other.gmp_batch_id)
+			&& (self.gmp_batch.is_none() || self.gmp_batch == other.gmp_batch)
+			&& (self.gmp_task_id.is_none() || self.gmp_task_id == other.gmp_task_id)
+			&& (self.gmp_task.is_none() || self.gmp_task == other.gmp_task)
+			&& (self.gmp_shard_id.is_none() || self.gmp_shard_id == other.gmp_shard_id)
 	}
 }
 
@@ -119,22 +152,22 @@ pub enum Query {
 	App {
 		name: String,
 		#[command(flatten)]
-		filter: Filter,
+		filter: Log,
 	},
 	Container {
 		name: String,
 		#[command(flatten)]
-		filter: Filter,
+		filter: Log,
 	},
 	Raw {
 		query: String,
 		#[command(flatten)]
-		filter: Filter,
+		filter: Log,
 	},
 }
 
 impl Query {
-	pub fn filter(&self) -> &Filter {
+	pub fn filter(&self) -> &Log {
 		match self {
 			Self::App { filter, .. } => filter,
 			Self::Container { filter, .. } => filter,
@@ -145,80 +178,19 @@ impl Query {
 
 impl std::fmt::Display for Query {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let filter = match self {
-			Self::App { name, filter } => {
-				write!(f, r#"{{app="{name}"}}"#)?;
-				filter
+		match self {
+			Self::App { name, .. } => {
+				write!(f, r#"{{app="{name}"}}"#)
 			},
-			Self::Container { name, filter } => {
-				write!(f, r#"{{container=~"{name}"}}"#)?;
-				filter
+			Self::Container { name, .. } => {
+				write!(f, r#"{{container=~"{name}"}}"#)
 			},
-			Self::Raw { query, filter } => {
-				f.write_str(query)?;
-				filter
-			},
-		};
-		write!(f, "{filter}")
+			Self::Raw { query, .. } => f.write_str(query),
+		}
 	}
 }
 
-#[derive(Debug)]
-pub struct Log {
-	pub timestamp: String,
-	pub level: String,
-	pub msg: String,
-	pub location: String,
-	pub data: HashMap<String, String>,
-}
-
-impl std::str::FromStr for Log {
-	type Err = anyhow::Error;
-
-	fn from_str(log: &str) -> Result<Self> {
-		let mut data = HashMap::new();
-		let (timestamp, rest) = log.trim().split_once(' ').context("no timestamp")?;
-		let (level, rest) = rest.trim().split_once(' ').context("no level")?;
-		let (_module, rest) = rest.split_once(": ").context("no module")?;
-		let (mrest, rest) = rest.split_once("  at ").context("no data")?;
-		// Work around when logging raw byte arrays
-		let (part1, mrest) = mrest.split_once(']').unwrap_or(("", mrest));
-		let (part2, sdata) = mrest.split_once(',').unwrap_or((mrest, ""));
-		let msg = if part1.is_empty() { part2.to_string() } else { format!("{part1}]{part2}") };
-		for kv in sdata.split(',') {
-			let kv = kv.trim();
-			if kv.is_empty() {
-				continue;
-			}
-			let (k, v) = kv.split_once(':').context("no kv")?;
-			data.insert(k.trim().to_string(), v.trim().to_string());
-		}
-		let (location, rest) = rest.split_once("  ").unwrap_or((rest, ""));
-		for span in rest.split("  in ") {
-			let Some((_, sdata)) = span.split_once(" with ") else {
-				continue;
-			};
-			for kv in sdata.split(',') {
-				let kv = kv.trim();
-				if kv.is_empty() {
-					continue;
-				}
-				let (k, v) = kv.split_once(':').context("span no kv")?;
-				data.insert(k.trim().to_string(), v.trim().trim_matches('"').to_string());
-			}
-		}
-		let me = Self {
-			timestamp: timestamp.trim().into(),
-			level: level.trim().into(),
-			msg: msg.trim().into(),
-			location: location.trim().into(),
-			data,
-		};
-		Ok(me)
-	}
-}
-
-pub async fn raw_logs(query: Query, since: String, limit: Option<u32>) -> Result<Vec<String>> {
+pub async fn raw_logs(query: &Query, since: String, limit: Option<u32>) -> Result<Vec<String>> {
 	let query = query.to_string();
 	log::info!("{query}");
 	let env = Loki::from_env()?;
@@ -250,10 +222,13 @@ pub async fn raw_logs(query: Query, since: String, limit: Option<u32>) -> Result
 	Ok(logs)
 }
 
-pub fn structured_logs(logs: &[String]) -> Result<Vec<Log>> {
+pub fn structured_logs(filter: &Log, logs: &[String]) -> Result<Vec<Log>> {
 	let mut slogs = Vec::with_capacity(logs.len());
 	for log in logs {
-		slogs.push(log.parse().with_context(|| format!("line {log}"))?);
+		let slog: Log = serde_json::from_str(log.as_str())?;
+		if filter.matches(&slog) {
+			slogs.push(slog);
+		}
 	}
 	Ok(slogs)
 }

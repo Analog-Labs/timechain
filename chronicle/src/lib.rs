@@ -43,10 +43,10 @@ fn resource() -> Resource {
 
 // Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
 pub fn init_opentelemetry() {
-	let log_subscriber = tracing_subscriber::fmt::layer()
-		.json()
+	let log_subscriber = json_subscriber::fmt::layer()
 		.flatten_event(true)
-		.with_ansi(false)
+		.flatten_current_span_on_top_level(true)
+		.flatten_span_list_on_top_level(true)
 		.with_file(true)
 		.with_line_number(true);
 	let filter_layer = EnvFilter::try_from_default_env()
@@ -165,22 +165,23 @@ pub async fn run_chronicle(
 		create_iroh_network(NetworkConfig { secret: config.network_key }).await?;
 
 	// initialize wallets
-	let timechain_address = time_primitives::format_address(substrate.account_id());
-	let target_address = connector.format_address(connector.address());
+	let account = time_primitives::format_address(substrate.account_id());
+	let address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
 	let span = span!(
 		Level::INFO,
 		"chronicle",
-		timechain = timechain_address,
-		target = target_address,
-		peer_id = peer_id,
+		tc_account = account,
+		chain_address = address,
+		gmp_network_id = config.network_id,
+		net_peer_id = peer_id,
 	);
 	admin
 		.send(AdminMsg::SetConfig(Config {
 			network: config.network_id,
-			account: timechain_address,
+			account,
 			public_key: substrate.public_key().clone(),
-			address: target_address,
+			address,
 			peer_id,
 			peer_id_hex: hex::encode(network.peer_id()),
 		}))

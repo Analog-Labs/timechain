@@ -1423,10 +1423,9 @@ impl Tc {
 	}
 
 	pub async fn log(&self, query: Query, since: String, limit: Option<u32>) -> Result<()> {
-		let has_filter = query.filter().has_filter();
-		let logs = loki::raw_logs(query, since, limit).await?;
-		if has_filter {
-			match loki::structured_logs(&logs) {
+		let logs = loki::raw_logs(&query, since, limit).await?;
+		if query.filter().has_fields() {
+			match loki::structured_logs(query.filter(), &logs) {
 				Ok(logs) => {
 					self.print_table(None, "logs", logs).await?;
 					return Ok(());

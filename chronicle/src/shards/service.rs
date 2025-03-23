@@ -105,8 +105,8 @@ where
 			parent: span,
 			Level::DEBUG,
 			"on_finality",
-			block = block,
-			block_hash = format!("{block_hash:?}"),
+			tc_block = block,
+			tc_block_hash = format!("{block_hash:?}"),
 		);
 		event!(parent: &span, Level::DEBUG, "on_finality");
 		let account_id = self.substrate.account_id();
@@ -117,7 +117,7 @@ where
 			if self.tss_states.contains_key(&shard_id) {
 				continue;
 			}
-			let span = span!(parent: &span, Level::DEBUG, "join shard", shard_id);
+			let span = span!(parent: &span, Level::DEBUG, "joining", gmp_shard_id = shard_id);
 			let members = self.substrate.get_shard_members(shard_id, block_hash).await?;
 			let threshold = self.substrate.get_shard_threshold(shard_id, block_hash).await?;
 			let futures: Vec<_> = members
@@ -172,7 +172,7 @@ where
 			{
 				continue;
 			}
-			event!(parent: &span, Level::DEBUG, shard_id, "committing");
+			let span = span!(parent: &span, Level::DEBUG, "committing", gmp_shard_id = shard_id);
 			let commitment =
 				self.substrate.get_shard_commitment(shard_id, block_hash).await?.unwrap();
 			let commitment = VerifiableSecretSharingCommitment::deserialize(commitment.0.to_vec())?;
@@ -195,13 +195,12 @@ where
 					event!(
 						parent: &span,
 						Level::ERROR,
-						shard_id,
-						task_id,
 						"trying to run task on unknown shard, dropping channel",
 					);
 					self.channels.remove(&task_id);
 					continue;
 				};
+				event!(parent: &span, Level::DEBUG, "signing");
 				tss.on_sign(task_id, data.to_vec(), &span);
 				self.poll_actions(&span, shard_id, block).await;
 			}
@@ -217,8 +216,8 @@ where
 			let span = span!(
 				parent: &span,
 				Level::DEBUG,
-				"running task executor",
-				shard_id,
+				"shard",
+				gmp_shard_id = shard_id,
 			);
 			let (start_sessions, complete_sessions, failed_tasks) = match executor
 				.process_tasks(block_hash, block, shard_id, self.block_height, &span)
@@ -231,7 +230,6 @@ where
 					event!(
 						parent: &span,
 						Level::INFO,
-						shard_id,
 						"failed to start tasks: {:?}",
 						error,
 					);
@@ -250,9 +248,11 @@ where
 				continue;
 			};
 			for session in complete_sessions {
+				let span = span!(parent: &span, Level::DEBUG, "completing", gmp_task_id = session);
 				tss.on_complete(session, &span);
 			}
 			for session in start_sessions {
+				let span = span!(parent: &span, Level::DEBUG, "starting", gmp_task_id = session);
 				tss.on_start(session, &span);
 			}
 		}
@@ -261,15 +261,13 @@ where
 				break;
 			}
 			for (shard_id, peer_id, msg) in self.messages.remove(&n).unwrap() {
-				let span = span!(parent: &span, Level::DEBUG, "messages", shard_id);
+				let span = span!(parent: &span, Level::DEBUG, "messages", gmp_shard_id = shard_id,
+					net_from = display_peer_id(peer_id), net_message = msg.to_string());
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 					event!(
 						parent: &span,
 						Level::INFO,
-						shard_id,
-						from = display_peer_id(peer_id),
-						"dropping message {}",
-						msg,
+						"dropping message",
 					);
 					continue;
 				};
@@ -289,20 +287,31 @@ where
 		{
 			match action {
 				TssAction::Send(msgs) => {
-					for (peer, payload) in msgs {
+					for (peer_id, payload) in msgs {
+						let span = span!(
+							parent: span,
+							Level::DEBUG,
+							"tx",
+							net_to = display_peer_id(peer_id),
+							net_message = payload.to_string(),
+						);
 						let msg = Message {
 							shard_id,
 							block: if payload.is_response() { 0 } else { block },
 							payload,
 						};
-						self.send_message(span, peer, msg);
+						let endpoint = self.network.clone();
+						self.outgoing_requests.push(Box::pin(async move {
+							event!(parent: &span, Level::DEBUG, "send");
+							let result = endpoint.send(peer_id, msg).await;
+							(result, span)
+						}));
 					}
 				},
 				TssAction::Commit(commitment, proof_of_knowledge) => {
 					event!(
 						parent: span,
 						Level::DEBUG,
-						shard_id,
 						"commit",
 					);
 					self.substrate
@@ -319,9 +328,8 @@ where
 					event!(
 						parent: span,
 						Level::DEBUG,
-						shard_id,
-						"public key {:?}",
-						public_key,
+						"public key 0x{}",
+						hex::encode(public_key),
 					);
 					self.substrate.submit_online(shard_id).await.unwrap();
 				},
@@ -330,10 +338,9 @@ where
 					event!(
 						parent: span,
 						Level::DEBUG,
-						shard_id,
 						task_id,
-						"signature {:?}",
-						tss_signature,
+						"signature 0x{}",
+						hex::encode(tss_signature),
 					);
 					if let Some(tx) = self.channels.remove(&task_id) {
 						tx.send((hash, tss_signature)).ok();
@@ -341,23 +348,6 @@ where
 				},
 			}
 		}
-	}
-
-	fn send_message(&mut self, span: &Span, peer_id: PeerId, message: Message) {
-		let span = span!(
-			parent: span,
-			Level::DEBUG,
-			"tx",
-			shard_id = message.shard_id,
-			to = display_peer_id(peer_id),
-			msg = message.payload.to_string(),
-		);
-		let endpoint = self.network.clone();
-		self.outgoing_requests.push(Box::pin(async move {
-			event!(parent: &span, Level::DEBUG, "send");
-			let result = endpoint.send(peer_id, message).await;
-			(result, span)
-		}));
 	}
 
 	pub async fn run(mut self, span: &Span) {

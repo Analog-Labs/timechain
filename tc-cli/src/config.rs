@@ -41,10 +41,11 @@ impl Config {
 		Self { path: env, yaml, prices }
 	}
 
-	pub fn prefix(&self) -> Option<&str> {
-		let prefix = self.path.file_name()?.to_str()?.strip_prefix('.')?;
+	pub fn prefix(&self) -> Option<String> {
+		let path = std::fs::canonicalize(&self.path).ok()?;
+		let prefix = path.file_name()?.to_str()?.strip_prefix('.')?;
 		if prefix.starts_with("tmp") {
-			Some(prefix)
+			Some(format!("{prefix}-"))
 		} else {
 			None
 		}

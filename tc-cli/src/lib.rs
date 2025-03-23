@@ -1424,9 +1424,9 @@ impl Tc {
 
 	pub async fn log(&self, mut query: Query, since: String, limit: Option<u32>) -> Result<()> {
 		if let Query::Container { name, .. } = &mut query {
-			let prefix = self.config.prefix().unwrap_or_default();
-			let prefix = format!("{prefix}-");
-			*name = format!("{prefix}{name}");
+			if let Some(prefix) = self.config.prefix() {
+				*name = format!("{prefix}{name}");
+			}
 		};
 		let logs = loki::raw_logs(&query, since, limit).await?;
 		if query.filter().has_fields() {

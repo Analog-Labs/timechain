@@ -188,8 +188,8 @@ where
 					parent: &span,
 					Level::DEBUG,
 					"received signing request from task executor",
-					shard_id,
-					task_id,
+					gmp_shard_id = shard_id,
+					gmp_task_id = task_id,
 				);
 				let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 					event!(
@@ -439,9 +439,9 @@ where
 					event!(
 						parent: span,
 						Level::DEBUG,
-						shard_id,
-						task_id,
-						block,
+						gmp_shard_id = shard_id,
+						gmp_task_id = task_id,
+						tc_block = block,
 						"received signing request",
 					);
 					self.requests.entry(block).or_default().push((shard_id, task_id, data));
@@ -455,9 +455,9 @@ where
 					event!(
 						parent: span,
 						Level::DEBUG,
-						shard_id,
-						block,
-						from = display_peer_id(peer),
+						gmp_shard_id = shard_id,
+						tc_block = block,
+						net_from = display_peer_id(peer),
 						"rx {}",
 						payload,
 					);

@@ -34,5 +34,6 @@ jobs:
       - name: Run clippy linter
         uses: ./.github/actions/cargo-command
         with:
+          profile: testnet
           command: clippy
           args: --all-targets --all-features -- -D warnings

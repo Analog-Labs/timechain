@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
 	sr25519, AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
+	Commitment, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey,
+	ShardId, ShardStatus, Task, TaskId, TaskResult,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};

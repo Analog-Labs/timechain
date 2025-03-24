@@ -38,6 +38,7 @@ use time_primitives::{
 	TssSignature,
 };
 use tokio::sync::Mutex;
+use tracing::{span, Level};
 
 use crate::sol::{ProxyContext, ProxyDigest, CCTP};
 
@@ -188,18 +189,18 @@ impl IConnector for Connector {
 		blocks: Range<u64>,
 		cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>> {
+		let span = span!(Level::INFO, "STARTED read_events",);
 		let contract = a_addr(gateway);
 		let filter = Filter::new()
 			.address(contract)
 			.from_block(BlockNumberOrTag::Number(blocks.start))
 			// NOTE: rust range is end exclusive, whereas ETH RPC is end inclusive
 			.to_block(BlockNumberOrTag::Number(blocks.end - 1));
-
-		let sub = self.rpc.subscribe_logs(&filter).await?;
-		let mut stream = sub.into_stream();
+		let logs = self.rpc.get_logs(&filter).await?;
 
 		let mut events = vec![];
-		while let Some(ref outer_log) = stream.next().await {
+		for outer_log in logs {
+			tracing::info!(parent: &span, "ENTER stream loop");
 			let topics =
 				outer_log.topics().iter().map(|topic| B256::from(topic.0)).collect::<Vec<_>>();
 			let log = alloy::primitives::Log::new(
@@ -263,12 +264,15 @@ impl IConnector for Connector {
 					_ => {},
 				}
 			}
+			tracing::info!(parent: &span, "EXIT stream loop");
 		}
+		tracing::info!(parent: &span, "BEFORE CCTP");
 		// CCTP calls processing
 		let msgs = self.process_cctp_queue().await;
 		for msg in msgs {
 			events.push(GmpEvent::MessageReceived(msg));
 		}
+		tracing::info!(parent: &span, "AFTER CCTP");
 		Ok(events)
 	}
 	/// Submits a gmp message to the target chain.

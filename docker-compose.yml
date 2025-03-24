@@ -84,7 +84,6 @@ services:
     command:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
-#        RUST_LOG: ""
         ANVIL_IP_ADDR: '0.0.0.0'
     ports:
       - 8545

@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
 	sr25519, AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
+	Commitment, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
 	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
 };
 use tokio::time::Duration;
@@ -327,7 +327,7 @@ impl Runtime for Mock {
 		Ok(batches.get(&batch).map(|b| b.message.clone()))
 	}
 
-	async fn get_gateway(&self, _network: NetworkId, _: BlockHash) -> Result<Option<Gateway>> {
+	async fn get_gateway(&self, _network: NetworkId, _: BlockHash) -> Result<Option<Address32>> {
 		Ok(Some([0; 32]))
 	}
 

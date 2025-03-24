@@ -3,12 +3,12 @@ use anyhow::{Context, Result};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::collections::HashMap;
-use time_primitives::{Address, BlockHash, BlockNumber, MessageId, NetworkId};
+use time_primitives::{Address32, BlockHash, BlockNumber, MessageId, NetworkId};
 
 #[derive(Clone, Copy)]
 struct RouteStats {
-	src_addr: Address,
-	dest_addr: Address,
+	src_addr: Address32,
+	dest_addr: Address32,
 	gas_limit: u128,
 	gas_cost: u128,
 	msg_cost: f64,
@@ -19,8 +19,8 @@ struct RouteStats {
 
 impl RouteStats {
 	pub fn new(
-		src_addr: Address,
-		dest_addr: Address,
+		src_addr: Address32,
+		dest_addr: Address32,
 		gas_limit: u128,
 		gas_cost: u128,
 		msg_cost: f64,
@@ -67,7 +67,7 @@ pub struct Benchmark {
 	routes: HashMap<(NetworkId, NetworkId), RouteStats>,
 	messages: HashMap<MessageId, MessageStats>,
 	tc: Tc,
-	testers: HashMap<NetworkId, (Address, u64)>,
+	testers: HashMap<NetworkId, (Address32, u64)>,
 	payload: Vec<u8>,
 	blocks: BlockNumber,
 	num_blocks: BlockNumber,
@@ -77,7 +77,7 @@ pub struct Benchmark {
 impl Benchmark {
 	pub fn new(
 		tc: Tc,
-		testers: HashMap<NetworkId, (Address, u64)>,
+		testers: HashMap<NetworkId, (Address32, u64)>,
 		payload: Vec<u8>,
 		msgs_per_block: u16,
 		num_blocks: BlockNumber,

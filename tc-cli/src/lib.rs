@@ -15,10 +15,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address, BatchId, BlockHash,
-	BlockNumber, ChainName, ChainNetwork, ConnectorParams, Gateway, GatewayMessage, GmpEvent,
-	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
-	NetworkId, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
+	BlockNumber, ChainName, ChainNetwork, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents,
+	GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
+	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 use time_primitives::{CctpContracts, CctpUrl};
 
@@ -79,6 +79,7 @@ impl Tc {
 					network: network.network.clone(),
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
+					chain_dict: Some(config.chains_dict()),
 				};
 				let connector = async move {
 					let connector = network
@@ -116,7 +117,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		block_hash: BlockHash,
-	) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	) -> Result<(&dyn IConnectorAdmin, Address32)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -177,7 +178,7 @@ impl Tc {
 		Ok(shards)
 	}
 
-	pub fn parse_address(&self, network: Option<NetworkId>, address: &str) -> Result<Address> {
+	pub fn parse_address(&self, network: Option<NetworkId>, address: &str) -> Result<Address32> {
 		if let Some(network) = network {
 			self.connector(network)?.parse_address(address)
 		} else {
@@ -188,7 +189,7 @@ impl Tc {
 		}
 	}
 
-	pub fn format_address(&self, network: Option<NetworkId>, address: Address) -> Result<String> {
+	pub fn format_address(&self, network: Option<NetworkId>, address: Address32) -> Result<String> {
 		if let Some(network) = network {
 			Ok(self.connector(network)?.format_address(address))
 		} else {
@@ -221,7 +222,7 @@ impl Tc {
 		}
 	}
 
-	pub fn address(&self, network: Option<NetworkId>) -> Result<Address> {
+	pub fn address(&self, network: Option<NetworkId>) -> Result<Address32> {
 		Ok(if let Some(network) = network {
 			self.connector(network)?.address()
 		} else {
@@ -259,7 +260,7 @@ impl Tc {
 	pub async fn balance(
 		&self,
 		network: Option<NetworkId>,
-		address: Address,
+		address: Address32,
 		block_hash: BlockHash,
 	) -> Result<u128> {
 		if let Some(network) = network {
@@ -272,7 +273,7 @@ impl Tc {
 	pub async fn transfer(
 		&self,
 		network: Option<NetworkId>,
-		address: Address,
+		address: Address32,
 		balance: u128,
 	) -> Result<()> {
 		self.println(
@@ -295,7 +296,7 @@ impl Tc {
 	pub async fn fund(
 		&self,
 		network: Option<NetworkId>,
-		address: Address,
+		address: Address32,
 		min_balance: u128,
 		label: &str,
 		block_hash: BlockHash,
@@ -320,9 +321,9 @@ pub struct Network {
 
 #[derive(Clone, Debug)]
 pub struct NetworkInfo {
-	pub gateway: Address,
+	pub gateway: Address32,
 	pub gateway_balance: u128,
-	pub admin: Address,
+	pub admin: Address32,
 	pub admin_balance: u128,
 	pub sync_status: SyncStatus,
 	pub unassigned_tasks: u32,
@@ -336,7 +337,7 @@ pub struct Chronicle {
 	pub peer_id: String,
 	pub status: ChronicleStatus,
 	pub balance: u128,
-	pub target_address: Address,
+	pub target_address: Address32,
 	pub target_balance: u128,
 }
 
@@ -346,7 +347,7 @@ struct ChronicleConfig {
 	public_key: PublicKey,
 	peer_id: PeerId,
 	peer_id_str: String,
-	address: Address,
+	address: Address32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -653,7 +654,7 @@ impl Tc {
 	pub async fn messages(
 		&self,
 		network: NetworkId,
-		tester: Address,
+		tester: Address32,
 		blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
 		let connector = self.connector(network)?;
@@ -770,7 +771,11 @@ impl Tc {
 }
 
 impl Tc {
-	async fn register_network(&self, network: NetworkId, block_hash: BlockHash) -> Result<Gateway> {
+	async fn register_network(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<Address32> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let contracts = self.config.contracts(network)?;
@@ -782,7 +787,7 @@ impl Tc {
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
-				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
+				.deploy_gateway(&contracts.factory, &contracts.proxy, &contracts.gateway)
 				.await?;
 			let cctp_contracts =
 				config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
@@ -819,7 +824,7 @@ impl Tc {
 	pub async fn set_network_config(
 		&self,
 		network: NetworkId,
-		additional_contract: Option<Address>,
+		additional_contract: Option<Address32>,
 		block_hash: BlockHash,
 	) -> Result<()> {
 		let config = self.config.network(network)?;
@@ -875,7 +880,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Gateway>) -> Result<()> {
+	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Address32>) -> Result<()> {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
@@ -925,7 +930,7 @@ impl Tc {
 			});
 		}
 
-		let routes: HashMap<NetworkId, Gateway> = gateways.try_collect().await?;
+		let routes: HashMap<NetworkId, Address32> = gateways.try_collect().await?;
 		self.register_routes(routes).await
 	}
 
@@ -1028,7 +1033,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		block_hash: BlockHash,
-	) -> Result<Gateway> {
+	) -> Result<Address32> {
 		let config = self.config.network(network)?;
 		self.faucet(network, block_hash).await?;
 		let gateway = self.register_network(network, block_hash).await?;
@@ -1126,7 +1131,7 @@ impl Tc {
 	pub async fn set_gateway_admin(
 		&self,
 		network: NetworkId,
-		admin: Address,
+		admin: Address32,
 		block_hash: BlockHash,
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
@@ -1147,7 +1152,7 @@ impl Tc {
 		let contracts = self.config.contracts(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
 		connector
-			.redeploy_gateway(&contracts.additional_params, gateway, &contracts.gateway)
+			.redeploy_gateway(&contracts.factory, gateway, &contracts.gateway)
 			.await?;
 		Ok(())
 	}
@@ -1156,7 +1161,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		block_hash: BlockHash,
-	) -> Result<(Address, u64)> {
+	) -> Result<(Address32, u64)> {
 		let contracts = self.config.contracts(network)?;
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
@@ -1176,9 +1181,9 @@ impl Tc {
 	pub async fn estimate_message_gas_limit(
 		&self,
 		dest_network: NetworkId,
-		dest_addr: Address,
+		dest_addr: Address32,
 		src_network: NetworkId,
-		src_addr: Address,
+		src_addr: Address32,
 		payload: Vec<u8>,
 	) -> Result<u128> {
 		let connector = self.connector(dest_network)?;
@@ -1203,9 +1208,9 @@ impl Tc {
 	pub async fn send_message(
 		&self,
 		src_network: NetworkId,
-		src_addr: Address,
+		src_addr: Address32,
 		dest_network: NetworkId,
-		dest_addr: Address,
+		dest_addr: Address32,
 		gas_limit: u128,
 		gas_cost: u128,
 		payload: Vec<u8>,
@@ -1271,7 +1276,7 @@ impl Tc {
 		&self,
 		network: NetworkId,
 		amount: u128,
-		address: Address,
+		address: Address32,
 		block_hash: BlockHash,
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
@@ -1290,7 +1295,7 @@ impl Tc {
 	async fn deploy_testers(
 		&self,
 		block_hash: BlockHash,
-	) -> Result<HashMap<NetworkId, (Address, u64)>> {
+	) -> Result<HashMap<NetworkId, (Address32, u64)>> {
 		let mut deploy_tester = FuturesUnordered::new();
 		for network in self.connectors.keys().copied() {
 			deploy_tester.push(async move {
@@ -1386,7 +1391,7 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address32, u64)>> {
 		let (block_hash, _) = self.latest_block().await?;
 		self.deploy(block_hash).await?;
 		let (block_hash, _) = self.latest_block().await?;
@@ -1498,7 +1503,7 @@ impl Tc {
 		&self,
 		src: NetworkId,
 		dest: NetworkId,
-		testers: &HashMap<NetworkId, (Address, u64)>,
+		testers: &HashMap<NetworkId, (Address32, u64)>,
 		payload: Vec<u8>,
 	) -> Result<GmpMessage> {
 		let mut blocks = self.finality_notification_stream();

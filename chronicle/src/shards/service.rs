@@ -319,8 +319,8 @@ where
 						parent: span,
 						Level::DEBUG,
 						shard_id,
-						"public key {:?}",
-						public_key,
+						"public key {}",
+						hex::encode(public_key),
 					);
 					self.substrate.submit_online(shard_id).await.unwrap();
 				},

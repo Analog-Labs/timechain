@@ -7,12 +7,12 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockHash, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector,
+	Address32, BlockHash, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector,
 	NetworkId, ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest, MAX_GMP_EVENTS,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use tracing::{event, span, Level, Span};
+use tracing::{event, span, Instrument, Level, Span};
 
 #[derive(Clone)]
 pub struct TaskParams {
@@ -122,29 +122,29 @@ impl TaskParams {
 		self,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
-		cctp_info: Option<(Vec<Address>, String)>,
+		cctp_info: Option<(Vec<Address32>, String)>,
 		network_id: NetworkId,
-		gateway: Address,
+		gateway: Address32,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
-		span: Span,
 	) -> Result<()> {
-		span!(
-			parent: &span,
+		let span = span!(
 			Level::INFO,
-			"executing_task",
+			"executing task",
 			task_id,
 			%task,
 		);
 		match task {
 			Task::ReadGatewayEvents { blocks } => {
+				tracing::info!(parent: &span, "Starting ReadGatewayEvents({:?})", &blocks);
 				let events = self
 					.connector
 					.read_events(gateway, blocks, cctp_info)
+					.instrument(span.clone())
 					.await
 					.context("read_events")?;
-				tracing::info!(parent: &span, "read {} events", events.len());
+				tracing::info!(parent: &span, "Completed read {} events", events.len());
 				let mut remaining = true;
 				for chunk in events.chunks(MAX_GMP_EVENTS as _) {
 					remaining = chunk.len() != MAX_GMP_EVENTS as usize;
@@ -249,31 +249,32 @@ impl TaskExecutor {
 				target_block_height,
 			);
 			let exec = self.params.clone();
-			let span2 = span.clone();
-			let handle = tokio::task::spawn(async move {
-				match exec
-					.execute(
-						block_hash,
-						block_number,
-						cctp_info,
-						network,
-						gateway,
-						shard_id,
-						task_id,
-						task,
-						span2,
-					)
-					.await
-				{
-					Ok(()) => {
-						tracing::info!(parent: &span, task_id, target_block_height, "task completed");
-					},
-					Err(error) => {
-						*total_failed.lock().await += 1;
-						tracing::error!(parent: &span, task_id, target_block_height, ?error, "task failed");
-					},
-				};
-			});
+			let handle = tokio::task::spawn(
+				async move {
+					match exec
+						.execute(
+							block_hash,
+							block_number,
+							cctp_info,
+							network,
+							gateway,
+							shard_id,
+							task_id,
+							task,
+						)
+						.await
+					{
+						Ok(()) => {
+							tracing::info!(task_id, target_block_height, "task completed");
+						},
+						Err(error) => {
+							*total_failed.lock().await += 1;
+							tracing::error!(task_id, target_block_height, ?error, "task failed");
+						},
+					};
+				}
+				.instrument(span),
+			);
 			start_sessions.push(task_id);
 			self.running_tasks.insert(task_id, handle);
 		}

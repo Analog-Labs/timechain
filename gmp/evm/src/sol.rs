@@ -1,9 +1,18 @@
-use alloy_primitives::U256;
-use alloy_sol_types::SolValue;
+use alloy::{primitives::U256, sol, sol_types::SolValue};
 
 use crate::{a_addr, t_addr};
 
-alloy_sol_types::sol! {
+// Codegen from ABI file to interact with the contract.
+sol!(
+	#[allow(clippy::too_many_arguments)]
+	#[allow(missing_docs)]
+	#[sol(rpc)]
+	#[derive(Debug)]
+	IExecutor,
+	"../../analog-gmp/out/IExecutor.sol/IExecutor.json"
+);
+
+sol! {
 	#[derive(Debug, Default, PartialEq, Eq)]
 	struct TssKey {
 		uint8 yParity;
@@ -291,6 +300,25 @@ impl From<time_primitives::GatewayOp> for GatewayOp {
 			},
 			time_primitives::GatewayOp::UnregisterShard(shard_id) => GatewayOp {
 				command: Command::UnregisterShard,
+				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
+			},
+		}
+	}
+}
+
+impl From<time_primitives::GatewayOp> for IExecutor::GatewayOp {
+	fn from(msg: time_primitives::GatewayOp) -> Self {
+		match msg {
+			time_primitives::GatewayOp::SendMessage(msg) => IExecutor::GatewayOp {
+				command: Command::GMP.into(),
+				params: Into::<GmpMessage>::into(msg).abi_encode().into(),
+			},
+			time_primitives::GatewayOp::RegisterShard(shard_id) => IExecutor::GatewayOp {
+				command: Command::RegisterShard.into(),
+				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
+			},
+			time_primitives::GatewayOp::UnregisterShard(shard_id) => IExecutor::GatewayOp {
+				command: Command::UnregisterShard.into(),
 				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
 			},
 		}

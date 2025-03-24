@@ -101,7 +101,7 @@ services:
     - '--target-url=ws://chain-2-evm:8545'
     - '--network-id=2'
     - '--backend=evm'
-    - '--chain-dict=/etc/auxiliary/chains.json'
+    - '--chain-dict=/etc/chains.json'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
@@ -132,7 +132,7 @@ services:
     - '--target-url=ws://chain-3-evm:8545'
     - '--network-id=3'
     - '--backend=evm'
-    - '--chain-dict=/etc/auxiliary/chains.json'
+    - '--chain-dict=/etc/chains.json'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1

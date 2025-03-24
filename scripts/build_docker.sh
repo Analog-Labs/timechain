@@ -73,6 +73,8 @@ forge build --root analog-gmp
 cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
+mkdir -p $WORKSPACE_ROOT/target/docker/chronicle
+cp -rL $WORKSPACE_ROOT/config/envs/local/auxiliary/chains.json target/docker/chronicle/
 rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/envs
 cp -rL $WORKSPACE_ROOT/config/envs target/docker/tc-cli/envs
 rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp

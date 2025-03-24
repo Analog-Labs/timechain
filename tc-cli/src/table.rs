@@ -203,13 +203,12 @@ pub struct TaskEntry {
 	descriptor: String,
 	output: String,
 	shard: String,
-	submitter: String,
 }
 
 impl IntoRow for Task {
 	type Row = TaskEntry;
 
-	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(TaskEntry {
 			task: self.task,
 			network: self.network,
@@ -222,10 +221,6 @@ impl IntoRow for Task {
 			shard: match self.shard {
 				Some(shard) => shard.to_string(),
 				None => "unassigned".to_string(),
-			},
-			submitter: match self.submitter {
-				Some(submitter) => tc.format_address(None, submitter.into_account().into())?,
-				None => "".to_string(),
 			},
 		})
 	}

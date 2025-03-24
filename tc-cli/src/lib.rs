@@ -400,7 +400,6 @@ pub struct Task {
 	pub descriptor: time_primitives::Task,
 	pub output: Option<Result<(), String>>,
 	pub shard: Option<ShardId>,
-	pub submitter: Option<PublicKey>,
 }
 
 #[derive(Clone, Debug)]
@@ -679,7 +678,6 @@ impl Tc {
 				o.map_err(|e| String::decode(&mut e.0.to_vec().as_slice()).unwrap_or_default())
 			}),
 			shard: self.runtime.assigned_shard(task, block_hash).await?,
-			submitter: self.runtime.task_submitter(task, block_hash).await?,
 		})
 	}
 

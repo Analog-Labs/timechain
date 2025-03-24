@@ -137,27 +137,17 @@ impl TaskParams {
 					.await?
 					.context("invalid shard")?
 					.0[0];
-				let Some(public_key) = self.runtime.get_task_submitter(task_id, block_hash).await?
-				else {
-					anyhow::bail!("no submitter set for task");
-				};
-				if &public_key == self.runtime.public_key() {
-					tracing::info!(parent: &span, "submitting batch");
-					if let Err(mut e) = self
-						.connector
-						.submit_commands(gateway, batch_id, msg, signer, signature)
-						.await
-					{
-						tracing::error!(parent: &span, "Error while executing batch: {e}");
-						e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-						let result = TaskResult::SubmitGatewayMessage {
-							error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-						};
-						tracing::debug!(parent: &span, "submitting task result");
-						self.runtime.submit_task_result(task_id, result).await?;
-					}
-				} else {
-					tracing::info!(parent: &span, "not submitting batch");
+				tracing::info!(parent: &span, "submitting batch");
+				if let Err(mut e) =
+					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
+				{
+					tracing::error!(parent: &span, "Error while executing batch: {e}");
+					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
+					let result = TaskResult::SubmitGatewayMessage {
+						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
+					};
+					tracing::debug!(parent: &span, "submitting task result");
+					self.runtime.submit_task_result(task_id, result).await?;
 				}
 			},
 		}

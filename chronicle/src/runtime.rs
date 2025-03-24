@@ -58,12 +58,6 @@ pub trait Runtime: Send + Sync + 'static {
 
 	async fn get_task(&self, task_id: TaskId, block: BlockHash) -> Result<Option<Task>>;
 
-	async fn get_task_submitter(
-		&self,
-		task_id: TaskId,
-		block: BlockHash,
-	) -> Result<Option<PublicKey>>;
-
 	async fn get_batch_message(
 		&self,
 		batch_id: BatchId,
@@ -180,14 +174,6 @@ impl Runtime for SubxtClient {
 		block: BlockHash,
 	) -> Result<Option<GatewayMessage>> {
 		self.batch_message(batch, block).await
-	}
-
-	async fn get_task_submitter(
-		&self,
-		task_id: TaskId,
-		block: BlockHash,
-	) -> Result<Option<PublicKey>> {
-		self.task_submitter(task_id, block).await
 	}
 
 	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>> {

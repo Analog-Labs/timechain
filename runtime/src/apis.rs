@@ -30,8 +30,7 @@ pub use time_primitives::{MembersInterface, NetworksInterface};
 #[cfg(feature = "testnet")]
 use time_primitives::{
 	BatchId, BlockNumber, CctpContracts, CctpUrl, ChainName, ChainNetwork, Commitment, ErrorMsg,
-	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, PublicKey, ShardId, ShardStatus,
-	Task, TaskId,
+	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
 };
 // Local module imports
 use super::{
@@ -388,10 +387,6 @@ impl_runtime_apis! {
 
 		fn get_task(task_id: TaskId) -> Option<Task>{
 			Tasks::get_task(task_id)
-		}
-
-		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey> {
-			Tasks::get_task_submitter(task_id)
 		}
 
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{

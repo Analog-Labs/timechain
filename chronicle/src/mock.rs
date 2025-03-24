@@ -50,16 +50,11 @@ impl MockShard {
 pub struct MockTask {
 	pub task: Task,
 	pub result: Option<TaskResult>,
-	pub submitter: Option<PublicKey>,
 }
 
 impl MockTask {
 	pub fn new(task: Task) -> Self {
-		Self {
-			task,
-			result: None,
-			submitter: None,
-		}
+		Self { task, result: None }
 	}
 }
 
@@ -311,11 +306,6 @@ impl Runtime for Mock {
 	async fn get_task(&self, task_id: TaskId, _: BlockHash) -> Result<Option<Task>> {
 		let tasks = self.tasks.lock().unwrap();
 		Ok(tasks.get(&task_id).map(|task| task.task.clone()))
-	}
-
-	async fn get_task_submitter(&self, task_id: TaskId, _: BlockHash) -> Result<Option<PublicKey>> {
-		let tasks = self.tasks.lock().unwrap();
-		Ok(tasks.get(&task_id).unwrap().submitter.clone())
 	}
 
 	async fn get_batch_message(

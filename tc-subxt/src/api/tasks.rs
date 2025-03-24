@@ -4,7 +4,7 @@ use anyhow::Result;
 use futures::channel::oneshot;
 use subxt::utils::H256;
 use time_primitives::{
-	BatchId, BlockHash, ErrorMsg, GatewayMessage, GmpEvents, Hash, MessageId, NetworkId, PublicKey,
+	BatchId, BlockHash, ErrorMsg, GatewayMessage, GmpEvents, Hash, MessageId, NetworkId,
 	ShardId, Task, TaskId, TaskResult, TssPublicKey,
 };
 
@@ -24,17 +24,6 @@ impl SubxtClient {
 		let block = H256(block.0);
 		let storage_query = metadata::storage().tasks().task_network(task_id);
 		Ok(self.client.storage().at(block).fetch(&storage_query).await?)
-	}
-
-	pub async fn task_submitter(
-		&self,
-		task_id: TaskId,
-		block: BlockHash,
-	) -> Result<Option<PublicKey>> {
-		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_task_submitter(task_id);
-		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
-		Ok(data.map(|s| s.0))
 	}
 
 	pub async fn assigned_tasks(&self, shard: ShardId, block: BlockHash) -> Result<Vec<TaskId>> {

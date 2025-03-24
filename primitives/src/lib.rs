@@ -144,7 +144,6 @@ sp_api::decl_runtime_apis! {
 		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
 		fn get_task(task_id: TaskId) -> Option<Task>;
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_task_submitter(task_id: TaskId) -> Option<PublicKey>;
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>;
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
 		fn get_failed_tasks() -> Vec<TaskId>;

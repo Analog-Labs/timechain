@@ -320,7 +320,7 @@ where
 						Level::DEBUG,
 						shard_id,
 						"public key {}",
-						hex::encode(&public_key),
+						hex::encode(public_key),
 					);
 					self.substrate.submit_online(shard_id).await.unwrap();
 				},

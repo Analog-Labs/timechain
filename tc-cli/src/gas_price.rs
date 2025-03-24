@@ -123,7 +123,9 @@ impl Tc {
 		let mut prices = HashMap::new();
 		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
 			let symbol = self.currency(Some(*network_id))?.1;
-			let token_url = format!("{}{}", env.token_price_url, coin_id);
+			let token_url = format!(
+				"https://pro-api.coinmarketcap.com/v2/tools/price-conversion?amount=1&id={coin_id}"
+			);
 			let client = reqwest::Client::new();
 			let request = client.get(token_url).headers(header_map.clone()).build()?;
 			log::info!("GET {}", request.url());

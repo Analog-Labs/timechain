@@ -44,17 +44,12 @@ impl Loki {
 }
 
 pub struct CoinMarketCap {
-	pub token_price_url: String,
 	pub token_api_key: String,
 }
 
 impl CoinMarketCap {
 	pub fn from_env() -> Result<Self> {
 		Ok(Self {
-			token_price_url: std::env::var("TOKEN_PRICE_URL").unwrap_or_else(|_| {
-				"https://pro-api.coinmarketcap.com/v2/tools/price-conversion?amount=1&symbol="
-					.into()
-			}),
 			token_api_key: std::env::var("TOKEN_API_KEY").unwrap_or_default(),
 		})
 	}

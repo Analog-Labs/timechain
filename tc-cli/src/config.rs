@@ -62,8 +62,8 @@ impl Config {
 						format!("failed to read tester contract from {}", path.display())
 					})?
 				},
-				additional_params: {
-					let path = self.relative_path(&contracts.additional_params);
+				factory: {
+					let path = self.relative_path(&contracts.factory);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read additional params from {}", path.display())
 					})?
@@ -103,7 +103,7 @@ pub struct GlobalConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ContractsConfig {
-	additional_params: PathBuf,
+	factory: PathBuf,
 	proxy: PathBuf,
 	gateway: PathBuf,
 	tester: PathBuf,
@@ -111,7 +111,7 @@ struct ContractsConfig {
 
 #[derive(Default)]
 pub struct Contracts {
-	pub additional_params: Vec<u8>,
+	pub factory: Vec<u8>,
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,

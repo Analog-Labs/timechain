@@ -786,7 +786,7 @@ impl Tc {
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
-				.deploy_gateway(&contracts.additional_params, &contracts.proxy, &contracts.gateway)
+				.deploy_gateway(&contracts.factory, &contracts.proxy, &contracts.gateway)
 				.await?;
 			let cctp_contracts =
 				config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
@@ -1151,7 +1151,7 @@ impl Tc {
 		let contracts = self.config.contracts(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
 		connector
-			.redeploy_gateway(&contracts.additional_params, gateway, &contracts.gateway)
+			.redeploy_gateway(&contracts.factory, gateway, &contracts.gateway)
 			.await?;
 		Ok(())
 	}

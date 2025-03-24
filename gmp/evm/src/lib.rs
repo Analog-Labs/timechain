@@ -74,6 +74,7 @@ pub struct Connector {
 	url: String,
 	signer: Arc<LocalSigner<SigningKey>>,
 	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
+	chain_id: u64,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
 }
@@ -92,12 +93,14 @@ impl IConnectorBuilder for Connector {
 		let ws = WsConnect::new(params.url.clone());
 		let provider = Arc::new(ProviderBuilder::new().wallet(signer.clone()).on_ws(ws).await?);
 
+		let chain_id = provider.get_chain_id().await?;
 		Ok(Self {
 			network_id: params.network_id,
 			url: params.url,
 			rpc: provider,
 			signer: Arc::new(signer),
 			cctp_queue: Default::default(),
+			chain_id,
 			wallet_guard: Default::default(),
 		})
 	}

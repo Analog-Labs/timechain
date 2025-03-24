@@ -1,13 +1,14 @@
 use anyhow::Result;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 type ChainDict = HashMap<u64, Chain>;
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct Chain {
-	_chain_id: u64,
-	_name: String,
+	chain_id: u64,
+	name: String,
 	pub currency: Currency,
 }
 
@@ -29,8 +30,9 @@ impl Default for Currency {
 	}
 }
 
-pub(crate) fn load() -> Result<ChainDict> {
-	// taken from https://chainid.network/chains.json
-	let json = std::fs::read_to_string("auxiliary/chains.json")?;
-	Ok(serde_json::from_str(&json)?)
+pub(crate) fn load(path: PathBuf) -> Result<ChainDict> {
+	let json = std::fs::read_to_string(path)?;
+	let chains: Vec<Chain> = serde_json::from_str(&json)?;
+
+	Ok(chains.into_iter().map(|c| (c.chain_id, c)).collect::<_>())
 }

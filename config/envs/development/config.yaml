@@ -2,6 +2,7 @@ config:
   chronicle_funds: 1.
   timechain_url: 'wss://rpc.development.analog.one'
   prices_path: 'prices.csv'
+  evm_chains_dict: "auxiliary/chains.json"
 contracts:
   evm:
     factory: "auxiliary/factory.json"

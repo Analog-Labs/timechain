@@ -1,3 +1,4 @@
 FROM scratch
 COPY chronicle chronicle
+COPY ./envs/local/auxiliary /etc/auxiliary
 ENTRYPOINT ["/chronicle"]

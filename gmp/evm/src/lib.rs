@@ -76,7 +76,7 @@ pub struct Connector {
 	url: String,
 	signer: Arc<LocalSigner<SigningKey>>,
 	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
-	chain_id: u64,
+	_chain_id: u64,
 	currency: Currency,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
@@ -97,7 +97,17 @@ impl IConnectorBuilder for Connector {
 		let provider = Arc::new(ProviderBuilder::new().wallet(signer.clone()).on_ws(ws).await?);
 
 		let chain_id = provider.get_chain_id().await?;
-		let dict = dict::load()?;
+		let dict = match params.chain_dict.map(dict::load) {
+			Some(Ok(d)) => d,
+			Some(Err(e)) => {
+				tracing::warn!("Failed to load EVM chains dictionary (using default): {e}");
+				Default::default()
+			},
+			_ => {
+				tracing::warn!("No path for EVM chains dictionary provided, using default");
+				Default::default()
+			},
+		};
 		let currency = dict.get(&chain_id).map(|c| c.currency.clone()).unwrap_or_default();
 
 		Ok(Self {
@@ -106,7 +116,7 @@ impl IConnectorBuilder for Connector {
 			rpc: provider,
 			signer: Arc::new(signer),
 			cctp_queue: Default::default(),
-			chain_id,
+			_chain_id: chain_id,
 			currency,
 			wallet_guard: Default::default(),
 		})

@@ -273,6 +273,8 @@ use futures::Stream;
 #[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
+use std::path::PathBuf;
+#[cfg(feature = "std")]
 use std::pin::Pin;
 
 #[cfg(feature = "std")]
@@ -283,6 +285,7 @@ pub struct ConnectorParams {
 	pub network: String,
 	pub url: String,
 	pub mnemonic: String,
+	pub chain_dict: Option<PathBuf>,
 }
 
 #[cfg(feature = "std")]

@@ -100,6 +100,8 @@ pub struct ChronicleConfig {
 	pub target_mnemonic: String,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
+	/// Path to chain dictionary.
+	pub chain_dict: Option<PathBuf>,
 	/// Backend
 	pub backend: Backend,
 }
@@ -139,12 +141,19 @@ pub async fn run_chronicle(
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
 	let network = String::decode(&mut subchain.0.to_vec().as_slice()).unwrap_or_default();
+
+	let chain_dict = match config.backend {
+		Backend::Evm => config.chain_dict,
+		_ => None,
+	};
+
 	let connector_params = ConnectorParams {
 		network_id: config.network_id,
 		blockchain,
 		network,
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
+		chain_dict,
 	};
 	let connector = loop {
 		match config.backend.connect(&connector_params).await {

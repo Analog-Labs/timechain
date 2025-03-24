@@ -79,6 +79,7 @@ impl Tc {
 					network: network.network.clone(),
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
+					chain_dict: Some(config.chains_dict()),
 				};
 				let connector = async move {
 					let connector = network

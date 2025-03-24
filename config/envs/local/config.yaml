@@ -2,6 +2,8 @@ config:
   chronicle_funds: 10.
   timechain_url: 'ws://validator:9944'
   prices_path: 'prices.csv'
+  # taken from https://chainid.network/chains.json
+  evm_chains_dict: "auxiliary/chains.json"
 contracts:
   evm:
     factory: "auxiliary/factory.json"

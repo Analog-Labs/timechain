@@ -32,6 +32,10 @@ impl Config {
 		self.relative_path(&self.yaml.config.prices_path)
 	}
 
+	pub fn chains_dict(&self) -> PathBuf {
+		self.relative_path(&self.yaml.config.evm_chains_dict)
+	}
+
 	pub fn global(&self) -> &GlobalConfig {
 		&self.yaml.config
 	}
@@ -95,6 +99,7 @@ struct ConfigYaml {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
+	evm_chains_dict: PathBuf,
 	prices_path: PathBuf,
 	pub chronicle_funds: String,
 	pub timechain_url: String,

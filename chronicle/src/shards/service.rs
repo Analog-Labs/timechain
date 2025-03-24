@@ -494,6 +494,7 @@ where
 				data = block_stream.next() => {
 					if let Some(index) = data {
 						self.block_height = index;
+						tracing::info!("NEXT FIN BLOCK: #{index}");
 						if let Err(e) = self.admin_request.send(AdminMsg::TargetBlockReceived).await {
 							event!(
 								parent: span,
@@ -501,6 +502,8 @@ where
 								"Admin request error: {e:?}",
 							);
 						};
+					} else {
+						tracing::warn!("NEXT FIN BLOCK: None");
 					}
 				}
 			}

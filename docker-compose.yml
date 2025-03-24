@@ -84,6 +84,7 @@ services:
     command:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
     environment:
+#        RUST_LOG: ""
         ANVIL_IP_ADDR: '0.0.0.0'
     ports:
       - 8545
@@ -143,7 +144,7 @@ services:
     image: 'analoglabs/tc-cli-develop'
     environment:
       RUST_BACKTRACE: 1
-      RUST_LOG: 'gmp-evm=info'
+      RUST_LOG: 'gmp_evm=info'
     profiles:
     - never
 

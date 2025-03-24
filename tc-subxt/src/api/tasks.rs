@@ -4,8 +4,8 @@ use anyhow::Result;
 use futures::channel::oneshot;
 use subxt::utils::H256;
 use time_primitives::{
-	BatchId, BlockHash, ErrorMsg, GatewayMessage, GmpEvents, Hash, MessageId, NetworkId,
-	ShardId, Task, TaskId, TaskResult, TssPublicKey,
+	BatchId, BlockHash, ErrorMsg, GatewayMessage, GmpEvents, Hash, MessageId, NetworkId, ShardId,
+	Task, TaskId, TaskResult, TssPublicKey,
 };
 
 impl SubxtClient {

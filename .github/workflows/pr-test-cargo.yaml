@@ -31,8 +31,8 @@ jobs:
           submodules: recursive
       - name: Build contracts
         with:
-          command: forge build
-          args: --root analog-gmp
+          command: forge
+          args: build --root analog-gmp
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:

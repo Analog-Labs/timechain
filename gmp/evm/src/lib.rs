@@ -534,19 +534,14 @@ impl IConnectorAdmin for Connector {
 			// NOTE: rust range is end exclusive, whereas ETH RPC is end inclusive
 			.to_block(BlockNumberOrTag::Number(blocks.end - 1));
 
-		let sub = self.rpc.subscribe_logs(&filter).await?;
-		let logs = sub.into_stream();
+		let logs = self.rpc.get_logs(&filter).await?;
 
 		Ok(logs
-			.filter(|e| {
-				future::ready(e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
-			})
-			.filter_map(|e| async move {
-				sol::GmpTester::MessageReceived::decode_log_data(e.data(), true).ok()
-			})
+			.into_iter()
+			.filter(|e| e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
+			.filter_map(|e| sol::GmpTester::MessageReceived::decode_log_data(e.data(), true).ok())
 			.map(|e| e.msg.into())
-			.collect::<Vec<_>>()
-			.await)
+			.collect::<Vec<_>>())
 	}
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain

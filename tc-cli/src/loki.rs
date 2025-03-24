@@ -298,5 +298,6 @@ pub fn structured_logs(filter: &Log, logs: &[String]) -> Result<Vec<Log>> {
 			slogs.push(slog);
 		}
 	}
+	slogs.sort_by_key(|log| log.log_timestamp.clone().unwrap_or_default());
 	Ok(slogs)
 }

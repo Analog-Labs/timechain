@@ -30,7 +30,7 @@ impl Default for Currency {
 }
 
 pub(crate) fn load() -> Result<ChainDict> {
-    // taken from https://chainid.network/chains.json
+	// taken from https://chainid.network/chains.json
 	let json = std::fs::read_to_string("auxiliary/chains.json")?;
 	Ok(serde_json::from_str(&json)?)
 }

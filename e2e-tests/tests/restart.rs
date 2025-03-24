@@ -97,7 +97,7 @@ async fn chain_restart_evm() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore]
+// #[ignore]
 async fn validator_restart_grpc() -> Result<()> {
 	// TODO: fails to reconnect
 	validator_restart(Backend::Grpc, 1).await

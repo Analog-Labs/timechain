@@ -325,11 +325,13 @@ where
 			tracing::info!("starting subxt worker");
 			let mut update_stream = self.client.runtime_updates().await.unwrap().boxed();
 			let mut finalized_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
-				async move { c.finalized_block_stream().await }.boxed()
+				let client = c.clone();
+				async move { client.finalized_block_stream().await }.boxed()
 			})
 			.await;
 			let mut best_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
-				async move { c.best_block_stream().await }.boxed()
+				let client = c.clone();
+				async move { client.best_block_stream().await }.boxed()
 			})
 			.await;
 			loop {
@@ -472,6 +474,7 @@ where
 			+ 'static,
 	{
 		loop {
+			let client = client.clone();
 			match stream_creator(client.clone()).await {
 				Ok(stream) => {
 					tracing::info!("stream created successfully returning");

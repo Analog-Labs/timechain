@@ -127,7 +127,8 @@ impl ITimechainClient for TimechainOnlineClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
-		let finalized_stream = self.client.blocks().subscribe_finalized().await?;
+		let instance = self.clone();
+		let finalized_stream = instance.client.blocks().subscribe_finalized().await?;
 		let stream_with_txs = finalized_stream.map(|res| res.map_err(anyhow::Error::new)).and_then(
 			|block| async move {
 				let block = TimechainBlock { block };
@@ -141,7 +142,8 @@ impl ITimechainClient for TimechainOnlineClient {
 		&self,
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
-		let best_stream = self.client.blocks().subscribe_best().await?;
+		let instance = self.clone();
+		let best_stream = instance.client.blocks().subscribe_best().await?;
 		let stream_with_txs =
 			best_stream
 				.map(|res| res.map_err(anyhow::Error::new))

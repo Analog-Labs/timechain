@@ -250,6 +250,7 @@ mod tests {
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache,
 				backend: Backend::Rust,
+				chain_dict: None,
 			},
 			Arc::new(mock.clone()),
 			tx,

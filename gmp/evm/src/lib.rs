@@ -21,7 +21,7 @@ use alloy::{
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use blocks::FinalizedBlockStream;
-use futures::{future, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use reqwest::Client;
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
@@ -38,7 +38,6 @@ use time_primitives::{
 	TssSignature,
 };
 use tokio::sync::Mutex;
-use tracing::{span, Level};
 
 use crate::sol::{ProxyContext, ProxyDigest, CCTP};
 

@@ -21,6 +21,7 @@ use alloy::{
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use blocks::FinalizedBlockStream;
+use dict::Currency;
 use futures::{Stream, StreamExt};
 use reqwest::Client;
 use serde::Deserialize;
@@ -46,6 +47,7 @@ type CctpRetryCount = u8;
 const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
 pub(crate) mod blocks;
+pub(crate) mod dict;
 pub(crate) mod sol;
 
 fn a_addr(address: Address32) -> Address20 {
@@ -75,6 +77,7 @@ pub struct Connector {
 	signer: Arc<LocalSigner<SigningKey>>,
 	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
 	chain_id: u64,
+	currency: Currency,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
 }
@@ -94,6 +97,9 @@ impl IConnectorBuilder for Connector {
 		let provider = Arc::new(ProviderBuilder::new().wallet(signer.clone()).on_ws(ws).await?);
 
 		let chain_id = provider.get_chain_id().await?;
+		let dict = dict::load()?;
+		let currency = dict.get(&chain_id).map(|c| c.currency.clone()).unwrap_or_default();
+
 		Ok(Self {
 			network_id: params.network_id,
 			url: params.url,
@@ -101,6 +107,7 @@ impl IConnectorBuilder for Connector {
 			signer: Arc::new(signer),
 			cctp_queue: Default::default(),
 			chain_id,
+			currency,
 			wallet_guard: Default::default(),
 		})
 	}
@@ -125,7 +132,7 @@ impl IChain for Connector {
 		t_addr(self.signer.address())
 	}
 	fn currency(&self) -> (u32, &str) {
-		(18, "ETH")
+		(self.currency.decimals as _, self.currency.symbol.as_str())
 	}
 	/// Funds Connector's account
 	async fn faucet(&self, balance: u128) -> Result<()> {

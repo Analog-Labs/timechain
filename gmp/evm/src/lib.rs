@@ -134,9 +134,11 @@ impl IChain for Connector {
 			.first()
 			.ok_or(anyhow!("Node owns no account"))?
 			.to_owned();
+		let nonce = provider.get_transaction_count(sponsor).await?;
+
 		let tx = TransactionRequest::default()
 			.with_from(sponsor)
-			.with_nonce(0)
+			.with_nonce(nonce)
 			.with_to(a_addr(self.address()))
 			.with_value(U256::from(balance))
 			.with_gas_limit(21_000);

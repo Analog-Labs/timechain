@@ -44,6 +44,10 @@ impl Sender {
 		tracing::info!("{text}");
 	}
 
+	pub fn using_slack(&self) -> bool {
+		self.slack.is_some()
+	}
+
 	pub async fn text(&self, id: Option<TextRef>, text: String) -> Result<TextRef> {
 		self.println(id.is_some(), &text);
 		if let Some(slack) = self.slack.as_ref() {

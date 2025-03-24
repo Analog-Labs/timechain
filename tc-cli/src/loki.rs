@@ -1,6 +1,7 @@
 use crate::env::Loki;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use time_primitives::{BatchId, BlockNumber, NetworkId, ShardId, TaskId};
 
 //const DIRECTION_FORWARD: &'static str = "FORWARD";
@@ -98,35 +99,6 @@ pub struct Log {
 }
 
 impl Log {
-	pub fn has_fields(&self) -> bool {
-		self.log_timestamp.is_some()
-			|| self.log_level.is_some()
-			|| self.log_message.is_some()
-			|| self.log_target.is_some()
-			|| self.log_filename.is_some()
-			|| self.log_line_number.is_some()
-			|| self.tc_account.is_some()
-			|| self.tc_block.is_some()
-			|| self.tc_block_hash.is_some()
-			|| self.chain_address.is_some()
-			|| self.chain_block.is_some()
-			|| self.net_peer_id.is_some()
-			|| self.net_message.is_some()
-			|| self.net_from.is_some()
-			|| self.net_to.is_some()
-			|| self.tss_session.is_some()
-			|| self.tss_coordinator.is_some()
-			|| self.tss_session_id.is_some()
-			|| self.gmp_network_id.is_some()
-			|| self.gmp_message_id.is_some()
-			|| self.gmp_batch_id.is_some()
-			|| self.gmp_batch.is_some()
-			|| self.gmp_task_id.is_some()
-			|| self.gmp_task.is_some()
-			|| self.gmp_shard_id.is_some()
-			|| self.gmp_events.is_some()
-	}
-
 	pub fn matches(&self, other: &Log) -> bool {
 		(self.log_timestamp.is_none() || self.log_timestamp == other.log_timestamp)
 			&& (self.log_level.is_none() || self.log_level == other.log_level)
@@ -154,6 +126,89 @@ impl Log {
 			&& (self.gmp_task.is_none() || self.gmp_task == other.gmp_task)
 			&& (self.gmp_shard_id.is_none() || self.gmp_shard_id == other.gmp_shard_id)
 			&& (self.gmp_events.is_none() || self.gmp_events == other.gmp_events)
+	}
+
+	pub fn fields(&self) -> BTreeMap<&'static str, String> {
+		let mut map = BTreeMap::new();
+		if let Some(tc_account) = self.tc_account.as_ref() {
+			map.insert("tc_account", tc_account.into());
+		}
+		if let Some(tc_block) = self.tc_block {
+			map.insert("tc_block", tc_block.to_string());
+		}
+		if let Some(tc_block_hash) = self.tc_block_hash.as_ref() {
+			map.insert("tc_block_hash", tc_block_hash.into());
+		}
+		if let Some(chain_address) = self.chain_address.as_ref() {
+			map.insert("chain_address", chain_address.into());
+		}
+		if let Some(chain_block) = self.chain_block {
+			map.insert("chain_block", chain_block.to_string());
+		}
+		if let Some(net_peer_id) = self.net_peer_id.as_ref() {
+			map.insert("net_peer_id", net_peer_id.into());
+		}
+		if let Some(net_message) = self.net_message.as_ref() {
+			map.insert("net_message", net_message.into());
+		}
+		if let Some(net_from) = self.net_from.as_ref() {
+			map.insert("net_from", net_from.into());
+		}
+		if let Some(net_to) = self.net_to.as_ref() {
+			map.insert("net_to", net_to.into());
+		}
+		if let Some(tss_session) = self.tss_session {
+			map.insert("tss_session", tss_session.to_string());
+		}
+		if let Some(tss_coordinator) = self.tss_coordinator {
+			map.insert("tss_coordinator", tss_coordinator.to_string());
+		}
+		if let Some(tss_session_id) = self.tss_session_id {
+			map.insert("tss_session_id", tss_session_id.to_string());
+		}
+		if let Some(gmp_network_id) = self.gmp_network_id {
+			map.insert("gmp_network_id", gmp_network_id.to_string());
+		}
+		if let Some(gmp_message_id) = self.gmp_message_id.as_ref() {
+			map.insert("gmp_message_id", gmp_message_id.into());
+		}
+		if let Some(gmp_batch_id) = self.gmp_batch_id {
+			map.insert("gmp_batch_id", gmp_batch_id.to_string());
+		}
+		if let Some(gmp_batch) = self.gmp_batch.as_ref() {
+			map.insert("gmp_batch", gmp_batch.into());
+		}
+		if let Some(gmp_task_id) = self.gmp_task_id {
+			map.insert("gmp_task_id", gmp_task_id.to_string());
+		}
+		if let Some(gmp_task) = self.gmp_task.as_ref() {
+			map.insert("gmp_task", gmp_task.into());
+		}
+		if let Some(gmp_shard_id) = self.gmp_shard_id {
+			map.insert("gmp_shard_id", gmp_shard_id.to_string());
+		}
+		if let Some(gmp_events) = self.gmp_events.as_ref() {
+			map.insert("gmp_events", gmp_events.into());
+		}
+		map
+	}
+}
+
+impl std::fmt::Display for Log {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let fields = self.fields();
+		write!(
+			f,
+			"{} {}:{} {}",
+			self.log_timestamp.as_ref().unwrap(),
+			self.log_filename.as_ref().unwrap(),
+			self.log_line_number.as_ref().unwrap(),
+			self.log_message.as_ref().unwrap()
+		)?;
+		for (k, v) in fields {
+			write!(f, "\n  {k} = {v}")?;
+		}
+		Ok(())
 	}
 }
 

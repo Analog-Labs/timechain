@@ -1429,23 +1429,30 @@ impl Tc {
 			}
 		};
 		let logs = loki::raw_logs(&query, since, limit).await?;
-		if query.filter().has_fields() {
-			match loki::structured_logs(query.filter(), &logs) {
-				Ok(logs) => {
+		match loki::structured_logs(query.filter(), &logs) {
+			Ok(logs) => {
+				if self.msg.using_slack() {
 					self.print_table(None, "logs", logs).await?;
 					return Ok(());
-				},
-				Err(err) => {
-					tracing::error!("failed to parse logs: {err}");
-				},
-			}
+				} else {
+					let mut text = String::new();
+					for log in logs {
+						text.push_str(&log.to_string());
+						text.push('\n');
+					}
+					self.println(None, text).await?;
+				}
+			},
+			Err(err) => {
+				tracing::error!("failed to parse logs: {err}");
+				let mut text = String::new();
+				for log in logs {
+					text.push_str(&log);
+					text.push('\n');
+				}
+				self.println(None, text).await?;
+			},
 		}
-		let mut text = String::new();
-		for log in logs {
-			text.push_str(&log);
-			text.push('\n');
-		}
-		self.println(None, text).await?;
 		Ok(())
 	}
 

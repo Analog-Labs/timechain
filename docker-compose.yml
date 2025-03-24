@@ -15,7 +15,7 @@ services:
     - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
     - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
     ports:
-      - 9944:9944
+      - 9944
 
   chain-0-grpc:
     image: 'analoglabs/gmp-grpc-develop'

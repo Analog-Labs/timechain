@@ -144,7 +144,7 @@ impl IChain for Connector {
 		let guard = self.wallet_guard.lock().await;
 		let tx_hash = provider.send_transaction(tx).await?.watch().await?;
 		drop(guard);
-		tracing::info!("Faucet sent {balance} to {}, tx_hash: {tx_hash}", a_addr(self.address()));
+		tracing::info!("Faucet sent {balance} to {}, tx: {tx_hash}", a_addr(self.address()));
 
 		Ok(())
 	}
@@ -157,8 +157,9 @@ impl IChain for Connector {
 			.with_value(U256::from(amount));
 
 		let guard = self.wallet_guard.lock().await;
-		let _tx_hash = self.rpc.send_transaction(tx).await?.watch().await?;
+		let tx_hash = self.rpc.send_transaction(tx).await?.watch().await?;
 		drop(guard);
+		tracing::info!("Transferred sent {amount} to {to}, tx: {tx_hash}");
 
 		Ok(())
 	}
@@ -300,11 +301,20 @@ impl IConnector for Connector {
 		let address = a_addr(gateway);
 		let gw = IExecutorInstance::new(address, self.rpc.clone());
 
-		let _pending_tx =
-			gw.batchExecute(signature, message).gas(gas_limit).send().await.map_err(|err| {
+		let tx_hash = gw
+			.batchExecute(signature, message)
+			.gas(gas_limit)
+			.send()
+			.await
+			.map_err(|err| {
 				tracing::info!("failed to submit batch: {:?}", err);
 				err.to_string()
-			})?;
+			})?
+			.watch()
+			.await
+			.map_err(|err| err.to_string())?;
+
+		tracing::info!("batch {batch} submitted with tx: {tx_hash}");
 
 		Ok(())
 	}
@@ -506,7 +516,6 @@ impl IConnectorAdmin for Connector {
 			data: payload.into(),
 		};
 		tracing::debug!("Sending GMP message: {:#?}", &msg);
-		// TODO why this contract is used here?
 		let call = sol::GmpTester::sendMessageCall { msg };
 		let receipt = self.evm_send(contract, call, gas_cost).await?;
 
@@ -747,7 +756,7 @@ impl Connector {
 			.with_timeout(Some(std::time::Duration::from_secs(60)))
 			.watch()
 			.await?;
-		tracing::info!("factory deployed with tx {:?}", tx_hash);
+		tracing::info!("factory deployed with tx {tx_hash}");
 
 		Ok(())
 	}

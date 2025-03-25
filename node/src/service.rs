@@ -33,7 +33,7 @@ use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
 	event::Event, service::traits::NetworkService, NetworkBackend, NetworkEventStream,
 };
-use sc_network_sync::{strategy::warp::WarpSyncParams, SyncingService};
+use sc_network_sync::{strategy::warp::WarpSyncConfig, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -86,7 +86,6 @@ pub fn new_partial<RuntimeApi>(
 		sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>,
 		(
 			impl Fn(
-				rpc::DenyUnsafe,
 				sc_rpc::SubscriptionTaskExecutor,
 			) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 			(
@@ -124,7 +123,7 @@ where
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_wasm_executor(config);
+	let executor = sc_service::new_wasm_executor(&config.executor);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -289,30 +288,28 @@ where
 		let chain_spec = config.chain_spec.cloned_box();
 
 		let rpc_backend = backend.clone();
-		let rpc_extensions_builder =
-			move |deny_unsafe, subscription_executor: rpc::SubscriptionTaskExecutor| {
-				let deps = rpc::FullDeps {
-					client: client.clone(),
-					pool: pool.clone(),
-					select_chain: select_chain.clone(),
-					chain_spec: chain_spec.cloned_box(),
-					deny_unsafe,
-					babe: rpc::BabeDeps {
-						keystore: keystore.clone(),
-						babe_worker_handle: babe_worker_handle.clone(),
-					},
-					grandpa: rpc::GrandpaDeps {
-						shared_voter_state: shared_voter_state.clone(),
-						shared_authority_set: shared_authority_set.clone(),
-						justification_stream: justification_stream.clone(),
-						subscription_executor: subscription_executor.clone(),
-						finality_provider: finality_proof_provider.clone(),
-					},
-					backend: rpc_backend.clone(),
-				};
-
-				rpc::create_full(deps).map_err(Into::into)
+		let rpc_extensions_builder = move |subscription_executor: rpc::SubscriptionTaskExecutor| {
+			let deps = rpc::FullDeps {
+				client: client.clone(),
+				pool: pool.clone(),
+				select_chain: select_chain.clone(),
+				chain_spec: chain_spec.cloned_box(),
+				babe: rpc::BabeDeps {
+					keystore: keystore.clone(),
+					babe_worker_handle: babe_worker_handle.clone(),
+				},
+				grandpa: rpc::GrandpaDeps {
+					shared_voter_state: shared_voter_state.clone(),
+					shared_authority_set: shared_authority_set.clone(),
+					justification_stream: justification_stream.clone(),
+					subscription_executor: subscription_executor.clone(),
+					finality_provider: finality_proof_provider.clone(),
+				},
+				backend: rpc_backend.clone(),
 			};
+
+			rpc::create_full(deps).map_err(Into::into)
+		};
 
 		(rpc_extensions_builder, shared_voter_state2)
 	};
@@ -377,7 +374,7 @@ where
 		+ sp_session::SessionKeys<Block>
 		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
-	let role = config.role.clone();
+	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks =
 		Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
@@ -389,7 +386,7 @@ where
 	let hwbench = (!disable_hardware_benchmarks)
 		.then_some(config.database.path().map(|database_path| {
 			let _ = std::fs::create_dir_all(database_path);
-			sc_sysinfo::gather_hwbench(Some(database_path))
+			sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
 		}))
 		.flatten();
 
@@ -411,8 +408,10 @@ where
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	let auth_disc_public_addresses = config.network.public_addresses.clone();
 
-	let mut net_config =
-		sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(&config.network);
+	let mut net_config = sc_network::config::FullNetworkConfiguration::<_, _, Network>::new(
+		&config.network,
+		config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
+	);
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let peer_store_handle = net_config.peer_store_handle();
@@ -442,7 +441,7 @@ where
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
@@ -464,7 +463,7 @@ where
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if role.is_authority() => {
 				log::warn!(
 					"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
@@ -576,7 +575,7 @@ where
 		name: Some(name),
 		observer_enabled: false,
 		keystore,
-		local_role: role.clone(),
+		local_role: role,
 		telemetry: telemetry.as_ref().map(|x| x.handle()),
 		protocol_name: grandpa_protocol_name,
 	};

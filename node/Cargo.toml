@@ -70,8 +70,6 @@ polkadot-sdk = { workspace = true, features = [
 	"sc-network-sync",
 	"sc-offchain",
 	"sc-rpc",
-	"sc-rpc-api",
-	"sc-rpc-spec-v2",
 	"sc-service",
 	"sc-storage-monitor",
 	"sc-sync-state-rpc",
@@ -102,7 +100,7 @@ polkadot-sdk = { workspace = true, features = [
 ] }
 
 # node's rpc dependencies
-jsonrpsee = { version = "0.23.2", features = [ "server" ] }
+jsonrpsee = { version = "0.24.9", features = [ "server" ] }
 
 # node's local dependencies
 time-primitives.workspace = true

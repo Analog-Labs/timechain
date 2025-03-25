@@ -623,6 +623,11 @@ mod runtime {
 
 	#[runtime::pallet_index(51)]
 	pub type BridgeMultisig = bridge_multisig;
+
+	// Smart Contracts
+
+	#[runtime::pallet_index(52)]
+	pub type Revive = pallet_revive;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

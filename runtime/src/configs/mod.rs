@@ -6,6 +6,8 @@ pub mod core;
 pub mod funding;
 pub mod governance;
 #[cfg(feature = "testnet")]
+pub mod revive;
+#[cfg(feature = "testnet")]
 pub mod services;
 pub mod staking;
 pub mod tokenomics;

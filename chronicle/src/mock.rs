@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sr25519, AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey,
-	ShardId, ShardStatus, Task, TaskId, TaskResult,
+	sr25519, AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, Commitment,
+	GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Task, TaskId, TaskResult,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -18,12 +18,11 @@ use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MockNetwork {
 	pub chain_name: ChainName,
-	pub chain_network: ChainNetwork,
 }
 
 impl MockNetwork {
-	pub fn new(chain_name: ChainName, chain_network: ChainNetwork) -> Self {
-		Self { chain_name, chain_network }
+	pub fn new(chain_name: ChainName) -> Self {
+		Self { chain_name }
 	}
 }
 
@@ -85,8 +84,8 @@ impl Mock {
 		mock
 	}
 
-	pub fn create_network(&self, chain_name: ChainName, chain_network: ChainNetwork) -> NetworkId {
-		let mock_network = MockNetwork::new(chain_name, chain_network);
+	pub fn create_network(&self, chain_name: ChainName) -> NetworkId {
+		let mock_network = MockNetwork::new(chain_name);
 		let mut networks = self.networks.lock().unwrap();
 		if let Some(existing_id) =
 			networks
@@ -190,17 +189,13 @@ impl Runtime for Mock {
 		Ok(true)
 	}
 
-	async fn get_network(
-		&self,
-		network: NetworkId,
-		_: BlockHash,
-	) -> Result<Option<(ChainName, ChainNetwork)>> {
+	async fn get_network(&self, network: NetworkId, _: BlockHash) -> Result<Option<ChainName>> {
 		Ok(self
 			.networks
 			.lock()
 			.unwrap()
 			.get(&network)
-			.map(|network| (network.chain_name.clone(), network.chain_network.clone())))
+			.map(|network| network.chain_name.clone()))
 	}
 
 	async fn get_member_peer_id(

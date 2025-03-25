@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use tc_cli::{
-	config::{ConfigYaml, ContractsConfig, GlobalConfig, NetworkConfig},
+	config::{ConfigYaml, BackendConfig, GlobalConfig, NetworkConfig},
 	Config, Mnemonics, NetworkId, Sender, Tc,
 };
 use tempfile::TempDir;
@@ -83,13 +83,14 @@ impl TestEnvBuilder {
 					chronicle_funds: "1.".into(),
 					timechain_url: validator_url,
 				},
-				contracts: {
-					let mut contracts = HashMap::default();
-					contracts.insert(
+				backends: {
+					let mut backends = HashMap::default();
+					backends.insert(
 						Backend::Evm,
-						ContractsConfig {
+						BackendConfig {
+							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json")
 							additional_params: workspace
-								.join("gmp/evm/factory/additional_config.json"),
+								.join("gmp/evm/auxiliary/factory.json"),
 							proxy: workspace
 								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
 							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
@@ -132,8 +133,7 @@ impl TestEnvBuilder {
 			network,
 			NetworkConfig {
 				backend: Backend::Grpc,
-				blockchain: "rust".into(),
-				network: format!("rust-{network}"),
+				name: format!("grpc-{network}"),
 				url: chain_url.clone(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
@@ -192,8 +192,7 @@ impl TestEnvBuilder {
 			network,
 			NetworkConfig {
 				backend: Backend::Evm,
-				blockchain: "anvil".into(),
-				network: "dev".into(),
+				name: format!("evm-{network}"),
 				url: chain_url.clone(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),

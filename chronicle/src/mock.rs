@@ -233,6 +233,11 @@ impl Runtime for Mock {
 		Ok(1000)
 	}
 
+	async fn is_heartbeat_submitted(&self, _account: &AccountId, _: BlockHash) -> Result<bool> {
+		// For testing purposes, we can simulate that the heartbeat is not submitted
+		Ok(false)
+	}
+
 	async fn get_shards(&self, account: &AccountId, _: BlockHash) -> Result<Vec<ShardId>> {
 		let shards = self.shards.lock().unwrap();
 		let shards = shards

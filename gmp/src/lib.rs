@@ -24,6 +24,17 @@ impl std::str::FromStr for Backend {
 	}
 }
 
+impl std::fmt::Display for Backend {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let backend = match self {
+			Self::Evm => "evm",
+			Self::Grpc => "grpc",
+			Self::Rust => "rust",
+		};
+		f.write_str(backend)
+	}
+}
+
 impl Backend {
 	pub async fn connect(&self, params: &ConnectorParams) -> Result<Arc<dyn IConnector>> {
 		Ok(match self {

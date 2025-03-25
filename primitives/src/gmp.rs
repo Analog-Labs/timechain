@@ -273,19 +273,15 @@ use futures::Stream;
 #[cfg(feature = "std")]
 use std::ops::Range;
 #[cfg(feature = "std")]
-use std::path::PathBuf;
-#[cfg(feature = "std")]
 use std::pin::Pin;
 
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ConnectorParams {
 	pub network_id: NetworkId,
-	pub blockchain: String,
-	pub network: String,
 	pub url: String,
 	pub mnemonic: String,
-	pub chain_dict: Option<PathBuf>,
+	pub chain_dict: Vec<u8>,
 }
 
 #[cfg(feature = "std")]

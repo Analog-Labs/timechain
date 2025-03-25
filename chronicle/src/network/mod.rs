@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
-use time_primitives::{BlockNumber, ShardId, TaskId};
+use time_primitives::{BlockNumber, ShardId};
+use tracing::Span;
 
 mod protocol;
 
 pub use time_primitives::PeerId;
 
-pub type TssMessage = tss::TssMessage<TaskId>;
+pub type TssMessage = tss::TssMessage;
 
 pub const PROTOCOL_NAME: &str = "/analog-labs/chronicle/1";
 
@@ -61,10 +62,11 @@ impl Network for Arc<dyn Network> {
 
 pub async fn create_iroh_network(
 	config: NetworkConfig,
+	span: &Span,
 ) -> Result<(Arc<dyn Network>, BoxStream<'static, (PeerId, Message)>)> {
 	let (net_tx, net_rx) = mpsc::channel(10);
 	let network =
-		Arc::new(TssEndpoint::new(config, net_tx).await?) as Arc<dyn Network + Send + Sync>;
+		Arc::new(TssEndpoint::new(config, net_tx, span).await?) as Arc<dyn Network + Send + Sync>;
 	let incoming = net_rx.boxed();
 	Ok((network, incoming))
 }

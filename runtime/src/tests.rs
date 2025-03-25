@@ -34,7 +34,6 @@ fn network() -> Network {
 	Network {
 		id: ETHEREUM,
 		chain_name: ChainName(BoundedVec::truncate_from("ethereum".encode())),
-		chain_network: ChainNetwork(BoundedVec::truncate_from("dev".encode())),
 		gateway: [0u8; 32],
 		gateway_block: 0,
 		config: NetworkConfig {

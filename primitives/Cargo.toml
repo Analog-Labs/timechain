@@ -17,7 +17,7 @@ hex = { workspace = true, optional = true }
 serde = { workspace = true, features = [ "alloc" ] }
 scale-codec.workspace = true
 scale-info.workspace = true
-schnorr-evm = { version = "0.1.0", default-features = false }
+schnorr-evm = { version = "0.1.2", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 uint = { version = "0.10.0", default-features = false }
 

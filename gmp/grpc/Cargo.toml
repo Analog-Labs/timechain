@@ -10,11 +10,11 @@ repository.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-bytes = "1.7.2"
+bytes = "1.10.1"
 clap = { workspace = true, features = ["derive"] }
 futures.workspace = true
 gmp-rust = { path = "../rust" }
-prost = "0.13.3"
+prost = "0.13.5"
 serde = { workspace = true, features = ["derive"] }
 serde-big-array = "0.5.1"
 serde_json.workspace = true
@@ -24,4 +24,4 @@ tonic = { version = "0.12.3", features = ["transport", "tls", "tls-roots"] }
 tracing-subscriber.workspace = true
 
 [build-dependencies]
-tonic-build = "0.12.2"
+tonic-build = "0.12.3"

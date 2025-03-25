@@ -7,7 +7,7 @@ use polkadot_sdk::frame_benchmarking::benchmarks;
 use polkadot_sdk::{frame_support::traits::Get, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::{BoundedVec, Vec};
-use time_primitives::{AccountId, ChainName, ChainNetwork, ElectionsInterface, NetworkId};
+use time_primitives::{AccountId, ChainName, ElectionsInterface, NetworkId};
 const ETHEREUM: NetworkId = 0;
 const SHARD_SIZE: u16 = 3;
 
@@ -17,10 +17,8 @@ benchmarks! {
 	try_elect_shards {
 		let b in 1..T::MaxElectionsPerBlock::get();
 		// Insert network
-		let net_name = (
-			ChainName(BoundedVec::truncate_from("ETHEREUM".encode())),
-			ChainNetwork(BoundedVec::truncate_from("SEPOLIA".encode())),
-		);
+		let net_name =
+			ChainName(BoundedVec::truncate_from("ETHEREUM SEPOLIA".encode()));
 		NetworkName::<T>::insert(ETHEREUM, net_name);
 		// Register enough members for `b` new shards
 		let mut all_new_shard_members = Vec::new();

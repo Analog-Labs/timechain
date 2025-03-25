@@ -1,16 +1,18 @@
-use crate::{mock::*, BatchTaskId, Event, FailedBatchIds};
-use crate::{BatchIdCounter, BatchTxHash, ShardRegistered};
+use crate::{
+	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatchIds, ShardRegistered,
+	TaskShard,
+};
 
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_shards::{ShardCommitment, ShardState};
+use pallet_shards::{ShardCommitment, ShardMembers, ShardState};
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
 use time_primitives::{
-	traits::IdentifyAccount, Commitment, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents,
-	GmpMessage, MockTssSigner, NetworkId, PublicKey, ShardId, ShardStatus, ShardsInterface, Task,
-	TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+	Commitment, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents, GmpMessage,
+	MockTssSigner, NetworkId, ShardId, ShardStatus, ShardsInterface, Task, TaskId, TaskResult,
+	TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -26,6 +28,11 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 	Tasks::shard_online(shard_id, network);
 	shard_id
+}
+
+fn task_submitter(task: TaskId) -> AccountId {
+	let shard = TaskShard::<Test>::get(task).unwrap();
+	ShardMembers::<Test>::iter_key_prefix(shard).next().unwrap()
 }
 
 fn shard_offline(network: NetworkId, shard: ShardId) {
@@ -54,9 +61,9 @@ fn submit_gateway_events(shard: ShardId, task_id: TaskId, events: &[GmpEvent]) {
 	));
 }
 
-fn submit_submission_error(account: PublicKey, task: TaskId, error: &str) {
+fn submit_submission_error(account: AccountId, task: TaskId, error: &str) {
 	assert_ok!(Tasks::submit_task_result(
-		RawOrigin::Signed(account.into_account()).into(),
+		RawOrigin::Signed(account).into(),
 		task,
 		TaskResult::SubmitGatewayMessage {
 			error: ErrorMsg(BoundedVec::truncate_from(error.encode()))
@@ -265,7 +272,7 @@ fn test_msg_execution_error_completes_submit_task() {
 		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
 		assert!(Tasks::get_task_result(2).is_none());
-		let account = Tasks::get_task_submitter(2).unwrap();
+		let account = task_submitter(2);
 		submit_submission_error(account, 2, "error message");
 		assert_eq!(
 			Tasks::get_task_result(2),
@@ -388,12 +395,12 @@ fn test_task_stuck_in_unassigned_queue() {
 		let msg = mock_gmp_msg(1);
 		submit_gateway_events(task_shard, 5, &[GmpEvent::MessageReceived(msg.clone())]);
 		roll(1);
-		let account = Tasks::get_task_submitter(7).unwrap();
+		let account = task_submitter(7);
 		submit_submission_error(account, 7, "error message");
 		roll(1);
-		let account = Tasks::get_task_submitter(2).unwrap();
+		let account = task_submitter(2);
 		submit_submission_error(account, 2, "error message");
-		let account = Tasks::get_task_submitter(3).unwrap();
+		let account = task_submitter(3);
 		submit_submission_error(account, 3, "error message");
 		let task_shard = Tasks::task_shard(6).unwrap();
 		submit_gateway_events(task_shard, 6, &[]);
@@ -416,7 +423,7 @@ fn test_restart_failed_batch() {
 		Tasks::assign_task(shard, 2);
 		assert_eq!(Tasks::get_task(initial_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		roll(1);
-		let submitter = Tasks::get_task_submitter(initial_task_id).unwrap();
+		let submitter = task_submitter(initial_task_id);
 		submit_submission_error(submitter, initial_task_id, "batch failed");
 		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
 		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));

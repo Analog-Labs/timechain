@@ -43,9 +43,10 @@ fn resource() -> Resource {
 
 // Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
 pub fn init_opentelemetry() {
-	let log_subscriber = tracing_subscriber::fmt::layer()
-		.pretty()
-		.with_ansi(false)
+	let log_subscriber = json_subscriber::fmt::layer()
+		.flatten_event(true)
+		.flatten_current_span_on_top_level(true)
+		.flatten_span_list_on_top_level(true)
 		.with_file(true)
 		.with_line_number(true);
 	let filter_layer = EnvFilter::try_from_default_env()
@@ -128,29 +129,28 @@ pub async fn run_chronicle(
 	substrate: Arc<dyn Runtime>,
 	mut admin: mpsc::Sender<AdminMsg>,
 ) -> Result<()> {
+	let span = tracing::span!(Level::INFO, "run_chronicle");
 	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
-	let (chain, subchain) = loop {
+	let chain = loop {
 		let Some((hash, _)) = ticker.next().await else { continue };
-		let network = substrate.get_network(config.network_id, hash).await?;
-		if let Some(network) = network {
-			break network;
+		let name = substrate.get_network(config.network_id, hash).await?;
+		if let Some(name) = name {
+			break String::decode(&mut name.0.to_vec().as_slice()).unwrap_or_default();
 		}
-		tracing::warn!("network {} isn't registered", config.network_id);
+		tracing::warn!(parent: &span, "network {} isn't registered", config.network_id);
 	};
-	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
-	let network = String::decode(&mut subchain.0.to_vec().as_slice()).unwrap_or_default();
+	tracing::info!(parent: &span, "joining network {chain}");
 
-	let chain_dict = match config.backend {
-		Backend::Evm => config.chain_dict,
-		_ => None,
+	let (tss_tx, tss_rx) = mpsc::channel(10);
+
+	let chain_dict = match config.chain_dict.as_deref() {
+		Some(path) => std::fs::read(path)?,
+		None => Default::default(),
 	};
 
 	let connector_params = ConnectorParams {
 		network_id: config.network_id,
-		blockchain,
-		network,
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
 		chain_dict,
@@ -160,6 +160,7 @@ pub async fn run_chronicle(
 			Ok(connector) => break connector,
 			Err(error) => {
 				tracing::info!(
+					parent: &span,
 					"Initializing connector returned an error {:?}, retrying in one second",
 					error
 				);
@@ -170,25 +171,27 @@ pub async fn run_chronicle(
 
 	// initialize networking
 	let (network, network_requests) =
-		create_iroh_network(NetworkConfig { secret: config.network_key }).await?;
+		create_iroh_network(NetworkConfig { secret: config.network_key }, &span).await?;
 
 	// initialize wallets
-	let timechain_address = time_primitives::format_address(substrate.account_id());
-	let target_address = connector.format_address(connector.address());
+	let account = time_primitives::format_address(substrate.account_id());
+	let address = connector.format_address(connector.address());
 	let peer_id = network.format_peer_id(network.peer_id());
 	let span = span!(
+		parent: &span,
 		Level::INFO,
 		"chronicle",
-		timechain = timechain_address,
-		target = target_address,
-		peer_id = peer_id,
+		tc_account = account,
+		chain_address = address,
+		gmp_network_id = config.network_id,
+		net_peer_id = peer_id,
 	);
 	admin
 		.send(AdminMsg::SetConfig(Config {
 			network: config.network_id,
-			account: timechain_address,
+			account,
 			public_key: substrate.public_key().clone(),
-			address: target_address,
+			address,
 			peer_id,
 			peer_id_hex: hex::encode(network.peer_id()),
 		}))
@@ -224,7 +227,7 @@ mod tests {
 	use scale_codec::Encode;
 	use std::time::Duration;
 	use time_primitives::traits::IdentifyAccount;
-	use time_primitives::{AccountId, BlockHash, ChainName, ChainNetwork, ShardStatus, Task};
+	use time_primitives::{AccountId, BlockHash, ChainName, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
 	///
@@ -288,10 +291,7 @@ mod tests {
 
 		let mock = Mock::default().instance(42);
 		let block: BlockHash = BlockHash::from([0u8; 32]);
-		let network_id = mock.create_network(
-			ChainName(BoundedVec::truncate_from("rust".encode())),
-			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
-		);
+		let network_id = mock.create_network(ChainName(BoundedVec::truncate_from("rust".encode())));
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..n {
 			let instance = mock.instance(id as u8);
@@ -351,10 +351,7 @@ mod tests {
 
 		let mock = Mock::default().instance(42);
 		let block: BlockHash = BlockHash::from([0u8; 32]);
-		let network_id = mock.create_network(
-			ChainName(BoundedVec::truncate_from("rust".encode())),
-			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
-		);
+		let network_id = mock.create_network(ChainName(BoundedVec::truncate_from("rust".encode())));
 		let mut shutdown = vec![];
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {

@@ -13,7 +13,6 @@ pub trait IntoRow {
 pub struct NetworkEntry {
 	network: NetworkId,
 	chain_name: String,
-	chain_network: String,
 	gateway: String,
 	gateway_balance: String,
 	admin: String,
@@ -47,7 +46,6 @@ impl IntoRow for Network {
 		Ok(NetworkEntry {
 			network: self.network,
 			chain_name: self.chain_name,
-			chain_network: self.chain_network,
 			gateway,
 			gateway_balance,
 			admin,
@@ -203,13 +201,12 @@ pub struct TaskEntry {
 	descriptor: String,
 	output: String,
 	shard: String,
-	submitter: String,
 }
 
 impl IntoRow for Task {
 	type Row = TaskEntry;
 
-	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(TaskEntry {
 			task: self.task,
 			network: self.network,
@@ -222,10 +219,6 @@ impl IntoRow for Task {
 			shard: match self.shard {
 				Some(shard) => shard.to_string(),
 				None => "unassigned".to_string(),
-			},
-			submitter: match self.submitter {
-				Some(submitter) => tc.format_address(None, submitter.into_account().into())?,
-				None => "".to_string(),
 			},
 		})
 	}
@@ -328,21 +321,32 @@ impl IntoRow for MessageTrace {
 
 #[derive(Serialize)]
 pub struct LogEntry {
-	timestamp: String,
-	level: String,
-	msg: String,
-	location: String,
-	task_id: Option<String>,
-	shard_id: Option<String>,
-	task: Option<String>,
-	account: Option<String>,
-	target_address: Option<String>,
-	peer_id: Option<String>,
-	block: Option<String>,
-	block_hash: Option<String>,
-	target_block: Option<String>,
-	from: Option<String>,
-	to: Option<String>,
+	log_timestamp: String,
+	log_level: String,
+	log_message: String,
+	log_filename: String,
+	log_line_number: u64,
+	log_target: String,
+	tc_account: Option<String>,
+	tc_block: Option<BlockNumber>,
+	tc_block_hash: Option<String>,
+	chain_address: Option<String>,
+	chain_block: Option<u64>,
+	net_peer_id: Option<String>,
+	net_message: Option<String>,
+	net_from: Option<String>,
+	net_to: Option<String>,
+	tss_session: Option<TaskId>,
+	tss_coordinator: Option<bool>,
+	tss_session_id: Option<u64>,
+	gmp_network_id: Option<NetworkId>,
+	gmp_message_id: Option<String>,
+	gmp_batch_id: Option<BatchId>,
+	gmp_batch: Option<String>,
+	gmp_task_id: Option<TaskId>,
+	gmp_task: Option<String>,
+	gmp_shard_id: Option<ShardId>,
+	gmp_events: Option<String>,
 }
 
 impl IntoRow for Log {
@@ -350,21 +354,32 @@ impl IntoRow for Log {
 
 	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
 		Ok(LogEntry {
-			timestamp: self.timestamp,
-			level: self.level,
-			msg: self.msg,
-			location: self.location,
-			task_id: self.data.get("task_id").cloned(),
-			shard_id: self.data.get("shard_id").cloned(),
-			task: self.data.get("task").cloned(),
-			account: self.data.get("timechain").cloned(),
-			target_address: self.data.get("target").cloned(),
-			peer_id: self.data.get("peer_id").cloned(),
-			block: self.data.get("block").cloned(),
-			block_hash: self.data.get("block_hash").cloned(),
-			target_block: self.data.get("target_block_height").cloned(),
-			from: self.data.get("from").cloned(),
-			to: self.data.get("to").cloned(),
+			log_timestamp: self.log_timestamp.context("no timestamp")?,
+			log_level: self.log_level.context("no log level")?,
+			log_message: self.log_message.context("no log message")?,
+			log_filename: self.log_filename.context("no filename")?,
+			log_line_number: self.log_line_number.context("no line number")?,
+			log_target: self.log_target.context("no log target")?,
+			tc_account: self.tc_account,
+			tc_block: self.tc_block,
+			tc_block_hash: self.tc_block_hash,
+			chain_address: self.chain_address,
+			chain_block: self.chain_block,
+			net_peer_id: self.net_peer_id,
+			net_message: self.net_message,
+			net_from: self.net_from,
+			net_to: self.net_to,
+			tss_session: self.tss_session,
+			tss_coordinator: self.tss_coordinator,
+			tss_session_id: self.tss_session_id,
+			gmp_network_id: self.gmp_network_id,
+			gmp_message_id: self.gmp_message_id,
+			gmp_batch_id: self.gmp_batch_id,
+			gmp_batch: self.gmp_batch,
+			gmp_task_id: self.gmp_task_id,
+			gmp_task: self.gmp_task,
+			gmp_shard_id: self.gmp_shard_id,
+			gmp_events: self.gmp_events,
 		})
 	}
 }

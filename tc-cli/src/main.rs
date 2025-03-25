@@ -1,14 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use futures::StreamExt;
-use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Benchmark, Query, Sender, Tc};
-use time_primitives::{
-	BatchId, BlockHash, BlockNumber, CCTPMessage, Hash, NetworkId, ShardId, TaskId,
-};
+use time_primitives::{BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -37,18 +33,21 @@ struct Args {
 	env: PathBuf,
 	#[arg(long, default_value = "config.yaml")]
 	config: String,
+	#[arg(long, default_value = "cached_tx.redb")]
+	db: PathBuf,
 	#[clap(subcommand)]
 	cmd: Command,
 }
 
 impl Args {
 	async fn tc(&self, sender: Sender) -> Result<Tc> {
-		let tc = Tc::new(self.env.clone(), &self.config, sender).await?;
+		let tc = Tc::from_env(self.env.clone(), &self.config, sender, self.db.clone()).await?;
 		Ok(tc)
 	}
 }
 
 #[derive(Parser, Debug)]
+#[allow(clippy::large_enum_variant)]
 enum Command {
 	// balances
 	Address {
@@ -176,12 +175,6 @@ enum Command {
 		src: NetworkId,
 		dest: NetworkId,
 	},
-	SmokeCctp {
-		src: NetworkId,
-		dest: NetworkId,
-		src_addr: Option<String>,
-		dest_addr: Option<String>,
-	},
 	WithdrawFunds {
 		network: NetworkId,
 		amount: u128,
@@ -198,6 +191,8 @@ enum Command {
 		query: Query,
 		#[arg(long, default_value = "7d")]
 		since: String,
+		#[arg(long, default_value = "100")]
+		limit: u32,
 	},
 	ForceShardOffline {
 		shard_id: ShardId,
@@ -240,7 +235,7 @@ async fn real_main() -> Result<()> {
 	let args = Args::parse();
 	tracing::info!("main");
 	let now = std::time::SystemTime::now();
-	let tc = args.tc(sender).await?;
+	let mut tc = args.tc(sender).await?;
 	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
 	let block = tc.latest_block().await?.0;
@@ -437,83 +432,8 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let mut stream = tc.finality_notification_stream();
 			let testers = tc.setup_test().await?;
-
-			// collect shard tasks
-			let mut tasks = HashSet::new();
-			let (block_hash, _) = tc.latest_block().await?;
-			for shard in tc.shards(block_hash).await? {
-				if let Some(batch) = shard.batch_register {
-					let task = tc.batch(batch, block_hash).await?.task;
-					tasks.insert((task, batch));
-				}
-			}
-			// wait for shard batches to execute
-			let mut block_hash: Option<BlockHash> = None;
-			for (task, batch) in tasks {
-				loop {
-					let Some((hash, _)) = stream.next().await else {
-						continue;
-					};
-					block_hash = Some(hash);
-					if tc.is_task_executed(task, hash).await? {
-						break;
-					}
-					tracing::info!("waiting for task {task} / batch {batch}");
-				}
-			}
-
-			let block_hash = block_hash.context("Block hash not found")?;
-			tc.assert_reimbursement(block_hash).await?;
-			let total_funds = tc.total_gateway_funds()?;
-			let total_balance = tc.total_gateway_balance(block_hash).await?;
-			tc.println(
-				None,
-				format!("shard registration msgs cost {}$", total_funds - total_balance),
-			)
-			.await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
-			let (block_hash, _) = tc.latest_block().await?;
-			tc.assert_reimbursement(block_hash).await?;
-			let total_balance_after = tc.total_gateway_balance(block_hash).await?;
-			tc.println(
-				None,
-				format!("made {}$ of profit with msg", total_balance_after - total_balance),
-			)
-			.await?;
-			anyhow::ensure!(total_balance_after >= total_balance);
-		},
-		Command::SmokeCctp { src, dest, src_addr, dest_addr } => {
-			let testers = match (src_addr, dest_addr) {
-				(Some(src_addr), Some(dest_addr)) => {
-					let src_addr = tc.parse_address(Some(src), &src_addr)?;
-					let dest_addr = tc.parse_address(Some(dest), &dest_addr)?;
-					let mut testers = HashMap::new();
-					testers.insert(src, (src_addr, 0));
-					testers.insert(dest, (dest_addr, 0));
-					testers
-				},
-				_ => tc.setup_test().await?,
-			};
-			let (block_hash, _) = tc.latest_block().await?;
-			let src_addr = testers.get(&src).context("missing tester")?.0;
-			let dest_addr = testers.get(&dest).context("missing tester")?.0;
-			tc.set_network_config(src, Some(src_addr), block_hash).await?;
-			tc.set_network_config(dest, Some(dest_addr), block_hash).await?;
-			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
-			let msg_data =
-				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
-			let cctp_payload = CCTPMessage {
-				attestation: vec![],
-				message: msg_data,
-				extra_data: [0u8; 32].to_vec(),
-			};
-			let msg = tc.exec_smoke(src, dest, &testers, cctp_payload.encode()).await?;
-			let attested =
-				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
-			assert!(!attested.attestation.is_empty());
-			assert!(attested.extra_data == cctp_payload.extra_data);
 		},
 		Command::Benchmark {
 			num_messages_per_block,
@@ -527,8 +447,8 @@ async fn real_main() -> Result<()> {
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
-		Command::Log { query, since } => {
-			tc.log(query, since).await?;
+		Command::Log { query, since, limit } => {
+			tc.log(query, since, Some(limit)).await?;
 		},
 		Command::ForceShardOffline { shard_id } => {
 			tc.force_shard_offline(shard_id, block).await?;

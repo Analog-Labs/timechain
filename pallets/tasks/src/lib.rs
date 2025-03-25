@@ -60,14 +60,14 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{traits::IdentifyAccount, Saturating};
+	use sp_runtime::Saturating;
 	use sp_std::boxed::Box;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
 		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		GmpEvents, Hash as TxHash, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId,
+		GmpEvents, Hash as TxHash, MessageId, NetworkId, NetworksInterface, ShardId,
 		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 		MAX_GMP_EVENTS,
 	};
@@ -282,11 +282,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BatchTxHash<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TxHash, OptionQuery>;
 
-	/// Map storage for task signers.
-	#[pallet::storage]
-	pub type TaskSubmitter<T: Config> =
-		StorageMap<_, Blake2_128Concat, TaskId, PublicKey, OptionQuery>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -393,9 +388,8 @@ pub mod pallet {
 					TaskResult::SubmitGatewayMessage { error },
 				) => {
 					// verify signature
-					let expected_signer =
-						TaskSubmitter::<T>::get(task_id).map(|s| s.into_account());
-					ensure!(Some(&signer) == expected_signer.as_ref(), Error::<T>::InvalidSigner);
+					let members = T::Shards::shard_members(shard);
+					ensure!(members.contains(&signer), Error::<T>::InvalidSigner);
 					FailedBatchIds::<T>::insert(batch_id, ());
 					Err(error)
 				},
@@ -459,7 +453,6 @@ pub mod pallet {
 				BatchTaskId::<T>::remove(batch_id);
 			}
 			TaskNetwork::<T>::remove(task);
-			TaskSubmitter::<T>::remove(task);
 			Ok(())
 		}
 
@@ -594,14 +587,9 @@ pub mod pallet {
 
 		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) {
 			log::debug!("assigned task {task_id} to {shard}");
-			let needs_signer =
-				Tasks::<T>::get(task_id).map(|task| task.needs_signer()).unwrap_or_default();
 			ShardTasks::<T>::insert(shard, task_id, ());
 			TaskShard::<T>::insert(task_id, shard);
 			ShardTaskCount::<T>::insert(shard, ShardTaskCount::<T>::get(shard).saturating_add(1));
-			if needs_signer {
-				TaskSubmitter::<T>::insert(task_id, T::Shards::next_signer(shard));
-			}
 		}
 
 		/// To schedule tasks for a specified network and optionally for a specific shard, optimizing
@@ -752,12 +740,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Retrieves the public key of the signer for a given task.
-		/// Look up the `PublicKey` of the signer associated with the provided `task` ID in the storage.
-		pub fn get_task_submitter(task: TaskId) -> Option<PublicKey> {
-			TaskSubmitter::<T>::get(task)
-		}
-
 		/// Retrieves a list of tasks associated with a given shard.
 		/// Look up the tasks associated with the provided `shard_id` in the storage.
 		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {

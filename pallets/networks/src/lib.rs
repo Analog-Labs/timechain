@@ -8,11 +8,11 @@
 //! ## Features
 //!
 //! - Allows privileged users to add new blockchain networks with unique
-//!   `ChainName` and `ChainNetwork` combinations. This operation requires root
+//!   `ChainName`. This operation requires root
 //!   authorization.
 //!
 //! - Maintains storage of network configurations using a mapping between
-//!   `NetworkId` and `(ChainName, ChainNetwork)` tuples.
+//!   `NetworkId` and `ChainName`.
 //!
 //! - Initializes the pallet with predefined network configurations during
 //!   blockchain genesis, ensuring seamless operation from the start.
@@ -37,18 +37,18 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address32, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
-		NetworkId, NetworksInterface, TasksInterface,
+		Address32, CctpContracts, CctpUrl, ChainName, Network, NetworkConfig, NetworkId,
+		NetworksInterface, TasksInterface,
 	};
 
 	pub trait WeightInfo {
-		fn register_network(name: u32, network: u32) -> Weight;
+		fn register_network(name: u32) -> Weight;
 		fn set_network_config(cctp_contracts: u32, cctp_url: u32) -> Weight;
 		fn remove_network() -> Weight;
 	}
 
 	impl WeightInfo for () {
-		fn register_network(_name: u32, _network: u32) -> Weight {
+		fn register_network(_name: u32) -> Weight {
 			Weight::default()
 		}
 
@@ -103,7 +103,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type NetworkName<T: Config> =
-		StorageMap<_, Twox64Concat, NetworkId, (ChainName, ChainNetwork), OptionQuery>;
+		StorageMap<_, Twox64Concat, NetworkId, ChainName, OptionQuery>;
 
 	/// Map storage for network gateways.
 	#[pallet::storage]
@@ -168,7 +168,9 @@ pub mod pallet {
 		}
 	}
 
-	/// The pallet's genesis configuration (`GenesisConfig`) allows initializing the pallet with predefined network configurations. It specifies an initial list of `(ChainName, ChainNetwork)` pairs that are added to the storage during genesis.
+	/// The pallet's genesis configuration (`GenesisConfig`) allows initializing
+	/// the pallet with predefined network configurations. It specifies an initial
+	/// list of `ChainName`s that are added to the storage during genesis.
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
@@ -183,17 +185,14 @@ pub mod pallet {
 		///  Inserts a new network into storage if it doesn't already exist.
 		///    
 		///  # Flow
-		///    1. Iterate through existing networks to check if the given `ChainName` and `ChainNetwork` already exist.
+		///    1. Iterate through existing networks to check if the given `ChainName` already exists.
 		///    2. If the network exists, return [`Error::<T>::NetworkExists`].
 		///    3. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
 		///    4. Return the new `NetworkId`.
 		fn insert_network(network: &Network) -> Result<(), Error<T>> {
 			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network.id, network.id);
-			NetworkName::<T>::insert(
-				network.id,
-				(network.chain_name.clone(), network.chain_network.clone()),
-			);
+			NetworkName::<T>::insert(network.id, network.chain_name.clone());
 			NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
 			NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
 			T::Tasks::gateway_registered(network.id, network.gateway_block);
@@ -238,7 +237,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		///  Adds a new blockchain network with a unique `ChainName` and `ChainNetwork` combination.
+		///  Adds a new blockchain network with a unique `ChainName`.
 		///    
 		///  # Flow
 		///    
@@ -247,7 +246,7 @@ pub mod pallet {
 		///    3. Emit the [`Event::NetworkRegistered`] event with the new `NetworkId`.
 		///    4. Return `Ok(())` to indicate success.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::register_network(network.chain_name.0.len() as u32, network.chain_network.0.len() as u32))]
+		#[pallet::weight(T::WeightInfo::register_network(network.chain_name.0.len() as u32))]
 		pub fn register_network(origin: OriginFor<T>, network: Network) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Self::insert_network(&network)?;
@@ -299,12 +298,12 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		///  Retrieves the network information (i.e., `ChainName` and `ChainNetwork`) associated with a given `NetworkId`.
+		///  Retrieves the network information (i.e., `ChainName`) associated with a given `NetworkId`.
 		///    
 		///  # Flow
 		///  1. Call [`Networks`] to fetch the network information.
 		///  2. Return the network information if it exists, otherwise return `None`.
-		pub fn get_network(network: NetworkId) -> Option<(ChainName, ChainNetwork)> {
+		pub fn get_network(network: NetworkId) -> Option<ChainName> {
 			NetworkName::<T>::get(network)
 		}
 

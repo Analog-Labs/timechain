@@ -2,7 +2,6 @@ use crate::config::NetworkConfig;
 use crate::env::CoinMarketCap;
 use crate::Tc;
 use anyhow::{Context, Result};
-use csv::{Reader, Writer};
 use num_bigint::{BigInt, BigUint};
 use num_rational::Ratio;
 use num_traits::Signed;
@@ -11,37 +10,28 @@ use num_traits::{identities::Zero, pow};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
 use time_primitives::NetworkId;
 
 #[derive(Clone, Deserialize)]
-pub struct TokenPriceData {
+struct TokenPriceData {
 	pub data: CryptoData,
 }
 
 #[derive(Clone, Deserialize)]
-pub struct CryptoData {
+struct CryptoData {
 	pub symbol: String,
 	pub quote: Quote,
 }
 
 #[derive(Clone, Deserialize)]
-pub struct Quote {
+struct Quote {
 	#[serde(rename = "USD")]
 	pub usd: PriceInfo,
 }
 
 #[derive(Clone, Deserialize)]
-pub struct PriceInfo {
+struct PriceInfo {
 	pub price: Option<f64>,
-}
-
-#[derive(Clone, Deserialize)]
-pub struct NetworkPrice {
-	pub network_id: NetworkId,
-	pub symbol: String,
-	pub usd_price: f64,
 }
 
 fn bigint_log10(n: &BigUint) -> f64 {
@@ -116,50 +106,26 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 	Ok(Ratio::new(numerator_biguint, denominator_biguint))
 }
 
-pub fn get_network_price(
-	network_prices: &HashMap<NetworkId, (String, f64)>,
-	network_id: &NetworkId,
-) -> Result<f64> {
-	network_prices
-		.get(network_id)
-		.map(|(_, price)| *price)
-		.ok_or_else(|| anyhow::anyhow!("Unable to get network {} from csv", network_id))
-}
-
-pub fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
+fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 	value
 		.to_u128()
 		.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
 }
 
-pub fn read_csv_token_prices(price_path: &Path) -> Result<HashMap<NetworkId, (String, f64)>> {
-	let mut rdr = Reader::from_path(price_path)
-		.with_context(|| format!("failed to open {}", price_path.display()))?;
-
-	let mut network_map: HashMap<NetworkId, (String, f64)> = HashMap::new();
-	for result in rdr.deserialize() {
-		let record: NetworkPrice = result?;
-		network_map.insert(record.network_id, (record.symbol, record.usd_price));
-	}
-	Ok(network_map)
-}
-
 impl Tc {
-	pub async fn fetch_token_prices(&self) -> Result<()> {
+	pub async fn fetch_token_prices(&mut self) -> Result<()> {
 		let env = CoinMarketCap::from_env()?;
 		let mut header_map = HeaderMap::new();
 		header_map.insert(
 			"X-CMC_PRO_API_KEY",
 			HeaderValue::from_str(&env.token_api_key).expect("Failed to create header value"),
 		);
-		let price_path = self.config.prices();
-		let file = File::create(&price_path)
-			.with_context(|| format!("failed to create {}", price_path.display()))?;
-		let mut wtr = Writer::from_writer(file);
-		wtr.write_record(["network_id", "symbol", "usd_price"])?;
+		let mut prices = HashMap::new();
 		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
 			let symbol = self.currency(Some(*network_id))?.1;
-			let token_url = format!("{}{}", env.token_price_url, coin_id);
+			let token_url = format!(
+				"https://pro-api.coinmarketcap.com/v2/tools/price-conversion?amount=1&id={coin_id}"
+			);
 			let client = reqwest::Client::new();
 			let request = client.get(token_url).headers(header_map.clone()).build()?;
 			log::info!("GET {}", request.url());
@@ -175,35 +141,30 @@ impl Tc {
 				.price
 				.ok_or_else(|| anyhow::anyhow!("Couldnt fetch token price for {}", symbol))?;
 			let symbol = data.symbol;
-
-			wtr.write_record(&[network_id.to_string(), symbol, usd_price.to_string()])?;
+			prices.insert(*network_id, (symbol, usd_price));
 		}
-		wtr.flush()?;
+		self.config.save_prices(prices)?;
 		log::info!("Saved in prices.csv");
 		Ok(())
 	}
 
-	pub fn read_csv_token_prices(&self) -> Result<HashMap<NetworkId, (String, f64)>> {
-		read_csv_token_prices(&self.config.prices())
-	}
-
 	pub fn balance_to_usd(&self, network: NetworkId, balance: u128) -> Result<f64> {
-		let prices = self.read_csv_token_prices()?;
+		let token_price = self.config.token_price_usd(network)?;
 		let decimals = self.currency(Some(network))?.0;
 		let factor = 10.0f64.powi(decimals as i32);
-		let token_price = prices.get(&network).context("no price data")?.1;
 		Ok(balance as f64 / factor * token_price)
 	}
 
 	/// Calculates destination network gas fee expressed in source network token
-	pub fn calculate_relative_price(
+	pub async fn relative_gas_price(
 		&self,
 		src_network: NetworkId,
 		dest_network: NetworkId,
-		src_usd_price: f64,
-		dest_usd_price: f64,
-		dest_gas_fee: u128,
-	) -> Result<Ratio<BigUint>> {
+	) -> Result<(u128, u128)> {
+		let src_price = self.config.token_price_usd(src_network)?;
+		let dest_price = self.config.token_price_usd(dest_network)?;
+		let dest_gas_fee = self.max_fee_per_gas(dest_network).await?;
+
 		let src_config = self.config.network(src_network)?;
 		let src_margin: f64 = src_config.gmp_margin;
 		let src_decimals = self.currency(Some(src_network))?.0;
@@ -211,10 +172,10 @@ impl Tc {
 		let dest_decimals = self.currency(Some(dest_network))?.0;
 
 		let src_usd_price =
-			Ratio::from_float(src_usd_price).context("Cannot convert float to ratio")?;
+			Ratio::from_float(src_price).context("Cannot convert float to ratio")?;
 		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
 		let dest_usd_price =
-			Ratio::from_float(dest_usd_price).context("Cannot convert float to ratio")?;
+			Ratio::from_float(dest_price).context("Cannot convert float to ratio")?;
 		let dest_usd_price = convert_bigint_ratio_to_biguint(dest_usd_price)?;
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
@@ -236,6 +197,9 @@ impl Tc {
 			"relative gas price {src_network} -> {dest_network}: {}",
 			to_fixed(src_to_dest.clone(), None),
 		);
-		Ok(src_to_dest)
+		let ratio = src_to_dest;
+		let numerator = convert_bigint_to_u128(ratio.numer())?;
+		let denominator = convert_bigint_to_u128(ratio.denom())?;
+		Ok((numerator, denominator))
 	}
 }

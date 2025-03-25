@@ -1,5 +1,6 @@
 use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 pub const DECODE_BLOCK_SIZE: usize = 32;
 

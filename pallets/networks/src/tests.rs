@@ -5,7 +5,7 @@ use frame_system::RawOrigin;
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
-use time_primitives::{ChainName, ChainNetwork, Network, NetworkConfig};
+use time_primitives::{ChainName, Network, NetworkConfig};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
@@ -24,7 +24,6 @@ fn mock_network() -> Network {
 	Network {
 		id: 42,
 		chain_name: ChainName(BoundedVec::truncate_from("Ethereum".encode())),
-		chain_network: ChainNetwork(BoundedVec::truncate_from("Mainnet".encode())),
 		gateway: [0; 32],
 		gateway_block: 99,
 		config: mock_network_config(),
@@ -37,10 +36,7 @@ fn test_register_network() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Networks::register_network(RawOrigin::Root.into(), network.clone(),));
 		assert_eq!(pallet_networks::Networks::<Test>::get(42), Some(network.id));
-		assert_eq!(
-			pallet_networks::NetworkName::<Test>::get(42),
-			Some((network.chain_name, network.chain_network))
-		);
+		assert_eq!(pallet_networks::NetworkName::<Test>::get(42), Some(network.chain_name));
 		assert_eq!(pallet_networks::NetworkGatewayAddress::<Test>::get(42), Some(network.gateway));
 		assert_eq!(
 			pallet_networks::NetworkGatewayBlock::<Test>::get(42),

@@ -5,25 +5,24 @@ use serde::Serialize;
 use sha3::{Digest, Sha3_256};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-pub use time_primitives::TaskId;
 use tracing::Span;
 pub use tss::{
 	ProofOfKnowledge, Signature, SigningKey, VerifiableSecretSharingCommitment, VerifyingKey,
 };
 
-pub type TssMessage = tss::TssMessage<TaskId>;
+pub type TssMessage = tss::TssMessage;
 
 #[derive(Clone)]
 pub enum TssAction {
 	Send(Vec<(PeerId, TssMessage)>),
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	PublicKey(VerifyingKey),
-	Signature(TaskId, [u8; 32], Signature),
+	Signature(u64, [u8; 32], Signature),
 }
 
 #[allow(clippy::large_enum_variant)]
 pub enum Tss {
-	Enabled(tss::Tss<TaskId, TssPeerId>),
+	Enabled(tss::Tss<TssPeerId>),
 	Disabled(SigningKey, Option<TssAction>, bool),
 }
 
@@ -144,9 +143,9 @@ impl Tss {
 		}
 	}
 
-	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
+	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_commit(commitment),
+			Self::Enabled(tss) => tss.on_commit(commitment, span),
 			Self::Disabled(key, actions, committed) => {
 				*actions = Some(TssAction::PublicKey(key.public()));
 				*committed = true;
@@ -154,16 +153,16 @@ impl Tss {
 		}
 	}
 
-	pub fn on_start(&mut self, request_id: TaskId) {
+	pub fn on_start(&mut self, request_id: u64, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_start(request_id),
+			Self::Enabled(tss) => tss.on_start(request_id, span),
 			Self::Disabled(_, _, _) => {},
 		}
 	}
 
-	pub fn on_sign(&mut self, request_id: TaskId, data: Vec<u8>) {
+	pub fn on_sign(&mut self, request_id: u64, data: Vec<u8>, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_sign(request_id, data),
+			Self::Enabled(tss) => tss.on_sign(request_id, data, span),
 			Self::Disabled(key, actions, _) => {
 				let hash = VerifyingKey::message_hash(&data);
 				*actions = Some(TssAction::Signature(request_id, hash, key.sign_prehashed(hash)));
@@ -171,25 +170,25 @@ impl Tss {
 		}
 	}
 
-	pub fn on_complete(&mut self, request_id: TaskId) {
+	pub fn on_complete(&mut self, request_id: u64, span: &Span) {
 		match self {
-			Self::Enabled(tss) => tss.on_complete(request_id),
+			Self::Enabled(tss) => tss.on_complete(request_id, span),
 			Self::Disabled(_, _, _) => {},
 		}
 	}
 
-	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage) -> Result<()> {
+	pub fn on_message(&mut self, peer_id: PeerId, msg: TssMessage, span: &Span) -> Result<()> {
 		let peer_id = TssPeerId::new(peer_id)?;
 		match self {
-			Self::Enabled(tss) => tss.on_message(peer_id, msg),
+			Self::Enabled(tss) => tss.on_message(peer_id, msg, span),
 			Self::Disabled(_, _, _) => {},
 		};
 		Ok(())
 	}
 
-	pub fn next_action(&mut self, tss_keyshare_cache: &Path) -> Option<TssAction> {
+	pub fn next_action(&mut self, tss_keyshare_cache: &Path, span: &Span) -> Option<TssAction> {
 		let action = match self {
-			Self::Enabled(tss) => tss.next_action(),
+			Self::Enabled(tss) => tss.next_action(span),
 			Self::Disabled(_, action, _) => return action.take(),
 		}?;
 		Some(match action {
@@ -224,7 +223,7 @@ mod tests {
 		}
 		let peerid = *members.iter().next().unwrap();
 		let mut tss = Tss::new(peerid, members.clone(), n as _, None, dir.path(), &span).unwrap();
-		let TssAction::Commit(commitment, _) = tss.next_action(dir.path()).unwrap() else {
+		let TssAction::Commit(commitment, _) = tss.next_action(dir.path(), &span).unwrap() else {
 			panic!();
 		};
 		Tss::new(peerid, members, n as _, Some(commitment), dir.path(), &span).unwrap();

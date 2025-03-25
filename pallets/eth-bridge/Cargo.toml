@@ -22,11 +22,11 @@ polkadot-sdk = { workspace = true, features = [
     "sp-runtime",
     "sp-std",
 ] }
-hex-literal = "0.4.1"
+hex-literal = { workspace = true }
 secp256k1 = { version = "0.7", features = [
     'hmac',
 ], default-features = false, package = "libsecp256k1" }
-once_cell = { version = "1.5.2", default-features = false, features = [
+once_cell = { version = "1.21.1", default-features = false, features = [
     'alloc',
     'unstable',
 ] }
@@ -57,7 +57,7 @@ jsonrpc-core = { git = "https://github.com/sora-xor/jsonrpc.git", branch = "no-s
 # parity-util-mem = { version = "0.12.0", default-features = false, features = [
 #     "primitive-types",
 # ] }
-parking_lot = "0.12.0"
+parking_lot = "0.12.3"
 # sp-core = { git = "https://github.com/sora-xor/polkadot-sdk.git", branch = "polkadot-v1.1.0", default-features = false, features = [
 #     "full_crypto",
 # ] }

@@ -15,7 +15,6 @@ fn derive(path: &Path, module: &str) -> String {
 		"time_primitives::network::CctpContracts",
 		"time_primitives::network::CctpUrl",
 		"time_primitives::network::ChainName",
-		"time_primitives::network::ChainNetwork",
 		"time_primitives::network::Network",
 		"time_primitives::network::NetworkConfig",
 		"time_primitives::shard::Commitment",

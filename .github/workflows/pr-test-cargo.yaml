@@ -1,4 +1,4 @@
-name: Run all except e2e tests
+name: Run tests
 on:
   pull_request:
     paths:
@@ -36,6 +36,7 @@ jobs:
         with:
           command: test
           args: --all-features --no-run
+
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:

@@ -37,8 +37,8 @@ tokio.workspace = true
 tracing.workspace = true
 
 bincode = "1.3.3"
-convert_case = "0.6"
-hex-literal = "0.4.1"
+convert_case = "0.8.0"
+hex-literal.workspace = true
 secp256k1 = { version = "0.7", features = [
 	'hmac',
 ], default-features = false, package = "libsecp256k1" }
@@ -118,6 +118,7 @@ pallet-tasks = { workspace = true, optional = true }
 
 # HASHI Bridge
 eth-bridge = { workspace = true, optional = true }
+deranged = "=0.4.0"
 
 [build-dependencies]
 clap.workspace = true

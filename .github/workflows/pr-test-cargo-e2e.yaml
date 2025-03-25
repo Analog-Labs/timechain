@@ -7,24 +7,41 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-cargo:
-    if: false
-    runs-on: [self-hosted, general]
+    runs-on: [self-hosted, integration]
+    timeout-minutes: 90
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build contracts
-        uses: ./.github/actions/build-contracts
+
+      - name: Setup Rust cache
+        uses: actions/cache@v4
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build dev containers
+        run: |
+          ./scripts/build_docker.sh
+
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features --no-run
+          package: e2e-tests
+          args: --no-run
+          # Handling cache in the Actions Cache
+          cache: false
+
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features -p timechain --tests
+          package: e2e-tests
           cache: false
           annotate: false

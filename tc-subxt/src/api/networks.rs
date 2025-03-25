@@ -4,8 +4,7 @@ use anyhow::Result;
 use futures::channel::oneshot;
 use subxt::utils::H256;
 use time_primitives::{
-	Address32, BlockHash, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
-	NetworkId,
+	Address32, BlockHash, CctpContracts, CctpUrl, ChainName, Network, NetworkConfig, NetworkId,
 };
 
 impl SubxtClient {
@@ -44,16 +43,11 @@ impl SubxtClient {
 		&self,
 		network: NetworkId,
 		block: BlockHash,
-	) -> Result<Option<(ChainName, ChainNetwork)>> {
+	) -> Result<Option<ChainName>> {
 		let block = H256(block.0);
 		let runtime_call = metadata::apis().networks_api().get_network(network);
-		let data: Option<(ChainName, ChainNetwork)> = self
-			.client
-			.runtime_api()
-			.at(block)
-			.call(runtime_call)
-			.await?
-			.map(|(name, net)| ((*name).clone(), (*net).clone()));
+		let data: Option<ChainName> =
+			self.client.runtime_api().at(block).call(runtime_call).await?.map(|name| name.0);
 		Ok(data)
 	}
 

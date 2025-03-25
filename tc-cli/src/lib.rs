@@ -1,6 +1,3 @@
-use crate::config::Config;
-use crate::env::Mnemonics;
-use crate::gas_price::{convert_bigint_to_u128, get_network_price};
 use crate::table::IntoRow;
 use anyhow::{Context, Result};
 use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
@@ -16,14 +13,13 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
-	BlockNumber, ChainName, ChainNetwork, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents,
-	GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, NetworkId, PeerId,
+	BlockNumber, CctpContracts, CctpUrl, ChainName, ConnectorParams, GatewayMessage, GmpEvent,
+	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId,
 	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
-use time_primitives::{CctpContracts, CctpUrl};
 
 mod benchmark;
-mod config;
+pub mod config;
 mod env;
 mod gas_price;
 mod loki;
@@ -31,8 +27,12 @@ mod slack;
 mod table;
 
 pub use crate::benchmark::{Benchmark, BenchmarkStats};
+pub use crate::config::Config;
+pub use crate::env::Mnemonics;
 pub use crate::loki::{Log, Query};
 pub use crate::slack::{Sender, TableRef, TextRef};
+pub use gmp::Backend;
+pub use time_primitives::NetworkId;
 
 async fn sleep_or_abort(duration: Duration) -> Result<()> {
 	tokio::select! {
@@ -52,42 +52,47 @@ pub struct Tc {
 }
 
 impl Tc {
-	pub async fn new(env: PathBuf, config: &str, msg: Sender) -> Result<Self> {
+	pub async fn from_env(env: PathBuf, config: &str, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
 		let env = Mnemonics::from_env()?;
+		Self::new(config, env, msg, tx_db).await
+	}
+
+	pub async fn new(config: Config, env: Mnemonics, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		let timechain_url = config.global().timechain_url.clone();
 		let runtime = tokio::task::spawn(async move {
 			while let Err(err) = SubxtClient::get_client(&timechain_url).await {
-				tracing::info!("waiting for chain to start: {err:?}");
+				tracing::info!("waiting for timechain to start: {err:?}");
 				sleep_or_abort(Duration::from_secs(10)).await?;
 			}
-			let runtime =
-				SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic, "cached_tx.redb")
-					.await
-					.context("failed to connect to timechain")?;
+			let runtime = SubxtClient::with_key(&timechain_url, &env.timechain_mnemonic, &tx_db)
+				.await
+				.context("failed to connect to timechain")?;
 			Ok::<_, anyhow::Error>(runtime)
 		});
 		let mut connectors = HashMap::new();
 		{
 			let mut connector_futures = FuturesUnordered::new();
 			for (id, network) in config.networks() {
+				let backend = config.backend(*id)?;
 				let id = *id;
 				let params = ConnectorParams {
 					network_id: id,
-					blockchain: network.blockchain.clone(),
-					network: network.network.clone(),
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
-					chain_dict: Some(config.chains_dict()),
+					chain_dict: backend.chain_dict.clone(),
 				};
 				let connector = async move {
-					let connector = network
-						.backend
-						.connect_admin(&params)
-						.await
-						.with_context(|| format!("failed to connect to backend {id}"))?;
-					Ok::<_, anyhow::Error>((id, connector))
+					loop {
+						match network.backend.connect_admin(&params).await {
+							Ok(connector) => return Ok::<_, anyhow::Error>((id, connector)),
+							Err(err) => {
+								tracing::info!("waiting for chain {id} to start: {err:?}");
+								sleep_or_abort(Duration::from_secs(1)).await?;
+							},
+						}
+					}
 				};
 				connector_futures.push(connector);
 			}
@@ -315,7 +320,6 @@ impl Tc {
 pub struct Network {
 	pub network: NetworkId,
 	pub chain_name: String,
-	pub chain_network: String,
 	pub info: Option<NetworkInfo>,
 }
 
@@ -395,7 +399,6 @@ pub struct Task {
 	pub descriptor: time_primitives::Task,
 	pub output: Option<Result<(), String>>,
 	pub shard: Option<ShardId>,
-	pub submitter: Option<PublicKey>,
 }
 
 #[derive(Clone, Debug)]
@@ -487,15 +490,13 @@ impl Tc {
 		let network_ids = self.runtime.networks(block_hash).await?;
 		let mut networks = vec![];
 		for network in network_ids {
-			let (chain_name, chain_network) = self
+			let chain_name = self
 				.runtime
 				.network_name(network, block_hash)
 				.await?
 				.context("invalid network")?;
 			let chain_name =
 				String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
-			let chain_network =
-				String::decode(&mut chain_network.0.to_vec().as_slice()).unwrap_or_default();
 			let info = match self.gateway(network, block_hash).await {
 				Ok((connector, gateway)) => {
 					let gateway_balance = connector.balance(gateway).await?;
@@ -515,12 +516,7 @@ impl Tc {
 				},
 				Err(_) => None,
 			};
-			networks.push(Network {
-				network,
-				chain_name,
-				chain_network,
-				info,
-			});
+			networks.push(Network { network, chain_name, info });
 		}
 		Ok(networks)
 	}
@@ -674,7 +670,6 @@ impl Tc {
 				o.map_err(|e| String::decode(&mut e.0.to_vec().as_slice()).unwrap_or_default())
 			}),
 			shard: self.runtime.assigned_shard(task, block_hash).await?,
-			submitter: self.runtime.task_submitter(task, block_hash).await?,
 		})
 	}
 
@@ -771,6 +766,40 @@ impl Tc {
 }
 
 impl Tc {
+	fn network_config(&self, network: NetworkId) -> Result<NetworkConfig> {
+		let config = self.config.network(network)?;
+		let (cctp_url, cctp_contracts) = if let (Some(cctp_url), Some(cctp_contracts)) =
+			(config.cctp_url.as_ref(), config.cctp_contracts.as_ref())
+		{
+			let mut contracts = Vec::with_capacity(cctp_contracts.len());
+			for contract in cctp_contracts {
+				contracts.push(self.parse_address(Some(network), contract)?);
+			}
+			(
+				Some(CctpUrl(
+					BoundedVec::try_from(cctp_url.as_bytes().to_vec())
+						.map_err(|_| anyhow::anyhow!("cctp url too long"))?,
+				)),
+				Some(CctpContracts(
+					BoundedVec::try_from(contracts)
+						.map_err(|_| anyhow::anyhow!("too many cctp contracts"))?,
+				)),
+			)
+		} else {
+			(None, None)
+		};
+		Ok(NetworkConfig {
+			batch_size: config.batch_size,
+			batch_offset: config.batch_offset,
+			batch_gas_limit: config.batch_gas_limit,
+			shard_task_limit: config.shard_task_limit,
+			shard_size: config.shard_size,
+			shard_threshold: config.shard_threshold,
+			cctp_contracts,
+			cctp_url,
+		})
+	}
+
 	async fn register_network(
 		&self,
 		network: NetworkId,
@@ -778,82 +807,37 @@ impl Tc {
 	) -> Result<Address32> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
-		let contracts = self.config.contracts(network)?;
-		let gateway = if let Some(gateway) =
-			self.runtime.network_gateway(network, block_hash).await?
-		{
-			self.set_network_config(network, None, block_hash).await?;
-			gateway
-		} else {
-			self.println(None, format!("deploying gateway {network}")).await?;
-			let (gateway, block) = connector
-				.deploy_gateway(&contracts.factory, &contracts.proxy, &contracts.gateway)
-				.await?;
-			let cctp_contracts =
-				config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
-			let cctp_url = config
-				.cctp_url
-				.clone()
-				.map(|item| CctpUrl::try_from(item.as_str()))
-				.transpose()?;
-			self.println(None, format!("register_network {network}")).await?;
-			self.runtime
-				.register_network(time_primitives::Network {
-					id: network,
-					chain_name: ChainName(BoundedVec::truncate_from(config.blockchain.encode())),
-					chain_network: ChainNetwork(BoundedVec::truncate_from(config.network.encode())),
-					gateway,
-					gateway_block: block,
-					config: NetworkConfig {
-						batch_size: config.batch_size,
-						batch_offset: config.batch_offset,
-						batch_gas_limit: config.batch_gas_limit,
-						shard_task_limit: config.shard_task_limit,
-						shard_size: config.shard_size,
-						shard_threshold: config.shard_threshold,
-						cctp_contracts,
-						cctp_url,
-					},
-				})
-				.await?;
-			gateway
-		};
+		let backend = self.config.backend(network)?;
+		let gateway =
+			if let Some(gateway) = self.runtime.network_gateway(network, block_hash).await? {
+				self.set_network_config(network, block_hash).await?;
+				gateway
+			} else {
+				self.println(None, format!("deploying gateway {network}")).await?;
+				let (gateway, block) = connector
+					.deploy_gateway(&backend.factory, &backend.proxy, &backend.gateway)
+					.await?;
+				self.println(None, format!("register_network {network}")).await?;
+				self.runtime
+					.register_network(time_primitives::Network {
+						id: network,
+						chain_name: ChainName(BoundedVec::truncate_from(config.name.encode())),
+						gateway,
+						gateway_block: block,
+						config: self.network_config(network)?,
+					})
+					.await?;
+				gateway
+			};
 		Ok(gateway)
 	}
 
 	pub async fn set_network_config(
 		&self,
 		network: NetworkId,
-		additional_contract: Option<Address32>,
 		block_hash: BlockHash,
 	) -> Result<()> {
-		let config = self.config.network(network)?;
-		let mut cctp_contracts =
-			config.cctp_contracts.clone().map(CctpContracts::try_from).transpose()?;
-		if let Some(new_contract) = additional_contract {
-			if let Some(contracts) = cctp_contracts.as_mut() {
-				contracts.push_unique(new_contract)?;
-			} else {
-				let bounded = BoundedVec::try_from(vec![new_contract])
-					.map_err(|_| anyhow::anyhow!("failed to make bounded vec from new contract"))?;
-				cctp_contracts = Some(CctpContracts(bounded));
-			}
-		}
-		let cctp_url = config
-			.cctp_url
-			.clone()
-			.map(|item| CctpUrl::try_from(item.as_str()))
-			.transpose()?;
-		let config = NetworkConfig {
-			batch_size: config.batch_size,
-			batch_offset: config.batch_offset,
-			batch_gas_limit: config.batch_gas_limit,
-			shard_task_limit: config.shard_task_limit,
-			shard_size: config.shard_size,
-			shard_threshold: config.shard_threshold,
-			cctp_contracts: cctp_contracts.clone(),
-			cctp_url: cctp_url.clone(),
-		};
+		let config = self.network_config(network)?;
 
 		let batch_size = self.runtime.network_batch_size(network, block_hash).await?;
 		let batch_offset = self.runtime.network_batch_offset(network, block_hash).await?;
@@ -870,8 +854,8 @@ impl Tc {
 			&& shard_task_limit == config.shard_task_limit
 			&& shard_size == config.shard_size
 			&& shard_threshold == config.shard_threshold
-			&& runtime_cctp_contracts == cctp_contracts
-			&& runtime_cctp_url == cctp_url
+			&& runtime_cctp_contracts == config.cctp_contracts
+			&& runtime_cctp_url == config.cctp_url
 		{
 			return Ok(());
 		}
@@ -887,14 +871,7 @@ impl Tc {
 			let routes = connector.routes(src_gateway).await?;
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
-				let network_prices = self.read_csv_token_prices()?;
-				let src_price = get_network_price(&network_prices, &src)?;
-				let dest_price = get_network_price(&network_prices, &dest)?;
-				let dest_gas_fee = self.max_fee_per_gas(dest).await?;
-				let ratio =
-					self.calculate_relative_price(src, dest, src_price, dest_price, dest_gas_fee)?;
-				let numerator = convert_bigint_to_u128(ratio.numer())?;
-				let denominator = convert_bigint_to_u128(ratio.denom())?;
+				let (numerator, denominator) = self.relative_gas_price(src, dest).await?;
 				let route = Route {
 					network_id: dest,
 					gateway: dest_gateway,
@@ -1149,11 +1126,9 @@ impl Tc {
 
 	pub async fn redeploy_gateway(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		let contracts = self.config.contracts(network)?;
+		let backend = self.config.backend(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
-		connector
-			.redeploy_gateway(&contracts.factory, gateway, &contracts.gateway)
-			.await?;
+		connector.redeploy_gateway(&backend.factory, gateway, &backend.gateway).await?;
 		Ok(())
 	}
 
@@ -1162,10 +1137,10 @@ impl Tc {
 		network: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<(Address32, u64)> {
-		let contracts = self.config.contracts(network)?;
+		let backend = self.config.backend(network)?;
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
-		let tester = connector.deploy_test(gateway, &contracts.tester).await?;
+		let tester = connector.deploy_test(gateway, &backend.tester).await?;
 		self.println(
 			Some(id),
 			format!(
@@ -1437,9 +1412,38 @@ impl Tc {
 		self.msg.text(id, line.into()).await
 	}
 
-	pub async fn log(&self, query: Query, since: String) -> Result<TableRef> {
-		let logs = loki::logs(query, since).await?;
-		self.print_table(None, "logs", logs).await
+	pub async fn log(&self, mut query: Query, since: String, limit: Option<u32>) -> Result<()> {
+		if let Query::Container { name, .. } = &mut query {
+			if let Some(prefix) = self.config.prefix() {
+				*name = format!("{prefix}{name}");
+			}
+		};
+		let logs = loki::raw_logs(&query, since, limit).await?;
+		match loki::structured_logs(query.filter(), &logs) {
+			Ok(logs) => {
+				if self.msg.using_slack() {
+					self.print_table(None, "logs", logs).await?;
+					return Ok(());
+				} else {
+					let mut text = String::new();
+					for log in logs {
+						text.push_str(&log.to_string());
+						text.push('\n');
+					}
+					self.println(None, text).await?;
+				}
+			},
+			Err(err) => {
+				tracing::error!("failed to parse logs: {err}");
+				let mut text = String::new();
+				for log in logs {
+					text.push_str(&log);
+					text.push('\n');
+				}
+				self.println(None, text).await?;
+			},
+		}
+		Ok(())
 	}
 
 	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
@@ -1549,5 +1553,10 @@ impl Tc {
 		self.println(None, format!("received message after {} blocks", end - start))
 			.await?;
 		Ok(msg)
+	}
+
+	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: Address32) -> Result<()> {
+		self.config
+			.add_cctp_contract(network, self.format_address(Some(network), contract)?)
 	}
 }

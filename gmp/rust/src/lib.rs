@@ -130,9 +130,6 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		if params.blockchain != "rust" {
-			anyhow::bail!("unsupported blockchain");
-		}
 		let address = mnemonic_to_address(params.mnemonic);
 		let (tmpfile, path) = if params.url == "tempfile" {
 			let file = NamedTempFile::new()?;
@@ -328,7 +325,7 @@ impl IConnectorAdmin for Connector {
 		_gateway_impl: &[u8],
 	) -> Result<(Address32, u64)> {
 		let mut gateway = [0; 32];
-		getrandom::getrandom(&mut gateway).unwrap();
+		getrandom::fill(&mut gateway).unwrap();
 		let block = self.block();
 		let tx = self.db.begin_write()?;
 		{
@@ -448,7 +445,7 @@ impl IConnectorAdmin for Connector {
 
 	async fn deploy_test(&self, gateway: Address32, _path: &[u8]) -> Result<(Address32, u64)> {
 		let mut tester = [0; 32];
-		getrandom::getrandom(&mut tester).unwrap();
+		getrandom::fill(&mut tester).unwrap();
 		let block = self.block();
 		let tx = self.db.begin_write()?;
 		{
@@ -621,11 +618,9 @@ mod tests {
 	async fn connector(network: NetworkId, mnemonic: u8) -> Result<Connector> {
 		Connector::new(ConnectorParams {
 			network_id: network,
-			blockchain: "rust".to_string(),
-			network: network.to_string(),
 			url: "tempfile".to_string(),
 			mnemonic: mnemonic.to_string(),
-			chain_dict: None,
+			chain_dict: Default::default(),
 		})
 		.await
 	}

@@ -34,12 +34,12 @@ mod tests;
 /// - Dkg(Dkg): State during the DKG process.
 /// - Roast: State during the ROAST process.
 /// - Failed: State when the process has failed.
-enum TssState<I> {
+enum TssState {
 	Dkg(Dkg),
 	Roast {
 		key_package: KeyPackage,
 		public_key_package: PublicKeyPackage,
-		signing_sessions: BTreeMap<I, Roast>,
+		signing_sessions: BTreeMap<u64, Roast>,
 	},
 	Failed,
 }
@@ -47,28 +47,28 @@ enum TssState<I> {
 /// Represents possible actions in the TSS process.
 ///
 #[derive(Clone)]
-pub enum TssAction<I, P> {
+pub enum TssAction<P> {
 	/// Action to send messages.
-	Send(Vec<(P, TssMessage<I>)>),
+	Send(Vec<(P, TssMessage)>),
 	/// Action to commit a secret.
 	Commit(VerifiableSecretSharingCommitment, ProofOfKnowledge),
 	/// Action indicating readiness.
 	Ready(SigningShare, VerifiableSecretSharingCommitment, VerifyingKey),
 	/// Action to provide a signature.
-	Signature(I, [u8; 32], Signature),
+	Signature(u64, [u8; 32], Signature),
 }
 
 /// Represents messages in the TSS process.
 ///
 #[derive(Clone, Deserialize, Serialize)]
-pub enum TssMessage<I> {
+pub enum TssMessage {
 	/// Message for DKG.
 	Dkg { msg: DkgMessage },
 	/// Message for ROAST.
-	Roast { id: I, msg: RoastMessage },
+	Roast { id: u64, msg: RoastMessage },
 }
 
-impl<I> TssMessage<I> {
+impl TssMessage {
 	pub fn is_response(&self) -> bool {
 		match self {
 			Self::Roast { msg, .. } => msg.is_response(),
@@ -77,7 +77,7 @@ impl<I> TssMessage<I> {
 	}
 }
 
-impl<I: std::fmt::Display> std::fmt::Display for TssMessage<I> {
+impl std::fmt::Display for TssMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self::Dkg { msg } => write!(f, "dkg {}", msg),
@@ -128,20 +128,18 @@ pub fn verify_proof_of_knowledge(
 }
 
 /// Tss state machine.
-pub struct Tss<I, P> {
+pub struct Tss<P> {
 	peer_id: P,
 	frost_id: Identifier,
 	frost_to_peer: BTreeMap<Identifier, P>,
 	threshold: u16,
 	coordinators: BTreeSet<Identifier>,
-	state: TssState<I>,
+	state: TssState,
 	committed: bool,
-	span: Span,
 }
 
-impl<I, P> Tss<I, P>
+impl<P> Tss<P>
 where
-	I: Clone + Ord + std::fmt::Display,
 	P: Clone + Ord + std::fmt::Display + ToFrostIdentifier,
 {
 	/// Initializes a new TSS instance with the given parameters.
@@ -161,10 +159,6 @@ where
 		recover: Option<(SigningShare, VerifiableSecretSharingCommitment)>,
 		span: &Span,
 	) -> Self {
-		let span = tracing::span!(parent: span,
-			Level::INFO, "tss",
-			peer_id = field::display(&peer_id),
-		);
 		debug_assert!(members.contains(&peer_id));
 		let frost_id = peer_id.to_frost();
 		let frost_to_peer: BTreeMap<_, _> =
@@ -173,13 +167,7 @@ where
 		let coordinators: BTreeSet<_> =
 			members.iter().copied().take(members.len() - threshold as usize + 1).collect();
 		let is_coordinator = coordinators.contains(&frost_id);
-		tracing::info!(
-			parent: &span,
-			threshold = threshold,
-			members = members.len(),
-			coordinator = is_coordinator,
-			"initialize",
-		);
+		tracing::info!(parent: span, tss_coordinator = is_coordinator, "initialize");
 		let committed = recover.is_some();
 		Self {
 			peer_id,
@@ -201,7 +189,6 @@ where
 				TssState::Dkg(Dkg::new(frost_id, members, threshold))
 			},
 			committed,
-			span,
 		}
 	}
 
@@ -242,20 +229,14 @@ where
 	/// 3. Converts the sender to a FROST identifier and validates it.
 	/// 4. Processes the message based on the current state (DKG or ROAST).
 	/// 5. Returns the result of the processing.
-	pub fn on_message(&mut self, peer_id: P, msg: TssMessage<I>) {
-		let span = tracing::span!(
-			parent: &self.span,
-			Level::INFO, "on_message",
-			from = field::display(&peer_id),
-			msg = field::display(&msg),
-		);
+	pub fn on_message(&mut self, peer_id: P, msg: TssMessage, span: &Span) {
 		if self.peer_id == peer_id {
-			tracing::error!(parent: &span, "received message from self");
+			tracing::error!(parent: span, "received message from self");
 			return;
 		}
 		let frost_id = peer_id.to_frost();
 		if !self.frost_to_peer.contains_key(&frost_id) {
-			tracing::error!(parent: &span, "received message from unknown peer");
+			tracing::error!(parent: span, "received message from unknown peer");
 			return;
 		}
 		match (&mut self.state, msg) {
@@ -264,19 +245,19 @@ where
 			},
 			(TssState::Roast { signing_sessions, .. }, TssMessage::Roast { id, msg }) => {
 				let span = tracing::span!(
-					parent: &span,
+					parent: span,
 					Level::INFO,
 					"session",
-					session = field::display(&id),
+					tss_session = id,
 				);
 				if let Some(session) = signing_sessions.get_mut(&id) {
-					session.on_message(frost_id, msg);
+					session.on_message(frost_id, msg, &span);
 				} else {
 					tracing::info!(parent: &span, "no signing session");
 				}
 			},
 			(_, _) => {
-				tracing::error!(parent: &span, "unexpected message");
+				tracing::error!(parent: span, "unexpected message");
 			},
 		}
 	}
@@ -287,15 +268,15 @@ where
 	/// 1. Logs the commit action.
 	/// 2. If in the DKG state, processes the commit and sets committed to true.
 	/// 3. Logs an error if not in the DKG state.
-	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment) {
-		tracing::info!(parent: &self.span, "commit");
+	pub fn on_commit(&mut self, commitment: VerifiableSecretSharingCommitment, span: &Span) {
 		match &mut self.state {
 			TssState::Dkg(dkg) => {
+				tracing::info!(parent: span, "commit");
 				dkg.on_commit(commitment);
 				self.committed = true;
 			},
 			_ => {
-				tracing::error!(parent: &self.span, "unexpected commit")
+				tracing::error!(parent: span, "unexpected commit")
 			},
 		}
 	}
@@ -305,7 +286,7 @@ where
 	/// Flow:
 	/// 1. If in the ROAST state, retrieves or inserts a signing session for the given ID.
 	/// 2. Returns the session or None if not in the ROAST state.
-	fn get_or_insert_session(&mut self, id: I) -> Option<&mut Roast> {
+	fn get_or_insert_session(&mut self, id: u64) -> Option<&mut Roast> {
 		match &mut self.state {
 			TssState::Roast {
 				key_package,
@@ -319,7 +300,6 @@ where
 					key_package.clone(),
 					public_key_package.clone(),
 					self.coordinators.clone(),
-					&self.span,
 				)
 			})),
 			_ => None,
@@ -331,16 +311,16 @@ where
 	/// 1. Logs the start action.
 	/// 2. Inserts a new session if it does not already exist.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_start(&mut self, id: I) {
+	pub fn on_start(&mut self, id: u64, span: &Span) {
 		let span = tracing::span!(
-			parent: &self.span,
+			parent: span,
 			Level::INFO,
 			"start",
-			session = field::display(&id),
+			tss_session = id,
 		);
-		if self.get_or_insert_session(id.clone()).is_none() {
+		if self.get_or_insert_session(id).is_none() {
 			tracing::error!(
-				parent: &span,
+				parent: span,
 				"not ready to sign for",
 			);
 		}
@@ -352,18 +332,18 @@ where
 	/// 1. Logs the sign action.
 	/// 2. Sets the data for the session if it exists.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_sign(&mut self, id: I, data: Vec<u8>) {
-		let span = tracing::span!(
-			parent: &self.span,
-			Level::INFO,
-			"sign",
-			session = field::display(&id),
-		);
-		if let Some(session) = self.get_or_insert_session(id.clone()) {
+	pub fn on_sign(&mut self, id: u64, data: Vec<u8>, span: &Span) {
+		if let Some(session) = self.get_or_insert_session(id) {
+			tracing::event!(
+				parent: span,
+				Level::INFO,
+				tss_session = id,
+				"sign",
+			);
 			session.set_data(data)
 		} else {
 			tracing::error!(
-				parent: &span,
+				parent: span,
 				"not ready to sign",
 			);
 		}
@@ -375,20 +355,22 @@ where
 	/// 1. Logs the complete action.
 	/// 2. Removes the session if it exists.
 	/// 3. Logs an error if not ready to sign.
-	pub fn on_complete(&mut self, id: I) {
-		let span = tracing::span!(
-			parent: &self.span,
-			Level::INFO,
-			"complete",
-			session = field::display(&id),
-		);
+	pub fn on_complete(&mut self, id: u64, span: &Span) {
 		match &mut self.state {
 			TssState::Roast { signing_sessions, .. } => {
+				tracing::event!(
+					parent: span,
+					Level::INFO,
+					tss_session = id,
+					"complete",
+				);
 				signing_sessions.remove(&id);
 			},
 			_ => {
-				tracing::error!(
-					parent: &span,
+				tracing::event!(
+					parent: span,
+					Level::ERROR,
+					tss_session = id,
 					"not ready to complete",
 				);
 			},
@@ -401,7 +383,7 @@ where
 	/// 1. If in the DKG state, returns the next DKG action.
 	/// 2. If in the ROAST state, returns the next ROAST action.
 	/// 3. Returns None if no action is available.
-	pub fn next_action(&mut self) -> Option<TssAction<I, P>> {
+	pub fn next_action(&mut self, span: &Span) -> Option<TssAction<P>> {
 		match &mut self.state {
 			// Handle the DKG state
 			TssState::Dkg(dkg) => {
@@ -430,13 +412,13 @@ where
 							public_key_package,
 							signing_sessions: Default::default(),
 						};
-						tracing::info!(parent: &self.span, "ready");
+						tracing::info!(parent: span, "ready");
 						return Some(TssAction::Ready(signing_share, commitment, public_key));
 					},
 					// If the DKG fails, transition to the Failed state
 					DkgAction::Failure(error) => {
 						tracing::error!(
-							parent: &self.span,
+							parent: span,
 							error = field::debug(&error),
 							"dkg failed",
 						);
@@ -450,7 +432,7 @@ where
 				let session_ids: Vec<_> = signing_sessions.keys().cloned().collect();
 				for id in session_ids {
 					let session = signing_sessions.get_mut(&id).unwrap();
-					while let Some(action) = session.next_action() {
+					while let Some(action) = session.next_action(span) {
 						let (peers, send_to_self, msg) = match action {
 							// If the next ROAST action is to send a message to a peer
 							RoastAction::Send(peer, msg) => {
@@ -477,7 +459,7 @@ where
 						};
 						// Handle sending the message to self if needed
 						if send_to_self {
-							session.on_message(self.frost_id, msg.clone());
+							session.on_message(self.frost_id, msg.clone(), span);
 						}
 						// Handle sending the message to peers if needed
 						if !peers.is_empty() {
@@ -487,10 +469,7 @@ where
 									.map(|peer| {
 										(
 											self.frost_to_peer(peer),
-											TssMessage::Roast {
-												id: id.clone(),
-												msg: msg.clone(),
-											},
+											TssMessage::Roast { id, msg: msg.clone() },
 										)
 									})
 									.collect(),

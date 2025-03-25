@@ -1,75 +1,28 @@
-use crate::common::TestEnv;
-use anyhow::{Context, Result};
-use futures::StreamExt;
-use tc_cli::Tc;
-use time_primitives::{Address32, NetworkId};
-use tracing_subscriber::filter::EnvFilter;
+use anyhow::Result;
+use e2e_tests::{Backend, TestEnvBuilder};
 
-mod common;
-
-const SRC: NetworkId = 2;
-const DEST: NetworkId = 3;
-
-async fn run_smoke(tc: &Tc, src_addr: Address32, dest_addr: Address32) -> Result<()> {
-	let mut blockstream = tc.finality_notification_stream();
-	let (hash, start) = blockstream.next().await.context("expected block")?;
-	let gas_limit = tc.estimate_message_gas_limit(DEST, dest_addr, SRC, src_addr, vec![]).await?;
-	let gas_cost = tc.estimate_message_cost(SRC, DEST, gas_limit, vec![], hash).await?;
-
-	let msg_id = tc
-		.send_message(SRC, src_addr, DEST, dest_addr, gas_limit, gas_cost, vec![])
-		.await?;
-
-	let mut id = None;
-	let (exec, end, block_hash) = loop {
-		let (hash, end) = blockstream.next().await.context("expected block")?;
-		let trace = tc.message_trace(SRC, msg_id, hash).await?;
-		let exec = trace.exec.as_ref().map(|t| t.task);
-		tracing::info!(target: "smoke_test", "waiting for message {}", hex::encode(msg_id));
-		id = Some(tc.print_table(id, "message", vec![trace]).await?);
-		if let Some(exec) = exec {
-			break (exec, end, hash);
-		}
-	};
-	let blocks = tc.read_events_blocks(exec, block_hash).await?;
-	let msgs = tc.messages(DEST, dest_addr, blocks).await?;
-	let msg = msgs
-		.into_iter()
-		.find(|msg| msg.message_id() == msg_id)
-		.expect("failed to find message");
-	tc.print_table(None, "message", vec![msg]).await?;
-	tc.println(None, format!("received message after {} blocks", end - start))
-		.await?;
-
+async fn smoke(backend: Backend, shard_size: u16) -> Result<()> {
+	let tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+	tc.smoke_test(vec![42]).await?;
 	Ok(())
 }
 
 #[tokio::test]
-// Resembles tc-cli smoke test
-async fn smoke() -> Result<()> {
-	let filter = EnvFilter::from_default_env()
-		.add_directive("tc_cli=info".parse()?)
-		.add_directive("gmp_evm=info".parse()?)
-		.add_directive("smoke_test=info".parse()?);
-	tracing_subscriber::fmt().with_env_filter(filter).init();
+async fn smoke_evm() -> Result<()> {
+	smoke(Backend::Evm, 1).await
+}
 
-	let env = TestEnv::spawn(true).await.context("Failed to spawn Test Environment")?;
+#[tokio::test]
+async fn smoke_grpc() -> Result<()> {
+	smoke(Backend::Grpc, 1).await
+}
 
-	let testers = env.setup().await.context("failed to setup test")?;
-	let src_addr = testers.get(&SRC).context("tester src contract not found")?.0;
-	let dest_addr = testers.get(&DEST).context("tester dest contract not found")?.0;
+#[tokio::test]
+async fn smoke_grpc_tss() -> Result<()> {
+	smoke(Backend::Grpc, 2).await
+}
 
-	// Run smoke test
-	run_smoke(&env.tc, src_addr, dest_addr).await?;
-
-	// Restart chronicles
-	assert!(env
-		.restart(vec!["chronicle-2-evm", "chronicle-3-evm"])
-		.await
-		.context("Failed to restart chronicles")?);
-
-	// Re-run smoke test: should still work
-	run_smoke(&env.tc, src_addr, dest_addr).await?;
-
-	Ok(())
+#[tokio::test]
+async fn smoke_evm_tss() -> Result<()> {
+	smoke(Backend::Evm, 2).await
 }

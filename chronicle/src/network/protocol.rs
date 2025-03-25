@@ -5,7 +5,7 @@ use futures::{Future, FutureExt, SinkExt};
 use peernet::{Endpoint, NotificationHandler, Protocol, ProtocolHandler};
 use std::pin::Pin;
 use std::time::Duration;
-use tracing::field;
+use tracing::{Level, Span};
 
 pub struct TssEndpoint {
 	endpoint: Endpoint,
@@ -43,7 +43,11 @@ impl NotificationHandler<TssProtocol> for TssProtocolHandler {
 }
 
 impl TssEndpoint {
-	pub async fn new(config: NetworkConfig, tx: mpsc::Sender<(PeerId, Message)>) -> Result<Self> {
+	pub async fn new(
+		config: NetworkConfig,
+		tx: mpsc::Sender<(PeerId, Message)>,
+		span: &Span,
+	) -> Result<Self> {
 		let mut builder = ProtocolHandler::builder();
 		builder.register_notification_handler(TssProtocolHandler::new(tx));
 		let handler = builder.build();
@@ -56,9 +60,11 @@ impl TssEndpoint {
 		builder.relay_map(None);
 		let endpoint = builder.build().await?;
 		let peer_id = endpoint.peer_id();
+		let span =
+			tracing::span!(parent: span, Level::INFO, "network", net_peer_id = peer_id.to_string());
 		loop {
 			tracing::info!(
-				peer_id = field::display(peer_id),
+				parent: &span,
 				"waiting for peer id to be registered",
 			);
 			let addr = match endpoint.resolve(peer_id).await {
@@ -69,13 +75,13 @@ impl TssEndpoint {
 					continue;
 				},
 			};
-			let dbg = endpoint.addr().await?.info;
+			let dbg = endpoint.addr().await?;
 			if addr != dbg {
 				tracing::warn!("addr: {addr:?} != endpoint.addr(): {dbg:?}");
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
-			tracing::info!(peer_id = field::display(peer_id), "peer id registered",);
+			tracing::info!(parent: &span, "peer id registered");
 			break;
 		}
 		Ok(Self { endpoint })

@@ -19,19 +19,19 @@ pub struct ChronicleArgs {
 	#[clap(long)]
 	pub network_id: NetworkId,
 	/// The secret to use for p2p networking.
-	#[clap(long)]
+	#[clap(long, default_value = "/etc/network_keyfile")]
 	pub network_keyfile: PathBuf,
 	/// The address of target chain rpc.
 	#[clap(long)]
 	pub target_url: String,
 	/// key file for connector wallet
-	#[clap(long)]
+	#[clap(long, default_value = "/etc/target_keyfile")]
 	pub target_keyfile: PathBuf,
 	/// Url for timechain node to connect to.
 	#[clap(long)]
 	pub timechain_url: String,
 	/// keyfile having an account with funds for timechain.
-	#[clap(long)]
+	#[clap(long, default_value = "/etc/timechain_keyfile")]
 	pub timechain_keyfile: PathBuf,
 	/// Enables Prometheus exported metrics
 	#[clap(long, default_value_t = true)]
@@ -40,7 +40,7 @@ pub struct ChronicleArgs {
 	#[clap(long, default_value_t = 9090)]
 	pub prometheus_port: u16,
 	/// Location to cache tss keyshares.
-	#[clap(long, default_value = "/tmp")]
+	#[clap(long, default_value = "/etc/tss")]
 	pub tss_keyshare_cache: PathBuf,
 	/// Location of chains dictionary.
 	#[clap(long)]
@@ -49,8 +49,8 @@ pub struct ChronicleArgs {
 	#[clap(long, default_value = "evm")]
 	pub backend: Backend,
 	/// Chronicle db path.
-	#[clap(long, default_value = "cached_tx.redb")]
-	pub tx_db: String,
+	#[clap(long, default_value = "/etc/cached_tx.redb")]
+	pub tx_db: PathBuf,
 }
 
 impl ChronicleArgs {
@@ -69,7 +69,7 @@ impl ChronicleArgs {
 
 fn generate_key(path: &Path) -> Result<()> {
 	let mut seed = [0; 32];
-	getrandom::getrandom(&mut seed)?;
+	getrandom::fill(&mut seed)?;
 	let mnemonic = Mnemonic::from_entropy(&seed)?;
 	std::fs::write(path, mnemonic.to_string())?;
 	Ok(())
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
 
 	if !args.network_keyfile.exists() {
 		let mut secret = [0; 32];
-		getrandom::getrandom(&mut secret)?;
+		getrandom::fill(&mut secret)?;
 		std::fs::write(&args.network_keyfile, secret)?;
 	}
 

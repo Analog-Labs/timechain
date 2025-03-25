@@ -230,18 +230,22 @@ impl TestEnvBuilder {
 		target_url: &str,
 	) -> Result<()> {
 		let chronicle_name = format!("{}-chronicle-{backend}-{network}-{i}", &self.network);
+		let mut cmd = vec![
+			format!("--timechain-url=ws://{}:9944", &self.validator_name),
+			format!("--target-url={target_url}"),
+			format!("--backend={backend}"),
+			format!("--network-id={network}"),
+		];
+		if backend == Backend::Evm {
+			cmd.push("--chain-dict=/etc/chains.json".to_string());
+		}
 		let chronicle = GenericImage::new("analoglabs/chronicle-develop", "latest")
 			.with_exposed_port(8080.tcp())
 			.with_container_name(chronicle_name)
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info")
 			.with_env_var("RUST_BACKTRACE", "1")
-			.with_cmd([
-				format!("--timechain-url=ws://{}:9944", &self.validator_name),
-				format!("--target-url={target_url}"),
-				format!("--backend={backend}"),
-				format!("--network-id={network}"),
-			])
+			.with_cmd(cmd)
 			.start()
 			.await?;
 		let chronicle_host = chronicle.get_host().await?;

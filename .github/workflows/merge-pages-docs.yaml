@@ -32,6 +32,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build contracts
+        uses: ./.github/actions/build-contracts
       - name: Build docs
         uses: ./.github/actions/cargo-command
         with:

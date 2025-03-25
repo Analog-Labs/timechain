@@ -321,7 +321,7 @@ impl TestEnv {
 
 	/// Runs a smoke test
 	pub async fn smoke_test(&self, payload: Vec<u8>) -> Result<GmpMessage> {
-		self.exec_smoke(0, 1, &self.testers, payload).await
+		self.tc.exec_smoke(0, 1, &self.testers, payload).await
 	}
 
 	/// Returns the validator container

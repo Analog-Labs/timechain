@@ -22,7 +22,7 @@ polkadot-sdk = { workspace = true, features = [
     "sp-runtime",
     "sp-std",
 ] }
-hex-literal = "1.0.0"
+hex-literal = { workspace = true }
 secp256k1 = { version = "0.7", features = [
     'hmac',
 ], default-features = false, package = "libsecp256k1" }

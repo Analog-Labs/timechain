@@ -154,7 +154,7 @@ jobs:
           thread_ts: ${{ github.event.inputs.thread }}
           text: "runtime upgrade from ${{ needs.set_tags.outputs.commit_hash8 }}"
     - name: Setup foundry and build GMP contracts
-      uses: ./.github/actions/build-contracts
+      uses: ./.github/actions/build-contracts-tc-cli
     - name: Build tc-cli OCI image and push
       uses: ./.github/actions/buildah-action
       with:

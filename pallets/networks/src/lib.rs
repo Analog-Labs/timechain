@@ -37,7 +37,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
+		Address32, CctpContracts, CctpUrl, ChainName, ChainNetwork, Network, NetworkConfig,
 		NetworkId, NetworksInterface, TasksInterface,
 	};
 
@@ -78,7 +78,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Network registered.
-		NetworkRegistered(NetworkId, Address, u64),
+		NetworkRegistered(NetworkId, Address32, u64),
 		/// Network config changed.
 		NetworkConfigChanged(NetworkId, NetworkConfig),
 	}
@@ -108,7 +108,7 @@ pub mod pallet {
 	/// Map storage for network gateways.
 	#[pallet::storage]
 	pub type NetworkGatewayAddress<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, Address, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, Address32, OptionQuery>;
 
 	#[pallet::storage]
 	pub type NetworkGatewayBlock<T: Config> =
@@ -322,7 +322,7 @@ pub mod pallet {
 			NetworkName::<T>::iter().map(|(n, _)| n).collect()
 		}
 
-		fn gateway(network: NetworkId) -> Option<Address> {
+		fn gateway(network: NetworkId) -> Option<Address32> {
 			NetworkGatewayAddress::<T>::get(network)
 		}
 

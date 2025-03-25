@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_big_array::Array;
 use time_primitives::{
-	Address, BatchId, Gateway, GatewayMessage, GmpEvent, GmpMessage, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	Address32 as Address, BatchId, GatewayMessage, GmpEvent, GmpMessage, MessageId, NetworkId,
+	Route, TssPublicKey, TssSignature,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -50,7 +50,7 @@ pub struct BlockStreamResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct ReadEventsRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 	pub start_block: u64,
 	pub end_block: u64,
 }
@@ -62,7 +62,7 @@ pub struct ReadEventsResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct SubmitCommandsRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 	pub batch: BatchId,
 	pub msg: GatewayMessage,
 	#[serde(with = "time_primitives::serde_tss_public_key")]
@@ -97,7 +97,7 @@ pub struct RedeployGatewayResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct AdminRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -107,7 +107,7 @@ pub struct AdminResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct SetAdminRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 	pub admin: Address,
 }
 
@@ -116,7 +116,7 @@ pub struct SetAdminResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct ShardsRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -126,7 +126,7 @@ pub struct ShardsResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct SetShardsRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 	pub shards: Vec<Array<u8, 33>>,
 }
 
@@ -135,7 +135,7 @@ pub struct SetShardsResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct RoutesRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -145,7 +145,7 @@ pub struct RoutesResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct SetRouteRequest {
-	pub gateway: Gateway,
+	pub gateway: Address,
 	pub route: Route,
 }
 

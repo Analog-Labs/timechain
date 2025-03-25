@@ -1,4 +1,4 @@
-use crate::{Address, Gateway};
+use crate::Address32;
 use anyhow::{anyhow, Result};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
@@ -18,12 +18,12 @@ pub struct ChainName(pub BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct ChainNetwork(pub BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub struct CctpContracts(pub BoundedVec<Address, ConstU32<MAX_CCTP_ADDRESSES>>);
+pub struct CctpContracts(pub BoundedVec<Address32, ConstU32<MAX_CCTP_ADDRESSES>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct CctpUrl(pub BoundedVec<u8, ConstU32<MAX_CCTP_URL_LEN>>);
 
 impl CctpContracts {
-	pub fn push_unique(&mut self, new_contract: Address) -> Result<(), anyhow::Error> {
+	pub fn push_unique(&mut self, new_contract: Address32) -> Result<(), anyhow::Error> {
 		if !self.0.contains(&new_contract) {
 			self.0
 				.try_push(new_contract)
@@ -38,7 +38,7 @@ pub struct Network {
 	pub id: NetworkId,
 	pub chain_name: ChainName,
 	pub chain_network: ChainNetwork,
-	pub gateway: Gateway,
+	pub gateway: Address32,
 	pub gateway_block: u64,
 	pub config: NetworkConfig,
 }
@@ -59,14 +59,14 @@ pub struct NetworkConfig {
 impl TryFrom<Vec<String>> for CctpContracts {
 	type Error = anyhow::Error;
 	fn try_from(contracts: Vec<String>) -> Result<Self> {
-		let addresses: Result<Vec<Address>> = contracts
+		let addresses: Result<Vec<Address32>> = contracts
 			.into_iter()
 			.map(|addr_str| {
 				let clean = addr_str.trim().trim_start_matches("0x");
 				let bytes = hex::decode(clean).map_err(|_| {
 					anyhow::anyhow!("Unable to decode hex for address: {}", addr_str)
 				})?;
-				let address: Address = bytes.try_into().map_err(|_| {
+				let address: Address32 = bytes.try_into().map_err(|_| {
 					anyhow!("Unable to convert bytes to address format for: {}", addr_str)
 				})?;
 				Ok(address)

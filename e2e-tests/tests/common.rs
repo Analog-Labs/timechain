@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::process;
 use tc_cli::{Sender, Tc};
-use time_primitives::{Address, NetworkId};
+use time_primitives::{Address32, NetworkId};
 
 pub struct TestEnv {
 	pub tc: Tc,
@@ -34,7 +34,7 @@ impl TestEnv {
 	}
 
 	/// sets up test
-	pub async fn setup(&self) -> Result<HashMap<NetworkId, (Address, u64)>> {
+	pub async fn setup(&self) -> Result<HashMap<NetworkId, (Address32, u64)>> {
 		self.tc.setup_test().await
 	}
 

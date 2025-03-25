@@ -2,9 +2,10 @@ config:
   chronicle_funds: 10.
   timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
+  evm_chains_dict: "auxiliary/chains.json"
 contracts:
   evm:
-    additional_params: "factory/additional_config.json"
+    factory: "auxiliary/factory.json"
     proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"

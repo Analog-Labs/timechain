@@ -127,7 +127,7 @@ sp_api::decl_runtime_apis! {
 
 	pub trait NetworksApi {
 		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
-		fn get_gateway(network: NetworkId) -> Option<Gateway>;
+		fn get_gateway(network: NetworkId) -> Option<Address32>;
 		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts>;
 		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl>;
 	}
@@ -158,7 +158,7 @@ sp_api::decl_runtime_apis! {
 
 pub trait NetworksInterface {
 	fn get_networks() -> Vec<NetworkId>;
-	fn gateway(network: NetworkId) -> Option<Address>;
+	fn gateway(network: NetworkId) -> Option<Address32>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
 	fn batch_gas_limit(network: NetworkId) -> u128;
 	fn shard_task_limit(network: NetworkId) -> u32;

@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
+	GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
 	ShardStatus, Task, TaskId, TaskResult,
 };
 
@@ -70,13 +70,13 @@ pub trait Runtime: Send + Sync + 'static {
 		block: BlockHash,
 	) -> Result<Option<GatewayMessage>>;
 
-	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>>;
+	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Address32>>;
 
 	async fn get_cctp_info(
 		&self,
 		network: NetworkId,
 		block: BlockHash,
-	) -> Result<Option<(Vec<Address>, String)>>;
+	) -> Result<Option<(Vec<Address32>, String)>>;
 
 	async fn submit_heartbeat(&self) -> Result<()>;
 
@@ -190,7 +190,7 @@ impl Runtime for SubxtClient {
 		self.task_submitter(task_id, block).await
 	}
 
-	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Gateway>> {
+	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Address32>> {
 		self.network_gateway(network, block).await
 	}
 
@@ -198,7 +198,7 @@ impl Runtime for SubxtClient {
 		&self,
 		network: NetworkId,
 		block: BlockHash,
-	) -> Result<Option<(Vec<Address>, String)>> {
+	) -> Result<Option<(Vec<Address32>, String)>> {
 		let contracts_opt = self.get_cctp_contracts(network, block).await?;
 		let url_opt = self.get_cctp_url(network, block).await?;
 

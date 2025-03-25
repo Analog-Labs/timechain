@@ -24,11 +24,9 @@ impl ConnectorWrapper {
 	pub async fn new(network: NetworkId, db: &Path) -> Result<Self> {
 		let connector = Connector::new(ConnectorParams {
 			network_id: network,
-			blockchain: "rust".into(),
-			network: network.to_string(),
 			url: db.to_str().unwrap().to_string(),
 			mnemonic: String::new(),
-			chain_dict: None,
+			chain_dict: Default::default(),
 		})
 		.await?;
 		Ok(Self { connector })

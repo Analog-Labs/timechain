@@ -229,7 +229,7 @@ mod tests {
 	use scale_codec::Encode;
 	use std::time::Duration;
 	use time_primitives::traits::IdentifyAccount;
-	use time_primitives::{AccountId, BlockHash, ChainName, ChainNetwork, ShardStatus, Task};
+	use time_primitives::{AccountId, BlockHash, ChainName, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
 	///
@@ -293,10 +293,7 @@ mod tests {
 
 		let mock = Mock::default().instance(42);
 		let block: BlockHash = BlockHash::from([0u8; 32]);
-		let network_id = mock.create_network(
-			ChainName(BoundedVec::truncate_from("rust".encode())),
-			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
-		);
+		let network_id = mock.create_network(ChainName(BoundedVec::truncate_from("rust".encode())));
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..n {
 			let instance = mock.instance(id as u8);
@@ -356,10 +353,7 @@ mod tests {
 
 		let mock = Mock::default().instance(42);
 		let block: BlockHash = BlockHash::from([0u8; 32]);
-		let network_id = mock.create_network(
-			ChainName(BoundedVec::truncate_from("rust".encode())),
-			ChainNetwork(BoundedVec::truncate_from("rust".encode())),
-		);
+		let network_id = mock.create_network(ChainName(BoundedVec::truncate_from("rust".encode())));
 		let mut shutdown = vec![];
 		// Spawn multiple threads to run the Chronicle application.
 		for id in 0..3 {

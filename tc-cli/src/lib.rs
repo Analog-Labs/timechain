@@ -13,9 +13,9 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
-	BlockNumber, CctpContracts, CctpUrl, ChainName, ChainNetwork, ConnectorParams,
-	GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus,
-	MessageId, NetworkConfig, PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	BlockNumber, CctpContracts, CctpUrl, ChainName, ChainNetwork, ConnectorParams, GatewayMessage,
+	GmpEvent, GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
+	PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 
 mod benchmark;
@@ -75,14 +75,13 @@ impl Tc {
 		{
 			let mut connector_futures = FuturesUnordered::new();
 			for (id, network) in config.networks() {
+				let backend = config.backend(network)?;
 				let id = *id;
 				let params = ConnectorParams {
 					network_id: id,
-					blockchain: network.blockchain.clone(),
-					network: network.network.clone(),
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
-					chain_dict: Some(config.chains_dict()),
+					chain_dict: backend.chain_dict,
 				};
 				let connector = async move {
 					loop {
@@ -775,7 +774,6 @@ impl Tc {
 }
 
 impl Tc {
-<<<<<<< HEAD
 	fn network_config(&self, network: NetworkId) -> Result<NetworkConfig> {
 		let config = self.config.network(network)?;
 		let (cctp_url, cctp_contracts) = if let (Some(cctp_url), Some(cctp_contracts)) =
@@ -833,7 +831,6 @@ impl Tc {
 				.register_network(time_primitives::Network {
 					id: network,
 					chain_name: ChainName(BoundedVec::truncate_from(config.blockchain.encode())),
-					chain_network: ChainNetwork(BoundedVec::truncate_from(config.network.encode())),
 					gateway,
 					gateway_block: block,
 					config: self.network_config(network)?,

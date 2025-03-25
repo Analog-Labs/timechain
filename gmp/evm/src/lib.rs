@@ -97,17 +97,7 @@ impl IConnectorBuilder for Connector {
 		let provider = Arc::new(ProviderBuilder::new().wallet(signer.clone()).on_ws(ws).await?);
 
 		let chain_id = provider.get_chain_id().await?;
-		let dict = match params.chain_dict.map(dict::load) {
-			Some(Ok(d)) => d,
-			Some(Err(e)) => {
-				tracing::warn!("Failed to load EVM chains dictionary (using default): {e}");
-				Default::default()
-			},
-			_ => {
-				tracing::warn!("No path for EVM chains dictionary provided, using default");
-				Default::default()
-			},
-		};
+		let dict = dict::load(&params.chain_dict).context("invalid chain dict")?;
 		let currency = dict.get(&chain_id).map(|c| c.currency.clone()).unwrap_or_default();
 
 		Ok(Self {

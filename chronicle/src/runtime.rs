@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use futures::stream::BoxStream;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId,
-	ShardStatus, Task, TaskId, TaskResult,
+	AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, Commitment, GatewayMessage,
+	MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Task,
+	TaskId, TaskResult,
 };
 
 #[async_trait]
@@ -22,11 +22,7 @@ pub trait Runtime: Send + Sync + 'static {
 
 	async fn is_registered(&self, block: BlockHash) -> Result<bool>;
 
-	async fn get_network(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<Option<(ChainName, ChainNetwork)>>;
+	async fn get_network(&self, network: NetworkId, block: BlockHash) -> Result<Option<ChainName>>;
 
 	async fn get_member_peer_id(
 		&self,
@@ -112,11 +108,7 @@ impl Runtime for SubxtClient {
 		Ok(self.member_registered(self.account_id(), block).await?)
 	}
 
-	async fn get_network(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<Option<(ChainName, ChainNetwork)>> {
+	async fn get_network(&self, network: NetworkId, block: BlockHash) -> Result<Option<ChainName>> {
 		self.network_name(network, block).await
 	}
 

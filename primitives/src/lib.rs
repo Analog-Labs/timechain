@@ -126,7 +126,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	pub trait NetworksApi {
-		fn get_network(network_id: NetworkId) -> Option<(ChainName, ChainNetwork)>;
+		fn get_network(network_id: NetworkId) -> Option<ChainName>;
 		fn get_gateway(network: NetworkId) -> Option<Address32>;
 		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts>;
 		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl>;

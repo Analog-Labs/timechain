@@ -1,20 +1,16 @@
 use crate::Address32;
-use anyhow::{anyhow, Result};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
 pub const CHAIN_NAME_LEN: u32 = 50;
-pub const CHAIN_NET_LEN: u32 = 50;
 pub const MAX_CCTP_ADDRESSES: u32 = 50;
 pub const MAX_CCTP_URL_LEN: u32 = 200;
 
 pub type NetworkId = u16;
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct ChainName(pub BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>);
-#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub struct ChainNetwork(pub BoundedVec<u8, ConstU32<CHAIN_NET_LEN>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct CctpContracts(pub BoundedVec<Address32, ConstU32<MAX_CCTP_ADDRESSES>>);
 #[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -24,7 +20,6 @@ pub struct CctpUrl(pub BoundedVec<u8, ConstU32<MAX_CCTP_URL_LEN>>);
 pub struct Network {
 	pub id: NetworkId,
 	pub chain_name: ChainName,
-	pub chain_network: ChainNetwork,
 	pub gateway: Address32,
 	pub gateway_block: u64,
 	pub config: NetworkConfig,

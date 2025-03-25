@@ -1,6 +1,6 @@
 use anyhow::Result;
 use serde::Deserialize;
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 type ChainDict = HashMap<u64, Chain>;
 
@@ -30,9 +30,7 @@ impl Default for Currency {
 	}
 }
 
-pub(crate) fn load(path: PathBuf) -> Result<ChainDict> {
-	let json = std::fs::read_to_string(path)?;
-	let chains: Vec<Chain> = serde_json::from_str(&json)?;
-
+pub(crate) fn load(data: &[u8]) -> Result<ChainDict> {
+	let chains: Vec<Chain> = serde_json::from_slice(data)?;
 	Ok(chains.into_iter().map(|c| (c.chain_id, c)).collect::<_>())
 }

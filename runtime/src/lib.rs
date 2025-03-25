@@ -149,10 +149,10 @@ use sp_runtime::generic;
 use sp_std::prelude::*;
 
 pub use time_primitives::{
-	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork, Commitment,
-	ErrorMsg, GatewayMessage, Header, MemberStatus, MembersInterface, Moment, NetworkId,
-	NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature,
-	Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG, MICROANLOG, MILLIANLOG,
+	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, Commitment, ErrorMsg,
+	GatewayMessage, Header, MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface,
+	Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId,
+	TaskResult, TssPublicKey, TssSignature, ANLOG, MICROANLOG, MILLIANLOG,
 };
 
 // A few exports that help ease life for downstream crates.

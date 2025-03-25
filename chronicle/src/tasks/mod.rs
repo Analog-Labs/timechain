@@ -223,7 +223,6 @@ impl TaskExecutor {
 			tracing::info!(parent: &span, "task started");
 
 			let exec = self.params.clone();
-<<<<<<< HEAD
 			let span2 = span.clone();
 			let handle = tokio::task::spawn(async move {
 				let _enter = span2.enter();
@@ -250,34 +249,6 @@ impl TaskExecutor {
 					},
 				};
 			});
-=======
-			let handle = tokio::task::spawn(
-				async move {
-					match exec
-						.execute(
-							block_hash,
-							block_number,
-							cctp_info,
-							network,
-							gateway,
-							shard_id,
-							task_id,
-							task,
-						)
-						.await
-					{
-						Ok(()) => {
-							tracing::info!(task_id, target_block_height, "task completed");
-						},
-						Err(error) => {
-							*total_failed.lock().await += 1;
-							tracing::error!(task_id, target_block_height, ?error, "task failed");
-						},
-					};
-				}
-				.instrument(span),
-			);
->>>>>>> origin/development
 			start_sessions.push(task_id);
 			self.running_tasks.insert(task_id, handle);
 		}

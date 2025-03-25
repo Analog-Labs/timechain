@@ -106,32 +106,38 @@ impl Config {
 		&self.yaml.chronicles
 	}
 
-	pub fn contracts(&self, network: NetworkId) -> Result<Contracts> {
+	pub fn backend(&self, network: NetworkId) -> Result<BackendData> {
 		let network = self.network(network)?;
-		Ok(if let Some(contracts) = self.yaml.contracts.get(&network.backend) {
-			Contracts {
+		Ok(if let Some(backend) = self.yaml.backends.get(&network.backend) {
+			Backend {
 				proxy: {
-					let path = self.relative_path(&contracts.proxy);
+					let path = self.relative_path(&backend.proxy);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read proxy contract from {}", path.display())
 					})?
 				},
 				gateway: {
-					let path = self.relative_path(&contracts.gateway);
+					let path = self.relative_path(&backend.gateway);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read gateway contract from {}", path.display())
 					})?
 				},
 				tester: {
-					let path = self.relative_path(&contracts.tester);
+					let path = self.relative_path(&backend.tester);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read tester contract from {}", path.display())
 					})?
 				},
 				factory: {
-					let path = self.relative_path(&contracts.factory);
+					let path = self.relative_path(&backend.factory);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read additional params from {}", path.display())
+					})?
+				},
+				chains_dict: {
+					let path = self.relative_path(&backend.chain_dict);
+					std::fs::read(&path).with_context(|| {
+						format!("failed to read chain dict from {}", path.display())
 					})?
 				},
 			}
@@ -170,26 +176,27 @@ pub struct ConfigYaml {
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	pub prices_path: PathBuf,
-	evm_chains_dict: PathBuf,
 	pub chronicle_funds: String,
 	pub timechain_url: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ContractsConfig {
+pub struct BackendConfig {
 	pub factory: PathBuf,
 	pub proxy: PathBuf,
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
+	pub chains_dict: PathBuf,
 }
 
 #[derive(Default)]
-pub struct Contracts {
+pub struct BackendData {
 	pub factory: Vec<u8>,
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,
+	pub chains_dict: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

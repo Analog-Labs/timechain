@@ -102,7 +102,7 @@ polkadot-sdk = { workspace = true, features = [
 ] }
 
 # node's rpc dependencies
-jsonrpsee = { version = "0.24.9", features = [ "server" ] }
+jsonrpsee = { version = "0.23.2", features = [ "server" ] }
 
 # node's local dependencies
 time-primitives.workspace = true
@@ -118,6 +118,7 @@ pallet-tasks = { workspace = true, optional = true }
 
 # HASHI Bridge
 eth-bridge = { workspace = true, optional = true }
+deranged = "=0.4.0"
 
 [build-dependencies]
 clap.workspace = true

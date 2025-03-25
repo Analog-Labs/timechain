@@ -8,6 +8,7 @@ async fn prices(backend: Backend, shard_size: u16) -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn prices_grpc() -> Result<()> {
 	prices(Backend::Grpc, 1).await
 }

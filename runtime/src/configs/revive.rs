@@ -4,7 +4,7 @@
 use crate::*;
 use frame_support::{parameter_types, traits::Everything};
 use pallet_revive::Config;
-use sp_runtime::Perbill;
+use sp_runtime::{traits::ConstU32, Perbill};
 use time_primitives::{MICROANLOG, MILLIANLOG};
 
 parameter_types! {
@@ -13,15 +13,6 @@ parameter_types! {
 
 	// Gas limit for PolkaVM execution
 	pub const BlockGasLimit: u64 = 15_000_000;
-
-	// Maximum size of code that can be deployed
-	pub const MaxCodeLen: u32 = 128 * 1024; // 128 KB
-
-	// Maximum amount of static memory a contract can use
-	pub const RuntimeMemory: u32 = 16 * 1024 * 1024; // 16 MB
-
-	// Maximum size of immutable data that can be stored
-	pub const PVFMemory: u32 = 1024 * 1024; // 1 MB
 
 	// Deposit per byte for storing contract code
 	pub const DepositPerByte: Balance = 100 * MICROANLOG; // 100 micro units
@@ -48,13 +39,16 @@ impl Config for Runtime {
 	type DepositPerItem = DepositPerItem;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type AddressGenerator = pallet_revive::DefaultAddressGenerator;
-	type MaxCodeLen = MaxCodeLen;
+	type MaxCodeLen = ConstU32<{ 123 * 1024 }>; // 123 KB
+	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
+	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>; // Disable unsafe interfaces
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
-	type Migrations = (); // No migrations
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_revive::migration::codegen::BenchMigrations;
 	type Debug = (); // No debugging
 	type Xcm = (); // No XCM integration
-	type RuntimeMemory = RuntimeMemory;
-	type PVFMemory = PVFMemory;
 }

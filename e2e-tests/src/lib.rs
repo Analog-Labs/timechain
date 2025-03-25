@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use tc_cli::{
-	config::{ConfigYaml, BackendConfig, GlobalConfig, NetworkConfig},
+	config::{BackendConfig, ConfigYaml, GlobalConfig, NetworkConfig},
 	Config, Mnemonics, NetworkId, Sender, Tc,
 };
 use tempfile::TempDir;
@@ -12,7 +12,7 @@ use testcontainers::{
 	runners::AsyncRunner,
 	GenericImage, ImageExt,
 };
-use time_primitives::{Address, GmpMessage};
+use time_primitives::{Address32, GmpMessage};
 use tracing_subscriber::filter::EnvFilter;
 
 pub type Container = ContainerAsync<GenericImage>;
@@ -88,16 +88,15 @@ impl TestEnvBuilder {
 					backends.insert(
 						Backend::Evm,
 						BackendConfig {
-							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json")
-							additional_params: workspace
-								.join("gmp/evm/auxiliary/factory.json"),
+							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json"),
+							factory: workspace.join("gmp/evm/auxiliary/factory.json"),
 							proxy: workspace
 								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
 							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
 							tester: workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
 						},
 					);
-					contracts
+					backends
 				},
 				networks: Default::default(),
 				chronicles: Default::default(),
@@ -302,17 +301,17 @@ pub struct TestEnv {
 	chains: HashMap<NetworkId, Container>,
 	chronicles: HashMap<NetworkId, Vec<Container>>,
 	tc: Tc,
-	testers: HashMap<NetworkId, (Address, u64)>,
+	testers: HashMap<NetworkId, (Address32, u64)>,
 }
 
 impl TestEnv {
 	/// Returns the testers
-	pub fn testers(&self) -> &HashMap<NetworkId, (Address, u64)> {
+	pub fn testers(&self) -> &HashMap<NetworkId, (Address32, u64)> {
 		&self.testers
 	}
 
 	/// Returns the tester.
-	pub fn tester(&self, network: NetworkId) -> Result<Address> {
+	pub fn tester(&self, network: NetworkId) -> Result<Address32> {
 		Ok(self.testers.get(&network).context("missing tester")?.0)
 	}
 

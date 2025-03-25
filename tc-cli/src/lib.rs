@@ -808,28 +808,27 @@ impl Tc {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
 		let backend = self.config.backend(network)?;
-		let gateway = if let Some(gateway) =
-			self.runtime.network_gateway(network, block_hash).await?
-		{
-			self.set_network_config(network, block_hash).await?;
-			gateway
-		} else {
-			self.println(None, format!("deploying gateway {network}")).await?;
-			let (gateway, block) = connector
-				.deploy_gateway(&backend.factory, &backend.proxy, &backend.gateway)
-				.await?;
-			self.println(None, format!("register_network {network}")).await?;
-			self.runtime
-				.register_network(time_primitives::Network {
-					id: network,
-					chain_name: ChainName(BoundedVec::truncate_from(config.blockchain.encode())),
-					gateway,
-					gateway_block: block,
-					config: self.network_config(network)?,
-				})
-				.await?;
-			gateway
-		};
+		let gateway =
+			if let Some(gateway) = self.runtime.network_gateway(network, block_hash).await? {
+				self.set_network_config(network, block_hash).await?;
+				gateway
+			} else {
+				self.println(None, format!("deploying gateway {network}")).await?;
+				let (gateway, block) = connector
+					.deploy_gateway(&backend.factory, &backend.proxy, &backend.gateway)
+					.await?;
+				self.println(None, format!("register_network {network}")).await?;
+				self.runtime
+					.register_network(time_primitives::Network {
+						id: network,
+						chain_name: ChainName(BoundedVec::truncate_from(config.name.encode())),
+						gateway,
+						gateway_block: block,
+						config: self.network_config(network)?,
+					})
+					.await?;
+				gateway
+			};
 		Ok(gateway)
 	}
 

@@ -199,8 +199,7 @@ pub struct BackendData {
 #[serde(deny_unknown_fields)]
 pub struct NetworkConfig {
 	pub backend: Backend,
-	pub blockchain: String,
-	pub network: String,
+	pub name: String,
 	pub url: String,
 	pub admin_funds: Option<String>,
 	pub gateway_funds: String,

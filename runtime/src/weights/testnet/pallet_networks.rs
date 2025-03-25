@@ -73,7 +73,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// The range of component `b` is `[1, 50]`.
 	/// The range of component `c` is `[1, 50]`.
 	/// The range of component `d` is `[1, 200]`.
-	fn register_network(_a: u32, _b: u32, ) -> Weight {
+	fn register_network(_a: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `189`
 		//  Estimated: `3654`

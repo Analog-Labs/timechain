@@ -50,7 +50,7 @@ impl Config for Runtime {
 	type AddressGenerator = pallet_revive::DefaultAddressGenerator;
 	type MaxCodeLen = MaxCodeLen;
 	type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>; // Disable unsafe interfaces
-	type UploadOrigin = frame_system::EnsureRootWithSuccess<AccountId>;
+	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 	type Migrations = (); // No migrations
 	type Debug = (); // No debugging

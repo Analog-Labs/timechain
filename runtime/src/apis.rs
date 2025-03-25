@@ -258,6 +258,14 @@ impl_runtime_apis! {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
 		}
 
+		fn member_total_balance(member: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(member)
+		}
+
+		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
+		}
+
 		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
 			NominationPools::api_pool_pending_slash(pool_id)
 		}

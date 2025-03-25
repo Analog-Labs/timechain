@@ -43,7 +43,11 @@ impl SubxtClient {
 		Ok(self.client.storage().at(block).fetch(&storage_query).await?.is_some())
 	}
 
-	pub async fn is_heartbeat_submitted(&self, account: &AccountId, block: BlockHash) -> Result<bool> {
+	pub async fn is_heartbeat_submitted(
+		&self,
+		account: &AccountId,
+		block: BlockHash,
+	) -> Result<bool> {
 		let block = H256(block.0);
 		let account = subxt::utils::Static(account.clone());
 		let storage_query = metadata::storage().members().heartbeat(account);

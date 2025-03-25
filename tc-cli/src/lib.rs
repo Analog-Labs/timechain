@@ -13,9 +13,9 @@ use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
 	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
-	BlockNumber, CctpContracts, CctpUrl, ChainName, ChainNetwork, ConnectorParams, GatewayMessage,
-	GmpEvent, GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig,
-	PeerId, PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	BlockNumber, CctpContracts, CctpUrl, ChainName, ConnectorParams, GatewayMessage, GmpEvent,
+	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId,
+	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
 };
 
 mod benchmark;
@@ -75,13 +75,13 @@ impl Tc {
 		{
 			let mut connector_futures = FuturesUnordered::new();
 			for (id, network) in config.networks() {
-				let backend = config.backend(network)?;
+				let backend = config.backend(*id)?;
 				let id = *id;
 				let params = ConnectorParams {
 					network_id: id,
 					url: network.url.clone(),
 					mnemonic: env.target_mnemonic.clone(),
-					chain_dict: backend.chain_dict,
+					chain_dict: backend.chain_dict.clone(),
 				};
 				let connector = async move {
 					loop {
@@ -320,7 +320,6 @@ impl Tc {
 pub struct Network {
 	pub network: NetworkId,
 	pub chain_name: String,
-	pub chain_network: String,
 	pub info: Option<NetworkInfo>,
 }
 
@@ -491,15 +490,13 @@ impl Tc {
 		let network_ids = self.runtime.networks(block_hash).await?;
 		let mut networks = vec![];
 		for network in network_ids {
-			let (chain_name, chain_network) = self
+			let chain_name = self
 				.runtime
 				.network_name(network, block_hash)
 				.await?
 				.context("invalid network")?;
 			let chain_name =
 				String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
-			let chain_network =
-				String::decode(&mut chain_network.0.to_vec().as_slice()).unwrap_or_default();
 			let info = match self.gateway(network, block_hash).await {
 				Ok((connector, gateway)) => {
 					let gateway_balance = connector.balance(gateway).await?;
@@ -519,12 +516,7 @@ impl Tc {
 				},
 				Err(_) => None,
 			};
-			networks.push(Network {
-				network,
-				chain_name,
-				chain_network,
-				info,
-			});
+			networks.push(Network { network, chain_name, info });
 		}
 		Ok(networks)
 	}
@@ -815,7 +807,7 @@ impl Tc {
 	) -> Result<Address32> {
 		let connector = self.connector(network)?;
 		let config = self.config.network(network)?;
-		let contracts = self.config.contracts(network)?;
+		let backend = self.config.backend(network)?;
 		let gateway = if let Some(gateway) =
 			self.runtime.network_gateway(network, block_hash).await?
 		{
@@ -824,7 +816,7 @@ impl Tc {
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
 			let (gateway, block) = connector
-				.deploy_gateway(&contracts.factory, &contracts.proxy, &contracts.gateway)
+				.deploy_gateway(&backend.factory, &backend.proxy, &backend.gateway)
 				.await?;
 			self.println(None, format!("register_network {network}")).await?;
 			self.runtime
@@ -1135,11 +1127,9 @@ impl Tc {
 
 	pub async fn redeploy_gateway(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		let contracts = self.config.contracts(network)?;
+		let backend = self.config.backend(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
-		connector
-			.redeploy_gateway(&contracts.factory, gateway, &contracts.gateway)
-			.await?;
+		connector.redeploy_gateway(&backend.factory, gateway, &backend.gateway).await?;
 		Ok(())
 	}
 
@@ -1148,10 +1138,10 @@ impl Tc {
 		network: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<(Address32, u64)> {
-		let contracts = self.config.contracts(network)?;
+		let backend = self.config.backend(network)?;
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
-		let tester = connector.deploy_test(gateway, &contracts.tester).await?;
+		let tester = connector.deploy_test(gateway, &backend.tester).await?;
 		self.println(
 			Some(id),
 			format!(
@@ -1566,7 +1556,7 @@ impl Tc {
 		Ok(msg)
 	}
 
-	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: Address) -> Result<()> {
+	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: Address32) -> Result<()> {
 		self.config
 			.add_cctp_contract(network, self.format_address(Some(network), contract)?)
 	}

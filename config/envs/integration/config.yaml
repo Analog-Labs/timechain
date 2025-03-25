@@ -2,9 +2,9 @@ config:
   chronicle_funds: 10.
   timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
-  evm_chains_dict: "auxiliary/chains.json"
-contracts:
+backends:
   evm:
+    chain_dict: "auxiliary/chains.json"
     factory: "auxiliary/factory.json"
     proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
@@ -12,8 +12,7 @@ contracts:
 networks:
   10:
     backend: "evm"
-    blockchain: "ethereum"
-    network: "sepolia"
+    name: "ethereum sepolia"
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
     chronicle_funds: .1
@@ -29,8 +28,7 @@ networks:
     coin_id: 1027
   11:
     backend: "evm"
-    blockchain: "astar"
-    network: "shibuya"
+    name: "astar shibuya"
     url: "wss://rpc.shibuya.astar.network"
     gateway_funds: 1.
     chronicle_funds: .1
@@ -46,8 +44,7 @@ networks:
     coin_id: 12885
   12:
     backend: "evm"
-    blockchain: "binance"
-    network: "testnet"
+    name: "binance testnet"
     url: "wss://bsc-testnet-rpc.publicnode.com"
     gateway_funds: 1.
     chronicle_funds: .1
@@ -63,8 +60,7 @@ networks:
     coin_id: 1839
   13:
     backend: "evm"
-    blockchain: "arbitrum"
-    network: "sepolia"
+    name: "arbitrum sepolia"
     url: "wss://arbitrum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
     chronicle_funds: .1

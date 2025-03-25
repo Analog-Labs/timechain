@@ -13,7 +13,6 @@ pub trait IntoRow {
 pub struct NetworkEntry {
 	network: NetworkId,
 	chain_name: String,
-	chain_network: String,
 	gateway: String,
 	gateway_balance: String,
 	admin: String,
@@ -47,7 +46,6 @@ impl IntoRow for Network {
 		Ok(NetworkEntry {
 			network: self.network,
 			chain_name: self.chain_name,
-			chain_network: self.chain_network,
 			gateway,
 			gateway_balance,
 			admin,

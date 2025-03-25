@@ -75,7 +75,7 @@ impl TssEndpoint {
 					continue;
 				},
 			};
-			let dbg = endpoint.addr().await?.info;
+			let dbg = endpoint.addr().await?;
 			if addr != dbg {
 				tracing::warn!("addr: {addr:?} != endpoint.addr(): {dbg:?}");
 				tokio::time::sleep(Duration::from_secs(1)).await;

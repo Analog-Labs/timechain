@@ -92,6 +92,7 @@ impl TaskParams {
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
+		span: Span,
 	) -> Result<()> {
 		let span = span!(
 			parent: &span,

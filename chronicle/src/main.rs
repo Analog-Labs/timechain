@@ -69,7 +69,7 @@ impl ChronicleArgs {
 
 fn generate_key(path: &Path) -> Result<()> {
 	let mut seed = [0; 32];
-	getrandom::getrandom(&mut seed)?;
+	getrandom::fill(&mut seed)?;
 	let mnemonic = Mnemonic::from_entropy(&seed)?;
 	std::fs::write(path, mnemonic.to_string())?;
 	Ok(())
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
 
 	if !args.network_keyfile.exists() {
 		let mut secret = [0; 32];
-		getrandom::getrandom(&mut secret)?;
+		getrandom::fill(&mut secret)?;
 		std::fs::write(&args.network_keyfile, secret)?;
 	}
 

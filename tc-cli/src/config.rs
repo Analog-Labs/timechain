@@ -94,10 +94,6 @@ impl Config {
 		Ok(())
 	}
 
-	pub fn chains_dict(&self) -> PathBuf {
-		self.relative_path(&self.yaml.config.evm_chains_dict)
-	}
-
 	pub fn global(&self) -> &GlobalConfig {
 		&self.yaml.config
 	}
@@ -109,7 +105,7 @@ impl Config {
 	pub fn backend(&self, network: NetworkId) -> Result<BackendData> {
 		let network = self.network(network)?;
 		Ok(if let Some(backend) = self.yaml.backends.get(&network.backend) {
-			Backend {
+			BackendData {
 				proxy: {
 					let path = self.relative_path(&backend.proxy);
 					std::fs::read(&path).with_context(|| {
@@ -134,7 +130,7 @@ impl Config {
 						format!("failed to read additional params from {}", path.display())
 					})?
 				},
-				chains_dict: {
+				chain_dict: {
 					let path = self.relative_path(&backend.chain_dict);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read chain dict from {}", path.display())
@@ -142,7 +138,7 @@ impl Config {
 				},
 			}
 		} else {
-			Contracts::default()
+			BackendData::default()
 		})
 	}
 
@@ -167,7 +163,7 @@ impl Config {
 #[serde(deny_unknown_fields)]
 pub struct ConfigYaml {
 	pub config: GlobalConfig,
-	pub contracts: HashMap<Backend, ContractsConfig>,
+	pub backends: HashMap<Backend, BackendConfig>,
 	pub networks: HashMap<NetworkId, NetworkConfig>,
 	pub chronicles: Vec<String>,
 }
@@ -187,7 +183,7 @@ pub struct BackendConfig {
 	pub proxy: PathBuf,
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
-	pub chains_dict: PathBuf,
+	pub chain_dict: PathBuf,
 }
 
 #[derive(Default)]
@@ -196,7 +192,7 @@ pub struct BackendData {
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,
-	pub chains_dict: Vec<u8>,
+	pub chain_dict: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

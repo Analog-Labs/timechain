@@ -132,27 +132,25 @@ pub async fn run_chronicle(
 	let span = tracing::span!(Level::INFO, "run_chronicle");
 	let mut ticker = substrate.finality_notification_stream();
 	// Initialize connector
-	let (chain, subchain) = loop {
+	let chain = loop {
 		let Some((hash, _)) = ticker.next().await else { continue };
-		let network = substrate.get_network(config.network_id, hash).await?;
-		if let Some(network) = network {
-			break network;
+		let name = substrate.get_network(config.network_id, hash).await?;
+		if let Some(name) = name {
+			break String::decode(&mut name.0.to_vec().as_slice()).unwrap_or_default();
 		}
 		tracing::warn!(parent: &span, "network {} isn't registered", config.network_id);
 	};
-	let (tss_tx, tss_rx) = mpsc::channel(10);
-	let blockchain = String::decode(&mut chain.0.to_vec().as_slice()).unwrap_or_default();
-	let network = String::decode(&mut subchain.0.to_vec().as_slice()).unwrap_or_default();
+	tracing::info!(parent: &span, "joining network {chain}");
 
-	let chain_dict = match config.backend {
-		Backend::Evm => config.chain_dict,
-		_ => None,
+	let (tss_tx, tss_rx) = mpsc::channel(10);
+
+	let chain_dict = match config.chain_dict.as_deref() {
+		Some(path) => std::fs::read(path)?,
+		None => Default::default(),
 	};
 
 	let connector_params = ConnectorParams {
 		network_id: config.network_id,
-		blockchain,
-		network,
 		url: config.target_url,
 		mnemonic: config.target_mnemonic,
 		chain_dict,

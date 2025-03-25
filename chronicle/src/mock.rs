@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use time_primitives::traits::IdentifyAccount;
 use time_primitives::{
-	sr25519, AccountId, Address, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
-	Commitment, Gateway, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge,
-	PublicKey, ShardId, ShardStatus, Task, TaskId, TaskResult,
+	sr25519, AccountId, Address32, BatchId, BlockHash, BlockNumber, ChainName, ChainNetwork,
+	Commitment, GatewayMessage, MemberStatus, NetworkId, PeerId, ProofOfKnowledge, PublicKey,
+	ShardId, ShardStatus, Task, TaskId, TaskResult,
 };
 use tokio::time::Duration;
 use tss::{sum_commitments, VerifiableSecretSharingCommitment, VerifyingKey};
@@ -220,7 +220,7 @@ impl Runtime for Mock {
 		&self,
 		_network: NetworkId,
 		_: BlockHash,
-	) -> Result<Option<(Vec<Address>, String)>> {
+	) -> Result<Option<(Vec<Address32>, String)>> {
 		Ok(None)
 	}
 
@@ -317,7 +317,7 @@ impl Runtime for Mock {
 		Ok(batches.get(&batch).map(|b| b.message.clone()))
 	}
 
-	async fn get_gateway(&self, _network: NetworkId, _: BlockHash) -> Result<Option<Gateway>> {
+	async fn get_gateway(&self, _network: NetworkId, _: BlockHash) -> Result<Option<Address32>> {
 		Ok(Some([0; 32]))
 	}
 

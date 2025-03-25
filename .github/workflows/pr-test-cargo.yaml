@@ -1,4 +1,4 @@
-name: Run all except e2e tests
+name: Run tests
 on:
   pull_request:
     paths:
@@ -29,7 +29,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
+      - name: Build contracts
+        uses: ./.github/actions/build-contracts
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:

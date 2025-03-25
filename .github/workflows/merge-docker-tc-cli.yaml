@@ -45,7 +45,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup foundry and build GMP contracts
-        uses: ./.github/actions/build-contracts
+        uses: ./.github/actions/build-contracts-tc-cli
       - name: Build and push
         uses: ./.github/actions/buildah-action
         with:

@@ -42,6 +42,9 @@ pub struct ChronicleArgs {
 	/// Location to cache tss keyshares.
 	#[clap(long, default_value = "/etc/tss")]
 	pub tss_keyshare_cache: PathBuf,
+	/// Location of chains dictionary.
+	#[clap(long)]
+	pub chain_dict: Option<PathBuf>,
 	/// Gmp backend to use.
 	#[clap(long, default_value = "evm")]
 	pub backend: Backend,
@@ -59,6 +62,7 @@ impl ChronicleArgs {
 			target_mnemonic,
 			tss_keyshare_cache: self.tss_keyshare_cache,
 			backend: self.backend,
+			chain_dict: self.chain_dict,
 		})
 	}
 }

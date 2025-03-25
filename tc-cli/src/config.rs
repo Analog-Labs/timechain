@@ -94,6 +94,10 @@ impl Config {
 		Ok(())
 	}
 
+	pub fn chains_dict(&self) -> PathBuf {
+		self.relative_path(&self.yaml.config.evm_chains_dict)
+	}
+
 	pub fn global(&self) -> &GlobalConfig {
 		&self.yaml.config
 	}
@@ -124,8 +128,8 @@ impl Config {
 						format!("failed to read tester contract from {}", path.display())
 					})?
 				},
-				additional_params: {
-					let path = self.relative_path(&contracts.additional_params);
+				factory: {
+					let path = self.relative_path(&contracts.factory);
 					std::fs::read(&path).with_context(|| {
 						format!("failed to read additional params from {}", path.display())
 					})?
@@ -166,6 +170,7 @@ pub struct ConfigYaml {
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	pub prices_path: PathBuf,
+	evm_chains_dict: PathBuf,
 	pub chronicle_funds: String,
 	pub timechain_url: String,
 }
@@ -173,7 +178,7 @@ pub struct GlobalConfig {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContractsConfig {
-	pub additional_params: PathBuf,
+	pub factory: PathBuf,
 	pub proxy: PathBuf,
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
@@ -181,7 +186,7 @@ pub struct ContractsConfig {
 
 #[derive(Default)]
 pub struct Contracts {
-	pub additional_params: Vec<u8>,
+	pub factory: Vec<u8>,
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,

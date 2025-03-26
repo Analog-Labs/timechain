@@ -3,7 +3,7 @@
 set -e
 set -x
 
-RUSTFLAGS=""
+RUSTFLAGS="${RUSTFLAGS:-}"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 WORKSPACE_ROOT=$SCRIPT_DIR/../
@@ -19,7 +19,7 @@ docker info > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'docker', please st
 rustup -V > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'rustup' for compile the binaries"; exit 1; }
 
 if command -v lld 2>&1 >/dev/null; then
-	RUSTFLAGS="-C link-arg=-fuse-ld=lld ${RUSTFLAGS:-}"
+    RUSTFLAGS="-C link-arg=-fuse-ld=lld ${RUSTFLAGS}"
 fi
 
 # Detect host architecture
@@ -74,9 +74,11 @@ if ! rustup target list | grep -q "$rustTarget"; then
   rustup target add "$rustTarget"
 fi
 
+export RUSTFLAGS
+
 # Build docker image
 forge build --root analog-gmp
-RUSTFLAGS=$RUSTFLAGS cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
+cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
 mkdir -p $WORKSPACE_ROOT/target/docker/chronicle

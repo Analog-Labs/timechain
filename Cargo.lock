@@ -21318,7 +21318,6 @@ dependencies = [
  "clap_complete",
  "convert_case 0.8.0",
  "deranged",
- "eth-bridge",
  "futures",
  "hex-literal 1.0.0",
  "jsonrpsee",

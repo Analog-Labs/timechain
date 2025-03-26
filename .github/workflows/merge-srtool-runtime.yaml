@@ -98,7 +98,7 @@ jobs:
           BUILD_OPTS: --features ${{ matrix.features }}
         with:
           image: analoglabs/srtool
-          tag: 1.79.0
+          tag: 1.83.0
           chain: timechain
           runtime_dir: runtime
       - name: Srtool summary

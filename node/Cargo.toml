@@ -38,6 +38,7 @@ tracing.workspace = true
 
 bincode = "1.3.3"
 convert_case = "0.8.0"
+deranged = "=0.4.0"
 hex-literal.workspace = true
 secp256k1 = { version = "0.7", features = [
 	'hmac',
@@ -114,10 +115,6 @@ pallet-members = { workspace = true, optional = true }
 pallet-shards = { workspace = true, optional = true }
 pallet-tasks = { workspace = true, optional = true }
 
-# HASHI Bridge
-eth-bridge = { workspace = true, optional = true }
-deranged = "=0.4.0"
-
 [build-dependencies]
 clap.workspace = true
 
@@ -136,10 +133,7 @@ default = [ "std" ]
 std = [
 	"scale-codec/std",
 	"polkadot-sdk/std",
-	"eth-bridge?/std"
 ]
-# Enable bridge code
-bridge = [ "eth-bridge" ]
 # Runtime variants
 testnet = [
 	"time-primitives/testnet",

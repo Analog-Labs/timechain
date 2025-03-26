@@ -424,7 +424,7 @@ dependencies = [
  "cfg-if",
  "const-hex",
  "derive_more 0.99.19",
- "hex-literal 0.4.1",
+ "hex-literal",
  "itoa",
  "proptest",
  "rand 0.8.5",
@@ -5023,7 +5023,7 @@ dependencies = [
  "ethabi",
  "ethabi-derive",
  "ethereum-types 0.15.1",
- "hex-literal 1.0.0",
+ "hex-literal",
  "jsonrpc-core",
  "libsecp256k1",
  "log",
@@ -6267,7 +6267,7 @@ dependencies = [
  "async-trait",
  "futures",
  "hex",
- "hex-literal 1.0.0",
+ "hex-literal",
  "reqwest",
  "serde",
  "serde_json",
@@ -6546,12 +6546,6 @@ name = "hex-literal"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
-
-[[package]]
-name = "hex-literal"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcaaec4551594c969335c98c903c1397853d4198408ea609190f420500f6be71"
 
 [[package]]
 name = "hickory-proto"
@@ -8701,7 +8695,7 @@ dependencies = [
  "ed25519-dalek",
  "futures",
  "futures-timer",
- "hex-literal 0.4.1",
+ "hex-literal",
  "indexmap 2.8.0",
  "libc",
  "mockall 0.12.1",
@@ -12757,7 +12751,7 @@ version = "15.0.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.8-anlog0#ce46b551d7c619615cac0c4cf96b23f8ed87bbc6"
 dependencies = [
  "bitvec",
- "hex-literal 0.4.1",
+ "hex-literal",
  "log",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -13244,7 +13238,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
- "hex-literal 0.4.1",
+ "hex-literal",
  "is_executable",
  "kvdb",
  "log",
@@ -14770,7 +14764,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.4.1",
+ "hex-literal",
  "log",
  "pallet-asset-rate",
  "pallet-authority-discovery",
@@ -17586,7 +17580,7 @@ dependencies = [
  "ethabi-decode",
  "frame-support",
  "frame-system",
- "hex-literal 0.4.1",
+ "hex-literal",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -17609,7 +17603,7 @@ dependencies = [
  "ethabi-decode",
  "ethbloom 0.13.0",
  "ethereum-types 0.14.1",
- "hex-literal 0.4.1",
+ "hex-literal",
  "parity-bytes",
  "parity-scale-codec",
  "rlp",
@@ -17668,7 +17662,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.4.1",
+ "hex-literal",
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -17690,7 +17684,7 @@ name = "snowbridge-pallet-ethereum-client-fixtures"
 version = "0.17.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.8-anlog0#ce46b551d7c619615cac0c4cf96b23f8ed87bbc6"
 dependencies = [
- "hex-literal 0.4.1",
+ "hex-literal",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "sp-core",
@@ -17707,7 +17701,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.4.1",
+ "hex-literal",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -17730,7 +17724,7 @@ name = "snowbridge-pallet-inbound-queue-fixtures"
 version = "0.17.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.8-anlog0#ce46b551d7c619615cac0c4cf96b23f8ed87bbc6"
 dependencies = [
- "hex-literal 0.4.1",
+ "hex-literal",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "sp-core",
@@ -17785,7 +17779,7 @@ version = "0.15.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.15.8-anlog0#ce46b551d7c619615cac0c4cf96b23f8ed87bbc6"
 dependencies = [
  "frame-support",
- "hex-literal 0.4.1",
+ "hex-literal",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -20003,7 +19997,7 @@ dependencies = [
  "deranged",
  "eth-bridge",
  "futures",
- "hex-literal 1.0.0",
+ "hex-literal",
  "jsonrpsee 0.23.2",
  "libsecp256k1",
  "log",
@@ -20028,7 +20022,6 @@ dependencies = [
  "env_logger 0.11.7",
  "eth-bridge",
  "eth-bridge-runtime-api",
- "hex-literal 1.0.0",
  "log",
  "pallet-airdrop",
  "pallet-dmail",
@@ -21606,7 +21599,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "hex-literal 0.4.1",
+ "hex-literal",
  "log",
  "pallet-asset-rate",
  "pallet-authority-discovery",

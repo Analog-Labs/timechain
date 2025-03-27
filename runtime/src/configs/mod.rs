@@ -11,7 +11,5 @@ pub mod staking;
 pub mod tokenomics;
 pub mod utilities;
 
-#[cfg(not(feature = "testnet"))]
-pub mod bridge;
 #[cfg(feature = "testnet")]
 pub mod custom;

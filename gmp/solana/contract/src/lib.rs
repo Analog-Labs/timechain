@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 
+mod constants;
 mod errors;
 mod state;
 
+use constants::*;
 use errors::*;
 use state::*;
 
@@ -66,14 +68,21 @@ mod gateway {
 		Ok(())
 	}
 
+	pub fn set_route(ctx: Context<SetRoute>, route: NetworkInfo) -> Result<()> {
+		Ok(())
+	}
+
 	// excuted by user
-	pub fn submit_message(ctx: Context<Initialize>, msg: GmpMessage) -> Result<()> {
-		msg!("gmp executed: {:?}", msg);
+	pub fn submit_message(_ctx: Context<SubmitMessage>, msg: GmpMessage) -> Result<()> {
+		require_gt!(MAX_PAYLOAD_SIZE, msg.bytes.len() as u128, GatewayError::MsgTooLarge);
+		let msg_id = msg.message_id();
+		let gmp_created_event = GmpCreated { msg_id, msg };
+		emit!(gmp_created_event);
 		Ok(())
 	}
 
 	// excuted by chronicles
-	pub fn execute_batch(ctx: Context<Initialize>) -> Result<()> {
+	pub fn execute_batch(_ctx: Context<ExecuteBatch>) -> Result<()> {
 		Ok(())
 	}
 }

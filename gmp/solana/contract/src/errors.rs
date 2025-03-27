@@ -10,4 +10,6 @@ pub enum GatewayError {
 	Unauthorized,
 	#[msg("Too much shards to register")]
 	ShardsLengthExceedLimit,
+	#[msg("Msg size too large")]
+	MsgTooLarge,
 }

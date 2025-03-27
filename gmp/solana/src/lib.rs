@@ -21,18 +21,17 @@ use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
 use time_primitives::{
-	Address, BatchId, ConnectorParams, Gateway, GatewayMessage, GmpEvent, GmpMessage, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, IChain, IConnector,
+	IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-fn a_addr(address: Address) -> Pubkey {
+fn a_addr(address: Address32) -> Pubkey {
 	Pubkey::new_from_array(address)
 }
 
-fn t_addr(pubkey: Pubkey) -> Address {
+fn t_addr(pubkey: Pubkey) -> Address32 {
 	pubkey.to_bytes()
 }
 
@@ -84,10 +83,10 @@ impl IConnectorBuilder for Connector {
 
 #[async_trait]
 impl IChain for Connector {
-	fn format_address(&self, address: Address) -> String {
+	fn format_address(&self, address: Address32) -> String {
 		a_addr(address).to_string()
 	}
-	fn parse_address(&self, address: &str) -> Result<Address> {
+	fn parse_address(&self, address: &str) -> Result<Address32> {
 		let pubkey: Pubkey = address.parse()?;
 		Ok(t_addr(pubkey))
 	}
@@ -97,7 +96,7 @@ impl IChain for Connector {
 	fn network_id(&self) -> NetworkId {
 		self.network_id
 	}
-	fn address(&self) -> Address {
+	fn address(&self) -> Address32 {
 		t_addr(self.wallet.pubkey())
 	}
 	async fn faucet(&self, balance: u128) -> Result<()> {
@@ -105,13 +104,13 @@ impl IChain for Connector {
 		self.client.request_airdrop(&self.wallet.pubkey(), balance as u64).await?;
 		Ok(())
 	}
-	async fn transfer(&self, address: Address, amount: u128) -> Result<()> {
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
 		let instruction =
 			system_instruction::transfer(&self.wallet.pubkey(), &a_addr(address), amount as u64);
 		self.send_transaction(instruction).await
 	}
 
-	async fn balance(&self, address: Address) -> Result<u128> {
+	async fn balance(&self, address: Address32) -> Result<u128> {
 		let balance = self.client.get_balance(&a_addr(address)).await?;
 		Ok(balance as u128)
 	}
@@ -159,7 +158,7 @@ impl IConnectorAdmin for Connector {
 		_additional_params: &[u8],
 		_proxy: &[u8],
 		gateway: &[u8],
-	) -> Result<(Address, u64)> {
+	) -> Result<(Address32, u64)> {
 		let program_keypair = Keypair::new();
 		let program_pubkey = program_keypair.pubkey();
 		let lamports = self.client.get_minimum_balance_for_rent_exemption(gateway.len()).await?;
@@ -209,7 +208,7 @@ impl IConnectorAdmin for Connector {
 	async fn redeploy_gateway(
 		&self,
 		_additional_params: &[u8],
-		proxy: Address,
+		proxy: Address32,
 		gateway: &[u8],
 	) -> Result<()> {
 		let pubkey = a_addr(proxy);
@@ -238,39 +237,39 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn admin(&self, _gateway: Address) -> Result<Address> {
+	async fn admin(&self, _gateway: Address32) -> Result<Address32> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn set_admin(&self, _gateway: Address, _admin: Address) -> Result<()> {
+	async fn set_admin(&self, _gateway: Address32, _admin: Address32) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn shards(&self, _gateway: Address) -> Result<Vec<TssPublicKey>> {
+	async fn shards(&self, _gateway: Address32) -> Result<Vec<TssPublicKey>> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn set_shards(&self, _gateway: Address, _keys: &[TssPublicKey]) -> Result<()> {
+	async fn set_shards(&self, _gateway: Address32, _keys: &[TssPublicKey]) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn routes(&self, _gateway: Address) -> Result<Vec<Route>> {
+	async fn routes(&self, _gateway: Address32) -> Result<Vec<Route>> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn set_route(&self, _gateway: Address, _route: Route) -> Result<()> {
+	async fn set_route(&self, _gateway: Address32, _route: Route) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn deploy_test(&self, _gateway: Address, _tester: &[u8]) -> Result<(Address, u64)> {
+	async fn deploy_test(&self, _gateway: Address32, _tester: &[u8]) -> Result<(Address32, u64)> {
 		todo!("Not supported")
 	}
 
 	async fn estimate_message_gas_limit(
 		&self,
-		_contract: Address,
+		_contract: Address32,
 		_src_network: NetworkId,
-		_src: Address,
+		_src: Address32,
 		_payload: Vec<u8>,
 	) -> Result<u128> {
 		// Not supported
@@ -279,7 +278,7 @@ impl IConnectorAdmin for Connector {
 
 	async fn estimate_message_cost(
 		&self,
-		_gateway: Address,
+		_gateway: Address32,
 		_dest_network: NetworkId,
 		_gas_limit: u128,
 		_payload: Vec<u8>,
@@ -291,9 +290,9 @@ impl IConnectorAdmin for Connector {
 
 	async fn send_message(
 		&self,
-		_src: Address,
+		_src: Address32,
 		_dest_network: NetworkId,
-		_dest: Address,
+		_dest: Address32,
 		_gas_limit: u128,
 		_gas_cost: u128,
 		_payload: Vec<u8>,
@@ -303,7 +302,7 @@ impl IConnectorAdmin for Connector {
 
 	async fn recv_messages(
 		&self,
-		_contract: Address,
+		_contract: Address32,
 		_blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
 		todo!("Need gateway implementation")
@@ -324,9 +323,9 @@ impl IConnectorAdmin for Connector {
 
 	async fn withdraw_funds(
 		&self,
-		_gateway: Address,
+		_gateway: Address32,
 		_amount: u128,
-		_address: Address,
+		_address: Address32,
 	) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
@@ -336,9 +335,9 @@ impl IConnectorAdmin for Connector {
 impl IConnector for Connector {
 	async fn read_events(
 		&self,
-		gateway: Gateway,
+		gateway: Address32,
 		blocks: Range<u64>,
-		_cctp_info: Option<(Vec<Address>, String)>,
+		_cctp_info: Option<(Vec<Address32>, String)>,
 	) -> Result<Vec<GmpEvent>> {
 		// 1. Get signatures with slot-based pagination
 		let program_id = a_addr(gateway);
@@ -426,7 +425,7 @@ impl IConnector for Connector {
 	}
 	async fn submit_commands(
 		&self,
-		_gateway: Gateway,
+		_gateway: Address32,
 		_batch: BatchId,
 		_msg: GatewayMessage,
 		_signer: TssPublicKey,

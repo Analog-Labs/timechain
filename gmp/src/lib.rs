@@ -33,6 +33,7 @@ impl std::fmt::Display for Backend {
 			Self::Evm => "evm",
 			Self::Grpc => "grpc",
 			Self::Rust => "rust",
+			Self::Solana => "solana",
 		};
 		f.write_str(backend)
 	}

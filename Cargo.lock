@@ -21355,7 +21355,6 @@ dependencies = [
  "pallet-shards",
  "pallet-tasks",
  "pallet-timegraph",
- "pallet-validators",
  "parity-scale-codec",
  "polkadot-sdk",
  "primitive-types 0.13.1",

@@ -78,7 +78,7 @@ export RUSTFLAGS
 
 # Build docker image
 forge build --root analog-gmp
-cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
+cargo zigbuild -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
 mkdir -p $WORKSPACE_ROOT/target/docker/chronicle

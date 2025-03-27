@@ -44,8 +44,11 @@ use crate::RuntimeGenesisConfig;
 use crate::{Members, Networks, Shards, Tasks};
 
 // HASHI Bridge
+#[cfg(not(feature = "testnet"))]
 use crate::configs::bridge::NetworkId as BridgeNetworkId;
+#[cfg(not(feature = "testnet"))]
 use crate::EthBridge;
+#[cfg(not(feature = "testnet"))]
 use eth_bridge::{
 	common::{AssetId as BridgeAssetId, BalancePrecision as BridgeBalancePrecision},
 	offchain::SignatureParams as BridgeSignatureParams,
@@ -54,6 +57,7 @@ use eth_bridge::{
 		RequestStatus as BridgeRequestStatus,
 	},
 };
+#[cfg(not(feature = "testnet"))]
 use sp_runtime::DispatchError;
 
 // Original Author: ntn-x2 @ KILTprotocol
@@ -423,6 +427,7 @@ impl_runtime_apis! {
 
 	// Temporary APIs to be removed again
 
+	#[cfg(not(feature = "testnet"))]
 	impl
 		eth_bridge_runtime_api::EthBridgeRuntimeApi<
 			Block,

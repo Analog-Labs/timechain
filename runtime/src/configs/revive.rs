@@ -8,12 +8,6 @@ use sp_runtime::{traits::ConstU32, Perbill};
 use time_primitives::{MICROANLOG, MILLIANLOG};
 
 parameter_types! {
-	// Chain ID for Ethereum compatibility
-	pub const ChainId: u64 = 2046; // TODO UPDATE
-
-	// Gas limit for PolkaVM execution
-	pub const BlockGasLimit: u64 = 15_000_000;
-
 	// Deposit per byte for storing contract code
 	pub const DepositPerByte: Balance = 100 * MICROANLOG; // 100 micro units
 

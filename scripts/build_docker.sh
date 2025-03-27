@@ -3,6 +3,8 @@
 set -e
 set -x
 
+RUSTFLAGS="${RUSTFLAGS:-}"
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 WORKSPACE_ROOT=$SCRIPT_DIR/../
 cd $WORKSPACE_ROOT
@@ -15,6 +17,10 @@ docker info > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'docker', please st
 
 # Check for 'rustup' and abort if it is not available.
 rustup -V > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'rustup' for compile the binaries"; exit 1; }
+
+if command -v lld 2>&1 >/dev/null; then
+    RUSTFLAGS="-C link-arg=-fuse-ld=lld ${RUSTFLAGS}"
+fi
 
 # Detect host architecture
 case "$(uname -m)" in
@@ -67,6 +73,8 @@ if ! rustup target list | grep -q "$rustTarget"; then
   echo "Installing the musl target with rustup '$rustTarget'"
   rustup target add "$rustTarget"
 fi
+
+export RUSTFLAGS
 
 # Build docker image
 forge build --root analog-gmp

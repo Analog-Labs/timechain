@@ -9,16 +9,15 @@ use time_primitives::{MICROANLOG, MILLIANLOG};
 
 parameter_types! {
 	// Deposit per byte for storing contract code
-	pub const DepositPerByte: Balance = 100 * MICROANLOG; // 100 micro units
+	pub const DepositPerByte: Balance = 100 * MICROANLOG;
 
 	// Deposit per storage item
-	pub const DepositPerItem: Balance = MILLIANLOG; // 1 milli unit
+	pub const DepositPerItem: Balance = MILLIANLOG;
 
 	// Percentage of code hash deposit that is locked
 	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
 
-/// Configure the pallet-revive module.
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;

@@ -1,8 +1,9 @@
 use alloy::{
+	network::{AnyHeader, AnyNetwork, AnyRpcBlock},
 	providers::{EthGetBlockParams, Provider, ProviderCall},
 	rpc::{
 		json_rpc::{RpcRecv, RpcSend},
-		types::{Block, Header},
+		types::Header,
 	},
 };
 use futures::{FutureExt, Stream};
@@ -35,7 +36,7 @@ enum StateMachine<P: RpcSend, R: RpcRecv> {
 /// Statistics to dynamically adjust the polling interval.
 struct Statistics {
 	/// Latest known finalized block.
-	best_finalized_block: Option<Header>,
+	best_finalized_block: Option<Header<AnyHeader>>,
 	/// Incremented the best finalized block is parent of the new block.
 	/// Ex: if the best known finalized block is 100, and the new block is 101.
 	new: u32,
@@ -53,7 +54,7 @@ struct Statistics {
 
 impl Statistics {
 	/// Updates the statistics with the new finalized block.
-	fn on_finalized_block(&mut self, new_block: &Header) -> bool {
+	fn on_finalized_block(&mut self, new_block: &Header<AnyHeader>) -> bool {
 		let Some(best_finalized_block) = self.best_finalized_block.as_ref() else {
 			self.best_finalized_block = Some(new_block.clone());
 			return true;
@@ -112,22 +113,22 @@ impl Statistics {
 
 /// A stream which emits new blocks finalized blocks, it also guarantees new finalized blocks are
 /// monotonically increasing.
-pub struct FinalizedBlockStream<P: Provider> {
+pub struct FinalizedBlockStream<P: Provider<AnyNetwork>> {
 	/// Ethereum RPC backend.
 	provider: P,
 	/// Controls the polling interval for checking for new finalized blocks.
 	statistics: Statistics,
 	/// Latest known finalized block and the timestamp when it was received.
-	best_finalized_block: Option<(Block, Instant)>,
+	best_finalized_block: Option<(AnyRpcBlock, Instant)>,
 	/// State machine that controls fetching the latest finalized block.
-	state: Option<StateMachine<EthGetBlockParams, Option<Block>>>,
+	state: Option<StateMachine<EthGetBlockParams, Option<AnyRpcBlock>>>,
 	/// Count of consecutive errors.
 	consecutive_errors: u32,
 }
 
 impl<P> FinalizedBlockStream<P>
 where
-	P: Provider + Send + 'static,
+	P: Provider<AnyNetwork> + Send + 'static,
 {
 	pub fn new(provider: P) -> Self {
 		Self {
@@ -149,9 +150,9 @@ where
 
 impl<P> Stream for FinalizedBlockStream<P>
 where
-	P: Provider + Unpin + Send + 'static,
+	P: Provider<AnyNetwork> + Unpin + Send + 'static,
 {
-	type Item = Block;
+	type Item = AnyRpcBlock;
 
 	#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 	fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

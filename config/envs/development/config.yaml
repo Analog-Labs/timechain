@@ -4,141 +4,83 @@ config:
   prices_path: 'prices.csv'
 backends:
   evm:
-    chain_dict: "auxiliary/chains.json"
+    chain_dict: "auxilary/chains.json"
     factory: "auxiliary/factory.json"
     proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"
 networks:
-  # 0:
-  #   backend: "grpc"
-  #   name: "grpc-1"
-  #   url: "https://gmp-grpc-1.development.analog.one:443"
-  #   admin_funds: 100.
-  #   gateway_funds: 10.
-  #   chronicle_funds: 10.
-  #   batch_size: 64
-  #   batch_offset: 0
-  #   batch_gas_limit: 10000
-  #   shard_task_limit: 50
-  #   route_gas_limit: 10000
-  #   route_base_fee: 10000
-  #   gmp_margin: 0.1
-  #   shard_size: 1
-  #   shard_threshold: 1
-  #   coin_id: 825
-
-  # 1:
-  #   backend: "grpc"
-  #   name: "grpc-2"
-  #   url: "https://gmp-grpc-2.development.analog.one:443"
-  #   admin_funds: 100.
-  #   gateway_funds: 10.
-  #   chronicle_funds: 10.
-  #   batch_size: 64
-  #   batch_offset: 0
-  #   batch_gas_limit: 10000
-  #   shard_task_limit: 50
-  #   route_gas_limit: 10000
-  #   route_base_fee: 10000
-  #   gmp_margin: 0.1
-  #   shard_size: 1
-  #   shard_threshold: 1
-  #   coin_id: 825
-
-  # 2:
-  #   backend: "grpc"
-  #   name: "grpc-1"
-  #   url: "https://gmp-grpc-3.development.analog.one:443"
-  #   admin_funds: 100.
-  #   gateway_funds: 10.
-  #   chronicle_funds: 10.
-  #   batch_size: 64
-  #   batch_offset: 0
-  #   batch_gas_limit: 10000
-  #   shard_task_limit: 50
-  #   route_gas_limit: 10000
-  #   route_base_fee: 10000
-  #   gmp_margin: 0.1
-  #   shard_size: 3
-  #   shard_threshold: 2
-  #   coin_id: 825
-
-  # 3:
-  #   backend: "grpc"
-  #   name: "grpc-2"
-  #   url: "https://gmp-grpc-4.development.analog.one:443"
-  #   admin_funds: 100.
-  #   gateway_funds: 10.
-  #   chronicle_funds: 10.
-  #   batch_size: 64
-  #   batch_offset: 0
-  #   batch_gas_limit: 10000
-  #   shard_task_limit: 50
-  #   route_gas_limit: 10000
-  #   route_base_fee: 10000
-  #   gmp_margin: 0.1
-  #   shard_size: 3
-  #   shard_threshold: 2
-  #   coin_id: 825
-
-  # 4:
-  #   backend: "evm"
-  #   name: "ethereum"
-  #   url: "wss://ethereum-sepolia-rpc.publicnode.com"
-  #   admin_funds: 0
-  #   gateway_funds: 1.
-  #   chronicle_funds: .3
-  #   batch_size: 32
-  #   batch_offset: 0
-  #   batch_gas_limit: 350000
-  #   gmp_margin: 0.0
-  #   shard_task_limit: 100
-  #   route_gas_limit: 10000000
-  #   route_base_fee: 1400000000
-  #   shard_size: 1
-  #   shard_threshold: 1
-  #   coin_id: 1027
-  #   # cctp_contracts:
-  #   # - "000000000000000000000000F804E7B9bf2a1644c490c87Fdb18642ef329601C"
-  #   # - "000000000000000000000000D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
-  #   # cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
-
-  5:
-    backend: "evm"
-    name: "astar"
-    url: "wss://rpc.shibuya.astar.network" # mixHash empty
-    admin_funds: 0
+  0:
+    backend: "grpc"
+    name: "grpc-1"
+    url: "https://gmp-grpc-1.development.analog.one:443"
+    admin_funds: 10.
     gateway_funds: 1.
     chronicle_funds: .1
-    batch_size: 32
+    batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 350000
-    gmp_margin: 0.0
+    batch_gas_limit: 10000
     shard_task_limit: 50
-    route_gas_limit: 10000000
-    route_base_fee: 1400000000
+    route_gas_limit: 10000
+    route_base_fee: 10000
+    gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
-    coin_id: 12885
+    coin_id: 825
 
-  # 6:
-  #   backend: "evm"
-  #   name: "ethereum-dev"
-  #   url: "wss://eth-local.development.analog.one"
-  #   admin_funds: 100.
-  #   gateway_funds: 1.
-  #   chronicle_funds: .1
-  #   batch_size: 256
-  #   batch_offset: 0
-  #   batch_gas_limit: 350000
-  #   gmp_margin: 0.0
-  #   shard_task_limit: 100
-  #   route_gas_limit: 10000000
-  #   route_base_fee: 1400000000
-  #   shard_size: 1
-  #   shard_threshold: 1
-  #   coin_id: 1027
+  1:
+    backend: "grpc"
+    name: "grpc-2"
+    url: "https://gmp-grpc-2.development.analog.one:443"
+    admin_funds: 10.
+    gateway_funds: 1.
+    chronicle_funds: .1
+    batch_size: 64
+    batch_offset: 0
+    batch_gas_limit: 10000
+    shard_task_limit: 50
+    route_gas_limit: 10000
+    route_base_fee: 10000
+    gmp_margin: 0.1
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 825
+
+  2:
+    backend: "evm"
+    name: "evm-1"
+    url: "wss://eth-local.development.analog.one"
+    admin_funds: 10.
+    gateway_funds: 1.
+    chronicle_funds: .1
+    batch_size: 64
+    batch_offset: 0
+    batch_gas_limit: 10000
+    shard_task_limit: 50
+    route_gas_limit: 10000
+    route_base_fee: 10000
+    gmp_margin: 0.1
+    shard_size: 3
+    shard_threshold: 2
+    coin_id: 825
+
+  3:
+    backend: "evm"
+    name: "evm-2"
+    url: "wss://eth-local.development.analog.one"
+    admin_funds: 10.
+    gateway_funds: 1.
+    chronicle_funds: .1
+    batch_size: 64
+    batch_offset: 0
+    batch_gas_limit: 10000
+    shard_task_limit: 50
+    route_gas_limit: 10000
+    route_base_fee: 10000
+    gmp_margin: 0.1
+    shard_size: 3
+    shard_threshold: 2
+    coin_id: 825
 
 chronicles:
 - https://chronicle-1.development.analog.one

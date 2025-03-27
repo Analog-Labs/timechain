@@ -64,10 +64,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Storage: `Tasks::TaskNetwork` (r:0 w:1)
 	/// Proof: `Tasks::TaskNetwork` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 50]`.
-	/// The range of component `b` is `[1, 50]`.
-	/// The range of component `a` is `[1, 50]`.
-	/// The range of component `b` is `[1, 50]`.
-	fn register_network(a: u32, b: u32, ) -> Weight {
+	fn register_network(a: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `118`
 		//  Estimated: `3583`

@@ -36,9 +36,6 @@ jobs:
           - image: prod
             profile: mainnet
             features: default
-          - image: bridge
-            profile: mainnet
-            features: bridge
           - image: staging
             profile: mainnet
             features: develop

@@ -31,6 +31,7 @@ pub struct TestEnvBuilder {
 
 impl TestEnvBuilder {
 	pub async fn new() -> Result<Self> {
+		let validator_port = pick_free_port()?;
 		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
 		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
 
@@ -47,6 +48,7 @@ impl TestEnvBuilder {
 		let validator_name = format!("{network}-validator");
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
+			.with_mapped_port(validator_port, testcontainers::core::ContainerPort::Tcp(9944))
 			.with_container_name(validator_name.clone())
 			.with_network(network.clone())
 			.with_cmd([
@@ -64,7 +66,6 @@ impl TestEnvBuilder {
 			.start()
 			.await?;
 		let validator_host = validator.get_host().await?;
-		let validator_port = validator.get_host_port_ipv4(9944).await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
 		let workspace =
 			Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).parent().unwrap().to_path_buf();
@@ -352,4 +353,10 @@ impl DerefMut for TestEnv {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.tc
 	}
+}
+
+fn pick_free_port() -> Result<u16> {
+	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+	let port = listener.local_addr()?.port();
+	Ok(port)
 }

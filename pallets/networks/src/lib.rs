@@ -193,7 +193,6 @@ pub mod pallet {
 			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network.id, network.id);
 			NetworkName::<T>::insert(network.id, network.chain_name.clone());
-			Self::insert_network_config(network.id, network.config.clone())?;
 			let current_gateway = NetworkGatewayAddress::<T>::get(network.id);
 			if Some(network.gateway) != current_gateway {
 				NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
@@ -205,6 +204,7 @@ pub mod pallet {
 					network.gateway_block,
 				));
 			}
+			Self::insert_network_config(network.id, network.config.clone())?;
 			Ok(())
 		}
 

@@ -94,7 +94,7 @@ build_image () {
 	mkdir -p $CONTEXT
 	if ! cmp -s $TARGET "$CONTEXT/$1"; then
 		cp $TARGET $CONTEXT
-		docker build $CONTEXT -f $WORKSPACE_ROOT"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
+		docker build --no-cache $CONTEXT -f $WORKSPACE_ROOT"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
 	fi
 }
 

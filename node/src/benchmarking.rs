@@ -22,7 +22,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::codec::Encode;
-use sp_runtime::traits::{Dispatchable, StaticLookup};
+use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup};
 use sp_runtime::OpaqueExtrinsic;
 use sp_runtime::{generic, SaturatedConversion};
 
@@ -107,6 +107,7 @@ where
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<AccountId>,
 {
 	fn pallet(&self) -> &str {
 		"system"
@@ -212,6 +213,7 @@ where
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<AccountId>,
 {
 	fn pallet(&self) -> &str {
 		"balances"
@@ -355,6 +357,7 @@ where
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<AccountId>,
 {
 	let function = function.into();
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");

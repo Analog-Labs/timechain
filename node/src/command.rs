@@ -160,11 +160,12 @@ pub fn run() -> sc_cli::Result<()> {
 							RemarkBuilder::<Runtime, RuntimeApi>::new(partial.client.clone());
 
 						cmd.run(
-							config,
+							config.chain_spec.name().into(),
 							partial.client,
 							inherent_benchmark_data()?,
 							Vec::new(),
 							&ext_builder,
+							false,
 						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {

@@ -34,6 +34,9 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = DefaultAdminOrigin;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = DefaultAdminOrigin;
+	type KillOrigin = DefaultAdminOrigin;
+	type Consideration = ();
 }
 
 // Limit to membership check in development mode

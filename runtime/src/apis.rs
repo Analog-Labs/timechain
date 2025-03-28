@@ -3,6 +3,7 @@
 use polkadot_sdk::*;
 
 use scale_codec::Encode;
+use scale_info::prelude::string::String;
 
 use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
@@ -268,6 +269,10 @@ impl_runtime_apis! {
 		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
 			NominationPools::api_pool_balance(pool_id)
 		}
+
+		fn pool_accounts(pool_id: pallet_nomination_pools::PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
+		}
 	}
 
 	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
@@ -461,7 +466,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency

@@ -17,11 +17,6 @@ use sp_runtime::{
 	},
 };
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
-
 use time_primitives::{MembersInterface, ANLOG};
 
 use pallet_members::WeightInfo;

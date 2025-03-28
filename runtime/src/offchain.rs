@@ -10,11 +10,6 @@ use sp_runtime::{
 };
 use time_primitives::Signature;
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
-
 // Local module imports
 #[cfg(feature = "testnet")]
 use super::PrevalidateFeeless;

@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
 mod constants;
@@ -68,7 +69,9 @@ mod gateway {
 		Ok(())
 	}
 
-	pub fn set_route(ctx: Context<SetRoute>, route: NetworkInfo) -> Result<()> {
+	pub fn set_route(ctx: Context<SetRoute>, _route: NetworkInfo) -> Result<()> {
+		let state = &mut ctx.accounts.gateway_state;
+		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
 		Ok(())
 	}
 
@@ -76,13 +79,30 @@ mod gateway {
 	pub fn submit_message(_ctx: Context<SubmitMessage>, msg: GmpMessage) -> Result<()> {
 		require_gt!(MAX_PAYLOAD_SIZE, msg.bytes.len() as u128, GatewayError::MsgTooLarge);
 		let msg_id = msg.message_id();
-		let gmp_created_event = GmpCreated { msg_id, msg };
-		emit!(gmp_created_event);
+		emit!(GmpCreated { msg_id, msg });
 		Ok(())
 	}
 
 	// excuted by chronicles
-	pub fn execute_batch(_ctx: Context<ExecuteBatch>) -> Result<()> {
+	pub fn execute_batch(
+		ctx: Context<ExecuteBatch>,
+		msg: GatewayMessage,
+		batch_id: BatchId,
+	) -> Result<()> {
+		let state = &mut ctx.accounts.gateway_state;
+		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
+		// TODO verify signature etc
+		for op in msg.ops.iter() {
+			match op {
+				GatewayOp::SendMessage(gmp_message) => {
+					let msg_id = gmp_message.message_id();
+					emit!(GmpExecuted { msg_id });
+				},
+				GatewayOp::RegisterShard(_) => {},
+				GatewayOp::UnregisterShard(_) => {},
+			}
+		}
+		emit!(BatchExecuted { batch_id });
 		Ok(())
 	}
 }

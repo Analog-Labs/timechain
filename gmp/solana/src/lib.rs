@@ -237,8 +237,13 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn admin(&self, _gateway: Address32) -> Result<Address32> {
-		todo!("Need gateway implementation")
+	async fn admin(&self, gateway: Address32) -> Result<Address32> {
+		let program_id = a_addr(gateway);
+		let (state_pda, _bump) = Pubkey::find_program_address(&[b"gateway_state"], &program_id);
+
+		let data = self.client.get_account_data(&state_pda).await?;
+		let state = GatewayState::try_deserialize(&mut data.as_slice())?;
+		Ok(t_addr(state.admin))
 	}
 
 	async fn set_admin(&self, _gateway: Address32, _admin: Address32) -> Result<()> {

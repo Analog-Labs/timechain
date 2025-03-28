@@ -1,10 +1,13 @@
+#![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::keccak;
 
 type NetworkId = u16;
+pub type BatchId = u64;
 type Address32 = [u8; 32];
 pub type MessageId = [u8; 32];
+pub type TssPublicKey = [u8; 33];
 
 pub const MAX_SHARDS_LEN: usize = 50;
 
@@ -67,11 +70,16 @@ pub struct ExecuteBatch<'info> {
 }
 
 #[account]
-#[derive(Default)]
 pub struct GatewayState {
 	pub admin: Pubkey,
 	pub is_initialized: bool,
 	pub shards: Vec<ShardAcc>,
+}
+
+#[account]
+pub struct GmpMessageState {
+	pub admin: MessageId,
+	pub status: GmpStatus,
 }
 
 #[account]
@@ -98,10 +106,20 @@ pub struct GmpCreated {
 	pub msg: GmpMessage,
 }
 
+#[event]
+pub struct GmpExecuted {
+	pub msg_id: MessageId,
+}
+
+#[event]
+pub struct BatchExecuted {
+	pub batch_id: BatchId,
+}
+
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct NetworkInfo {
 	gas_limit: u64,
-	relative_gas_price: (u64, u64),
+	relative_gas_price: (u128, u128),
 	base_fee: u128,
 }
 
@@ -160,4 +178,15 @@ fn left_pad(data: &[u8]) -> [u8; 32] {
 	let offset = 32 - data.len();
 	padded[offset..].copy_from_slice(data);
 	padded
+}
+
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
+pub struct GatewayMessage {
+	pub ops: Vec<GatewayOp>,
+}
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
+pub enum GatewayOp {
+	SendMessage(GmpMessage),
+	RegisterShard(TssPublicKey),
+	UnregisterShard(TssPublicKey),
 }

@@ -1,0 +1,187 @@
+services:
+  validator:
+    image: 'analoglabs/timechain-node-develop'
+    command:
+    - '--chain=dev'
+    - '--base-path=/data'
+    - '--rpc-cors=all'
+    - '--unsafe-rpc-external'
+    - '--rpc-methods=unsafe'
+    - '--prometheus-external'
+    - '--prometheus-port=9090'
+    - '--alice'
+    - '--validator'
+    - '--force-authoring'
+    - '--node-key=0000000000000000000000000000000000000000000000000000000000000001'
+    - '-ltxpool=trace,basic_authorship=trace,runtime=trace'
+    ports:
+      - 9944
+
+  chain-0-grpc:
+    image: 'analoglabs/gmp-grpc-develop'
+    command:
+    - '--network-id=0'
+    - '--port=3000'
+    - '--db=/etc/db'
+    environment:
+      RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
+      RUST_BACKTRACE: 1
+    profiles:
+    - grpc
+
+  chronicle-0-grpc:
+    image: 'analoglabs/chronicle-develop'
+    command:
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=http://chain-0-grpc:3000'
+    - '--network-id=0'
+    - '--backend=grpc'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-0'
+    profiles:
+    - grpc
+
+  chain-1-grpc:
+    image: 'analoglabs/gmp-grpc-develop'
+    command:
+    - '--network-id=1'
+    - '--port=3000'
+    - '--db=/etc/db'
+    environment:
+      RUST_LOG: 'gmp_grpc=debug,gmp_rust=debug'
+      RUST_BACKTRACE: 1
+    profiles:
+    - grpc
+
+  chronicle-1-grpc:
+    image: 'analoglabs/chronicle-develop'
+    command:
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=http://chain-1-grpc:3000'
+    - '--network-id=1'
+    - '--backend=grpc'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug'
+      RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-1'
+    profiles:
+    - grpc
+
+  chain-2-evm:
+    image: 'ghcr.io/foundry-rs/foundry:latest'
+    command:
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
+    environment:
+        ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - 8545
+    profiles:
+    - evm
+
+  chronicle-2-evm:
+    image: 'analoglabs/chronicle-develop'
+    command:
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=ws://chain-2-evm:8545'
+    - '--network-id=2'
+    - '--backend=evm'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
+      RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-2'
+    profiles:
+    - evm
+
+  chain-3-evm:
+    image: 'ghcr.io/foundry-rs/foundry:latest'
+    command:
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --no-request-size-limit'
+    environment:
+        ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - 8545
+    profiles:
+    - evm
+
+  chronicle-3-evm:
+    image: 'analoglabs/chronicle-develop'
+    command:
+    - '--timechain-keyfile=/etc/timechain_keyfile'
+    - '--network-keyfile=/etc/network_keyfile'
+    - '--target-keyfile=/etc/target_keyfile'
+    - '--tss-keyshare-cache=/etc/tss'
+    - '--timechain-url=ws://validator:9944'
+    - '--target-url=ws://chain-3-evm:8545'
+    - '--network-id=3'
+    - '--backend=evm'
+    environment:
+      RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
+      RUST_BACKTRACE: 1
+      TRACING_ENDPOINT: 'http://tempo:4317/v1/traces'
+      OTEL_SERVICE_NAME: 'chronicle-3'
+    profiles:
+    - evm
+
+  tc-cli:
+    image: 'analoglabs/tc-cli-develop'
+    environment:
+      RUST_BACKTRACE: 1
+      RUST_LOG: 'gmp_evm=info'
+    profiles:
+    - never
+
+  grafana:
+    image: "grafana/grafana:10.0.1"
+    volumes:
+      - "./config/grafana/datasources/datasource.yaml:/etc/grafana/provisioning/datasources/datasources.yaml"
+    environment:
+      - "GF_AUTH_ANONYMOUS_ENABLED=true"
+      - "GF_AUTH_ANONYMOUS_ORG_ROLE=Admin"
+      - "GF_AUTH_DISABLE_LOGIN_FORM=true"
+      - "GF_FEATURE_TOGGLES_ENABLE=traceqlEditor"
+    ports:
+      - "127.0.0.1:3000:3000"
+    profiles:
+    - monitoring
+
+  prometheus:
+    image: "prom/prometheus:v2.45.0"
+    command:
+      - "--config.file=/etc/prometheus.yaml"
+      - "--enable-feature=exemplar-storage"
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - "./config/prometheus/prometheus.yaml:/etc/prometheus.yaml"
+    ports:
+      - "127.0.0.1:9090:9090"
+    profiles:
+    - monitoring
+
+  tempo:
+    image: "grafana/tempo:2.1.1"
+    command:
+      - "-config.file=/etc/tempo.yaml"
+    volumes:
+      - "./config/tempo/tempo.yaml:/etc/tempo.yaml"
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    profiles:
+    - monitoring

@@ -372,13 +372,31 @@ impl std::fmt::Display for ChronicleStatus {
 	}
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ShardRegistration {
+	Unregistered,
+	RegisteredGateway,
+	Registered,
+}
+
+impl std::fmt::Display for ShardRegistration {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		let label = match self {
+			Self::Unregistered => "unregistered",
+			Self::RegisteredGateway => "gateway",
+			Self::Registered => "registered",
+		};
+		f.write_str(label)
+	}
+}
+
 #[derive(Clone, Debug)]
 pub struct Shard {
 	pub shard: ShardId,
 	pub network: NetworkId,
 	pub status: ShardStatus,
 	pub key: Option<TssPublicKey>,
-	pub registered: bool,
+	pub registered: ShardRegistration,
 	pub size: u16,
 	pub threshold: u16,
 	pub assigned: usize,
@@ -567,11 +585,16 @@ impl Tc {
 			let key = self.runtime.shard_commitment(shard, block_hash).await?.map(|c| c.0[0]);
 			let size = self.runtime.shard_members(shard, block_hash).await?.len() as u16;
 			let threshold = self.runtime.shard_threshold(shard, block_hash).await?;
-			let mut registered = false;
+			let mut registered = ShardRegistration::Unregistered;
 			let mut batch_register = None;
 			let mut batch_unregister = None;
 			if let Some(key) = key {
-				registered = registered_shards.get(&network).unwrap().contains(&key);
+				if registered_shards.get(&network).unwrap().contains(&key) {
+					registered = ShardRegistration::RegisteredGateway;
+					if self.runtime.is_shard_registered(key, block_hash).await? {
+						registered = ShardRegistration::Registered;
+					}
+				}
 				batch_register = self.runtime.shard_register_batch(key, block_hash).await?;
 				batch_unregister = self.runtime.shard_unregister_batch(key, block_hash).await?;
 			}
@@ -1349,7 +1372,10 @@ impl Tc {
 				let shards = self.shards(hash).await?;
 				let num_registered = shards
 					.iter()
-					.filter(|shard| shard.network == network && shard.registered)
+					.filter(|shard| {
+						shard.network == network
+							&& shard.registered == ShardRegistration::Registered
+					})
 					.count();
 				id = Some(self.print_table(id, "shards", shards).await?);
 				if num_shards as usize == num_registered {

@@ -11295,7 +11295,6 @@ name = "pallet-elections"
 version = "0.8.0"
 dependencies = [
  "env_logger 0.11.7",
- "lazy_static",
  "log",
  "pallet-members",
  "pallet-networks",
@@ -11489,7 +11488,6 @@ name = "pallet-members"
 version = "0.8.0"
 dependencies = [
  "env_logger 0.11.7",
- "lazy_static",
  "log",
  "parity-scale-codec",
  "polkadot-sdk",

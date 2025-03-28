@@ -28,7 +28,6 @@ time-primitives.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true
-lazy_static = "1.5.0"
 
 polkadot-sdk = { workspace = true, features = [ "pallet-balances", "sp-core", "sp-io" ] }
 

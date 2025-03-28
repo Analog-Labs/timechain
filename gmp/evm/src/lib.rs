@@ -371,7 +371,7 @@ impl IConnectorAdmin for Connector {
 		let proxy_deployed_code = self.rpc.get_code_at(proxy_address).await?;
 		if !proxy_deployed_code.is_empty() {
 			let block = self.latest_block().await?;
-			tracing::info!("Proxy already deployed. Please upgrade redeploy-gateway instead");
+			tracing::info!("Proxy already deployed. Please use redeploy-gateway instead");
 			return Ok((t_addr(proxy_address), block.number));
 		}
 		// deploy gateway

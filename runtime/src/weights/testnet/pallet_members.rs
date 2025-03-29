@@ -121,8 +121,18 @@ impl<T: frame_system::Config> pallet_members::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 2649).saturating_mul(b.into()))
 	}
 
-	/// Dummy, to be replaced
-	fn is_member() -> Weight {
-		Weight::from_parts(20_000_000, 4000)
-	}
+    /// Storage: `Members::MemberRegistered` (r:1 w:0)
+    /// Proof: `Members::MemberRegistered` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    /// The range of component `c` is `[0, 254]`.
+    fn is_member(c: u32, ) -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `1052`
+        //  Estimated: `4514`
+        // Minimum execution time: 8_710_000 picoseconds.
+        Weight::from_parts(10_141_598, 0)
+            .saturating_add(Weight::from_parts(0, 4514))
+            // Standard Error: 381
+            .saturating_add(Weight::from_parts(153, 0).saturating_mul(c.into()))
+            .saturating_add(T::DbWeight::get().reads(1))
+    }
 }

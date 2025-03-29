@@ -64,6 +64,7 @@ where
 	Runtime:
 		frame_system::Config<Hash = BlockHash> + pallet_transaction_payment::Config + Send + Sync,
 	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	Runtime::RuntimeOrigin: AsSystemOriginSigner<Runtime::AccountId>,
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
@@ -164,6 +165,7 @@ where
 	Runtime::Lookup: StaticLookup<Source = Address>,
 	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ From<BalancesCall<Runtime>>,
+	Runtime::RuntimeOrigin: AsSystemOriginSigner<Runtime::AccountId>,
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
@@ -274,6 +276,7 @@ where
 	Runtime:
 		frame_system::Config<Hash = BlockHash> + Send + Sync + pallet_transaction_payment::Config,
 	Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	Runtime::RuntimeOrigin: AsSystemOriginSigner<Runtime::AccountId>,
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,

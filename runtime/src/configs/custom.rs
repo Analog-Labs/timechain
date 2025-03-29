@@ -133,7 +133,7 @@ impl<T: frame_system::Config> Debug for PrevalidateFeeless<T> {
 impl<T> PrevalidateFeeless<T>
 where
 	T: frame_system::Config + pallet_members::Config + pallet_shards::Config + pallet_tasks::Config,
-	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_members::Call<T>>
+	T::RuntimeCall: IsSubType<pallet_members::Call<T>>
 		+ IsSubType<pallet_shards::Call<T>>
 		+ IsSubType<pallet_tasks::Call<T>>,
 {
@@ -168,11 +168,10 @@ where
 impl<T> TransactionExtension<T::RuntimeCall> for PrevalidateFeeless<T>
 where
 	T: frame_system::Config + pallet_members::Config + pallet_shards::Config + pallet_tasks::Config,
-	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_members::Call<T>>
+	T::RuntimeCall: IsSubType<pallet_members::Call<T>>
 		+ IsSubType<pallet_shards::Call<T>>
 		+ IsSubType<pallet_tasks::Call<T>>,
-	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
-		AsSystemOriginSigner<T::AccountId>,
+	T::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
 {
 	const IDENTIFIER: &'static str = "PrevalidateFeeless";
 	type Implicit = ();

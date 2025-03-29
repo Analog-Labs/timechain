@@ -105,10 +105,10 @@ where
 		+ IsSubType<pallet_members::Call<Runtime>>
 		+ IsSubType<pallet_shards::Call<Runtime>>
 		+ IsSubType<pallet_tasks::Call<Runtime>>,
+	Runtime::RuntimeOrigin: AsSystemOriginSigner<Runtime::AccountId>,
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
-	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<AccountId>,
 {
 	fn pallet(&self) -> &str {
 		"system"
@@ -212,10 +212,10 @@ where
 		+ IsSubType<pallet_members::Call<Runtime>>
 		+ IsSubType<pallet_shards::Call<Runtime>>
 		+ IsSubType<pallet_tasks::Call<Runtime>>,
+	Runtime::RuntimeOrigin: AsSystemOriginSigner<Runtime::AccountId>,
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
-	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<AccountId>,
 {
 	fn pallet(&self) -> &str {
 		"balances"
@@ -357,10 +357,10 @@ where
 		+ IsSubType<pallet_members::Call<Runtime>>
 		+ IsSubType<pallet_shards::Call<Runtime>>
 		+ IsSubType<pallet_tasks::Call<Runtime>>,
+	Runtime::RuntimeOrigin: AsSystemOriginSigner<Runtime::AccountId>,
 	PaymentBalanceOf<Runtime>: From<u64>,
 	RuntimeApi: sp_api::ConstructRuntimeApi<Block, FullClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce>,
-	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<AccountId>,
 {
 	let function = function.into();
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");

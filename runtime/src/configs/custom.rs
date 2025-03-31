@@ -180,8 +180,7 @@ where
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		if Self::is_feeless(call) {
-			// TODO: Use dynamic/cached member count?
-			return <T as pallet_members::Config>::WeightInfo::is_member(200);
+			return <T as pallet_members::Config>::WeightInfo::is_member();
 		}
 
 		Weight::zero()

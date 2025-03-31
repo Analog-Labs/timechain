@@ -10,7 +10,6 @@ use time_primitives::{AccountId, MembersInterface, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
-pub const NUM_MEMBERS: u8 = 255;
 
 fn public_key() -> PublicKey {
 	pk_from_account(ALICE)
@@ -64,21 +63,12 @@ benchmarks! {
 	}
 
 	is_member {
-		// Pick different member to query each benchmark
-		let c in 0..(NUM_MEMBERS-1).into();
-		let target: AccountId = [c as u8; 32].into();
-		let pk = pk_from_account([c as u8; 32]);
-
-		// Ensure a total of NUM_CHRONICLES are registered
-		for a in 0..NUM_MEMBERS {
-			let raw = [a; 32];
-			let peer: AccountId = raw.into();
-			Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, pk_from_account(raw), peer.into())?;
-		}
+		let caller: AccountId = ALICE.into();
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
 
 		let result: bool;
 	} : {
-		result = Pallet::<T>::is_member_registered(&target);
+		result = Pallet::<T>::is_member_registered(&caller);
 	} verify {
 		assert!(result);
 	}

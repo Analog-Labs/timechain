@@ -2,9 +2,12 @@
 //! This module is only included in the testnet runtime.
 
 use crate::*;
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{parameter_types, traits::Nothing};
 use pallet_revive::Config;
-use sp_runtime::{traits::ConstU32, Perbill};
+use sp_runtime::{
+	traits::{ConstU32, ConstU64},
+	Perbill,
+};
 use time_primitives::{MICROANLOG, MILLIANLOG};
 
 parameter_types! {
@@ -19,29 +22,26 @@ parameter_types! {
 }
 
 impl Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
 	type Time = Timestamp;
+	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type CallFilter = Everything;
+	type CallFilter = Nothing;
+	type DepositPerItem = DepositPerItem;
+	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Runtime>;
-	type ChainExtension = (); // No chain extension
-	type DepositPerByte = DepositPerByte;
-	type DepositPerItem = DepositPerItem;
-	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type AddressGenerator = pallet_revive::DefaultAddressGenerator;
-	type MaxCodeLen = ConstU32<{ 123 * 1024 }>; // 123 KB
+	type ChainExtension = ();
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-	type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>; // Disable unsafe interfaces
+	type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = pallet_revive::migration::codegen::BenchMigrations;
-	type Debug = (); // No debugging
-	type Xcm = (); // No XCM integration
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+	type Debug = ();
+	type Xcm = ();
+	type ChainId = ConstU64<12_850>;
+	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 }

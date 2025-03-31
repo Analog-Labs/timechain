@@ -8267,6 +8267,7 @@ dependencies = [
  "jsonrpsee-wasm-client",
  "jsonrpsee-ws-client 0.24.9",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

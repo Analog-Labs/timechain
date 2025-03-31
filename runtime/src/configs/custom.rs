@@ -7,21 +7,20 @@ use scale_info::TypeInfo;
 use polkadot_sdk::*;
 
 use frame_support::traits::IsSubType;
-use frame_support::{ensure, parameter_types, traits::ConstU32};
+use frame_support::{ensure, parameter_types, traits::ConstU32, weights::Weight};
 
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	impl_tx_ext_default,
+	traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, TransactionExtension},
 	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
 };
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
-
 use time_primitives::{MembersInterface, ANLOG};
+
+use pallet_members::WeightInfo;
+
 // Local module imports
 use crate::{
 	weights, AccountId, Balance, Balances, DefaultAdminOrigin, Elections, Members, Networks,
@@ -131,46 +130,17 @@ impl<T: frame_system::Config> Debug for PrevalidateFeeless<T> {
 }
 
 /// Pre-dispatch validation of extrinsic origin via members pallet
-impl<T> SignedExtension for PrevalidateFeeless<T>
+impl<T> PrevalidateFeeless<T>
 where
 	T: frame_system::Config + pallet_members::Config + pallet_shards::Config + pallet_tasks::Config,
 	T::RuntimeCall: IsSubType<pallet_members::Call<T>>
 		+ IsSubType<pallet_shards::Call<T>>
 		+ IsSubType<pallet_tasks::Call<T>>,
 {
-	type AccountId = T::AccountId;
-	type Call = <T as frame_system::Config>::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
-	const IDENTIFIER: &'static str = "PrevalidateFeeless";
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
-	}
-
-	fn validate(
-		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
-		_len: usize,
-	) -> TransactionValidity {
+	fn is_feeless(call: &T::RuntimeCall) -> bool {
 		// Check feeless members calls
 		if let Some(pallet_members::Call::send_heartbeat {}) = call.is_sub_type() {
-			ensure!(
-				pallet_members::Pallet::<T>::is_member_registered(who),
-				InvalidTransaction::BadSigner
-			);
+			return true;
 		}
 
 		// Check feeless shards calls
@@ -179,14 +149,8 @@ where
 				shard_id: _,
 				commitment: _,
 				proof_of_knowledge: _,
-			}) => ensure!(
-				pallet_members::Pallet::<T>::is_member_registered(who),
-				InvalidTransaction::BadSigner
-			),
-			Some(pallet_shards::Call::ready { shard_id: _ }) => ensure!(
-				pallet_members::Pallet::<T>::is_member_registered(who),
-				InvalidTransaction::BadSigner
-			),
+			}) => return true,
+			Some(pallet_shards::Call::ready { shard_id: _ }) => return true,
 			_ => {},
 		}
 
@@ -194,14 +158,60 @@ where
 		if let Some(pallet_tasks::Call::submit_task_result { task_id: _, result: _ }) =
 			call.is_sub_type()
 		{
+			return true;
+		}
+
+		false
+	}
+}
+
+impl<T> TransactionExtension<T::RuntimeCall> for PrevalidateFeeless<T>
+where
+	T: frame_system::Config + pallet_members::Config + pallet_shards::Config + pallet_tasks::Config,
+	T::RuntimeCall: IsSubType<pallet_members::Call<T>>
+		+ IsSubType<pallet_shards::Call<T>>
+		+ IsSubType<pallet_tasks::Call<T>>,
+	T::RuntimeOrigin: AsSystemOriginSigner<T::AccountId>,
+{
+	const IDENTIFIER: &'static str = "PrevalidateFeeless";
+	type Implicit = ();
+	type Pre = ();
+	type Val = ();
+
+	fn weight(&self, call: &T::RuntimeCall) -> Weight {
+		if Self::is_feeless(call) {
+			// TODO: Use dynamic/cached member count?
+			return <T as pallet_members::Config>::WeightInfo::is_member(200);
+		}
+
+		Weight::zero()
+	}
+
+	fn validate(
+		&self,
+		origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		if Self::is_feeless(call) {
+			let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
 			ensure!(
 				pallet_members::Pallet::<T>::is_member_registered(who),
 				InvalidTransaction::BadSigner
 			);
 		}
 
-		Ok(ValidTransaction::default())
+		Ok((ValidTransaction::default(), (), origin))
 	}
+
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
 }
 
 #[cfg(test)]

@@ -54,7 +54,6 @@ env_logger = "0.11.7"
 futures = "0.3.31"
 hex = "0.4.3"
 hex-literal = "1.0.0"
-lazy_static = "1.5.0"
 log = { version = "0.4.27", default-features = false }
 reqwest = { version = "^0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
 serde = { version = "1.0.219", default-features = false, features = [ "derive" ] }
@@ -70,10 +69,10 @@ scale-decode = { version = "0.16.0", default-features = false, features = [ "der
 scale-info = { version = "2.11.6", default-features = false, features = [ "derive" ] }
 
 # main substrate sdk
-polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.16.6-anlog0", default-features = false }
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.17.3-anlog0", default-features = false }
 
 # specialized wasm builder
-substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.16.6-anlog0", features = [ "metadata-hash" ] }
+substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.17.3-anlog0", features = [ "metadata-hash" ] }
 
 # metadata based chain interaction
 subxt = { version = "0.40.0" }
@@ -101,12 +100,6 @@ timechain-runtime = { path = "runtime" }
 gmp = { path = "gmp" }
 tc-subxt = { path = "tc-subxt" }
 tss = { path = "tss" }
-
-# HASHI Bridge
-eth-bridge-runtime-api = { path = "pallets/eth-bridge/runtime-api", default-features = false }
-eth-bridge = { path = "pallets/eth-bridge", default-features = false }
-bridge-multisig = { path = "pallets/bridge-multisig", default-features = false }
-
 
 [profile.release]
 # Runtime requires unwinding.

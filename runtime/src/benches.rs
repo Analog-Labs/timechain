@@ -6,6 +6,7 @@
 polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[frame_benchmarking, BaselineBench::<Runtime>]
 	[frame_system, SystemBench::<Runtime>]
+	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 	[pallet_airdrop, Airdrop]
 	[pallet_babe, Babe]
 	[pallet_bags_list, VoterList]
@@ -24,16 +25,16 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_session, SessionBench::<Runtime>]
 	[pallet_staking, Staking]
 	[pallet_timestamp, Timestamp]
+	[pallet_transaction_payment, TransactionPayment]
 	[pallet_utility, Utility]
 	[pallet_vesting, Vesting]
-	[eth_bridge, EthBridge]
-	[bridge_multisig, BridgeMultisig]
 );
 
 #[cfg(feature = "testnet")]
 polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[frame_benchmarking, BaselineBench::<Runtime>]
 	[frame_system, SystemBench::<Runtime>]
+	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 	[pallet_babe, Babe]
 	[pallet_bags_list, VoterList]
 	[pallet_balances, Balances]
@@ -60,8 +61,7 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_tasks, Tasks]
 	[pallet_timegraph, Timegraph]
 	[pallet_timestamp, Timestamp]
+	[pallet_transaction_payment, TransactionPayment]
 	[pallet_utility, Utility]
 	[pallet_vesting, Vesting]
-	[eth_bridge, EthBridge]
-	[bridge_multisig, BridgeMultisig]
 );

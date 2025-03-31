@@ -50,7 +50,8 @@ type FullGrandpaBlockImport<RuntimeApi> = sc_consensus_grandpa::GrandpaBlockImpo
 /// RuntimeApi Api type
 ///
 /// The transaction pool type definition.
-pub type TransactionPool<RuntimeApi> = sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>;
+pub type TransactionPool<RuntimeApi> =
+	sc_transaction_pool::TransactionPoolHandle<Block, FullClient<RuntimeApi>>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -65,7 +66,7 @@ pub fn new_partial<RuntimeApi>(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi>>,
+		TransactionPool<RuntimeApi>,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,
@@ -122,12 +123,15 @@ where
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
@@ -528,7 +532,7 @@ where
 				is_validator: role.is_authority(),
 				enable_http_requests: true,
 				custom_extensions: |_| vec![],
-			})
+			})?
 			.run(client.clone(), task_manager.spawn_handle())
 			.boxed(),
 		);
@@ -565,7 +569,7 @@ where
 {
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	let task_manager = match config.network.network_backend {
+	let task_manager = match config.network.network_backend.unwrap_or_default() {
 		sc_network::config::NetworkBackendType::Libp2p => {
 			new_full_base::<sc_network::NetworkWorker<_, _>, RuntimeApi>(
 				config,

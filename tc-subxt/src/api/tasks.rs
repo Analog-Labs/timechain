@@ -162,6 +162,12 @@ impl SubxtClient {
 		Ok(self.client.storage().at(block).fetch(&storage_query).await?)
 	}
 
+	pub async fn is_shard_registered(&self, key: TssPublicKey, block: BlockHash) -> Result<bool> {
+		let block = H256(block.0);
+		let storage_query = metadata::storage().tasks().shard_registered(key);
+		Ok(self.client.storage().at(block).fetch(&storage_query).await?.is_some())
+	}
+
 	pub async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
 		self.tx.unbounded_send((Tx::SubmitTaskResult { task_id, result }, tx))?;

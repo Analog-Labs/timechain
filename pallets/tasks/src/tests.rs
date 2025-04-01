@@ -472,7 +472,6 @@ fn finish_task_removes_task_shard() {
 		let batch_id = BatchIdCounter::<Test>::get();
 		let task_id = Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id });
 		BatchTaskId::<Test>::insert(batch_id, task_id);
-		// Assign the task to the shard
 		Tasks::assign_task(shard, task_id);
 		assert!(TaskShard::<Test>::contains_key(task_id), "Task should be assigned to a shard");
 		Tasks::finish_task(ETHEREUM, task_id, Ok(()));

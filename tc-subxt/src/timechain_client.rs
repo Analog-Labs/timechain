@@ -120,6 +120,7 @@ impl ITimechainClient for TimechainOnlineClient {
 	}
 
 	fn submittable_transaction(&self, tx: Vec<u8>) -> Self::Submitter {
+		tracing::debug!("Transaction prepared for submission: {}", hex::encode(&tx));
 		let tx = SubmittableExtrinsic::from_bytes(self.client.clone(), tx);
 		SignedTransaction { tx }
 	}

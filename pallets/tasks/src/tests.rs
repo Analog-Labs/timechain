@@ -481,7 +481,7 @@ fn finish_task_removes_task_shard() {
 }
 
 #[test]
-fn test_regression_finish_task_panic() {
+fn test_regression_finish_task_does_not_panic() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);

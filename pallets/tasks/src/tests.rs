@@ -472,7 +472,6 @@ fn finish_task_removes_task_shard() {
 		let batch_id = BatchIdCounter::<Test>::get();
 		let task_id = Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id });
 		BatchTaskId::<Test>::insert(batch_id, task_id);
-		// Assign the task to the shard
 		Tasks::assign_task(shard, task_id);
 		assert!(TaskShard::<Test>::contains_key(task_id), "Task should be assigned to a shard");
 		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
@@ -481,7 +480,7 @@ fn finish_task_removes_task_shard() {
 }
 
 #[test]
-fn test_regression_finish_task_panic() {
+fn test_regression_finish_task_does_not_panic() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);

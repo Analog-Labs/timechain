@@ -26,6 +26,8 @@ use time_primitives::{
 };
 use tracing::{event, span, Level, Span};
 
+const DEFAULT_HEARTBEAT_PERIOD: BlockNumber = 100;
+
 pub struct TimeWorkerParams<Tx, Rx> {
 	pub substrate: Arc<dyn Runtime>,
 	pub task_params: TaskParams,
@@ -365,7 +367,13 @@ where
 		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		let block = finality_notifications.next().await.expect("Finality stream is not active");
-		let heartbeat_period = self.substrate.get_heartbeat_timeout(block.0).await.unwrap();
+		let heartbeat_period = self
+			.substrate
+			.get_heartbeat_timeout(block.0)
+			.await
+			.ok()
+			.and_then(|t| t.gt(&1).then_some(t / 2))
+			.unwrap_or(DEFAULT_HEARTBEAT_PERIOD);
 		event!(parent: span, Level::INFO, "Started chronicle loop");
 		let mut send_heartbeat = true;
 		loop {

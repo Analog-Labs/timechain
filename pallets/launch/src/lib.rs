@@ -225,13 +225,42 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
+	const FROMS: &[([u8; 32], Balance)] = &[
+		(
+			sp_core::hex2array!("006266afd7b574f8552cd3a6628e1b44fb2611d1e6e7af4413612b74ea964816"),
+			6_064_989_130_000_000_000u128,
+		),
+		(
+			sp_core::hex2array!("867a0b072981d1209b68392f9c6e2761091ccefaac74c33d3284dcc21c023656"),
+			1_471_920_000_000_000_000u128,
+		),
+	];
+
+	const TO: [u8; 32] =
+		sp_core::hex2array!("28a43c8012888f757b5265409410cf71b5a2b667461ed23b721b27d31ab13f6e");
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+		BalanceOf<T>: From<u128>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			for (i, (src, val)) in FROMS.iter().enumerate() {
+				if let Err(error) = CurrencyOf::<T>::transfer(
+					&T::AccountId::from((*src).into()),
+					&T::AccountId::from(TO.into()),
+					(*val).into(),
+					ExistenceRequirement::AllowDeath,
+				) {
+					log::warn!(
+							target: LOG_TARGET,
+							"🤔 Unable to migrate wallet {}: {:?}", i, error
+					);
+				}
+			}
+
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {

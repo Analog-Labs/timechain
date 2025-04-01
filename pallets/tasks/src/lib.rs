@@ -544,7 +544,7 @@ pub mod pallet {
 			result: Result<(), ErrorMsg>,
 		) {
 			TaskOutput::<T>::insert(task_id, result.clone());
-			if let Some(shard) = Some(TaskShard::<T>::take(task_id).unwrap()) {
+			if let Some(shard) = TaskShard::<T>::take(task_id) {
 				log::debug!("finish task {task_id} on {shard}");
 				ShardTasks::<T>::remove(shard, task_id);
 				ShardTaskCount::<T>::insert(

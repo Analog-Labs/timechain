@@ -20877,8 +20877,7 @@ dependencies = [
 [[package]]
 name = "subxt"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03459d84546def5e1d0d22b162754609f18e031522b0319b53306f5829de9c09"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "async-trait",
  "derive-where",
@@ -20935,8 +20934,7 @@ dependencies = [
 [[package]]
 name = "subxt-codegen"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "324c52c09919fec8c22a4b572a466878322e99fe14a9e3d50d6c3700a226ec25"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "heck 0.5.0",
  "parity-scale-codec",
@@ -20979,8 +20977,7 @@ dependencies = [
 [[package]]
 name = "subxt-core"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66ef00be9d64885ec94e478a58e4e39d222024b20013ae7df4fc6ece545391aa"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "base58",
  "blake2 0.10.6",
@@ -21026,8 +21023,7 @@ dependencies = [
 [[package]]
 name = "subxt-lightclient"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce07c2515b2e63b85ec3043fe4461b287af0615d4832c2fe6e81ba780b906bc0"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "futures",
  "futures-util",
@@ -21058,8 +21054,7 @@ dependencies = [
 [[package]]
 name = "subxt-macro"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c2c8da275a620dd676381d72395dfea91f0a6cd849665b4f1d0919371850701"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "darling 0.20.10",
  "parity-scale-codec",
@@ -21087,8 +21082,7 @@ dependencies = [
 [[package]]
 name = "subxt-metadata"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fff4591673600c4388e21305788282414d26c791b4dee21b7cb0b19c10076f98"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "frame-decode",
  "frame-metadata 20.0.0",
@@ -21102,8 +21096,7 @@ dependencies = [
 [[package]]
 name = "subxt-rpcs"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ba7494d250d65dc3439365ac5e8e0fbb9c3992e6e84b7aa01d69e082249b8b8"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "derive-where",
  "finito",
@@ -21152,8 +21145,7 @@ dependencies = [
 [[package]]
 name = "subxt-signer"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a2370298a210ed1df26152db7209a85e0ed8cfbce035309c3b37f7b61755377"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "base64 0.22.1",
  "bip39",
@@ -21180,8 +21172,7 @@ dependencies = [
 [[package]]
 name = "subxt-utils-fetchmetadata"
 version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc868b55fe2303788dc7703457af390111940c3da4714b510983284501780ed5"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
 dependencies = [
  "hex",
  "parity-scale-codec",

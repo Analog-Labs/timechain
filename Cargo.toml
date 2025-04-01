@@ -75,8 +75,8 @@ polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.
 substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.17.3-anlog0", features = [ "metadata-hash" ] }
 
 # metadata based chain interaction
-subxt = { version = "0.41.0" }
-subxt-signer = { version = "0.41.0" }
+subxt = { git = "https://github.com/Analog-Labs/subxt", tag = "v0.41.0-anlog0" }
+subxt-signer = { git = "https://github.com/Analog-Labs/subxt", tag = "v0.41.0-anlog0" }
 
 # shared code between node and runtime (nostd by default)
 time-primitives = { path = "primitives", default-features = false }

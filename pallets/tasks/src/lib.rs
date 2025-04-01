@@ -538,7 +538,11 @@ pub mod pallet {
 			task_id
 		}
 
-		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {
+		pub(crate) fn finish_task(
+			network: NetworkId,
+			task_id: TaskId,
+			result: Result<(), ErrorMsg>,
+		) {
 			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard) = Some(TaskShard::<T>::take(task_id).unwrap()) {
 				log::debug!("finish task {task_id} on {shard}");

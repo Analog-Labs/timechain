@@ -113,8 +113,9 @@ impl ITimechainClient for TimechainOnlineClient {
 	{
 		self.client
 			.tx()
-			.create_signed_offline(call, &self.keypair, params)
+			.create_partial_offline(call, params)
 			.expect("Metadata is invalid")
+			.sign(&self.keypair)
 			.into_encoded()
 	}
 

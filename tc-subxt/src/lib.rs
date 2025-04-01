@@ -29,7 +29,7 @@ pub type OnlineClient = subxt::OnlineClient<PolkadotConfig>;
 pub type LegacyRpcMethods = subxt::backend::legacy::LegacyRpcMethods<subxt::PolkadotConfig>;
 pub type ExtrinsicEvents = subxt::blocks::ExtrinsicEvents<PolkadotConfig>;
 pub type ExtrinsicDetails = subxt::blocks::ExtrinsicDetails<PolkadotConfig, OnlineClient>;
-pub type SubmittableExtrinsic = subxt::tx::SubmittableExtrinsic<PolkadotConfig, OnlineClient>;
+pub type SubmittableExtrinsic = subxt::tx::SubmittableTransaction<PolkadotConfig, OnlineClient>;
 pub type ExtrinsicParams =
 	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
 

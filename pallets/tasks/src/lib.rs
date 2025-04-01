@@ -471,7 +471,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn process_events(network: NetworkId, task_id: TaskId, events: GmpEvents) {
+		pub(crate) fn process_events(network: NetworkId, task_id: TaskId, events: GmpEvents) {
 			for event in events.0 {
 				match event {
 					GmpEvent::ShardRegistered(pubkey) => {
@@ -559,7 +559,7 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskResult(task_id, result));
 		}
 
-		fn read_gateway_events(network: NetworkId) -> TaskId {
+		pub(crate) fn read_gateway_events(network: NetworkId) -> TaskId {
 			let block = SyncHeight::<T>::get(network);
 			let size = T::Networks::next_batch_size(network, block) as u64;
 			let end = block.saturating_add(size);

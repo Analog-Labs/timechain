@@ -464,7 +464,7 @@ mod bench_helper {
 }
 
 #[test]
-fn show_finish_task_bug() {
+fn finish_task_removes_task_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
@@ -475,11 +475,38 @@ fn show_finish_task_bug() {
 		// Assign the task to the shard
 		Tasks::assign_task(shard, task_id);
 		assert!(TaskShard::<Test>::contains_key(task_id), "Task should be assigned to a shard");
-
-		// Call finish_task to simulate what happens in process_events to remove the task assignment from storage
 		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
-		// TaskShard::get returns None which would cause unwrap() to panic in finish_task if called again in this line:
-		// if let Some(shard) = Some(TaskShard::<T>::take(task_id).unwrap()) { ... }
 		assert!(!TaskShard::<Test>::contains_key(task_id));
+	});
+}
+
+#[test]
+fn test_regression_finish_task_panic() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let batch_id = BatchIdCounter::<Test>::get();
+		let batch_task_id = Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id });
+		BatchTaskId::<Test>::insert(batch_id, batch_task_id);
+		Tasks::assign_task(shard, batch_task_id);
+		assert!(TaskShard::<Test>::contains_key(batch_task_id));
+		let read_task_id = Tasks::read_gateway_events(ETHEREUM);
+		Tasks::assign_task(shard, read_task_id);
+		BatchTaskId::<Test>::insert(batch_id, read_task_id);
+		let events = vec![GmpEvent::BatchExecuted {
+			batch_id,
+			tx_hash: Some([1; 32]),
+		}];
+		let signature = MockTssSigner::new(shard).sign_gmp_events(read_task_id, &events);
+		let result = TaskResult::ReadGatewayEvents {
+			events: GmpEvents(BoundedVec::truncate_from(events)),
+			signature,
+		};
+		assert_ok!(Tasks::submit_task_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			read_task_id,
+			result
+		));
 	});
 }

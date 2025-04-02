@@ -471,7 +471,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn process_events(network: NetworkId, task_id: TaskId, events: GmpEvents) {
+		pub(crate) fn process_events(network: NetworkId, task_id: TaskId, events: GmpEvents) {
 			for event in events.0 {
 				match event {
 					GmpEvent::ShardRegistered(pubkey) => {
@@ -538,9 +538,16 @@ pub mod pallet {
 			task_id
 		}
 
-		fn finish_task(network: NetworkId, task_id: TaskId, result: Result<(), ErrorMsg>) {
+		pub(crate) fn finish_task(
+			network: NetworkId,
+			task_id: TaskId,
+			result: Result<(), ErrorMsg>,
+		) {
+			if TaskOutput::<T>::contains_key(task_id) {
+				return;
+			}
 			TaskOutput::<T>::insert(task_id, result.clone());
-			if let Some(shard) = Some(TaskShard::<T>::take(task_id).unwrap()) {
+			if let Some(shard) = TaskShard::<T>::take(task_id) {
 				log::debug!("finish task {task_id} on {shard}");
 				ShardTasks::<T>::remove(shard, task_id);
 				ShardTaskCount::<T>::insert(
@@ -555,7 +562,7 @@ pub mod pallet {
 			Self::deposit_event(Event::TaskResult(task_id, result));
 		}
 
-		fn read_gateway_events(network: NetworkId) -> TaskId {
+		pub(crate) fn read_gateway_events(network: NetworkId) -> TaskId {
 			let block = SyncHeight::<T>::get(network);
 			let size = T::Networks::next_batch_size(network, block) as u64;
 			let end = block.saturating_add(size);

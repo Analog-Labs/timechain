@@ -1,6 +1,6 @@
 use crate::{
 	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatchIds, ShardRegistered,
-	TaskShard,
+	TaskOutput, TaskShard,
 };
 
 use frame_support::assert_ok;
@@ -461,4 +461,111 @@ mod bench_helper {
 		println!("signer: {:?}\nsignature: {:?}", signer, signature);
 		panic!();
 	}
+}
+
+#[test]
+fn finish_task_removes_task_shard() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let batch_id = BatchIdCounter::<Test>::get();
+		let task_id = Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id });
+		BatchTaskId::<Test>::insert(batch_id, task_id);
+		Tasks::assign_task(shard, task_id);
+		assert!(TaskShard::<Test>::contains_key(task_id), "Task should be assigned to a shard");
+		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
+		assert!(!TaskShard::<Test>::contains_key(task_id));
+	});
+}
+
+#[test]
+fn test_regression_finish_task_does_not_panic() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let batch_id = BatchIdCounter::<Test>::get();
+		let batch_task_id = Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id });
+		BatchTaskId::<Test>::insert(batch_id, batch_task_id);
+		Tasks::assign_task(shard, batch_task_id);
+		assert!(TaskShard::<Test>::contains_key(batch_task_id));
+		let read_task_id = Tasks::read_gateway_events(ETHEREUM);
+		Tasks::assign_task(shard, read_task_id);
+		BatchTaskId::<Test>::insert(batch_id, read_task_id);
+		let events = vec![GmpEvent::BatchExecuted {
+			batch_id,
+			tx_hash: Some([1; 32]),
+		}];
+		let signature = MockTssSigner::new(shard).sign_gmp_events(read_task_id, &events);
+		let result = TaskResult::ReadGatewayEvents {
+			events: GmpEvents(BoundedVec::truncate_from(events)),
+			signature,
+		};
+		assert_ok!(Tasks::submit_task_result(
+			RawOrigin::Signed([0; 32].into()).into(),
+			read_task_id,
+			result
+		));
+	});
+}
+
+#[test]
+fn finish_task_keeps_result_ok_after_err() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let task_id = Tasks::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 1..5 });
+		Tasks::assign_task(shard, task_id);
+		assert!(TaskShard::<Test>::contains_key(task_id));
+		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Ok(())));
+		assert!(!TaskShard::<Test>::contains_key(task_id));
+		let error_msg = ErrorMsg(BoundedVec::truncate_from("Second result with error".encode()));
+		Tasks::finish_task(ETHEREUM, task_id, Err(error_msg.clone()));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Ok(())));
+		let task_result_events = System::events()
+			.into_iter()
+			.filter_map(|r| {
+				if let RuntimeEvent::Tasks(Event::TaskResult(id, _)) = r.event {
+					if id == task_id {
+						return Some(id);
+					}
+				}
+				None
+			})
+			.count();
+		assert_eq!(task_result_events, 1);
+	});
+}
+
+#[test]
+fn finish_task_keeps_result_err_after_ok() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let task_id = Tasks::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 1..5 });
+		Tasks::assign_task(shard, task_id);
+		assert!(TaskShard::<Test>::contains_key(task_id));
+		let error_msg = ErrorMsg(BoundedVec::truncate_from("First result with error".encode()));
+		Tasks::finish_task(ETHEREUM, task_id, Err(error_msg.clone()));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Err(error_msg.clone())));
+		assert!(!TaskShard::<Test>::contains_key(task_id));
+		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Err(error_msg.clone())));
+		let task_result_events = System::events()
+			.into_iter()
+			.filter_map(|r| {
+				if let RuntimeEvent::Tasks(Event::TaskResult(id, _)) = r.event {
+					if id == task_id {
+						return Some(id);
+					}
+				}
+				None
+			})
+			.count();
+		assert_eq!(task_result_events, 1);
+	});
 }

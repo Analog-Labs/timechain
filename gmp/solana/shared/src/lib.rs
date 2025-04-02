@@ -1,14 +1,37 @@
-pub fn add(left: u64, right: u64) -> u64 {
-	left + right
+use anchor_lang::prelude::*;
+pub const MAX_SHARDS_LEN: usize = 50;
+
+pub enum GmpPdaSeeds {
+	State,
+	Vault,
+}
+impl GmpPdaSeeds {
+	pub fn to_seed(&self) -> Vec<u8> {
+		match self {
+			GmpPdaSeeds::State => b"gateway_state".into(),
+			GmpPdaSeeds::Vault => b"gateway_vault".into(),
+		}
+	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
+#[account]
+#[derive(InitSpace)]
+pub struct GatewayState {
+	pub admin: Pubkey,
+	pub is_initialized: bool,
+	#[max_len(MAX_SHARDS_LEN)]
+	pub shards: Vec<ShardAcc>,
+}
 
-	#[test]
-	fn it_works() {
-		let result = add(2, 2);
-		assert_eq!(result, 4);
-	}
+#[account]
+#[derive(InitSpace)]
+pub struct ShardAcc {
+	pub shard: Shard,
+	pub nonce: u64,
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize, InitSpace)]
+pub struct Shard {
+	pub x_coord: [u8; 32],
+	pub y_parity: u8,
 }

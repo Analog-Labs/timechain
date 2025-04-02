@@ -1,6 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 use borsh::{BorshDeserialize, BorshSerialize};
+use shared::*;
 use solana_program::keccak;
 
 type NetworkId = u16;
@@ -9,23 +10,19 @@ type Address32 = [u8; 32];
 pub type MessageId = [u8; 32];
 pub type TssPublicKey = [u8; 33];
 
-pub const MAX_SHARDS_LEN: usize = 50;
-
 #[derive(Accounts)]
 pub struct Initialize<'info> {
 	#[account(
         init,
         payer = signer,
-        // first 8 bytes is type discriminator: <https://www.anchor-lang.com/docs/basics/program-structure#account-discriminator>
         space = 8 + GatewayState::INIT_SPACE,
-        // look into the security issues of seeds
-        seeds = [b"gateway_state"],
+        seeds = [&GmpPdaSeeds::State.to_seed()],
         bump
     )]
 	pub gateway_state: Account<'info, GatewayState>,
+
 	#[account(mut)]
 	pub signer: Signer<'info>,
-
 	pub system_program: Program<'info, System>,
 }
 
@@ -70,15 +67,6 @@ pub struct ExecuteBatch<'info> {
 }
 
 #[account]
-#[derive(InitSpace)]
-pub struct GatewayState {
-	pub admin: Pubkey,
-	pub is_initialized: bool,
-	#[max_len(MAX_SHARDS_LEN)]
-	pub shards: Vec<ShardAcc>,
-}
-
-#[account]
 pub struct GmpMessageState {
 	pub admin: MessageId,
 	pub status: GmpStatus,
@@ -88,13 +76,6 @@ pub struct GmpMessageState {
 pub struct GmpInfo {
 	pub msg: [u8; 32],
 	pub y_parity: u8,
-	pub nonce: u64,
-}
-
-#[account]
-#[derive(InitSpace)]
-pub struct ShardAcc {
-	pub shard: Shard,
 	pub nonce: u64,
 }
 
@@ -124,12 +105,6 @@ pub struct NetworkInfo {
 	gas_limit: u64,
 	relative_gas_price: (u128, u128),
 	base_fee: u128,
-}
-
-#[derive(Clone, BorshSerialize, BorshDeserialize, InitSpace)]
-pub struct Shard {
-	pub x_coord: [u8; 32],
-	pub y_parity: u8,
 }
 
 #[derive(Clone, Copy, BorshSerialize, BorshDeserialize, PartialEq)]

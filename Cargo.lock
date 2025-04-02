@@ -6931,6 +6931,7 @@ name = "gmp-solana-contract"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "shared",
  "solana-program",
 ]
 
@@ -18158,6 +18159,9 @@ dependencies = [
 [[package]]
 name = "shared"
 version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+]
 
 [[package]]
 name = "shlex"

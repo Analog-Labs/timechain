@@ -130,7 +130,7 @@ impl ITimechainClient for MockClient {
 	where
 		Call: TxPayload + Send + Sync,
 	{
-		let nonce = params.2 .0.unwrap_or_default();
+		let nonce = params.3 .0.unwrap_or_default();
 		nonce.to_le_bytes().to_vec()
 	}
 

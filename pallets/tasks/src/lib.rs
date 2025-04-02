@@ -543,6 +543,9 @@ pub mod pallet {
 			task_id: TaskId,
 			result: Result<(), ErrorMsg>,
 		) {
+			if TaskOutput::<T>::get(task_id).is_some() {
+				return;
+			}
 			TaskOutput::<T>::insert(task_id, result.clone());
 			if let Some(shard) = TaskShard::<T>::take(task_id) {
 				log::debug!("finish task {task_id} on {shard}");

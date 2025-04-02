@@ -511,7 +511,7 @@ fn test_regression_finish_task_does_not_panic() {
 }
 
 #[test]
-fn finish_task_overwrites_ok_with_err() {
+fn finish_task_keeps_result_ok_after_err() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
@@ -524,36 +524,6 @@ fn finish_task_overwrites_ok_with_err() {
 		assert!(!TaskShard::<Test>::contains_key(task_id));
 		let error_msg = ErrorMsg(BoundedVec::truncate_from("Second result with error".encode()));
 		Tasks::finish_task(ETHEREUM, task_id, Err(error_msg.clone()));
-		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Err(error_msg.clone())));
-		let task_result_events = System::events()
-			.into_iter()
-			.filter_map(|r| {
-				if let RuntimeEvent::Tasks(Event::TaskResult(id, _)) = r.event {
-					if id == task_id {
-						return Some(id);
-					}
-				}
-				None
-			})
-			.count();
-		assert_eq!(task_result_events, 2);
-	});
-}
-
-#[test]
-fn finish_task_overwrites_err_with_ok() {
-	new_test_ext().execute_with(|| {
-		register_gateway(ETHEREUM, 42);
-		let shard = create_shard(ETHEREUM, 3, 1);
-		roll(1);
-		let task_id = Tasks::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 1..5 });
-		Tasks::assign_task(shard, task_id);
-		assert!(TaskShard::<Test>::contains_key(task_id));
-		let error_msg = ErrorMsg(BoundedVec::truncate_from("First result with error".encode()));
-		Tasks::finish_task(ETHEREUM, task_id, Err(error_msg.clone()));
-		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Err(error_msg.clone())));
-		assert!(!TaskShard::<Test>::contains_key(task_id));
-		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
 		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Ok(())));
 		let task_result_events = System::events()
 			.into_iter()
@@ -566,6 +536,36 @@ fn finish_task_overwrites_err_with_ok() {
 				None
 			})
 			.count();
-		assert_eq!(task_result_events, 2);
+		assert_eq!(task_result_events, 1);
+	});
+}
+
+#[test]
+fn finish_task_keeps_result_err_after_ok() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let task_id = Tasks::create_task(ETHEREUM, Task::ReadGatewayEvents { blocks: 1..5 });
+		Tasks::assign_task(shard, task_id);
+		assert!(TaskShard::<Test>::contains_key(task_id));
+		let error_msg = ErrorMsg(BoundedVec::truncate_from("First result with error".encode()));
+		Tasks::finish_task(ETHEREUM, task_id, Err(error_msg.clone()));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Err(error_msg.clone())));
+		assert!(!TaskShard::<Test>::contains_key(task_id));
+		Tasks::finish_task(ETHEREUM, task_id, Ok(()));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Err(error_msg.clone())));
+		let task_result_events = System::events()
+			.into_iter()
+			.filter_map(|r| {
+				if let RuntimeEvent::Tasks(Event::TaskResult(id, _)) = r.event {
+					if id == task_id {
+						return Some(id);
+					}
+				}
+				None
+			})
+			.count();
+		assert_eq!(task_result_events, 1);
 	});
 }

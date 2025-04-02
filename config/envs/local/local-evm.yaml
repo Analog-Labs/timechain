@@ -1,0 +1,52 @@
+config:
+  chronicle_funds: 10.
+  timechain_url: 'ws://validator:9944'
+  prices_path: 'prices.csv'
+backends:
+  evm:
+    chain_dict: "auxiliary/chains.json"
+    factory: "auxiliary/factory.json"
+    proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
+    gateway: "contracts/Gateway.sol/Gateway.json"
+    tester: "contracts/GmpProxy.sol/GmpProxy.json"
+networks:
+  2:
+    backend: "evm"
+    name: "evm-0"
+    url: "ws://chain-2-evm:8545"
+    admin_funds: 10.
+    gateway_funds: 1.
+    chronicle_funds: 1.
+    batch_size: 16
+    batch_offset: 0
+    batch_gas_limit: 10000000
+    gmp_margin: 0.0
+    shard_task_limit: 50
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    coin_id: 1027
+
+  3:
+    backend: "evm"
+    name: "evm-1"
+    url: "ws://chain-3-evm:8545"
+    admin_funds: 10.
+    gateway_funds: 1.
+    chronicle_funds: 1.
+    batch_size: 16
+    batch_offset: 0
+    batch_gas_limit: 10000000
+    gmp_margin: 0.0
+    shard_task_limit: 50
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    coin_id: 1027
+chronicles: 
+  - http://chronicle-2-evm:8080
+  - http://chronicle-3-evm:8080

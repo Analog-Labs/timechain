@@ -349,11 +349,11 @@ pub mod pallet {
 
 		/// Checks if a specific member is online.
 		fn is_member_online(account: &AccountId) -> bool {
-			MemberOnline::<T>::get(account).is_some()
+			MemberOnline::<T>::contains_key(account)
 		}
 
 		fn is_member_registered(account: &AccountId) -> bool {
-			MemberRegistered::<T>::get(account).is_some()
+			MemberRegistered::<T>::contains_key(account)
 		}
 
 		fn do_unregister_member(account: &AccountId) {

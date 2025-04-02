@@ -351,7 +351,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			let task = Tasks::<T>::get(task_id).ok_or(Error::<T>::UnknownTask)?;
-			if TaskOutput::<T>::get(task_id).is_some() {
+			if TaskOutput::<T>::contains_key(task_id) {
 				return Ok(());
 			}
 			let shard = TaskShard::<T>::get(task_id).ok_or(Error::<T>::UnassignedTask)?;
@@ -370,7 +370,7 @@ pub mod pallet {
 						SyncHeight::<T>::insert(network, blocks.end);
 					}
 					// start next batch if network wasn't stopped
-					if ReadEventsTask::<T>::get(network).is_some() {
+					if ReadEventsTask::<T>::contains_key(network) {
 						Self::read_gateway_events(network);
 					}
 					// process events
@@ -589,7 +589,7 @@ pub mod pallet {
 			let Some(pubkey) = T::Shards::tss_public_key(shard) else {
 				return false;
 			};
-			ShardRegistered::<T>::get(pubkey).is_some()
+			ShardRegistered::<T>::contains_key(pubkey)
 		}
 
 		pub(crate) fn assign_task(shard: ShardId, task_id: TaskId) {

@@ -212,7 +212,7 @@ pub mod pallet {
 			network: NetworkId,
 			config: NetworkConfig,
 		) -> Result<(), Error<T>> {
-			ensure!(Networks::<T>::get(network).is_some(), Error::<T>::NetworkNotFound);
+			ensure!(Networks::<T>::contains_key(network), Error::<T>::NetworkNotFound);
 			ensure!(
 				time_primitives::MAX_SHARD_SIZE as u16 >= config.shard_size,
 				Error::<T>::ShardSizeAboveMax

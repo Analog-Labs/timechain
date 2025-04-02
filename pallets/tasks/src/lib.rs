@@ -543,7 +543,7 @@ pub mod pallet {
 			task_id: TaskId,
 			result: Result<(), ErrorMsg>,
 		) {
-			if TaskOutput::<T>::get(task_id).is_some() {
+			if TaskOutput::<T>::contains_key(task_id) {
 				return;
 			}
 			TaskOutput::<T>::insert(task_id, result.clone());

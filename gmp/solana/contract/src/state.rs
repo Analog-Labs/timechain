@@ -17,7 +17,7 @@ pub struct Initialize<'info> {
         init,
         payer = signer,
         // first 8 bytes is type discriminator: <https://www.anchor-lang.com/docs/basics/program-structure#account-discriminator>
-        space = 8 + 32 + 1,
+        space = 8 + GatewayState::INIT_SPACE,
         // look into the security issues of seeds
         seeds = [b"gateway_state"],
         bump
@@ -70,9 +70,11 @@ pub struct ExecuteBatch<'info> {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct GatewayState {
 	pub admin: Pubkey,
 	pub is_initialized: bool,
+	#[max_len(MAX_SHARDS_LEN)]
 	pub shards: Vec<ShardAcc>,
 }
 
@@ -90,6 +92,7 @@ pub struct GmpInfo {
 }
 
 #[account]
+#[derive(InitSpace)]
 pub struct ShardAcc {
 	pub shard: Shard,
 	pub nonce: u64,
@@ -123,7 +126,7 @@ pub struct NetworkInfo {
 	base_fee: u128,
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, BorshSerialize, BorshDeserialize, InitSpace)]
 pub struct Shard {
 	pub x_coord: [u8; 32],
 	pub y_parity: u8,

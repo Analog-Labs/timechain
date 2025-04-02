@@ -1,22 +1,23 @@
 use std::str::FromStr;
 use std::{ops::Range, pin::Pin, sync::Arc};
 
+use anchor_client::Client;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
-use solana_client::nonblocking::pubsub_client::PubsubClient;
-use solana_client::nonblocking::rpc_client::RpcClient;
 
-use solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config;
-use solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter};
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::instruction::Instruction;
-use solana_sdk::message::Message;
-use solana_sdk::signature::Signature;
-use solana_sdk::signer::keypair::Keypair;
-use solana_sdk::system_instruction;
-use solana_sdk::transaction::Transaction;
-use solana_sdk::{pubkey::Pubkey, signer::Signer};
+use anchor_client::solana_client::nonblocking::pubsub_client::PubsubClient;
+use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
+use anchor_client::solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config;
+use anchor_client::solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter};
+use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
+use anchor_client::solana_sdk::instruction::Instruction;
+use anchor_client::solana_sdk::message::Message;
+use anchor_client::solana_sdk::signature::Signature;
+use anchor_client::solana_sdk::signer::keypair::Keypair;
+use anchor_client::solana_sdk::transaction::Transaction;
+use anchor_client::solana_sdk::{self, system_instruction};
+use anchor_client::solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
@@ -63,14 +64,10 @@ impl IConnectorBuilder for Connector {
 	where
 		Self: Sized,
 	{
-		let urls: Vec<_> = params.url.split(";").collect();
-		if urls.len() != 2 {
-			anyhow::bail!("Invalid url for solana");
-		}
-		let http_url = urls[0];
-		let ws_url = urls[1];
-		let client = RpcClient::new(http_url.to_string());
-		let pubsub_client = PubsubClient::new(ws_url).await?;
+		let ws_url = params.url.clone();
+		let http_url = params.url.replace("ws", "http");
+		let client = RpcClient::new(http_url);
+		let pubsub_client = PubsubClient::new(&ws_url).await?;
 		let connector = Self {
 			network_id: params.network_id,
 			client: Arc::new(client),
@@ -242,8 +239,9 @@ impl IConnectorAdmin for Connector {
 		let (state_pda, _bump) = Pubkey::find_program_address(&[b"gateway_state"], &program_id);
 
 		let data = self.client.get_account_data(&state_pda).await?;
-		let state = GatewayState::try_deserialize(&mut data.as_slice())?;
-		Ok(t_addr(state.admin))
+		// let state = Default::try_deserialize(&mut data.as_slice())?;
+		// Ok(t_addr(state.admin))
+		todo!()
 	}
 
 	async fn set_admin(&self, _gateway: Address32, _admin: Address32) -> Result<()> {
@@ -430,13 +428,14 @@ impl IConnector for Connector {
 	}
 	async fn submit_commands(
 		&self,
-		_gateway: Address32,
+		gateway: Address32,
 		_batch: BatchId,
-		_msg: GatewayMessage,
-		_signer: TssPublicKey,
-		_sig: TssSignature,
+		msg: GatewayMessage,
+		signer: TssPublicKey,
+		sig: TssSignature,
 	) -> Result<(), String> {
-		todo!("Need gateway implementation")
+		let gateway = a_addr(gateway);
+		Ok(())
 	}
 }
 

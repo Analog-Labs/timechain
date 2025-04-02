@@ -1036,6 +1036,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "anchor-client"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8527d2f9ce9ce406982b682072749ea5a45279f94d4fe17fdc50477be0e94737"
+dependencies = [
+ "anchor-lang",
+ "anyhow",
+ "futures",
+ "regex",
+ "serde",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "thiserror 1.0.69",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "anchor-derive-accounts"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6894,13 +6913,12 @@ dependencies = [
 name = "gmp-solana"
 version = "0.8.0"
 dependencies = [
+ "anchor-client",
  "anyhow",
  "async-trait",
  "futures",
  "hex",
  "sha3",
- "solana-client",
- "solana-sdk",
  "solana-transaction-status",
  "time-primitives",
  "tokio",
@@ -18136,6 +18154,10 @@ checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
 
 [[package]]
 name = "shlex"

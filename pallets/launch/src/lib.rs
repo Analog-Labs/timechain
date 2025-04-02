@@ -227,12 +227,8 @@ pub mod pallet {
 
 	const FROMS: &[([u8; 32], Balance)] = &[
 		(
-			sp_core::hex2array!("006266afd7b574f8552cd3a6628e1b44fb2611d1e6e7af4413612b74ea964816"),
-			6_064_989_130_000_000_000u128,
-		),
-		(
-			sp_core::hex2array!("867a0b072981d1209b68392f9c6e2761091ccefaac74c33d3284dcc21c023656"),
-			1_471_920_000_000_000_000u128,
+			sp_core::hex2array!("9c791313d68af24415366b70ca86e86366b1566548e40acbfceecbc721d9c843"),
+			271_739_000_000_000_000u128,
 		),
 	];
 

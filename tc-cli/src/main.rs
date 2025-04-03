@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Benchmark, Query, Sender, Tc};
-use time_primitives::{BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{BatchId, BlockNumber, CCTPMessage, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -172,6 +172,10 @@ enum Command {
 		payload: String,
 	},
 	SmokeTest {
+		src: NetworkId,
+		dest: NetworkId,
+	},
+	SmokeCctp {
 		src: NetworkId,
 		dest: NetworkId,
 	},
@@ -434,6 +438,29 @@ async fn real_main() -> Result<()> {
 		Command::SmokeTest { src, dest } => {
 			let testers = tc.setup_test().await?;
 			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
+		},
+		Command::SmokeCctp { src, dest } => {
+			let testers = tc.setup_test().await?;
+			let src_addr = testers.get(&src).expect("Unable to get source test");
+			let dest_addr = testers.get(&dest).expect("Unable to get source test");
+			tc.add_cctp_contract(src, src_addr.0)?;
+			tc.add_cctp_contract(dest, dest_addr.0)?;
+			let (block_hash, _) = tc.latest_block().await?;
+			tc.set_network_config(src, block_hash).await?;
+			tc.set_network_config(dest, block_hash).await?;
+			let cctp_msg_data = "0000000000000000000000060000000000040CDD0000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000009F3B8679C73C2FEF8B59B4F3444D4E156FB70AA50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001C7D4B196CB0C7B01D743FBC6116A902379C723800000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25000000000000000000000000000000000000000000000000000000000098968000000000000000000000000033A2838EABD69A081CBEBE3F11DED4086C1CFC25";
+			let msg_data =
+				hex::decode(cctp_msg_data).expect("Unable to create msg data from dummy cctp msg");
+			let cctp_payload = CCTPMessage {
+				attestation: vec![],
+				message: msg_data,
+				extra_data: [0u8; 32].to_vec(),
+			};
+			let msg = tc.exec_smoke(src, dest, &testers, cctp_payload.encode()).await?;
+			let attested =
+				CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+			assert!(!attested.attestation.is_empty());
+			assert!(attested.extra_data == cctp_payload.extra_data);
 		},
 		Command::Benchmark {
 			num_messages_per_block,

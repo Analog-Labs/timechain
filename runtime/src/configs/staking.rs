@@ -321,7 +321,6 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
-	// New required types in the latest polkadot-sdk
 	type OldCurrency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Filter = frame_support::traits::Everything;
@@ -390,7 +389,6 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = NominationPoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = DefaultAdminOrigin;
-	// New required types in the latest polkadot-sdk
 	type BlockNumberProvider = System;
 	type Filter = frame_support::traits::Everything;
 }

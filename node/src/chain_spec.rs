@@ -12,7 +12,8 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::UncheckedInto;
 
-use sp_keyring::{AccountKeyring, Ed25519Keyring};
+use sp_keyring::Ed25519Keyring;
+use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie, Dave, Eve, Ferdie, One, Two};
 
 use time_primitives::{
 	AccountId, Balance, Block, BlockNumber, ANLOG, SS58_ADDRESS_PREFIX, TOKEN_DECIMALS,
@@ -74,7 +75,7 @@ pub struct GenesisKeysConfig {
 impl Default for GenesisKeysConfig {
 	/// Default configuration using know development keys
 	fn default() -> Self {
-		use AccountKeyring::*;
+		// Using imported Sr25519Keyring directly
 
 		GenesisKeysConfig {
 			admins: vec![Eve.into(), Ferdie.into()],
@@ -266,7 +267,7 @@ impl GenesisKeysConfig {
 		}
 
 		if !cfg!(feature = "testnet") && cfg!(feature = "develop") {
-			use AccountKeyring::*;
+			// Using imported Sr25519Keyring directly
 
 			let airdrop: Vec<(AccountId, Balance)> =
 				vec![(One.into(), 10_000 * ANLOG), (Two.into(), 10_000 * ANLOG)];

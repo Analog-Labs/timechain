@@ -75,7 +75,6 @@ pub struct GenesisKeysConfig {
 impl Default for GenesisKeysConfig {
 	/// Default configuration using know development keys
 	fn default() -> Self {
-
 		GenesisKeysConfig {
 			admins: vec![Eve.into(), Ferdie.into()],
 			bootstraps: vec![(
@@ -266,7 +265,6 @@ impl GenesisKeysConfig {
 		}
 
 		if !cfg!(feature = "testnet") && cfg!(feature = "develop") {
-
 			let airdrop: Vec<(AccountId, Balance)> =
 				vec![(One.into(), 10_000 * ANLOG), (Two.into(), 10_000 * ANLOG)];
 

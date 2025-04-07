@@ -40,6 +40,7 @@ impl pallet_timestamp::Config for Test {}
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 parameter_types! {
@@ -104,7 +105,10 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	// New required types from the latest polkadot-sdk
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Filter = frame_support::traits::Everything;
 }
 
 impl pallet_governance::Config for Test {

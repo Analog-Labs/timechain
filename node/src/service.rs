@@ -354,8 +354,6 @@ where
 			metrics,
 		})?;
 
-	// SyncingService is now returned by build_network
-
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
 		backend: backend.clone(),

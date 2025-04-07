@@ -14,7 +14,7 @@ use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	//traits::tokens::imbalance::ResolveTo,
-	traits::{ConstU32, Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
+	traits::{ConstU32, Imbalance, OnUnbalanced},
 	weights::Weight,
 	PalletId,
 };
@@ -32,9 +32,9 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DefaultAdminOrigin, DelegatedStaking, ElectionProviderMultiPhase, EpochDuration,
-	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
-	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
-	Timestamp, TransactionPayment, VoterList, ANLOG,
+	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
+	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
+	TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {

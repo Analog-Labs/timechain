@@ -380,7 +380,7 @@ where
 			futures::select! {
 				notification = block_notifications.next().fuse() => {
 					let _enter = span.enter();
-					let Some((_block_hash, block)) = notification else {
+					let Some((block_hash, block)) = notification else {
 						event!(
 							parent: span,
 							Level::DEBUG,
@@ -399,21 +399,41 @@ where
 						send_heartbeat = true;
 					}
 					if send_heartbeat {
-						event!(
-							parent: span,
-							Level::INFO,
-							"submitting heartbeat",
-						);
-						match self.substrate.submit_heartbeat().await {
-							Ok(()) => {
+						// Check if heartbeat has already been submitted for this account
+						let account_id = self.substrate.account_id();
+						match self.substrate.is_heartbeat_submitted(account_id, block_hash).await {
+							Ok(true) => {
+								// Heartbeat already submitted, no need to submit again
 								send_heartbeat = false;
-								event!(parent: span, Level::INFO, "submitted heartbeat");
-							}
-							Err(e) => {
+								event!(parent: span, Level::INFO, "heartbeat already submitted");
+							},
+							Ok(false) => {
+								// Heartbeat not submitted yet, proceed with submission
 								event!(
 									parent: span,
 									Level::INFO,
-									"Error submitting heartbeat: {:?}",
+									"submitting heartbeat",
+								);
+								match self.substrate.submit_heartbeat().await {
+									Ok(()) => {
+										send_heartbeat = false;
+										event!(parent: span, Level::INFO, "submitted heartbeat");
+									}
+									Err(e) => {
+										event!(
+											parent: span,
+											Level::INFO,
+											"Error submitting heartbeat: {:?}",
+											e
+										);
+									}
+								}
+							},
+							Err(e) => {
+								event!(
+									parent: span,
+									Level::ERROR,
+									"Error checking heartbeat status: {:?}",
 									e
 								);
 							}

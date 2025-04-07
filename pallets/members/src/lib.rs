@@ -154,6 +154,8 @@ pub mod pallet {
 		NotMember,
 		/// Member not registered.
 		NotRegistered,
+		/// Heartbeat already submitted for timeout period
+		AlreadySubmittedHeartbeat,
 	}
 
 	/// Implements hooks for pallet initialization and block processing.
@@ -251,6 +253,7 @@ pub mod pallet {
 			Ok(())
 		}
 		fn execute_send_heartbeat(member: AccountId) -> DispatchResult {
+			ensure!(Heartbeat::<T>::get(&member).is_none(), Error::<T>::AlreadySubmittedHeartbeat);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);

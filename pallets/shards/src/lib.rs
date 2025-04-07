@@ -601,7 +601,7 @@ pub mod pallet {
 		///   1. Retrieves the shard `ID` associated with the member account from [`MemberShard`].
 		///   2. Returns `true` if the shard `ID` is present (`Some`), indicating the account is a member; otherwise, returns `false`.
 		fn is_shard_member(member: &AccountId) -> bool {
-			MemberShard::<T>::get(member).is_some()
+			MemberShard::<T>::contains_key(member)
 		}
 		/// Retrieves the network identifier associated with a specified shard.
 		///

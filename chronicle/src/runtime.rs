@@ -32,6 +32,8 @@ pub trait Runtime: Send + Sync + 'static {
 
 	async fn get_heartbeat_timeout(&self, block: BlockHash) -> Result<BlockNumber>;
 
+	async fn is_heartbeat_submitted(&self, account: &AccountId, block: BlockHash) -> Result<bool>;
+
 	async fn get_shards(&self, account: &AccountId, block: BlockHash) -> Result<Vec<ShardId>>;
 
 	async fn get_shard_members(
@@ -122,6 +124,10 @@ impl Runtime for SubxtClient {
 
 	async fn get_heartbeat_timeout(&self, block: BlockHash) -> Result<BlockNumber> {
 		self.heartbeat_timeout(block).await
+	}
+
+	async fn is_heartbeat_submitted(&self, account: &AccountId, block: BlockHash) -> Result<bool> {
+		self.is_heartbeat_submitted(account, block).await
 	}
 
 	async fn get_shards(&self, account: &AccountId, block: BlockHash) -> Result<Vec<ShardId>> {

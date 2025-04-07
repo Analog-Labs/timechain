@@ -50,7 +50,7 @@ pub mod pallet {
 		fn send_heartbeat() -> Weight;
 		fn unregister_member() -> Weight;
 		fn timeout_heartbeats(n: u32) -> Weight;
-		fn is_member(n: u32) -> Weight;
+		fn is_member() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -66,7 +66,7 @@ pub mod pallet {
 		fn timeout_heartbeats(_: u32) -> Weight {
 			Weight::default()
 		}
-		fn is_member(_: u32) -> Weight {
+		fn is_member() -> Weight {
 			Weight::default()
 		}
 	}
@@ -154,6 +154,8 @@ pub mod pallet {
 		NotMember,
 		/// Member not registered.
 		NotRegistered,
+		/// Heartbeat already submitted for timeout period
+		AlreadySubmittedHeartbeat,
 	}
 
 	/// Implements hooks for pallet initialization and block processing.
@@ -251,6 +253,7 @@ pub mod pallet {
 			Ok(())
 		}
 		fn execute_send_heartbeat(member: AccountId) -> DispatchResult {
+			ensure!(Heartbeat::<T>::get(&member).is_none(), Error::<T>::AlreadySubmittedHeartbeat);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
@@ -349,11 +352,11 @@ pub mod pallet {
 
 		/// Checks if a specific member is online.
 		fn is_member_online(account: &AccountId) -> bool {
-			MemberOnline::<T>::get(account).is_some()
+			MemberOnline::<T>::contains_key(account)
 		}
 
 		fn is_member_registered(account: &AccountId) -> bool {
-			MemberRegistered::<T>::get(account).is_some()
+			MemberRegistered::<T>::contains_key(account)
 		}
 
 		fn do_unregister_member(account: &AccountId) {

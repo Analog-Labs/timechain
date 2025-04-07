@@ -75,7 +75,6 @@ pub struct GenesisKeysConfig {
 impl Default for GenesisKeysConfig {
 	/// Default configuration using know development keys
 	fn default() -> Self {
-		// Using imported Sr25519Keyring directly
 
 		GenesisKeysConfig {
 			admins: vec![Eve.into(), Ferdie.into()],
@@ -267,7 +266,6 @@ impl GenesisKeysConfig {
 		}
 
 		if !cfg!(feature = "testnet") && cfg!(feature = "develop") {
-			// Using imported Sr25519Keyring directly
 
 			let airdrop: Vec<(AccountId, Balance)> =
 				vec![(One.into(), 10_000 * ANLOG), (Two.into(), 10_000 * ANLOG)];

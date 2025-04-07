@@ -3,6 +3,7 @@
 use polkadot_sdk::*;
 
 use scale_codec::Encode;
+use scale_info::prelude::string::String;
 
 use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};

@@ -136,6 +136,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(acc_pub(7).into(), 10_000_000_000),
 			(acc_pub(8).into(), 10_000_000_000),
 		],
+		dev_accounts: None,
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

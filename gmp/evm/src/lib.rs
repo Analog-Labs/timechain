@@ -1,6 +1,9 @@
 use alloy::{
 	eips::{BlockId, BlockNumberOrTag},
-	network::{EthereumWallet, ReceiptResponse, TransactionBuilder},
+	network::{
+		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, ReceiptResponse,
+		TransactionBuilder,
+	},
 	primitives::{B256, U256},
 	providers::{
 		fillers::{
@@ -10,7 +13,8 @@ use alloy::{
 		utils::Eip1559Estimator,
 		Provider, ProviderBuilder, RootProvider, WsConnect,
 	},
-	rpc::types::{Filter, Header, TransactionReceipt, TransactionRequest},
+	rpc::types::{Filter, Header, Log, TransactionReceipt, TransactionRequest},
+	serde::WithOtherFields,
 	signers::{
 		k256::ecdsa::SigningKey,
 		local::{coins_bip39::English, LocalSigner, MnemonicBuilder},
@@ -66,7 +70,8 @@ type CProvider = FillProvider<
 		>,
 		WalletFiller<EthereumWallet>,
 	>,
-	RootProvider,
+	RootProvider<AnyNetwork>,
+	AnyNetwork,
 >;
 
 #[derive(Clone)]
@@ -94,7 +99,13 @@ impl IConnectorBuilder for Connector {
 			.index(0)?
 			.build()?;
 		let ws = WsConnect::new(params.url.clone());
-		let provider = Arc::new(ProviderBuilder::new().wallet(signer.clone()).on_ws(ws).await?);
+		let provider = Arc::new(
+			ProviderBuilder::new()
+				.network::<AnyNetwork>()
+				.wallet(signer.clone())
+				.on_ws(ws)
+				.await?,
+		);
 
 		let chain_id = provider.get_chain_id().await?;
 		let dict = dict::load(&params.chain_dict).context("invalid chain dict")?;
@@ -169,7 +180,7 @@ impl IChain for Connector {
 			.with_value(U256::from(amount));
 
 		let guard = self.wallet_guard.lock().await;
-		let tx_hash = self.rpc.send_transaction(tx).await?.watch().await?;
+		let tx_hash = self.rpc.send_transaction(WithOtherFields::new(tx)).await?.watch().await?;
 		drop(guard);
 		tracing::info!("Transferred sent {amount} to {to}, tx: {tx_hash}");
 
@@ -359,8 +370,9 @@ impl IConnectorAdmin for Connector {
 		// check if proxy is deployed
 		let proxy_deployed_code = self.rpc.get_code_at(proxy_address).await?;
 		if !proxy_deployed_code.is_empty() {
-			tracing::debug!("Proxy already deployed, Please upgrade the gateway contract");
-			return Ok((t_addr(proxy_address), 0));
+			let block = self.latest_block().await?;
+			tracing::info!("Proxy already deployed. Please use redeploy-gateway instead");
+			return Ok((t_addr(proxy_address), block.number));
 		}
 		// deploy gateway
 		let gateway_address = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
@@ -393,7 +405,7 @@ impl IConnectorAdmin for Connector {
 			.with_call(&call);
 
 		self.rpc
-			.send_transaction(tx)
+			.send_transaction(WithOtherFields::new(tx))
 			.await?
 			.with_timeout(Some(std::time::Duration::from_secs(60)))
 			.watch()
@@ -409,7 +421,8 @@ impl IConnectorAdmin for Connector {
 
 		let tx = TransactionRequest::default().with_deploy_code(bytecode);
 
-		let receipt = self.rpc.send_transaction(tx).await?.get_receipt().await?;
+		let receipt =
+			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
 		let contract_address = receipt
 			.contract_address()
 			.ok_or(anyhow!("Failed to get deployed contract address"))?;
@@ -478,7 +491,7 @@ impl IConnectorAdmin for Connector {
 			.with_chain_id(self.rpc.get_chain_id().await?)
 			.with_call(&call);
 
-		Ok(self.rpc.estimate_gas(tx).await? as u128)
+		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
 	}
 	/// Estimates message cost
 	async fn estimate_message_cost(
@@ -532,6 +545,8 @@ impl IConnectorAdmin for Connector {
 		let receipt = self.evm_send(contract, call, gas_cost).await?;
 
 		receipt
+			.inner
+			.inner
 			.logs()
 			.iter()
 			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
@@ -686,7 +701,7 @@ impl Connector {
 			.with_chain_id(self.rpc.get_chain_id().await?)
 			.with_call(&call);
 
-		let result = self.rpc.call(tx).await?;
+		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
 
 		Ok(C::abi_decode_returns(&result, true)?)
 	}
@@ -696,7 +711,7 @@ impl Connector {
 		to: Address32,
 		call: C,
 		value: u128,
-	) -> Result<TransactionReceipt> {
+	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
 			.with_chain_id(self.rpc.get_chain_id().await?)
@@ -705,14 +720,14 @@ impl Connector {
 
 		let _guard = self.wallet_guard.lock().await;
 
-		Ok(self.rpc.send_transaction(tx).await?.get_receipt().await?)
+		Ok(self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?)
 	}
 
-	async fn latest_block(&self) -> Result<Header> {
+	async fn latest_block(&self) -> Result<Header<AnyHeader>> {
 		self.rpc
 			.get_block(BlockId::latest())
 			.await?
-			.map(|b| b.header)
+			.map(|b| b.header.clone())
 			.ok_or(anyhow!("failed querying finalized block"))
 	}
 
@@ -732,7 +747,7 @@ impl Connector {
 			.with_input(call);
 
 		let guard = self.wallet_guard.lock().await;
-		let pending_tx = self.rpc.send_transaction(tx).await?;
+		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
 		drop(guard);
 		let tx_hash = *pending_tx.tx_hash();
 		tracing::debug!("deployment tx: {tx_hash}");
@@ -741,6 +756,8 @@ impl Connector {
 		tracing::debug!("deployment tx receipt: {receipt:?}");
 
 		let log = receipt
+			.inner
+			.inner
 			.logs()
 			.iter()
 			.find(|log| log.address() == factory_address)

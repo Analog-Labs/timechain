@@ -16,7 +16,7 @@ networks:
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
     chronicle_funds: .1
-    batch_size: 64
+    batch_size: 16
     batch_offset: 0
     batch_gas_limit: 18000000
     gmp_margin: 0.0
@@ -26,13 +26,18 @@ networks:
     shard_size: 6
     shard_threshold: 4
     coin_id: 1027
+    cctp_contracts:
+    - "F804E7B9bf2a1644c490c87Fdb18642ef329601C"
+    - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+
   11:
     backend: "evm"
     name: "astar shibuya"
     url: "wss://rpc.shibuya.astar.network"
-    gateway_funds: 1.
-    chronicle_funds: .1
-    batch_size: 256
+    gateway_funds: 10.
+    chronicle_funds: 10.
+    batch_size: 32
     batch_offset: 0
     batch_gas_limit: 30000000
     gmp_margin: 0.0
@@ -47,8 +52,8 @@ networks:
     name: "binance testnet"
     url: "wss://bsc-testnet-rpc.publicnode.com"
     gateway_funds: 1.
-    chronicle_funds: .1
-    batch_size: 256
+    chronicle_funds: .5
+    batch_size: 128
     batch_offset: 0
     batch_gas_limit: 50000000
     gmp_margin: 0.0
@@ -63,8 +68,8 @@ networks:
     name: "arbitrum sepolia"
     url: "wss://arbitrum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
-    chronicle_funds: .1
-    batch_size: 512
+    chronicle_funds: .5
+    batch_size: 1024
     batch_offset: 0
     batch_gas_limit: 500000000000000
     gmp_margin: 0.0
@@ -74,6 +79,9 @@ networks:
     shard_size: 6
     shard_threshold: 4
     coin_id: 11841
+    cctp_contracts:
+    - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-2.integration.analog.one

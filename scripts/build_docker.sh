@@ -3,8 +3,6 @@
 set -e
 set -x
 
-RUSTFLAGS="${RUSTFLAGS:-}"
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 WORKSPACE_ROOT=$SCRIPT_DIR/../
 cd $WORKSPACE_ROOT
@@ -17,10 +15,6 @@ docker info > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'docker', please st
 
 # Check for 'rustup' and abort if it is not available.
 rustup -V > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'rustup' for compile the binaries"; exit 1; }
-
-if command -v lld 2>&1 >/dev/null; then
-    RUSTFLAGS="-C link-arg=-fuse-ld=lld ${RUSTFLAGS}"
-fi
 
 # Detect host architecture
 case "$(uname -m)" in
@@ -74,7 +68,12 @@ if ! rustup target list | grep -q "$rustTarget"; then
   rustup target add "$rustTarget"
 fi
 
-export RUSTFLAGS
+# Use lld linker if available
+if command -v lld 3>&1 >/dev/null; then
+    echo "Forcing use of LLVM clang and lld linker"
+    CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld"
+    CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld"
+fi
 
 # Build docker image
 forge build --root analog-gmp

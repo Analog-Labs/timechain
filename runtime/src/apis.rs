@@ -3,12 +3,9 @@
 use polkadot_sdk::*;
 
 use scale_codec::Encode;
+use scale_info::prelude::string::String;
 
 use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -42,19 +39,6 @@ use super::{
 use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
 use crate::{Members, Networks, Shards, Tasks};
-
-// HASHI Bridge
-use crate::configs::bridge::NetworkId as BridgeNetworkId;
-use crate::EthBridge;
-use eth_bridge::{
-	common::{AssetId as BridgeAssetId, BalancePrecision as BridgeBalancePrecision},
-	offchain::SignatureParams as BridgeSignatureParams,
-	requests::{
-		AssetKind as BridgeAssetKind, OffchainRequest, OutgoingRequestEncoded,
-		RequestStatus as BridgeRequestStatus,
-	},
-};
-use sp_runtime::DispatchError;
 
 // Original Author: ntn-x2 @ KILTprotocol
 // Workaround for runtime API impls not exposed in metadata if implemented in a
@@ -281,6 +265,10 @@ impl_runtime_apis! {
 		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
 			NominationPools::api_pool_balance(pool_id)
 		}
+
+		fn pool_accounts(pool_id: pallet_nomination_pools::PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
+		}
 	}
 
 	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
@@ -421,73 +409,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	// Temporary APIs to be removed again
-
-	impl
-		eth_bridge_runtime_api::EthBridgeRuntimeApi<
-			Block,
-			sp_core::H256,
-			BridgeSignatureParams,
-			AccountId,
-			BridgeAssetKind,
-			BridgeAssetId,
-			sp_core::H160,
-			OffchainRequest<Runtime>,
-			BridgeRequestStatus,
-			OutgoingRequestEncoded,
-			BridgeNetworkId,
-			BridgeBalancePrecision,
-		> for Runtime
-	{
-		fn get_requests(
-			hashes: Vec<sp_core::H256>,
-			network_id: Option<BridgeNetworkId>,
-			redirect_finished_load_requests: bool,
-		) -> Result<
-			Vec<(
-				OffchainRequest<Runtime>,
-				BridgeRequestStatus,
-			)>,
-			DispatchError,
-		> {
-			EthBridge::get_requests(&hashes, network_id, redirect_finished_load_requests)
-		}
-
-		fn get_approved_requests(
-			hashes: Vec<sp_core::H256>,
-			network_id: Option<BridgeNetworkId>
-		) -> Result<
-			Vec<(
-				OutgoingRequestEncoded,
-				Vec<BridgeSignatureParams>,
-			)>,
-			DispatchError,
-		> {
-			EthBridge::get_approved_requests(&hashes, network_id)
-		}
-
-		fn get_approvals(
-			hashes: Vec<sp_core::H256>,
-			network_id: Option<BridgeNetworkId>
-		) -> Result<Vec<Vec<BridgeSignatureParams>>, DispatchError> {
-			EthBridge::get_approvals(&hashes, network_id)
-		}
-
-		fn get_account_requests(account_id: AccountId, status_filter: Option<BridgeRequestStatus>) -> Result<Vec<(BridgeNetworkId, sp_core::H256)>, DispatchError> {
-			EthBridge::get_account_requests(&account_id, status_filter)
-		}
-
-		fn get_registered_assets(
-			network_id: Option<BridgeNetworkId>
-		) -> Result<Vec<(
-				BridgeAssetKind,
-				(BridgeAssetId, BridgeBalancePrecision),
-				Option<(sp_core::H160, BridgeBalancePrecision)
-		>)>, DispatchError> {
-			EthBridge::get_registered_assets(network_id)
-		}
-	}
-
 	// Optional runtime interfaces controlled by feature flags
 
 	/// - __genesis-builder__: support generation of custom genesis
@@ -528,6 +449,7 @@ impl_runtime_apis! {
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use baseline::Pallet as BaselineBench;
 
 			// Import substrate macros created by macros (and all pallets by effects)
@@ -541,7 +463,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -552,6 +474,7 @@ impl_runtime_apis! {
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use baseline::Pallet as BaselineBench;
 
 			impl pallet_session_benchmarking::Config for Runtime {}

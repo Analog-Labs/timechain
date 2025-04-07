@@ -1,17 +1,18 @@
 name: Build Docker chronicle image
 on:
   push:
-    paths:
-      - '.github/workflows/merge-docker-chronicle.yaml'
-      - 'chronicle/**'
-      - 'config/subxt/**'
-      - 'lib/**'
-      - 'primitives/**'
-      - 'tc-subxt/**'
-      - 'tss/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
+    paths-ignore:
+      - '.github/**'
+      - '!.github/workflows/merge-docker-chronicle.yaml'
+      - '.cargo/**'
+      - 'config/**'
+      - '!config/docker/Dockerfile.chronicle-release'
+      - 'tc-cli/**'
+      - 'node'
+      - 'slack-bot/**'
+      - 'utils/**'
+      - 'e2e-tests/**'
+      - 'docs/**'
     branches:
       - "ci/binary/**"
       - 'development'

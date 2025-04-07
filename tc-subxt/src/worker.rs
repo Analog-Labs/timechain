@@ -277,7 +277,6 @@ where
 		nonce: Option<u64>,
 	) {
 		let mut is_new_tx = true;
-		let block = &self.latest_block;
 		let nonce = match nonce {
 			Some(nonce) => {
 				is_new_tx = false;
@@ -287,7 +286,7 @@ where
 		};
 		let params: ExtrinsicParams = DefaultExtrinsicParamsBuilder::new()
 			.nonce(nonce)
-			.mortal_unchecked(block.number, block.hash, MORTALITY.into())
+			.mortal(MORTALITY.into())
 			.build();
 		let tx = self.build_tx(transaction.clone(), params);
 		let tx = self.client.submittable_transaction(tx.clone());

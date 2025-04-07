@@ -201,6 +201,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -267,6 +268,9 @@ impl pallet_transaction_payment::Config for Runtime {
 	/// Defines how the fee multiplier is updated based on the block fullness.
 	/// The `TargetedFeeAdjustment` adjusts the fee multiplier to maintain the target block fullness.
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+
+	/// Benchmarked weights associated with transaction payments
+	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -373,7 +377,7 @@ mod test {
 		let mut blocks = 0;
 		let mut fees_paid = 0;
 		let info = DispatchInfo {
-			weight: Weight::MAX,
+			call_weight: Weight::MAX,
 			..Default::default()
 		};
 

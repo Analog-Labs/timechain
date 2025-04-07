@@ -50,6 +50,7 @@ pub mod pallet {
 		fn send_heartbeat() -> Weight;
 		fn unregister_member() -> Weight;
 		fn timeout_heartbeats(n: u32) -> Weight;
+		fn is_member() -> Weight;
 	}
 
 	impl WeightInfo for () {
@@ -63,6 +64,9 @@ pub mod pallet {
 			Weight::default()
 		}
 		fn timeout_heartbeats(_: u32) -> Weight {
+			Weight::default()
+		}
+		fn is_member() -> Weight {
 			Weight::default()
 		}
 	}
@@ -348,11 +352,11 @@ pub mod pallet {
 
 		/// Checks if a specific member is online.
 		fn is_member_online(account: &AccountId) -> bool {
-			MemberOnline::<T>::get(account).is_some()
+			MemberOnline::<T>::contains_key(account)
 		}
 
 		fn is_member_registered(account: &AccountId) -> bool {
-			MemberRegistered::<T>::get(account).is_some()
+			MemberRegistered::<T>::contains_key(account)
 		}
 
 		fn do_unregister_member(account: &AccountId) {

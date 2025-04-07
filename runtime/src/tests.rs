@@ -1,4 +1,5 @@
-/// Integration tests
+#![cfg(feature = "testnet")]
+//! GMP Integration tests
 use crate::*;
 
 use scale_codec::Encode;

@@ -6,7 +6,7 @@ use polkadot_sdk::*;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, NetworkId, PublicKey};
+use time_primitives::{AccountId, MembersInterface, NetworkId, PublicKey};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
@@ -60,6 +60,17 @@ benchmarks! {
 			// Next timed out set is derived from heartbeats previously in storage
 			assert!(TimedOut::<T>::get().contains(&caller));
 		}
+	}
+
+	is_member {
+		let caller: AccountId = ALICE.into();
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
+
+		let result: bool;
+	} : {
+		result = Pallet::<T>::is_member_registered(&caller);
+	} verify {
+		assert!(result);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

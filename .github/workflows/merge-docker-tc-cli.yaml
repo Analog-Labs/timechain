@@ -1,16 +1,17 @@
 name: Build Docker tc-cli
 on:
   push:
-    paths:
-      - '.github/workflows/merge-docker-tc-cli.yaml'
-      - 'analog-gmp/**'
-      - 'config/envs/**'
-      - 'primitives/**'
-      - 'tc-subxt/**'
-      - 'tc-cli/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
+    paths-ignore:
+      - '.github/**'
+      - '!.github/workflows/merge-docker-tc-cli.yaml'
+      - '.cargo/**'
+      - 'chronicle/**'
+      - 'docs/**'
+      - 'e2e-tests/**'
+      - 'node/**'
+      - 'tss/**'
+      - 'slack-bot/**'
+      - 'utils/**'
     branches:
       - 'development'
 concurrency:

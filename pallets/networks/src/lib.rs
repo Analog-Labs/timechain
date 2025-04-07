@@ -193,15 +193,18 @@ pub mod pallet {
 			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network.id, network.id);
 			NetworkName::<T>::insert(network.id, network.chain_name.clone());
-			NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
-			NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
-			T::Tasks::gateway_registered(network.id, network.gateway_block);
+			let current_gateway = NetworkGatewayAddress::<T>::get(network.id);
+			if Some(network.gateway) != current_gateway {
+				NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
+				NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
+				T::Tasks::gateway_registered(network.id, network.gateway_block);
+				Self::deposit_event(Event::NetworkRegistered(
+					network.id,
+					network.gateway,
+					network.gateway_block,
+				));
+			}
 			Self::insert_network_config(network.id, network.config.clone())?;
-			Self::deposit_event(Event::NetworkRegistered(
-				network.id,
-				network.gateway,
-				network.gateway_block,
-			));
 			Ok(())
 		}
 
@@ -209,7 +212,7 @@ pub mod pallet {
 			network: NetworkId,
 			config: NetworkConfig,
 		) -> Result<(), Error<T>> {
-			ensure!(Networks::<T>::get(network).is_some(), Error::<T>::NetworkNotFound);
+			ensure!(Networks::<T>::contains_key(network), Error::<T>::NetworkNotFound);
 			ensure!(
 				time_primitives::MAX_SHARD_SIZE as u16 >= config.shard_size,
 				Error::<T>::ShardSizeAboveMax

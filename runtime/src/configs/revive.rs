@@ -5,7 +5,7 @@ use crate::*;
 use frame_support::{parameter_types, traits::Nothing};
 use pallet_revive::Config;
 use sp_runtime::{
-	traits::{ConstU32, ConstU64},
+	traits::{ConstBool, ConstU32, ConstU64},
 	Perbill,
 };
 use time_primitives::{MICROANLOG, MILLIANLOG};
@@ -35,13 +35,14 @@ impl Config for Runtime {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-	type UnsafeUnstableInterface = frame_support::traits::ConstBool<false>;
+	type UnsafeUnstableInterface = ConstBool<false>;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Debug = ();
 	type Xcm = ();
 	type ChainId = ConstU64<12_850>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type EthGasEncoder = ();
+	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 }

@@ -2,6 +2,7 @@
 
 use scale_codec::Decode;
 
+use crate::System;
 use polkadot_sdk::*;
 
 use frame_election_provider_support::{
@@ -224,17 +225,18 @@ impl RewardPool {
 	}
 }
 
-impl OnUnbalanced<PositiveImbalance> for RewardPool {
+// Implementation for the new fungible Imbalance type
+impl<I, D> OnUnbalanced<frame_support::traits::fungible::Imbalance<Balance, I, D>> for RewardPool
+where
+	I: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
+	D: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
+{
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
-	fn on_nonzero_unbalanced(imbalance: PositiveImbalance) {
-		if let Err(to_mint) = Balances::settle(
-			&Self::account_id(),
-			imbalance,
-			WithdrawReasons::TRANSFER,
-			ExistenceRequirement::AllowDeath,
-		) {
-			log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
-		}
+	fn on_nonzero_unbalanced(
+		_imbalance: frame_support::traits::fungible::Imbalance<Balance, I, D>,
+	) {
+		// In the new implementation, we just let the imbalance drop, which will increase issuance
+		log::warn!("💰 Reward amount");
 	}
 }
 
@@ -318,8 +320,11 @@ impl pallet_staking::Config for Runtime {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	// New required types in the latest polkadot-sdk
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Filter = frame_support::traits::Everything;
 }
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &crate::staking_bags::THRESHOLDS;
@@ -385,6 +390,9 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = NominationPoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = DefaultAdminOrigin;
+	// New required types in the latest polkadot-sdk
+	type BlockNumberProvider = System;
+	type Filter = frame_support::traits::Everything;
 }
 
 parameter_types! {

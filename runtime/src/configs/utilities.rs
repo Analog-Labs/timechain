@@ -1,6 +1,7 @@
 //! Collection of useful utilities extend transactions and wallets.
 
-use scale_codec::{Decode, Encode, MaxEncodedLen};
+use crate::System;
+use scale_codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 
 use polkadot_sdk::*;
 
@@ -50,6 +51,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {
@@ -72,6 +74,7 @@ parameter_types! {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -134,4 +137,5 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type BlockNumberProvider = System;
 }

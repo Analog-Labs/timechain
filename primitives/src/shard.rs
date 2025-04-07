@@ -9,7 +9,7 @@ use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use scale_codec::{Decode, Encode};
+use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 #[cfg(feature = "std")]
 use scale_info::prelude::vec::Vec;
 use scale_info::TypeInfo;
@@ -24,7 +24,7 @@ pub type PeerId = [u8; 32];
 pub type ShardId = u64;
 pub type ProofOfKnowledge = [u8; 65];
 
-#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct Commitment(pub BoundedVec<TssPublicKey, ConstU32<MAX_SHARD_SIZE>>);
 
 #[cfg(feature = "std")]
@@ -71,7 +71,7 @@ pub mod serde_tss_signature {
 	}
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub enum MemberStatus {
 	Added,
 	Committed(Commitment),
@@ -106,7 +106,7 @@ impl std::fmt::Display for MemberStatus {
 
 /// Track status of shard
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, Encode, Decode, TypeInfo, PartialEq)]
+#[derive(Debug, Copy, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq)]
 pub enum ShardStatus {
 	Created,
 	Committed,

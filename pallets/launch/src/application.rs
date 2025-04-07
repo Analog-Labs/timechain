@@ -1,6 +1,6 @@
 use crate::Config;
 
-use scale_codec::{Decode, Encode};
+use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 
 use polkadot_sdk::*;
 
@@ -9,7 +9,9 @@ use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::RuntimeDebug;
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, scale_info::TypeInfo)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, scale_info::TypeInfo,
+)]
 #[repr(u8)]
 pub enum Application {
 	Bridging,

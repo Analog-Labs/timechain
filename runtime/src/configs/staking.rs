@@ -14,7 +14,7 @@ use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	//traits::tokens::imbalance::ResolveTo,
-	traits::{ConstU32, Imbalance, OnUnbalanced},
+	traits::{ConstU32, OnUnbalanced},
 	weights::Weight,
 	PalletId,
 };

@@ -9,8 +9,8 @@ use polkadot_sdk::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::traits::UnfilteredDispatchable;
 use frame_system::RawOrigin;
-use sp_keyring::AccountKeyring::Charlie as SrClaimer;
 use sp_keyring::Ed25519Keyring::Ferdie as EdClaimer;
+use sp_keyring::Sr25519Keyring::Charlie as SrClaimer;
 
 use sp_runtime::{traits::ValidateUnsigned, DispatchResult};
 

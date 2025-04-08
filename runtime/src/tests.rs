@@ -69,7 +69,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 		balances.push((acc_pub(i.try_into().unwrap()).into(), 100_000 * ANLOG));
 	}
 	balances.push((acc_pub(42u8).into(), 100_000 * ANLOG));
-	pallet_balances::GenesisConfig::<Runtime> { balances }
+	pallet_balances::GenesisConfig::<Runtime> { balances, dev_accounts: None }
 		.assimilate_storage(&mut storage)
 		.unwrap();
 	pallet_collective::GenesisConfig::<Runtime, pallet_collective::Instance1> {

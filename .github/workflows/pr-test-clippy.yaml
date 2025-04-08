@@ -31,13 +31,6 @@ jobs:
           submodules: recursive
       - name: Build contracts
         uses: ./.github/actions/build-contracts
-      - name: Build runtime
-        uses: ./.github/actions/cargo-command
-        with:
-          command: build
-          package: timechain-runtime
-          args: --features testnet
-          cache: false
       - name: Run clippy linter
         uses: ./.github/actions/cargo-command
         with:

@@ -119,6 +119,28 @@ uint::construct_uint! {
 	pub struct U256(4);
 }
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "std")]
+impl Serialize for U256 {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.to_string().serialize(serializer)
+	}
+}
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for U256 {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		let s = String::deserialize(deserializer)?;
+		Ok(Self::from_dec_str(&s).unwrap())
+	}
+}
+
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
 		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;

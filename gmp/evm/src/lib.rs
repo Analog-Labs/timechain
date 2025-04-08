@@ -602,8 +602,10 @@ impl IConnectorAdmin for Connector {
 			.await?
 			.reward
 			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
-
-		Ok(fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas)
+		let max_fee = fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas;
+		// TODO remove once we have cutom config for estimating fee.
+		let max_fee = std::cmp::max(max_fee, 1);
+		Ok(max_fee)
 	}
 
 	/// Returns gas limit of latest block

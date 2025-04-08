@@ -5,12 +5,12 @@ use anyhow::{Context, Result};
 use num_bigint::{BigInt, BigUint};
 use num_rational::Ratio;
 use num_traits::Signed;
-use num_traits::ToPrimitive;
 use num_traits::{identities::Zero, pow};
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashMap;
 use time_primitives::NetworkId;
+use time_primitives::U256;
 
 #[derive(Clone, Deserialize)]
 struct TokenPriceData {
@@ -84,9 +84,12 @@ fn compute_src_wei_per_dst_gas_rate(
 ) -> Ratio<BigUint> {
 	let src_usd_per_wei =
 		src_usd_price / Ratio::from_integer(pow(BigUint::from(10u32), src_decimals as usize));
+	tracing::info!("src usd per wei: {:?}", src_usd_per_wei);
 	let dst_usd_per_wei =
 		dst_usd_price / Ratio::from_integer(pow(BigUint::from(10u32), dst_decimals as usize));
+	tracing::info!("dest usd per wei: {:?}", dst_usd_per_wei);
 	let dst_usd_per_gas = dst_usd_per_wei * Ratio::from_integer(BigUint::from(dst_gas_fee));
+	tracing::info!("dest usd per gas {:?}: {:?}", dst_gas_fee, dst_usd_per_gas);
 	dst_usd_per_gas / src_usd_per_wei
 }
 
@@ -106,10 +109,12 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 	Ok(Ratio::new(numerator_biguint, denominator_biguint))
 }
 
-fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
-	value
-		.to_u128()
-		.ok_or_else(|| anyhow::anyhow!("Could not convert bigint to u128"))
+fn convert_bigint_to_u256(value: &BigUint) -> Result<U256> {
+	let num_bytes = value.to_bytes_be();
+	if num_bytes.len() != 32 {
+		anyhow::bail!("Invalid bytes for a u256: {}", num_bytes.len())
+	}
+	Ok(U256::from_big_endian(&num_bytes))
 }
 
 impl Tc {
@@ -160,9 +165,11 @@ impl Tc {
 		&self,
 		src_network: NetworkId,
 		dest_network: NetworkId,
-	) -> Result<(u128, u128)> {
+	) -> Result<(U256, U256)> {
 		let src_price = self.config.token_price_usd(src_network)?;
+		tracing::info!("source price: {:?}", src_price);
 		let dest_price = self.config.token_price_usd(dest_network)?;
+		tracing::info!("dest price: {:?}", dest_price);
 		let dest_gas_fee = self.max_fee_per_gas(dest_network).await?;
 
 		let src_config = self.config.network(src_network)?;
@@ -173,13 +180,18 @@ impl Tc {
 
 		let src_usd_price =
 			Ratio::from_float(src_price).context("Cannot convert float to ratio")?;
+		tracing::info!("source ratio: {:?}", src_usd_price);
 		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
+		tracing::info!("src ratio uint: {:?}", src_usd_price);
 		let dest_usd_price =
 			Ratio::from_float(dest_price).context("Cannot convert float to ratio")?;
+		tracing::info!("dest ratio: {:?}", dest_usd_price);
 		let dest_usd_price = convert_bigint_ratio_to_biguint(dest_usd_price)?;
+		tracing::info!("dst ratio uint: {:?}", dest_usd_price);
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
 		let src_margin = Ratio::from_float(src_margin).context("Cannot convert float to ratio")?;
+		tracing::info!("src margin: {:?}", src_margin);
 
 		// src to dest relative gas price
 		let mut src_to_dest = compute_src_wei_per_dst_gas_rate(
@@ -189,17 +201,19 @@ impl Tc {
 			dest_decimals,
 			dest_gas_fee,
 		);
+		tracing::info!("src to dest: {:?}", src_to_dest);
 
 		// Add margin
 		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
+		tracing::info!("src to dest with margin: {:?}", src_to_dest);
 
 		log::info!(
 			"relative gas price {src_network} -> {dest_network}: {}",
 			to_fixed(src_to_dest.clone(), None),
 		);
 		let ratio = src_to_dest;
-		let numerator = convert_bigint_to_u128(ratio.numer())?;
-		let denominator = convert_bigint_to_u128(ratio.denom())?;
+		let numerator = convert_bigint_to_u256(ratio.numer())?;
+		let denominator = convert_bigint_to_u256(ratio.denom())?;
 		Ok((numerator, denominator))
 	}
 }

@@ -151,7 +151,9 @@ impl IntoRow for Route {
 		Ok(RouteEntry {
 			network: self.network_id,
 			gateway: tc.format_address(Some(self.network_id), self.gateway)?,
-			relative_gas_price: format!("{}", num as f64 / den as f64),
+			// relative_gas_price: format!("{}", num as f64 / den as f64),
+			// FIX the relative gas price string table
+			relative_gas_price: format!("{:?}", num / den),
 			gas_limit: self.gas_limit,
 			gmp_base_fee: self.gmp_base_fee,
 		})

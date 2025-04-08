@@ -1,5 +1,5 @@
 use crate::cctp::FixedSizeEncodable;
-use crate::{NetworkId, TssPublicKey};
+use crate::{NetworkId, TssPublicKey, U256};
 use scale_codec::{Decode, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
@@ -292,7 +292,7 @@ pub struct Route {
 	/// Destination gateway
 	pub gateway: Address32,
 	/// Gas price on destination network, expressed in source network token
-	pub relative_gas_price: (u128, u128),
+	pub relative_gas_price: (U256, U256),
 	/// Maximum amount of gas a message is allowed to spend on destination network
 	pub gas_limit: u64,
 	/// GMP protocol fee for message delivery to the destination network, expressed in source network token
@@ -302,7 +302,8 @@ pub struct Route {
 #[cfg(feature = "std")]
 impl Route {
 	pub fn relative_gas_price(&self) -> f64 {
-		self.relative_gas_price.0 as f64 / self.relative_gas_price.1 as f64
+		0.0
+		// self.relative_gas_price.0 as f64 / self.relative_gas_price.1 as f64
 	}
 }
 

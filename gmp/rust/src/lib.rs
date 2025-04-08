@@ -18,7 +18,7 @@ use tempfile::NamedTempFile;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
 	GmpParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	TssPublicKey, TssSignature, U256,
 };
 
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
@@ -428,7 +428,7 @@ impl IConnectorAdmin for Connector {
 			if new_route.gateway != [0; 32] {
 				route.gateway = new_route.gateway;
 			}
-			if new_route.relative_gas_price != (0, 0) {
+			if new_route.relative_gas_price != (U256::zero(), U256::zero()) {
 				route.relative_gas_price = new_route.relative_gas_price;
 			}
 			if new_route.gas_limit != 0 {

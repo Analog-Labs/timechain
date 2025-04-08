@@ -11,7 +11,7 @@ use time_primitives::NetworkId;
 pub struct Config {
 	path: PathBuf,
 	yaml: ConfigYaml,
-	prices: HashMap<NetworkId, (String, f64)>,
+	pub prices: HashMap<NetworkId, (String, f64)>,
 }
 
 #[derive(Clone, Deserialize)]

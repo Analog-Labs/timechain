@@ -25,6 +25,7 @@ use alloy::{
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use blocks::FinalizedBlockStream;
+use custom::BEP226;
 use dict::Currency;
 use futures::{Stream, StreamExt};
 use reqwest::Client;
@@ -51,6 +52,7 @@ type CctpRetryCount = u8;
 const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
 pub(crate) mod blocks;
+pub(crate) mod custom;
 pub(crate) mod dict;
 pub(crate) mod sol;
 
@@ -585,6 +587,8 @@ impl IConnectorAdmin for Connector {
 		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
 			// Polygon
 			137 => (Eip1559Estimator::Default, 15, 10.0),
+			// BNB
+			97 | 56 => (Eip1559Estimator::Custom(Box::new(BEP226)), 1, 5.0),
 			// Default
 			_ => (Eip1559Estimator::Default, 10, 5.0),
 		};

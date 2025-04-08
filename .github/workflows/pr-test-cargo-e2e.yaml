@@ -25,10 +25,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Build dev containers
-        run: |
-          ./scripts/build_docker.sh
-
       # Explicitly build the runtime first to generate metadata files
       - name: Build runtime
         uses: ./.github/actions/cargo-command
@@ -37,6 +33,10 @@ jobs:
           package: timechain-runtime
           args: --features testnet
           cache: false
+
+      - name: Build dev containers
+        run: |
+          ./scripts/build_docker.sh
 
       - name: Build testsuite
         uses: ./.github/actions/cargo-command

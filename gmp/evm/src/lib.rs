@@ -81,7 +81,7 @@ pub struct Connector {
 	url: String,
 	signer: Arc<LocalSigner<SigningKey>>,
 	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
-	_chain_id: u64,
+	chain_id: u64,
 	currency: Currency,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
@@ -117,7 +117,7 @@ impl IConnectorBuilder for Connector {
 			rpc: provider,
 			signer: Arc::new(signer),
 			cctp_queue: Default::default(),
-			_chain_id: chain_id,
+			chain_id,
 			currency,
 			wallet_guard: Default::default(),
 		})
@@ -579,27 +579,22 @@ impl IConnectorAdmin for Connector {
 			.collect::<Vec<_>>())
 	}
 
-	/// Get EIP1559 `max_fee_per_gas` estimate for a chain
+	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
 	async fn max_fee_per_gas(&self) -> Result<u128> {
 		// TODO add Eip1559Estimator::Custom for other chains
-		let fee_estimator = Eip1559Estimator::Default;
-		// TODO detect chain and apply these if Polygon
-		// const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 15;
-		// const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 10.0;
-
-		const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 10;
-		const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 5.0;
+		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
+			// Polygon
+			137 => (Eip1559Estimator::Default, 15, 10.0),
+			// Default
+			_ => (Eip1559Estimator::Default, 10, 5.0),
+		};
 
 		let block = self.latest_block().await?;
 		let base_fee = block.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
 
 		let rewards = self
 			.rpc
-			.get_fee_history(
-				EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
-				BlockNumberOrTag::Latest,
-				&[EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
-			)
+			.get_fee_history(past_blocks, BlockNumberOrTag::Latest, &[reward_percentile])
 			.await?
 			.reward
 			.ok_or(anyhow!("Failed to get rewards from fee history"))?;

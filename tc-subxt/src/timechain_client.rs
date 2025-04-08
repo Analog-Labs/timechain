@@ -3,7 +3,10 @@ use std::collections::VecDeque;
 use anyhow::Result;
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 use subxt::utils::H256;
-use subxt::{client::Update, tx::Payload};
+use subxt::{
+	client::{Update, UpgradeError},
+	tx::Payload,
+};
 pub use subxt_signer::sr25519::Keypair;
 
 use crate::worker::TxData;
@@ -171,10 +174,12 @@ impl ITimechainClient for TimechainOnlineClient {
 	fn apply_update(&self, update: Self::Update) -> Result<()> {
 		let updater = self.client.updater();
 		let version = update.runtime_version().spec_version;
-		if let Err(e) = updater.apply_update(update) {
-			tracing::error!("Update to version {} failed: {:?}", version, e);
+		if let Err(err) = updater.apply_update(update) {
+			if !matches!(err, UpgradeError::SameVersion) {
+				tracing::error!("Update to version {version} failed: {err:?}");
+			}
 		} else {
-			tracing::info!("Updating to version {}", version);
+			tracing::info!("Updated to runtime version {version}");
 		};
 		Ok(())
 	}

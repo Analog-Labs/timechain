@@ -23,14 +23,14 @@ pub mod config;
 mod env;
 mod gas_price;
 mod loki;
-mod slack;
+mod print;
 mod table;
 
 pub use crate::benchmark::{Benchmark, BenchmarkStats};
 pub use crate::config::Config;
 pub use crate::env::Mnemonics;
 pub use crate::loki::{Log, Query};
-pub use crate::slack::{Sender, TableRef, TextRef};
+pub use crate::print::{Sender, TableRef, TextRef};
 pub use gmp::Backend;
 pub use time_primitives::NetworkId;
 

@@ -54,7 +54,7 @@ impl SubxtClient {
 		let worker = SubxtWorker::new(nonce, timechain_client, db, keypair).await?;
 		let public_key = worker.public_key();
 		let account_id = worker.account_id();
-		tracing::info!("account id {}", account_id);
+		tracing::debug!("account id {}", account_id);
 		let tx = worker.into_sender();
 		Ok(Self {
 			client,

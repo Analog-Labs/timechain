@@ -227,14 +227,14 @@ async fn main() {
 }
 
 async fn real_main() -> Result<()> {
-	let filter = EnvFilter::from_default_env();
+	let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 	let sender = Sender::new();
 	let args = Args::parse();
-	tracing::info!("main");
+	tracing::debug!("main");
 	let now = std::time::SystemTime::now();
 	let mut tc = args.tc(sender).await?;
-	tracing::info!("tc ready in {}s", now.elapsed().unwrap().as_secs());
+	tracing::debug!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
 	let block = tc.latest_block().await?.0;
 	match args.cmd {
@@ -478,6 +478,6 @@ async fn real_main() -> Result<()> {
 			tracing::info!("Anvil state loaded from: {:?}", &path);
 		},
 	}
-	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
+	tracing::debug!("executed query in {}s", now.elapsed().unwrap().as_secs());
 	Ok(())
 }

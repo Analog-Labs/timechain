@@ -4,9 +4,7 @@ use futures::StreamExt;
 use std::collections::HashSet;
 use time_primitives::BlockHash;
 
-#[tokio::test]
-#[ignore]
-async fn gateway_payments() -> Result<()> {
+async fn test_gateway_payments() -> Result<()> {
 	let tc = Tester::new().await?;
 	let mut stream = tc.finality_notification_stream();
 	// collect shard tasks
@@ -50,8 +48,13 @@ async fn gateway_payments() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
+async fn gateway_payments() -> Result<()> {
+	test_gateway_payments().await
+}
+
+#[tokio::test]
 async fn gateway_payments_evm_tss() -> Result<()> {
 	let _env = TestEnv::new(Backend::Evm, true).await?;
-	gateway_payments()?;
-	Ok(())
+	test_gateway_payments().await
 }

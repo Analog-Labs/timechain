@@ -1,9 +1,7 @@
 use anyhow::Result;
 use e2e_tests::{Backend, TestEnv, Tester};
 
-#[tokio::test]
-#[ignore]
-async fn prices() -> Result<()> {
+async fn test_prices() -> Result<()> {
 	let mut tc = Tester::new().await?;
 	tc.fetch_token_prices().await?;
 	Ok(())
@@ -11,8 +9,13 @@ async fn prices() -> Result<()> {
 
 #[tokio::test]
 #[ignore]
+async fn prices() -> Result<()> {
+	test_prices().await
+}
+
+#[tokio::test]
+#[ignore]
 async fn prices_grpc() -> Result<()> {
 	let _env = TestEnv::new(Backend::Grpc, false).await?;
-	prices()?;
-	Ok(())
+	test_prices().await
 }

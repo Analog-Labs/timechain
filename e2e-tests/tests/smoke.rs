@@ -1,28 +1,38 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnvBuilder};
+use e2e_tests::{Backend, TestEnv, Tester};
 
-async fn smoke(backend: Backend, shard_size: u16) -> Result<()> {
-	let tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+#[tokio::test]
+#[ignore]
+async fn smoke() -> Result<()> {
+	let tc = Tester::new().await?;
 	tc.smoke_test(vec![42]).await?;
 	Ok(())
 }
 
 #[tokio::test]
 async fn smoke_evm() -> Result<()> {
-	smoke(Backend::Evm, 1).await
+	let _env = TestEnv::new(Backend::Evm, false).await?;
+	smoke()?;
+	Ok(())
 }
 
 #[tokio::test]
 async fn smoke_grpc() -> Result<()> {
-	smoke(Backend::Grpc, 1).await
+	let _env = TestEnv::new(Backend::Grpc, false).await?;
+	smoke()?;
+	Ok(())
 }
 
 #[tokio::test]
 async fn smoke_grpc_tss() -> Result<()> {
-	smoke(Backend::Grpc, 2).await
+	let _env = TestEnv::new(Backend::Grpc, true).await?;
+	smoke()?;
+	Ok(())
 }
 
 #[tokio::test]
 async fn smoke_evm_tss() -> Result<()> {
-	smoke(Backend::Evm, 2).await
+	let _env = TestEnv::new(Backend::Evm, true).await?;
+	smoke()?;
+	Ok(())
 }

@@ -55,7 +55,7 @@ impl Tc {
 	pub async fn from_env(env: PathBuf, config: &str, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
-		let env = Mnemonics::from_env()?;
+		let env = Mnemonics::from_env();
 		Self::new(config, env, msg, tx_db).await
 	}
 

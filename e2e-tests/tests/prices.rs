@@ -1,8 +1,10 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnvBuilder};
+use e2e_tests::{Backend, TestEnv, Tester};
 
-async fn prices(backend: Backend, shard_size: u16) -> Result<()> {
-	let mut tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+#[tokio::test]
+#[ignore]
+async fn prices() -> Result<()> {
+	let mut tc = Tester::new().await?;
 	tc.fetch_token_prices().await?;
 	Ok(())
 }
@@ -10,5 +12,7 @@ async fn prices(backend: Backend, shard_size: u16) -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn prices_grpc() -> Result<()> {
-	prices(Backend::Grpc, 1).await
+	let _env = TestEnv::new(Backend::Grpc, false).await?;
+	prices()?;
+	Ok(())
 }

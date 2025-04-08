@@ -1,14 +1,14 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnvBuilder};
+use e2e_tests::{Backend, TestEnv, Tester};
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 
-async fn chronicle_restart(backend: Backend, shard_size: u16) -> Result<()> {
-	let tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+async fn chronicle_restart(env: &TestEnv) -> Result<()> {
+	let tc = Tester::new().await?;
 
 	// Restart chronicles
 	let mut restart = FuturesUnordered::new();
-	for chronicle in tc.chronicle_containers(0)? {
+	for chronicle in env.chronicle_containers(0)? {
 		restart.push(
 			async move {
 				chronicle.stop().await?;
@@ -18,7 +18,7 @@ async fn chronicle_restart(backend: Backend, shard_size: u16) -> Result<()> {
 			.boxed(),
 		);
 	}
-	for chronicle in tc.chronicle_containers(1)? {
+	for chronicle in env.chronicle_containers(1)? {
 		restart.push(
 			async move {
 				chronicle.stop().await?;
@@ -38,12 +38,12 @@ async fn chronicle_restart(backend: Backend, shard_size: u16) -> Result<()> {
 	Ok(())
 }
 
-async fn chain_restart(backend: Backend, shard_size: u16) -> Result<()> {
-	let tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+async fn chain_restart(env: &TestEnv) -> Result<()> {
+	let tc = Tester::new().await?;
 
 	// Restart chains
 	let mut restart = FuturesUnordered::new();
-	let chain = tc.chain_container(0)?;
+	let chain = env.chain_container(0)?;
 	restart.push(
 		async move {
 			chain.stop().await?;
@@ -52,7 +52,7 @@ async fn chain_restart(backend: Backend, shard_size: u16) -> Result<()> {
 		}
 		.boxed(),
 	);
-	let chain = tc.chain_container(1)?;
+	let chain = env.chain_container(1)?;
 	restart.push(
 		async move {
 			chain.stop().await?;
@@ -71,12 +71,12 @@ async fn chain_restart(backend: Backend, shard_size: u16) -> Result<()> {
 	Ok(())
 }
 
-async fn validator_restart(backend: Backend, shard_size: u16) -> Result<()> {
-	let tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+async fn validator_restart(env: &TestEnv) -> Result<()> {
+	let tc = Tester::new().await?;
 
 	// Restart validator
-	tc.validator_container().stop().await?;
-	tc.validator_container().start().await?;
+	env.validator_container().stop().await?;
+	env.validator_container().start().await?;
 
 	// Re-run smoke test: should still work
 	tc.smoke_test(vec![42]).await?;
@@ -86,17 +86,20 @@ async fn validator_restart(backend: Backend, shard_size: u16) -> Result<()> {
 
 #[tokio::test]
 async fn chronicle_restart_evm_tss() -> Result<()> {
-	chronicle_restart(Backend::Evm, 2).await
+	let env = TestEnv::new(Backend::Evm, true).await?;
+	chronicle_restart(&env).await
 }
 
+// TODO: requires dumping/loading anvil state
 #[tokio::test]
 #[ignore]
 async fn chain_restart_evm() -> Result<()> {
-	// TODO: requires dumping/loading anvil state
-	chain_restart(Backend::Evm, 1).await
+	let env = TestEnv::new(Backend::Evm, false).await?;
+	chain_restart(&env).await
 }
 
 #[tokio::test]
 async fn validator_restart_grpc() -> Result<()> {
-	validator_restart(Backend::Grpc, 1).await
+	let env = TestEnv::new(Backend::Grpc, false).await?;
+	validator_restart(&env).await
 }

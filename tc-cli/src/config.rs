@@ -21,6 +21,18 @@ struct NetworkPrice {
 	pub usd_price: f64,
 }
 
+pub fn write_prices(path: &Path, prices: &HashMap<NetworkId, (String, f64)>) -> Result<()> {
+	let file =
+		File::create(path).with_context(|| format!("failed to create {}", path.display()))?;
+	let mut wtr = Writer::from_writer(file);
+	wtr.write_record(["network_id", "symbol", "usd_price"])?;
+	for (network, (symbol, usd_price)) in prices {
+		wtr.write_record(&[network.to_string(), symbol.to_string(), usd_price.to_string()])?;
+	}
+	wtr.flush()?;
+	Ok(())
+}
+
 impl Config {
 	pub fn from_env(path: PathBuf, config: &str) -> Result<Self> {
 		let config_path = path.join(config);
@@ -82,14 +94,7 @@ impl Config {
 
 	pub fn save_prices(&mut self, prices: HashMap<NetworkId, (String, f64)>) -> Result<()> {
 		let price_path = self.relative_path(&self.yaml.config.prices_path);
-		let file = File::create(&price_path)
-			.with_context(|| format!("failed to create {}", price_path.display()))?;
-		let mut wtr = Writer::from_writer(file);
-		wtr.write_record(["network_id", "symbol", "usd_price"])?;
-		for (network, (symbol, usd_price)) in &prices {
-			wtr.write_record(&[network.to_string(), symbol.to_string(), usd_price.to_string()])?;
-		}
-		wtr.flush()?;
+		write_prices(&price_path, &prices)?;
 		self.prices = prices;
 		Ok(())
 	}

@@ -258,7 +258,7 @@ impl std::fmt::Display for Query {
 pub async fn raw_logs(query: &Query, since: String, limit: Option<u32>) -> Result<Vec<String>> {
 	let query = query.to_string();
 	log::info!("{query}");
-	let env = Loki::from_env()?;
+	let env = Loki::from_env();
 	let client = reqwest::Client::new();
 	let url: reqwest::Url = format!("{}/loki/api/v1/query_range", &env.loki_url).parse()?;
 	let req = client

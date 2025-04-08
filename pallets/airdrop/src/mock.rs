@@ -16,8 +16,8 @@ use sp_runtime::{
 use time_primitives::AccountId;
 
 pub use sp_keyring::{
-	AccountKeyring::{Alice, Bob, Charlie},
 	Ed25519Keyring::{Dave, Eve, Ferdie},
+	Sr25519Keyring::{Alice, Bob, Charlie},
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;

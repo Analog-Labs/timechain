@@ -39,13 +39,6 @@ struct Args {
 	cmd: Command,
 }
 
-impl Args {
-	async fn tc(&self, sender: Sender) -> Result<Tc> {
-		let tc = Tc::from_env(self.env.clone(), &self.config, sender, self.db.clone()).await?;
-		Ok(tc)
-	}
-}
-
 #[derive(Parser, Debug)]
 #[allow(clippy::large_enum_variant)]
 enum Command {
@@ -229,11 +222,10 @@ async fn main() {
 async fn real_main() -> Result<()> {
 	let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
 	tracing_subscriber::fmt().with_env_filter(filter).init();
-	let sender = Sender::new();
 	let args = Args::parse();
 	tracing::debug!("main");
 	let now = std::time::SystemTime::now();
-	let mut tc = args.tc(sender).await?;
+	let mut tc = Tc::from_env(args.env.clone(), &args.config, Sender::new(), args.db).await?;
 	tracing::debug!("tc ready in {}s", now.elapsed().unwrap().as_secs());
 	let now = std::time::SystemTime::now();
 	let block = tc.latest_block().await?.0;

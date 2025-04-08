@@ -12,5 +12,5 @@ runtime/target/srtool
 .env
 gcp-key.json
 
-#cached db
-tc-subxt/cached_tx.redb
+# redb
+*.redb

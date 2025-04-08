@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::path::Path;
 use tc_cli::{
 	config::{BackendConfig, ConfigYaml, GlobalConfig, NetworkConfig},
-	Config, Mnemonics, NetworkId, Sender, Tc,
+	NetworkId, Sender, Tc,
 };
 use tempfile::TempDir;
 use testcontainers::{
@@ -17,6 +17,11 @@ use tracing_subscriber::filter::EnvFilter;
 
 pub type Container = ContainerAsync<GenericImage>;
 pub use tc_cli::Backend;
+
+fn try_init_logger() {
+	let filter = EnvFilter::from_default_env().add_directive("info".parse().unwrap());
+	tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
+}
 
 pub struct TestEnvBuilder {
 	temp: TempDir,
@@ -31,10 +36,7 @@ pub struct TestEnvBuilder {
 
 impl TestEnvBuilder {
 	pub async fn new() -> Result<Self> {
-		let validator_port = pick_free_port()?;
-		let filter = EnvFilter::from_default_env().add_directive("info".parse()?);
-		tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
-
+		try_init_logger();
 		let temp = TempDir::new()?;
 		let network = temp
 			.path()
@@ -45,6 +47,12 @@ impl TestEnvBuilder {
 			.strip_prefix('.')
 			.unwrap()
 			.to_string();
+		let workspace =
+			Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).parent().unwrap().to_path_buf();
+		tracing::info!("workspace: {}", workspace.display());
+		tracing::info!("tempdir: {}", temp.path().display());
+
+		let validator_port = pick_free_port()?;
 		let validator_name = format!("{network}-validator");
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
@@ -67,10 +75,6 @@ impl TestEnvBuilder {
 			.await?;
 		let validator_host = validator.get_host().await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
-		let workspace =
-			Path::new(&std::env::var("CARGO_MANIFEST_DIR")?).parent().unwrap().to_path_buf();
-		tracing::info!("workspace: {}", workspace.display());
-		tracing::info!("tempdir: {}", temp.path().display());
 		Ok(Self {
 			temp,
 			network,
@@ -260,27 +264,28 @@ impl TestEnvBuilder {
 	pub async fn build(self) -> Result<TestEnv> {
 		let env = self.temp.path().to_path_buf();
 		std::fs::write(env.join("config.yaml"), serde_yaml::to_string(&self.config)?)?;
-		let config = Config::new(env, self.config, self.prices);
-		let tc = Tc::new(
-			config,
-			Mnemonics::default(),
-			Sender::default(),
-			self.temp.path().join("tc-cli-tx.redb"),
-		)
-		.await
-		.context("Error creating Tc client")?;
-		let testers = tc.setup_test().await?;
+		tc_cli::config::write_prices(&env.join("prices.csv"), &self.prices)?;
+		std::env::set_var("TC_CLI_ENV", &env);
 		Ok(TestEnv {
-			_temp: self.temp,
+			temp: self.temp,
 			validator: self.validator,
 			chains: self.chains,
 			chronicles: self.chronicles,
-			tc,
-			testers,
 		})
 	}
+}
 
-	pub async fn setup(backend: Backend, shard_size: u16, shard_threshold: u16) -> Result<TestEnv> {
+pub struct TestEnv {
+	temp: TempDir,
+	validator: Container,
+	chains: HashMap<NetworkId, Container>,
+	chronicles: HashMap<NetworkId, Vec<Container>>,
+}
+
+impl TestEnv {
+	/// Creates a new test environment.
+	pub async fn new(backend: Backend, tss: bool) -> Result<Self> {
+		let (shard_size, shard_threshold) = if tss { (2, 2) } else { (1, 1) };
 		let mut builder = TestEnvBuilder::new().await?;
 		match backend {
 			Backend::Evm => {
@@ -295,34 +300,11 @@ impl TestEnvBuilder {
 				anyhow::bail!("unsupported backend {backend}");
 			},
 		}
-		let tc = builder.build().await?;
-		Ok(tc)
-	}
-}
-
-pub struct TestEnv {
-	_temp: TempDir,
-	validator: Container,
-	chains: HashMap<NetworkId, Container>,
-	chronicles: HashMap<NetworkId, Vec<Container>>,
-	tc: Tc,
-	testers: HashMap<NetworkId, (Address32, u64)>,
-}
-
-impl TestEnv {
-	/// Returns the testers
-	pub fn testers(&self) -> &HashMap<NetworkId, (Address32, u64)> {
-		&self.testers
+		builder.build().await
 	}
 
-	/// Returns the tester.
-	pub fn tester(&self, network: NetworkId) -> Result<Address32> {
-		Ok(self.testers.get(&network).context("missing tester")?.0)
-	}
-
-	/// Runs a smoke test
-	pub async fn smoke_test(&self, payload: Vec<u8>) -> Result<GmpMessage> {
-		self.tc.exec_smoke(0, 1, &self.testers, payload).await
+	pub fn env(&self) -> &Path {
+		self.temp.path()
 	}
 
 	/// Returns the validator container
@@ -341,15 +323,48 @@ impl TestEnv {
 	}
 }
 
-impl Deref for TestEnv {
-	type Target = Tc;
+pub struct Tester {
+	tc: Tc,
+	testers: HashMap<NetworkId, (Address32, u64)>,
+}
 
+impl Tester {
+	pub async fn new() -> Result<Self> {
+		try_init_logger();
+		let env = std::env::var("TC_CLI_ENV").context("TC_CLI_ENV not set")?;
+		let env = Path::new(&env).to_path_buf();
+		let tc =
+			Tc::from_env(env.clone(), "config.yaml", Sender::default(), env.join("tc-cli-tx.redb"))
+				.await
+				.context("Error creating Tc client")?;
+		let testers = tc.setup_test().await?;
+		Ok(Self { tc, testers })
+	}
+
+	/// Returns the testers
+	pub fn testers(&self) -> &HashMap<NetworkId, (Address32, u64)> {
+		&self.testers
+	}
+
+	/// Returns the tester.
+	pub fn tester(&self, network: NetworkId) -> Result<Address32> {
+		Ok(self.testers.get(&network).context("missing tester")?.0)
+	}
+
+	/// Runs a smoke test
+	pub async fn smoke_test(&self, payload: Vec<u8>) -> Result<GmpMessage> {
+		self.tc.exec_smoke(0, 1, &self.testers, payload).await
+	}
+}
+
+impl Deref for Tester {
+	type Target = Tc;
 	fn deref(&self) -> &Self::Target {
 		&self.tc
 	}
 }
 
-impl DerefMut for TestEnv {
+impl DerefMut for Tester {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.tc
 	}

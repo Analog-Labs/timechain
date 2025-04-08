@@ -36,6 +36,7 @@ fn main() {
 		.method(method("max_fee_per_gas", "MaxFeePerGas").build())
 		.method(method("block_gas_limit", "BlockGasLimit").build())
 		.method(method("withdraw_funds", "WithdrawFunds").build())
+		.method(method("debug_transaction", "DebugTransaction").build())
 		.build();
 	Builder::new().compile(&[service]);
 }

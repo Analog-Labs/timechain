@@ -1477,16 +1477,6 @@ impl Tc {
 		connector.debug_transaction(hash).await
 	}
 
-	pub async fn dump_state(&self, network: NetworkId) -> Result<String> {
-		let connector = self.connector(network)?;
-		connector.dump_state().await
-	}
-
-	pub async fn load_state(&self, network: NetworkId, state: String) -> Result<()> {
-		let connector = self.connector(network)?;
-		connector.load_state(state).await
-	}
-
 	pub async fn assert_reimbursement(&self, block_hash: BlockHash) -> Result<()> {
 		// all chronicles should have the configured balance
 		for chronicle in self.config.chronicles() {

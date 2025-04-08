@@ -17,8 +17,8 @@ use std::time::{Duration, SystemTime};
 use tempfile::NamedTempFile;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
-	GmpParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	GmpParams, Hash, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId,
+	Route, TssPublicKey, TssSignature,
 };
 
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
@@ -557,6 +557,11 @@ impl IConnectorAdmin for Connector {
 		self.transfer_from(&tx, gateway, address, amount)?;
 		tx.commit()?;
 		Ok(())
+	}
+
+	/// Debug a transaction.
+	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
+		anyhow::bail!("debug_transaction is not supported on this backend");
 	}
 }
 

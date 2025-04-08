@@ -648,50 +648,6 @@ impl IConnectorAdmin for Connector {
 		let stdout = std::str::from_utf8(&output.stdout)?;
 		Ok(stdout.into())
 	}
-	/// Dump anvil chain state
-	async fn dump_state(&self) -> Result<String> {
-		let body = serde_json::json!({
-			"id": 0,
-			"jsonrpc": "2.0",
-			"method": "anvil_dumpState",
-			"params": []
-		});
-		let json: serde_json::Value = reqwest::Client::new()
-			.post(self.url.replace("ws", "http"))
-			.json(&body)
-			.send()
-			.await?
-			.json()
-			.await?;
-
-		json["result"]
-			.as_str()
-			.map(|s| s.to_owned())
-			.ok_or(anyhow!("invalid rpc response"))
-	}
-	/// Load anvil chain state
-	async fn load_state(&self, state: String) -> Result<()> {
-		let body = serde_json::json!({
-			"id": 0,
-			"jsonrpc": "2.0",
-			"method": "anvil_loadState",
-			"params": [ state ]
-		});
-
-		let json: serde_json::Value = reqwest::Client::new()
-			.post(self.url.replace("ws", "http"))
-			.json(&body)
-			.send()
-			.await?
-			.json()
-			.await?;
-
-		if !json["error"].is_null() {
-			return Err(anyhow!("{}", json["error"].to_string()));
-		}
-
-		Ok(())
-	}
 }
 
 impl Connector {

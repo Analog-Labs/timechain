@@ -4,8 +4,9 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, IChain, IConnector,
-	IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -354,5 +355,12 @@ impl IConnectorAdmin for Connector {
 		let request = Request::new(proto::WithdrawFundsRequest { gateway, amount, address });
 		self.client.lock().await.withdraw_funds(request).await?.into_inner();
 		Ok(())
+	}
+
+	/// Debug a transaction.
+	async fn debug_transaction(&self, tx: Hash) -> Result<String> {
+		let request = Request::new(proto::DebugTransactionRequest { tx });
+		let response = self.client.lock().await.debug_transaction(request).await?.into_inner();
+		Ok(response.details)
 	}
 }

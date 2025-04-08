@@ -29,6 +29,15 @@ jobs:
         run: |
           ./scripts/build_docker.sh
 
+      # Explicitly build the runtime first to generate metadata files
+      - name: Build runtime
+        uses: ./.github/actions/cargo-command
+        with:
+          command: build
+          package: timechain-runtime
+          args: --features testnet
+          cache: false
+
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:

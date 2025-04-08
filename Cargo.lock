@@ -449,7 +449,7 @@ dependencies = [
  "alloy-rpc-types-trace",
  "alloy-rpc-types-txpool",
  "alloy-signer",
- "alloy-sol-types 0.8.24",
+ "alloy-sol-types",
  "alloy-transport",
  "alloy-transport-ipc",
  "alloy-transport-ws",

@@ -6,14 +6,24 @@ use scale_info::TypeInfo;
 pub const DMAIL_TO_LEN: u32 = 64;
 pub const DMAIL_PATH_LEN: u32 = 64;
 
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Debug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct DmailTo(pub BoundedVec<u8, ConstU32<DMAIL_TO_LEN>>);
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Debug)]
+
+// Implement marker trait for DmailTo
+impl DecodeWithMemTracking for DmailTo {}
+
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct DmailPath(pub BoundedVec<u8, ConstU32<DMAIL_PATH_LEN>>);
 
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Debug)]
+// Implement marker trait for DmailPath
+impl DecodeWithMemTracking for DmailPath {}
+
+#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct DmailMessage {
 	pub owner: AccountId,
 	pub to: DmailTo,
 	pub path: DmailPath,
 }
+
+// Implement marker trait for DmailMessage
+impl DecodeWithMemTracking for DmailMessage {}

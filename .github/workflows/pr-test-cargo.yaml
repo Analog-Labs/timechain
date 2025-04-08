@@ -37,7 +37,6 @@ jobs:
           command: test
           args: --all-features --no-run
 
-
       - name: Run testsuite
         uses: ./.github/actions/cargo-command
         with:

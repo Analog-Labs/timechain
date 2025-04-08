@@ -9,7 +9,7 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-alloy = { version = "^0.12", default-features = false, features = [
+alloy = { version = "^0.13", default-features = false, features = [
     "full",
     "rpc-types-debug",
     "rpc-types-trace",

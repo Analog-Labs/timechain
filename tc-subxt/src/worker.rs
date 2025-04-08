@@ -321,7 +321,7 @@ where
 	) -> mpsc::UnboundedSender<(Tx, oneshot::Sender<<C::Block as IBlock>::Extrinsic>)> {
 		let (tx, mut rx) = mpsc::unbounded();
 		tokio::task::spawn(async move {
-			tracing::info!("starting subxt worker");
+			tracing::debug!("starting subxt worker");
 			let mut update_stream = self.client.runtime_updates().await.unwrap().boxed();
 			let mut finalized_blocks = Self::create_stream_with_retry(self.client.clone(), |c| {
 				async move { c.finalized_block_stream().await }.boxed()
@@ -397,7 +397,7 @@ where
 									.collect();
 								for tx in self.pending_tx.iter_mut() {
 									if hashes.contains(&tx.data.hash) {
-										tracing::info!("tx found in block {}", self.latest_block.number);
+										tracing::debug!("tx found in block {}", self.latest_block.number);
 										tx.best_block = Some(self.latest_block.number);
 									}
 								}
@@ -473,7 +473,7 @@ where
 		loop {
 			match stream_creator(client.clone()).await {
 				Ok(stream) => {
-					tracing::info!("stream created successfully returning");
+					tracing::debug!("stream created successfully returning");
 					return stream.fuse();
 				},
 				Err(e) => {

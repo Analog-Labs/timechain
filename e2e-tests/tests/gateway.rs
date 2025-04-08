@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
-use e2e_tests::{Backend, TestEnvBuilder};
+use e2e_tests::{Backend, TestEnv, Tester};
 use futures::StreamExt;
 use std::collections::HashSet;
 use time_primitives::BlockHash;
 
-async fn gateway_payments(backend: Backend, shard_size: u16) -> Result<()> {
-	let tc = TestEnvBuilder::setup(backend, shard_size, shard_size).await?;
+async fn test_gateway_payments() -> Result<()> {
+	let tc = Tester::new().await?;
 	let mut stream = tc.finality_notification_stream();
 	// collect shard tasks
 	let mut tasks = HashSet::new();
@@ -48,6 +48,13 @@ async fn gateway_payments(backend: Backend, shard_size: u16) -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
+async fn gateway_payments() -> Result<()> {
+	test_gateway_payments().await
+}
+
+#[tokio::test]
 async fn gateway_payments_evm_tss() -> Result<()> {
-	gateway_payments(Backend::Evm, 2).await
+	let _env = TestEnv::new(Backend::Evm, true).await?;
+	test_gateway_payments().await
 }

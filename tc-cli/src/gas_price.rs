@@ -114,7 +114,7 @@ fn convert_bigint_to_u128(value: &BigUint) -> Result<u128> {
 
 impl Tc {
 	pub async fn fetch_token_prices(&mut self) -> Result<()> {
-		let env = CoinMarketCap::from_env()?;
+		let env = CoinMarketCap::from_env();
 		let mut header_map = HeaderMap::new();
 		header_map.insert(
 			"X-CMC_PRO_API_KEY",

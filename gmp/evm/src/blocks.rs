@@ -18,8 +18,8 @@ use tokio::time::{sleep, Duration, Instant, Sleep};
 const DEFAULT_POLLING_INTERVAL: Duration = Duration::from_secs(2);
 /// Minimal polling interval (500ms)
 const MIN_POLLING_INTERVAL: Duration = Duration::from_millis(500);
-/// Max polling interval (1 minute)
-const MAX_POLLING_INTERVAL: Duration = Duration::from_secs(60);
+/// Max polling interval (8 secs)
+const MAX_POLLING_INTERVAL: Duration = Duration::from_secs(8);
 /// Default adjust factor, used for tune the polling interval.
 const ADJUST_FACTOR: Duration = Duration::from_millis(500);
 /// The threshold to adjust the polling interval.
@@ -111,8 +111,8 @@ impl Statistics {
 	}
 }
 
-/// A stream which emits new blocks finalized blocks, it also guarantees new finalized blocks are
-/// monotonically increasing.
+/// A stream which emits new finalized blocks (guaranteed to be
+/// monotonically increasing).
 pub struct FinalizedBlockStream<P: Provider<AnyNetwork>> {
 	/// Ethereum RPC backend.
 	provider: P,

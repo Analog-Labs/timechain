@@ -9,16 +9,25 @@ fn main() {
 	{
 		// Build mainnet runtime (default)
 		#[cfg(not(feature = "testnet"))]
-		WasmBuilder::init_with_defaults().enable_metadata_hash("ANLOG", 12).build();
+		WasmBuilder::init_with_defaults()
+			.enable_metadata()
+			.enable_metadata_hash("ANLOG", 12)
+			.build();
 
 		// Build testnet runtime
 		#[cfg(feature = "testnet")]
-		WasmBuilder::init_with_defaults().enable_metadata_hash("TANLOG", 12).build();
+		WasmBuilder::init_with_defaults()
+			.enable_metadata()
+			.enable_metadata_hash("TANLOG", 12)
+			.build();
 	}
 
 	// Build develop runtime
 	#[cfg(feature = "develop")]
-	WasmBuilder::init_with_defaults().enable_metadata_hash("DANLOG", 12).build();
+	WasmBuilder::init_with_defaults()
+		.enable_metadata()
+		.enable_metadata_hash("DANLOG", 12)
+		.build();
 }
 
 #[cfg(not(feature = "std"))]

@@ -66,7 +66,7 @@ impl TestEnvBuilder {
 		std::fs::create_dir_all(&validator_mount)?;
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
-			.with_mapped_port(validator_port, testcontainers::core::ContainerPort::Tcp(9944))
+			.with_mapped_port(validator_port, 9944.tcp())
 			.with_container_name(validator_name.clone())
 			.with_network(network.clone())
 			.with_cmd([
@@ -129,12 +129,14 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
+		let chain_port = pick_free_port()?;
 		let chain_name = format!("chain-grpc-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
 		std::fs::create_dir_all(&chain_mount)?;
 		let chain_name = format!("{}-{chain_name}", &self.network);
 		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
 			.with_exposed_port(3000.tcp())
+			.with_mapped_port(chain_port, 3000.tcp())
 			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "gmp_grpc=debug,gmp_rust=debug")
@@ -144,7 +146,6 @@ impl TestEnvBuilder {
 			.start()
 			.await?;
 		let chain_host = chain.get_host().await?;
-		let chain_port = chain.get_host_port_ipv4(3000).await?;
 		let chain_url = format!("http://{chain_host}:{chain_port}");
 		self.chains.insert(network, chain);
 
@@ -191,23 +192,24 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
+		let chain_port = pick_free_port()?;
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
 		std::fs::create_dir_all(&chain_mount)?;
 		let chain_name = format!("{}-{chain_name}", &self.network);
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
 			.with_exposed_port(8545.tcp())
+			.with_mapped_port(chain_port, 8545.tcp())
 			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
 				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil",
 			])
-			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(),"/state"))
+			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
 		let chain_host = chain.get_host().await?;
-		let chain_port = chain.get_host_port_ipv4(8545).await?;
 		let chain_url = format!("ws://{chain_host}:{chain_port}");
 		self.chains.insert(network, chain);
 
@@ -254,6 +256,7 @@ impl TestEnvBuilder {
 		i: u16,
 		target_url: &str,
 	) -> Result<()> {
+		let chronicle_port = pick_free_port()?;
 		let chronicle_name = format!("chronicle-{backend}-{network}-{i}");
 		let chronicle_mount = self.temp.path().join(&chronicle_name);
 		std::fs::create_dir_all(&chronicle_mount)?;
@@ -274,6 +277,7 @@ impl TestEnvBuilder {
 		}
 		let chronicle = GenericImage::new("analoglabs/chronicle-develop", "latest")
 			.with_exposed_port(8080.tcp())
+			.with_mapped_port(chronicle_port, 8080.tcp())
 			.with_container_name(chronicle_name)
 			.with_network(self.network.clone())
 			.with_env_var("RUST_LOG", "tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info")

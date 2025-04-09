@@ -117,6 +117,35 @@ fn convert_bigint_to_u256(value: &BigUint) -> Result<U256> {
 	Ok(U256::from_big_endian(&num_bytes))
 }
 
+pub fn is_relative_gas_in_threshold(
+	old_factor: (U256, U256),
+	new_factor: (U256, U256),
+	threshold_percent: u64,
+) -> Option<bool> {
+	let (old_num, old_den) = old_factor;
+	let (new_num, new_den) = new_factor;
+	tracing::debug!(
+		"Price comparison: old={}/{} new={}/{} threshold={}",
+		old_num,
+		old_den,
+		new_num,
+		new_den,
+		threshold_percent
+	);
+
+	// cross multiplication to find diff
+	let old_val = old_num.checked_mul(new_den)?;
+	let new_val = new_num.checked_mul(old_den)?;
+
+	let abs_diff = old_val.abs_diff(new_val);
+
+	// 100 * |old_val - new_val| <= old_val * threshold_percent
+	let left = abs_diff.checked_mul(100.into())?;
+	let right = old_val.checked_mul(threshold_percent.into())?;
+
+	Some(left <= right)
+}
+
 impl Tc {
 	pub async fn fetch_token_prices(&mut self) -> Result<()> {
 		let env = CoinMarketCap::from_env();
@@ -203,8 +232,10 @@ impl Tc {
 		);
 		tracing::info!("src to dest: {:?}", src_to_dest);
 
+		let margin = convert_bigint_ratio_to_biguint(src_margin.clone())?;
+		tracing::info!("margin: {:?}", margin);
 		// Add margin
-		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
+		src_to_dest += src_to_dest.clone() * margin;
 		tracing::info!("src to dest with margin: {:?}", src_to_dest);
 
 		log::info!(

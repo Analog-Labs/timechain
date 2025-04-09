@@ -891,9 +891,7 @@ impl Tc {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
-			tracing::info!("fetching route for src: {:?}", src);
 			let routes = connector.routes(src_gateway).await?;
-			tracing::info!("fetched routes: {:?}", routes);
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let (numerator, denominator) = self.relative_gas_price(src, dest).await?;
@@ -905,9 +903,20 @@ impl Tc {
 					gmp_base_fee: config.route_base_fee,
 				};
 				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
+					if r.relative_gas_price.1.is_zero() || route.relative_gas_price.1.is_zero() {
+						anyhow::bail!("Denominator cannot be zero");
+					}
+					let is_price_update_needed = gas_price::is_relative_gas_in_threshold(
+						r.relative_gas_price,
+						route.relative_gas_price,
+						// percentage of diff
+						1,
+					)
+					.ok_or(anyhow::anyhow!("relative_gas_price overflow"))?;
+
 					if r.gas_limit == route.gas_limit
 						&& r.gmp_base_fee == route.gmp_base_fee
-						&& r.relative_gas_price() - route.relative_gas_price() < 100_000.0
+						&& is_price_update_needed
 					{
 						continue;
 					}

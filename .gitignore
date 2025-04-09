@@ -14,3 +14,7 @@ gcp-key.json
 
 # redb
 *.redb
+
+#cached db
+tc-subxt/cached_tx.redb
+cached_tx.redb

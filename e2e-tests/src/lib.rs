@@ -130,7 +130,7 @@ impl TestEnvBuilder {
 	) -> Result<()> {
 		// add chain to docker compose
 		let chain_name = format!("chain-grpc-{network}");
-		let chain_mount = self.temp.path().join(network.to_string());
+		let chain_mount = self.temp.path().join(&chain_name);
 		std::fs::create_dir_all(&chain_mount)?;
 		let chain_name = format!("{}-{chain_name}", &self.network);
 		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
@@ -192,7 +192,7 @@ impl TestEnvBuilder {
 	) -> Result<()> {
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
-		let chain_mount = self.temp.path().join(network.to_string());
+		let chain_mount = self.temp.path().join(&chain_name);
 		std::fs::create_dir_all(&chain_mount)?;
 		let chain_name = format!("{}-{chain_name}", &self.network);
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
@@ -279,6 +279,7 @@ impl TestEnvBuilder {
 			.with_env_var("RUST_LOG", "tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info")
 			.with_env_var("RUST_BACKTRACE", "1")
 			.with_cmd(cmd)
+			.with_mount(Mount::bind_mount(chronicle_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
 		let chronicle_host = chronicle.get_host().await?;

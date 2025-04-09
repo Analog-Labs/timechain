@@ -612,8 +612,10 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations =
-	(migrations::session::SessionMigrationV0ToV1, migrations::staking::StakingMigration);
+type Migrations = (
+	pallet_session::migrations::v1::MigrateV0ToV1<Runtime, Historical>,
+	migrations::staking::StakingCurrencyMigration<Runtime>,
+);
 
 #[cfg(test)]
 mod core_tests {

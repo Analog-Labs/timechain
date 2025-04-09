@@ -142,6 +142,8 @@ use pallet_session::historical as pallet_session_historical;
 use frame_support::traits::KeyOwnerProofSystem;
 use pallet_staking::migrations::v17::MigrateDisabledToSession;
 use scale_codec::Encode;
+#[cfg(feature = "runtime-benchmarks")]
+use scale_info::prelude::string::String;
 use sp_runtime::generic;
 use sp_runtime::traits::Block as BlockT;
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
@@ -887,6 +889,17 @@ sp_api::impl_runtime_apis! {
 
 		fn pending_rewards(era: u32, account: AccountId) -> bool {
 			Staking::api_pending_rewards(era, account)
+		}
+	}
+
+	#[cfg(feature = "testnet")]
+	impl time_primitives::MembersApi<Block> for Runtime {
+		fn get_member_peer_id(account: &AccountId) -> Option<time_primitives::PeerId> {
+			Members::member_peer_id(account)
+		}
+
+		fn get_heartbeat_timeout() -> BlockNumber {
+			Members::get_heartbeat_timeout()
 		}
 	}
 

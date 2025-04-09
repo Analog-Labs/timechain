@@ -67,9 +67,16 @@ impl<T: pallet_staking::Config> UncheckedOnRuntimeUpgrade
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		let expected_count = if !state.is_empty() {
-			let mut bytes = [0u8; 8];
-			bytes.copy_from_slice(&state[0..8]);
-			usize::from_le_bytes(bytes)
+			// Handle both 32-bit and 64-bit platforms
+			if cfg!(target_pointer_width = "64") {
+				let mut bytes = [0u8; 8];
+				bytes.copy_from_slice(&state[0..8]);
+				usize::from_le_bytes(bytes)
+			} else {
+				let mut bytes = [0u8; 4];
+				bytes.copy_from_slice(&state[0..4]);
+				usize::from_le_bytes(bytes)
+			}
 		} else {
 			0
 		};

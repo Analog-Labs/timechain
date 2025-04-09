@@ -1004,7 +1004,7 @@ sp_api::impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{baseline, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -1030,7 +1030,7 @@ sp_api::impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{baseline, BenchmarkBatch};
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,

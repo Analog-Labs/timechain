@@ -111,7 +111,7 @@ fn convert_bigint_ratio_to_biguint(ratio: Ratio<BigInt>) -> Result<Ratio<BigUint
 
 fn convert_bigint_to_u256(value: &BigUint) -> Result<U256> {
 	let num_bytes = value.to_bytes_be();
-	if num_bytes.len() != 32 {
+	if num_bytes.len() > 32 {
 		anyhow::bail!("Invalid bytes for a u256: {}", num_bytes.len())
 	}
 	Ok(U256::from_big_endian(&num_bytes))

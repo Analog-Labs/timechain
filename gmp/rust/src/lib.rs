@@ -537,12 +537,12 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		Ok(0)
+		Ok(1)
 	}
 
 	/// Returns gas limit of latest block.
 	async fn block_gas_limit(&self) -> Result<u64> {
-		Ok(0)
+		Ok(u64::MAX)
 	}
 
 	/// Withdraw gateway funds.

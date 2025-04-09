@@ -888,12 +888,12 @@ impl Tc {
 	}
 
 	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Address32>) -> Result<()> {
-		// let mut set_routes = FuturesUnordered::new();
-		let prices = self.config.prices.clone();
-		tracing::info!("prices: {:?}", prices);
+		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
 			let connector = self.connector(src)?;
+			tracing::info!("fetching route for src: {:?}", src);
 			let routes = connector.routes(src_gateway).await?;
+			tracing::info!("fetched routes: {:?}", routes);
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				let config = self.config.network(dest)?;
 				let (numerator, denominator) = self.relative_gas_price(src, dest).await?;
@@ -913,12 +913,12 @@ impl Tc {
 					}
 				}
 				self.println(None, format!("register_route {src} {dest}")).await?;
-				// set_routes.push(connector.set_route(src_gateway, route));
+				set_routes.push(connector.set_route(src_gateway, route));
 			}
 		}
-		// while let Some(result) = set_routes.next().await {
-		// 	result?;
-		// }
+		while let Some(result) = set_routes.next().await {
+			result?;
+		}
 		Ok(())
 	}
 
@@ -933,7 +933,6 @@ impl Tc {
 		}
 
 		let routes: HashMap<NetworkId, Address32> = gateways.try_collect().await?;
-		tracing::info!("all gateways routes");
 		self.register_routes(routes).await
 	}
 

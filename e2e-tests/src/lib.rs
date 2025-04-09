@@ -204,7 +204,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
-				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil",
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 6",
 			])
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
@@ -371,12 +371,10 @@ impl TestEnv {
 			return Ok(());
 		}
 
-		for (_, chronicles) in &self.chronicles {
-			for chronicle in chronicles {
-				chronicle.stop().await?;
-			}
+		for chronicle in self.chronicles.values().flatten() {
+			chronicle.stop().await?;
 		}
-		for (_, chain) in &self.chains {
+		for chain in self.chains.values() {
 			chain.stop().await?;
 		}
 		self.validator.stop().await?;
@@ -384,13 +382,11 @@ impl TestEnv {
 		archive(self.env(), &self.snapshot)?;
 
 		self.validator.start().await?;
-		for (_, chain) in &self.chains {
+		for chain in self.chains.values() {
 			chain.start().await?;
 		}
-		for (_, chronicles) in &self.chronicles {
-			for chronicle in chronicles {
-				chronicle.start().await?;
-			}
+		for chronicle in self.chronicles.values().flatten() {
+			chronicle.start().await?;
 		}
 
 		Ok(())

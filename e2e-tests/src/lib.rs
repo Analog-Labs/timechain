@@ -129,9 +129,10 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
-		let chain_name = format!("{}-chain-grpc-{network}", &self.network);
+		let chain_name = format!("chain-grpc-{network}");
 		let chain_mount = self.temp.path().join(network.to_string());
 		std::fs::create_dir_all(&chain_mount)?;
+		let chain_name = format!("{}-{chain_name}", &self.network);
 		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
 			.with_exposed_port(3000.tcp())
 			.with_container_name(&chain_name)
@@ -190,9 +191,10 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
-		let chain_name = format!("{}-chain-evm-{network}", &self.network);
+		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(network.to_string());
 		std::fs::create_dir_all(&chain_mount)?;
+		let chain_name = format!("{}-{chain_name}", &self.network);
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
 			.with_exposed_port(8545.tcp())
 			.with_container_name(&chain_name)
@@ -252,12 +254,20 @@ impl TestEnvBuilder {
 		i: u16,
 		target_url: &str,
 	) -> Result<()> {
-		let chronicle_name = format!("{}-chronicle-{backend}-{network}-{i}", &self.network);
+		let chronicle_name = format!("chronicle-{backend}-{network}-{i}");
+		let chronicle_mount = self.temp.path().join(&chronicle_name);
+		std::fs::create_dir_all(&chronicle_mount)?;
+		let chronicle_name = format!("{}-{chronicle_name}", &self.network);
 		let mut cmd = vec![
 			format!("--timechain-url=ws://{}:9944", &self.validator_name),
 			format!("--target-url={target_url}"),
 			format!("--backend={backend}"),
 			format!("--network-id={network}"),
+			format!("--network-keyfile=/state/network_keyfile"),
+			format!("--target-keyfile=/state/target_keyfile"),
+			format!("--timechain-keyfile=/state/timechain_keyfile"),
+			format!("--tx-db=/state/tx-db"),
+			format!("--tss-keyshare-cache=/state/tss"),
 		];
 		if backend == Backend::Evm {
 			cmd.push("--chain-dict=/etc/chains.json".to_string());

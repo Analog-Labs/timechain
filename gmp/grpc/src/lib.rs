@@ -63,9 +63,9 @@ impl IConnectorBuilder for Connector {
 		let address = gmp_rust::mnemonic_to_address(params.mnemonic);
 		let channel = if params.url.starts_with("https") {
 			let tls_config = ClientTlsConfig::new().with_native_roots();
-			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect().await?
+			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect_lazy()
 		} else {
-			Channel::from_shared(params.url)?.connect().await?
+			Channel::from_shared(params.url)?.connect_lazy()
 		};
 		let client = GmpClient::with_interceptor(channel, AddressInterceptor::new(address));
 		Ok(Self {

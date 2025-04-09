@@ -84,9 +84,7 @@ async fn chronicle_restart_evm_tss() -> Result<()> {
 	chronicle_restart(&env, tc).await
 }
 
-// TODO: requires dumping/loading anvil state
 #[tokio::test]
-#[ignore]
 async fn chain_restart_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	chain_restart(&env, tc).await

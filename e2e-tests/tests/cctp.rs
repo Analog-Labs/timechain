@@ -2,8 +2,7 @@ use anyhow::Result;
 use e2e_tests::{Backend, TestEnv, Tester};
 use time_primitives::CCTPMessage;
 
-async fn test_cctp() -> Result<()> {
-	let mut tc = Tester::new().await?;
+async fn test_cctp(mut tc: Tester) -> Result<()> {
 	let src_addr = tc.tester(0)?;
 	let dest_addr = tc.tester(1)?;
 	tc.add_cctp_contract(0, src_addr)?;
@@ -29,11 +28,12 @@ async fn test_cctp() -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn cctp() -> Result<()> {
-	test_cctp().await
+	let tc = Tester::new().await?;
+	test_cctp(tc).await
 }
 
 #[tokio::test]
 async fn cctp_evm() -> Result<()> {
-	let _env = TestEnv::new(Backend::Evm, false).await?;
-	test_cctp().await
+	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	test_cctp(tc).await
 }

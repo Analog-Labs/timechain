@@ -3,6 +3,7 @@
 use polkadot_sdk::*;
 
 use scale_codec::Encode;
+#[cfg(feature = "runtime-benchmarks")]
 use scale_info::prelude::string::String;
 
 use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};

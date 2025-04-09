@@ -99,7 +99,7 @@ impl<T: pallet_staking::Config> VersionUncheckedMigrateStakingCurrency<T> {
 		let mut stashes = Vec::new();
 
 		// Iterate through all ledgers to find those using old currency
-		<StakingLedger<T>>::iter().for_each(|(stash, ledger)| {
+		pallet_staking::Ledger::<T>::iter().for_each(|(stash, ledger)| {
 			// Check if the stash is using old currency
 			if Self::is_using_old_currency(&stash, &ledger) {
 				stashes.push(stash);

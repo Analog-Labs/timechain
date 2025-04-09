@@ -1,5 +1,3 @@
-use crate::apis;
-
 use polkadot_sdk::*;
 
 use sp_version::{Cow, RuntimeVersion};
@@ -13,7 +11,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 24,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: crate::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -27,7 +25,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 24,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: crate::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -41,7 +39,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 24,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: crate::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -55,7 +53,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 24,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: crate::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };

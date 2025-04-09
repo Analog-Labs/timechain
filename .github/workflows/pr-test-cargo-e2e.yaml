@@ -45,3 +45,11 @@ jobs:
           package: e2e-tests
           cache: false
           annotate: false
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf /tmp/*
+          docker ps -q --filter name=tmp | xargs docker stop
+          docker container ls -a -q --filter name=tmp | xargs docker rm
+          docker network ls -q --filter name=tmp | xargs docker network rm

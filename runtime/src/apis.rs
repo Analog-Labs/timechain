@@ -43,11 +43,10 @@ use crate::{Members, Networks, Shards, Tasks};
 // Original Author: ntn-x2 @ KILTprotocol
 // Workaround for runtime API impls not exposed in metadata if implemented in a
 // different file than the runtime's `lib.rs`. Related issue (subxt) -> https://github.com/paritytech/subxt/issues/1873.
-#[allow(dead_code)]
-pub(crate) trait InternalImplRuntimeApis {
+pub(crate) trait _InternalImplRuntimeApis {
 	fn runtime_metadata(&self) -> Vec<RuntimeApiMetadataIR>;
 }
-impl<T> InternalImplRuntimeApis for T
+impl<T> _InternalImplRuntimeApis for T
 where
 	T: InternalImplRuntimeApis,
 {

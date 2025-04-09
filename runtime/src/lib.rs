@@ -95,6 +95,7 @@ pub mod version;
 pub mod variants;
 
 pub use apis::RuntimeApi;
+use apis::_InternalImplRuntimeApis;
 
 pub use version::VERSION;
 

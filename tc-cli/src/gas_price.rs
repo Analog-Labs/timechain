@@ -84,12 +84,9 @@ fn compute_src_wei_per_dst_gas_rate(
 ) -> Ratio<BigUint> {
 	let src_usd_per_wei =
 		src_usd_price / Ratio::from_integer(pow(BigUint::from(10u32), src_decimals as usize));
-	tracing::info!("src usd per wei: {:?}", src_usd_per_wei);
 	let dst_usd_per_wei =
 		dst_usd_price / Ratio::from_integer(pow(BigUint::from(10u32), dst_decimals as usize));
-	tracing::info!("dest usd per wei: {:?}", dst_usd_per_wei);
 	let dst_usd_per_gas = dst_usd_per_wei * Ratio::from_integer(BigUint::from(dst_gas_fee));
-	tracing::info!("dest usd per gas {:?}: {:?}", dst_gas_fee, dst_usd_per_gas);
 	dst_usd_per_gas / src_usd_per_wei
 }
 
@@ -196,9 +193,7 @@ impl Tc {
 		dest_network: NetworkId,
 	) -> Result<(U256, U256)> {
 		let src_price = self.config.token_price_usd(src_network)?;
-		tracing::info!("source price: {:?}", src_price);
 		let dest_price = self.config.token_price_usd(dest_network)?;
-		tracing::info!("dest price: {:?}", dest_price);
 		let dest_gas_fee = self.max_fee_per_gas(dest_network).await?;
 
 		let src_config = self.config.network(src_network)?;
@@ -209,18 +204,13 @@ impl Tc {
 
 		let src_usd_price =
 			Ratio::from_float(src_price).context("Cannot convert float to ratio")?;
-		tracing::info!("source ratio: {:?}", src_usd_price);
 		let src_usd_price = convert_bigint_ratio_to_biguint(src_usd_price)?;
-		tracing::info!("src ratio uint: {:?}", src_usd_price);
 		let dest_usd_price =
 			Ratio::from_float(dest_price).context("Cannot convert float to ratio")?;
-		tracing::info!("dest ratio: {:?}", dest_usd_price);
 		let dest_usd_price = convert_bigint_ratio_to_biguint(dest_usd_price)?;
-		tracing::info!("dst ratio uint: {:?}", dest_usd_price);
 
 		// Parse the price strings into `Ratio<BigUint>` for arbitrary precision
 		let src_margin = Ratio::from_float(src_margin).context("Cannot convert float to ratio")?;
-		tracing::info!("src margin: {:?}", src_margin);
 
 		// src to dest relative gas price
 		let mut src_to_dest = compute_src_wei_per_dst_gas_rate(
@@ -230,13 +220,8 @@ impl Tc {
 			dest_decimals,
 			dest_gas_fee,
 		);
-		tracing::info!("src to dest: {:?}", src_to_dest);
 
-		let margin = convert_bigint_ratio_to_biguint(src_margin.clone())?;
-		tracing::info!("margin: {:?}", margin);
-		// Add margin
-		src_to_dest += src_to_dest.clone() * margin;
-		tracing::info!("src to dest with margin: {:?}", src_to_dest);
+		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
 
 		log::info!(
 			"relative gas price {src_network} -> {dest_network}: {}",

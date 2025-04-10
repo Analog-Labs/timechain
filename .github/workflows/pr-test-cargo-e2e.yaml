@@ -49,7 +49,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -rf /tmp/*
+          rm -rf /tmp/*.tar.zst
+          rm -rf /tmp/.tmp*
           docker ps -q --filter name=tmp | xargs docker stop
           docker container ls -a -q --filter name=tmp | xargs docker rm
           docker network ls -q --filter name=tmp | xargs docker network rm

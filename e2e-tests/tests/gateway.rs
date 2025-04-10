@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use time_primitives::BlockHash;
 
 async fn test_gateway_payments(tc: Tester) -> Result<()> {
-	let mut stream = tc.finality_notification_stream();
 	// collect shard tasks
 	let mut tasks = HashSet::new();
 	let (block_hash, _) = tc.latest_block().await?;
@@ -16,17 +15,18 @@ async fn test_gateway_payments(tc: Tester) -> Result<()> {
 		}
 	}
 	// wait for shard batches to execute
-	let mut block_hash: Option<BlockHash> = None;
+	let mut block_hash: Option<BlockHash> = Some(block_hash);
+	let mut stream = tc.finality_notification_stream();
 	for (task, batch) in tasks {
 		loop {
-			let Some((hash, _)) = stream.next().await else {
-				continue;
-			};
-			block_hash = Some(hash);
 			if tc.is_task_executed(task, hash).await? {
 				break;
 			}
 			tracing::info!("waiting for task {task} / batch {batch}");
+			let Some((hash, _)) = stream.next().await else {
+				continue;
+			};
+			block_hash = Some(hash);
 		}
 	}
 

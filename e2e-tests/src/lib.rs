@@ -44,7 +44,10 @@ impl TestEnvBuilder {
 		try_init_logger();
 		let temp = TempDir::new()?;
 		if snapshot.exists() {
+			tracing::info!("found snapshot, applying {}", snapshot.display());
 			unarchive(&snapshot, temp.path())?;
+		} else {
+			tracing::info!("no snapshot found {}", snapshot.display());
 		}
 		let network = temp
 			.path()
@@ -368,8 +371,10 @@ impl TestEnv {
 
 	async fn snapshot(&self) -> Result<()> {
 		if self.snapshot.exists() {
+			tracing::info!("snapshot found {}", self.snapshot.display());
 			return Ok(());
 		}
+		tracing::info!("taking snapshot {}", self.snapshot.display());
 
 		for chronicle in self.chronicles.values().flatten() {
 			chronicle.stop().await?;

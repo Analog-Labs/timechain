@@ -18,7 +18,7 @@ use tempfile::NamedTempFile;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
 	GmpParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature,
+	TssPublicKey, TssSignature, U256,
 };
 
 const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
@@ -109,7 +109,7 @@ fn block(genesis: SystemTime, block_time: u64) -> u64 {
 }
 
 pub fn currency() -> (u32, &'static str) {
-	(3, "TT")
+	(6, "USDT")
 }
 
 fn read_balance<T: ReadableTable<Address32, u128>>(table: &T, addr: Address32) -> Result<u128> {
@@ -428,7 +428,7 @@ impl IConnectorAdmin for Connector {
 			if new_route.gateway != [0; 32] {
 				route.gateway = new_route.gateway;
 			}
-			if new_route.relative_gas_price != (0, 0) {
+			if new_route.relative_gas_price != (U256::zero(), U256::zero()) {
 				route.relative_gas_price = new_route.relative_gas_price;
 			}
 			if new_route.gas_limit != 0 {
@@ -537,12 +537,12 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		Ok(0)
+		Ok(1)
 	}
 
 	/// Returns gas limit of latest block.
 	async fn block_gas_limit(&self) -> Result<u64> {
-		Ok(0)
+		Ok(u64::MAX)
 	}
 
 	/// Withdraw gateway funds.

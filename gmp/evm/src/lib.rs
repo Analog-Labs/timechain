@@ -602,7 +602,6 @@ impl IConnectorAdmin for Connector {
 			.await?
 			.reward
 			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
-
 		Ok(fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas)
 	}
 

@@ -378,6 +378,7 @@ impl std::fmt::Display for ChronicleStatus {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ShardRegistration {
+	Unknown,
 	Unregistered,
 	RegisteredGateway,
 	Registered,
@@ -386,6 +387,7 @@ pub enum ShardRegistration {
 impl std::fmt::Display for ShardRegistration {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		let label = match self {
+			Self::Unknown => "unknown",
 			Self::Unregistered => "unregistered",
 			Self::RegisteredGateway => "gateway",
 			Self::Registered => "registered",
@@ -583,20 +585,30 @@ impl Tc {
 				continue;
 			};
 			if let Entry::Vacant(e) = registered_shards.entry(network) {
-				e.insert(self.registered_shards(network, block_hash).await?);
+				match self.registered_shards(network, block_hash).await {
+					Ok(shards) => {
+						e.insert(shards);
+					},
+					Err(err) => {
+						tracing::error!("{err}");
+					},
+				};
 			}
 			let status = self.runtime.shard_status(shard, block_hash).await?;
 			let key = self.runtime.shard_commitment(shard, block_hash).await?.map(|c| c.0[0]);
 			let size = self.runtime.shard_members(shard, block_hash).await?.len() as u16;
 			let threshold = self.runtime.shard_threshold(shard, block_hash).await?;
-			let mut registered = ShardRegistration::Unregistered;
+			let mut registered = ShardRegistration::Unknown;
 			let mut batch_register = None;
 			let mut batch_unregister = None;
 			if let Some(key) = key {
-				if registered_shards.get(&network).unwrap().contains(&key) {
-					registered = ShardRegistration::RegisteredGateway;
-					if self.runtime.is_shard_registered(key, block_hash).await? {
-						registered = ShardRegistration::Registered;
+				if let Some(shards) = registered_shards.get(&network) {
+					registered = ShardRegistration::Unregistered;
+					if shards.contains(&key) {
+						registered = ShardRegistration::RegisteredGateway;
+						if self.runtime.is_shard_registered(key, block_hash).await? {
+							registered = ShardRegistration::Registered;
+						}
 					}
 				}
 				batch_register = self.runtime.shard_register_batch(key, block_hash).await?;

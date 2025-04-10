@@ -109,7 +109,7 @@ fn block(genesis: SystemTime, block_time: u64) -> u64 {
 }
 
 pub fn currency() -> (u32, &'static str) {
-	(3, "TT")
+	(6, "USDT")
 }
 
 fn read_balance<T: ReadableTable<Address32, u128>>(table: &T, addr: Address32) -> Result<u128> {

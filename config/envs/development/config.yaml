@@ -26,7 +26,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
-    coin_id: 3930
+    coin_id: 825
 
   1:
     backend: "grpc"
@@ -44,7 +44,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 1
     shard_threshold: 1
-    coin_id: 3930
+    coin_id: 825
 
   2:
     backend: "grpc"
@@ -62,7 +62,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 3
     shard_threshold: 2
-    coin_id: 3930
+    coin_id: 825
 
   3:
     backend: "grpc"
@@ -80,7 +80,7 @@ networks:
     gmp_margin: 0.1
     shard_size: 3
     shard_threshold: 2
-    coin_id: 3930
+    coin_id: 825
 
   4:
     backend: "evm"
@@ -124,24 +124,6 @@ networks:
     shard_threshold: 1
     coin_id: 12885
 
-  # 6:
-  #   backend: "evm"
-  #   name: "ethereum-dev"
-  #   url: "wss://eth-local.development.analog.one"
-  #   admin_funds: 100.
-  #   gateway_funds: 1.
-  #   chronicle_funds: .1
-  #   batch_size: 256
-  #   batch_offset: 0
-  #   batch_gas_limit: 350000
-  #   gmp_margin: 0.0
-  #   shard_task_limit: 100
-  #   route_gas_limit: 10000000
-  #   route_base_fee: 1400000000
-  #   shard_size: 1
-  #   shard_threshold: 1
-  #   coin_id: 1027
-
 chronicles:
 - https://chronicle-1.development.analog.one
 - https://chronicle-2.development.analog.one
@@ -155,4 +137,3 @@ chronicles:
 - https://chronicle-10.development.analog.one
 - https://chronicle-11.development.analog.one
 - https://chronicle-12.development.analog.one
-# - https://chronicle-13.development.analog.one

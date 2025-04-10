@@ -9,7 +9,7 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-alloy = { git = "https://github.com/alloy-rs/alloy.git", branch = "yash/ws-reconnect", default-features = false, features = [
+alloy = { git = "https://github.com/Analog-Labs/alloy.git", branch = "yash/ws-reconnect", default-features = false, features = [
     "full",
     "rpc-types-debug",
     "rpc-types-trace",

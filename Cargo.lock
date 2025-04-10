@@ -157,7 +157,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 [[package]]
 name = "alloy"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -192,7 +192,7 @@ dependencies = [
 [[package]]
 name = "alloy-consensus"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 1.0.0",
@@ -214,7 +214,7 @@ dependencies = [
 [[package]]
 name = "alloy-consensus-any"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -227,7 +227,7 @@ dependencies = [
 [[package]]
 name = "alloy-contract"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -315,7 +315,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-eip2124",
  "alloy-eip2930",
@@ -346,7 +346,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-rpc"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "alloy-sol-types 1.0.0",
@@ -359,7 +359,7 @@ dependencies = [
 [[package]]
 name = "alloy-network"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
@@ -384,7 +384,7 @@ dependencies = [
 [[package]]
 name = "alloy-network-primitives"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -443,7 +443,7 @@ dependencies = [
 [[package]]
 name = "alloy-provider"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -485,7 +485,7 @@ dependencies = [
 [[package]]
 name = "alloy-pubsub"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 1.0.0",
@@ -527,7 +527,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-client"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives 1.0.0",
@@ -553,7 +553,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "alloy-rpc-types-anvil",
@@ -568,7 +568,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-anvil"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "alloy-rpc-types-eth",
@@ -579,7 +579,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-any"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus-any",
  "alloy-rpc-types-eth",
@@ -589,7 +589,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-debug"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "serde",
@@ -598,7 +598,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-engine"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -614,7 +614,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-eth"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-consensus-any",
@@ -633,7 +633,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-trace"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "alloy-rpc-types-eth",
@@ -646,7 +646,7 @@ dependencies = [
 [[package]]
 name = "alloy-rpc-types-txpool"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "alloy-rpc-types-eth",
@@ -657,7 +657,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "serde",
@@ -667,7 +667,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-primitives 1.0.0",
  "async-trait",
@@ -681,7 +681,7 @@ dependencies = [
 [[package]]
 name = "alloy-signer-local"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -801,7 +801,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-json-rpc",
  "base64 0.22.1",
@@ -822,7 +822,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-http"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-transport",
  "url",
@@ -831,7 +831,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-ipc"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-json-rpc",
  "alloy-pubsub",
@@ -850,7 +850,7 @@ dependencies = [
 [[package]]
 name = "alloy-transport-ws"
 version = "0.14.0"
-source = "git+https://github.com/alloy-rs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
+source = "git+https://github.com/Analog-Labs/alloy.git?branch=yash%2Fws-reconnect#cf7e902ea04568de940088aa761d4c08563b95e8"
 dependencies = [
  "alloy-pubsub",
  "alloy-transport",

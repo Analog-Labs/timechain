@@ -651,7 +651,7 @@ mod tests {
 	#[tokio::test]
 	async fn smoke_test() -> Result<()> {
 		let network = 0;
-		let mut chain = connector(network, 0).await?;
+		let chain = connector(network, 0).await?;
 		let shard = MockTssSigner::new(0);
 		assert_eq!(chain.balance(chain.address()).await?, 0);
 		chain.faucet(100_000).await?;

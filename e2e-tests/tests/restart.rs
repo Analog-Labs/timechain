@@ -31,7 +31,7 @@ async fn chronicle_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 	}
 
 	// Re-run smoke test: should still work
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 
 	Ok(())
 }
@@ -62,7 +62,7 @@ async fn chain_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 	}
 
 	// Re-run smoke test: should still work
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 
 	Ok(())
 }
@@ -73,7 +73,7 @@ async fn validator_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 	env.validator_container().start().await?;
 
 	// Re-run smoke test: should still work
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 
 	Ok(())
 }

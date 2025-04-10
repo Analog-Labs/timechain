@@ -36,7 +36,7 @@ async fn test_gateway_payments(tc: Tester) -> Result<()> {
 	let total_balance = tc.total_gateway_balance(block_hash).await?;
 	tc.println(None, format!("shard registration msgs cost {}$", total_funds - total_balance))
 		.await?;
-	let _ = tc.smoke_test(vec![42]).await?;
+	let _ = tc.exec_smoke(0, 1, vec![42]).await?;
 	let (block_hash, _) = tc.latest_block().await?;
 	tc.assert_reimbursement(block_hash).await?;
 	let total_balance_after = tc.total_gateway_balance(block_hash).await?;

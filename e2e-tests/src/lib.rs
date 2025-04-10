@@ -15,7 +15,6 @@ use testcontainers::{
 	runners::AsyncRunner,
 	GenericImage, ImageExt,
 };
-use time_primitives::{Address32, GmpMessage};
 use tracing_subscriber::filter::EnvFilter;
 use zstd::{Decoder, Encoder};
 
@@ -99,6 +98,7 @@ impl TestEnvBuilder {
 			config: ConfigYaml {
 				config: GlobalConfig {
 					prices_path: "prices.csv".into(),
+					testers_path: "testers.csv".into(),
 					chronicle_funds: "1.".into(),
 					timechain_url: validator_url,
 				},
@@ -412,7 +412,6 @@ fn unarchive(file: &Path, dir: &Path) -> Result<()> {
 
 pub struct Tester {
 	tc: Tc,
-	testers: HashMap<NetworkId, (Address32, u64)>,
 }
 
 impl Tester {
@@ -420,27 +419,12 @@ impl Tester {
 		try_init_logger();
 		let env = std::env::var("TC_CLI_ENV").context("TC_CLI_ENV not set")?;
 		let env = Path::new(&env).to_path_buf();
-		let tc =
+		let mut tc =
 			Tc::from_env(env.clone(), "config.yaml", Sender::default(), env.join("tc-cli-tx.redb"))
 				.await
 				.context("Error creating Tc client")?;
-		let testers = tc.setup_test().await?;
-		Ok(Self { tc, testers })
-	}
-
-	/// Returns the testers
-	pub fn testers(&self) -> &HashMap<NetworkId, (Address32, u64)> {
-		&self.testers
-	}
-
-	/// Returns the tester.
-	pub fn tester(&self, network: NetworkId) -> Result<Address32> {
-		Ok(self.testers.get(&network).context("missing tester")?.0)
-	}
-
-	/// Runs a smoke test
-	pub async fn smoke_test(&self, payload: Vec<u8>) -> Result<GmpMessage> {
-		self.tc.exec_smoke(0, 1, &self.testers, payload).await
+		tc.setup_test().await?;
+		Ok(Self { tc })
 	}
 }
 

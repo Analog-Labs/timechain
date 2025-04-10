@@ -2,7 +2,7 @@ use anyhow::Result;
 use e2e_tests::{Backend, TestEnv, Tester};
 
 async fn test_smoke(tc: Tester) -> Result<()> {
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 	Ok(())
 }
 

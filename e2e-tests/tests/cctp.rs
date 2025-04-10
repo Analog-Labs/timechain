@@ -3,8 +3,8 @@ use e2e_tests::{Backend, TestEnv, Tester};
 use time_primitives::CCTPMessage;
 
 async fn test_cctp(mut tc: Tester) -> Result<()> {
-	let src_addr = tc.tester(0)?;
-	let dest_addr = tc.tester(1)?;
+	let src_addr = tc.tester(0)?.0;
+	let dest_addr = tc.tester(1)?.0;
 	tc.add_cctp_contract(0, src_addr)?;
 	tc.add_cctp_contract(1, dest_addr)?;
 	let (block_hash, _) = tc.latest_block().await?;
@@ -18,7 +18,7 @@ async fn test_cctp(mut tc: Tester) -> Result<()> {
 		message: msg_data,
 		extra_data: [0u8; 32].to_vec(),
 	};
-	let msg = tc.smoke_test(cctp_payload.encode()).await?;
+	let msg = tc.exec_smoke(0, 1, cctp_payload.encode()).await?;
 	let attested = CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 	assert!(!attested.attestation.is_empty());
 	assert!(attested.extra_data == cctp_payload.extra_data);

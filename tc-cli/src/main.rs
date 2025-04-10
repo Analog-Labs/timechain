@@ -414,17 +414,16 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let testers = tc.setup_test().await?;
-			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
+			tc.setup_test().await?;
+			let _ = tc.exec_smoke(src, dest, vec![42]).await?;
 		},
 		Command::Benchmark {
 			num_messages_per_block,
 			num_blocks,
 		} => {
-			let testers = tc.setup_test().await?;
+			tc.setup_test().await?;
 			let (block_hash, _) = tc.latest_block().await?;
-			let mut benchmark =
-				Benchmark::new(tc, testers, vec![42], num_messages_per_block, num_blocks);
+			let mut benchmark = Benchmark::new(tc, vec![42], num_messages_per_block, num_blocks);
 			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;

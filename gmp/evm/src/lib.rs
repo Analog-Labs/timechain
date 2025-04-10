@@ -36,7 +36,7 @@ use sol::{
 	IExecutor::{self, IExecutorInstance},
 	TssKey,
 };
-use std::{ops::Range, pin::Pin, process::Command, sync::Arc};
+use std::{ops::Range, pin::Pin, process::Command, sync::Arc, time::Duration};
 use thiserror::Error;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
@@ -100,7 +100,10 @@ impl IConnectorBuilder for Connector {
 			.phrase(params.mnemonic)
 			.index(0)?
 			.build()?;
-		let ws = WsConnect::new(params.url.clone());
+		let ws = WsConnect::new(params.url.clone())
+			.with_max_retries(1200)
+			.with_retry_interval(Duration::from_secs(3));
+
 		let provider = Arc::new(
 			ProviderBuilder::new()
 				.network::<AnyNetwork>()

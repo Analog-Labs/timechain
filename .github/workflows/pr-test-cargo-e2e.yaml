@@ -51,6 +51,6 @@ jobs:
         run: |
           rm -rf /tmp/*.tar.zst
           sudo rm -rf /tmp/.tmp*
-          docker ps -q --filter name=tmp | xargs docker stop
-          docker container ls -a -q --filter name=tmp | xargs docker rm
-          docker network ls -q --filter name=tmp | xargs docker network rm
+          docker ps -q --filter name=tmp | xargs docker stop || true
+          docker container ls -a -q --filter name=tmp | xargs docker rm || true
+          docker network ls -q --filter name=tmp | xargs docker network rm || true

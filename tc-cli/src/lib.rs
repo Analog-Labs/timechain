@@ -314,6 +314,10 @@ impl Tc {
 		}
 		Ok(())
 	}
+
+	pub fn iter(&self) -> impl Iterator<Item = NetworkId> + '_ {
+		self.connectors.keys().copied()
+	}
 }
 
 #[derive(Clone, Debug)]
@@ -933,7 +937,7 @@ impl Tc {
 
 	pub async fn register_all_routes(&self, block_hash: BlockHash) -> Result<()> {
 		let gateways = FuturesUnordered::new();
-		for network in self.connectors.keys().copied() {
+		for network in self.iter() {
 			let fut = self.gateway(network, block_hash);
 			gateways.push(async move {
 				let (_, gateway) = fut.await?;
@@ -1088,7 +1092,7 @@ impl Tc {
 
 	pub async fn deploy(&self, block_hash: BlockHash) -> Result<()> {
 		let mut deploy_network = FuturesUnordered::new();
-		for network in self.connectors.keys().copied() {
+		for network in self.iter() {
 			deploy_network.push(async move {
 				let gateway = self.deploy_network(network, block_hash).await?;
 				Ok::<_, anyhow::Error>((network, gateway))
@@ -1114,7 +1118,7 @@ impl Tc {
 
 	pub async fn register_online_shards(&self, block_hash: BlockHash) -> Result<()> {
 		let mut register_shards = FuturesUnordered::new();
-		for network in self.connectors.keys().copied() {
+		for network in self.iter() {
 			let keys = self.find_online_shard_keys(network, block_hash).await?;
 			register_shards.push(self.register_shards(network, keys, block_hash));
 		}
@@ -1302,21 +1306,35 @@ impl Tc {
 	}
 
 	async fn deploy_testers(
-		&self,
+		&mut self,
 		block_hash: BlockHash,
 	) -> Result<HashMap<NetworkId, (Address32, u64)>> {
 		let mut deploy_tester = FuturesUnordered::new();
-		for network in self.connectors.keys().copied() {
-			deploy_tester.push(async move {
-				let tester = self.deploy_tester(network, block_hash).await?;
-				Ok::<_, anyhow::Error>((network, tester))
-			});
-		}
 		let mut testers = HashMap::new();
+		for network in self.iter() {
+			if let Ok((address, block)) = self.tester(network) {
+				testers.insert(network, (address, block));
+			} else {
+				let fut = self.deploy_tester(network, block_hash);
+				deploy_tester.push(async move {
+					let tester = fut.await?;
+					Ok::<_, anyhow::Error>((network, tester))
+				});
+			}
+		}
 		while let Some(result) = deploy_tester.next().await {
 			let (network, tester) = result?;
 			testers.insert(network, tester);
 		}
+		drop(deploy_tester);
+		self.config.save_testers(
+			testers
+				.iter()
+				.map(|(n, (a, b))| {
+					(*n, (self.format_address(Some(*n), *a).expect("have connector"), *b))
+				})
+				.collect(),
+		)?;
 		Ok(testers)
 	}
 
@@ -1350,7 +1368,7 @@ impl Tc {
 		let mut id = None;
 		let mut register_shards = FuturesUnordered::new();
 		let mut shards_per_network = HashMap::<NetworkId, u16>::new();
-		for network in self.connectors.keys().copied() {
+		for network in self.iter() {
 			let shard_size = self.config.network(network)?.shard_size;
 			let chronicles = chronicles_per_network.get(&network).copied().unwrap_or_default();
 			let num_shards = chronicles / shard_size;
@@ -1403,13 +1421,21 @@ impl Tc {
 		Ok(())
 	}
 
-	pub async fn setup_test(&self) -> Result<HashMap<NetworkId, (Address32, u64)>> {
+	pub async fn setup_test(&mut self) -> Result<()> {
 		let (block_hash, _) = self.latest_block().await?;
 		self.deploy(block_hash).await?;
 		let (block_hash, _) = self.latest_block().await?;
-		let testers = self.deploy_testers(block_hash).await?;
+		self.deploy_testers(block_hash).await?;
 		self.register_all_shards().await?;
-		Ok(testers)
+		Ok(())
+	}
+
+	pub fn tester(&self, network: NetworkId) -> Result<(Address32, u64)> {
+		let (address, block) = self
+			.config
+			.tester(network)
+			.with_context(|| format!("no tester for {network}"))?;
+		Ok((self.parse_address(Some(network), address)?, *block))
 	}
 
 	pub async fn wait_for_sync(&self, network: NetworkId) -> Result<()> {
@@ -1488,16 +1514,6 @@ impl Tc {
 		connector.debug_transaction(hash).await
 	}
 
-	pub async fn dump_state(&self, network: NetworkId) -> Result<String> {
-		let connector = self.connector(network)?;
-		connector.dump_state().await
-	}
-
-	pub async fn load_state(&self, network: NetworkId, state: String) -> Result<()> {
-		let connector = self.connector(network)?;
-		connector.load_state(state).await
-	}
-
 	pub async fn assert_reimbursement(&self, block_hash: BlockHash) -> Result<()> {
 		// all chronicles should have the configured balance
 		for chronicle in self.config.chronicles() {
@@ -1522,7 +1538,7 @@ impl Tc {
 
 	pub fn total_gateway_funds(&self) -> Result<f64> {
 		let mut total_funds = 0.;
-		for network in self.connectors.keys().copied() {
+		for network in self.iter() {
 			let gateway_funds = &self.config.network(network)?.gateway_funds;
 			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
 			total_funds += self.balance_to_usd(network, gateway_funds)?;
@@ -1532,7 +1548,7 @@ impl Tc {
 
 	pub async fn total_gateway_balance(&self, block_hash: BlockHash) -> Result<f64> {
 		let mut total_balance = 0.;
-		for network in self.connectors.keys().copied() {
+		for network in self.iter() {
 			let (_connector, gateway) = self.gateway(network, block_hash).await?;
 			let balance = self.balance(Some(network), gateway, block_hash).await?;
 			total_balance += self.balance_to_usd(network, balance)?;
@@ -1544,14 +1560,13 @@ impl Tc {
 		&self,
 		src: NetworkId,
 		dest: NetworkId,
-		testers: &HashMap<NetworkId, (Address32, u64)>,
 		payload: Vec<u8>,
 	) -> Result<GmpMessage> {
 		let mut blocks = self.finality_notification_stream();
 		let (hash, _) = blocks.next().await.context("expected block")?;
 		// prepare
-		let src_addr = testers.get(&src).context("missing tester")?.0;
-		let dest_addr = testers.get(&dest).context("missing tester")?.0;
+		let src_addr = self.tester(src)?.0;
+		let dest_addr = self.tester(dest)?.0;
 		let gas_limit = self
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 			.await?;

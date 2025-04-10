@@ -223,7 +223,7 @@ impl Tc {
 
 		src_to_dest += src_to_dest.clone() * convert_bigint_ratio_to_biguint(src_margin.clone())?;
 
-		log::info!(
+		log::debug!(
 			"relative gas price {src_network} -> {dest_network}: {}",
 			to_fixed(src_to_dest.clone(), None),
 		);

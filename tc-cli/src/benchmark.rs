@@ -67,7 +67,6 @@ pub struct Benchmark {
 	routes: HashMap<(NetworkId, NetworkId), RouteStats>,
 	messages: HashMap<MessageId, MessageStats>,
 	tc: Tc,
-	testers: HashMap<NetworkId, (Address32, u64)>,
 	payload: Vec<u8>,
 	blocks: BlockNumber,
 	num_blocks: BlockNumber,
@@ -75,18 +74,11 @@ pub struct Benchmark {
 }
 
 impl Benchmark {
-	pub fn new(
-		tc: Tc,
-		testers: HashMap<NetworkId, (Address32, u64)>,
-		payload: Vec<u8>,
-		msgs_per_block: u16,
-		num_blocks: BlockNumber,
-	) -> Self {
+	pub fn new(tc: Tc, payload: Vec<u8>, msgs_per_block: u16, num_blocks: BlockNumber) -> Self {
 		Self {
 			routes: Default::default(),
 			messages: Default::default(),
 			tc,
-			testers,
 			payload,
 			blocks: 0,
 			num_blocks,
@@ -100,8 +92,8 @@ impl Benchmark {
 		dest: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<RouteStats> {
-		let src_addr = self.testers.get(&src).context("missing tester")?.0;
-		let dest_addr = self.testers.get(&dest).context("missing tester")?.0;
+		let src_addr = self.tc.tester(src)?.0;
+		let dest_addr = self.tc.tester(dest)?.0;
 		let gas_limit = self
 			.tc
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, self.payload.clone())
@@ -116,8 +108,8 @@ impl Benchmark {
 
 	pub async fn add_routes(&mut self, block_hash: BlockHash) -> Result<()> {
 		let routes = FuturesUnordered::new();
-		for src in self.testers.keys().copied() {
-			for dest in self.testers.keys().copied() {
+		for src in self.tc.iter() {
+			for dest in self.tc.iter() {
 				if src != dest {
 					let fut = self.route_stats(src, dest, block_hash);
 					routes.push(async move {
@@ -136,7 +128,7 @@ impl Benchmark {
 
 	pub async fn wait_for_sync(&mut self) -> Result<()> {
 		let mut sync = FuturesUnordered::new();
-		for network in self.testers.keys().copied() {
+		for network in self.tc.iter() {
 			sync.push(self.tc.wait_for_sync(network));
 		}
 		while let Some(result) = sync.next().await {

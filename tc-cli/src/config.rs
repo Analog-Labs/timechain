@@ -12,6 +12,7 @@ pub struct Config {
 	path: PathBuf,
 	yaml: ConfigYaml,
 	prices: HashMap<NetworkId, (String, f64)>,
+	testers: HashMap<NetworkId, (String, u64)>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -21,6 +22,13 @@ struct NetworkPrice {
 	pub usd_price: f64,
 }
 
+#[derive(Clone, Deserialize)]
+struct Tester {
+	pub network_id: NetworkId,
+	pub address: String,
+	pub block: u64,
+}
+
 pub fn write_prices(path: &Path, prices: &HashMap<NetworkId, (String, f64)>) -> Result<()> {
 	let file =
 		File::create(path).with_context(|| format!("failed to create {}", path.display()))?;
@@ -28,6 +36,18 @@ pub fn write_prices(path: &Path, prices: &HashMap<NetworkId, (String, f64)>) -> 
 	wtr.write_record(["network_id", "symbol", "usd_price"])?;
 	for (network, (symbol, usd_price)) in prices {
 		wtr.write_record(&[network.to_string(), symbol.to_string(), usd_price.to_string()])?;
+	}
+	wtr.flush()?;
+	Ok(())
+}
+
+pub fn write_testers(path: &Path, testers: &HashMap<NetworkId, (String, u64)>) -> Result<()> {
+	let file =
+		File::create(path).with_context(|| format!("failed to create {}", path.display()))?;
+	let mut wtr = Writer::from_writer(file);
+	wtr.write_record(["network_id", "address", "block"])?;
+	for (network, (address, block)) in testers {
+		wtr.write_record(&[network.to_string(), address.to_string(), block.to_string()])?;
 	}
 	wtr.flush()?;
 	Ok(())
@@ -44,13 +64,11 @@ impl Config {
 			path,
 			yaml,
 			prices: Default::default(),
+			testers: Default::default(),
 		};
 		me.load_prices()?;
+		me.load_testers()?;
 		Ok(me)
-	}
-
-	pub fn new(env: PathBuf, yaml: ConfigYaml, prices: HashMap<NetworkId, (String, f64)>) -> Self {
-		Self { path: env, yaml, prices }
 	}
 
 	pub fn prefix(&self) -> Option<String> {
@@ -96,6 +114,32 @@ impl Config {
 		let price_path = self.relative_path(&self.yaml.config.prices_path);
 		write_prices(&price_path, &prices)?;
 		self.prices = prices;
+		Ok(())
+	}
+
+	pub fn tester(&self, network: NetworkId) -> Option<&(String, u64)> {
+		self.testers.get(&network)
+	}
+
+	pub fn load_testers(&mut self) -> Result<()> {
+		let testers_path = self.relative_path(&self.yaml.config.testers_path);
+		if !testers_path.exists() {
+			return Ok(());
+		}
+		let mut rdr = Reader::from_path(&testers_path)
+			.with_context(|| format!("failed to open {}", testers_path.display()))?;
+
+		for result in rdr.deserialize() {
+			let record: Tester = result?;
+			self.testers.insert(record.network_id, (record.address, record.block));
+		}
+		Ok(())
+	}
+
+	pub fn save_testers(&mut self, testers: HashMap<NetworkId, (String, u64)>) -> Result<()> {
+		let testers_path = self.relative_path(&self.yaml.config.testers_path);
+		write_testers(&testers_path, &testers)?;
+		self.testers = testers;
 		Ok(())
 	}
 
@@ -177,6 +221,7 @@ pub struct ConfigYaml {
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
 	pub prices_path: PathBuf,
+	pub testers_path: PathBuf,
 	pub chronicle_funds: String,
 	pub timechain_url: String,
 }

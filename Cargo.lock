@@ -5167,6 +5167,7 @@ dependencies = [
  "futures",
  "hex",
  "serde_yaml",
+ "tar",
  "tc-cli",
  "tempfile",
  "testcontainers",
@@ -5174,6 +5175,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "zstd 0.13.3",
 ]
 
 [[package]]
@@ -6723,6 +6725,7 @@ name = "gmp-rust"
 version = "0.8.0"
 dependencies = [
  "anyhow",
+ "async-channel 2.3.1",
  "async-trait",
  "bincode",
  "blake3",
@@ -6734,6 +6737,7 @@ dependencies = [
  "tempfile",
  "time-primitives",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -21431,6 +21435,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
+name = "tar"
+version = "0.4.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d863878d212c87a19c1a610eb53bb01fe12951c0501cf5a0d65f724914a667a"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
+
+[[package]]
 name = "target-lexicon"
 version = "0.12.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24498,6 +24513,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "zstd"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
+dependencies = [
+ "zstd-safe 7.2.4",
+]
+
+[[package]]
 name = "zstd-safe"
 version = "5.0.2+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24514,6 +24538,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee98ffd0b48ee95e6c5168188e44a54550b1564d9d530ee21d5f0eaed1069581"
 dependencies = [
  "libc",
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "7.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f49c4d5f0abb602a93fb8736af2a4f4dd9512e36f7f570d66e65ff867ed3b9d"
+dependencies = [
  "zstd-sys",
 ]
 

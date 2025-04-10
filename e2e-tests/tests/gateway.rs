@@ -1,13 +1,12 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use e2e_tests::{Backend, TestEnv, Tester};
 use futures::StreamExt;
 use std::collections::HashSet;
-use time_primitives::BlockHash;
 
 async fn test_gateway_payments(tc: Tester) -> Result<()> {
 	// collect shard tasks
 	let mut tasks = HashSet::new();
-	let (block_hash, _) = tc.latest_block().await?;
+	let (mut block_hash, _) = tc.latest_block().await?;
 	for shard in tc.shards(block_hash).await? {
 		if let Some(batch) = shard.batch_register {
 			let task = tc.batch(batch, block_hash).await?.task;
@@ -15,22 +14,20 @@ async fn test_gateway_payments(tc: Tester) -> Result<()> {
 		}
 	}
 	// wait for shard batches to execute
-	let mut block_hash: Option<BlockHash> = Some(block_hash);
 	let mut stream = tc.finality_notification_stream();
 	for (task, batch) in tasks {
 		loop {
-			if tc.is_task_executed(task, hash).await? {
+			if tc.is_task_executed(task, block_hash).await? {
 				break;
 			}
 			tracing::info!("waiting for task {task} / batch {batch}");
 			let Some((hash, _)) = stream.next().await else {
 				continue;
 			};
-			block_hash = Some(hash);
+			block_hash = hash;
 		}
 	}
 
-	let block_hash = block_hash.context("Block hash not found")?;
 	tc.assert_reimbursement(block_hash).await?;
 	let total_funds = tc.total_gateway_funds()?;
 	let total_balance = tc.total_gateway_balance(block_hash).await?;

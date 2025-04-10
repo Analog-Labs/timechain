@@ -6725,6 +6725,7 @@ name = "gmp-rust"
 version = "0.8.0"
 dependencies = [
  "anyhow",
+ "async-channel 2.3.1",
  "async-trait",
  "bincode",
  "blake3",
@@ -6736,6 +6737,7 @@ dependencies = [
  "tempfile",
  "time-primitives",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

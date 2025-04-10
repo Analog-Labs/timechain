@@ -1314,12 +1314,13 @@ impl Tc {
 		for network in self.iter() {
 			if let Ok((address, block)) = self.tester(network) {
 				testers.insert(network, (address, block));
+			} else {
+				let fut = self.deploy_tester(network, block_hash);
+				deploy_tester.push(async move {
+					let tester = fut.await?;
+					Ok::<_, anyhow::Error>((network, tester))
+				});
 			}
-			let fut = self.deploy_tester(network, block_hash);
-			deploy_tester.push(async move {
-				let tester = fut.await?;
-				Ok::<_, anyhow::Error>((network, tester))
-			});
 		}
 		while let Some(result) = deploy_tester.next().await {
 			let (network, tester) = result?;

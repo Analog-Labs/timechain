@@ -6,7 +6,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  test-cargo:
+  e2e-tests:
     runs-on: [self-hosted, integration]
     timeout-minutes: 90
     steps:
@@ -50,7 +50,7 @@ jobs:
         if: always()
         run: |
           rm -rf /tmp/*.tar.zst
-          rm -rf /tmp/.tmp*
+          sudo rm -rf /tmp/.tmp*
           docker ps -q --filter name=tmp | xargs docker stop
           docker container ls -a -q --filter name=tmp | xargs docker rm
           docker network ls -q --filter name=tmp | xargs docker network rm

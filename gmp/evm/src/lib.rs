@@ -105,7 +105,7 @@ impl IConnectorBuilder for Connector {
 			ProviderBuilder::new()
 				.network::<AnyNetwork>()
 				.wallet(signer.clone())
-				.on_ws(ws)
+				.connect_ws(ws)
 				.await?,
 		);
 
@@ -150,7 +150,7 @@ impl IChain for Connector {
 	/// Funds Connector's account
 	async fn faucet(&self, balance: u128) -> Result<()> {
 		let ws = WsConnect::new(self.url.clone());
-		let provider = ProviderBuilder::new().on_ws(ws).await?;
+		let provider = ProviderBuilder::new().connect_ws(ws).await?;
 		let sponsor = provider
 			.get_accounts()
 			.await?
@@ -235,20 +235,20 @@ impl IConnector for Connector {
 			for topic in log.topics() {
 				match *topic {
 					sol::Gateway::ShardsRegistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardsRegistered::decode_log(&log, true)?;
+						let log = sol::Gateway::ShardsRegistered::decode_log(&log)?;
 						for key in log.keys.iter() {
 							events.push(GmpEvent::ShardRegistered(key.clone().into()));
 						}
 					},
 					sol::Gateway::ShardsUnregistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardsUnregistered::decode_log(&log, true)?;
+						let log = sol::Gateway::ShardsUnregistered::decode_log(&log)?;
 						for key in log.keys.iter() {
 							events.push(GmpEvent::ShardUnregistered(key.clone().into()));
 						}
 						break;
 					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
-						let log = sol::Gateway::GmpCreated::decode_log(&log, true)?;
+						let log = sol::Gateway::GmpCreated::decode_log(&log)?;
 						let gmp_message = GmpMessage {
 							src_network: self.network_id,
 							dest_network: log.destinationNetwork,
@@ -271,13 +271,13 @@ impl IConnector for Connector {
 						break;
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
-						let log = sol::Gateway::GmpExecuted::decode_log(&log, true)?;
+						let log = sol::Gateway::GmpExecuted::decode_log(&log)?;
 						tracing::info!("gmp executed: {:?}", hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 						break;
 					},
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
-						let log = sol::Gateway::BatchExecuted::decode_log(&log, true)?;
+						let log = sol::Gateway::BatchExecuted::decode_log(&log)?;
 						events.push(GmpEvent::BatchExecuted {
 							batch_id: log.batch,
 							tx_hash: outer_log.transaction_hash.map(|hash| hash.into()),
@@ -437,8 +437,8 @@ impl IConnectorAdmin for Connector {
 
 	/// Returns gateway admin
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
-		let admin_address = self.evm_call(gateway, sol::Gateway::adminCall {}).await?._0;
-		Ok(t_addr(admin_address))
+		let admin_address = self.evm_call(gateway, sol::Gateway::adminCall {}).await?.0;
+		Ok(t_addr(admin_address.into()))
 	}
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
@@ -448,7 +448,7 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Returns registered shard keys
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
-		let keys = self.evm_call(gateway, sol::Gateway::shardsCall {}).await?._0;
+		let keys = self.evm_call(gateway, sol::Gateway::shardsCall {}).await?;
 		let keys = keys.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
@@ -463,7 +463,7 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
-		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?._0;
+		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
@@ -519,7 +519,7 @@ impl IConnectorAdmin for Connector {
 			gasLimit: U256::from(gas_limit),
 		};
 		let result = self.evm_call(gateway, call).await?;
-		let msg_cost: u128 = result._0.try_into().map_err(|e| anyhow!("{e}"))?;
+		let msg_cost: u128 = result.try_into().map_err(|e| anyhow!("{e}"))?;
 
 		Ok(msg_cost)
 	}
@@ -552,7 +552,7 @@ impl IConnectorAdmin for Connector {
 			.logs()
 			.iter()
 			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
-			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data(), true).ok())
+			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data()).ok())
 			.map(|e| e.id.into())
 			.next()
 			.ok_or(anyhow!("Failed to send message"))
@@ -576,14 +576,13 @@ impl IConnectorAdmin for Connector {
 		Ok(logs
 			.into_iter()
 			.filter(|e| e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
-			.filter_map(|e| sol::GmpTester::MessageReceived::decode_log_data(e.data(), true).ok())
+			.filter_map(|e| sol::GmpTester::MessageReceived::decode_log_data(e.data()).ok())
 			.map(|e| e.msg.into())
 			.collect::<Vec<_>>())
 	}
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		// TODO add Eip1559Estimator::Custom for other chains
 		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
 			// Polygon
 			137 => (Eip1559Estimator::Default, 15, 10.0),
@@ -701,7 +700,7 @@ impl Connector {
 
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
 
-		Ok(C::abi_decode_returns(&result, true)?)
+		Ok(C::abi_decode_returns(&result)?)
 	}
 
 	async fn evm_send<C: SolCall>(
@@ -869,8 +868,7 @@ impl Connector {
 
 	async fn process_cctp_msg(&self, request: &mut CctpRequest) -> Result<(), CctpError> {
 		let payload = request.msg.bytes.clone();
-		let mut cctp_payload =
-			CCTP::abi_decode(&payload, false).map_err(|_| CctpError::InvalidPayload)?;
+		let mut cctp_payload = CCTP::abi_decode(&payload).map_err(|_| CctpError::InvalidPayload)?;
 		if cctp_payload.get_version().map_err(|_| CctpError::InvalidPayload)? != 0 {
 			return Err(CctpError::InvalidVersion);
 		}

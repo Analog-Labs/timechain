@@ -69,7 +69,7 @@ pub mod pallet {
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 30;
+	pub const LAUNCH_VERSION: u16 = 31;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -136,6 +136,13 @@ pub mod pallet {
 		(29, Allocation::Airdrop, 0, Stage::Retired),
 		// Validator Airdrop (missed)
 		(30, Allocation::Ecosystem, 160_086 * ANLOG, Stage::Retired),
+		// Staking Allocation 2
+		(
+			31,
+			Allocation::Ecosystem,
+			2_000_200 * ANLOG,
+			Stage::DepositFromUnlocked(data::v31::VALIDATOR_STASHES),
+		),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:

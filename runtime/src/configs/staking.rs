@@ -13,8 +13,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	//traits::tokens::imbalance::ResolveTo,
-	traits::{ConstU32, OnUnbalanced},
+	traits::{ConstU32, Imbalance, OnUnbalanced},
 	weights::Weight,
 	PalletId,
 };
@@ -226,18 +225,13 @@ impl RewardPool {
 	}
 }
 
-// Implementation for the new fungible Imbalance type
 impl<I, D> OnUnbalanced<frame_support::traits::fungible::Imbalance<Balance, I, D>> for RewardPool
 where
 	I: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
 	D: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
 {
-	/// Take rewards from special rewards wallet, otherwise mint it via drop
-	fn on_nonzero_unbalanced(
-		_imbalance: frame_support::traits::fungible::Imbalance<Balance, I, D>,
-	) {
-		// In the new implementation, we just let the imbalance drop, which will increase issuance
-		log::warn!("💰 Reward amount");
+	fn on_nonzero_unbalanced(to_mint: frame_support::traits::fungible::Imbalance<Balance, I, D>) {
+		log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
 	}
 }
 

@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tar::{Archive, Builder};
 use tc_cli::{
 	config::{BackendConfig, ConfigYaml, GlobalConfig, NetworkConfig},
@@ -62,10 +63,11 @@ impl TestEnvBuilder {
 		tracing::info!("workspace: {}", workspace.display());
 		tracing::info!("tempdir: {}", temp.path().display());
 
-		let validator_port = pick_free_port()?;
 		let validator_name = format!("{network}-validator");
 		let validator_mount = temp.path().join("tc");
 		std::fs::create_dir_all(&validator_mount)?;
+		let guard = PORT_LOCK.lock().unwrap();
+		let validator_port = pick_free_port()?;
 		let validator = GenericImage::new("analoglabs/timechain-node-develop", "latest")
 			.with_exposed_port(9944.tcp())
 			.with_mapped_port(validator_port, 9944.tcp())
@@ -86,6 +88,7 @@ impl TestEnvBuilder {
 			.with_mount(Mount::bind_mount(validator_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
+		drop(guard);
 		let validator_host = validator.get_host().await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
 		Ok(Self {
@@ -132,11 +135,12 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
-		let chain_port = pick_free_port()?;
 		let chain_name = format!("chain-grpc-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
 		std::fs::create_dir_all(&chain_mount)?;
 		let chain_name = format!("{}-{chain_name}", &self.network);
+		let guard = PORT_LOCK.lock().unwrap();
+		let chain_port = pick_free_port()?;
 		let chain = GenericImage::new("analoglabs/gmp-grpc-develop", "latest")
 			.with_exposed_port(3000.tcp())
 			.with_mapped_port(chain_port, 3000.tcp())
@@ -148,6 +152,7 @@ impl TestEnvBuilder {
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
+		drop(guard);
 		let chain_host = chain.get_host().await?;
 		let chain_url = format!("http://{chain_host}:{chain_port}");
 		self.chains.insert(network, chain);
@@ -195,11 +200,12 @@ impl TestEnvBuilder {
 		shard_threshold: u16,
 	) -> Result<()> {
 		// add chain to docker compose
-		let chain_port = pick_free_port()?;
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
 		std::fs::create_dir_all(&chain_mount)?;
 		let chain_name = format!("{}-{chain_name}", &self.network);
+		let guard = PORT_LOCK.lock().unwrap();
+		let chain_port = pick_free_port()?;
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
 			.with_exposed_port(8545.tcp())
 			.with_mapped_port(chain_port, 8545.tcp())
@@ -207,11 +213,12 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
-				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 6",
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7",
 			])
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
+		drop(guard);
 		let chain_host = chain.get_host().await?;
 		let chain_url = format!("ws://{chain_host}:{chain_port}");
 		self.chains.insert(network, chain);
@@ -259,7 +266,6 @@ impl TestEnvBuilder {
 		i: u16,
 		target_url: &str,
 	) -> Result<()> {
-		let chronicle_port = pick_free_port()?;
 		let chronicle_name = format!("chronicle-{backend}-{network}-{i}");
 		let chronicle_mount = self.temp.path().join(&chronicle_name);
 		std::fs::create_dir_all(&chronicle_mount)?;
@@ -278,6 +284,8 @@ impl TestEnvBuilder {
 		if backend == Backend::Evm {
 			cmd.push("--chain-dict=/etc/chains.json".to_string());
 		}
+		let guard = PORT_LOCK.lock().unwrap();
+		let chronicle_port = pick_free_port()?;
 		let chronicle = GenericImage::new("analoglabs/chronicle-develop", "latest")
 			.with_exposed_port(8080.tcp())
 			.with_mapped_port(chronicle_port, 8080.tcp())
@@ -289,8 +297,8 @@ impl TestEnvBuilder {
 			.with_mount(Mount::bind_mount(chronicle_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
+		drop(guard);
 		let chronicle_host = chronicle.get_host().await?;
-		let chronicle_port = chronicle.get_host_port_ipv4(8080).await?;
 		let chronicle_url = format!("http://{chronicle_host}:{chronicle_port}");
 		self.config.chronicles.push(chronicle_url);
 		self.chronicles.entry(network).or_default().push(chronicle);
@@ -440,6 +448,8 @@ impl DerefMut for Tester {
 		&mut self.tc
 	}
 }
+
+static PORT_LOCK: Mutex<()> = Mutex::new(());
 
 fn pick_free_port() -> Result<u16> {
 	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;

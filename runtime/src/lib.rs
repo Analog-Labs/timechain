@@ -617,8 +617,8 @@ mod runtime {
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
 type Migrations = (
-	pallet_session::migrations::v1::MigrateV0ToV1<Runtime, MigrateDisabledToSession<Runtime>>,
 	MigrateV15ToV16<Runtime>,
+	pallet_session::migrations::v1::MigrateV0ToV1<Runtime, MigrateDisabledToSession<Runtime>>,
 );
 
 #[cfg(test)]

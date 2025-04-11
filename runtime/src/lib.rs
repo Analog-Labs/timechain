@@ -139,7 +139,9 @@ use frame_support::{
 use pallet_session::historical as pallet_session_historical;
 
 use frame_support::traits::KeyOwnerProofSystem;
-use pallet_staking::migrations::{v16::MigrateV15ToV16, v17::MigrateDisabledToSession};
+use pallet_staking::migrations::{
+	v15::MigrateV14ToV15, v16::MigrateV15ToV16, v17::MigrateDisabledToSession,
+};
 use scale_codec::Encode;
 #[cfg(feature = "runtime-benchmarks")]
 use scale_info::prelude::string::String;
@@ -617,6 +619,7 @@ mod runtime {
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
 type Migrations = (
+	MigrateV14ToV15<Runtime>,
 	MigrateV15ToV16<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<Runtime, MigrateDisabledToSession<Runtime>>,
 );

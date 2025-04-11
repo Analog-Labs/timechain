@@ -27,9 +27,19 @@ impl<T: pallet_staking::Config> UncheckedOnRuntimeUpgrade
 		let stashes_to_migrate = Self::collect_stashes_with_old_currency();
 		let count = stashes_to_migrate.len() as u64;
 
+		// Create a dummy account to use as the signed origin for migration
+		// The migrate_currency function only requires a signed origin, it doesn't matter which account
+		let dummy_account =
+			T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+				.expect("infinite length input; no invalid inputs for type; qed");
+
 		// Migrate each stash
 		for stash in stashes_to_migrate {
-			if let Err(err) = <Pallet<T>>::migrate_currency(RawOrigin::Root.into(), stash.clone()) {
+			// Use a signed origin since migrate_currency expects a signed origin, but any account can call it
+			if let Err(err) = <Pallet<T>>::migrate_currency(
+				RawOrigin::Signed(dummy_account.clone()).into(),
+				stash.clone(),
+			) {
 				log::warn!(
 					target: "runtime::staking",
 					"Failed to migrate currency for stash {:?}: {:?}",

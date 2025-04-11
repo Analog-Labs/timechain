@@ -332,6 +332,18 @@ impl Gmp for ConnectorWrapper {
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::WithdrawFundsResponse {}))
 	}
+
+	async fn debug_transaction(
+		&self,
+		request: Request<proto::DebugTransactionRequest>,
+	) -> GmpResult<proto::DebugTransactionResponse> {
+		let (connector, msg) = self.connector(request)?;
+		let details = connector
+			.debug_transaction(msg.tx)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::DebugTransactionResponse { details }))
+	}
 }
 
 #[derive(Parser)]

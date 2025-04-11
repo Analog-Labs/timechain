@@ -194,14 +194,6 @@ enum Command {
 		network: NetworkId,
 		hash: String,
 	},
-	DumpState {
-		network: NetworkId,
-		path: Option<PathBuf>,
-	},
-	LoadState {
-		network: NetworkId,
-		path: Option<PathBuf>,
-	},
 }
 
 #[tokio::main]
@@ -422,17 +414,16 @@ async fn real_main() -> Result<()> {
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
-			let testers = tc.setup_test().await?;
-			let _ = tc.exec_smoke(src, dest, &testers, vec![42]).await?;
+			tc.setup_test().await?;
+			let _ = tc.exec_smoke(src, dest, vec![42]).await?;
 		},
 		Command::Benchmark {
 			num_messages_per_block,
 			num_blocks,
 		} => {
-			let testers = tc.setup_test().await?;
+			tc.setup_test().await?;
 			let (block_hash, _) = tc.latest_block().await?;
-			let mut benchmark =
-				Benchmark::new(tc, testers, vec![42], num_messages_per_block, num_blocks);
+			let mut benchmark = Benchmark::new(tc, vec![42], num_messages_per_block, num_blocks);
 			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
@@ -456,18 +447,6 @@ async fn real_main() -> Result<()> {
 		},
 		Command::RetryFailedBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
-		},
-		Command::DumpState { network, path } => {
-			let path = path.unwrap_or("anvil_state.txt".into());
-			let state = tc.dump_state(network).await?;
-			std::fs::write(&path, state)?;
-			tracing::info!("Anvil state stored to: {:?}", &path);
-		},
-		Command::LoadState { network, path } => {
-			let path = path.unwrap_or("anvil_state.txt".into());
-			let state = std::fs::read_to_string(&path)?;
-			tc.load_state(network, state).await?;
-			tracing::info!("Anvil state loaded from: {:?}", &path);
 		},
 	}
 	tracing::debug!("executed query in {}s", now.elapsed().unwrap().as_secs());

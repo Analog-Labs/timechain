@@ -10,6 +10,7 @@ repository.workspace = true
 
 [dependencies]
 anyhow = { workspace = true, features = ["std"] }
+async-channel.workspace = true
 async-trait.workspace = true
 bincode = "1.3.3"
 blake3 = "1.7.0"
@@ -21,3 +22,4 @@ serde.workspace = true
 tempfile = "3.19.1"
 time-primitives = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tracing.workspace = true

@@ -3,9 +3,7 @@ use e2e_tests::{Backend, TestEnv, Tester};
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 
-async fn chronicle_restart(env: &TestEnv) -> Result<()> {
-	let tc = Tester::new().await?;
-
+async fn chronicle_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 	// Restart chronicles
 	let mut restart = FuturesUnordered::new();
 	for chronicle in env.chronicle_containers(0)? {
@@ -33,14 +31,12 @@ async fn chronicle_restart(env: &TestEnv) -> Result<()> {
 	}
 
 	// Re-run smoke test: should still work
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 
 	Ok(())
 }
 
-async fn chain_restart(env: &TestEnv) -> Result<()> {
-	let tc = Tester::new().await?;
-
+async fn chain_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 	// Restart chains
 	let mut restart = FuturesUnordered::new();
 	let chain = env.chain_container(0)?;
@@ -66,40 +62,42 @@ async fn chain_restart(env: &TestEnv) -> Result<()> {
 	}
 
 	// Re-run smoke test: should still work
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 
 	Ok(())
 }
 
-async fn validator_restart(env: &TestEnv) -> Result<()> {
-	let tc = Tester::new().await?;
-
+async fn validator_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 	// Restart validator
 	env.validator_container().stop().await?;
 	env.validator_container().start().await?;
 
 	// Re-run smoke test: should still work
-	tc.smoke_test(vec![42]).await?;
+	tc.exec_smoke(0, 1, vec![42]).await?;
 
 	Ok(())
 }
 
 #[tokio::test]
 async fn chronicle_restart_evm_tss() -> Result<()> {
-	let env = TestEnv::new(Backend::Evm, true).await?;
-	chronicle_restart(&env).await
+	let (env, tc) = TestEnv::new(Backend::Evm, true).await?;
+	chronicle_restart(&env, tc).await
 }
 
-// TODO: requires dumping/loading anvil state
 #[tokio::test]
-#[ignore]
+async fn chain_restart_grpc() -> Result<()> {
+	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
+	chain_restart(&env, tc).await
+}
+
+#[tokio::test]
 async fn chain_restart_evm() -> Result<()> {
-	let env = TestEnv::new(Backend::Evm, false).await?;
-	chain_restart(&env).await
+	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	chain_restart(&env, tc).await
 }
 
 #[tokio::test]
 async fn validator_restart_grpc() -> Result<()> {
-	let env = TestEnv::new(Backend::Grpc, false).await?;
-	validator_restart(&env).await
+	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
+	validator_restart(&env, tc).await
 }

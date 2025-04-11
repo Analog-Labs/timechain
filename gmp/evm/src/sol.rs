@@ -42,8 +42,8 @@ sol! {
 		uint64 gasLimit;
 		uint128 baseFee;
 		bytes32 gateway;
-		uint128 relativeGasPriceNumerator;
-		uint128 relativeGasPriceDenominator;
+		uint256 relativeGasPriceNumerator;
+		uint256 relativeGasPriceDenominator;
 	}
 
 	#[derive(Debug, Default, PartialEq, Eq)]
@@ -235,8 +235,8 @@ impl From<time_primitives::Route> for Route {
 		Self {
 			networkId: route.network_id,
 			gateway: route.gateway.into(),
-			relativeGasPriceNumerator: route.relative_gas_price.0,
-			relativeGasPriceDenominator: route.relative_gas_price.1,
+			relativeGasPriceNumerator: u256(&route.relative_gas_price.0.to_big_endian()),
+			relativeGasPriceDenominator: u256(&route.relative_gas_price.1.to_big_endian()),
 			gasLimit: route.gas_limit,
 			baseFee: route.gmp_base_fee,
 		}
@@ -249,8 +249,8 @@ impl From<Route> for time_primitives::Route {
 			network_id: route.networkId,
 			gateway: route.gateway.into(),
 			relative_gas_price: (
-				route.relativeGasPriceNumerator,
-				route.relativeGasPriceDenominator,
+				time_primitives::U256::from_big_endian(&bytes32(route.relativeGasPriceNumerator)),
+				time_primitives::U256::from_big_endian(&bytes32(route.relativeGasPriceDenominator)),
 			),
 			gas_limit: route.gasLimit,
 			gmp_base_fee: route.baseFee,

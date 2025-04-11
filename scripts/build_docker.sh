@@ -4,7 +4,7 @@ set -e
 set -x
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-WORKSPACE_ROOT=$SCRIPT_DIR/../
+WORKSPACE_ROOT=$SCRIPT_DIR/..
 cd $WORKSPACE_ROOT
 
 # Check for 'uname' and abort if it is not available.
@@ -88,12 +88,12 @@ rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
 cp -r $WORKSPACE_ROOT/analog-gmp $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
 
 build_image () {
-	local TARGET=$WORKSPACE_ROOT"target/$rustTarget/$profile/$1"
-	local CONTEXT=$WORKSPACE_ROOT"target/docker/$1"
+	local TARGET=$WORKSPACE_ROOT/"target/$rustTarget/$profile/$1"
+	local CONTEXT=$WORKSPACE_ROOT/"target/docker/$1"
 	mkdir -p $CONTEXT
 	if ! cmp -s $TARGET "$CONTEXT/$1"; then
 		cp $TARGET $CONTEXT
-		docker build $CONTEXT -f $WORKSPACE_ROOT"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
+		docker build $CONTEXT -f $WORKSPACE_ROOT/"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
 	fi
 }
 

@@ -87,7 +87,6 @@
 // The runtime is split into its components
 //pub mod apis;
 pub mod configs;
-pub mod migrations;
 pub mod offchain;
 pub mod version;
 
@@ -140,7 +139,7 @@ use frame_support::{
 use pallet_session::historical as pallet_session_historical;
 
 use frame_support::traits::KeyOwnerProofSystem;
-use pallet_staking::migrations::v17::MigrateDisabledToSession;
+use pallet_staking::migrations::{v16::MigrateV15ToV16, v17::MigrateDisabledToSession};
 use scale_codec::Encode;
 #[cfg(feature = "runtime-benchmarks")]
 use scale_info::prelude::string::String;
@@ -618,9 +617,8 @@ mod runtime {
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
 type Migrations = (
-	// Use the MigrateDisabledToSession implementation which implements MigrateDisabledValidators
 	pallet_session::migrations::v1::MigrateV0ToV1<Runtime, MigrateDisabledToSession<Runtime>>,
-	migrations::staking::StakingCurrencyMigration<Runtime>,
+	MigrateV15ToV16<Runtime>,
 );
 
 #[cfg(test)]

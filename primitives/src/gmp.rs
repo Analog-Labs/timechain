@@ -1,5 +1,7 @@
 use crate::cctp::FixedSizeEncodable;
-use crate::{NetworkId, TssPublicKey, U256};
+#[cfg(feature = "std")]
+use crate::U256;
+use crate::{NetworkId, TssPublicKey};
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]

@@ -178,7 +178,7 @@ impl TestEnvBuilder {
 		);
 
 		// add price data
-		self.prices.insert(network, ("TT".into(), 0.01));
+		self.prices.insert(network, ("USDT".into(), 1.0));
 
 		// add chronicles
 		for i in 0..shard_size {

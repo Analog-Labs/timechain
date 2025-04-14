@@ -131,6 +131,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 // Import all substrate dependencies
 use polkadot_sdk::*;
 
+#[cfg(feature = "testnet")]
+use frame_support::dispatch::DispatchInfo;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
 	parameter_types,
@@ -138,11 +140,15 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 #[cfg(feature = "testnet")]
+use frame_system::limits::BlockWeights;
+#[cfg(feature = "testnet")]
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
 use scale_codec::Encode;
 #[cfg(feature = "runtime-benchmarks")]
 use scale_info::prelude::string::String;
+#[cfg(feature = "testnet")]
+use sp_core::{H160, U256};
 use sp_runtime::generic;
 use sp_runtime::traits::Block as BlockT;
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
@@ -225,7 +231,7 @@ pub struct EthExtraImpl;
 #[cfg(feature = "testnet")]
 impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extension = TxExtension;
+	type Extension = RuntimeSignedExtra;
 
 	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
 		(
@@ -233,13 +239,12 @@ impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
 			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckEra::from(crate::generic::Era::Immortal),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckEra::<Runtime>::new(),
+			frame_system::CheckNonce::<Runtime>::new(),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None)
-				.into(),
-			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
-			frame_system::WeightReclaim::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::new(),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(),
+			PrevalidateFeeless::<Runtime>::new(),
 		)
 	}
 }

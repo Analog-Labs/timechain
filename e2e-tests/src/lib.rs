@@ -1,3 +1,4 @@
+#![allow(clippy::await_holding_lock)]
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs::File;

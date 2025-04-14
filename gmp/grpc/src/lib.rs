@@ -230,6 +230,16 @@ impl IConnectorAdmin for Connector {
 		let response = self.client.lock().await.deploy_tester(request).await?.into_inner();
 		Ok((response.address, response.block))
 	}
+
+	/// Deploys a test contract.
+	async fn deploy_zenswap(
+		&self,
+		_gateway: Address32,
+		_zenswap: &[u8],
+		_zenswap_plugin: &[u8],
+	) -> Result<()> {
+		anyhow::bail!("Not supported")
+	}
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,

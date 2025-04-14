@@ -154,6 +154,11 @@ impl Config {
 	pub fn backend(&self, network: NetworkId) -> Result<BackendData> {
 		let network = self.network(network)?;
 		Ok(if let Some(backend) = self.yaml.backends.get(&network.backend) {
+			let read_file = |path: &PathBuf| -> Result<Vec<u8>> {
+				let full_path = self.relative_path(path);
+				std::fs::read(&full_path)
+					.with_context(|| format!("failed to read from {}", full_path.display()))
+			};
 			BackendData {
 				proxy: {
 					let path = self.relative_path(&backend.proxy);
@@ -227,6 +232,8 @@ pub struct BackendConfig {
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
 	pub chain_dict: PathBuf,
+	pub zenswap: Option<PathBuf>,
+	pub zenswap_plugin: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -235,6 +242,8 @@ pub struct BackendData {
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,
 	pub chain_dict: Vec<u8>,
+	pub zenswap: Option<Vec<u8>>,
+	pub zenswap_plugin: Option<Vec<u8>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

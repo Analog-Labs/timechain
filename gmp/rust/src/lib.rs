@@ -443,6 +443,15 @@ impl IConnectorAdmin for Connector {
 		Ok((tester, block))
 	}
 
+	async fn deploy_zenswap(
+		&self,
+		_gateway: Address32,
+		_swap: &[u8],
+		_plugin: &[u8],
+	) -> Result<()> {
+		anyhow::bail!("Not supported");
+	}
+
 	async fn estimate_message_gas_limit(
 		&self,
 		_contract: Address32,

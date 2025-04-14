@@ -137,6 +137,9 @@ enum Command {
 	DeployTester {
 		network: NetworkId,
 	},
+	DeployZenswap {
+		network: NetworkId,
+	},
 	RemoveTask {
 		task_id: TaskId,
 	},
@@ -363,6 +366,9 @@ async fn real_main() -> Result<()> {
 			let (address, block) = tc.deploy_tester(network, block).await?;
 			let address = tc.format_address(Some(network), address)?;
 			tc.println(None, format!("{address} {block}")).await?;
+		},
+		Command::DeployZenswap { network } => {
+			tc.deploy_zenswap(network, block).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
 		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id, block).await?,

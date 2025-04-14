@@ -78,6 +78,8 @@ fi
 # Build docker image
 forge build --root analog-gmp
 cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
+cp -r $WORKSPACE_ROOT/zenswap/artifacts/contracts/* $WORKSPACE_ROOT/analog-gmp/out/
+
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
 mkdir -p $WORKSPACE_ROOT/target/docker/chronicle
@@ -86,6 +88,7 @@ rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/envs
 cp -rL $WORKSPACE_ROOT/config/envs target/docker/tc-cli/envs
 rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
 cp -r $WORKSPACE_ROOT/analog-gmp $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
+cp -r $WORKSPACE_ROOT/zenswap/artifacts/contracts/* $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp/out/
 
 build_image () {
 	local TARGET=$WORKSPACE_ROOT/"target/$rustTarget/$profile/$1"

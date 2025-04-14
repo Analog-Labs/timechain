@@ -1205,6 +1205,18 @@ impl Tc {
 		Ok(tester)
 	}
 
+	pub async fn deploy_zenswap(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
+		let backend = self.config.backend(network)?;
+		let (Some(zenswap), Some(zenswap_plugin)) = (backend.zenswap, backend.zenswap_plugin)
+		else {
+			anyhow::bail!("Zenswap not supported on {network}");
+		};
+		let (connector, gateway) = self.gateway(network, block_hash).await?;
+		// let id = self.println(None, format!("deploy tester {network}")).await?;
+		let tester = connector.deploy_zenswap(gateway, &zenswap, &zenswap_plugin).await?;
+		Ok(tester)
+	}
+
 	pub async fn estimate_message_gas_limit(
 		&self,
 		dest_network: NetworkId,

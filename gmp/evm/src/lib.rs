@@ -334,6 +334,71 @@ impl IConnectorAdmin for Connector {
 		Ok((t_addr(addr), block))
 	}
 
+	async fn deploy_zenswap(
+		&self,
+		gateway: Address32,
+		zenswap: &[u8],
+		zenswap_plugin: &[u8],
+	) -> Result<()> {
+		//TODO for now we have hardcoded unviersal router and permit 2 address
+		// below two are needed by zenswap
+		let universal_router: Address20 = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD".parse()?;
+		let permit2: Address20 = "0x000000000022D473030F116dDEE9F6B43aC78BA3".parse()?;
+
+		// Below 3 are needed by plugin:
+		let messenger: Address20 = "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5".parse()?;
+		let transmitter: Address20 = "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD".parse()?;
+		let usdc_addr: Address20 = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238".parse()?;
+		// let weth_addr: Address20 = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14".parse()?;
+
+		let plugin_initializer = sol::ZenSwapGmpPlugin::initializeCall {
+			_gmpGateway: a_addr(gateway),
+			_cctpMessenger: messenger,
+			_cctpReceiver: transmitter,
+			_usdc: usdc_addr,
+			_fee: u256(&[0u8; 32]),
+		};
+
+		let zenswap_contructor = sol::ZenSwap::constructorCall {
+			_universalRouter: universal_router,
+			_permit2: permit2,
+		};
+
+		let mut zenswap_bytecode = extract_bytecode(zenswap, Default::default())?;
+		zenswap_bytecode.extend(zenswap_contructor.abi_encode());
+
+		// Zenswap deployment
+		let tx = TransactionRequest::default().with_deploy_code(zenswap_bytecode);
+		let receipt =
+			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
+		let zenswap_addr =
+			receipt.contract_address.ok_or(anyhow!("Unable to get contract address"))?;
+
+		// Message lib deployment
+		let tx = TransactionRequest::default().with_deploy_code(sol::Message::BYTECODE.clone());
+		let receipt =
+			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
+		let lib_addr = receipt
+			.contract_address
+			.ok_or(anyhow!("Unable to get message library address"))?;
+
+		// ZenswapPlugin deployment
+		let mut replacement_keys = HashMap::new();
+		replacement_keys.insert("__$2e72248e36cbd9e27bfc8c16586a2f5547$__", hex::encode(lib_addr));
+		let plugin_bytecode = extract_bytecode(zenswap_plugin, replacement_keys)?;
+		let tx = TransactionRequest::default().with_deploy_code(plugin_bytecode);
+		let receipt =
+			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
+		let plugin_address =
+			receipt.contract_address.ok_or(anyhow!("Unable to get plugin address"))?;
+
+		//initialize the plugin
+		self.evm_send(t_addr(plugin_address), plugin_initializer, 0).await?;
+		tracing::info!("zenswap addr: {}", hex::encode(zenswap_addr));
+		tracing::info!("zenswap plugin addr: {}", hex::encode(plugin_address));
+		Ok(())
+	}
+
 	/// Returns gateway admin
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let admin_address = self.call(gateway, sol::Gateway::adminCall {}).await?.0;

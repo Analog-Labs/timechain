@@ -2,3 +2,6 @@
 	path = analog-gmp
 	url = git@github.com:Analog-Labs/analog-gmp.git
 	branch = main
+[submodule "zenswap"]
+	path = zenswap
+	url = git@github.com:zenswaplabs/contracts.git

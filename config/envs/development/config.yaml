@@ -9,6 +9,8 @@ backends:
     proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"
+    zenswap: "contracts/ZenSwap.sol/ZenSwap.json"
+    zenswap_plugin: "contracts/ZenSwapGmpPlugin.sol/ZenSwapGmpPlugin.json"
 networks:
   0:
     backend: "grpc"

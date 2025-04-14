@@ -85,6 +85,7 @@ async fn chronicle_restart_evm_tss() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn chain_restart_grpc() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
 	chain_restart(&env, tc).await

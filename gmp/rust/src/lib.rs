@@ -13,15 +13,15 @@ use std::ops::Range;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use tempfile::NamedTempFile;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
-	GmpParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route,
-	TssPublicKey, TssSignature, U256,
+	GmpParams, Hash, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId,
+	Route, TssPublicKey, TssSignature, U256,
 };
 
-const BLOCKS: TableDefinition<u64, u64> = TableDefinition::new("blocks");
+const CONFIG: TableDefinition<u64, u64> = TableDefinition::new("config");
 const BALANCE: TableDefinition<Address32, u128> = TableDefinition::new("balance");
 const ADMIN: TableDefinition<Address32, Address32> = TableDefinition::new("admin");
 const NONCE: TableDefinition<(Address32, Address32), u64> = TableDefinition::new("nonce");
@@ -35,14 +35,15 @@ const GATEWAY: TableDefinition<Address32, Address32> = TableDefinition::new("gat
 const TESTERS: MultimapTableDefinition<Address32, Address32> =
 	MultimapTableDefinition::new("testers");
 
+const BLOCK_KEY: u64 = 0;
+
 #[derive(Clone)]
 pub struct Connector {
 	network_id: NetworkId,
 	address: Address32,
 	db: Arc<Database>,
-	genesis: SystemTime,
-	block_time: u64,
 	_tmpfile: Option<Arc<NamedTempFile>>,
+	rx: async_channel::Receiver<u64>,
 }
 
 impl Connector {
@@ -54,11 +55,6 @@ impl Connector {
 		let mut clone = Clone::clone(self);
 		clone.address = address;
 		clone
-	}
-
-	fn block(&self) -> u64 {
-		let elapsed = SystemTime::now().duration_since(self.genesis).unwrap();
-		elapsed.as_secs() / self.block_time
 	}
 
 	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address32) -> Result<()> {
@@ -87,6 +83,12 @@ impl Connector {
 		t.insert(to, dest_balance + amount)?;
 		Ok(())
 	}
+
+	fn block(&self) -> Result<u64> {
+		let tx = self.db.begin_read()?;
+		let t = tx.open_table(CONFIG)?;
+		Ok(t.get(BLOCK_KEY)?.map(|v| v.value()).unwrap_or_default())
+	}
 }
 
 pub fn mnemonic_to_address(mnemonic: String) -> Address32 {
@@ -101,11 +103,6 @@ pub fn parse_address(address: &str) -> Result<Address32> {
 	let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
 	let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
 	Ok(addr)
-}
-
-fn block(genesis: SystemTime, block_time: u64) -> u64 {
-	let elapsed = SystemTime::now().duration_since(genesis).unwrap();
-	elapsed.as_secs() / block_time
 }
 
 pub fn currency() -> (u32, &'static str) {
@@ -138,19 +135,9 @@ impl IConnectorBuilder for Connector {
 		} else {
 			(None, Path::new(&params.url).to_owned())
 		};
-		let db = Database::create(path)?;
+		let db = Arc::new(Database::create(path)?);
 		let tx = db.begin_write()?;
-		let genesis = {
-			let mut blocks = tx.open_table(BLOCKS)?;
-			let timestamp = blocks.get(0)?.map(|t| t.value());
-			if let Some(timestamp) = timestamp {
-				SystemTime::UNIX_EPOCH + Duration::from_secs(timestamp)
-			} else {
-				let genesis = SystemTime::now();
-				blocks.insert(0, genesis.duration_since(SystemTime::UNIX_EPOCH)?.as_secs())?;
-				genesis
-			}
-		};
+		tx.open_table(CONFIG)?;
 		tx.open_table(BALANCE)?;
 		tx.open_table(ADMIN)?;
 		tx.open_table(ROUTES)?;
@@ -160,13 +147,38 @@ impl IConnectorBuilder for Connector {
 		tx.open_multimap_table(SHARDS)?;
 		tx.open_multimap_table(TESTERS)?;
 		tx.commit()?;
+		let db2 = db.clone();
+		let (tx, rx) = async_channel::unbounded();
+		tokio::task::spawn(async move {
+			let inc_block = move || {
+				let tx = db2.begin_write()?;
+				let block = {
+					let mut t = tx.open_table(CONFIG)?;
+					let block = t.get(BLOCK_KEY)?.map(|v| v.value()).unwrap_or_default() + 1;
+					t.insert(BLOCK_KEY, block)?;
+					block
+				};
+				tx.commit()?;
+				Ok::<_, anyhow::Error>(block)
+			};
+			loop {
+				match inc_block() {
+					Ok(block) => {
+						tx.send(block).await.ok();
+					},
+					Err(err) => {
+						tracing::error!("{err}");
+					},
+				}
+				tokio::time::sleep(Duration::from_secs(6)).await;
+			}
+		});
 		Ok(Self {
 			network_id: params.network_id,
 			address,
-			db: Arc::new(db),
-			genesis,
-			block_time: 6,
+			db,
 			_tmpfile: tmpfile,
+			rx,
 		})
 	}
 }
@@ -225,19 +237,12 @@ impl IChain for Connector {
 	}
 
 	async fn finalized_block(&self) -> Result<u64> {
-		Ok(self.block())
+		self.block()
 	}
 
 	/// Stream of finalized block indexes.
 	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		let genesis = self.genesis;
-		let block_time = self.block_time;
-		futures::stream::repeat(0)
-			.then(move |_| async move {
-				tokio::time::sleep(Duration::from_secs(block_time)).await;
-				block(genesis, block_time)
-			})
-			.boxed()
+		self.rx.clone().boxed()
 	}
 }
 
@@ -281,7 +286,7 @@ impl IConnector for Connector {
 			{
 				let mut events = tx.open_multimap_table(EVENTS)?;
 				let mut shards = tx.open_multimap_table(SHARDS)?;
-				let block = self.block();
+				let block = self.block()?;
 				for op in &msg.ops {
 					match op {
 						GatewayOp::RegisterShard(key) => {
@@ -326,7 +331,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<(Address32, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::fill(&mut gateway).unwrap();
-		let block = self.block();
+		let block = self.block()?;
 		let tx = self.db.begin_write()?;
 		{
 			let mut t = tx.open_table(ADMIN)?;
@@ -379,7 +384,7 @@ impl IConnectorAdmin for Connector {
 			self.ensure_admin(&tx, gateway)?;
 			let mut events = tx.open_multimap_table(EVENTS)?;
 			let mut shards = tx.open_multimap_table(SHARDS)?;
-			let block = self.block();
+			let block = self.block()?;
 			let values = shards.remove_all(gateway)?;
 			let keys: BTreeSet<_> = keys.iter().copied().collect();
 			let mut old_keys = BTreeSet::new();
@@ -446,7 +451,7 @@ impl IConnectorAdmin for Connector {
 	async fn deploy_test(&self, gateway: Address32, _path: &[u8]) -> Result<(Address32, u64)> {
 		let mut tester = [0; 32];
 		getrandom::fill(&mut tester).unwrap();
-		let block = self.block();
+		let block = self.block()?;
 		let tx = self.db.begin_write()?;
 		{
 			let mut t = tx.open_table(GATEWAY)?;
@@ -512,7 +517,7 @@ impl IConnectorAdmin for Connector {
 
 			// insert gateway event
 			let mut t = tx.open_multimap_table(EVENTS)?;
-			let block = self.block();
+			let block = self.block()?;
 			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
 			id
 		};
@@ -557,6 +562,11 @@ impl IConnectorAdmin for Connector {
 		self.transfer_from(&tx, gateway, address, amount)?;
 		tx.commit()?;
 		Ok(())
+	}
+
+	/// Debug a transaction.
+	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
+		anyhow::bail!("debug_transaction is not supported on this backend");
 	}
 }
 
@@ -641,8 +651,7 @@ mod tests {
 	#[tokio::test]
 	async fn smoke_test() -> Result<()> {
 		let network = 0;
-		let mut chain = connector(network, 0).await?;
-		chain.block_time = 1;
+		let chain = connector(network, 0).await?;
 		let shard = MockTssSigner::new(0);
 		assert_eq!(chain.balance(chain.address()).await?, 0);
 		chain.faucet(100_000).await?;

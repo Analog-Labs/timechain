@@ -13,6 +13,7 @@ anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true
 serde_yaml = "0.9.34"
+tar = "0.4.44"
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }
 tempfile = "3.19.1"
 testcontainers = "0.23.3"
@@ -20,3 +21,4 @@ time-primitives = { workspace = true, features = ["testnet", "develop"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
+zstd = "0.13.3"

@@ -430,17 +430,7 @@ pub trait IConnectorAdmin: IConnector {
 		address: Address32,
 	) -> Result<()>;
 	/// Debug a transaction.
-	async fn debug_transaction(&self, _tx: Hash) -> Result<String> {
-		anyhow::bail!("debugging transactions is not supported on this backend");
-	}
-	/// Dump anvil chain state
-	async fn dump_state(&self) -> Result<String> {
-		anyhow::bail!("dumping chain state is not supported on this backend");
-	}
-	/// Load anvil chain state
-	async fn load_state(&self, _state: String) -> Result<()> {
-		anyhow::bail!("loading chain state is not supported on this backend");
-	}
+	async fn debug_transaction(&self, _tx: Hash) -> Result<String>;
 }
 
 #[cfg(feature = "std")]

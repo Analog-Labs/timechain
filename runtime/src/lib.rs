@@ -132,7 +132,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use polkadot_sdk::*;
 
 #[cfg(feature = "testnet")]
-use frame_support::dispatch::DispatchInfo;
+use frame_support::dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo};
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
 	parameter_types,
@@ -151,6 +151,10 @@ use scale_info::prelude::string::String;
 use sp_core::{H160, U256};
 use sp_runtime::generic;
 use sp_runtime::traits::Block as BlockT;
+#[cfg(feature = "testnet")]
+use sp_runtime::traits::TransactionExtension;
+#[cfg(feature = "testnet")]
+use sp_runtime::transaction_validity::TransactionValidityError;
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
@@ -239,11 +243,11 @@ impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
 			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckEra::<Runtime>::new(),
-			frame_system::CheckNonce::<Runtime>::new(),
+			frame_system::CheckEra::from(generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::new(),
-			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			PrevalidateFeeless::<Runtime>::new(),
 		)
 	}
@@ -714,7 +718,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn execute_block(block: Block) {
-			Executive::execute_block(block);
+			Executive::execute_block(block)
 		}
 
 		fn initialize_block(header: &<Block as sp_runtime::traits::Block>::Header) -> sp_runtime::ExtrinsicInclusionMode {
@@ -1065,7 +1069,7 @@ sp_api::impl_runtime_apis! {
 			for (index, ext) in extrinsics.into_iter().enumerate() {
 				if index as u32 == tx_index {
 					trace(&mut tracer, || {
-						let _ = Executive::apply_extrinsic(ext);
+					let _ = Executive::apply_extrinsic(ext);
 					});
 					break;
 				} else {

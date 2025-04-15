@@ -54,6 +54,7 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_offences, OffencesBench::<Runtime>]
 	[pallet_preimage, Preimage]
 	[pallet_proxy, Proxy]
+	[pallet_revive, Revive]
 	[pallet_scheduler, Scheduler]
 	[pallet_session, SessionBench::<Runtime>]
 	[pallet_shards, Shards]

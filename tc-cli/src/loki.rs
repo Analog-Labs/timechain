@@ -271,10 +271,12 @@ pub async fn raw_logs(query: &Query, since: String, limit: Option<u32>) -> Resul
 	let resp = client.execute(req).await?;
 	let status = resp.status();
 	if status != 200 {
-		let err = resp.text().await?;
+		let err = resp.text().await.unwrap_or_default();
 		anyhow::bail!("{}: {err}", status);
 	}
-	let resp: Response = resp.json().await?;
+	let resp = resp.text().await.context("loki returned invalid json")?;
+	let resp: Response = serde_json::from_str(&resp)
+		.with_context(|| format!("failed to parse loki response: {resp}"))?;
 	anyhow::ensure!(resp.status == "success", "unexpected status");
 	anyhow::ensure!(resp.data.result_type == "streams", "unexpected result type");
 	let logs = resp
@@ -290,10 +292,17 @@ pub async fn raw_logs(query: &Query, since: String, limit: Option<u32>) -> Resul
 pub fn structured_logs(filter: &Log, logs: &[String]) -> Result<Vec<Log>> {
 	let mut slogs = Vec::with_capacity(logs.len());
 	for log in logs {
+		let log: String = log.as_str().chars().skip_while(|c| *c != '{').collect();
+		if log.starts_with(r#"{"filename":"/usr/local/cargo"#)
+			|| log.starts_with(r#"{"filename":null,"#)
+		{
+			continue;
+		}
 		// allow duplicate keys
-		let slog: serde_json::Value = serde_json::from_str(log.as_str())?;
+		let slog: serde_json::Value = serde_json::from_str(log.as_str())
+			.with_context(|| anyhow::anyhow!("failed to parse log: {:?}", log.as_str()))?;
 		let slog: Log = serde_json::from_value(slog)
-			.map_err(|err| anyhow::anyhow!("failed to parse log: {err:?} {}", log.as_str()))?;
+			.map_err(|err| anyhow::anyhow!("failed to parse log: {err:?} {:?}", log.as_str()))?;
 		if filter.matches(&slog) {
 			slogs.push(slog);
 		}

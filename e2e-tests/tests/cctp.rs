@@ -18,7 +18,7 @@ async fn test_cctp(mut tc: Tester) -> Result<()> {
 		message: msg_data,
 		extra_data: [0u8; 32].to_vec(),
 	};
-	let msg = tc.exec_smoke(0, 1, cctp_payload.encode()).await?;
+	let msg = tc.exec_smoke(0, 1, cctp_payload.encode(), None).await?;
 	let attested = CCTPMessage::from_bytes(&msg.bytes).map_err(|e| anyhow::anyhow!("{:?}", e))?;
 	assert!(!attested.attestation.is_empty());
 	assert!(attested.extra_data == cctp_payload.extra_data);

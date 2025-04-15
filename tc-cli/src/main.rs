@@ -383,9 +383,8 @@ async fn real_main() -> Result<()> {
 			payload,
 		} => {
 			let payload = hex::decode(payload)?;
-			let gas_cost = tc
-				.estimate_message_cost(src_network, dest_network, gas_limit, payload, block)
-				.await?;
+			let gas_cost =
+				tc.estimate_message_cost(src_network, dest_network, gas_limit, payload).await?;
 			tc.println(None, gas_cost.to_string()).await?;
 		},
 		Command::SendMessage {
@@ -415,16 +414,15 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SmokeTest { src, dest } => {
 			tc.setup_test().await?;
-			let _ = tc.exec_smoke(src, dest, vec![42]).await?;
+			let _ = tc.exec_smoke(src, dest, vec![42], None).await?;
 		},
 		Command::Benchmark {
 			num_messages_per_block,
 			num_blocks,
 		} => {
 			tc.setup_test().await?;
-			let (block_hash, _) = tc.latest_block().await?;
 			let mut benchmark = Benchmark::new(tc, vec![42], num_messages_per_block, num_blocks);
-			benchmark.add_routes(block_hash).await?;
+			benchmark.add_routes().await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},

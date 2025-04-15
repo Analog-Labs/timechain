@@ -1223,8 +1223,8 @@ impl Tc {
 		dest_network: NetworkId,
 		gas_limit: u128,
 		payload: Vec<u8>,
-		block_hash: BlockHash,
 	) -> Result<u128> {
+		let (block_hash, _) = self.latest_block().await?;
 		let (connector, gateway) = self.gateway(src_network, block_hash).await?;
 		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
 	}
@@ -1573,17 +1573,18 @@ impl Tc {
 		src: NetworkId,
 		dest: NetworkId,
 		payload: Vec<u8>,
+		gas_limit: Option<u128>,
 	) -> Result<GmpMessage> {
-		let mut blocks = self.finality_notification_stream();
-		let (hash, _) = blocks.next().await.context("expected block")?;
 		// prepare
 		let src_addr = self.tester(src)?.0;
 		let dest_addr = self.tester(dest)?.0;
-		let gas_limit = self
-			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
-			.await?;
-		let gas_cost =
-			self.estimate_message_cost(src, dest, gas_limit, payload.clone(), hash).await?;
+		let gas_limit = if let Some(gas_limit) = gas_limit {
+			gas_limit
+		} else {
+			self.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
+				.await?
+		};
+		let gas_cost = self.estimate_message_cost(src, dest, gas_limit, payload.clone()).await?;
 
 		// send message
 		let mut blocks = self.finality_notification_stream();

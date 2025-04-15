@@ -33,7 +33,7 @@ async fn test_gateway_payments(tc: Tester) -> Result<()> {
 	let total_balance = tc.total_gateway_balance(block_hash).await?;
 	tc.println(None, format!("shard registration msgs cost {}$", total_funds - total_balance))
 		.await?;
-	let _ = tc.exec_smoke(0, 1, vec![42]).await?;
+	let _ = tc.exec_smoke(0, 1, vec![42], None).await?;
 	let (block_hash, _) = tc.latest_block().await?;
 	tc.assert_reimbursement(block_hash).await?;
 	let total_balance_after = tc.total_gateway_balance(block_hash).await?;
@@ -54,4 +54,22 @@ async fn gateway_payments() -> Result<()> {
 async fn gateway_payments_evm_tss() -> Result<()> {
 	let (_env, tc) = TestEnv::new(Backend::Evm, true).await?;
 	test_gateway_payments(tc).await
+}
+
+async fn test_inner_revert(tc: Tester) -> Result<()> {
+	tc.exec_smoke(0, 1, vec![42], Some(0)).await?;
+	Ok(())
+}
+
+#[tokio::test]
+#[ignore]
+async fn inner_revert() -> Result<()> {
+	let tc = Tester::new().await?;
+	test_inner_revert(tc).await
+}
+
+#[tokio::test]
+async fn inner_revert_evm() -> Result<()> {
+	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	test_inner_revert(tc).await
 }

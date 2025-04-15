@@ -1,5 +1,7 @@
 use polkadot_sdk::*;
 
+pub mod session;
+
 use sp_core::crypto::Ss58Codec;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;

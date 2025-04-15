@@ -15,7 +15,7 @@ use tempfile::TempDir;
 use testcontainers::{
 	core::{ContainerAsync, IntoContainerPort, Mount},
 	runners::AsyncRunner,
-	GenericImage, ImageExt,
+	ContainerRequest, GenericImage, ImageExt,
 };
 use tracing_subscriber::filter::EnvFilter;
 use zstd::{Decoder, Encoder};
@@ -37,18 +37,20 @@ pub struct TestEnvBuilder {
 	chronicles: HashMap<NetworkId, Vec<Container>>,
 	config: ConfigYaml,
 	prices: HashMap<NetworkId, (String, f64)>,
-	snapshot: PathBuf,
+	snapshot: Option<PathBuf>,
 }
 
 impl TestEnvBuilder {
-	pub async fn new(snapshot: PathBuf) -> Result<Self> {
+	pub async fn new(snapshot: Option<PathBuf>) -> Result<Self> {
 		try_init_logger();
 		let temp = TempDir::new()?;
-		if snapshot.exists() {
-			tracing::info!("found snapshot, applying {}", snapshot.display());
-			unarchive(&snapshot, temp.path())?;
-		} else {
-			tracing::info!("no snapshot found {}", snapshot.display());
+		if let Some(snapshot) = snapshot.as_ref() {
+			if snapshot.exists() {
+				tracing::info!("found snapshot, applying {}", snapshot.display());
+				unarchive(&snapshot, temp.path())?;
+			} else {
+				tracing::info!("no snapshot found {}", snapshot.display());
+			}
 		}
 		let network = temp
 			.path()
@@ -200,6 +202,21 @@ impl TestEnvBuilder {
 		shard_size: u16,
 		shard_threshold: u16,
 	) -> Result<()> {
+		let image = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
+			.with_exposed_port(8545.tcp())
+			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0").with_cmd([
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7",
+		]);
+		self.add_evm_custom(network, shard_size, shard_threshold, image).await
+	}
+
+	pub async fn add_evm_custom(
+		&mut self,
+		network: NetworkId,
+		shard_size: u16,
+		shard_threshold: u16,
+		image: ContainerRequest<GenericImage>,
+	) -> Result<()> {
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
@@ -207,15 +224,10 @@ impl TestEnvBuilder {
 		let chain_name = format!("{}-{chain_name}", &self.network);
 		let guard = PORT_LOCK.lock().unwrap();
 		let chain_port = pick_free_port()?;
-		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
-			.with_exposed_port(8545.tcp())
+		let chain = image
 			.with_mapped_port(chain_port, 8545.tcp())
 			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
-			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
-			.with_cmd([
-				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7",
-			])
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
@@ -326,7 +338,7 @@ pub struct TestEnv {
 	validator: Container,
 	chains: HashMap<NetworkId, Container>,
 	chronicles: HashMap<NetworkId, Vec<Container>>,
-	snapshot: PathBuf,
+	snapshot: Option<PathBuf>,
 }
 
 impl TestEnv {
@@ -339,7 +351,7 @@ impl TestEnv {
 		snapshot.push_str(".tar.zst");
 		let snapshot_path = std::env::temp_dir().join(snapshot);
 		let (shard_size, shard_threshold) = if tss { (2, 2) } else { (1, 1) };
-		let mut builder = TestEnvBuilder::new(snapshot_path).await?;
+		let mut builder = TestEnvBuilder::new(Some(snapshot_path)).await?;
 		match backend {
 			Backend::Evm => {
 				builder.add_evm(0, shard_size, shard_threshold).await?;
@@ -379,11 +391,14 @@ impl TestEnv {
 	}
 
 	async fn snapshot(&self) -> Result<()> {
-		if self.snapshot.exists() {
-			tracing::info!("snapshot found {}", self.snapshot.display());
+		let Some(snapshot) = self.snapshot.as_ref() else {
+			return Ok(());
+		};
+		if snapshot.exists() {
+			tracing::info!("snapshot found {}", snapshot.display());
 			return Ok(());
 		}
-		tracing::info!("taking snapshot {}", self.snapshot.display());
+		tracing::info!("taking snapshot {}", snapshot.display());
 
 		for chronicle in self.chronicles.values().flatten() {
 			chronicle.stop().await?;
@@ -393,7 +408,7 @@ impl TestEnv {
 		}
 		self.validator.stop().await?;
 
-		archive(self.env(), &self.snapshot)?;
+		archive(self.env(), snapshot)?;
 
 		self.validator.start().await?;
 		for chain in self.chains.values() {

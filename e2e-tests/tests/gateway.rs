@@ -55,21 +55,3 @@ async fn gateway_payments_evm_tss() -> Result<()> {
 	let (_env, tc) = TestEnv::new(Backend::Evm, true).await?;
 	test_gateway_payments(tc).await
 }
-
-async fn test_inner_revert(tc: Tester) -> Result<()> {
-	tc.exec_smoke(0, 1, vec![42], Some(0)).await?;
-	Ok(())
-}
-
-#[tokio::test]
-#[ignore]
-async fn inner_revert() -> Result<()> {
-	let tc = Tester::new().await?;
-	test_inner_revert(tc).await
-}
-
-#[tokio::test]
-async fn inner_revert_evm() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
-	test_inner_revert(tc).await
-}

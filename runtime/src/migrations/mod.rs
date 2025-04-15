@@ -117,18 +117,17 @@ where
 		// Verify all previously disabled validators are still disabled
 		for idx in old_session_disabled.iter() {
 			let is_disabled = current_disabled.iter().any(|(disabled_idx, _)| disabled_idx == idx);
-			frame_support::ensure!(
-				is_disabled,
-				format!("Validator {} should be disabled but isn't", idx)
-			);
+			// Use a static string instead of format! since DispatchError implements From<&str> but not From<String>
+			frame_support::ensure!(is_disabled, "Validator should be disabled but isn't");
 		}
 
 		// Verify all staking disabled validators are included
 		for (idx, _) in staking_disabled.iter() {
 			let is_disabled = current_disabled.iter().any(|(disabled_idx, _)| disabled_idx == idx);
+			// Use a static string instead of format! since DispatchError implements From<&str> but not From<String>
 			frame_support::ensure!(
 				is_disabled,
-				format!("Validator {} from staking should be disabled but isn't", idx)
+				"Validator from staking should be disabled but isn't"
 			);
 		}
 

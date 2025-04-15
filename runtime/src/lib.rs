@@ -86,7 +86,6 @@
 
 // The runtime is split into its components
 pub mod configs;
-pub mod migrations;
 pub mod offchain;
 pub mod version;
 
@@ -655,13 +654,7 @@ mod runtime {
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
 type Migrations = (
-	// Extend validator set to 26 nodes
-	crate::migrations::ExtendValidatorSet<Runtime>,
-	// Custom migration to fix Session pallet's disabled validators
-	crate::migrations::session::ExtendValidatorSet<Runtime>,
-	// Migrate staking from v15 to v16
 	pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
-	// Migrate session from v0 to v1 with disabled validators
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,

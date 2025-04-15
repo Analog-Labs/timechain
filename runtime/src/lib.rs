@@ -132,7 +132,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use polkadot_sdk::*;
 
 #[cfg(feature = "testnet")]
-use frame_support::dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo};
+use frame_support::dispatch::DispatchInfo;
 use frame_support::traits::KeyOwnerProofSystem;
 use frame_support::{
 	parameter_types,
@@ -153,8 +153,6 @@ use sp_runtime::generic;
 use sp_runtime::traits::Block as BlockT;
 #[cfg(feature = "testnet")]
 use sp_runtime::traits::TransactionExtension;
-#[cfg(feature = "testnet")]
-use sp_runtime::transaction_validity::TransactionValidityError;
 use sp_runtime::transaction_validity::{TransactionSource, TransactionValidity};
 use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;

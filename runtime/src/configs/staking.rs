@@ -86,12 +86,12 @@ parameter_types! {
 
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
-	pub struct NposSolution16::<
+	pub struct NposSolution32::<
 		VoterIndex = u32,
-	TargetIndex = u16,
-	Accuracy = sp_runtime::PerU16,
-	MaxVoters = MaxElectingVotersSolution,
-	>(16)
+		TargetIndex = u16,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = MaxElectingVotersSolution,
+	>(32)
 );
 
 parameter_types! {
@@ -102,7 +102,7 @@ parameter_types! {
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
 		.voters_count(5_000.into()).targets_count(1_000.into()).build();
 
-	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub MaxNominations: u32 = <NposSolution32 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub MaxElectingVotersSolution: u32 = 40_000;
 	// The maximum winners that can be elected by the Election pallet which is equivalent to the
 	// maximum active validators the staking pallet can have.
@@ -165,7 +165,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type AccountId = AccountId;
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
-	type Solution = NposSolution16;
+	type Solution = NposSolution32;
 	type MaxVotesPerVoter =
 	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
 	type MaxWinners = ConstU32<100>;
@@ -276,7 +276,7 @@ parameter_types! {
 }
 
 /// Upper limit on the number of NPOS nominations.
-const MAX_QUOTA_NOMINATIONS: u32 = 16;
+const MAX_QUOTA_NOMINATIONS: u32 = 32;
 
 /// Configuration of benchmarking bounds
 pub struct StakingBenchmarkingConfig;

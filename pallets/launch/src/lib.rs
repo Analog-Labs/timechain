@@ -137,12 +137,7 @@ pub mod pallet {
 		// Validator Airdrop (missed)
 		(30, Allocation::Ecosystem, 160_086 * ANLOG, Stage::Retired),
 		// Staking Allocation 2
-		(
-			31,
-			Allocation::Ecosystem,
-			2_000_200 * ANLOG,
-			Stage::DepositFromUnlocked(data::v31::VALIDATOR_STASHES),
-		),
+		(31, Allocation::Ecosystem, 2_000_200 * ANLOG, Stage::Retired),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:

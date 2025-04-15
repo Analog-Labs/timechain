@@ -86,7 +86,6 @@
 
 // The runtime is split into its components
 pub mod configs;
-pub mod migrations;
 pub mod offchain;
 pub mod version;
 
@@ -655,7 +654,6 @@ mod runtime {
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
 type Migrations = (
-	migrations::FixDisabledValidatorSet<Runtime>,
 	pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,

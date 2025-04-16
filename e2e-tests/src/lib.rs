@@ -47,7 +47,7 @@ impl TestEnvBuilder {
 		if let Some(snapshot) = snapshot.as_ref() {
 			if snapshot.exists() {
 				tracing::info!("found snapshot, applying {}", snapshot.display());
-				unarchive(&snapshot, temp.path())?;
+				unarchive(snapshot, temp.path())?;
 			} else {
 				tracing::info!("no snapshot found {}", snapshot.display());
 			}
@@ -366,7 +366,8 @@ impl TestEnv {
 			},
 		}
 		let env = builder.build().await?;
-		let tc = Tester::new().await?;
+		let mut tc = Tester::new().await?;
+		tc.setup_test().await?;
 		env.snapshot().await?;
 		Ok((env, tc))
 	}
@@ -443,11 +444,10 @@ impl Tester {
 		try_init_logger();
 		let env = std::env::var("TC_CLI_ENV").context("TC_CLI_ENV not set")?;
 		let env = Path::new(&env).to_path_buf();
-		let mut tc =
+		let tc =
 			Tc::from_env(env.clone(), "config.yaml", Sender::default(), env.join("tc-cli-tx.redb"))
 				.await
 				.context("Error creating Tc client")?;
-		tc.setup_test().await?;
 		Ok(Self { tc })
 	}
 }

@@ -9,10 +9,13 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+alloy-primitives = "1.0.0"
 anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true
 serde_yaml = "0.9.34"
+subxt.workspace = true
+subxt-signer.workspace = true
 tar = "0.4.44"
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }
 tempfile = "3.19.1"

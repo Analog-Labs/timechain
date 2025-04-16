@@ -5132,10 +5132,13 @@ checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
 name = "e2e-tests"
 version = "0.8.0"
 dependencies = [
+ "alloy-primitives 1.0.0",
  "anyhow",
  "futures",
  "hex",
  "serde_yaml",
+ "subxt 0.41.0",
+ "subxt-signer 0.41.0",
  "tar",
  "tc-cli",
  "tempfile",

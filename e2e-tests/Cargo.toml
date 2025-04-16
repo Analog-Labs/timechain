@@ -13,6 +13,7 @@ alloy-primitives = "1.0.0"
 anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true
+scale-value = "0.18.0"
 serde_yaml = "0.9.34"
 subxt.workspace = true
 subxt-signer.workspace = true

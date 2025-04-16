@@ -5136,6 +5136,7 @@ dependencies = [
  "anyhow",
  "futures",
  "hex",
+ "scale-value 0.18.0",
  "serde_yaml",
  "subxt 0.41.0",
  "subxt-signer 0.41.0",

@@ -1,6 +1,7 @@
 use alloy_primitives::Address;
 use anyhow::Result;
 use e2e_tests::{Container, TestEnv, TestEnvBuilder, Tester};
+use scale_value::Composite;
 use subxt::config::substrate::{AccountId32, BlakeTwo256};
 use subxt::config::Hasher;
 use subxt::dynamic::Value;
@@ -18,7 +19,6 @@ impl Chain {
 	fn into_image(self) -> ContainerRequest<GenericImage> {
 		GenericImage::new("staketechnologies/astar-collator", "v5.28.0-rerun")
 			.with_exposed_port(8545.tcp())
-			.with_exposed_port(9944.tcp())
 			.with_cmd([
 				"astar-collator",
 				"--chain=dev",
@@ -35,7 +35,7 @@ impl Chain {
 		let url = format!(
 			"ws://{}:{}",
 			container.get_host().await?,
-			container.get_host_port_ipv4(9944.tcp()).await?
+			container.get_host_port_ipv4(8545.tcp()).await?
 		);
 
 		// convert address
@@ -52,7 +52,10 @@ impl Chain {
 		let payload = subxt::tx::dynamic(
 			"Balances",
 			"transfer_allow_death",
-			vec![Value::from_bytes(dest), amount.into()],
+			vec![
+				Value::variant("Id", Composite::Unnamed(vec![Value::from_bytes(dest)])),
+				amount.into(),
+			],
 		);
 		OnlineClient::<PolkadotConfig>::from_insecure_url(url)
 			.await?
@@ -70,9 +73,9 @@ impl Chain {
 		builder.add_evm_custom(1, 1, 1, self.into_image()).await?;
 		let env = builder.build().await?;
 		let mut tc = Tester::new().await?;
-		self.fund(env.chain_container(0)?, tc.address(Some(0))?, tc.parse_balance(Some(0), "10.")?)
+		self.fund(env.chain_container(0)?, tc.address(Some(0))?, tc.parse_balance(Some(0), "11.")?)
 			.await?;
-		self.fund(env.chain_container(1)?, tc.address(Some(1))?, tc.parse_balance(Some(1), "10.")?)
+		self.fund(env.chain_container(1)?, tc.address(Some(1))?, tc.parse_balance(Some(1), "11.")?)
 			.await?;
 		tc.setup_test().await?;
 		Ok((env, tc))

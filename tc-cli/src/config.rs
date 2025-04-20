@@ -266,7 +266,17 @@ pub struct NetworkConfig {
 	pub shard_threshold: u16,
 	pub cctp_contracts: Option<Vec<String>>,
 	pub cctp_url: Option<String>,
+	pub zenswap: Option<SwapPrerequisites>,
 	pub coin_id: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SwapPrerequisites {
+	pub universal_router: String,
+	pub permit2: String,
+	pub token_messenger: String,
+	pub msg_transmitter: String,
+	pub usdc: String,
 }
 
 #[cfg(test)]

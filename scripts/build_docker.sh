@@ -77,8 +77,8 @@ fi
 
 # Build docker image
 forge build --root analog-gmp
-cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 cp -r $WORKSPACE_ROOT/zenswap/artifacts/contracts/* $WORKSPACE_ROOT/analog-gmp/out/
+cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli

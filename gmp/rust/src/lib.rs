@@ -446,10 +446,23 @@ impl IConnectorAdmin for Connector {
 	async fn deploy_zenswap(
 		&self,
 		_gateway: Address32,
+		_network: NetworkId,
 		_swap: &[u8],
 		_plugin: &[u8],
+	) -> Result<(Address32, Address32)> {
+		anyhow::bail!("Not supported")
+	}
+
+	async fn send_swap(
+		&self,
+		_src: NetworkId,
+		_dest: NetworkId,
+		_src_zenswap_addr: Address32,
+		_src_plugin: Address32,
+		_dst_zenswap_addr: Address32,
+		_dst_plugin: Address32,
 	) -> Result<()> {
-		anyhow::bail!("Not supported");
+		anyhow::bail!("Not supported")
 	}
 
 	async fn estimate_message_gas_limit(

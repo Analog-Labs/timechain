@@ -3,6 +3,7 @@ use crate::custom::BEP226;
 use crate::dict::Currency;
 use crate::sol::{Gateway, GatewayProxy, GmpProxy, IGmpReceiver};
 use alloy::{
+	dyn_abi::DynSolValue,
 	eips::{BlockId, BlockNumberOrTag},
 	network::{
 		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, ReceiptResponse,
@@ -337,19 +338,27 @@ impl IConnectorAdmin for Connector {
 	async fn deploy_zenswap(
 		&self,
 		gateway: Address32,
+		network: NetworkId,
 		zenswap: &[u8],
 		zenswap_plugin: &[u8],
-	) -> Result<()> {
-		//TODO for now we have hardcoded unviersal router and permit 2 address
-		// below two are needed by zenswap
-		let universal_router: Address20 = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD".parse()?;
+	) -> Result<(Address32, Address32)> {
+		let (universal_router, transmitter) = if network == 10 {
+			let universal_router: Address20 =
+				"0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b".parse()?;
+			let transmitter: Address20 = "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD".parse()?;
+			(transmitter, universal_router)
+		} else {
+			let universal_router: Address20 =
+				"0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2".parse()?;
+			let transmitter: Address20 = "0xaCF1ceeF35caAc005e15888dDb8A3515C41B4872".parse()?;
+			(universal_router, transmitter)
+		};
+		// arbitrum
 		let permit2: Address20 = "0x000000000022D473030F116dDEE9F6B43aC78BA3".parse()?;
 
 		// Below 3 are needed by plugin:
 		let messenger: Address20 = "0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5".parse()?;
-		let transmitter: Address20 = "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD".parse()?;
 		let usdc_addr: Address20 = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238".parse()?;
-		// let weth_addr: Address20 = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14".parse()?;
 
 		let plugin_initializer = sol::ZenSwapGmpPlugin::initializeCall {
 			_gmpGateway: a_addr(gateway),
@@ -396,6 +405,115 @@ impl IConnectorAdmin for Connector {
 		self.evm_send(t_addr(plugin_address), plugin_initializer, 0).await?;
 		tracing::info!("zenswap addr: {}", hex::encode(zenswap_addr));
 		tracing::info!("zenswap plugin addr: {}", hex::encode(plugin_address));
+		Ok((t_addr(zenswap_addr), t_addr(plugin_address)))
+	}
+
+	async fn send_swap(
+		&self,
+		src: NetworkId,
+		dest: NetworkId,
+		src_zenswap_addr: Address32,
+		src_plugin: Address32,
+		dst_zenswap_addr: Address32,
+		dst_plugin: Address32,
+	) -> Result<()> {
+		let usdc_addr: Address20 = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238".parse()?;
+		let weth_addr: Address20 = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14".parse()?;
+		// let universal_router: Address20 = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD".parse()?;
+		let (universal_router, _) = if src == 10 {
+			let universal_router: Address20 =
+				"0x3a9d48ab9751398bbfa63ad67599bb04e4bdf98b".parse()?;
+			// let universal_router: Address20 =
+			// 	"0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD".parse()?;
+			let transmitter: Address20 = "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD".parse()?;
+			(transmitter, universal_router)
+		} else {
+			let universal_router: Address20 =
+				"0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2".parse()?;
+			let transmitter: Address20 = "0xaCF1ceeF35caAc005e15888dDb8A3515C41B4872".parse()?;
+			(universal_router, transmitter)
+		};
+
+		let params = sol::ZenSwapGmpPlugin::PluginParams {
+			destPlugin: a_addr(dst_plugin),
+			recipient: a_addr(dst_zenswap_addr),
+			fallbackRecipient: a_addr(self.address()),
+			// 3 for arbitrum
+			cctpDestinationDomain: 3,
+			gmpDestNetwork: dest,
+			gmpGasLimit: 1_000_000,
+		};
+
+		// 0.1 ether
+		let amount_u128: u128 = 100_000;
+		let amount = U256::from(amount_u128);
+
+		// approve token
+		let approval_call = sol::ERC20Approval::approveCall {
+			spender: a_addr(src_zenswap_addr),
+			amount,
+		};
+		let receipt = self.evm_send(t_addr(usdc_addr), approval_call, 0).await?;
+		tracing::info!("Token approved sending");
+
+		let deadline = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.expect("Time went backwards")
+			.as_secs()
+			+ 3600;
+
+		let path_encoded = DynSolValue::Tuple(vec![
+			DynSolValue::Address(Address20::ZERO),
+			DynSolValue::Uint(U256::from(100), 24),
+			DynSolValue::Address(usdc_addr),
+		])
+		.abi_encode_packed();
+		// tracing::info!("path_encoded: {:?}", hex::encode(path_encoded.clone()));
+
+		let swap_exact_in = DynSolValue::Tuple(vec![
+			DynSolValue::Address(universal_router),
+			DynSolValue::Uint(amount, 256),
+			DynSolValue::Uint(U256::from(1), 256),
+			DynSolValue::Bytes(path_encoded.clone()),
+			DynSolValue::Bool(false),
+		])
+		.abi_encode();
+		let swap_exact_in: Vec<u8> = swap_exact_in[20..].into();
+		// tracing::info!("swap_exact_in: {:?}", hex::encode(swap_exact_in.clone()));
+
+		let src_swap_params = sol::ZenSwap::SwapParams {
+			tokenIn: usdc_addr,
+			tokenOut: usdc_addr,
+			deadline: U256::from(deadline),
+			commands: vec![].into(),
+			inputs: vec![].into(),
+		};
+		// tracing::info!("src_swap_params: {:?}", hex::encode(src_swap_params.abi_encode()));
+
+		let dst_swap_params = sol::ZenSwap::SwapParams {
+			tokenIn: usdc_addr,
+			tokenOut: weth_addr,
+			deadline: U256::from(deadline),
+			commands: b"\x00".to_vec().into(),
+			inputs: vec![swap_exact_in.into()].into(),
+		};
+		// tracing::info!("dst_swap_params: {:?}", hex::encode(dst_swap_params.abi_encode()));
+
+		let swap_call = sol::ZenSwap::swapSendCall {
+			pluginParams: params.abi_encode().into(),
+			sourceParams: src_swap_params,
+			destParams: dst_swap_params,
+			recipient: a_addr(self.address()),
+			plugin: a_addr(src_plugin),
+			amountIn: amount,
+		};
+		// tracing::info!("swap call: {:?}", hex::encode(swap_call.abi_encode()));
+		// tracing::info!("fetching price");
+		let gas_cost = self
+			.estimate_message_cost(src_plugin, dest, 1_000_000, swap_call.abi_encode())
+			.await?;
+		let receipt = self.evm_send(src_zenswap_addr, swap_call, gas_cost).await?;
+		tracing::info!("swap sent: {}", receipt.transaction_hash);
 		Ok(())
 	}
 

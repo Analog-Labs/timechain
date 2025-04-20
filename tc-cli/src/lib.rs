@@ -1205,16 +1205,43 @@ impl Tc {
 		Ok(tester)
 	}
 
-	pub async fn deploy_zenswap(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
+	pub async fn deploy_zenswap(
+		&self,
+		network: NetworkId,
+		block_hash: BlockHash,
+	) -> Result<(Address32, Address32)> {
 		let backend = self.config.backend(network)?;
 		let (Some(zenswap), Some(zenswap_plugin)) = (backend.zenswap, backend.zenswap_plugin)
 		else {
 			anyhow::bail!("Zenswap not supported on {network}");
 		};
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		// let id = self.println(None, format!("deploy tester {network}")).await?;
-		let tester = connector.deploy_zenswap(gateway, &zenswap, &zenswap_plugin).await?;
+		let tester = connector.deploy_zenswap(gateway, network, &zenswap, &zenswap_plugin).await?;
 		Ok(tester)
+	}
+
+	pub async fn send_swap(
+		&self,
+		src: NetworkId,
+		dst: NetworkId,
+		src_zen: Address32,
+		src_plugin: Address32,
+		dst_zen: Address32,
+		dst_plugin: Address32,
+	) -> Result<()> {
+		let src_backend = self.config.backend(src)?;
+		let dest_backend = self.config.backend(dst)?;
+		let (Some(_), Some(_), Some(_), Some(_)) = (
+			src_backend.zenswap,
+			src_backend.zenswap_plugin,
+			dest_backend.zenswap,
+			dest_backend.zenswap_plugin,
+		) else {
+			anyhow::bail!("Swap not supported between {src} {dst}");
+		};
+		let connector = self.connector(src)?;
+		connector.send_swap(src, dst, src_zen, src_plugin, dst_zen, dst_plugin).await?;
+		Ok(())
 	}
 
 	pub async fn estimate_message_gas_limit(

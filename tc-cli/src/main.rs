@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Benchmark, Query, Sender, Tc};
-use time_primitives::{BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
+use time_primitives::{Address32, BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
 #[derive(Clone, Debug)]
@@ -139,6 +139,10 @@ enum Command {
 	},
 	DeployZenswap {
 		network: NetworkId,
+	},
+	SendSwap {
+		src: NetworkId,
+		dst: NetworkId,
 	},
 	RemoveTask {
 		task_id: TaskId,
@@ -369,6 +373,17 @@ async fn real_main() -> Result<()> {
 		},
 		Command::DeployZenswap { network } => {
 			tc.deploy_zenswap(network, block).await?;
+		},
+		Command::SendSwap { src, dst } => {
+			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
+			let (d_zen, d_plug) =
+				if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
+
+			tc.add_cctp_contract(src, plug)?;
+			let (block_hash, _) = tc.latest_block().await?;
+			tc.set_network_config(src, block_hash).await?;
+
+			tc.send_swap(src, dst, zen, plug, d_zen, d_plug).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
 		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id, block).await?,

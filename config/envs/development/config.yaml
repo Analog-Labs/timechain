@@ -104,6 +104,12 @@ networks:
     cctp_contracts:
     - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    zenswap: 
+      universal_router: "3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b"
+      permit2: "000000000022D473030F116dDEE9F6B43aC78BA3"
+      token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
+      msg_transmitter: "7865fAfC2db2093669d92c0F33AeEF291086BEFD"
+      usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
 
   5:
     backend: "evm"

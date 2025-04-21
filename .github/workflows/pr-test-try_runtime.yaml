@@ -19,7 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chain: [mainnet]
+        include:
+          - chain: mainnet
+            feature: default
+          - chain: testnet
+            feature: testnet
     steps:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y librocksdb-dev
@@ -33,7 +37,7 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           package: timechain-runtime
-          feature: try-runtime
+          feature: try-runtime,${{ matrix.feature }}
       - name: Download current snapshot
         run: curl -LO https://analog-public.s3.amazonaws.com/state-snapshot/${{ matrix.chain }}-state.snap
       - name: Run try-runtime test

@@ -1,5 +1,5 @@
 use crate::cctp::FixedSizeEncodable;
-use crate::{NetworkId, TssPublicKey};
+use crate::{NetworkId, SwapPrerequisites, TssPublicKey, U256};
 #[cfg(feature = "std")]
 use crate::{TssSignature, U256};
 #[cfg(feature = "std")]

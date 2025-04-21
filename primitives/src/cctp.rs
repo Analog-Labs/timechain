@@ -72,6 +72,8 @@ impl AbiDynamicDecode for Vec<u8> {
 
 use scale_info::prelude::vec;
 
+use crate::Address32;
+
 pub trait FixedSizeEncodable {
 	fn left_pad_32(&self) -> [u8; 32];
 }
@@ -178,4 +180,15 @@ impl CCTPMessage {
 			extra_data,
 		})
 	}
+}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
+pub struct SwapPrerequisites {
+	pub universal_router: Address32,
+	pub permit2: Address32,
+	pub token_messenger: Address32,
+	pub msg_transmitter: Address32,
+	pub usdc: Address32,
+	pub weth: Address32,
 }

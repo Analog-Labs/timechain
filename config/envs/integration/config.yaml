@@ -32,11 +32,12 @@ networks:
     - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
     zenswap: 
-      universal_router: "4A7b5Da61326A6379179b40d00F57E5bbDC962c2"
+      universal_router: "3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b"
       permit2: "000000000022D473030F116dDEE9F6B43aC78BA3"
-      token_messenger: "aCF1ceeF35caAc005e15888dDb8A3515C41B4872"
+      token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
       msg_transmitter: "7865fAfC2db2093669d92c0F33AeEF291086BEFD"
-      usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+      usdc: "1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+      weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14"
 
   13:
     backend: "evm"
@@ -57,6 +58,13 @@ networks:
     cctp_contracts:
     - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    zenswap: 
+      universal_router: "4A7b5Da61326A6379179b40d00F57E5bbDC962c2"
+      permit2: "000000000022D473030F116dDEE9F6B43aC78BA3"
+      token_messenger: "aCF1ceeF35caAc005e15888dDb8A3515C41B4872"
+      msg_transmitter: "7865fAfC2db2093669d92c0F33AeEF291086BEFD"
+      usdc: "1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+      weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14"
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-19.integration.analog.one

@@ -1211,12 +1211,23 @@ impl Tc {
 		block_hash: BlockHash,
 	) -> Result<(Address32, Address32)> {
 		let backend = self.config.backend(network)?;
-		let (Some(zenswap), Some(zenswap_plugin)) = (backend.zenswap, backend.zenswap_plugin)
+
+		let network_config = self.config.network(network)?;
+		let (Some(zenswap), Some(zenswap_plugin), Some(helper_contracts)) =
+			(backend.zenswap, backend.zenswap_plugin, network_config.zenswap.clone())
 		else {
 			anyhow::bail!("Zenswap not supported on {network}");
 		};
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		let tester = connector.deploy_zenswap(gateway, network, &zenswap, &zenswap_plugin).await?;
+		let tester = connector
+			.deploy_zenswap(
+				gateway,
+				&zenswap,
+				&zenswap_plugin,
+				helper_contracts
+					.to_address32(network, |net, addr| self.parse_address(net, addr))?,
+			)
+			.await?;
 		Ok(tester)
 	}
 
@@ -1231,16 +1242,26 @@ impl Tc {
 	) -> Result<()> {
 		let src_backend = self.config.backend(src)?;
 		let dest_backend = self.config.backend(dst)?;
-		let (Some(_), Some(_), Some(_), Some(_)) = (
+		let src_config = self.config.network(src)?;
+		let dst_config = self.config.network(src)?;
+		let (Some(_), Some(_), Some(_), Some(_), Some(src_contracts), Some(dst_contracts)) = (
 			src_backend.zenswap,
 			src_backend.zenswap_plugin,
 			dest_backend.zenswap,
 			dest_backend.zenswap_plugin,
+			src_config.zenswap.clone(),
+			dst_config.zenswap.clone(),
 		) else {
 			anyhow::bail!("Swap not supported between {src} {dst}");
 		};
+		let src_contracts =
+			src_contracts.to_address32(src, |net, addr| self.parse_address(net, addr))?;
+		let dst_contracts =
+			dst_contracts.to_address32(dst, |net, addr| self.parse_address(net, addr))?;
 		let connector = self.connector(src)?;
-		connector.send_swap(src, dst, src_zen, src_plugin, dst_zen, dst_plugin).await?;
+		connector
+			.send_swap(dst, src_zen, src_plugin, dst_zen, dst_plugin, src_contracts, dst_contracts)
+			.await?;
 		Ok(())
 	}
 

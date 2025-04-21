@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use time_primitives::NetworkId;
+use time_primitives::{Address32, NetworkId};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -277,6 +277,27 @@ pub struct SwapPrerequisites {
 	pub token_messenger: String,
 	pub msg_transmitter: String,
 	pub usdc: String,
+	pub weth: String,
+}
+
+impl SwapPrerequisites {
+	pub fn to_address32<F>(
+		&self,
+		network_id: NetworkId,
+		f: F,
+	) -> Result<time_primitives::SwapPrerequisites>
+	where
+		F: for<'a> Fn(Option<NetworkId>, &'a str) -> Result<Address32>,
+	{
+		Ok(time_primitives::SwapPrerequisites {
+			universal_router: f(Some(network_id), &self.universal_router)?,
+			permit2: f(Some(network_id), &self.permit2)?,
+			token_messenger: f(Some(network_id), &self.token_messenger)?,
+			msg_transmitter: f(Some(network_id), &self.msg_transmitter)?,
+			usdc: f(Some(network_id), &self.usdc)?,
+			weth: f(Some(network_id), &self.weth)?,
+		})
+	}
 }
 
 #[cfg(test)]

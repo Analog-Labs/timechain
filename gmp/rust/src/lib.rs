@@ -16,7 +16,7 @@ use tempfile::NamedTempFile;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
 	GmpParams, Hash, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId,
-	Route, TssPublicKey, TssSignature, U256,
+	Route, SwapPrerequisites, TssPublicKey, TssSignature, U256,
 };
 
 const CONFIG: TableDefinition<u64, u64> = TableDefinition::new("config");
@@ -446,21 +446,22 @@ impl IConnectorAdmin for Connector {
 	async fn deploy_zenswap(
 		&self,
 		_gateway: Address32,
-		_network: NetworkId,
 		_swap: &[u8],
 		_plugin: &[u8],
+		_helper_contracts: SwapPrerequisites,
 	) -> Result<(Address32, Address32)> {
 		anyhow::bail!("Not supported")
 	}
 
 	async fn send_swap(
 		&self,
-		_src: NetworkId,
 		_dest: NetworkId,
 		_src_zenswap_addr: Address32,
 		_src_plugin: Address32,
 		_dst_zenswap_addr: Address32,
 		_dst_plugin: Address32,
+		_src_contracts: SwapPrerequisites,
+		_dst_contracts: SwapPrerequisites,
 	) -> Result<()> {
 		anyhow::bail!("Not supported")
 	}

@@ -77,7 +77,9 @@ fi
 
 # Build docker image
 forge build --root analog-gmp
-# TODO npx hardhate compile in zenswap folder.
+cd $WORKSPACE_ROOT/zenswap
+npx hardhat compile
+cd $WORKSPACE_ROOT
 cp -r $WORKSPACE_ROOT/zenswap/artifacts/contracts/* $WORKSPACE_ROOT/analog-gmp/out/
 cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 

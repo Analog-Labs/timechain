@@ -382,29 +382,6 @@ async fn real_main() -> Result<()> {
 			tc.add_cctp_contract(src, plug)?;
 			let (block_hash, _) = tc.latest_block().await?;
 			tc.set_network_config(src, block_hash).await?;
-
-			// let (zen, plug) = (
-			// 	hex::decode("00000000000000000000000034EABD31576fb0557fEF20Ed60D06cC267444B85")
-			// 		.unwrap(),
-			// 	hex::decode("000000000000000000000000D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9")
-			// 		.unwrap(),
-			// );
-			// let (d_zen, d_plug) = (
-			// 	hex::decode("0000000000000000000000001513E1EF64bc2284Ca7769a0014aA65A4705F91a")
-			// 		.unwrap(),
-			// 	hex::decode("000000000000000000000000293B37788019317F09d015b56895F0CB6Fc53Fa7")
-			// 		.unwrap(),
-			// );
-			// let zen: Address32 = zen.try_into().unwrap();
-			// let plug: Address32 = plug.try_into().unwrap();
-			// let d_zen: Address32 = d_zen.try_into().unwrap();
-			// let d_plug: Address32 = d_plug.try_into().unwrap();
-
-			tracing::info!(
-				"dst zen: {:?}, dst_plug: {:?}",
-				hex::encode(d_zen),
-				hex::encode(d_plug)
-			);
 			tc.send_swap(src, dst, zen, plug, d_zen, d_plug).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,

@@ -34,3 +34,12 @@ pub(crate) fn load(data: &[u8]) -> Result<ChainDict> {
 	let chains: Vec<Chain> = serde_json::from_slice(data)?;
 	Ok(chains.into_iter().map(|c| (c.chain_id, c)).collect::<_>())
 }
+
+// converts chain_ids to cctp domain ids
+pub(crate) fn chain_id_to_domain(chain_id: u64) -> Result<u32> {
+	match chain_id {
+		11155111 => Ok(0),
+		421614 => Ok(3),
+		_ => anyhow::bail!("Unsupported chain id"),
+	}
+}

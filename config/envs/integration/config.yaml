@@ -62,7 +62,7 @@ networks:
       universal_router: "4A7b5Da61326A6379179b40d00F57E5bbDC962c2"
       permit2: "000000000022D473030F116dDEE9F6B43aC78BA3"
       token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5"
-      msg_transmitter: "7865fAfC2db2093669d92c0F33AeEF291086BEFD"
+      msg_transmitter: "acf1ceef35caac005e15888ddb8a3515c41b4872"
       usdc: "1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
       weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14"
 chronicles: 

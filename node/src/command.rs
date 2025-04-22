@@ -63,12 +63,9 @@ impl SubstrateCli for Cli {
 			"mainnet" => Box::new(chain_spec::ChainSpec::from_json_bytes(
 				&include_bytes!("chains/mainnet.raw.json")[..],
 			)?),
-			"testnet" => Box::new(
-				chain_spec::GenesisKeysConfig::from_json_bytes(
-					&include_bytes!("chains/testnet.keys.json")[..],
-				)?
-				.to_live()?,
-			),
+			"testnet" => Box::new(chain_spec::ChainSpec::from_json_bytes(
+				&include_bytes!("chains/testnet.raw.json")[..],
+			)?),
 			// Internal development networks
 			"staging" => Box::new(
 				chain_spec::GenesisKeysConfig::from_json_bytes(

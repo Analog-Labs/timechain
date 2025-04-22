@@ -9,7 +9,7 @@ use polkadot_sdk::*;
 
 use frame_benchmarking_cli::ExtrinsicFactory;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-use sc_cli::SubstrateCli;
+use sc_cli::{SubstrateCli, TransactionPoolType};
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::HashingFor;
@@ -98,12 +98,27 @@ impl SubstrateCli for Cli {
 /// Parse command line arguments into service configuration.
 pub fn run() -> sc_cli::Result<()> {
 	// Parse command line arguments
-	let cli = Cli::from_args();
+	let mut cli = Cli::from_args();
+
+	// Force use of fork aware transaction pool on testnet
+	let mut forced_pool = false;
+	if cfg!(feature = "testnet") {
+		if let TransactionPoolType::SingleState = cli.run.pool_config.pool_type {
+			cli.run.pool_config.pool_type = TransactionPoolType::ForkAware;
+			forced_pool = true;
+		}
+	}
 
 	// Parse subcommand to determine what to run
 	match &cli.subcommand {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
+
+			// Warn that pool-type flag might have been ignored once logger is intialized
+			if forced_pool {
+				log::warn!("🚧️️ Forcing use of fork aware transaction pool");
+			}
+
 			runner.run_node_until_exit(|config| async move {
 				service::new_full::<RuntimeApi>(config, cli).map_err(sc_cli::Error::Service)
 			})

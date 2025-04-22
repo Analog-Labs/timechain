@@ -8,7 +8,6 @@ use sp_runtime::{
 	traits::{ConstBool, ConstU32, ConstU64},
 	Perbill,
 };
-use time_primitives::{MICROANLOG, MILLIANLOG};
 
 parameter_types! {
 	pub const DepositPerItem: Balance = deposit(1, 0);

@@ -108,7 +108,7 @@ impl pallet_staking::Config for Test {
 	// New required types from the latest polkadot-sdk
 	type OldCurrency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Filter = frame_support::traits::Everything;
+	type Filter = frame_support::traits::Nothing;
 }
 
 impl pallet_governance::Config for Test {

@@ -13,7 +13,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	traits::{ConstU32, Imbalance, OnUnbalanced},
+	traits::{ConstU32, Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
 	weights::Weight,
 	PalletId,
 };
@@ -31,9 +31,9 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DefaultAdminOrigin, DelegatedStaking, ElectionProviderMultiPhase, EpochDuration,
-	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
-	TransactionPayment, VoterList, ANLOG,
+	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
+	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
+	Timestamp, TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {
@@ -219,19 +219,22 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 pub struct RewardPool;
 impl RewardPool {
 	/// Return internal virtual wallet id
-	#[allow(dead_code)]
 	fn account_id() -> AccountId {
 		PalletId(*b"timerwrd").into_account_truncating()
 	}
 }
 
-impl<I, D> OnUnbalanced<frame_support::traits::fungible::Imbalance<Balance, I, D>> for RewardPool
-where
-	I: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
-	D: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
-{
-	fn on_nonzero_unbalanced(to_mint: frame_support::traits::fungible::Imbalance<Balance, I, D>) {
-		log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
+impl OnUnbalanced<PositiveImbalance> for RewardPool {
+	/// Take rewards from special rewards wallet, otherwise mint it via drop
+	fn on_nonzero_unbalanced(imbalance: PositiveImbalance) {
+		if let Err(to_mint) = Balances::settle(
+			&Self::account_id(),
+			imbalance,
+			WithdrawReasons::TRANSFER,
+			ExistenceRequirement::AllowDeath,
+		) {
+			log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
+		}
 	}
 }
 

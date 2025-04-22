@@ -31,9 +31,9 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DefaultAdminOrigin, DelegatedStaking, ElectionProviderMultiPhase, EpochDuration,
-	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
-	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
-	Timestamp, TransactionPayment, VoterList, ANLOG,
+	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
+	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
+	TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {
@@ -224,12 +224,17 @@ impl RewardPool {
 	}
 }
 
-impl OnUnbalanced<PositiveImbalance> for RewardPool {
+impl<I, D> OnUnbalanced<frame_support::traits::fungible::Imbalance<Balance, I, D>> for RewardPool
+where
+	I: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
+	D: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
+{
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
-	fn on_nonzero_unbalanced(imbalance: PositiveImbalance) {
+	fn on_nonzero_unbalanced(imbalance: frame_support::traits::fungible::Imbalance<Balance, I, D>) {
+		let minted = Balances::deposit_creating(&Self::account_id(), imbalance.peek());
 		if let Err(to_mint) = Balances::settle(
 			&Self::account_id(),
-			imbalance,
+			minted,
 			WithdrawReasons::TRANSFER,
 			ExistenceRequirement::AllowDeath,
 		) {

@@ -11,14 +11,9 @@ use sp_runtime::{
 use time_primitives::{MICROANLOG, MILLIANLOG};
 
 parameter_types! {
-	// Deposit per byte for storing contract code
-	pub const DepositPerByte: Balance = 100 * MICROANLOG;
-
-	// Deposit per storage item
-	pub const DepositPerItem: Balance = MILLIANLOG;
-
-	// Percentage of code hash deposit that is locked
-	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub const DepositPerItem: Balance = deposit(1, 0);
+	pub const DepositPerByte: Balance = deposit(0, 1);
+	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
 
 impl Config for Runtime {

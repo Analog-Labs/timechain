@@ -231,6 +231,7 @@ where
 {
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
 	fn on_nonzero_unbalanced(imbalance: frame_support::traits::fungible::Imbalance<Balance, I, D>) {
+		// Convert imbalance to positive imbalance to settle
 		let minted = Balances::deposit_creating(&Self::account_id(), imbalance.peek());
 		if let Err(to_mint) = Balances::settle(
 			&Self::account_id(),

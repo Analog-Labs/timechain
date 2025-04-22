@@ -409,7 +409,7 @@ impl IConnectorAdmin for Connector {
 		let src_usdc = a_addr(src_contracts.usdc);
 		let dst_usdc = a_addr(dst_contracts.usdc);
 
-		let domain_id = chain_id_to_domain(self.chain_id)?;
+		let domain_id = network_id_to_domain_id(dest)?;
 		let params = sol::ZenSwapGmpPlugin::PluginParams {
 			destPlugin: a_addr(dst_plugin),
 			recipient: a_addr(dst_zenswap_addr),

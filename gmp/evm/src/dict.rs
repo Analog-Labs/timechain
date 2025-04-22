@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
+use time_primitives::NetworkId;
 
 type ChainDict = HashMap<u64, Chain>;
 
@@ -35,11 +36,10 @@ pub(crate) fn load(data: &[u8]) -> Result<ChainDict> {
 	Ok(chains.into_iter().map(|c| (c.chain_id, c)).collect::<_>())
 }
 
-// converts chain_ids to cctp domain ids
-pub(crate) fn chain_id_to_domain(chain_id: u64) -> Result<u32> {
-	match chain_id {
-		11155111 => Ok(0),
-		421614 => Ok(3),
+pub(crate) fn network_id_to_domain_id(network_id: NetworkId) -> Result<u32> {
+	match network_id {
+		10 => Ok(0),
+		13 => Ok(3),
 		_ => anyhow::bail!("Unsupported chain id"),
 	}
 }

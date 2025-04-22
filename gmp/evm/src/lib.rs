@@ -56,6 +56,8 @@ pub(crate) mod custom;
 pub(crate) mod dict;
 pub(crate) mod sol;
 
+const DEFAULT_TX_TIMEOUT: u64 = 60;
+
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
 }
@@ -170,10 +172,14 @@ impl IChain for Connector {
 			.with_gas_limit(21_000);
 
 		let guard = self.wallet_guard.lock().await;
-		let tx_hash = provider.send_transaction(tx).await?.watch().await?;
+		let pending_tx = provider.send_transaction(tx).await?;
 		drop(guard);
+		let tx_hash = pending_tx
+			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
+			.get_receipt()
+			.await?
+			.transaction_hash;
 		tracing::info!("Faucet sent {balance} to {}, tx: {tx_hash}", a_addr(self.address()));
-
 		Ok(())
 	}
 	/// Transfers an amount to an account
@@ -185,10 +191,14 @@ impl IChain for Connector {
 			.with_value(U256::from(amount));
 
 		let guard = self.wallet_guard.lock().await;
-		let tx_hash = self.rpc.send_transaction(WithOtherFields::new(tx)).await?.watch().await?;
+		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
 		drop(guard);
+		let tx_hash = pending_tx
+			.with_timeout(Some(Duration::from_secs(60)))
+			.get_receipt()
+			.await?
+			.transaction_hash;
 		tracing::info!("Transferred sent {amount} to {to}, tx: {tx_hash}");
-
 		Ok(())
 	}
 	/// Queries the account balance
@@ -412,7 +422,7 @@ impl IConnectorAdmin for Connector {
 		self.rpc
 			.send_transaction(WithOtherFields::new(tx))
 			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
 			.watch()
 			.await?;
 
@@ -738,7 +748,7 @@ impl Connector {
 			.rpc
 			.send_raw_transaction(&encoded_tx)
 			.await?
-			.with_timeout(Some(std::time::Duration::from_secs(60)))
+			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
 			.watch()
 			.await?;
 		tracing::info!("factory deployed with tx {tx_hash}");

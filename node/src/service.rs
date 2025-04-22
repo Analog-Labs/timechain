@@ -13,7 +13,8 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
-	event::Event, service::traits::NetworkService, NetworkBackend, NetworkEventStream,
+	config::NetworkBackendType, event::Event, service::traits::NetworkService, NetworkBackend,
+	NetworkEventStream,
 };
 use sc_network_sync::{strategy::warp::WarpSyncConfig, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
@@ -569,24 +570,26 @@ where
 {
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	let task_manager = match config.network.network_backend.unwrap_or_default() {
-		sc_network::config::NetworkBackendType::Libp2p => {
-			new_full_base::<sc_network::NetworkWorker<_, _>, RuntimeApi>(
-				config,
-				cli.no_hardware_benchmarks,
-				|_, _| (),
-			)
-			.map(|NewFullBase { task_manager, .. }| task_manager)?
-		},
-		sc_network::config::NetworkBackendType::Litep2p => {
-			new_full_base::<sc_network::Litep2pNetworkBackend, RuntimeApi>(
-				config,
-				cli.no_hardware_benchmarks,
-				|_, _| (),
-			)
-			.map(|NewFullBase { task_manager, .. }| task_manager)?
-		},
+	// Override default backend to litep2p for testnet builds
+	let default_backend = if cfg!(feature = "testnet") {
+		NetworkBackendType::Litep2p
+	} else {
+		NetworkBackendType::Libp2p
 	};
+
+	let task_manager =
+		match config.network.network_backend.unwrap_or(default_backend) {
+			NetworkBackendType::Libp2p => new_full_base::<
+				sc_network::NetworkWorker<_, _>,
+				RuntimeApi,
+			>(config, cli.no_hardware_benchmarks, |_, _| ())
+			.map(|NewFullBase { task_manager, .. }| task_manager)?,
+			NetworkBackendType::Litep2p => new_full_base::<
+				sc_network::Litep2pNetworkBackend,
+				RuntimeApi,
+			>(config, cli.no_hardware_benchmarks, |_, _| ())
+			.map(|NewFullBase { task_manager, .. }| task_manager)?,
+		};
 
 	if let Some(database_path) = database_path {
 		sc_storage_monitor::StorageMonitorService::try_spawn(

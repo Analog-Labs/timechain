@@ -413,14 +413,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 			for event in events.0.iter() {
-				match event {
-					GmpEvent::BatchExecuted { batch_id, .. } => {
-						FailedBatchIds::<T>::remove(batch_id);
-						if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
-							TaskOutput::<T>::remove(task_id);
-						}
-					},
-					_ => {},
+				if let GmpEvent::BatchExecuted { batch_id, .. } = event {
+					FailedBatchIds::<T>::remove(batch_id);
+					if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
+						TaskOutput::<T>::remove(task_id);
+					}
 				}
 			}
 			Self::process_events(network, 0, events);

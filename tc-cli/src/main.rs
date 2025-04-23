@@ -124,7 +124,7 @@ enum Command {
 	},
 	RegisterShards,
 	RegisterRoutes,
-	RetryBatch {
+	RestartBatch {
 		batch_id: BatchId,
 	},
 	SetGatewayAdmin {
@@ -298,7 +298,7 @@ async fn real_main() -> Result<()> {
 		},
 		Command::PendingBatches => {
 			let batches = tc.get_pending_batches(block).await?;
-			tc.print_table(None, "failed-batches", batches).await?;
+			tc.print_table(None, "pending-batches", batches).await?;
 		},
 		Command::MaxFeePerGas { network } => {
 			let fee = tc.max_fee_per_gas(network).await?;
@@ -450,7 +450,7 @@ async fn real_main() -> Result<()> {
 			let output = tc.debug_transaction(network, hash).await?;
 			tc.println(None, output).await?;
 		},
-		Command::RetryBatch { batch_id } => {
+		Command::RestartBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
 		},
 	}

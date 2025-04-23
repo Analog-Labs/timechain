@@ -1292,7 +1292,10 @@ impl Tc {
 			.task_network(task_id, block_hash)
 			.await?
 			.context("task network not found")?;
-		let gmp_event = GmpEvent::BatchExecuted { batch_id, tx_hash: None };
+		let gmp_event = GmpEvent::BatchExecuted {
+			batch_id,
+			tx_hash: Some([0u8; 32]),
+		};
 		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
 		self.runtime.submit_gmp_events(network, events).await
 	}

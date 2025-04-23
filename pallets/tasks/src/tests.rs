@@ -459,7 +459,7 @@ fn test_submit_gmp_events() {
 		let submitter = task_submitter(task_id);
 		submit_submission_error(submitter, task_id, "batch failed");
 		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
-		let events = vec![GmpEvent::BatchExecuted {
+		let events = [GmpEvent::BatchExecuted {
 			batch_id,
 			tx_hash: Some([0; 32]),
 		}];
@@ -491,7 +491,7 @@ fn test_pending_batches_storage() {
 		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
 		let new_task_id = 3;
 		assert_eq!(Tasks::get_task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
-		let events = vec![GmpEvent::BatchExecuted {
+		let events = [GmpEvent::BatchExecuted {
 			batch_id,
 			tx_hash: Some([0; 32]),
 		}];

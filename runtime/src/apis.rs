@@ -397,8 +397,12 @@ impl_runtime_apis! {
 			Tasks::get_batch_message(batch_id)
 		}
 
-		fn get_failed_tasks() -> Vec<TaskId> {
-			Tasks::get_failed_tasks()
+		fn get_failed_batches() -> Vec<BatchId> {
+			Tasks::get_failed_batches()
+		}
+
+		fn get_pending_batches() -> Vec<BatchId> {
+			Tasks::get_pending_batches()
 		}
 	}
 

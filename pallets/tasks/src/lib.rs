@@ -272,6 +272,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BatchTaskId<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, TaskId, OptionQuery>;
 
+	#[pallet::storage]
+	pub type PendingBatches<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
+
 	/// List of failed batches.
 	#[pallet::storage]
 	pub type FailedBatchIds<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
@@ -390,6 +393,7 @@ pub mod pallet {
 					// verify signature
 					let members = T::Shards::shard_members(shard);
 					ensure!(members.contains(&signer), Error::<T>::InvalidSigner);
+					PendingBatches::<T>::remove(batch_id);
 					FailedBatchIds::<T>::insert(batch_id, ());
 					Err(error)
 				},
@@ -475,6 +479,7 @@ pub mod pallet {
 			let network = TaskNetwork::<T>::get(old_task_id).ok_or(Error::<T>::UnknownTask)?;
 			let new_task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			BatchTaskId::<T>::insert(batch_id, new_task_id);
+			PendingBatches::<T>::insert(batch_id, ());
 			FailedBatchIds::<T>::remove(batch_id);
 			Self::deposit_event(Event::BatchRestarted(old_task_id, new_task_id));
 			Ok(())
@@ -502,6 +507,7 @@ pub mod pallet {
 						Self::deposit_event(Event::<T>::MessageExecuted(msg_id));
 					},
 					GmpEvent::BatchExecuted { batch_id, tx_hash } => {
+						PendingBatches::<T>::remove(batch_id);
 						if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
 							Self::finish_task(network, task_id, Ok(()));
 						}
@@ -753,6 +759,7 @@ pub mod pallet {
 			}
 			BatchMessage::<T>::insert(batch_id, msg);
 			let task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
+			PendingBatches::<T>::insert(batch_id, ());
 			BatchTaskId::<T>::insert(batch_id, task_id);
 		}
 	}
@@ -787,8 +794,13 @@ pub mod pallet {
 		}
 
 		/// Get all failed batch IDs
-		pub fn get_failed_tasks() -> Vec<BatchId> {
+		pub fn get_failed_batches() -> Vec<BatchId> {
 			FailedBatchIds::<T>::iter_keys().collect()
+		}
+
+		/// Get all failed batch IDs
+		pub fn get_pending_batches() -> Vec<BatchId> {
+			PendingBatches::<T>::iter_keys().collect()
 		}
 	}
 

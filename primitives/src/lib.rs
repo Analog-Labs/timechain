@@ -168,7 +168,8 @@ sp_api::decl_runtime_apis! {
 		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
 		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>;
 		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
-		fn get_failed_tasks() -> Vec<TaskId>;
+		fn get_failed_batches() -> Vec<TaskId>;
+		fn get_pending_batches() -> Vec<TaskId>;
 	}
 
 	pub trait SubmitTransactionApi{

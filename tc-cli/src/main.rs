@@ -94,6 +94,7 @@ enum Command {
 		shard: ShardId,
 	},
 	FailedBatches,
+	PendingBatches,
 	MaxFeePerGas {
 		network: NetworkId,
 	},
@@ -123,7 +124,7 @@ enum Command {
 	},
 	RegisterShards,
 	RegisterRoutes,
-	RetryFailedBatch {
+	RetryBatch {
 		batch_id: BatchId,
 	},
 	SetGatewayAdmin {
@@ -295,6 +296,10 @@ async fn real_main() -> Result<()> {
 			let batches = tc.get_failed_batches(block).await?;
 			tc.print_table(None, "failed-batches", batches).await?;
 		},
+		Command::PendingBatches => {
+			let batches = tc.get_pending_batches(block).await?;
+			tc.print_table(None, "failed-batches", batches).await?;
+		},
 		Command::MaxFeePerGas { network } => {
 			let fee = tc.max_fee_per_gas(network).await?;
 			tc.println(
@@ -445,7 +450,7 @@ async fn real_main() -> Result<()> {
 			let output = tc.debug_transaction(network, hash).await?;
 			tc.println(None, output).await?;
 		},
-		Command::RetryFailedBatch { batch_id } => {
+		Command::RetryBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
 		},
 	}

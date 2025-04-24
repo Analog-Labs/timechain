@@ -25,6 +25,7 @@ members = [
 	"pallets/launch",
 	"pallets/members",
 	"pallets/networks",
+	"pallets/nominators",
 	"pallets/shards",
 	"pallets/tasks",
 	"pallets/timegraph",

@@ -11689,6 +11689,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nominators"
+version = "0.8.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk",
+ "scale-info",
+ "time-primitives",
+]
+
+[[package]]
 name = "pallet-offences"
 version = "38.0.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.17.3-anlog0#7b23b05cf7e0540a0d8c3332445dd735f5010837"

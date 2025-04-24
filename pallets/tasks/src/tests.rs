@@ -1,6 +1,6 @@
 use crate::{
-	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatchIds, ShardRegistered,
-	TaskOutput, TaskShard,
+	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatchIds, PendingBatches,
+	ShardRegistered, TaskOutput, TaskShard,
 };
 
 use frame_support::assert_ok;
@@ -440,6 +440,65 @@ fn test_restart_failed_batch() {
 			}
 		});
 		assert_eq!(event, Some((initial_task_id, new_task_id)));
+		Tasks::finish_task(ETHEREUM, new_task_id, Ok(()));
+		assert_eq!(TaskOutput::<Test>::get(new_task_id), Some(Ok(())));
+	});
+}
+
+#[test]
+fn test_submit_gmp_events() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let batch_id = 0;
+		let task_id = 2;
+		Tasks::assign_task(shard, 2);
+		assert_eq!(Tasks::get_task(task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		roll(1);
+		let submitter = task_submitter(task_id);
+		submit_submission_error(submitter, task_id, "batch failed");
+		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
+		let events = [GmpEvent::BatchExecuted {
+			batch_id,
+			tx_hash: Some([0; 32]),
+		}];
+		let events = GmpEvents(BoundedVec::truncate_from(events.to_vec()));
+		assert_ok!(Tasks::submit_gmp_events(RawOrigin::Root.into(), ETHEREUM, events));
+		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Ok(())));
+	});
+}
+
+#[test]
+fn test_pending_batches_storage() {
+	new_test_ext().execute_with(|| {
+		register_gateway(ETHEREUM, 42);
+		let shard = create_shard(ETHEREUM, 3, 1);
+		roll(1);
+		let batch_id = 0;
+		let task_id = 2;
+		Tasks::assign_task(shard, 2);
+		assert_eq!(Tasks::get_task(task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		roll(1);
+		assert!(PendingBatches::<Test>::contains_key(batch_id));
+		let submitter = task_submitter(task_id);
+		submit_submission_error(submitter, task_id, "batch failed");
+		roll(1);
+		assert!(!PendingBatches::<Test>::contains_key(batch_id));
+		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
+		assert!(PendingBatches::<Test>::contains_key(batch_id));
+		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		let new_task_id = 3;
+		assert_eq!(Tasks::get_task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		let events = [GmpEvent::BatchExecuted {
+			batch_id,
+			tx_hash: Some([0; 32]),
+		}];
+		let events = GmpEvents(BoundedVec::truncate_from(events.to_vec()));
+		assert_ok!(Tasks::submit_gmp_events(RawOrigin::Root.into(), ETHEREUM, events));
+		assert!(!PendingBatches::<Test>::contains_key(batch_id));
+		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
 	});
 }
 

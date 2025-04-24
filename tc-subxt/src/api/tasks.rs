@@ -32,9 +32,15 @@ impl SubxtClient {
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
-	pub async fn get_failed_tasks(&self, block: BlockHash) -> Result<Vec<TaskId>> {
+	pub async fn get_failed_batches(&self, block: BlockHash) -> Result<Vec<BatchId>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_failed_tasks();
+		let runtime_call = metadata::apis().tasks_api().get_failed_batches();
+		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
+	}
+
+	pub async fn get_pending_batches(&self, block: BlockHash) -> Result<Vec<BatchId>> {
+		let block = H256(block.0);
+		let runtime_call = metadata::apis().tasks_api().get_pending_batches();
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 

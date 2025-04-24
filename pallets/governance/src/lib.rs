@@ -47,7 +47,7 @@ pub mod pallet {
 	{
 		/// Allowed origin for system calls
 		type SystemAdmin: EnsureOrigin<Self::RuntimeOrigin>;
-		// Allowed origin for staking calls
+		/// Allowed origin for staking calls
 		type StakingAdmin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 

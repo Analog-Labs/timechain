@@ -130,6 +130,16 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 // Import all substrate dependencies
 use polkadot_sdk::*;
 
+// Import all types required by RuntimeApis
+use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, RuntimeDispatchInfo};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
+use sp_core::OpaqueMetadata;
+use sp_inherents::{CheckInherentsResult, InherentData};
+use sp_runtime::traits::NumberFor;
+use sp_runtime::ApplyExtrinsicResult;
+use sp_version::RuntimeVersion;
+
 #[cfg(feature = "testnet")]
 use frame_support::dispatch::DispatchInfo;
 use frame_support::traits::KeyOwnerProofSystem;
@@ -157,10 +167,11 @@ use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
 pub use time_primitives::{
-	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, Commitment, ErrorMsg,
-	GatewayMessage, Header, MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface,
-	Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId,
-	TaskResult, TssPublicKey, TssSignature, ANLOG, MICROANLOG, MILLIANLOG,
+	AccountId, Address32, Balance, BatchId, BlockHash, BlockNumber, CctpContracts, CctpUrl,
+	ChainName, Commitment, ErrorMsg, GatewayMessage, Header, MemberStatus, MembersInterface,
+	Moment, NetworkId, NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId,
+	ShardStatus, Signature, Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
+	MICROANLOG, MILLIANLOG,
 };
 
 // A few exports that help ease life for downstream crates.
@@ -699,36 +710,26 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-			block_hash: <Block as BlockT>::Hash,
-		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
-
 	impl sp_api::Core<Block> for Runtime {
-		fn version() -> sp_version::RuntimeVersion {
+		fn version() -> RuntimeVersion {
 			VERSION
 		}
 
 		fn execute_block(block: Block) {
-			Executive::execute_block(block)
+			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as sp_runtime::traits::Block>::Header) -> sp_runtime::ExtrinsicInclusionMode {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
 
 	impl sp_api::Metadata<Block> for Runtime {
-		fn metadata() -> sp_core::OpaqueMetadata {
-			sp_core::OpaqueMetadata::new(Runtime::metadata().into())
+		fn metadata() -> OpaqueMetadata {
+			OpaqueMetadata::new(Runtime::metadata().into())
 		}
 
-		fn metadata_at_version(version: u32) -> Option<sp_core::OpaqueMetadata> {
+		fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
 			Runtime::metadata_at_version(version)
 		}
 
@@ -738,25 +739,25 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
-		fn authorities() -> Vec<sp_authority_discovery::AuthorityId> {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
 			AuthorityDiscovery::authorities()
 		}
 	}
 
 	impl sp_block_builder::BlockBuilder<Block> for Runtime {
-		fn apply_extrinsic(extrinsic: <Block as sp_runtime::traits::Block>::Extrinsic) -> sp_runtime::ApplyExtrinsicResult {
+		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
 			Executive::apply_extrinsic(extrinsic)
 		}
 
-		fn finalize_block() -> <Block as sp_runtime::traits::Block>::Header {
+		fn finalize_block() -> <Block as BlockT>::Header {
 			Executive::finalize_block()
 		}
 
-		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as sp_runtime::traits::Block>::Extrinsic> {
+		fn inherent_extrinsics(data: InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
 			data.create_extrinsics()
 		}
 
-		fn check_inherents(block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
+		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
 		}
 	}
@@ -796,9 +797,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as sp_runtime::traits::Block>::Header>,
+			equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
 			key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
+			//let key_owner_proof = key_owner_proof.decode()?;
+
 			Babe::submit_unsigned_equivocation_report(
 				equivocation_proof,
 				key_owner_proof.decode()?,
@@ -817,8 +820,8 @@ sp_api::impl_runtime_apis! {
 
 		fn submit_report_equivocation_unsigned_extrinsic(
 			equivocation_proof: sp_consensus_grandpa::EquivocationProof<
-				<Block as sp_runtime::traits::Block>::Hash,
-				sp_runtime::traits::NumberFor<Block>,
+				<Block as BlockT>::Hash,
+				NumberFor<Block>,
 			>,
 			key_owner_proof: sp_consensus_grandpa::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
@@ -832,7 +835,7 @@ sp_api::impl_runtime_apis! {
 
 		fn generate_key_ownership_proof(
 			_set_id: sp_consensus_grandpa::SetId,
-			authority_id: sp_consensus_grandpa::AuthorityId,
+			authority_id: GrandpaId,
 		) -> Option<sp_consensus_grandpa::OpaqueKeyOwnershipProof> {
 			Historical::prove((sp_consensus_grandpa::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
@@ -841,7 +844,7 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(header: &<Block as sp_runtime::traits::Block>::Header) {
+		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			Executive::offchain_worker(header)
 		}
 	}
@@ -851,17 +854,89 @@ sp_api::impl_runtime_apis! {
 			SessionKeys::generate(seed)
 		}
 
-		fn decode_session_keys(encoded: Vec<u8>) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
+		fn decode_session_keys(
+			encoded: Vec<u8>,
+		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
 
+	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+		fn validate_transaction(
+			source: TransactionSource,
+			tx: <Block as BlockT>::Extrinsic,
+			block_hash: <Block as BlockT>::Hash,
+		) -> TransactionValidity {
+			Executive::validate_transaction(source, tx, block_hash)
+		}
+	}
+
+	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<
+		Block,
+		AccountId,
+		Balance,
+	> for Runtime {
+		fn pending_rewards(member: AccountId) -> Balance {
+			NominationPools::api_pending_rewards(member).unwrap_or_default()
+		}
+
+		fn points_to_balance(pool_id: pallet_nomination_pools::PoolId, points: Balance) -> Balance {
+			NominationPools::api_points_to_balance(pool_id, points)
+		}
+
+		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
+			NominationPools::api_balance_to_points(pool_id, new_funds)
+		}
+
+		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		fn member_pending_slash(member: AccountId) -> Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		fn member_needs_delegate_migration(member: AccountId) -> bool {
+			NominationPools::api_member_needs_delegate_migration(member)
+		}
+
+		fn member_total_balance(who: AccountId) -> Balance {
+			NominationPools::api_member_total_balance(who)
+		}
+
+		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: pallet_nomination_pools::PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
+		}
+	}
+
+	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
+		fn nominations_quota(balance: Balance) -> u32 {
+			Staking::api_nominations_quota(balance)
+		}
+
+		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
+			Staking::api_eras_stakers_page_count(era, account)
+		}
+
+		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+			Staking::api_pending_rewards(era, account)
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
-		fn query_info(uxt: <Block as sp_runtime::traits::Block>::Extrinsic, len: u32) -> pallet_transaction_payment::RuntimeDispatchInfo<Balance> {
+		fn query_info(uxt: <Block as BlockT>::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
 			TransactionPayment::query_info(uxt, len)
 		}
 
-		fn query_fee_details(uxt: <Block as sp_runtime::traits::Block>::Extrinsic, len: u32) -> pallet_transaction_payment::FeeDetails<Balance> {
+		fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> FeeDetails<Balance> {
 			TransactionPayment::query_fee_details(uxt, len)
 		}
 
@@ -874,59 +949,113 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<Block, AccountId, Balance> for Runtime {
-		fn pending_rewards(member: AccountId) -> Balance {
-			NominationPools::api_pending_rewards(member).unwrap_or_default()
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+		for Runtime
+	{
+		fn query_call_info(call: RuntimeCall, len: u32) -> RuntimeDispatchInfo<Balance> {
+			TransactionPayment::query_call_info(call, len)
 		}
-
-		fn points_to_balance(pool_id: u32, points: Balance) -> Balance {
-			NominationPools::api_points_to_balance(pool_id, points)
+		fn query_call_fee_details(call: RuntimeCall, len: u32) -> FeeDetails<Balance> {
+			TransactionPayment::query_call_fee_details(call, len)
 		}
-
-		fn balance_to_points(pool_id: u32, balance: Balance) -> Balance {
-			NominationPools::api_balance_to_points(pool_id, balance)
+		fn query_weight_to_fee(weight: Weight) -> Balance {
+			TransactionPayment::weight_to_fee(weight)
 		}
-
-		fn pool_pending_slash(pool_id: u32) -> Balance {
-			NominationPools::api_pool_pending_slash(pool_id)
-		}
-
-		fn member_pending_slash(member: AccountId) -> Balance {
-			NominationPools::api_member_pending_slash(member)
-		}
-
-		fn pool_needs_delegate_migration(pool_id: u32) -> bool {
-			NominationPools::api_pool_needs_delegate_migration(pool_id)
-		}
-
-		fn member_needs_delegate_migration(member: AccountId) -> bool {
-			NominationPools::api_member_needs_delegate_migration(member)
-		}
-
-		fn member_total_balance(member: AccountId) -> Balance {
-			NominationPools::api_member_total_balance(member)
-		}
-
-		fn pool_balance(pool_id: u32) -> Balance {
-			NominationPools::api_pool_balance(pool_id)
-		}
-
-		fn pool_accounts(pool_id: u32) -> (AccountId, AccountId) {
-			NominationPools::api_pool_accounts(pool_id)
+		fn query_length_to_fee(length: u32) -> Balance {
+			TransactionPayment::length_to_fee(length)
 		}
 	}
 
-	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
-		fn nominations_quota(balance: Balance) -> u32 {
-			Staking::api_nominations_quota(balance)
+	// Experimental APIs used only on testnet yet
+
+	#[cfg(feature = "testnet")]
+	impl time_primitives::MembersApi<Block> for Runtime {
+		fn get_member_peer_id(account: &AccountId) -> Option<PeerId> {
+			Members::member_peer_id(account)
 		}
 
-		fn eras_stakers_page_count(era: u32, account: AccountId) -> u32 {
-			Staking::api_eras_stakers_page_count(era, account)
+		fn get_heartbeat_timeout() -> BlockNumber {
+			Members::get_heartbeat_timeout()
+		}
+	}
+
+	#[cfg(feature = "testnet")]
+	impl time_primitives::NetworksApi<Block> for Runtime {
+		fn get_network(network_id: NetworkId) -> Option<ChainName> {
+			Networks::get_network(network_id)
 		}
 
-		fn pending_rewards(era: u32, account: AccountId) -> bool {
-			Staking::api_pending_rewards(era, account)
+		fn get_gateway(network: NetworkId) -> Option<Address32> {
+			Networks::gateway(network)
+		}
+
+		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts> {
+			Networks::get_cctp_contracts(network)
+		}
+
+		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl> {
+			Networks::get_cctp_url(network)
+		}
+	}
+
+	#[cfg(feature = "testnet")]
+	impl time_primitives::ShardsApi<Block> for Runtime {
+		fn get_shards(account: &AccountId) -> Vec<ShardId> {
+			Shards::get_shards(account)
+		}
+
+		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
+			Shards::get_shard_members(shard_id)
+		}
+
+		fn get_shard_threshold(shard_id: ShardId) -> u16 {
+			Shards::get_shard_threshold(shard_id)
+		}
+
+		fn get_shard_status(shard_id: ShardId) -> ShardStatus {
+			Shards::get_shard_status(shard_id)
+		}
+
+		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
+			Shards::get_shard_commitment(shard_id)
+		}
+	}
+
+	#[cfg(feature = "testnet")]
+	impl time_primitives::TasksApi<Block> for Runtime {
+		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+			Tasks::get_shard_tasks(shard_id)
+		}
+
+		fn get_task(task_id: TaskId) -> Option<Task>{
+			Tasks::get_task(task_id)
+		}
+
+		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{
+			Tasks::get_task_result(task_id)
+		}
+
+		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
+			Tasks::get_task_shard(task_id)
+		}
+
+		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
+			Tasks::get_batch_message(batch_id)
+		}
+
+		fn get_failed_batches() -> Vec<BatchId> {
+			Tasks::get_failed_batches()
+		}
+
+		fn get_pending_batches() -> Vec<BatchId> {
+			Tasks::get_pending_batches()
+		}
+	}
+
+	#[cfg(feature = "testnet")]
+	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
+		fn submit_transaction(encoded_transaction: Vec<u8>) -> Result<(), ()> {
+			sp_io::offchain::submit_transaction(encoded_transaction)
 		}
 	}
 
@@ -1096,96 +1225,12 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[cfg(feature = "testnet")]
-	impl time_primitives::MembersApi<Block> for Runtime {
-		fn get_member_peer_id(account: &AccountId) -> Option<time_primitives::PeerId> {
-			Members::member_peer_id(account)
-		}
-
-		fn get_heartbeat_timeout() -> BlockNumber {
-			Members::get_heartbeat_timeout()
-		}
-	}
-
-	#[cfg(feature = "testnet")]
-	impl time_primitives::NetworksApi<Block> for Runtime {
-		fn get_network(network_id: NetworkId) -> Option<time_primitives::ChainName> {
-			Networks::get_network(network_id)
-		}
-
-		fn get_gateway(network: NetworkId) -> Option<time_primitives::Address32> {
-			Networks::gateway(network)
-		}
-
-		fn get_cctp_contracts(network: NetworkId) -> Option<time_primitives::CctpContracts> {
-			Networks::get_cctp_contracts(network)
-		}
-
-		fn get_cctp_url(network: NetworkId) -> Option<time_primitives::CctpUrl> {
-			Networks::get_cctp_url(network)
-		}
-	}
-
-	#[cfg(feature = "testnet")]
-	impl time_primitives::ShardsApi<Block> for Runtime {
-		fn get_shards(account: &AccountId) -> Vec<time_primitives::ShardId> {
-			Shards::get_shards(account)
-		}
-
-		fn get_shard_members(shard_id: time_primitives::ShardId) -> Vec<(AccountId, time_primitives::MemberStatus)> {
-			Shards::get_shard_members(shard_id)
-		}
-
-		fn get_shard_threshold(shard_id: time_primitives::ShardId) -> u16 {
-			Shards::get_shard_threshold(shard_id)
-		}
-
-		fn get_shard_status(shard_id: time_primitives::ShardId) -> time_primitives::ShardStatus {
-			Shards::get_shard_status(shard_id)
-		}
-
-		fn get_shard_commitment(shard_id: time_primitives::ShardId) -> Option<time_primitives::Commitment> {
-			Shards::get_shard_commitment(shard_id)
-		}
-	}
-
-	#[cfg(feature = "testnet")]
-	impl time_primitives::TasksApi<Block> for Runtime {
-		fn get_shard_tasks(shard_id: time_primitives::ShardId) -> Vec<time_primitives::TaskId> {
-			Tasks::get_shard_tasks(shard_id)
-		}
-
-		fn get_task(task_id: time_primitives::TaskId) -> Option<time_primitives::Task>{
-			Tasks::get_task(task_id)
-		}
-
-		fn get_task_result(task_id: time_primitives::TaskId) -> Option<Result<(), time_primitives::ErrorMsg>>{
-			Tasks::get_task_result(task_id)
-		}
-
-		fn get_task_shard(task_id: time_primitives::TaskId) -> Option<time_primitives::ShardId>{
-			Tasks::get_task_shard(task_id)
-		}
-
-		fn get_batch_message(batch_id: time_primitives::BatchId) -> Option<time_primitives::GatewayMessage> {
-			Tasks::get_batch_message(batch_id)
-		}
-
-		fn get_failed_tasks() -> Vec<time_primitives::TaskId> {
-			Tasks::get_failed_tasks()
-		}
-	}
-
-	#[cfg(feature = "testnet")]
-	impl time_primitives::SubmitTransactionApi<Block> for Runtime {
-		fn submit_transaction(encoded_transaction: Vec<u8>) -> Result<(), ()> {
-			sp_io::offchain::submit_transaction(encoded_transaction)
-		}
-	}
+	// Optional runtime interfaces controlled by feature flags
 
 	/// - __genesis-builder__: support generation of custom genesis
 	#[cfg(feature = "genesis-builder")]
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			use frame_support::genesis_builder_helper::build_state;
 			build_state::<RuntimeGenesisConfig>(config)
@@ -1204,6 +1249,7 @@ sp_api::impl_runtime_apis! {
 	/// - __runtime-benchmarks__: support runtime benchmarking
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
+
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,

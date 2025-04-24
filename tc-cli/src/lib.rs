@@ -654,7 +654,16 @@ impl Tc {
 	}
 
 	pub async fn get_failed_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
-		let batch_ids = self.runtime.get_failed_tasks(block_hash).await?;
+		let batch_ids = self.runtime.get_failed_batches(block_hash).await?;
+		let mut batches = Vec::with_capacity(batch_ids.len());
+		for id in batch_ids {
+			batches.push(self.batch(id, block_hash).await?);
+		}
+		Ok(batches)
+	}
+
+	pub async fn get_pending_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
+		let batch_ids = self.runtime.get_pending_batches(block_hash).await?;
 		let mut batches = Vec::with_capacity(batch_ids.len());
 		for id in batch_ids {
 			batches.push(self.batch(id, block_hash).await?);
@@ -1292,7 +1301,10 @@ impl Tc {
 			.task_network(task_id, block_hash)
 			.await?
 			.context("task network not found")?;
-		let gmp_event = GmpEvent::BatchExecuted { batch_id, tx_hash: None };
+		let gmp_event = GmpEvent::BatchExecuted {
+			batch_id,
+			tx_hash: Some([0u8; 32]),
+		};
 		let events = GmpEvents(BoundedVec::truncate_from(vec![gmp_event]));
 		self.runtime.submit_gmp_events(network, events).await
 	}

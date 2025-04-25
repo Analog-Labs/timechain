@@ -26,7 +26,6 @@ reqwest.workspace = true
 sha3 = { version = "0.10", default-features = false }
 serde.workspace = true
 serde_json.workspace = true
-thiserror = "2.0.12"
 time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["time"] }
 tracing.workspace = true

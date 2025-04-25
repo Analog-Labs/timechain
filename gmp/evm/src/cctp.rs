@@ -8,6 +8,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use sha3::Digest;
 use std::sync::Mutex;
+use std::time::Duration;
 use time_primitives::{Address32, GmpMessage};
 
 type CctpRetryCount = u8;
@@ -79,6 +80,9 @@ impl CctpHandler {
 					tracing::info!("read cctp message {}", hex::encode(msg.msg.message_id()));
 					self.queue.lock().unwrap().push(
 						async move {
+							// need to wait for at least 35s before querying cctp api according to
+							// cctp api docs.
+							tokio::time::sleep(Duration::from_secs(35)).await;
 							let result = msg.fetch_attestation().await;
 							(msg, result)
 						}

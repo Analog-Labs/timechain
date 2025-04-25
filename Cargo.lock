@@ -4300,15 +4300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eth-bridge-runtime-api"
-version = "0.1.0"
-dependencies = [
- "parity-scale-codec",
- "polkadot-sdk 0.6.0",
- "scale-info",
-]
-
-[[package]]
 name = "ethabi"
 version = "17.2.0"
 source = "git+https://github.com/sora-xor/ethabi.git?branch=sora-v1.6.0#d4e99f047dfd525afa1a64992644727c89bdc368"
@@ -20467,10 +20458,7 @@ dependencies = [
 name = "timechain-runtime"
 version = "0.8.0"
 dependencies = [
- "bridge-multisig",
  "env_logger 0.11.6",
- "eth-bridge",
- "eth-bridge-runtime-api",
  "hex-literal",
  "log",
  "pallet-airdrop",

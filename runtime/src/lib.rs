@@ -444,14 +444,6 @@ mod runtime {
 
 	#[runtime::pallet_index(43)]
 	pub type Launch = pallet_launch;
-
-	// HASHI Bridge
-
-	#[runtime::pallet_index(50)]
-	pub type EthBridge = eth_bridge;
-
-	#[runtime::pallet_index(51)]
-	pub type BridgeMultisig = bridge_multisig;
 }
 
 /// Testnet and develop runtime assembly
@@ -615,14 +607,6 @@ mod runtime {
 
 	#[runtime::pallet_index(39)]
 	pub type Dmail = pallet_dmail;
-
-	// HASHI Bridge
-
-	#[runtime::pallet_index(50)]
-	pub type EthBridge = eth_bridge;
-
-	#[runtime::pallet_index(51)]
-	pub type BridgeMultisig = bridge_multisig;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.

@@ -26,8 +26,6 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_timestamp, Timestamp]
 	[pallet_utility, Utility]
 	[pallet_vesting, Vesting]
-	[eth_bridge, EthBridge]
-	[bridge_multisig, BridgeMultisig]
 );
 
 #[cfg(feature = "testnet")]
@@ -62,6 +60,4 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_timestamp, Timestamp]
 	[pallet_utility, Utility]
 	[pallet_vesting, Vesting]
-	[eth_bridge, EthBridge]
-	[bridge_multisig, BridgeMultisig]
 );

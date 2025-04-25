@@ -37,7 +37,7 @@ impl CctpMessage {
 			return None;
 		}
 		let burn_message = &cctp.message;
-		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
+		let burn_hash: [u8; 32] = sha3::Keccak256::digest(burn_message).into();
 		let url = url.trim_end_matches('/');
 		let url = format!("{}/0x{}", url, hex::encode(burn_hash));
 		Some(Self { msg, url, retry_count: 0, cctp })
@@ -63,9 +63,11 @@ impl CctpMessage {
 	}
 }
 
+type AttestationFuture = BoxFuture<'static, (CctpMessage, Result<Vec<u8>>)>;
+
 #[derive(Default)]
 pub struct CctpHandler {
-	queue: Mutex<FuturesUnordered<BoxFuture<'static, (CctpMessage, Result<Vec<u8>>)>>>,
+	queue: Mutex<FuturesUnordered<AttestationFuture>>,
 }
 
 impl CctpHandler {

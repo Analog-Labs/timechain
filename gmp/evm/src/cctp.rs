@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use time_primitives::{Address32, GmpMessage};
 
 type CctpRetryCount = u8;
-const MAX_CCTP_RETRY: CctpRetryCount = 3;
+const MAX_CCTP_RETRY: CctpRetryCount = 10;
 
 #[derive(Deserialize, Debug)]
 struct AttestationResponse {

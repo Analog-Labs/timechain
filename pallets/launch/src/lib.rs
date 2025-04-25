@@ -227,19 +227,20 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	const FROMS: &[([u8; 32], Balance)] = &[
+	const REIMBURSEMENT: &[([u8; 32], Balance)] = &[
 		(
-			sp_core::hex2array!("a459cf6f2af7d10daeb782db9bcaf801d2fd8d9b78e3326be29df7ec2fda7025"),
-			681_818_000_000_000_000u128,
+			sp_core::hex2array!("1001e1c2ec784ec7c178a8e4f317c33024f164a8f687ac8f671581c332702f79"),
+			1_368_194_894_519_526u128 + 167_305_738_141_466_018u128,
 		),
 		(
-			sp_core::hex2array!("bcc08621181ad43b67fe348cf338b680029ddc0997263b74665de00d325e6009"),
-			409_091_000_000_000_000u128,
+			sp_core::hex2array!("b48778551fe89bbddd4052f050de3f4fda4c146b0ee7638e918fe5bfdd9a4136"),
+			1_903_937_683_734u128 + 5_000_000_000_000u128,
+		),
+		(
+			sp_core::hex2array!("b6ee4ea0c6b47e092ee503262de47cea944c0a2d26c2b5ecd090c0684e7c564e"),
+			723_516_283_406_412u128 + 61_400_967_513_684_952u128,
 		),
 	];
-
-	const TO: [u8; 32] =
-		sp_core::hex2array!("28a43c8012888f757b5265409410cf71b5a2b667461ed23b721b27d31ab13f6e");
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
@@ -249,19 +250,18 @@ pub mod pallet {
 		BalanceOf<T>: From<u128>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			for (i, (src, val)) in FROMS.iter().enumerate() {
-				if let Err(error) = CurrencyOf::<T>::transfer(
-					&T::AccountId::from((*src).into()),
-					&T::AccountId::from(TO.into()),
+			let mut total = 0;
+
+			for (dst, val) in REIMBURSEMENT.iter() {
+				let _ = CurrencyOf::<T>::deposit_creating(
+					&T::AccountId::from((*dst).into()),
 					(*val).into(),
-					ExistenceRequirement::AllowDeath,
-				) {
-					log::warn!(
-							target: LOG_TARGET,
-							"🤔 Unable to migrate wallet {}: {:?}", i, error
-					);
-				}
+				);
+
+				total += val;
 			}
+
+			log::info!("💰 Reimbursed {} TOCK previously reaped by bug", total);
 
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),

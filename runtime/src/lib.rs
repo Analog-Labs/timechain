@@ -606,7 +606,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = ();
+type Migrations = pallet_delegated_staking::migration::MigrateV0ToV1<Runtime>;
 
 #[cfg(test)]
 mod core_tests {

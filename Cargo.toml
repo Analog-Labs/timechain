@@ -69,10 +69,10 @@ scale-decode = { version = "0.16.0", default-features = false, features = [ "der
 scale-info = { version = "2.11.6", default-features = false, features = [ "derive" ] }
 
 # main substrate sdk
-polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.17.3-anlog0", default-features = false }
+polkadot-sdk = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.17.3-anlog1", default-features = false }
 
 # specialized wasm builder
-substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.17.3-anlog0", features = [ "metadata-hash" ] }
+substrate-wasm-builder = { git = "https://github.com/analog-labs/polkadot-sdk", tag = "v1.17.3-anlog1", features = [ "metadata-hash" ] }
 
 # metadata based chain interaction
 subxt = { git = "https://github.com/Analog-Labs/subxt", tag = "v0.41.0-anlog0" }

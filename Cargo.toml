@@ -89,6 +89,7 @@ pallet-governance = { path = "pallets/governance", default-features = false }
 pallet-launch = { path = "pallets/launch", default-features = false }
 pallet-members = { path = "pallets/members", default-features = false }
 pallet-networks = { path = "pallets/networks", default-features = false }
+pallet-revive-eth-rpc = { git = "https://github.com/Analog-Labs/polkadot-sdk", tag = "v1.18.0-anlog1" }
 pallet-shards = { path = "pallets/shards", default-features = false }
 pallet-tasks = { path = "pallets/tasks", default-features = false }
 pallet-timegraph = { path = "pallets/timegraph", default-features = false }

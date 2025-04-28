@@ -12,6 +12,7 @@ repository.workspace = true
 anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true
+pallet-revive-eth-rpc.workspace = true
 serde_yaml = "0.9.34"
 tar = "0.4.44"
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }

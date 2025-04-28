@@ -405,7 +405,7 @@ impl IConnectorAdmin for Connector {
 		dst_plugin: Address32,
 		src_contracts: SwapPrerequisites,
 		dst_contracts: SwapPrerequisites,
-	) -> Result<()> {
+	) -> Result<MessageId> {
 		let src_usdc = a_addr(src_contracts.usdc);
 		let dst_usdc = a_addr(dst_contracts.usdc);
 
@@ -483,7 +483,16 @@ impl IConnectorAdmin for Connector {
 			.await?;
 		let receipt = self.evm_send(src_zenswap_addr, swap_call, gas_cost).await?;
 		tracing::info!("swap sent: {}", receipt.transaction_hash);
-		Ok(())
+		receipt
+			.inner
+			.inner
+			.logs()
+			.iter()
+			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
+			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data()).ok())
+			.map(|e| e.id.into())
+			.next()
+			.ok_or(anyhow!("Failed to send message"))
 	}
 
 	/// Returns gateway admin

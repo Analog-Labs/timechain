@@ -3,7 +3,7 @@ use clap::Parser;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
-use tc_cli::{Benchmark, Query, Sender, Tc};
+use tc_cli::{Benchmark, Query, Sender, SwapBenchmark, Tc};
 use time_primitives::{BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
@@ -184,6 +184,14 @@ enum Command {
 	Benchmark {
 		#[arg(long, default_value = "10")]
 		num_messages_per_block: u16,
+		#[arg(long, default_value = "10")]
+		num_blocks: BlockNumber,
+	},
+	SwapBenchmark {
+		src: NetworkId,
+		dest: NetworkId,
+		#[arg(long, default_value = "2")]
+		num_swap_per_block: u16,
 		#[arg(long, default_value = "10")]
 		num_blocks: BlockNumber,
 	},
@@ -450,6 +458,54 @@ async fn real_main() -> Result<()> {
 			let (block_hash, _) = tc.latest_block().await?;
 			let mut benchmark = Benchmark::new(tc, vec![42], num_messages_per_block, num_blocks);
 			benchmark.add_routes(block_hash).await?;
+			benchmark.wait_for_sync().await?;
+			benchmark.exec().await?;
+		},
+		Command::SwapBenchmark {
+			src,
+			dest,
+			num_swap_per_block,
+			num_blocks,
+		} => {
+			// let (zen, plug) = tc.deploy_zenswap(src, block).await?;
+			// let (d_zen, d_plug) =
+			// 	if src != dest { tc.deploy_zenswap(dest, block).await? } else { (zen, plug) };
+			// tc.add_cctp_contract(src, plug)?;
+			// let (block_hash, _) = tc.latest_block().await?;
+			// tc.set_network_config(src, block_hash).await?;
+			let (zen, plug) = (
+				hex::decode("0000000000000000000000001faaaf2c44516f5172abe78341f5de340c713cc4")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+				hex::decode("000000000000000000000000d4fd29c8924048a005b082a1fe70c011ed36b695")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+			);
+			let (d_zen, d_plug) = (
+				hex::decode("0000000000000000000000009affad28f5154465fc009eb63a9e53bc5701caad")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+				hex::decode("00000000000000000000000034654021176b131d863d2829a33e28e3a9bbfc9b")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+			);
+
+			// let (block_hash, _) = tc.latest_block().await?;
+			let mut benchmark = SwapBenchmark::new(
+				tc,
+				src,
+				dest,
+				zen,
+				plug,
+				d_zen,
+				d_plug,
+				num_swap_per_block,
+				num_blocks,
+			);
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},

@@ -462,7 +462,7 @@ impl IConnectorAdmin for Connector {
 		_dst_plugin: Address32,
 		_src_contracts: SwapPrerequisites,
 		_dst_contracts: SwapPrerequisites,
-	) -> Result<()> {
+	) -> Result<MessageId> {
 		anyhow::bail!("Not supported")
 	}
 

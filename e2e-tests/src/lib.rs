@@ -185,6 +185,7 @@ impl TestEnvBuilder {
 				coin_id: 825,
 				cctp_contracts: None,
 				cctp_url: None,
+				zenswap: None,
 			},
 		);
 
@@ -251,6 +252,7 @@ impl TestEnvBuilder {
 				coin_id: 1027,
 				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
 				cctp_contracts: None,
+				zenswap: None,
 			},
 		);
 

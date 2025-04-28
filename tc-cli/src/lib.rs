@@ -24,6 +24,7 @@ mod env;
 mod gas_price;
 mod loki;
 mod print;
+mod swap_benchmark;
 mod table;
 
 pub use crate::benchmark::{Benchmark, BenchmarkStats};
@@ -31,6 +32,7 @@ pub use crate::config::Config;
 pub use crate::env::Mnemonics;
 pub use crate::loki::{Log, Query};
 pub use crate::print::{Sender, TableRef, TextRef};
+pub use crate::swap_benchmark::SwapBenchmark;
 pub use gmp::Backend;
 pub use time_primitives::NetworkId;
 
@@ -1239,7 +1241,7 @@ impl Tc {
 		src_plugin: Address32,
 		dst_zen: Address32,
 		dst_plugin: Address32,
-	) -> Result<()> {
+	) -> Result<MessageId> {
 		let src_backend = self.config.backend(src)?;
 		let dest_backend = self.config.backend(dst)?;
 		let src_config = self.config.network(src)?;
@@ -1259,10 +1261,11 @@ impl Tc {
 		let dst_contracts =
 			dst_contracts.to_address32(dst, |net, addr| self.parse_address(net, addr))?;
 		let connector = self.connector(src)?;
-		connector
+		let msg_id = connector
 			.send_swap(dst, src_zen, src_plugin, dst_zen, dst_plugin, src_contracts, dst_contracts)
 			.await?;
-		Ok(())
+		tracing::info!("received msg_id: {:?} for swap", msg_id);
+		Ok(msg_id)
 	}
 
 	pub async fn estimate_message_gas_limit(

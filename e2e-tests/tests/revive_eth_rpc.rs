@@ -1,15 +1,13 @@
 use anyhow::{Context, Result};
+use e2e_tests::{Backend, TestEnv, Tester};
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, BlockTag};
 use pallet_revive_eth_rpc::EthRpcClient;
-use std::process::{Child, Command};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child as TokioChild, Command as TokioCommand};
 use tokio::time::sleep;
 
-/// Test that connects to a running pallet-revive-eth-rpc node and performs basic Ethereum JSON-RPC calls
+/// Test that connects to a running timechain node and performs basic Ethereum JSON-RPC calls
 async fn test_revive_eth_rpc_connection(rpc_url: &str) -> Result<()> {
 	// Create a client using the EthRpcClient trait
 	let client = Arc::new(HttpClientBuilder::default().build(rpc_url)?);
@@ -47,46 +45,25 @@ async fn test_revive_eth_rpc_connection(rpc_url: &str) -> Result<()> {
 	Ok(())
 }
 
-/// Starts the pallet-revive-eth-rpc node in a separate process
-fn start_revive_eth_rpc_node() -> Result<Child> {
-	println!("Starting pallet-revive-eth-rpc node");
+#[tokio::test]
+async fn revive_eth_rpc() -> Result<()> {
+	// Create a test environment with the timechain node
+	let (env, _tester) = TestEnv::new(Backend::Evm, false)?;
 
-	// Start the node process
-	Command::new("cargo")
-		.env("RUST_LOG", "info,eth-rpc=debug")
-		.args(["run", "--release", "-p", "pallet-revive-eth-rpc", "--", "--dev"])
-		.spawn()
-		.context("Failed to start pallet-revive-eth-rpc node")
-}
+	// Get the validator container and its URL
+	let validator = env.validator_container();
+	let host = validator.get_host().await?;
+	// TODO: run in chronicle by default or make it conditional using feature = testing
+	let port = validator.get_mapped_port(8545).await?;
 
-/// Starts the node and waits for it to be ready before testing
-async fn start_and_wait_for_node(rpc_url: &str) -> Result<()> {
-	// Start the node process
-	let mut node_process = start_revive_eth_rpc_node()?;
+	// The URL where the Ethereum JSON-RPC is exposed on the timechain node
+	let eth_rpc_url = format!("http://{}:{}", host, port);
+	println!("Connecting to Ethereum JSON-RPC at: {}", eth_rpc_url);
 
-	// Wait for the node to start up
+	// Wait for the node to fully start up
 	println!("Waiting for node to start up...");
 	sleep(Duration::from_secs(10)).await;
 
-	// Make sure to kill the process when the test ends
-	let result = tokio::select! {
-		_ = tokio::signal::ctrl_c() => {
-			println!("Received Ctrl+C, shutting down...");
-			Ok(())
-		}
-		result = test_revive_eth_rpc_connection(rpc_url) => result,
-	};
-
-	// Kill the node process
-	let _ = node_process.kill();
-
-	result
-}
-
-#[tokio::test]
-async fn revive_eth_rpc() -> Result<()> {
-	// The URL where the pallet-revive-eth-rpc will be running
-	let eth_rpc_url = "http://127.0.0.1:8545";
-
-	start_and_wait_for_node(eth_rpc_url).await
+	// Run the Ethereum RPC tests
+	test_revive_eth_rpc_connection(&eth_rpc_url).await
 }

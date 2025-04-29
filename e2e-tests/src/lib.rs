@@ -78,7 +78,6 @@ impl TestEnvBuilder {
 			.with_network(network.clone())
 			.with_env_var("RUST_LOG", "info,eth-rpc=debug")
 			.with_cmd(["--dev"])
-			.with_mount(Mount::bind_mount(eth_rpc_mount.to_str().unwrap(), "/state"))
 			.start()
 			.await?;
 		drop(guard);

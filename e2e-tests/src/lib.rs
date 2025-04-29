@@ -31,6 +31,8 @@ fn try_init_logger() {
 pub struct TestEnvBuilder {
 	temp: TempDir,
 	network: String,
+	eth_rpc_name: String,
+	eth_rpc: Container,
 	validator_name: String,
 	validator: Container,
 	chains: HashMap<NetworkId, Container>,
@@ -64,6 +66,25 @@ impl TestEnvBuilder {
 		tracing::info!("workspace: {}", workspace.display());
 		tracing::info!("tempdir: {}", temp.path().display());
 
+		let eth_rpc_name = format!("{network}-eth-rpc");
+		let eth_rpc_mount = temp.path().join("eth");
+		std::fs::create_dir_all(&eth_rpc_mount)?;
+		let guard = PORT_LOCK.lock().unwrap();
+		let eth_rpc_port = pick_free_port()?;
+		let eth_rpc = GenericImage::new("paritypr/eth-rpc", "8165_merge-43f622a")
+			.with_exposed_port(8545.tcp())
+			.with_mapped_port(eth_rpc_port, 8545.tcp())
+			.with_container_name(eth_rpc_name.clone())
+			.with_network(network.clone())
+			.with_env_var("RUST_LOG", "info,eth-rpc=debug")
+			.with_cmd(["--dev"])
+			.with_mount(Mount::bind_mount(eth_rpc_mount.to_str().unwrap(), "/state"))
+			.start()
+			.await?;
+		drop(guard);
+		let eth_rpc_host = eth_rpc.get_host().await?;
+		let eth_rpc_url = format!("ws://{eth_rpc_host}:{eth_rpc_port}");
+
 		let validator_name = format!("{network}-validator");
 		let validator_mount = temp.path().join("tc");
 		std::fs::create_dir_all(&validator_mount)?;
@@ -95,6 +116,8 @@ impl TestEnvBuilder {
 		Ok(Self {
 			temp,
 			network,
+			eth_rpc_name,
+			eth_rpc,
 			validator_name,
 			validator,
 			chains: Default::default(),
@@ -105,6 +128,7 @@ impl TestEnvBuilder {
 					testers_path: "testers.csv".into(),
 					chronicle_funds: "1.".into(),
 					timechain_url: validator_url,
+					eth_rpc_url,
 				},
 				backends: {
 					let mut backends = HashMap::default();

@@ -77,7 +77,7 @@ fi
 
 # Build docker image
 forge build --root analog-gmp
-cargo zigbuild -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
+cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
 mkdir -p $WORKSPACE_ROOT/target/docker/chronicle
@@ -93,7 +93,7 @@ build_image () {
 	mkdir -p $CONTEXT
 	if ! cmp -s $TARGET "$CONTEXT/$1"; then
 		cp $TARGET $CONTEXT
-		docker build --no-cache $CONTEXT -f $WORKSPACE_ROOT/"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
+		docker build $CONTEXT -f $WORKSPACE_ROOT/"config/docker/Dockerfile.$1" -t "analoglabs/$1-$environment"
 	fi
 }
 

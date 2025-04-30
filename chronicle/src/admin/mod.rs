@@ -24,7 +24,7 @@ struct InnerState {
 
 #[derive(Default, Serialize)]
 struct Blocks {
-	block: u64,
+	timechain_block: u64,
 	target_block: u64,
 }
 
@@ -45,9 +45,9 @@ impl State {
 				let mut inner = self.inner.lock().await;
 				inner.shards = shards;
 			},
-			AdminMsg::NewBlock(block) => {
+			AdminMsg::NewBlock(timechain_block) => {
 				let mut inner = self.inner.lock().await;
-				inner.blocks.block = block;
+				inner.blocks.timechain_block = timechain_block;
 			},
 			AdminMsg::NewTargetBlock(target_block) => {
 				let mut inner = self.inner.lock().await;

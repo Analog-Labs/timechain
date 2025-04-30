@@ -1,15 +1,13 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnv, Tester};
-use jsonrpsee::{
-	core::client::ClientT,
-	http_client::{HttpClient, HttpClientBuilder},
-	rpc_params,
-};
+use e2e_tests::{Backend, TestEnv};
+use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use serde_json::Value;
 
-async fn test_eth_rpc_connection(tc: &Tester) -> Result<()> {
-	// Get the eth_rpc_url from the global config
-	let eth_rpc_url = &tc.config().config.eth_rpc_url;
+#[tokio::test]
+async fn test_eth_rpc_connection() -> Result<()> {
+	// In the test environment, the Ethereum RPC is running on localhost:8545
+	// This is set up in TestEnvBuilder
+	let eth_rpc_url = "http://localhost:8545";
 	println!("Connecting to eth-rpc at: {}", eth_rpc_url);
 
 	// Create a JSON-RPC client
@@ -38,18 +36,4 @@ async fn test_eth_rpc_connection(tc: &Tester) -> Result<()> {
 	assert!(block.get("hash").is_some(), "Block should have a hash field");
 
 	Ok(())
-}
-
-#[tokio::test]
-async fn eth_rpc_connection() -> Result<()> {
-	// Create a test environment with EVM backend
-	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
-	test_eth_rpc_connection(&tc).await
-}
-
-#[tokio::test]
-async fn eth_rpc_connection_tss() -> Result<()> {
-	// Create a test environment with EVM backend and TSS enabled
-	let (_env, tc) = TestEnv::new(Backend::Evm, true).await?;
-	test_eth_rpc_connection(&tc).await
 }

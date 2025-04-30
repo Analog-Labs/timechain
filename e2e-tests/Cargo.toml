@@ -12,6 +12,9 @@ repository.workspace = true
 anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true
+jsonrpsee = { version = "0.24.9", features = ["http-client"] }
+serde.workspace = true
+serde_json.workspace = true
 serde_yaml = "0.9.34"
 tar = "0.4.44"
 tc-cli= { path = "../tc-cli", features = ["testnet", "develop"] }

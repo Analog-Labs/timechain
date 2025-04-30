@@ -71,8 +71,7 @@ impl TestEnvBuilder {
 		std::fs::create_dir_all(&eth_rpc_mount)?;
 		let guard = PORT_LOCK.lock().unwrap();
 		let eth_rpc_port = pick_free_port()?;
-		// TODO: test locally
-		let eth_rpc = GenericImage::new("paritypr/eth-rpc", "8165_merge-43f622a")
+		let eth_rpc = GenericImage::new("paritypr/eth-rpc", "master-3ff1b1db")
 			.with_exposed_port(8545.tcp())
 			.with_mapped_port(eth_rpc_port, 8545.tcp())
 			.with_container_name(eth_rpc_name.clone())

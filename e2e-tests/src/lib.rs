@@ -66,24 +66,6 @@ impl TestEnvBuilder {
 		tracing::info!("workspace: {}", workspace.display());
 		tracing::info!("tempdir: {}", temp.path().display());
 
-		let eth_rpc_name = format!("{network}-eth-rpc");
-		let eth_rpc_mount = temp.path().join("eth");
-		std::fs::create_dir_all(&eth_rpc_mount)?;
-		let guard = PORT_LOCK.lock().unwrap();
-		let eth_rpc_port = pick_free_port()?;
-		let eth_rpc = GenericImage::new("paritypr/eth-rpc", "master-3ff1b1db")
-			.with_exposed_port(8545.tcp())
-			.with_mapped_port(eth_rpc_port, 8545.tcp())
-			.with_container_name(eth_rpc_name.clone())
-			.with_network(network.clone())
-			.with_env_var("RUST_LOG", "info,eth-rpc=debug")
-			.with_cmd(["--dev"])
-			.start()
-			.await?;
-		drop(guard);
-		let eth_rpc_host = eth_rpc.get_host().await?;
-		let eth_rpc_url = format!("ws://{eth_rpc_host}:{eth_rpc_port}");
-
 		let validator_name = format!("{network}-validator");
 		let validator_mount = temp.path().join("tc");
 		std::fs::create_dir_all(&validator_mount)?;
@@ -112,6 +94,24 @@ impl TestEnvBuilder {
 		drop(guard);
 		let validator_host = validator.get_host().await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
+
+		let eth_rpc_name = format!("{network}-eth-rpc");
+		let eth_rpc_mount = temp.path().join("eth");
+		std::fs::create_dir_all(&eth_rpc_mount)?;
+		let guard = PORT_LOCK.lock().unwrap();
+		let eth_rpc_port = pick_free_port()?;
+		let eth_rpc = GenericImage::new("paritypr/eth-rpc", "master-3ff1b1db")
+			.with_exposed_port(8545.tcp())
+			.with_mapped_port(eth_rpc_port, 8545.tcp())
+			.with_container_name(eth_rpc_name.clone())
+			.with_network(network.clone())
+			.with_env_var("RUST_LOG", "info,eth-rpc=debug")
+			.with_cmd(["--dev"])
+			.start()
+			.await?;
+		drop(guard);
+		let eth_rpc_host = eth_rpc.get_host().await?;
+		let eth_rpc_url = format!("ws://{eth_rpc_host}:{eth_rpc_port}");
 		Ok(Self {
 			temp,
 			network,

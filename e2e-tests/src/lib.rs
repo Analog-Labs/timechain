@@ -117,10 +117,12 @@ impl TestEnvBuilder {
 							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
 							tester: workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
 							zenswap: Some(
-								workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
+								workspace.join("analog-gmp/out/ZenSwap.sol/ZenSwap.json"),
 							),
 							zenswap_plugin: Some(
-								workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
+								workspace.join(
+									"analog-gmp/out/ZenSwapGmpPlugin.sol/ZenSwapGmpPlugin.json",
+								),
 							),
 						},
 					);

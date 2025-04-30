@@ -191,9 +191,7 @@ enum Command {
 		src: NetworkId,
 		dest: NetworkId,
 		#[arg(long, default_value = "2")]
-		num_swap_per_block: u16,
-		#[arg(long, default_value = "10")]
-		num_blocks: BlockNumber,
+		total_swaps: u64,
 	},
 	Log {
 		#[clap(subcommand)]
@@ -461,12 +459,7 @@ async fn real_main() -> Result<()> {
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
-		Command::SwapBenchmark {
-			src,
-			dest,
-			num_swap_per_block,
-			num_blocks,
-		} => {
+		Command::SwapBenchmark { src, dest, total_swaps } => {
 			// let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 			// let (d_zen, d_plug) =
 			// 	if src != dest { tc.deploy_zenswap(dest, block).await? } else { (zen, plug) };
@@ -495,17 +488,8 @@ async fn real_main() -> Result<()> {
 			);
 
 			// let (block_hash, _) = tc.latest_block().await?;
-			let mut benchmark = SwapBenchmark::new(
-				tc,
-				src,
-				dest,
-				zen,
-				plug,
-				d_zen,
-				d_plug,
-				num_swap_per_block,
-				num_blocks,
-			);
+			let mut benchmark =
+				SwapBenchmark::new(tc, src, dest, zen, plug, d_zen, d_plug, total_swaps);
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},

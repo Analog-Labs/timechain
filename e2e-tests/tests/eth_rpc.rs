@@ -7,7 +7,7 @@ use serde_json::Value;
 async fn test_eth_rpc_connection() -> Result<()> {
 	// In the test environment, the Ethereum RPC is running on localhost:8545
 	// This is set up in TestEnvBuilder
-	let eth_rpc_url = "http://localhost:8545";
+	let eth_rpc_url = "http://eth-rpc:8545";
 	println!("Connecting to eth-rpc at: {}", eth_rpc_url);
 
 	// Create a JSON-RPC client

@@ -224,7 +224,6 @@ pub struct GlobalConfig {
 	pub testers_path: PathBuf,
 	pub chronicle_funds: String,
 	pub timechain_url: String,
-	pub eth_rpc_url: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

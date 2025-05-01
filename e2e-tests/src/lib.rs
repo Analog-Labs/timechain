@@ -31,8 +31,6 @@ fn try_init_logger() {
 pub struct TestEnvBuilder {
 	temp: TempDir,
 	network: String,
-	eth_rpc_name: String,
-	eth_rpc: Container,
 	validator_name: String,
 	validator: Container,
 	chains: HashMap<NetworkId, Container>,
@@ -115,8 +113,6 @@ impl TestEnvBuilder {
 		Ok(Self {
 			temp,
 			network,
-			eth_rpc_name,
-			eth_rpc,
 			validator_name,
 			validator,
 			chains: Default::default(),
@@ -127,7 +123,6 @@ impl TestEnvBuilder {
 					testers_path: "testers.csv".into(),
 					chronicle_funds: "1.".into(),
 					timechain_url: validator_url,
-					eth_rpc_url,
 				},
 				backends: {
 					let mut backends = HashMap::default();

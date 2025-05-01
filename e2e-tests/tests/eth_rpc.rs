@@ -34,24 +34,24 @@ async fn test_eth_rpc_connection(eth_rpc_url: String) -> Result<()> {
 
 #[tokio::test]
 async fn eth_rpc_evm() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
-	test_eth_rpc_connection(tc.eth_rpc_url).await
+	let (env, _tc) = TestEnv::new(Backend::Evm, false).await?;
+	test_eth_rpc_connection(env.eth_rpc_url).await
 }
 
 #[tokio::test]
 async fn eth_rpc_grpc() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Grpc, false).await?;
-	test_eth_rpc_connection(tc.eth_rpc_url).await
+	let (env, _tc) = TestEnv::new(Backend::Grpc, false).await?;
+	test_eth_rpc_connection(env.eth_rpc_url).await
 }
 
 #[tokio::test]
 async fn eth_rpc_grpc_tss() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Grpc, true).await?;
-	test_eth_rpc_connection(tc.eth_rpc_url).await
+	let (env, _tc) = TestEnv::new(Backend::Grpc, true).await?;
+	test_eth_rpc_connection(env.eth_rpc_url).await
 }
 
 #[tokio::test]
 async fn eth_rpc_evm_tss() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Evm, true).await?;
-	test_eth_rpc_connection(tc.eth_rpc_url).await
+	let (env, _tc) = TestEnv::new(Backend::Evm, true).await?;
+	test_eth_rpc_connection(env.eth_rpc_url).await
 }

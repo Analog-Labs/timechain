@@ -333,6 +333,7 @@ impl TestEnvBuilder {
 		std::env::set_var("TC_CLI_ENV", &env);
 		Ok(TestEnv {
 			temp: self.temp,
+			eth_rpc_url: self.eth_rpc_url,
 			validator: self.validator,
 			chains: self.chains,
 			chronicles: self.chronicles,
@@ -343,6 +344,7 @@ impl TestEnvBuilder {
 
 pub struct TestEnv {
 	temp: TempDir,
+	pub eth_rpc_url: String,
 	validator: Container,
 	chains: HashMap<NetworkId, Container>,
 	chronicles: HashMap<NetworkId, Vec<Container>>,

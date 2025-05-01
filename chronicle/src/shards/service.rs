@@ -157,9 +157,6 @@ where
 					&span,
 				)?,
 			);
-			if let Err(e) = self.admin_request.send(AdminMsg::JoinedShard(shard_id)).await {
-				event!(parent: &span, Level::ERROR, "admin request failed: {:?}", e);
-			};
 			self.poll_actions(&span, shard_id, block).await;
 		}
 		for shard_id in shards.iter().copied() {
@@ -207,7 +204,7 @@ where
 				self.poll_actions(&span, shard_id, block).await;
 			}
 		}
-		for shard_id in shards {
+		for shard_id in shards.iter().copied() {
 			if self.substrate.get_shard_status(shard_id, block_hash).await? != ShardStatus::Online {
 				continue;
 			}
@@ -221,7 +218,7 @@ where
 				"shard",
 				gmp_shard_id = shard_id,
 			);
-			let (start_sessions, complete_sessions, failed_tasks) = match executor
+			let (start_sessions, complete_sessions, _failed_tasks) = match executor
 				.process_tasks(block_hash, block, shard_id, self.block_height, &span)
 				.await
 			{
@@ -238,13 +235,6 @@ where
 					continue;
 				},
 			};
-			if let Err(e) = self
-				.admin_request
-				.send(AdminMsg::FailedTasks(start_sessions.len() as u64, failed_tasks))
-				.await
-			{
-				event!(parent: &span, Level::ERROR, shard_id, "Admin request failed: {:?}", e);
-			}
 
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
@@ -277,6 +267,9 @@ where
 				self.poll_actions(&span, shard_id, n).await;
 			}
 		}
+		if let Err(e) = self.admin_request.send(AdminMsg::SetShards(shards)).await {
+			event!(parent: &span, Level::ERROR, "admin request failed: {:?}", e);
+		};
 		Ok(())
 	}
 
@@ -388,6 +381,13 @@ where
 						);
 						continue;
 					};
+						if let Err(e) = self.admin_request.send(AdminMsg::NewBlock(block as _)).await {
+							event!(
+								parent: span,
+								Level::ERROR,
+								"Admin request error: {e:?}",
+							);
+						};
 					if block % heartbeat_period == 0 {
 						if send_heartbeat {
 							event!(
@@ -515,7 +515,7 @@ where
 					let _enter = span.enter();
 					if let Some(index) = data {
 						self.block_height = index;
-						if let Err(e) = self.admin_request.send(AdminMsg::TargetBlockReceived).await {
+						if let Err(e) = self.admin_request.send(AdminMsg::NewTargetBlock(index)).await {
 							event!(
 								parent: span,
 								Level::ERROR,

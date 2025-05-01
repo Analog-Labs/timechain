@@ -95,8 +95,8 @@ impl TestEnvBuilder {
 		let validator_host = validator.get_host().await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
 
-		let eth_rpc_name = format!("{network}-eth-rpc");
-		let eth_rpc_mount = temp.path().join("eth");
+		let eth_rpc_name = format!("eth-rpc");
+		let eth_rpc_mount = temp.path().join("tc");
 		std::fs::create_dir_all(&eth_rpc_mount)?;
 		let guard = PORT_LOCK.lock().unwrap();
 		let eth_rpc_port = pick_free_port()?;

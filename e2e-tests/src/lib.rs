@@ -31,6 +31,7 @@ fn try_init_logger() {
 pub struct TestEnvBuilder {
 	temp: TempDir,
 	network: String,
+	eth_rpc_url: String,
 	validator_name: String,
 	validator: Container,
 	chains: HashMap<NetworkId, Container>,
@@ -93,7 +94,7 @@ impl TestEnvBuilder {
 		let validator_host = validator.get_host().await?;
 		let validator_url = format!("ws://{validator_host}:{validator_port}");
 
-		let eth_rpc_name = "pvm-eth-rpc";
+		let eth_rpc_name = format!("{network}-eth-rpc");
 		let eth_rpc_mount = temp.path().join("tc");
 		std::fs::create_dir_all(&eth_rpc_mount)?;
 		let guard = PORT_LOCK.lock().unwrap();
@@ -113,6 +114,7 @@ impl TestEnvBuilder {
 		Ok(Self {
 			temp,
 			network,
+			eth_rpc_url,
 			validator_name,
 			validator,
 			chains: Default::default(),

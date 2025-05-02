@@ -340,7 +340,7 @@ impl IConnector for Connector {
 		let gw = IExecutorInstance::new(address, self.rpc.clone());
 
 		let gw_call = gw.batchExecute(signature, message);
-		let estimated_gas = gw_call.estimate_gas().await?;
+		let estimated_gas = gw_call.estimate_gas().await.map_err(|err| err.to_string())?;
 		let max_gas = std::cmp::max(estimated_gas, gas_limit);
 
 		let tx_hash = gw_call

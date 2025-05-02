@@ -323,7 +323,7 @@ impl IConnector for Connector {
 			s: u256(&sig[32..]),
 		};
 		// Adding extra overhead for gateway call
-		let total_gas = msg.gas().saturating_add(100_000u128);
+		let total_gas = msg.gas().saturating_add(200_000u128);
 		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
 			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
 			u64::MAX
@@ -339,20 +339,31 @@ impl IConnector for Connector {
 		let address = a_addr(gateway);
 		let gw = IExecutorInstance::new(address, self.rpc.clone());
 
-		let tx_hash = gw
-			.batchExecute(signature, message)
-			.gas(gas_limit)
+		let gw_call = gw.batchExecute(signature, message);
+		let estimated_gas = gw_call.estimate_gas().await.map_err(|err| err.to_string())?;
+		let max_gas = std::cmp::max(estimated_gas, gas_limit);
+
+		let receipt = gw_call
+			.gas(max_gas)
 			.send()
 			.await
 			.map_err(|err| {
 				tracing::info!("failed to submit batch: {:?}", err);
 				err.to_string()
 			})?
-			.watch()
+			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
+			.get_receipt()
 			.await
 			.map_err(|err| err.to_string())?;
+		let tx_hash = receipt.transaction_hash;
 
-		tracing::info!("batch {batch} submitted with tx: {tx_hash}");
+		if !receipt.inner.inner.is_success() {
+			let err = format!("batch {batch} failed with tx: {tx_hash}");
+			tracing::error!(err);
+			return Err(err.into());
+		} else {
+			tracing::info!("batch {batch} submitted with tx: {tx_hash}");
+		}
 
 		Ok(())
 	}
@@ -423,7 +434,7 @@ impl IConnectorAdmin for Connector {
 			.send_transaction(WithOtherFields::new(tx))
 			.await?
 			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.watch()
+			.get_receipt()
 			.await?;
 
 		Ok(())
@@ -749,8 +760,9 @@ impl Connector {
 			.send_raw_transaction(&encoded_tx)
 			.await?
 			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.watch()
-			.await?;
+			.get_receipt()
+			.await?
+			.transaction_hash;
 		tracing::info!("factory deployed with tx {tx_hash}");
 
 		Ok(())

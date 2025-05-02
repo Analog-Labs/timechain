@@ -110,7 +110,7 @@ impl TestEnvBuilder {
 			.await?;
 		drop(guard);
 		let eth_rpc_host = eth_rpc.get_host().await?;
-		let eth_rpc_url = format!("ws://{eth_rpc_host}:{eth_rpc_port}");
+		let eth_rpc_url = format!("http://{eth_rpc_host}:{eth_rpc_port}");
 		Ok(Self {
 			temp,
 			network,

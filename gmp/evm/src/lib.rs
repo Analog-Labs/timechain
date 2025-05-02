@@ -323,7 +323,7 @@ impl IConnector for Connector {
 			s: u256(&sig[32..]),
 		};
 		// Adding extra overhead for gateway call
-		let total_gas = msg.gas().saturating_add(100_000u128);
+		let total_gas = msg.gas().saturating_add(200_000u128);
 		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
 			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
 			u64::MAX
@@ -339,9 +339,12 @@ impl IConnector for Connector {
 		let address = a_addr(gateway);
 		let gw = IExecutorInstance::new(address, self.rpc.clone());
 
-		let tx_hash = gw
-			.batchExecute(signature, message)
-			.gas(gas_limit)
+		let gw_call = gw.batchExecute(signature, message);
+		let estimated_gas = gw_call.estimate_gas().await.map_err(|err| err.to_string())?;
+		let max_gas = std::cmp::max(estimated_gas, gas_limit);
+
+		let tx_hash = gw_call
+			.gas(max_gas)
 			.send()
 			.await
 			.map_err(|err| {

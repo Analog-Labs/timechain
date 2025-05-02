@@ -1,5 +1,5 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnv, Tester};
+use e2e_tests::{TestEnv, Tester, TestingBackend};
 use time_primitives::CCTPMessage;
 
 async fn test_cctp(mut tc: Tester) -> Result<()> {
@@ -25,6 +25,22 @@ async fn test_cctp(mut tc: Tester) -> Result<()> {
 	Ok(())
 }
 
+async fn test_zenswap(mut tc: Tester) -> Result<()> {
+	let src = 0;
+	let dst = 1;
+	let (block, _) = tc.latest_block().await?;
+	let (zen, plug) = tc.deploy_zenswap(src, block).await?;
+	let (d_zen, d_plug) =
+		if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
+
+	tc.add_cctp_contract(src, plug)?;
+	let (block_hash, _) = tc.latest_block().await?;
+	tc.set_network_config(src, block_hash).await?;
+	let msg_id = tc.send_swap(src, dst, zen, plug, d_zen, d_plug).await?;
+	tracing::info!("swap sent with msg_id: {:?}", msg_id);
+	Ok(())
+}
+
 #[tokio::test]
 #[ignore]
 async fn cctp() -> Result<()> {
@@ -34,6 +50,16 @@ async fn cctp() -> Result<()> {
 
 #[tokio::test]
 async fn cctp_evm() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	let (_env, tc) = TestEnv::new(TestingBackend::evm_local(), false).await?;
 	test_cctp(tc).await
+}
+
+#[tokio::test]
+async fn zenswap_evm() -> Result<()> {
+	let (_env, tc) = TestEnv::new(
+		TestingBackend::evm_fork("https://sepolia.drpc.org".into(), 8226023u64),
+		false,
+	)
+	.await?;
+	test_zenswap(tc).await
 }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnv, Tester};
+use e2e_tests::{TestEnv, Tester, TestingBackend};
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
 
@@ -80,25 +80,25 @@ async fn validator_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 
 #[tokio::test]
 async fn chronicle_restart_evm_tss() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Evm, true).await?;
+	let (env, tc) = TestEnv::new(TestingBackend::evm_local(), true).await?;
 	chronicle_restart(&env, tc).await
 }
 
 #[tokio::test]
 #[ignore]
 async fn chain_restart_grpc() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
+	let (env, tc) = TestEnv::new(TestingBackend::Grpc, false).await?;
 	chain_restart(&env, tc).await
 }
 
 #[tokio::test]
 async fn chain_restart_evm() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	let (env, tc) = TestEnv::new(TestingBackend::evm_local(), false).await?;
 	chain_restart(&env, tc).await
 }
 
 #[tokio::test]
 async fn validator_restart_grpc() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
+	let (env, tc) = TestEnv::new(TestingBackend::evm_local(), false).await?;
 	validator_restart(&env, tc).await
 }

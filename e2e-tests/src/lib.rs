@@ -7,6 +7,7 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tar::{Archive, Builder};
+use tc_cli::config::SwapPrerequisites;
 use tc_cli::{
 	config::{BackendConfig, ConfigYaml, GlobalConfig, NetworkConfig},
 	NetworkId, Sender, Tc,
@@ -207,7 +208,16 @@ impl TestEnvBuilder {
 		network: NetworkId,
 		shard_size: u16,
 		shard_threshold: u16,
+		fork_url: Option<String>,
+		fork_block: Option<u64>,
 	) -> Result<()> {
+		let fork_path: &str = match (fork_url, fork_block) {
+			(Some(url), Some(block)) => &format!(
+				"--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2",
+				url, block
+			),
+			_ => "",
+		};
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
@@ -254,7 +264,14 @@ impl TestEnvBuilder {
 				coin_id: 1027,
 				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
 				cctp_contracts: None,
-				zenswap: None,
+				zenswap: Some(SwapPrerequisites {
+					universal_router: "4A7b5Da61326A6379179b40d00F57E5bbDC962c2".into(),
+					permit2: "000000000022D473030F116dDEE9F6B43aC78BA3".into(),
+					token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5".into(),
+					msg_transmitter: "acf1ceef35caac005e15888ddb8a3515c41b4872".into(),
+					usdc: "1c7D4B196Cb0C7B01d743Fbc6116a902379C7238".into(),
+					weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14".into(),
+				}),
 			},
 		);
 
@@ -343,7 +360,7 @@ pub struct TestEnv {
 
 impl TestEnv {
 	/// Creates a new test environment.
-	pub async fn new(backend: Backend, tss: bool) -> Result<(Self, Tester)> {
+	pub async fn new(backend: TestingBackend, tss: bool) -> Result<(Self, Tester)> {
 		let mut snapshot = backend.to_string();
 		if tss {
 			snapshot.push_str("-tss");
@@ -353,16 +370,17 @@ impl TestEnv {
 		let (shard_size, shard_threshold) = if tss { (2, 2) } else { (1, 1) };
 		let mut builder = TestEnvBuilder::new(snapshot_path).await?;
 		match backend {
-			Backend::Evm => {
-				builder.add_evm(0, shard_size, shard_threshold).await?;
-				builder.add_evm(1, shard_size, shard_threshold).await?;
+			TestingBackend::Evm { fork_url, fork_block } => {
+				builder
+					.add_evm(0, shard_size, shard_threshold, fork_url.clone(), fork_block)
+					.await?;
+				builder
+					.add_evm(1, shard_size, shard_threshold, fork_url.clone(), fork_block)
+					.await?;
 			},
-			Backend::Grpc => {
+			TestingBackend::Grpc => {
 				builder.add_grpc(0, shard_size, shard_threshold).await?;
 				builder.add_grpc(1, shard_size, shard_threshold).await?;
-			},
-			Backend::Rust => {
-				anyhow::bail!("unsupported backend {backend}");
 			},
 		}
 		let env = builder.build()?;
@@ -468,4 +486,33 @@ fn pick_free_port() -> Result<u16> {
 	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
 	let port = listener.local_addr()?.port();
 	Ok(port)
+}
+
+pub enum TestingBackend {
+	Evm { fork_url: Option<String>, fork_block: Option<u64> },
+	Grpc,
+}
+
+impl TestingBackend {
+	pub fn evm_local() -> Self {
+		TestingBackend::Evm {
+			fork_url: None,
+			fork_block: None,
+		}
+	}
+	pub fn evm_fork(url: String, block: u64) -> Self {
+		TestingBackend::Evm {
+			fork_url: Some(url),
+			fork_block: Some(block),
+		}
+	}
+	pub fn to_config_backend(&self) -> Backend {
+		match self {
+			TestingBackend::Evm { .. } => Backend::Evm,
+			TestingBackend::Grpc => Backend::Grpc,
+		}
+	}
+	pub fn to_string(&self) -> String {
+		self.to_config_backend().to_string()
+	}
 }

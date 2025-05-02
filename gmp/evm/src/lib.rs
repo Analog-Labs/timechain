@@ -11,6 +11,7 @@ use alloy::{
 	},
 	primitives::{B256, U256},
 	providers::{
+		ext::AnvilApi,
 		fillers::{
 			BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
 			WalletFiller,

@@ -1,11 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
-use futures::{Stream, StreamExt};
 use gmp_grpc::{proto, Gmp, GmpServer};
 use gmp_rust::Connector;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use time_primitives::{
 	ConnectorParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId,
 	TssPublicKey,
@@ -93,18 +91,6 @@ impl Gmp for ConnectorWrapper {
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::FinalizedBlockResponse { finalized_block }))
-	}
-
-	type BlockStreamStream =
-		Pin<Box<dyn Stream<Item = Result<proto::BlockStreamResponse, Status>> + Send + 'static>>;
-
-	async fn block_stream(
-		&self,
-		request: Request<proto::BlockStreamRequest>,
-	) -> GmpResult<Self::BlockStreamStream> {
-		let (connector, _) = self.connector(request)?;
-		let stream = connector.block_stream().map(|block| Ok(proto::BlockStreamResponse { block }));
-		Ok(Response::new(stream.boxed()))
 	}
 
 	async fn read_events(

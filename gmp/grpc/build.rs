@@ -17,7 +17,6 @@ fn main() {
 		.method(method("transfer", "Transfer").build())
 		.method(method("balance", "Balance").build())
 		.method(method("finalized_block", "FinalizedBlock").build())
-		.method(method("block_stream", "BlockStream").server_streaming().build())
 		.method(method("read_events", "ReadEvents").build())
 		.method(method("submit_commands", "SubmitCommands").build())
 		.method(method("deploy_gateway", "DeployGateway").build())

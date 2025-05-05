@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use futures::{Stream, StreamExt};
 use redb::{
 	Database, Key, MultimapTableDefinition, ReadableTable, TableDefinition, TypeName, Value,
 	WriteTransaction,
@@ -11,7 +10,6 @@ use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::NamedTempFile;
@@ -43,7 +41,6 @@ pub struct Connector {
 	address: Address32,
 	db: Arc<Database>,
 	_tmpfile: Option<Arc<NamedTempFile>>,
-	rx: async_channel::Receiver<u64>,
 }
 
 impl Connector {
@@ -148,7 +145,6 @@ impl IConnectorBuilder for Connector {
 		tx.open_multimap_table(TESTERS)?;
 		tx.commit()?;
 		let db2 = db.clone();
-		let (tx, rx) = async_channel::unbounded();
 		tokio::task::spawn(async move {
 			let inc_block = move || {
 				let tx = db2.begin_write()?;
@@ -164,7 +160,7 @@ impl IConnectorBuilder for Connector {
 			loop {
 				match inc_block() {
 					Ok(block) => {
-						tx.send(block).await.ok();
+						tracing::info!("new block {block}");
 					},
 					Err(err) => {
 						tracing::error!("{err}");
@@ -178,7 +174,6 @@ impl IConnectorBuilder for Connector {
 			address,
 			db,
 			_tmpfile: tmpfile,
-			rx,
 		})
 	}
 }
@@ -238,11 +233,6 @@ impl IChain for Connector {
 
 	async fn finalized_block(&self) -> Result<u64> {
 		self.block()
-	}
-
-	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		self.rx.clone().boxed()
 	}
 }
 
@@ -661,7 +651,8 @@ mod tests {
 		assert_eq!(chain.balance(gateway).await?, 10_000);
 		chain.set_shards(gateway, &[shard.public_key()]).await?;
 		assert_eq!(&chain.shards(gateway).await?, &[shard.public_key()]);
-		let current = chain.block_stream().next().await.unwrap();
+		tokio::time::sleep(Duration::from_secs(6)).await;
+		let current = chain.finalized_block().await.unwrap();
 		let events = chain.read_events(gateway, block..current, None).await?;
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
 		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
@@ -674,13 +665,15 @@ mod tests {
 			.await?;
 		chain.send_message(src, network, dest, gas_limit, gas_cost, payload).await?;
 		let msg = gmp_msg(src, dest);
-		let current2 = chain.block_stream().next().await.unwrap();
+		tokio::time::sleep(Duration::from_secs(6)).await;
+		let current2 = chain.finalized_block().await.unwrap();
 		let events = chain.read_events(gateway, current..current2, None).await?;
 		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);
 		let cmds = GatewayMessage::new(vec![GatewayOp::SendMessage(msg.clone())]);
 		let sig = shard.sign_gateway_message(network, gateway, 0, &cmds);
 		chain.submit_commands(gateway, 0, cmds, shard.public_key(), sig).await.unwrap();
-		let current = chain.block_stream().next().await.unwrap();
+		tokio::time::sleep(Duration::from_secs(6)).await;
+		let current = chain.finalized_block().await.unwrap();
 		let msgs = chain.recv_messages(dest, current2..current).await?;
 		assert_eq!(msgs, vec![msg]);
 		Ok(())

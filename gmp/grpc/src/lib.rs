@@ -197,12 +197,7 @@ impl IConnectorAdmin for Connector {
 		Ok((response.address, response.block))
 	}
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(
-		&self,
-		_additional_params: &[u8],
-		proxy: Address32,
-		gateway: &[u8],
-	) -> Result<()> {
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let request = Request::new(proto::RedeployGatewayRequest {
 			proxy,
 			gateway: gateway.to_vec(),

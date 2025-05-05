@@ -393,7 +393,7 @@ impl IConnectorAdmin for Connector {
 			return Ok((t_addr(proxy_address), block.number));
 		}
 		// deploy gateway
-		let gateway_address = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
+		let gateway_address = self.deploy_gateway_contract(proxy_address, gateway).await?;
 		// compute proxy arguments
 		let (proxy_address, block) = self
 			.deploy_proxy_contract(&config, proxy_address, gateway_address, proxy)
@@ -402,17 +402,11 @@ impl IConnectorAdmin for Connector {
 		Ok((t_addr(proxy_address), block))
 	}
 	/// Redeploys gateway contract
-	async fn redeploy_gateway(
-		&self,
-		additional_params: &[u8],
-		proxy: Address32,
-		gateway: &[u8],
-	) -> Result<()> {
-		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let gateway = extract_bytecode(gateway)?;
 		let proxy_address = a_addr(proxy);
 
-		let gateway_addr = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
+		let gateway_addr = self.deploy_gateway_contract(proxy_address, gateway).await?;
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};
@@ -762,7 +756,6 @@ impl Connector {
 
 	async fn deploy_gateway_contract(
 		&self,
-		config: &DeploymentConfig,
 		proxy: Address20,
 		mut bytecode: Vec<u8>,
 	) -> Result<Address20> {
@@ -771,13 +764,13 @@ impl Connector {
 			proxy,
 		};
 		bytecode.extend(constructor.abi_encode());
-		let call = sol::IUniversalFactory::create2_0Call {
-			salt: config.deployment_salt.into(),
-			creationCode: bytecode.into(),
-		}
-		.abi_encode();
-		let (gateway_address, _) = self.deploy_contract_with_factory(config, call).await?;
-		tracing::info!("gateway deployed at {}", gateway_address);
+		let tx = TransactionRequest::default().with_deploy_code(bytecode);
+
+		let _guard = self.wallet_guard.lock().await;
+		let receipt =
+			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
+		drop(_guard);
+		let gateway_address = receipt.contract_address().expect("Failed to get contract address");
 
 		Ok(gateway_address)
 	}

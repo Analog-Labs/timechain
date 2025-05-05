@@ -366,12 +366,7 @@ pub trait IConnectorAdmin: IConnector {
 		gateway: &[u8],
 	) -> Result<(Address32, u64)>;
 	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(
-		&self,
-		additional_params: &[u8],
-		proxy: Address32,
-		gateway: &[u8],
-	) -> Result<()>;
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32>;
 	/// Sets the gateway admin.

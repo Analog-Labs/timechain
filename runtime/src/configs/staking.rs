@@ -13,7 +13,8 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	traits::{ConstU32, Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
+	traits::fungible::{Balanced, Debt},
+	traits::{tokens::Preservation, ConstU32, Imbalance, OnUnbalanced},
 	weights::Weight,
 	PalletId,
 };
@@ -216,29 +217,24 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 }
 
 /// Virtual reward pool wallet
-pub struct RewardPool;
-impl RewardPool {
+pub struct RewardPool<R>(core::marker::PhantomData<R>);
+impl<R> RewardPool<R> {
 	/// Return internal virtual wallet id
 	fn account_id() -> AccountId {
 		PalletId(*b"timerwrd").into_account_truncating()
 	}
 }
 
-impl<I, D> OnUnbalanced<frame_support::traits::fungible::Imbalance<Balance, I, D>> for RewardPool
+impl<R> OnUnbalanced<Debt<R::AccountId, pallet_balances::Pallet<Runtime>>> for RewardPool<R>
 where
-	I: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
-	D: frame_support::traits::fungible::HandleImbalanceDrop<Balance>,
+	R: pallet_balances::Config<Balance = Balance>,
+	R: frame_system::Config<AccountId = AccountId>,
 {
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
-	fn on_nonzero_unbalanced(imbalance: frame_support::traits::fungible::Imbalance<Balance, I, D>) {
-		// Convert imbalance to positive imbalance to settle
-		let minted = Balances::deposit_creating(&Self::account_id(), imbalance.peek());
-		if let Err(to_mint) = Balances::settle(
-			&Self::account_id(),
-			minted,
-			WithdrawReasons::TRANSFER,
-			ExistenceRequirement::AllowDeath,
-		) {
+	fn on_nonzero_unbalanced(amount: Debt<R::AccountId, pallet_balances::Pallet<Runtime>>) {
+		if let Err(to_mint) =
+			Balances::settle(&Self::account_id(), amount, Preservation::Expendable)
+		{
 			log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
 		}
 	}
@@ -303,7 +299,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = (); //Treasury; // send the slashed funds to the treasury.
 	/// Pay rewards from reward pool, otherwise mint them.
-	type Reward = RewardPool;
+	type Reward = RewardPool<Runtime>;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;

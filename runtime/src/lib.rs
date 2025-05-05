@@ -93,8 +93,8 @@ pub mod version;
 /// Helpers to handle variant flags
 pub mod variants;
 
+// Important global exports
 pub use apis::RuntimeApi;
-
 pub use version::VERSION;
 
 // The runtime configs and its sections
@@ -138,25 +138,13 @@ use frame_support::{
 	traits::Currency,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
-#[cfg(feature = "testnet")]
-use frame_system::limits::BlockWeights;
-#[cfg(feature = "testnet")]
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
-#[cfg(feature = "runtime-benchmarks")]
-use scale_info::prelude::string::String;
-#[cfg(feature = "testnet")]
-use sp_core::{H160, U256};
 use sp_runtime::generic;
-#[cfg(feature = "testnet")]
-use sp_runtime::traits::TransactionExtension;
 use sp_std::prelude::*;
 
+// Base timechain base primitives
 pub use time_primitives::{
-	AccountId, Address32, Balance, BatchId, BlockHash, BlockNumber, CctpContracts, CctpUrl,
-	ChainName, Commitment, ErrorMsg, GatewayMessage, Header, MemberStatus, MembersInterface,
-	Moment, NetworkId, NetworksInterface, Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId,
-	ShardStatus, Signature, Task, TaskId, TaskResult, TssPublicKey, TssSignature, ANLOG,
+	AccountId, Balance, BlockHash, BlockNumber, Header, Moment, Nonce, Signature, ANLOG,
 	MICROANLOG, MILLIANLOG,
 };
 

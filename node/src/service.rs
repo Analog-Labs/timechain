@@ -539,7 +539,6 @@ where
 		);
 	}
 
-	// Network is started automatically in the latest polkadot-sdk
 	Ok(NewFullBase {
 		task_manager,
 		client,

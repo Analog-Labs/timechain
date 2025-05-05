@@ -1,6 +1,5 @@
 //! Collection of useful utilities extend transactions and wallets.
 
-use crate::System;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 
 use polkadot_sdk::*;
@@ -19,7 +18,7 @@ pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdj
 
 // Local module imports
 use crate::{
-	deposit, weights, Balance, Balances, OriginCaller, Runtime, RuntimeCall, RuntimeEvent,
+	deposit, weights, Balance, Balances, OriginCaller, Runtime, RuntimeCall, RuntimeEvent, System,
 };
 
 /// ## <a id="config.Utility">`Utility` Config</a>

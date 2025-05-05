@@ -1,7 +1,9 @@
 //! Runtime API Implementation
+
 use polkadot_sdk::*;
 
 use scale_codec::Encode;
+#[cfg(feature = "runtime-benchmarks")]
 use scale_info::prelude::string::String;
 
 use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};
@@ -19,6 +21,18 @@ use sp_runtime::{
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
+#[cfg(feature = "testnet")]
+use frame_support::dispatch::DispatchInfo;
+#[cfg(feature = "testnet")]
+use frame_system::limits::BlockWeights;
+#[cfg(feature = "testnet")]
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+#[cfg(feature = "testnet")]
+use sp_core::{H160, U256};
+#[cfg(feature = "testnet")]
+use sp_runtime::traits::TransactionExtension;
+
+// Primitives imports
 pub use time_primitives::{MembersInterface, NetworksInterface};
 
 #[cfg(feature = "testnet")]
@@ -26,6 +40,7 @@ use time_primitives::{
 	Address32, BatchId, BlockNumber, CctpContracts, CctpUrl, ChainName, Commitment, ErrorMsg,
 	GatewayMessage, MemberStatus, NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
 };
+
 // Local module imports
 use super::{
 	AccountId, AuthorityDiscovery, Babe, Balance, Block, EpochDuration, Executive, Grandpa,
@@ -35,7 +50,10 @@ use super::{
 #[cfg(feature = "genesis-builder")]
 use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
-use crate::{Members, Networks, Shards, Tasks};
+use crate::{
+	EthExtraImpl, Members, Networks, Revive, RuntimeBlockWeights, RuntimeOrigin, Shards, Tasks,
+	UncheckedExtrinsic,
+};
 
 sp_api::impl_runtime_apis! {
 

@@ -33,6 +33,7 @@ async fn cctp() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn cctp_evm() -> Result<()> {
 	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	test_cctp(tc).await

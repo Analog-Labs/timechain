@@ -2,6 +2,8 @@ use polkadot_sdk::*;
 
 use sp_version::{Cow, RuntimeVersion};
 
+use crate::apis::RUNTIME_API_VERSIONS;
+
 /// Mainnet runtime version
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
 #[sp_version::runtime_version]
@@ -11,7 +13,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 29,
 	impl_version: 0,
-	apis: crate::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -25,7 +27,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 29,
 	impl_version: 0,
-	apis: crate::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -39,7 +41,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 29,
 	impl_version: 0,
-	apis: crate::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -53,7 +55,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 0,
 	spec_version: 29,
 	impl_version: 0,
-	apis: crate::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };

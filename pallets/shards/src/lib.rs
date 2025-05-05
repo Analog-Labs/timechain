@@ -209,7 +209,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New shard was created
 		ShardCreated(ShardId, NetworkId),
-		/// Shard commited
+		/// Shard committed
 		ShardCommitted(ShardId, Commitment),
 		/// Shard completed dkg and submitted public key to runtime
 		ShardOnline(ShardId, TssPublicKey),

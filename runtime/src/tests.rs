@@ -14,8 +14,8 @@ use sp_core::Pair;
 use sp_runtime::{BoundedVec, Percent};
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ElectionsInterface, Network, NetworkConfig, NetworkId, PublicKey, ShardStatus,
-	ShardsInterface, TasksInterface,
+	AccountId, ChainName, ElectionsInterface, MembersInterface, Network, NetworkConfig, NetworkId,
+	PublicKey, ShardStatus, ShardsInterface, TasksInterface,
 };
 
 fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {

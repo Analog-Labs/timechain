@@ -423,6 +423,7 @@ impl IConnectorAdmin for Connector {
 			.get_receipt()
 			.await?;
 
+		tracing::info!("redeployment done");
 		Ok(())
 	}
 	/// Deploys test contract

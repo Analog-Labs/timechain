@@ -780,6 +780,8 @@ impl Connector {
 		drop(_guard);
 		let gateway_address = receipt.contract_address().expect("Failed to get contract address");
 
+		tracing::info!("Gateway deployed at: {:?}", gateway_address);
+
 		Ok(gateway_address)
 	}
 

@@ -43,7 +43,6 @@ pub struct TimeWorker<Tx, Rx> {
 	network: Tx,
 	tss_request: mpsc::Receiver<TssSigningRequest>,
 	net_request: Rx,
-	block_height: u64,
 	task_params: TaskParams,
 	tss_states: HashMap<ShardId, Tss>,
 	executor_states: HashMap<ShardId, TaskExecutor>,
@@ -85,7 +84,6 @@ where
 			network,
 			tss_request,
 			net_request,
-			block_height: 0,
 			tss_states: Default::default(),
 			executor_states: Default::default(),
 			messages: Default::default(),
@@ -218,23 +216,21 @@ where
 				"shard",
 				gmp_shard_id = shard_id,
 			);
-			let (start_sessions, complete_sessions, _failed_tasks) = match executor
-				.process_tasks(block_hash, block, shard_id, self.block_height, &span)
-				.await
-			{
-				Ok((start_sessions, complete_sessions, failed_tasks)) => {
-					(start_sessions, complete_sessions, failed_tasks)
-				},
-				Err(error) => {
-					event!(
-						parent: &span,
-						Level::INFO,
-						"failed to start tasks: {:?}",
-						error,
-					);
-					continue;
-				},
-			};
+			let (start_sessions, complete_sessions, _failed_tasks) =
+				match executor.process_tasks(block_hash, block, shard_id, &span).await {
+					Ok((start_sessions, complete_sessions, failed_tasks)) => {
+						(start_sessions, complete_sessions, failed_tasks)
+					},
+					Err(error) => {
+						event!(
+							parent: &span,
+							Level::INFO,
+							"failed to start tasks: {:?}",
+							error,
+						);
+						continue;
+					},
+				};
 
 			let Some(tss) = self.tss_states.get_mut(&shard_id) else {
 				continue;
@@ -355,8 +351,6 @@ where
 		// add a future that never resolves to keep outgoing requests alive
 		self.outgoing_requests.push(Box::pin(poll_fn(|_| Poll::Pending)));
 
-		let task_params = self.task_params.clone();
-		let mut block_stream = task_params.block_stream().fuse();
 		let mut block_notifications = self.substrate.block_notification_stream();
 		let mut finality_notifications = self.substrate.finality_notification_stream();
 		let block = finality_notifications.next().await.expect("Finality stream is not active");
@@ -381,13 +375,13 @@ where
 						);
 						continue;
 					};
-						if let Err(e) = self.admin_request.send(AdminMsg::NewBlock(block as _)).await {
-							event!(
-								parent: span,
-								Level::ERROR,
-								"Admin request error: {e:?}",
-							);
-						};
+					if let Err(e) = self.admin_request.send(AdminMsg::NewBlock(block as _)).await {
+						event!(
+							parent: span,
+							Level::ERROR,
+							"Admin request error: {e:?}",
+						);
+					};
 					if block % heartbeat_period == 0 {
 						if send_heartbeat {
 							event!(
@@ -509,19 +503,6 @@ where
 							Level::DEBUG,
 							"sent",
 						);
-					}
-				}
-				data = block_stream.next() => {
-					let _enter = span.enter();
-					if let Some(index) = data {
-						self.block_height = index;
-						if let Err(e) = self.admin_request.send(AdminMsg::NewTargetBlock(index)).await {
-							event!(
-								parent: span,
-								Level::ERROR,
-								"Admin request error: {e:?}",
-							);
-						};
 					}
 				}
 			}

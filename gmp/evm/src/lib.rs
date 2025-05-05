@@ -345,7 +345,7 @@ impl IConnector for Connector {
 		if !receipt.inner.inner.is_success() {
 			let err = format!("batch {batch} failed with tx: {tx_hash}");
 			tracing::error!(err);
-			return Err(err.into());
+			return Err(err);
 		} else {
 			tracing::info!("batch {batch} submitted with tx: {tx_hash}");
 		}

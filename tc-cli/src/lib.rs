@@ -1236,14 +1236,15 @@ impl Tc {
 	pub async fn send_swap(
 		&self,
 		src: NetworkId,
-		dst: NetworkId,
+		dest: NetworkId,
 		src_zen: Address32,
 		src_plugin: Address32,
 		dst_zen: Address32,
 		dst_plugin: Address32,
+		block_hash: BlockHash,
 	) -> Result<MessageId> {
 		let src_backend = self.config.backend(src)?;
-		let dest_backend = self.config.backend(dst)?;
+		let dest_backend = self.config.backend(dest)?;
 		let src_config = self.config.network(src)?;
 		let dst_config = self.config.network(src)?;
 		let (Some(_), Some(_), Some(_), Some(_), Some(src_contracts), Some(dst_contracts)) = (
@@ -1254,15 +1255,29 @@ impl Tc {
 			src_config.zenswap.clone(),
 			dst_config.zenswap.clone(),
 		) else {
-			anyhow::bail!("Swap not supported between {src} {dst}");
+			anyhow::bail!("Swap not supported between {src} {dest}");
 		};
 		let src_contracts =
 			src_contracts.to_address32(src, |net, addr| self.parse_address(net, addr))?;
 		let dst_contracts =
-			dst_contracts.to_address32(dst, |net, addr| self.parse_address(net, addr))?;
+			dst_contracts.to_address32(dest, |net, addr| self.parse_address(net, addr))?;
 		let connector = self.connector(src)?;
+
+		let chain_name =
+			self.runtime.network_name(dest, block_hash).await?.context("invalid network")?;
+		let chain_name = String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
+
 		let msg_id = connector
-			.send_swap(dst, src_zen, src_plugin, dst_zen, dst_plugin, src_contracts, dst_contracts)
+			.send_swap(
+				dest,
+				chain_name,
+				src_zen,
+				src_plugin,
+				dst_zen,
+				dst_plugin,
+				src_contracts,
+				dst_contracts,
+			)
 			.await?;
 		tracing::info!("received msg_id: {:?} for swap", msg_id);
 		Ok(msg_id)

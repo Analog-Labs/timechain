@@ -164,6 +164,8 @@ impl SwapBenchmark {
 						self.src_contracts.1,
 						self.dest_contracts.0,
 						self.dest_contracts.1,
+						// only needed to get the network_chain so old block is fine
+						latest_block.0
 					).await?;
 
 					self.messages.insert(

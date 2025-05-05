@@ -208,16 +208,79 @@ impl TestEnvBuilder {
 		network: NetworkId,
 		shard_size: u16,
 		shard_threshold: u16,
-		fork_url: Option<String>,
-		fork_block: Option<u64>,
 	) -> Result<()> {
-		let fork_path: &str = match (fork_url, fork_block) {
-			(Some(url), Some(block)) => &format!(
-				"--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2",
-				url, block
-			),
-			_ => "",
-		};
+		// add chain to docker compose
+		let chain_port = pick_free_port()?;
+		let chain_name = format!("chain-evm-{network}");
+		let chain_mount = self.temp.path().join(&chain_name);
+		std::fs::create_dir_all(&chain_mount)?;
+		let chain_name = format!("{}-{chain_name}", &self.network);
+		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
+			.with_exposed_port(8545.tcp())
+			.with_mapped_port(chain_port, 8545.tcp())
+			.with_container_name(&chain_name)
+			.with_network(self.network.clone())
+			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
+			.with_cmd([
+				format!("anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 6"),
+			])
+			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
+			.start()
+			.await?;
+		let chain_host = chain.get_host().await?;
+		let chain_url = format!("ws://{chain_host}:{chain_port}");
+		self.chains.insert(network, chain);
+
+		// add network config
+		self.config.networks.insert(
+			network,
+			NetworkConfig {
+				backend: Backend::Evm,
+				name: format!("evm-{network}"),
+				url: chain_url.clone(),
+				admin_funds: Some("10.".into()),
+				gateway_funds: "1.".into(),
+				chronicle_funds: ".1".into(),
+				batch_size: 8,
+				batch_offset: 0,
+				batch_gas_limit: 10_000_000,
+				gmp_margin: 0.,
+				shard_task_limit: 50,
+				route_gas_limit: 10_000_000,
+				route_base_fee: 1_400_000_000,
+				shard_size,
+				shard_threshold,
+				coin_id: 1027,
+				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
+				cctp_contracts: None,
+				zenswap: None,
+			},
+		);
+
+		// add price data
+		self.prices.insert(network, ("ETH".into(), 0.01));
+
+		// add chronicles
+		for i in 0..shard_size {
+			self.add_chronicle(network, Backend::Evm, i, &format!("ws://{chain_name}:8545"))
+				.await?;
+		}
+		Ok(())
+	}
+
+	pub async fn add_evm_fork(
+		&mut self,
+		network: NetworkId,
+		shard_size: u16,
+		shard_threshold: u16,
+		fork_url: String,
+		fork_block: u64,
+	) -> Result<()> {
+		let fork_path: &str = &format!(
+			"--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2",
+			fork_url, fork_block
+		);
+
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
@@ -247,7 +310,7 @@ impl TestEnvBuilder {
 			network,
 			NetworkConfig {
 				backend: Backend::Evm,
-				name: format!("evm-{network}"),
+				name: format!("ethereum sepolia"),
 				url: chain_url.clone(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
@@ -370,13 +433,17 @@ impl TestEnv {
 		let (shard_size, shard_threshold) = if tss { (2, 2) } else { (1, 1) };
 		let mut builder = TestEnvBuilder::new(snapshot_path).await?;
 		match backend {
-			TestingBackend::Evm { fork_url, fork_block } => {
-				builder
-					.add_evm(0, shard_size, shard_threshold, fork_url.clone(), fork_block)
-					.await?;
-				builder
-					.add_evm(1, shard_size, shard_threshold, fork_url.clone(), fork_block)
-					.await?;
+			TestingBackend::Evm { fork_url, fork_block } => match (fork_url, fork_block) {
+				(Some(url), Some(block)) => {
+					builder
+						.add_evm_fork(0, shard_size, shard_threshold, url.clone(), block)
+						.await?;
+					builder.add_evm_fork(1, shard_size, shard_threshold, url, block).await?;
+				},
+				_ => {
+					builder.add_evm(0, shard_size, shard_threshold).await?;
+					builder.add_evm(1, shard_size, shard_threshold).await?;
+				},
 			},
 			TestingBackend::Grpc => {
 				builder.add_grpc(0, shard_size, shard_threshold).await?;

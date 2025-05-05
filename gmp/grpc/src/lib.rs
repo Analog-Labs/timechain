@@ -244,6 +244,7 @@ impl IConnectorAdmin for Connector {
 	async fn send_swap(
 		&self,
 		_dest: NetworkId,
+		_dest_name: String,
 		_src_zenswap_addr: Address32,
 		_src_plugin: Address32,
 		_dst_zenswap_addr: Address32,

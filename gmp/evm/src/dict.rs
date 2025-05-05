@@ -1,7 +1,6 @@
 use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;
-use time_primitives::NetworkId;
 
 type ChainDict = HashMap<u64, Chain>;
 
@@ -36,10 +35,11 @@ pub(crate) fn load(data: &[u8]) -> Result<ChainDict> {
 	Ok(chains.into_iter().map(|c| (c.chain_id, c)).collect::<_>())
 }
 
-pub(crate) fn network_id_to_domain_id(network_id: NetworkId) -> Result<u32> {
-	match network_id {
-		10 => Ok(0),
-		13 => Ok(3),
-		_ => anyhow::bail!("Unsupported chain id"),
+// since network_ids are not same for each deployment depending on chain name in runtime
+pub(crate) fn chain_to_domain_id(chain_name: &str) -> Result<u32> {
+	match chain_name {
+		"ethereum sepolia" => Ok(0),
+		"arbitrum sepolia" => Ok(3),
+		_ => anyhow::bail!("Unsupported chain name for cctp"),
 	}
 }

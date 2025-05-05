@@ -36,7 +36,7 @@ async fn test_zenswap(mut tc: Tester) -> Result<()> {
 	tc.add_cctp_contract(src, plug)?;
 	let (block_hash, _) = tc.latest_block().await?;
 	tc.set_network_config(src, block_hash).await?;
-	let msg_id = tc.send_swap(src, dst, zen, plug, d_zen, d_plug).await?;
+	let msg_id = tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
 	tracing::info!("swap sent with msg_id: {:?}", msg_id);
 	Ok(())
 }

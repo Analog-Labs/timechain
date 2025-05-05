@@ -11,7 +11,6 @@ use alloy::{
 	},
 	primitives::{B256, U256},
 	providers::{
-		ext::AnvilApi,
 		fillers::{
 			BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
 			WalletFiller,
@@ -373,7 +372,8 @@ impl IConnectorAdmin for Connector {
 			receipt.contract_address.ok_or(anyhow!("Unable to get contract address"))?;
 
 		// Message lib deployment
-		let tx = TransactionRequest::default().with_deploy_code(sol::Message::BYTECODE.clone());
+		let msg_lib_code = hex::decode(sol::CIRCLE_MESSAGE_LIB_BYTECODE)?;
+		let tx = TransactionRequest::default().with_deploy_code(msg_lib_code);
 		let receipt =
 			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
 		let lib_addr = receipt
@@ -400,6 +400,7 @@ impl IConnectorAdmin for Connector {
 	async fn send_swap(
 		&self,
 		dest: NetworkId,
+		dest_name: String,
 		src_zenswap_addr: Address32,
 		src_plugin: Address32,
 		dst_zenswap_addr: Address32,
@@ -410,7 +411,7 @@ impl IConnectorAdmin for Connector {
 		let src_usdc = a_addr(src_contracts.usdc);
 		let dst_usdc = a_addr(dst_contracts.usdc);
 
-		let domain_id = network_id_to_domain_id(dest)?;
+		let domain_id = chain_to_domain_id(&dest_name)?;
 		let params = sol::ZenSwapGmpPlugin::PluginParams {
 			destPlugin: a_addr(dst_plugin),
 			recipient: a_addr(dst_zenswap_addr),

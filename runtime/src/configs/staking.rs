@@ -13,7 +13,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	traits::fungible::{Balanced, Debt},
+	traits::fungible::Balanced,
 	traits::{tokens::Preservation, ConstU32, Imbalance, OnUnbalanced},
 	weights::Weight,
 	PalletId,
@@ -32,7 +32,7 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DefaultAdminOrigin, DelegatedStaking, ElectionProviderMultiPhase, EpochDuration,
-	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeEvent,
+	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeDebt, RuntimeEvent,
 	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
 	TransactionPayment, VoterList, ANLOG,
 };
@@ -217,21 +217,17 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 }
 
 /// Virtual reward pool wallet
-pub struct RewardPool<R>(core::marker::PhantomData<R>);
-impl<R> RewardPool<R> {
+pub struct RewardPool;
+impl RewardPool {
 	/// Return internal virtual wallet id
 	fn account_id() -> AccountId {
 		PalletId(*b"timerwrd").into_account_truncating()
 	}
 }
 
-impl<R> OnUnbalanced<Debt<R::AccountId, pallet_balances::Pallet<Runtime>>> for RewardPool<R>
-where
-	R: pallet_balances::Config<Balance = Balance>,
-	R: frame_system::Config<AccountId = AccountId>,
-{
+impl OnUnbalanced<RuntimeDebt> for RewardPool {
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
-	fn on_nonzero_unbalanced(amount: Debt<R::AccountId, pallet_balances::Pallet<Runtime>>) {
+	fn on_nonzero_unbalanced(amount: RuntimeDebt) {
 		if let Err(to_mint) =
 			Balances::settle(&Self::account_id(), amount, Preservation::Expendable)
 		{
@@ -299,7 +295,7 @@ impl pallet_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = (); //Treasury; // send the slashed funds to the treasury.
 	/// Pay rewards from reward pool, otherwise mint them.
-	type Reward = RewardPool<Runtime>;
+	type Reward = RewardPool;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;

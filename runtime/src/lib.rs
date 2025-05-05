@@ -135,6 +135,7 @@ use polkadot_sdk::*;
 
 use frame_support::{
 	parameter_types,
+	traits::fungible::{Credit, Debt},
 	traits::Currency,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
@@ -260,6 +261,11 @@ pub type Executive = frame_executive::Executive<
 // Useful types when handeling currency
 pub type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 pub type PositiveImbalance = <Balances as Currency<AccountId>>::PositiveImbalance;
+
+pub type RuntimeCredit =
+	Credit<<Runtime as frame_system::Config>::AccountId, pallet_balances::Pallet<Runtime>>;
+pub type RuntimeDebt =
+	Debt<<Runtime as frame_system::Config>::AccountId, pallet_balances::Pallet<Runtime>>;
 
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.

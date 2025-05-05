@@ -1,7 +1,5 @@
 use anyhow::Result;
-use futures::{Stream, StreamExt};
 use std::ops::Range;
-use std::pin::Pin;
 use std::sync::Arc;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
@@ -119,21 +117,6 @@ impl IChain for Connector {
 		let request = Request::new(proto::FinalizedBlockRequest {});
 		let response = self.client.lock().await.finalized_block(request).await?;
 		Ok(response.get_ref().finalized_block)
-	}
-	/// Stream of finalized block indexes.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		let request = Request::new(proto::BlockStreamRequest {});
-		futures::executor::block_on(async move {
-			self.client
-				.lock()
-				.await
-				.block_stream(request)
-				.await
-				.unwrap()
-				.into_inner()
-				.filter_map(|res| async { res.ok().map(|msg| msg.block) })
-				.boxed()
-		})
 	}
 }
 

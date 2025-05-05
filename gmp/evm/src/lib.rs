@@ -24,11 +24,8 @@ use alloy::{
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use blocks::FinalizedBlockStream;
 use custom::BEP226;
 use dict::Currency;
-use futures::{Stream, StreamExt};
-use reqwest::Client;
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
 use sol::{
@@ -36,8 +33,7 @@ use sol::{
 	IExecutor::{self, IExecutorInstance},
 	TssKey,
 };
-use std::{ops::Range, pin::Pin, process::Command, sync::Arc, time::Duration};
-use thiserror::Error;
+use std::{ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
@@ -45,13 +41,12 @@ use time_primitives::{
 };
 use tokio::sync::Mutex;
 
-use crate::sol::{ProxyContext, ProxyDigest, CCTP};
+use crate::cctp::CctpHandler;
+use crate::sol::{ProxyContext, ProxyDigest};
 
 type Address20 = alloy::primitives::Address;
-type CctpRetryCount = u8;
-const MAX_CCTP_RETRY: CctpRetryCount = 3;
 
-pub(crate) mod blocks;
+pub(crate) mod cctp;
 pub(crate) mod custom;
 pub(crate) mod dict;
 pub(crate) mod sol;
@@ -84,7 +79,7 @@ pub struct Connector {
 	rpc: Arc<CProvider>,
 	url: String,
 	signer: Arc<LocalSigner<SigningKey>>,
-	cctp_queue: Arc<Mutex<Vec<CctpRequest>>>,
+	cctp: Arc<CctpHandler>,
 	chain_id: u64,
 	currency: Currency,
 	// Temporary fix to avoid nonce overlap
@@ -123,7 +118,7 @@ impl IConnectorBuilder for Connector {
 			url: params.url,
 			rpc: provider,
 			signer: Arc::new(signer),
-			cctp_queue: Default::default(),
+			cctp: Default::default(),
 			chain_id,
 			currency,
 			wallet_guard: Default::default(),
@@ -212,10 +207,6 @@ impl IChain for Connector {
 			.map(|b| b.header.number)
 			.ok_or(anyhow!("failed querying finalized block"))
 	}
-	/// Stream of finalized block indicies
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		Box::pin(FinalizedBlockStream::new(self.rpc.clone()).map(|b| b.header.number))
-	}
 }
 
 #[async_trait]
@@ -258,7 +249,6 @@ impl IConnector for Connector {
 						for key in log.keys.iter() {
 							events.push(GmpEvent::ShardUnregistered(key.clone().into()));
 						}
-						break;
 					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpCreated::decode_log(&log)?;
@@ -272,22 +262,18 @@ impl IConnector for Connector {
 							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
-						if let Some((ref cctp_contracts, ref url)) = cctp_info {
-							if cctp_contracts.contains(&gmp_message.src) {
-								let mut cctp_queue = self.cctp_queue.lock().await;
-								cctp_queue.push(CctpRequest::new(gmp_message.clone(), url.clone()));
-								continue;
-							}
+						if !self.cctp.needs_attestation(&gmp_message, cctp_info.as_ref()) {
+							tracing::info!(
+								"gmp created: {:?}",
+								hex::encode(gmp_message.message_id())
+							);
+							events.push(GmpEvent::MessageReceived(gmp_message));
 						}
-						tracing::info!("gmp created: {:?}", hex::encode(gmp_message.message_id()));
-						events.push(GmpEvent::MessageReceived(gmp_message));
-						break;
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log)?;
 						tracing::info!("gmp executed: {:?}", hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
-						break;
 					},
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::BatchExecuted::decode_log(&log)?;
@@ -295,15 +281,14 @@ impl IConnector for Connector {
 							batch_id: log.batch,
 							tx_hash: outer_log.transaction_hash.map(|hash| hash.into()),
 						});
-						break;
 					},
 					_ => {},
 				}
 			}
 		}
 		// CCTP calls processing
-		let msgs = self.process_cctp_queue().await;
-		for msg in msgs {
+		while let Some(msg) = self.cctp.pop_attested().await {
+			tracing::info!("gmp created: {:?}", hex::encode(msg.message_id()));
 			events.push(GmpEvent::MessageReceived(msg));
 		}
 		Ok(events)
@@ -360,7 +345,7 @@ impl IConnector for Connector {
 		if !receipt.inner.inner.is_success() {
 			let err = format!("batch {batch} failed with tx: {tx_hash}");
 			tracing::error!(err);
-			return Err(err.into());
+			return Err(err);
 		} else {
 			tracing::info!("batch {batch} submitted with tx: {tx_hash}");
 		}
@@ -846,84 +831,6 @@ impl Connector {
 		tracing::info!("proxy deployed at {} {}", proxy_address, block);
 		Ok((proxy_address, block))
 	}
-
-	async fn process_cctp_msg(&self, request: &mut CctpRequest) -> Result<(), CctpError> {
-		let payload = request.msg.bytes.clone();
-		let mut cctp_payload = CCTP::abi_decode(&payload).map_err(|_| CctpError::InvalidPayload)?;
-		if cctp_payload.get_version().map_err(|_| CctpError::InvalidPayload)? != 0 {
-			return Err(CctpError::InvalidVersion);
-		}
-		let burn_message: Vec<u8> = cctp_payload.message.clone().into();
-		let burn_hash: [u8; 32] = sha3::Keccak256::digest(&burn_message).into();
-		let attestation_response = self.get_cctp_attestation(burn_hash, &request.url).await?;
-		let signature =
-			attestation_response.attestation.clone().ok_or(CctpError::AttestationResponse)?;
-		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
-		let attestation = hex::decode(signature).map_err(|_| CctpError::InvalidSignature)?;
-		cctp_payload.attestation = attestation.into();
-		request.msg.bytes = cctp_payload.abi_encode();
-		Ok(())
-	}
-
-	async fn get_cctp_attestation(
-		&self,
-		burn_hash: [u8; 32],
-		uri: &str,
-	) -> Result<AttestationResponse, CctpError> {
-		let uri = uri.trim_end_matches('/');
-		let url = format!("{}/0x{}", uri, hex::encode(burn_hash));
-		let client = Client::new();
-		let response = client
-			.get(&url)
-			.send()
-			.await
-			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?
-			.error_for_status()
-			.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
-		let attestation_response: AttestationResponse =
-			response.json().await.map_err(|e| CctpError::InvalidResponse(e.to_string()))?;
-		if attestation_response.status == "complete" {
-			return Ok(attestation_response);
-		}
-		Err(CctpError::AttestationPending)
-	}
-
-	async fn process_cctp_queue(&self) -> Vec<GmpMessage> {
-		let mut queue = self.cctp_queue.lock().await;
-		if queue.is_empty() {
-			return vec![];
-		}
-
-		let mut attested_msgs = vec![];
-
-		let msgs = std::mem::take(&mut *queue);
-		for mut request in msgs {
-			match self.process_cctp_msg(&mut request).await {
-				Ok(()) => attested_msgs.push(request.msg),
-				Err(CctpError::AttestationPending) => {
-					request.retry_count += 1;
-					if request.retry_count >= MAX_CCTP_RETRY {
-						tracing::info!("Dropping Cctp message due to count: {:?}", request);
-					} else {
-						tracing::info!("Attestation is pending for msg: {:?}", request.msg);
-						queue.push(request);
-					}
-				},
-				Err(error) => {
-					tracing::error!(
-						"Failed to process cctp message: {:?}: {:?}",
-						request.msg,
-						error
-					);
-				},
-			}
-		}
-
-		if !queue.is_empty() {
-			tracing::info!("{} Cctp messages have pending attestations.", queue.len());
-		}
-		attested_msgs
-	}
 }
 
 fn compute_create2_address(
@@ -965,19 +872,6 @@ pub struct DeploymentConfig {
 	pub deployment_salt: [u8; 32],
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct CctpRequest {
-	msg: GmpMessage,
-	url: String,
-	retry_count: CctpRetryCount,
-}
-
-impl CctpRequest {
-	fn new(msg: GmpMessage, url: String) -> Self {
-		Self { msg, url, retry_count: 0 }
-	}
-}
-
 #[derive(Deserialize)]
 struct Contract {
 	bytecode: Bytecode,
@@ -986,26 +880,4 @@ struct Contract {
 #[derive(Deserialize)]
 struct Bytecode {
 	object: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct AttestationResponse {
-	status: String,
-	attestation: Option<String>,
-}
-
-#[derive(Error, Debug)]
-enum CctpError {
-	#[error("Attestation is pending.")]
-	AttestationPending,
-	#[error("Failed to get attestation from response.")]
-	AttestationResponse,
-	#[error("Invalid payload.")]
-	InvalidPayload,
-	#[error("Invalid response {0}.")]
-	InvalidResponse(String),
-	#[error("Invalid signature.")]
-	InvalidSignature,
-	#[error("Cctp version is invalid.")]
-	InvalidVersion,
 }

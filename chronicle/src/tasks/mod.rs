@@ -1,11 +1,11 @@
 use crate::runtime::Runtime;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
-use futures::{SinkExt, Stream};
+use futures::SinkExt;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::Encode;
+use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
 	Address32, BlockHash, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector,
 	NetworkId, ShardId, Task, TaskId, TaskResult, TssSignature, TssSigningRequest, MAX_GMP_EVENTS,
@@ -34,8 +34,8 @@ impl TaskParams {
 		self.connector.network_id()
 	}
 
-	pub fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + '_>> {
-		self.connector.block_stream()
+	async fn finalized_block(&self) -> Result<u64> {
+		self.connector.finalized_block().await
 	}
 
 	async fn tss_sign(
@@ -175,7 +175,6 @@ impl TaskExecutor {
 		block_hash: BlockHash,
 		block_number: BlockNumber,
 		shard_id: ShardId,
-		target_block_height: u64,
 		span: &Span,
 	) -> Result<(Vec<TaskId>, Vec<TaskId>, u64)> {
 		let network = self.params.network();
@@ -203,19 +202,21 @@ impl TaskExecutor {
 				.await?
 				.context("invalid task")?;
 
-			let span = span!(
+			let chain_block = self.params.finalized_block().await?;
+			let span = tracing::span!(
+				parent: span,
 				Level::INFO,
 				"task",
 				gmp_task_id = task_id,
 				gmp_task = %task,
-				chain_block = task.start_block(),
+				chain_block,
 			);
 
-			if target_block_height < task.start_block() {
+			if chain_block < task.start_block() {
 				tracing::debug!(
 					parent: &span,
 					"task scheduled for future {:?}/{:?}",
-					target_block_height,
+					chain_block,
 					task.start_block(),
 				);
 				continue;

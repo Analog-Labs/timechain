@@ -1,12 +1,16 @@
 use crate::cctp::FixedSizeEncodable;
-#[cfg(feature = "std")]
-use crate::U256;
 use crate::{NetworkId, TssPublicKey};
+#[cfg(feature = "std")]
+use crate::{TssSignature, U256};
+#[cfg(feature = "std")]
+use anyhow::Result;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
+#[cfg(feature = "std")]
+use std::ops::Range;
 
 pub type Address32 = [u8; 32];
 pub type MessageId = [u8; 32];
@@ -281,17 +285,6 @@ impl std::fmt::Display for GmpEvent {
 }
 
 #[cfg(feature = "std")]
-use crate::TssSignature;
-#[cfg(feature = "std")]
-use anyhow::Result;
-#[cfg(feature = "std")]
-use futures::Stream;
-#[cfg(feature = "std")]
-use std::ops::Range;
-#[cfg(feature = "std")]
-use std::pin::Pin;
-
-#[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ConnectorParams {
 	pub network_id: NetworkId,
@@ -346,8 +339,6 @@ pub trait IChain: Send + Sync + 'static {
 	async fn balance(&self, address: Address32) -> Result<u128>;
 	/// Returns the last finalized block.
 	async fn finalized_block(&self) -> Result<u64>;
-	/// Stream of finalized block indicies.
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>>;
 }
 
 #[cfg(feature = "std")]

@@ -6792,7 +6792,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
- "thiserror 2.0.12",
  "time-primitives",
  "tokio",
  "tracing",

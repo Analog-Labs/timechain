@@ -413,7 +413,7 @@ impl IConnectorAdmin for Connector {
 
 		let tx = TransactionRequest::default()
 			.with_to(proxy_address)
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call);
 
 		self.rpc
@@ -500,7 +500,7 @@ impl IConnectorAdmin for Connector {
 		};
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call);
 
 		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
@@ -661,7 +661,7 @@ impl Connector {
 	async fn evm_call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call);
 
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
@@ -677,7 +677,7 @@ impl Connector {
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call)
 			.with_value(U256::from(value));
 
@@ -704,7 +704,7 @@ impl Connector {
 
 		let tx = TransactionRequest::default()
 			.with_to(factory_address)
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			// TODO why magic value
 			.with_gas_limit(20_000_000)
 			.with_input(call);
@@ -764,11 +764,18 @@ impl Connector {
 			proxy,
 		};
 		bytecode.extend(constructor.abi_encode());
-		let tx = TransactionRequest::default().with_deploy_code(bytecode);
+		let tx = TransactionRequest::default()
+			.with_chain_id(self.chain_id)
+			.with_deploy_code(bytecode);
 
 		let _guard = self.wallet_guard.lock().await;
-		let receipt =
-			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
+		let receipt = self
+			.rpc
+			.send_transaction(WithOtherFields::new(tx))
+			.await?
+			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
+			.get_receipt()
+			.await?;
 		drop(_guard);
 		let gateway_address = receipt.contract_address().expect("Failed to get contract address");
 

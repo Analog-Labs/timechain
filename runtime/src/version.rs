@@ -1,8 +1,8 @@
-use crate::apis;
-
 use polkadot_sdk::*;
 
 use sp_version::{Cow, RuntimeVersion};
+
+use crate::apis::RUNTIME_API_VERSIONS;
 
 /// Mainnet runtime version
 #[cfg(not(any(feature = "testnet", feature = "develop")))]
@@ -11,9 +11,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("analog-timechain"),
 	impl_name: Cow::Borrowed("analog-timechain"),
 	authoring_version: 0,
-	spec_version: 28,
+	spec_version: 29,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -25,9 +25,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("analog-staging"),
 	impl_name: Cow::Borrowed("analog-staging"),
 	authoring_version: 0,
-	spec_version: 28,
+	spec_version: 29,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -39,9 +39,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("analog-testnet"),
 	impl_name: Cow::Borrowed("analog-testnet"),
 	authoring_version: 0,
-	spec_version: 28,
+	spec_version: 29,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
@@ -53,9 +53,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("analog-develop"),
 	impl_name: Cow::Borrowed("analog-develop"),
 	authoring_version: 0,
-	spec_version: 28,
+	spec_version: 29,
 	impl_version: 0,
-	apis: apis::RUNTIME_API_VERSIONS,
+	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };

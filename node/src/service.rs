@@ -341,7 +341,7 @@ where
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -500,7 +500,7 @@ where
 			config: grandpa_config,
 			link: grandpa_link,
 			network: network.clone(),
-			sync: Arc::new(sync_service.clone()),
+			sync: sync_service.clone(),
 			notification_service: grandpa_notification_service,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			voting_rule: sc_consensus_grandpa::VotingRulesBuilder::default().build(),
@@ -539,12 +539,11 @@ where
 		);
 	}
 
-	network_starter.start_network();
 	Ok(NewFullBase {
 		task_manager,
 		client,
 		network,
-		sync: sync_service,
+		sync: sync_service.clone(),
 		transaction_pool,
 		rpc_handlers,
 	})

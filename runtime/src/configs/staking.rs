@@ -2,6 +2,7 @@
 
 use scale_codec::Decode;
 
+use crate::System;
 use polkadot_sdk::*;
 
 use frame_election_provider_support::{
@@ -12,8 +13,8 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	//traits::tokens::imbalance::ResolveTo,
-	traits::{ConstU32, Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},
+	traits::fungible::Balanced,
+	traits::{tokens::Preservation, ConstU32, Imbalance, OnUnbalanced},
 	weights::Weight,
 	PalletId,
 };
@@ -31,9 +32,9 @@ use time_primitives::BlockNumber;
 use crate::{
 	deposit, weights, AccountId, Balance, Balances, BlockExecutionWeight, BondingDuration,
 	DefaultAdminOrigin, DelegatedStaking, ElectionProviderMultiPhase, EpochDuration,
-	NominationPools, PositiveImbalance, Runtime, RuntimeBlockLength, RuntimeBlockWeights,
-	RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking,
-	Timestamp, TransactionPayment, VoterList, ANLOG,
+	NominationPools, Runtime, RuntimeBlockLength, RuntimeBlockWeights, RuntimeDebt, RuntimeEvent,
+	RuntimeFreezeReason, RuntimeHoldReason, Session, SessionsPerEra, Staking, Timestamp,
+	TransactionPayment, VoterList, ANLOG,
 };
 
 parameter_types! {
@@ -224,15 +225,12 @@ impl RewardPool {
 	}
 }
 
-impl OnUnbalanced<PositiveImbalance> for RewardPool {
+impl OnUnbalanced<RuntimeDebt> for RewardPool {
 	/// Take rewards from special rewards wallet, otherwise mint it via drop
-	fn on_nonzero_unbalanced(imbalance: PositiveImbalance) {
-		if let Err(to_mint) = Balances::settle(
-			&Self::account_id(),
-			imbalance,
-			WithdrawReasons::TRANSFER,
-			ExistenceRequirement::AllowDeath,
-		) {
+	fn on_nonzero_unbalanced(amount: RuntimeDebt) {
+		if let Err(to_mint) =
+			Balances::settle(&Self::account_id(), amount, Preservation::Expendable)
+		{
 			log::warn!("💰 Reward pool drained, to be minted instead: {}", to_mint.peek());
 		}
 	}
@@ -318,8 +316,10 @@ impl pallet_staking::Config for Runtime {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Filter = pallet_nomination_pools::AllPoolMembers<Runtime>;
 }
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &crate::staking_bags::THRESHOLDS;
@@ -385,6 +385,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = NominationPoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = DefaultAdminOrigin;
+	type BlockNumberProvider = System;
+	type Filter = pallet_staking::AllStakers<Runtime>;
 }
 
 parameter_types! {

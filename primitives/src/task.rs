@@ -1,7 +1,7 @@
 use crate::{BatchId, GmpEvent, TssSignature};
 use core::ops::Range;
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
-use scale_codec::{Decode, Encode};
+use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub type TaskId = u64;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub enum Task {
 	ReadGatewayEvents { blocks: Range<u64> },
 	SubmitGatewayMessage { batch_id: BatchId },
@@ -62,15 +62,15 @@ pub const MAX_ERROR_LEN: u32 = 10_000;
 
 /// Bounded vec alias for GMP events submitted in results
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct GmpEvents(pub BoundedVec<GmpEvent, ConstU32<MAX_GMP_EVENTS>>);
 /// Bounded vec alias for SubmitGatewayMessage error
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, TypeInfo, PartialEq, Eq, Clone, Debug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub struct ErrorMsg(pub BoundedVec<u8, ConstU32<MAX_ERROR_LEN>>);
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub enum TaskResult {
 	ReadGatewayEvents {
 		events: GmpEvents,

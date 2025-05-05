@@ -1,10 +1,10 @@
 use crate::cctp::FixedSizeEncodable;
+use crate::{NetworkId, TssPublicKey};
 #[cfg(feature = "std")]
-use crate::TssSignature;
-use crate::{NetworkId, TssPublicKey, U256};
+use crate::{TssSignature, U256};
 #[cfg(feature = "std")]
 use anyhow::Result;
-use scale_codec::{Decode, Encode};
+use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ pub type BatchId = u64;
 
 const GMP_VERSION: &str = "Analog GMP v2";
 
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub struct GmpParams {
 	pub network: NetworkId,
 	pub gateway: Address32,
@@ -41,7 +41,19 @@ impl GmpParams {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Default, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(
+	Debug,
+	Clone,
+	Default,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	TypeInfo,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+)]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
@@ -85,7 +97,7 @@ impl std::fmt::Display for GmpMessage {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub enum GatewayOp {
 	SendMessage(GmpMessage),
 	RegisterShard(
@@ -151,7 +163,7 @@ impl std::fmt::Display for GatewayOp {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, PartialEq)]
+#[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub struct GatewayMessage {
 	pub ops: Vec<GatewayOp>,
 }
@@ -228,7 +240,9 @@ impl BatchBuilder {
 }
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Decode, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(
+	Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd,
+)]
 pub enum GmpEvent {
 	ShardRegistered(
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]

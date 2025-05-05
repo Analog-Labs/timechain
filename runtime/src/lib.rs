@@ -93,9 +93,8 @@ pub mod version;
 /// Helpers to handle variant flags
 pub mod variants;
 
+// Important global exports
 pub use apis::RuntimeApi;
-use apis::_InternalImplRuntimeApis;
-
 pub use version::VERSION;
 
 // The runtime configs and its sections
@@ -136,19 +135,18 @@ use polkadot_sdk::*;
 
 use frame_support::{
 	parameter_types,
+	traits::fungible::{Credit, Debt},
 	traits::Currency,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use pallet_session::historical as pallet_session_historical;
-
 use sp_runtime::generic;
 use sp_std::prelude::*;
 
+// Base timechain base primitives
 pub use time_primitives::{
-	AccountId, Balance, BatchId, BlockHash, BlockNumber, ChainName, Commitment, ErrorMsg,
-	GatewayMessage, Header, MemberStatus, MembersInterface, Moment, NetworkId, NetworksInterface,
-	Nonce, PeerId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, Signature, Task, TaskId,
-	TaskResult, TssPublicKey, TssSignature, ANLOG, MICROANLOG, MILLIANLOG,
+	AccountId, Balance, BlockHash, BlockNumber, Header, Moment, Nonce, Signature, ANLOG,
+	MICROANLOG, MILLIANLOG,
 };
 
 // A few exports that help ease life for downstream crates.
@@ -213,6 +211,36 @@ pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type RuntimeSignedExtra = SignedExtra<Runtime>;
 
+#[cfg(feature = "testnet")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct EthExtraImpl;
+
+#[cfg(feature = "testnet")]
+impl pallet_revive::evm::runtime::EthExtra for EthExtraImpl {
+	type Config = Runtime;
+	type Extension = RuntimeSignedExtra;
+
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+		(
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::from(generic::Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			PrevalidateFeeless::<Runtime>::new(),
+		)
+	}
+}
+
+#[cfg(feature = "testnet")]
+/// Unchecked extrinsic type as expected by this runtime.
+pub type UncheckedExtrinsic =
+	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
+#[cfg(not(feature = "testnet"))]
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, RuntimeSignedExtra>;
@@ -233,6 +261,11 @@ pub type Executive = frame_executive::Executive<
 // Useful types when handeling currency
 pub type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 pub type PositiveImbalance = <Balances as Currency<AccountId>>::PositiveImbalance;
+
+pub type RuntimeCredit =
+	Credit<<Runtime as frame_system::Config>::AccountId, pallet_balances::Pallet<Runtime>>;
+pub type RuntimeDebt =
+	Debt<<Runtime as frame_system::Config>::AccountId, pallet_balances::Pallet<Runtime>>;
 
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
@@ -603,10 +636,21 @@ mod runtime {
 
 	#[runtime::pallet_index(39)]
 	pub type Dmail = pallet_dmail;
+
+	// Smart Contracts
+
+	#[runtime::pallet_index(50)]
+	pub type Revive = pallet_revive;
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = ();
+type Migrations = (
+	pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
+	>,
+);
 
 #[cfg(test)]
 mod core_tests {

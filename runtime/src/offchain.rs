@@ -5,18 +5,30 @@ use scale_codec::Encode;
 use polkadot_sdk::*;
 
 use sp_runtime::{
-	generic::Era,
+	generic::{self, Era},
 	traits::{SaturatedConversion, StaticLookup, Verify},
 };
 use time_primitives::Signature;
 
 // Local module imports
-#[cfg(feature = "testnet")]
-use super::PrevalidateFeeless;
 use super::{
 	AccountId, BlockHashCount, Nonce, Runtime, RuntimeCall, SignedPayload, System,
 	UncheckedExtrinsic,
 };
+#[cfg(feature = "testnet")]
+use super::{PrevalidateFeeless, RuntimeSignedExtra};
+
+#[cfg(feature = "testnet")]
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extension = RuntimeSignedExtra;
+
+	fn create_transaction(call: RuntimeCall, extension: RuntimeSignedExtra) -> UncheckedExtrinsic {
+		generic::UncheckedExtrinsic::new_transaction(call, extension).into()
+	}
+}
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
@@ -61,7 +73,9 @@ where
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
 		let address = <Runtime as frame_system::Config>::Lookup::unlookup(account);
 		let (call, extra, _) = raw_payload.deconstruct();
-		Some(UncheckedExtrinsic::new_signed(call, address, signature, extra))
+		let transaction =
+			generic::UncheckedExtrinsic::new_signed(call, address, signature, extra).into();
+		Some(transaction)
 	}
 }
 
@@ -70,7 +84,7 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
-		UncheckedExtrinsic::new_bare(call)
+		generic::UncheckedExtrinsic::new_bare(call).into()
 	}
 }
 

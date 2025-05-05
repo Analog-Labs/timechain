@@ -3,17 +3,16 @@
 use polkadot_sdk::*;
 
 use scale_codec::Encode;
+#[cfg(feature = "runtime-benchmarks")]
 use scale_info::prelude::string::String;
 
 use frame_support::{traits::KeyOwnerProofSystem, weights::Weight};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
-use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::KeyTypeId;
 use sp_core::OpaqueMetadata;
 use sp_inherents::{CheckInherentsResult, InherentData};
-use sp_metadata_ir::RuntimeApiMetadataIR;
 use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionSource, TransactionValidity},
@@ -22,6 +21,18 @@ use sp_runtime::{
 use sp_std::prelude::*;
 use sp_version::RuntimeVersion;
 
+#[cfg(feature = "testnet")]
+use frame_support::dispatch::DispatchInfo;
+#[cfg(feature = "testnet")]
+use frame_system::limits::BlockWeights;
+#[cfg(feature = "testnet")]
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+#[cfg(feature = "testnet")]
+use sp_core::{H160, U256};
+#[cfg(feature = "testnet")]
+use sp_runtime::traits::TransactionExtension;
+
+// Primitives imports
 pub use time_primitives::{MembersInterface, NetworksInterface};
 
 #[cfg(feature = "testnet")]
@@ -29,6 +40,7 @@ use time_primitives::{
 	Address32, BatchId, BlockNumber, CctpContracts, CctpUrl, ChainName, Commitment, ErrorMsg,
 	GatewayMessage, MemberStatus, NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
 };
+
 // Local module imports
 use super::{
 	AccountId, AuthorityDiscovery, Babe, Balance, Block, EpochDuration, Executive, Grandpa,
@@ -38,25 +50,12 @@ use super::{
 #[cfg(feature = "genesis-builder")]
 use crate::RuntimeGenesisConfig;
 #[cfg(feature = "testnet")]
-use crate::{Members, Networks, Shards, Tasks};
+use crate::{
+	EthExtraImpl, Members, Networks, Revive, RuntimeBlockWeights, RuntimeOrigin, Shards, Tasks,
+	UncheckedExtrinsic,
+};
 
-// Original Author: ntn-x2 @ KILTprotocol
-// Workaround for runtime API impls not exposed in metadata if implemented in a
-// different file than the runtime's `lib.rs`. Related issue (subxt) -> https://github.com/paritytech/subxt/issues/1873.
-pub(crate) trait _InternalImplRuntimeApis {
-	fn runtime_metadata(&self) -> Vec<RuntimeApiMetadataIR>;
-}
-impl<T> _InternalImplRuntimeApis for T
-where
-	T: InternalImplRuntimeApis,
-{
-	#[inline(always)]
-	fn runtime_metadata(&self) -> Vec<RuntimeApiMetadataIR> {
-		<T as InternalImplRuntimeApis>::runtime_metadata(self)
-	}
-}
-
-impl_runtime_apis! {
+sp_api::impl_runtime_apis! {
 
 	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
@@ -413,6 +412,172 @@ impl_runtime_apis! {
 		}
 	}
 
+	#[cfg(feature = "testnet")]
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime
+	{
+		fn balance(address: H160) -> U256 {
+			Revive::evm_balance(&address)
+		}
+
+		fn block_gas_limit() -> U256 {
+			Revive::evm_block_gas_limit()
+		}
+
+		fn gas_price() -> U256 {
+			Revive::evm_gas_price()
+		}
+
+		fn nonce(address: H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
+
+		fn eth_transact(tx: pallet_revive::evm::GenericTransaction) -> Result<pallet_revive::EthTransactInfo<Balance>, pallet_revive::EthTransactError>
+		{
+			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
+			let tx_fee = |pallet_call, mut dispatch_info: DispatchInfo| {
+				let call = RuntimeCall::Revive(pallet_call);
+				dispatch_info.extension_weight = EthExtraImpl::get_eth_extension(0, 0u32.into()).weight(&call);
+				let uxt: UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
+
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
+					uxt.encoded_size() as u32,
+					&dispatch_info,
+					0u32.into(),
+				)
+			};
+
+			Revive::bare_eth_transact(tx, blockweights.max_block, tx_fee)
+		}
+
+		fn call(
+			origin: AccountId,
+			dest: H160,
+			value: Balance,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+			input_data: Vec<u8>,
+		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance> {
+			Revive::bare_call(
+				RuntimeOrigin::signed(origin),
+				dest,
+				value,
+				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
+				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
+				input_data,
+			)
+		}
+
+		fn instantiate(
+			origin: AccountId,
+			value: Balance,
+			gas_limit: Option<Weight>,
+			storage_deposit_limit: Option<Balance>,
+			code: pallet_revive::Code,
+			data: Vec<u8>,
+			salt: Option<[u8; 32]>,
+		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance>
+		{
+			Revive::bare_instantiate(
+				RuntimeOrigin::signed(origin),
+				value,
+				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
+				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
+				code,
+				data,
+				salt,
+			)
+		}
+
+		fn upload_code(
+			origin: AccountId,
+			code: Vec<u8>,
+			storage_deposit_limit: Option<Balance>,
+		) -> pallet_revive::CodeUploadResult<Balance>
+		{
+			Revive::bare_upload_code(
+				RuntimeOrigin::signed(origin),
+				code,
+				storage_deposit_limit.unwrap_or(u128::MAX),
+			)
+		}
+
+		fn get_storage(
+			address: H160,
+			key: [u8; 32],
+		) -> pallet_revive::GetStorageResult {
+			Revive::get_storage(
+				address,
+				key
+			)
+		}
+
+		fn trace_block(
+			block: Block,
+			config: pallet_revive::evm::TracerConfig
+		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let mut traces = vec![];
+			let (header, extrinsics) = block.deconstruct();
+
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				trace(&mut tracer, || {
+					let _ = Executive::apply_extrinsic(ext);
+				});
+
+				if let Some(tx_trace) = tracer.collect_traces().pop() {
+					traces.push((index as u32, tx_trace));
+				}
+			}
+
+			traces
+		}
+
+		fn trace_tx(
+			block: Block,
+			tx_index: u32,
+			config: pallet_revive::evm::TracerConfig
+		) -> Option<pallet_revive::evm::CallTrace> {
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let (header, extrinsics) = block.deconstruct();
+
+			Executive::initialize_block(&header);
+			for (index, ext) in extrinsics.into_iter().enumerate() {
+				if index as u32 == tx_index {
+					trace(&mut tracer, || {
+					let _ = Executive::apply_extrinsic(ext);
+					});
+					break;
+				} else {
+					let _ = Executive::apply_extrinsic(ext);
+				}
+			}
+
+			tracer.collect_traces().pop()
+		}
+
+		fn trace_call(
+			tx: pallet_revive::evm::GenericTransaction,
+			config: pallet_revive::evm::TracerConfig)
+			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
+		{
+			use pallet_revive::tracing::trace;
+			let mut tracer = config.build(Revive::evm_gas_from_weight);
+			let result = trace(&mut tracer, || Self::eth_transact(tx));
+
+			if let Some(trace) = tracer.collect_traces().pop() {
+				Ok(trace)
+			} else if let Err(err) = result {
+				Err(err)
+			} else {
+				Ok(Default::default())
+			}
+		}
+	}
+
 	// Optional runtime interfaces controlled by feature flags
 
 	/// - __genesis-builder__: support generation of custom genesis
@@ -442,7 +607,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+			use frame_benchmarking::{baseline, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -468,7 +633,7 @@ impl_runtime_apis! {
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{baseline, BenchmarkBatch};
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
 			// issues. To get around that, we separated the Session benchmarks into its own crate,
@@ -523,5 +688,4 @@ impl_runtime_apis! {
 			Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
 		}
 	}
-
 }

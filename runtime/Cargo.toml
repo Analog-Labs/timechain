@@ -57,6 +57,7 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-offences",
 	"pallet-preimage",
 	"pallet-proxy",
+	"pallet-revive",
 	"pallet-scheduler",
 	"pallet-session",
 	"pallet-staking",

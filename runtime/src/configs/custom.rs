@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
-use scale_codec::{Decode, Encode};
+use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 use polkadot_sdk::*;
@@ -100,7 +100,7 @@ impl pallet_dmail::Config for Runtime {
 }
 
 /// Transaction extensions to prevalidate feeless transactions to avoid spam.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct PrevalidateFeeless<T>(PhantomData<fn(T)>);
 

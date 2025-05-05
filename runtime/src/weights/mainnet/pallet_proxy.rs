@@ -204,4 +204,13 @@ impl<T: frame_system::Config> pallet_proxy::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	// New function added to match the latest WeightInfo trait
+	fn poke_deposit() -> Weight {
+		// This is a placeholder implementation
+		Weight::from_parts(13_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 4706))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

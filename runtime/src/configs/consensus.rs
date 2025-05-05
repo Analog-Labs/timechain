@@ -1,5 +1,6 @@
 //! Consensus configuration
 
+use pallet_session::disabling::UpToLimitDisablingStrategy;
 use polkadot_sdk::*;
 
 use sp_std::prelude::*;
@@ -54,6 +55,7 @@ impl pallet_session::Config for Runtime {
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+	type DisablingStrategy = UpToLimitDisablingStrategy;
 }
 
 /// ## <a id="config.Historical">[`Historical`] Config</a>

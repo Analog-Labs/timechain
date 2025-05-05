@@ -105,7 +105,6 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
-	// New required types from the latest polkadot-sdk
 	type OldCurrency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Filter = frame_support::traits::Nothing;

@@ -327,7 +327,7 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type OldCurrency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Filter = frame_support::traits::Nothing;
+	type Filter = pallet_nomination_pools::AllPoolMembers<Runtime>;
 }
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &crate::staking_bags::THRESHOLDS;
@@ -394,7 +394,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = DefaultAdminOrigin;
 	type BlockNumberProvider = System;
-	type Filter = frame_support::traits::Nothing;
+	type Filter = pallet_staking::AllStakers<Runtime>;
 }
 
 parameter_types! {

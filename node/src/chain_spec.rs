@@ -141,7 +141,7 @@ impl GenesisKeysConfig {
 		// Ensure wasm binary is available
 		let wasm_binary = WASM_BINARY.expect(
 			"The wasm runtime was not included with this release, i.e. the client was built with the \
-			 `SKIP_WASM_BUILD` flag and it is only usable for chains that have already been initalized.\
+			 `SKIP_WASM_BUILD` flag and it is only usable for chains that have already been initialized.\
 			 Please rebuild with the flag disabled to start new chains from genesis.",
 		);
 

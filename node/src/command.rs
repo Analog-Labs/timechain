@@ -114,7 +114,7 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 
-			// Warn that pool-type flag might have been ignored once logger is intialized
+			// Warn that pool-type flag might have been ignored once logger is initialized
 			if forced_pool {
 				log::warn!("🚧️️ Forcing use of fork aware transaction pool");
 			}

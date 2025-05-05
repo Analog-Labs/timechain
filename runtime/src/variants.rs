@@ -17,7 +17,7 @@ pub const RUNTIME_VARIANT: &str = "testnet";
 pub const RUNTIME_VARIANT: &str = "develop";
 
 /// Macro to set a value (e.g. when using the `parameter_types` macro) based on
-/// the the current runtime variant being build.
+/// the current runtime variant being build.
 #[macro_export]
 macro_rules! main_test_or_dev {
 	($main:expr, $test:expr, $dev:expr) => {

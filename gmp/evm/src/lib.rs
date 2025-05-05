@@ -24,10 +24,8 @@ use alloy::{
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use blocks::FinalizedBlockStream;
 use custom::BEP226;
 use dict::Currency;
-use futures::{Stream, StreamExt};
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
 use sol::{
@@ -35,7 +33,7 @@ use sol::{
 	IExecutor::{self, IExecutorInstance},
 	TssKey,
 };
-use std::{ops::Range, pin::Pin, process::Command, sync::Arc, time::Duration};
+use std::{ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
 	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
@@ -48,7 +46,6 @@ use crate::sol::{ProxyContext, ProxyDigest};
 
 type Address20 = alloy::primitives::Address;
 
-pub(crate) mod blocks;
 pub(crate) mod cctp;
 pub(crate) mod custom;
 pub(crate) mod dict;
@@ -210,10 +207,6 @@ impl IChain for Connector {
 			.map(|b| b.header.number)
 			.ok_or(anyhow!("failed querying finalized block"))
 	}
-	/// Stream of finalized block indicies
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
-		Box::pin(FinalizedBlockStream::new(self.rpc.clone()).map(|b| b.header.number))
-	}
 }
 
 #[async_trait]
@@ -352,7 +345,7 @@ impl IConnector for Connector {
 		if !receipt.inner.inner.is_success() {
 			let err = format!("batch {batch} failed with tx: {tx_hash}");
 			tracing::error!(err);
-			return Err(err.into());
+			return Err(err);
 		} else {
 			tracing::info!("batch {batch} submitted with tx: {tx_hash}");
 		}

@@ -140,7 +140,9 @@ pub fn is_relative_gas_in_threshold(
 	let left = abs_diff.checked_mul(100.into())?;
 	let right = old_val.checked_mul(threshold_percent.into())?;
 
-	Some(left <= right)
+	let result = left <= right;
+	tracing::debug!("diff={abs_diff} {result}");
+	Some(result)
 }
 
 impl Tc {
@@ -231,5 +233,32 @@ impl Tc {
 		let numerator = convert_bigint_to_u256(ratio.numer())?;
 		let denominator = convert_bigint_to_u256(ratio.denom())?;
 		Ok((numerator, denominator))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn in_threshold() {
+		let values = [((10, 10), (1, 1))];
+		for ((a, b), (c, d)) in values {
+			assert_eq!(
+				is_relative_gas_in_threshold((a.into(), b.into()), (c.into(), d.into()), 1),
+				Some(true)
+			);
+		}
+	}
+
+	#[test]
+	fn not_in_threshold() {
+		let values = [((10, 10), (2, 1))];
+		for ((a, b), (c, d)) in values {
+			assert_eq!(
+				is_relative_gas_in_threshold((a.into(), b.into()), (c.into(), d.into()), 1),
+				Some(false)
+			);
+		}
 	}
 }

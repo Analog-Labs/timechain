@@ -8,6 +8,8 @@
     <a href="https://analog.one/">Docs</a>
     <span> | </span>
     <a href="mailto:hello@analog.one">Support</a>
+    <span> | </span>
+    <a href="https://github.com/Analog-Labs/timechain/blob/development/LICENSE">License</a>
   </h3>
 
 </div>

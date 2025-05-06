@@ -219,7 +219,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 pub struct RewardPool;
 impl RewardPool {
 	/// Return internal virtual wallet id
-	fn account_id() -> AccountId {
+	pub fn account_id() -> AccountId {
 		PalletId(*b"timerwrd").into_account_truncating()
 	}
 }

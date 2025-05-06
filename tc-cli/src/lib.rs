@@ -918,6 +918,9 @@ impl Tc {
 			let connector = self.connector(src)?;
 			let routes = connector.routes(src_gateway).await?;
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
+				if src == dest {
+					continue;
+				}
 				let config = self.config.network(dest)?;
 				let (numerator, denominator) = self.relative_gas_price(src, dest).await?;
 				let route = Route {
@@ -931,7 +934,7 @@ impl Tc {
 					if r.relative_gas_price.1.is_zero() || route.relative_gas_price.1.is_zero() {
 						anyhow::bail!("Denominator cannot be zero");
 					}
-					let is_price_update_needed = gas_price::is_relative_gas_in_threshold(
+					let price_in_threshold = gas_price::is_relative_gas_in_threshold(
 						r.relative_gas_price,
 						route.relative_gas_price,
 						// percentage of diff
@@ -941,7 +944,7 @@ impl Tc {
 
 					if r.gas_limit == route.gas_limit
 						&& r.gmp_base_fee == route.gmp_base_fee
-						&& is_price_update_needed
+						&& price_in_threshold
 					{
 						continue;
 					}

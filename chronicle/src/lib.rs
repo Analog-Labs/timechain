@@ -204,7 +204,7 @@ pub async fn run_chronicle(
 		tracing::warn!(parent: &span, "chronicle isn't registered");
 	}
 
-	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx);
+	let task_params = TaskParams::new(substrate.clone(), connector, tss_tx, admin.clone());
 	let time_worker = TimeWorker::new(TimeWorkerParams {
 		network,
 		task_params,

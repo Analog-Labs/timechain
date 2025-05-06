@@ -24,8 +24,8 @@ networks:
     shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    shard_size: 6
-    shard_threshold: 4
+    shard_size: 2
+    shard_threshold: 2
     coin_id: 1027
     cctp_contracts:
     - "F804E7B9bf2a1644c490c87Fdb18642ef329601C"
@@ -44,8 +44,8 @@ networks:
     shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
-    shard_size: 6
-    shard_threshold: 4
+    shard_size: 2
+    shard_threshold: 2
     coin_id: 1027
     cctp_contracts:
     - "293B37788019317F09d015b56895F0CB6Fc53Fa7"

@@ -208,79 +208,17 @@ impl TestEnvBuilder {
 		network: NetworkId,
 		shard_size: u16,
 		shard_threshold: u16,
+		fork_params: Option<(String, u64)>,
 	) -> Result<()> {
-		// add chain to docker compose
-		let chain_port = pick_free_port()?;
-		let chain_name = format!("chain-evm-{network}");
-		let chain_mount = self.temp.path().join(&chain_name);
-		std::fs::create_dir_all(&chain_mount)?;
-		let chain_name = format!("{}-{chain_name}", &self.network);
-		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
-			.with_exposed_port(8545.tcp())
-			.with_mapped_port(chain_port, 8545.tcp())
-			.with_container_name(&chain_name)
-			.with_network(self.network.clone())
-			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
-			.with_cmd([
-				format!("anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 6"),
-			])
-			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
-			.start()
-			.await?;
-		let chain_host = chain.get_host().await?;
-		let chain_url = format!("ws://{chain_host}:{chain_port}");
-		self.chains.insert(network, chain);
-
-		// add network config
-		self.config.networks.insert(
-			network,
-			NetworkConfig {
-				backend: Backend::Evm,
-				name: format!("evm-{network}"),
-				url: chain_url.clone(),
-				admin_funds: Some("10.".into()),
-				gateway_funds: "1.".into(),
-				chronicle_funds: ".1".into(),
-				batch_size: 8,
-				batch_offset: 0,
-				batch_gas_limit: 10_000_000,
-				gmp_margin: 0.,
-				shard_task_limit: 50,
-				route_gas_limit: 10_000_000,
-				route_base_fee: 1_400_000_000,
-				shard_size,
-				shard_threshold,
-				coin_id: 1027,
-				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
-				cctp_contracts: None,
-				zenswap: None,
+		let mut name = format!("evm-{network}");
+		let mut fork_path = String::from("");
+		match fork_params {
+			Some(fork_params) => {
+				name = "ethereum sepolia".into();
+				fork_path = format!("--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2", fork_params.0, fork_params.1);
 			},
-		);
-
-		// add price data
-		self.prices.insert(network, ("ETH".into(), 0.01));
-
-		// add chronicles
-		for i in 0..shard_size {
-			self.add_chronicle(network, Backend::Evm, i, &format!("ws://{chain_name}:8545"))
-				.await?;
+			_ => {},
 		}
-		Ok(())
-	}
-
-	pub async fn add_evm_fork(
-		&mut self,
-		network: NetworkId,
-		shard_size: u16,
-		shard_threshold: u16,
-		fork_url: String,
-		fork_block: u64,
-	) -> Result<()> {
-		let fork_path: &str = &format!(
-			"--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2",
-			fork_url, fork_block
-		);
-
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
@@ -310,7 +248,7 @@ impl TestEnvBuilder {
 			network,
 			NetworkConfig {
 				backend: Backend::Evm,
-				name: format!("ethereum sepolia"),
+				name,
 				url: chain_url.clone(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
@@ -423,8 +361,15 @@ pub struct TestEnv {
 
 impl TestEnv {
 	/// Creates a new test environment.
-	pub async fn new(backend: TestingBackend, tss: bool) -> Result<(Self, Tester)> {
+	pub async fn new(
+		backend: Backend,
+		tss: bool,
+		fork_params: Option<(String, u64)>,
+	) -> Result<(Self, Tester)> {
 		let mut snapshot = backend.to_string();
+		if let Some(fork_params) = fork_params.clone() {
+			snapshot.push_str(&format!("-fork-{}", fork_params.1));
+		}
 		if tss {
 			snapshot.push_str("-tss");
 		}
@@ -433,21 +378,16 @@ impl TestEnv {
 		let (shard_size, shard_threshold) = if tss { (2, 2) } else { (1, 1) };
 		let mut builder = TestEnvBuilder::new(snapshot_path).await?;
 		match backend {
-			TestingBackend::Evm { fork_url, fork_block } => match (fork_url, fork_block) {
-				(Some(url), Some(block)) => {
-					builder
-						.add_evm_fork(0, shard_size, shard_threshold, url.clone(), block)
-						.await?;
-					builder.add_evm_fork(1, shard_size, shard_threshold, url, block).await?;
-				},
-				_ => {
-					builder.add_evm(0, shard_size, shard_threshold).await?;
-					builder.add_evm(1, shard_size, shard_threshold).await?;
-				},
+			Backend::Evm => {
+				builder.add_evm(0, shard_size, shard_threshold, fork_params.clone()).await?;
+				builder.add_evm(1, shard_size, shard_threshold, fork_params).await?;
 			},
-			TestingBackend::Grpc => {
+			Backend::Grpc => {
 				builder.add_grpc(0, shard_size, shard_threshold).await?;
 				builder.add_grpc(1, shard_size, shard_threshold).await?;
+			},
+			Backend::Rust => {
+				anyhow::bail!("Backend not supported")
 			},
 		}
 		let env = builder.build()?;
@@ -553,33 +493,4 @@ fn pick_free_port() -> Result<u16> {
 	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
 	let port = listener.local_addr()?.port();
 	Ok(port)
-}
-
-pub enum TestingBackend {
-	Evm { fork_url: Option<String>, fork_block: Option<u64> },
-	Grpc,
-}
-
-impl TestingBackend {
-	pub fn evm_local() -> Self {
-		TestingBackend::Evm {
-			fork_url: None,
-			fork_block: None,
-		}
-	}
-	pub fn evm_fork(url: String, block: u64) -> Self {
-		TestingBackend::Evm {
-			fork_url: Some(url),
-			fork_block: Some(block),
-		}
-	}
-	pub fn to_config_backend(&self) -> Backend {
-		match self {
-			TestingBackend::Evm { .. } => Backend::Evm,
-			TestingBackend::Grpc => Backend::Grpc,
-		}
-	}
-	pub fn to_string(&self) -> String {
-		self.to_config_backend().to_string()
-	}
 }

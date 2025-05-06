@@ -1,5 +1,5 @@
 use anyhow::Result;
-use e2e_tests::{TestEnv, Tester, TestingBackend};
+use e2e_tests::{Backend, TestEnv, Tester};
 use time_primitives::CCTPMessage;
 
 async fn test_cctp(mut tc: Tester) -> Result<()> {
@@ -50,15 +50,17 @@ async fn cctp() -> Result<()> {
 
 #[tokio::test]
 async fn cctp_evm() -> Result<()> {
-	let (_env, tc) = TestEnv::new(TestingBackend::evm_local(), false).await?;
+	let (_env, tc) = TestEnv::new(Backend::Evm {}, false, None).await?;
 	test_cctp(tc).await
 }
 
 #[tokio::test]
 async fn zenswap_evm() -> Result<()> {
 	let (_env, tc) = TestEnv::new(
-		TestingBackend::evm_fork("https://sepolia.drpc.org".into(), 8226023u64),
+		Backend::Evm,
+		// TestingBackend::evm_fork("https://sepolia.drpc.org".into(), 8226023u64),
 		false,
+		None,
 	)
 	.await?;
 	test_zenswap(tc).await

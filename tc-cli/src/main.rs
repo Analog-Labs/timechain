@@ -382,7 +382,6 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SendSwap { src, dst } => {
 			let (block_hash, _) = tc.latest_block().await?;
-			let networks = tc.networks(block_hash).await?;
 			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 			let (d_zen, d_plug) =
 				if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };

@@ -46,7 +46,7 @@ networks:
     route_base_fee: 1400000000
     shard_size: 6
     shard_threshold: 4
-    coin_id: 11841
+    coin_id: 1027
     cctp_contracts:
     - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"

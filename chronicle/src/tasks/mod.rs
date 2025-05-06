@@ -1,3 +1,4 @@
+use crate::admin::AdminMsg;
 use crate::runtime::Runtime;
 use anyhow::{Context, Result};
 use futures::channel::{mpsc, oneshot};
@@ -19,6 +20,7 @@ pub struct TaskParams {
 	tss: mpsc::Sender<TssSigningRequest>,
 	runtime: Arc<dyn Runtime>,
 	connector: Arc<dyn IConnector>,
+	admin: mpsc::Sender<AdminMsg>,
 }
 
 impl TaskParams {
@@ -26,8 +28,9 @@ impl TaskParams {
 		runtime: Arc<dyn Runtime>,
 		connector: Arc<dyn IConnector>,
 		tss: mpsc::Sender<TssSigningRequest>,
+		admin: mpsc::Sender<AdminMsg>,
 	) -> Self {
-		Self { runtime, connector, tss }
+		Self { runtime, connector, tss, admin }
 	}
 
 	pub fn network(&self) -> NetworkId {
@@ -35,7 +38,11 @@ impl TaskParams {
 	}
 
 	async fn finalized_block(&self) -> Result<u64> {
-		self.connector.finalized_block().await
+		let block = self.connector.finalized_block().await?;
+		if let Err(e) = self.admin.clone().send(AdminMsg::NewTargetBlock(block as _)).await {
+			event!(Level::ERROR, "Admin request error: {e:?}");
+		};
+		Ok(block)
 	}
 
 	async fn tss_sign(
@@ -203,6 +210,7 @@ impl TaskExecutor {
 				.context("invalid task")?;
 
 			let chain_block = self.params.finalized_block().await?;
+
 			let span = tracing::span!(
 				parent: span,
 				Level::INFO,

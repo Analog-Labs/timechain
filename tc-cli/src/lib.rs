@@ -1187,7 +1187,7 @@ impl Tc {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let backend = self.config.backend(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
-		connector.redeploy_gateway(&backend.factory, gateway, &backend.gateway).await?;
+		connector.redeploy_gateway(gateway, &backend.gateway).await?;
 		Ok(())
 	}
 

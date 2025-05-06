@@ -386,7 +386,7 @@ impl IConnectorAdmin for Connector {
 			return Ok((t_addr(proxy_address), block.number));
 		}
 		// deploy gateway
-		let gateway_address = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
+		let gateway_address = self.deploy_gateway_contract(proxy_address, gateway).await?;
 		// compute proxy arguments
 		let (proxy_address, block) = self
 			.deploy_proxy_contract(&config, proxy_address, gateway_address, proxy)
@@ -395,24 +395,18 @@ impl IConnectorAdmin for Connector {
 		Ok((t_addr(proxy_address), block))
 	}
 	/// Redeploys gateway contract
-	async fn redeploy_gateway(
-		&self,
-		additional_params: &[u8],
-		proxy: Address32,
-		gateway: &[u8],
-	) -> Result<()> {
-		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let gateway = extract_bytecode(gateway)?;
 		let proxy_address = a_addr(proxy);
 
-		let gateway_addr = self.deploy_gateway_contract(&config, proxy_address, gateway).await?;
+		let gateway_addr = self.deploy_gateway_contract(proxy_address, gateway).await?;
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};
 
 		let tx = TransactionRequest::default()
 			.with_to(proxy_address)
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call);
 
 		self.rpc
@@ -422,6 +416,7 @@ impl IConnectorAdmin for Connector {
 			.get_receipt()
 			.await?;
 
+		tracing::info!("redeployment done");
 		Ok(())
 	}
 	/// Deploys test contract
@@ -499,7 +494,7 @@ impl IConnectorAdmin for Connector {
 		};
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call);
 
 		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
@@ -660,7 +655,7 @@ impl Connector {
 	async fn evm_call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call);
 
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
@@ -676,7 +671,7 @@ impl Connector {
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			.with_call(&call)
 			.with_value(U256::from(value));
 
@@ -703,7 +698,7 @@ impl Connector {
 
 		let tx = TransactionRequest::default()
 			.with_to(factory_address)
-			.with_chain_id(self.rpc.get_chain_id().await?)
+			.with_chain_id(self.chain_id)
 			// TODO why magic value
 			.with_gas_limit(20_000_000)
 			.with_input(call);
@@ -755,7 +750,6 @@ impl Connector {
 
 	async fn deploy_gateway_contract(
 		&self,
-		config: &DeploymentConfig,
 		proxy: Address20,
 		mut bytecode: Vec<u8>,
 	) -> Result<Address20> {
@@ -764,13 +758,22 @@ impl Connector {
 			proxy,
 		};
 		bytecode.extend(constructor.abi_encode());
-		let call = sol::IUniversalFactory::create2_0Call {
-			salt: config.deployment_salt.into(),
-			creationCode: bytecode.into(),
-		}
-		.abi_encode();
-		let (gateway_address, _) = self.deploy_contract_with_factory(config, call).await?;
-		tracing::info!("gateway deployed at {}", gateway_address);
+		let tx = TransactionRequest::default()
+			.with_chain_id(self.chain_id)
+			.with_deploy_code(bytecode);
+
+		let _guard = self.wallet_guard.lock().await;
+		let receipt = self
+			.rpc
+			.send_transaction(WithOtherFields::new(tx))
+			.await?
+			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
+			.get_receipt()
+			.await?;
+		drop(_guard);
+		let gateway_address = receipt.contract_address().expect("Failed to get contract address");
+
+		tracing::info!("Gateway deployed at: {:?}", gateway_address);
 
 		Ok(gateway_address)
 	}

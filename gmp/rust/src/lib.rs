@@ -331,12 +331,7 @@ impl IConnectorAdmin for Connector {
 		Ok((gateway, block))
 	}
 
-	async fn redeploy_gateway(
-		&self,
-		_additional_params: &[u8],
-		gateway: Address32,
-		_gateway_impl: &[u8],
-	) -> Result<()> {
+	async fn redeploy_gateway(&self, gateway: Address32, _gateway_impl: &[u8]) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.ensure_admin(&tx, gateway)
 	}

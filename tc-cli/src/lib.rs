@@ -792,7 +792,7 @@ impl Tc {
 			let submit = self.task(batch.task, block_hash).await?;
 
 			if let Some(Err(err)) = submit.output.clone() {
-				anyhow::bail!("Submit task {} failed with error: {}", submit.task, err);
+				tracing::error!("Submit task {} failed with error: {}", submit.task, err);
 			}
 
 			let dest = self.sync_status(submit.network, block_hash).await?;

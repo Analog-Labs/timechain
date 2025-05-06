@@ -227,75 +227,13 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	const REIMBURSEMENT: &[([u8; 32], Balance)] = &[
-		(
-			// an94NNGAASfYakWYYam5K3yiwMaFYqHhwq3zENsHy6YGzQLtB
-			sp_core::hex2array!("9a38ecb111395e4344850ff1dbde4b0e18e100c3e8caf6e21bfd70f607da865c"),
-			130_605_689_920_346_103u128 + 60_550_000_000_000_000u128,
-		),
-		(
-			// anA7NEcdoPdgrVhaZAnV45wCYjUkE5uSvo1ASaMJCHFRqCeyt
-			sp_core::hex2array!("c8be734e78f952ec05c23a4d7e065d66c070693e3880afb99c83d9903da0851c"),
-			63_438_569_218_6841u128 + 3_631_660_017_424_619u128,
-		),
-		(
-			// an9vwSrAxieuymN6EVRikpuvafUagDfodnPakybXYHYy2VLSE
-			sp_core::hex2array!("c0ca8c84410f812e7be624890d0d4b72d7d1092013e1f7d9211be25301cbb479"),
-			4_660_806_397_378u128 + 3_031_620_242_720_647u128,
-		),
-		(
-			// anAspv6qvTKFaSkAq1b8JrJWwsTcUsMZkkPSG7C4bGa79ryGB
-			sp_core::hex2array!("eaa710543517c60a3aacc85b7beca28ba4a396ad7a95607b1189ea63b59ef102"),
-			4_025_695_594_091u128 + 60_359_534_514_566_051u128,
-		),
-		(
-			// an5rnYbovLqQ3e3FnD1qtPDrjgYLJMCzd6RgASnwZY9Dj1NLn
-			sp_core::hex2array!("0caeabae4c82378b03a88378ff0c90a39eb856950141096bd859e9ddb6e1a349"),
-			6_783_351_745_841u128 + 60_651_903_294_002_070u128,
-		),
-		(
-			// an6w93g9LHSuVXntJTfa9qS3bRJi6YJrAbhrVobsWk4Z85QfD
-			sp_core::hex2array!("3c3ce6312edfb03971722b1c7586ec3a5ee54417d267f17658084e2e431d161c"),
-			1_058_418_917_498u128 + 99_000_000_000_000u128,
-		),
-		(
-			// an8iF3u94vKorCbURjScsfafJ2XGsRaCXFompeyXx7nbTVbjM
-			sp_core::hex2array!("8adf62faf85bffa99167797fb08d7eb6167d7bc17686c429c9e82b51e436e90a"),
-			5_715_608_024_430u128 + 1_822_645_741_618_875u128,
-		),
-		(
-			// an5wrsrtoCB9HJxSPQkmhREc1hJ7HWjxUecAMDab4j5G15ka3
-			sp_core::hex2array!("108d7b0f0b7ebd55f5bd915d60edf1d2fb79172fc922e1d5dfa748e6a403ae1d"),
-			2_987_692_592_098u128 + 2_000_000_000_000u128,
-		),
-		(
-			// an6QJTP4QABbGt8ktvSrfV7Mj35Mp9S1avj73kwAEUiEVAY7n
-			sp_core::hex2array!("24b7f6d65d8c66fe3941e2ed91f40c0e0b512fdfdad9249e55883f175bbed811"),
-			1_947_635_627_460u128 + 1_050_000_000_000u128,
-		),
-	];
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
-		BalanceOf<T>: From<u128>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			let mut total = 0;
-
-			for (dst, val) in REIMBURSEMENT.iter() {
-				let _ = CurrencyOf::<T>::deposit_creating(
-					&T::AccountId::from((*dst).into()),
-					(*val).into(),
-				);
-
-				total += val;
-			}
-
-			log::info!("💰 Reimbursed {} TOCK previously reaped by bug", total);
-
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {

@@ -43,6 +43,7 @@ jobs:
         with:
           command: test
           package: e2e-tests
+          args: cctp_evm -- --exact
           cache: false
           annotate: false
 

@@ -1,11 +1,15 @@
 use anyhow::Result;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt};
 use serde::Serialize;
+use std::future::IntoFuture;
 use std::sync::Arc;
-use tide::{Body, Request, Response, StatusCode};
 use time_primitives::admin::Config;
 use time_primitives::ShardId;
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
@@ -29,12 +33,12 @@ struct Blocks {
 }
 
 #[derive(Clone, Default)]
-struct State {
+struct AppState {
 	config: Arc<Mutex<Option<Config>>>,
 	inner: Arc<Mutex<InnerState>>,
 }
 
-impl State {
+impl AppState {
 	async fn apply(&self, msg: AdminMsg) {
 		match msg {
 			AdminMsg::SetConfig(config) => {
@@ -58,12 +62,18 @@ impl State {
 }
 
 pub async fn listen(port: u16, mut admin: mpsc::Receiver<AdminMsg>) -> Result<()> {
-	let state = State::default();
-	let mut app = tide::with_state(state.clone());
-	app.at("/config").get(config);
-	app.at("/shards").get(shards);
-	app.at("/blocks").get(blocks);
-	let mut listen = app.listen(format!("0.0.0.0:{}", port)).boxed();
+	let state = AppState::default();
+
+	let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+	tracing::info!("Loading admin interface: {}", addr);
+
+	let app = axum::routing::Router::new()
+		.route("/config", axum::routing::get(config))
+		.route("/shards", axum::routing::get(shards))
+		.route("/blocks", axum::routing::get(blocks))
+		.with_state(state.clone());
+
+	let mut listen = axum::serve(TcpListener::bind(&addr).await?, app).into_future();
 	loop {
 		futures::select! {
 			r = (&mut listen).fuse() => r?,
@@ -77,30 +87,23 @@ pub async fn listen(port: u16, mut admin: mpsc::Receiver<AdminMsg>) -> Result<()
 }
 
 // `/config`
-async fn config(req: Request<State>) -> tide::Result {
-	let config = req.state().config.lock().await;
-	let (code, body) = if let Some(config) = &*config {
-		(StatusCode::Ok, Body::from_json(&config)?)
+async fn config(State(state): State<AppState>) -> Response {
+	let config = state.config.lock().await;
+	if let Some(config) = &*config {
+		axum::Json(&config).into_response()
 	} else {
-		(StatusCode::ServiceUnavailable, Body::empty())
-	};
-	let mut r = Response::new(code);
-	r.set_body(body);
-	Ok(r)
+		StatusCode::SERVICE_UNAVAILABLE.into_response()
+	}
 }
 
 // `/shards`
-async fn shards(req: Request<State>) -> tide::Result {
-	let inner = req.state().inner.lock().await;
-	let mut r = Response::new(StatusCode::Ok);
-	r.set_body(Body::from_json(&inner.shards)?);
-	Ok(r)
+async fn shards(State(state): State<AppState>) -> Response {
+	let inner = state.inner.lock().await;
+	axum::Json(&inner.shards).into_response()
 }
 
 // GET `/blocks`
-async fn blocks(req: Request<State>) -> tide::Result {
-	let inner = req.state().inner.lock().await;
-	let mut r = Response::new(StatusCode::Ok);
-	r.set_body(Body::from_json(&inner.blocks)?);
-	Ok(r)
+async fn blocks(State(state): State<AppState>) -> Response {
+	let inner = state.inner.lock().await;
+	axum::Json(&inner.blocks).into_response()
 }

@@ -77,6 +77,9 @@ fn generate_key(path: &Path) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
 	init_opentelemetry();
 
 	time_primitives::init_ss58_version();

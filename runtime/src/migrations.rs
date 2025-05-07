@@ -24,7 +24,7 @@ pub type CurrencyOf<T> = <T as pallet_vesting::Config>::Currency;
 pub type BalanceOf<T> =
 	<CurrencyOf<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-const STARTING_BLOCK: BlockNumber = 1_927_956;
+const STARTING_BLOCK: BlockNumber = 1_929_156;
 
 const TOTAL_AMOUNT: Balance = 699_999_360_000 * MICROANLOG;
 

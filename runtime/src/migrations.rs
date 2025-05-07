@@ -5,14 +5,17 @@ use polkadot_sdk::*;
 
 use frame_election_provider_support::Get;
 use frame_support::traits::Currency;
+use frame_support::traits::ExistenceRequirement;
 use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::traits::VestingSchedule;
 use frame_support::weights::Weight;
 use pallet_vesting::{Config, VestingInfo};
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::DispatchError;
+use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
 use sp_runtime::traits::CheckedConversion;
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::traits::Zero;
+use sp_runtime::DispatchError;
 
 use time_primitives::{AccountId, Balance, BlockNumber, MICROANLOG as microANLOG};
 
@@ -1596,20 +1599,50 @@ where
 		let mut weight = Weight::zero();
 
 		for (target, amount, per_block) in self.0.iter() {
-			if let Err(error) = pallet_vesting::Pallet::<T>::vested_transfer(
-				RuntimeOrigin::signed(RewardPool::account_id()).into(),
-				T::Lookup::unlookup(target.clone()),
-				VestingInfo::new(*amount, *per_block, STARTING_BLOCK.into()),
-			) {
-				let message = if let DispatchError::Module(e) = error {
-					e.message
-				} else {
-					None
-				}.unwrap_or("Unknown");
-				log::error!("Boosting staker failed: {message}");
+			// Checking if the target is able to receive a vested transfer ...
+			weight += T::DbWeight::get().reads(1);
+
+			if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(
+				target,
+				*amount,
+				*per_block,
+				STARTING_BLOCK.into(),
+			)
+			.is_err()
+			{
+				log::error!(
+					"Boosted staker is already vested: {target:?}",
+				);
+				continue;
 			}
 
-			weight += T::DbWeight::get().reads_writes(5, 5);
+			// ... then attempt to transfer tokens directly from virtual deposit ...
+			weight += T::DbWeight::get().reads_writes(3, 2);
+
+			if CurrencyOf::<T>::transfer(
+				&RewardPool::account_id().into(),
+				target,
+				*amount,
+				ExistenceRequirement::AllowDeath,
+			)
+			.is_err()
+			{
+				log::error!(
+					"Reward pool is drained: {target:?}",
+				);
+				continue;
+			}
+
+			// ... and add vesting schedule at the end
+			weight += T::DbWeight::get().reads_writes(1, 3);
+
+			pallet_vesting::Pallet::<T>::add_vesting_schedule(
+				target,
+				*amount,
+				*per_block,
+				STARTING_BLOCK.into(),
+			)
+			.expect("No other vesting schedule exists, as checked above; qed");
 		}
 
 		weight

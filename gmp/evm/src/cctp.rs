@@ -4,15 +4,19 @@ use anyhow::Result;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
+use governor::clock::DefaultClock;
+use governor::state::{InMemoryState, NotKeyed};
+use governor::{Quota, RateLimiter};
 use reqwest::Client;
 use serde::Deserialize;
 use sha3::Digest;
-use std::sync::Mutex;
-use std::time::Duration;
+use std::num::NonZeroU32;
+use std::sync::{Arc, Mutex};
 use time_primitives::{Address32, GmpMessage};
 
 type CctpRetryCount = u8;
 const MAX_CCTP_RETRY: CctpRetryCount = 10;
+type CircleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 
 #[derive(Deserialize, Debug)]
 struct AttestationResponse {
@@ -69,12 +73,23 @@ impl CctpMessage {
 
 type AttestationFuture = BoxFuture<'static, (CctpMessage, Result<Vec<u8>>)>;
 
-#[derive(Default)]
 pub struct CctpHandler {
 	queue: Mutex<FuturesUnordered<AttestationFuture>>,
+	rate_limiter: Arc<CircleRateLimiter>,
 }
 
 impl CctpHandler {
+	pub fn new() -> Self {
+		// API Service Rate Limit
+		// The CCTP API service rate limit is 35 requests per second. If you exceed 35 requests per second,
+		// the service blocks all API requests for the next 5 minutes and returns an HTTP 429 response.
+		// Going for 30 rps just for additional safety
+		let quota = Quota::per_second(NonZeroU32::new(30).unwrap());
+		Self {
+			queue: Default::default(),
+			rate_limiter: Arc::new(RateLimiter::direct(quota)),
+		}
+	}
 	pub fn needs_attestation(
 		&self,
 		msg: &GmpMessage,
@@ -84,11 +99,10 @@ impl CctpHandler {
 			if cctp_contracts.contains(&msg.src) {
 				if let Some(msg) = CctpMessage::new(msg.clone(), url) {
 					tracing::info!("read cctp message {}", hex::encode(msg.msg.message_id()));
+					let limiter = self.rate_limiter.clone();
 					self.queue.lock().unwrap().push(
 						async move {
-							// need to wait for at least 35s before querying cctp api according to
-							// cctp api docs.
-							tokio::time::sleep(Duration::from_secs(35)).await;
+							limiter.until_ready().await;
 							let result = msg.fetch_attestation().await;
 							(msg, result)
 						}

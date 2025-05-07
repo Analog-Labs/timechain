@@ -1279,7 +1279,7 @@ impl Tc {
 				dst_contracts,
 			)
 			.await?;
-		tracing::info!("received msg_id: {:?} for swap", msg_id);
+		tracing::info!("received msg_id: {:?} for swap", hex::encode(msg_id));
 		Ok(msg_id)
 	}
 

@@ -381,14 +381,36 @@ async fn real_main() -> Result<()> {
 			tc.deploy_zenswap(network, block).await?;
 		},
 		Command::SendSwap { src, dst } => {
-			let (block_hash, _) = tc.latest_block().await?;
-			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
-			let (d_zen, d_plug) =
-				if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
+			// let (block_hash, _) = tc.latest_block().await?;
+			// let (zen, plug) = tc.deploy_zenswap(src, block).await?;
+			// let (d_zen, d_plug) =
+			// 	if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
 
-			tc.add_cctp_contract(src, plug)?;
-			let (block_hash, _) = tc.latest_block().await?;
-			tc.set_network_config(src, block_hash).await?;
+			// tc.add_cctp_contract(src, plug)?;
+			// let (block_hash, _) = tc.latest_block().await?;
+			// tc.set_network_config(src, block_hash).await?;
+
+			let (zen, plug) = (
+				hex::decode("0000000000000000000000001faaaf2c44516f5172abe78341f5de340c713cc4")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+				hex::decode("000000000000000000000000d4fd29c8924048a005b082a1fe70c011ed36b695")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+			);
+			let (d_zen, d_plug) = (
+				hex::decode("0000000000000000000000009affad28f5154465fc009eb63a9e53bc5701caad")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+				hex::decode("00000000000000000000000034654021176b131d863d2829a33e28e3a9bbfc9b")
+					.unwrap()
+					.try_into()
+					.unwrap(),
+			);
+
 			tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,

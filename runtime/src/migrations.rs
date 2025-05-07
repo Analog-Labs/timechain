@@ -9,6 +9,7 @@ use frame_support::traits::OnRuntimeUpgrade;
 use frame_support::weights::Weight;
 use pallet_vesting::{Config, VestingInfo};
 use sp_core::crypto::Ss58Codec;
+use sp_runtime::DispatchError;
 use sp_runtime::traits::CheckedConversion;
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::traits::Zero;
@@ -1595,12 +1596,17 @@ where
 		let mut weight = Weight::zero();
 
 		for (target, amount, per_block) in self.0.iter() {
-			if let Err(e) = pallet_vesting::Pallet::<T>::vested_transfer(
+			if let Err(error) = pallet_vesting::Pallet::<T>::vested_transfer(
 				RuntimeOrigin::signed(RewardPool::account_id()).into(),
 				T::Lookup::unlookup(target.clone()),
 				VestingInfo::new(*amount, *per_block, STARTING_BLOCK.into()),
 			) {
-				log::error!("Boosting staker failed: {e:?}");
+				let message = if let DispatchError::Module(e) = error {
+					e.message
+				} else {
+					None
+				}.unwrap_or("Unknown");
+				log::error!("Boosting staker failed: {message}");
 			}
 
 			weight += T::DbWeight::get().reads_writes(5, 5);

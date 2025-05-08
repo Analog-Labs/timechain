@@ -11,6 +11,20 @@ use sp_runtime::{
 
 // Temporarily set to low deposit requirements for integration environment
 // as a workaround for known gas estimation issues
+#[cfg(feature = "develop")]
+parameter_types! {
+	pub const DepositPerItem: Balance = 1;
+	pub const DepositPerByte: Balance = 1;
+	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+}
+
+#[cfg(not(feature = "develop"))]
+parameter_types! {
+	pub const DepositPerItem: Balance = deposit(1,0);
+	pub const DepositPerByte: Balance = deposit(0,1);
+	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+}
+
 parameter_types! {
 	#[cfg(feature = "develop")]
 	pub const DepositPerItem: Balance = 1;

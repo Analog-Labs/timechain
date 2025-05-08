@@ -118,7 +118,7 @@ impl IConnectorBuilder for Connector {
 			url: params.url,
 			rpc: provider,
 			signer: Arc::new(signer),
-			cctp: Default::default(),
+			cctp: Arc::new(CctpHandler::new()),
 			chain_id,
 			currency,
 			wallet_guard: Default::default(),

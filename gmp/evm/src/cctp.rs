@@ -132,8 +132,10 @@ impl CctpHandler {
 					"failed to fetch attestation #{} due to {error:?}, retrying",
 					msg.retry_count
 				);
+				let limiter = self.rate_limiter.clone();
 				self.queue.lock().unwrap().push(
 					async move {
+						limiter.until_ready().await;
 						let result = msg.fetch_attestation().await;
 						(msg, result)
 					}

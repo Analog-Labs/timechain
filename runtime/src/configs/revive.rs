@@ -9,10 +9,11 @@ use sp_runtime::{
 	Perbill,
 };
 
+// Temporarily set to low values as a workaround for known gas estimation issues
 parameter_types! {
-	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerByte: Balance = deposit(0, 1);
-	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub const DepositPerItem: Balance = 1;//deposit(1,0);
+	pub const DepositPerByte: Balance = 1;//deposit(0,1);
+	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);//Perbill::from_percent(30);
 }
 
 impl Config for Runtime {

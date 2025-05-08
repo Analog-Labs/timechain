@@ -29,3 +29,4 @@ serde_json.workspace = true
 time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["time"] }
 tracing.workspace = true
+governor = "0.5.1"

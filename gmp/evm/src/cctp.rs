@@ -44,7 +44,7 @@ impl CctpMessage {
 	}
 
 	async fn fetch_attestation(&self) -> Result<Vec<u8>> {
-		let client = ClientBuilder::new().min_tls_version(Version::TLS_1_3).build()?;
+		let client = ClientBuilder::new().max_tls_version(Version::TLS_1_2).build()?;
 		let response = client.get(&self.url).send().await?.error_for_status()?;
 		let attestation_response: AttestationResponse = response.json().await?;
 		if attestation_response.status != "complete" {

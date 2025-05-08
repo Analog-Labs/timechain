@@ -25,21 +25,6 @@ parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
 
-parameter_types! {
-	#[cfg(feature = "develop")]
-	pub const DepositPerItem: Balance = 1;
-	#[cfg(not(feature = "develop"))]
-	pub const DepositPerItem: Balance = deposit(1,0);
-	#[cfg(feature = "develop")]
-	pub const DepositPerByte: Balance = 1;
-	#[cfg(not(feature = "develop"))]
-	pub const DepositPerByte: Balance = deposit(0,1);
-	#[cfg(feature = "develop")]
-	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-	#[cfg(not(feature = "develop"))]
-	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-}
-
 impl Config for Runtime {
 	type Time = Timestamp;
 	type Currency = Balances;

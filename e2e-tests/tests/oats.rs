@@ -1,9 +1,20 @@
 use alloy::{network::EthereumWallet, providers::ProviderBuilder, signers::local::PrivateKeySigner};
 use anyhow::Result;
 use e2e_tests::{Backend, TestEnv};
+use alloy::sol;
 
 // Anvil's default account(1)
 const BOB_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+
+// Codegen from ABI file to interact with the contract.
+sol!(
+    #[allow(clippy::too_many_arguments)]
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    OmniToken,
+    "contracts/OmniToken.json"
+);
+
 
 #[tokio::test]
 async fn oats_evm() -> Result<()> {
@@ -29,8 +40,6 @@ async fn oats_evm() -> Result<()> {
 
 		chains.push((nw_id, rpc, gw));
 	}
-
-
 
     // Deploy and setup token on every chain
     for (nw, rpc, gw) in chains {

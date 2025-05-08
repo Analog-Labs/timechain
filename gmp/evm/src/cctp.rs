@@ -4,7 +4,7 @@ use anyhow::Result;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, StreamExt};
-use reqwest::{tls::Version, ClientBuilder};
+use reqwest::Client;
 use serde::Deserialize;
 use sha3::Digest;
 use std::sync::Mutex;
@@ -44,16 +44,20 @@ impl CctpMessage {
 	}
 
 	async fn fetch_attestation(&self) -> Result<Vec<u8>> {
-		let client = ClientBuilder::new().max_tls_version(Version::TLS_1_2).build()?;
-		let response = client.get(&self.url).send().await?.error_for_status()?;
-		let attestation_response: AttestationResponse = response.json().await?;
-		if attestation_response.status != "complete" {
-			anyhow::bail!("attestation pending");
-		}
-		let signature = attestation_response.attestation.unwrap_or_default();
-		let signature = signature.strip_prefix("0x").unwrap_or(&signature);
-		let attestation = hex::decode(signature)?;
-		Ok(attestation)
+		let url = self.url.clone();
+		let handle = tokio::task::spawn(async move {
+			let client = Client::new();
+			let response = client.get(&url).send().await?.error_for_status()?;
+			let attestation_response: AttestationResponse = response.json().await?;
+			if attestation_response.status != "complete" {
+				anyhow::bail!("attestation pending");
+			}
+			let signature = attestation_response.attestation.unwrap_or_default();
+			let signature = signature.strip_prefix("0x").unwrap_or(&signature);
+			let attestation = hex::decode(signature)?;
+			Ok(attestation)
+		});
+		handle.await?
 	}
 
 	fn attest(mut self, attestation: Vec<u8>) -> GmpMessage {

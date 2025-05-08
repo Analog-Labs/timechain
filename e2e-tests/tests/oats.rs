@@ -1,50 +1,86 @@
-use alloy::{network::EthereumWallet, providers::ProviderBuilder, signers::local::PrivateKeySigner};
+use std::sync::Arc;
+
+use alloy::primitives::address;
+use alloy::providers::WsConnect;
+use alloy::sol;
+use alloy::{
+	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
+	signers::local::PrivateKeySigner,
+};
 use anyhow::Result;
 use e2e_tests::{Backend, TestEnv};
-use alloy::sol;
+use time_primitives::Address32;
 
-// Anvil's default account(1)
+// Anvil's default accounts
+const ALICE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const BOB_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+
+const ALICE: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+const BOB: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
 
 // Codegen from ABI file to interact with the contract.
 sol!(
-    #[allow(clippy::too_many_arguments)]
-    #[allow(missing_docs)]
-    #[sol(rpc)]
-    OmniToken,
-    "contracts/OmniToken.json"
+	#[allow(clippy::too_many_arguments)]
+	#[allow(missing_docs)]
+	#[sol(rpc)]
+	OmniToken,
+	"contracts/OmniToken.json"
 );
 
+type Address20 = alloy::primitives::Address;
+
+fn a_addr(address: Address32) -> Address20 {
+	Address20::from_word(address.into())
+}
 
 #[tokio::test]
 async fn oats_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
 
-	//    let mut chains = HashMap::<NetworkId, (RootProvider, Address32)>::new();
-
-	let mut chains = vec![];
-
+	let mut contracts = vec![];
+	// Deploy Token to every network
 	for nw in tc.networks(block).await? {
 		let gw = nw.info.unwrap().gateway;
 		let nw_id = nw.network;
 		let c = env.chain_container(nw_id).unwrap();
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
-		let url = format!("http://localhost:{port}");
-        let signer: PrivateKeySigner = BOB_KEY.parse()?;
-        let wallet = EthereumWallet::from(signer);
-		let rpc = ProviderBuilder::new()
-            .wallet(wallet)
-            .connect(url.as_str()).await?;
+		let ws = WsConnect::new(format!("http://localhost:{port}"));
+		let signer: PrivateKeySigner = ALICE_KEY.parse()?;
+		let wallet = EthereumWallet::from(signer.clone());
+		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
 
-		chains.push((nw_id, rpc, gw));
+		let token = OmniToken::deploy(
+			rpc,
+			"Omni Token".to_string(),
+			"OMNI".to_string(),
+			signer.address(),
+			U256::from(5 * 10u64.pow(18)),
+			a_addr(gw),
+		)
+		.await?;
+
+		contracts.push((nw_id, token));
+	}
+	// Set omni token networks
+	for (nw, token) in contracts.iter() {
+		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
+			token.set_network(*n, t.address().clone()).send().await?.get_receipt().await?;
+		}
 	}
 
-    // Deploy and setup token on every chain
-    for (nw, rpc, gw) in chains {
-
-    }
+	const TRANSFER_AMOUNT: u64 = 1 * 10u64.pow(18);
+	let mut alice_balances = vec![];
+	// Check initial balances
+	for (_nw, token) in contracts.iter() {
+		let alice_bal = token.balanceOf(ALICE).call().await?;
+		let bob_bal = token.balanceOf(BOB).call().await?;
+		// On every chain, ALICE has some OMNI tokens, and BOB has none.
+		assert_ne!(alice_bal, U256::ZERO);
+		assert_eq!(bob_bal, U256::ZERO);
+		alice_balances.push(alice_bal);
+	}
 
 	Ok(())
 }

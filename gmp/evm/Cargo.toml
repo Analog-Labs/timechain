@@ -9,14 +9,7 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-alloy = { version = "^0.15", default-features = false, features = [
-    "full",
-    "rpc-types-debug",
-    "rpc-types-trace",
-    "json-rpc",
-    "rpc-client",
-    "signer-mnemonic",
-] }
+alloy.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 futures.workspace = true

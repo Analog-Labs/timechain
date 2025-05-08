@@ -45,6 +45,14 @@ default-members = [
 
 [workspace.dependencies]
 # common shared synced libs
+alloy = { version = "^0.15", default-features = false, features = [
+    "full",
+    "rpc-types-debug",
+    "rpc-types-trace",
+    "json-rpc",
+    "rpc-client",
+    "signer-mnemonic",
+] }
 anyhow = { version =  "1.0.97", default-features = false }
 async-channel = "2.3.1"
 async-stream = "0.3.6"

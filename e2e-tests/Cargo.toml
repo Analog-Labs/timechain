@@ -9,6 +9,7 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+alloy.workspace = true
 anyhow.workspace = true
 futures.workspace = true
 hex.workspace = true

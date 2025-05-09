@@ -136,6 +136,7 @@ impl SwapBenchmark {
 	}
 
 	pub async fn exec(&mut self) -> Result<()> {
+		let mut error_count = 0;
 		let mut blocks = self.tc.finality_notification_stream();
 		let mut id = None;
 		let mut send_interval = interval(Duration::from_secs(2));
@@ -153,11 +154,11 @@ impl SwapBenchmark {
 						break;
 					}
 				}
-				_ = send_interval.tick(), if self.route.num_sent < self.total_msgs => {
+				_ = send_interval.tick(), if self.route.num_sent < self.total_msgs && error_count < 3 => {
 					if self.route.first_msg_sent == 1 {
 						self.route.first_msg_sent = self.current_block;
 					}
-					let message_id = self.tc.send_swap(
+					match self.tc.send_swap(
 						self.src,
 						self.dest,
 						self.src_contracts.0,
@@ -166,13 +167,20 @@ impl SwapBenchmark {
 						self.dest_contracts.1,
 						// only needed to get the network_chain so old block is fine
 						latest_block.0
-					).await?;
-
-					self.messages.insert(
-						message_id,
-						MessageStats::new(self.current_block)
-					);
-					self.route.num_sent += 1;
+					).await {
+						Ok(message_id) =>  {
+							self.route.num_sent += 1;
+							self.messages.insert(
+								message_id,
+								MessageStats::new(self.current_block)
+							);
+							error_count = 0;
+					},
+						Err(e) => {
+							tracing::error!("Error sending swap, {:?}", e);
+							error_count += 1;
+						},
+					};
 				}
 			}
 		}

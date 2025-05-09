@@ -391,25 +391,26 @@ async fn real_main() -> Result<()> {
 			// tc.set_network_config(src, block_hash).await?;
 
 			let (zen, plug) = (
-				hex::decode("0000000000000000000000001faaaf2c44516f5172abe78341f5de340c713cc4")
+				hex::decode("000000000000000000000000bf22210a28cb5e4d985fc3b68a9630d30d839dbd")
 					.unwrap()
 					.try_into()
 					.unwrap(),
-				hex::decode("000000000000000000000000d4fd29c8924048a005b082a1fe70c011ed36b695")
+				hex::decode("000000000000000000000000520b3d6a7daf6089aae561c1518fde6d2895af11")
 					.unwrap()
 					.try_into()
 					.unwrap(),
 			);
 			let (d_zen, d_plug) = (
-				hex::decode("0000000000000000000000009affad28f5154465fc009eb63a9e53bc5701caad")
+				hex::decode("000000000000000000000000b8882e580ffdd692a6fc8f0192263a276cff2f08")
 					.unwrap()
 					.try_into()
 					.unwrap(),
-				hex::decode("00000000000000000000000034654021176b131d863d2829a33e28e3a9bbfc9b")
+				hex::decode("000000000000000000000000d898c5728eb6d7d8fbc3033c31c796bfa4cb25d6")
 					.unwrap()
 					.try_into()
 					.unwrap(),
 			);
+			let (block_hash, _) = tc.latest_block().await?;
 
 			tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
 		},
@@ -510,7 +511,9 @@ async fn real_main() -> Result<()> {
 					.unwrap(),
 			);
 
-			// let (block_hash, _) = tc.latest_block().await?;
+			tc.add_cctp_contract(src, plug)?;
+			let (block_hash, _) = tc.latest_block().await?;
+			tc.set_network_config(src, block_hash).await?;
 			let mut benchmark =
 				SwapBenchmark::new(tc, src, dest, zen, plug, d_zen, d_plug, total_swaps);
 			benchmark.wait_for_sync().await?;

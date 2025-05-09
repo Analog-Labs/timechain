@@ -409,7 +409,7 @@ impl IConnectorAdmin for Connector {
 		dst_contracts: SwapPrerequisites,
 	) -> Result<MessageId> {
 		let src_usdc = a_addr(src_contracts.usdc);
-		let dst_usdc = a_addr(dst_contracts.usdc);
+		let dest_usdc = a_addr(dst_contracts.usdc);
 
 		let domain_id = chain_to_domain_id(&dest_name)?;
 		let params = sol::ZenSwapGmpPlugin::PluginParams {
@@ -439,22 +439,22 @@ impl IConnectorAdmin for Connector {
 			.as_secs()
 			+ 3600;
 
-		let path_encoded = DynSolValue::Tuple(vec![
-			DynSolValue::Address(Address20::ZERO),
+		let dest_path_encoded = DynSolValue::Tuple(vec![
+			DynSolValue::Address(dest_usdc),
 			DynSolValue::Uint(U256::from(100), 24),
-			DynSolValue::Address(src_usdc),
+			DynSolValue::Address(dest_usdc),
 		])
 		.abi_encode_packed();
 
-		let swap_exact_in = DynSolValue::Tuple(vec![
+		let dest_swap_exact_in = DynSolValue::Tuple(vec![
 			DynSolValue::Address(src_usdc),
 			DynSolValue::Uint(amount, 256),
 			DynSolValue::Uint(U256::from(1), 256),
-			DynSolValue::Bytes(path_encoded.clone()),
+			DynSolValue::Bytes(dest_path_encoded.clone()),
 			DynSolValue::Bool(false),
 		])
 		.abi_encode();
-		let swap_exact_in: Vec<u8> = swap_exact_in[20..].into();
+		let dest_swap_exact_in: Vec<u8> = dest_swap_exact_in[20..].into();
 
 		let src_swap_params = sol::ZenSwap::SwapParams {
 			tokenIn: src_usdc,
@@ -465,11 +465,13 @@ impl IConnectorAdmin for Connector {
 		};
 
 		let dst_swap_params = sol::ZenSwap::SwapParams {
-			tokenIn: dst_usdc,
-			tokenOut: dst_usdc,
+			tokenIn: dest_usdc,
+			tokenOut: dest_usdc,
 			deadline: U256::from(deadline),
+			// commands: vec![].into(),
+			// inputs: vec![],
 			commands: b"\x00".to_vec().into(),
-			inputs: vec![swap_exact_in.into()].into(),
+			inputs: vec![dest_swap_exact_in.into()].into(),
 		};
 
 		let swap_call = sol::ZenSwap::swapSendCall {

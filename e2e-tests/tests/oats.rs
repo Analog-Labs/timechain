@@ -91,7 +91,7 @@ async fn oats_evm() -> Result<()> {
 			let next_nw = nw2.clone();
 			let gmp_fee = token.cost(next_nw).call().await?;
 			let receipt = token
-				.send(next_nw, token.address().clone(), U256::from(TRANSFER_AMOUNT))
+				.send(next_nw, BOB, U256::from(TRANSFER_AMOUNT))
 				.value(gmp_fee)
 				.send()
 				.await?

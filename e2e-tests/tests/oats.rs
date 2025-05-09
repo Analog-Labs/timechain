@@ -1,5 +1,6 @@
 use std::sync::Arc;
-
+use anyhow::{anyhow, Result, Context};
+use futures::stream::StreamExt;
 use alloy::primitives::address;
 use alloy::providers::WsConnect;
 use alloy::sol;
@@ -8,16 +9,13 @@ use alloy::{
 	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
 	signers::local::PrivateKeySigner,
 };
-use anyhow::{anyhow, Result};
 use e2e_tests::{Backend, TestEnv};
 use gmp::Gateway;
 use time_primitives::{Address32, MessageId};
 
 // Anvil's default accounts
-const ALICE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const BOB_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-
 const ALICE: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+const ALICE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const BOB: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
 
 // Codegen from ABI file to interact with the contract.
@@ -84,7 +82,7 @@ async fn oats_evm() -> Result<()> {
 		assert_eq!(bob_bal, U256::ZERO);
 		alice_balances.push(alice_bal);
 	}
-	// Transfer tokens to next network, ring way
+	// Transfer tokens from every network to next network, ring way
 	let mut msgs = vec![];
 	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
 	while let Some((nw, token)) = ring.next() {
@@ -112,6 +110,21 @@ async fn oats_evm() -> Result<()> {
 			msgs.push(msg_id);
 		};
 	}
+	// Track messages
+	let msg_id = msgs.last().unwrap().clone();
+	let mut blocks = tc.finality_notification_stream();
+	let mut id = None;
+	let (_exec, _end) = loop {
+		let (hash, end) = blocks.next().await.context("expected block")?;
+		let trace = tc.message_trace(1, msg_id, hash).await?;
+		let exec = trace.exec.as_ref().map(|t| t.task);
+		tracing::info!("waiting for messages to be executed");
+		id = Some(tc.print_table(id, "message", vec![trace]).await?);
+		if let Some(exec) = exec {
+			break (exec, end);
+		}
+	};
+
 	// Check resulting balances
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;

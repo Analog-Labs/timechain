@@ -140,12 +140,19 @@ async fn main() -> Result<()> {
 	let signal = shutdown_signal();
 
 	futures::select! {
-		_ = chronicle.fuse() => {}
-		_ = signal.fuse() => {}
-		_ = admin.fuse() => {}
+		_ = chronicle.fuse() => {
+			tracing::error!("chronicle terminated");
+			std::process::exit(1);
+		}
+		_ = signal.fuse() => {
+			tracing::info!("received signal");
+			std::process::exit(0);
+		}
+		_ = admin.fuse() => {
+			tracing::error!("admin interface terminated");
+			std::process::exit(1);
+		}
 	};
-
-	std::process::exit(0);
 }
 
 async fn shutdown_signal() {

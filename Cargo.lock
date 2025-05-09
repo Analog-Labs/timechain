@@ -5155,6 +5155,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "futures",
+ "gmp",
  "hex",
  "serde_yaml",
  "tar",

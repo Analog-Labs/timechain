@@ -12,6 +12,7 @@ repository.workspace = true
 alloy.workspace = true
 anyhow.workspace = true
 futures.workspace = true
+gmp.workspace = true
 hex.workspace = true
 serde_yaml = "0.9.34"
 tar = "0.4.44"

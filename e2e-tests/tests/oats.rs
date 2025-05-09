@@ -3,13 +3,15 @@ use std::sync::Arc;
 use alloy::primitives::address;
 use alloy::providers::WsConnect;
 use alloy::sol;
+use alloy::sol_types::SolEvent;
 use alloy::{
 	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
 	signers::local::PrivateKeySigner,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use e2e_tests::{Backend, TestEnv};
-use time_primitives::Address32;
+use gmp::Gateway;
+use time_primitives::{Address32, MessageId};
 
 // Anvil's default accounts
 const ALICE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -66,15 +68,14 @@ async fn oats_evm() -> Result<()> {
 
 		contracts.push((nw_id, token));
 	}
-	// Set omni token networks
+	// Set OMNI token networks
 	for (nw, token) in contracts.iter() {
 		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
 			token.set_network(*n, t.address().clone()).send().await?.get_receipt().await?;
 		}
 	}
-
-	let mut alice_balances = vec![];
 	// Check initial balances
+	let mut alice_balances = vec![];
 	for (_nw, token) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let bob_bal = token.balanceOf(BOB).call().await?;
@@ -83,24 +84,40 @@ async fn oats_evm() -> Result<()> {
 		assert_eq!(bob_bal, U256::ZERO);
 		alice_balances.push(alice_bal);
 	}
-    // Transfer tokens to next network, ring way
-    let mut ring = contracts.iter().cycle().take(contracts.len()+1).peekable();
-    while let Some((_, token)) = ring.next() {
-        if let Some((nw, _)) = ring.peek() {
-        let next_nw = nw.clone();
-        let gmp_fee = token.cost(next_nw).call().await?;
-        token.send(next_nw, token.address().clone(), U256::from(TRANSFER_AMOUNT))
-             .value(gmp_fee)
-             .send().await?
-             .get_receipt().await?;
-        };
-    }
+	// Transfer tokens to next network, ring way
+	let mut msgs = vec![];
+	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
+	while let Some((nw, token)) = ring.next() {
+		if let Some((nw2, _)) = ring.peek() {
+			let next_nw = nw2.clone();
+			let gmp_fee = token.cost(next_nw).call().await?;
+			let receipt = token
+				.send(next_nw, token.address().clone(), U256::from(TRANSFER_AMOUNT))
+				.value(gmp_fee)
+				.send()
+				.await?
+				.get_receipt()
+				.await?;
+
+			let msg_id: MessageId = receipt
+				.inner
+				.logs()
+				.iter()
+				.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
+				.map(|e| e.id.into())
+				.next()
+				.ok_or(anyhow!("Failed to send gmp message"))?;
+			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(&msg_id));
+			msgs.push(msg_id);
+		};
+	}
 	// Check resulting balances
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let bob_bal = token.balanceOf(BOB).call().await?;
 		// On every chain, ALICE now has -=TRANSFER_AMOUNT, BOB has TRANSFER_AMOUNT
-		assert_eq!(alice_bal, alice_balances[i]-U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
 		assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
 	}
 

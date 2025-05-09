@@ -18,6 +18,10 @@ FROM ubuntu:22.04
 ARG PROFILE
 ARG VCS_REF
 
+RUN apt-get update && \
+	apt-get install -y ca-certificates && \
+	rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
+
 LABEL description="Multistage Dockerfile for building Analog Chronicle" \
 	one.analog.image.type="builder" \
 	one.analog.image.authors="branimir@analog.one" \

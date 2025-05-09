@@ -36,8 +36,8 @@ fn a_addr(address: Address32) -> Address20 {
 
 #[tokio::test]
 async fn oats_evm() -> Result<()> {
-	const CAP_AMOUNT: u64 = 5 * 10u64.pow(18);
-	const TRANSFER_AMOUNT: u64 = 1 * 10u64.pow(18);
+	const TRANSFER_AMOUNT: u64 = 10u64.pow(18);
+	const CAP_AMOUNT: u64 = 5 * TRANSFER_AMOUNT;
 
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
@@ -70,7 +70,7 @@ async fn oats_evm() -> Result<()> {
 	// Set OMNI token networks
 	for (nw, token) in contracts.iter() {
 		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
-			token.set_network(*n, t.address().clone()).send().await?.get_receipt().await?;
+			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
 		}
 	}
 	// Check initial balances
@@ -88,10 +88,9 @@ async fn oats_evm() -> Result<()> {
 	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
 	while let Some((nw, token)) = ring.next() {
 		if let Some((nw2, _)) = ring.peek() {
-			let next_nw = nw2.clone();
-			let gmp_fee = token.cost(next_nw).call().await?;
+			let gmp_fee = token.cost(*nw2).call().await?;
 			let receipt = token
-				.send(next_nw, BOB, U256::from(TRANSFER_AMOUNT))
+				.send(*nw2, BOB, U256::from(TRANSFER_AMOUNT))
 				.value(gmp_fee)
 				.send()
 				.await?
@@ -107,8 +106,8 @@ async fn oats_evm() -> Result<()> {
 				.map(|e| e.id.into())
 				.next()
 				.context("Failed to send gmp message")?;
-			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(&msg_id));
-			msgs.push((nw.clone(), msg_id));
+			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
+			msgs.push((*nw, msg_id));
 		};
 	}
 	// Track messages
@@ -119,7 +118,7 @@ async fn oats_evm() -> Result<()> {
 		let mut traces: Vec<MessageTrace> = vec![];
 		for (nw, msg_id) in &msgs {
 			let trace = &tc
-				.message_trace(nw.clone(), msg_id.clone(), hash)
+				.message_trace(*nw, *msg_id, hash)
 				.await
 				.context("failed to get message trace")?;
 			traces.push(trace.clone());
@@ -148,5 +147,6 @@ async fn oats_evm() -> Result<()> {
 async fn forever() -> Result<()> {
 	let (_env, _tc) = TestEnv::new(Backend::Evm, false).await?;
 	tracing::info!("Test env ready. Keeping live indefinitely...");
+	#[allow(clippy::empty_loop)]
 	loop {}
 }

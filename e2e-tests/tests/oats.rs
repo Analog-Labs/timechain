@@ -35,6 +35,9 @@ fn a_addr(address: Address32) -> Address20 {
 
 #[tokio::test]
 async fn oats_evm() -> Result<()> {
+	const CAP_AMOUNT: u64 = 5 * 10u64.pow(18);
+	const TRANSFER_AMOUNT: u64 = 1 * 10u64.pow(18);
+
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
 
@@ -46,7 +49,7 @@ async fn oats_evm() -> Result<()> {
 		let c = env.chain_container(nw_id).unwrap();
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
-		let ws = WsConnect::new(format!("http://localhost:{port}"));
+		let ws = WsConnect::new(format!("ws://localhost:{port}"));
 		let signer: PrivateKeySigner = ALICE_KEY.parse()?;
 		let wallet = EthereumWallet::from(signer.clone());
 		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
@@ -56,7 +59,7 @@ async fn oats_evm() -> Result<()> {
 			"Omni Token".to_string(),
 			"OMNI".to_string(),
 			signer.address(),
-			U256::from(5 * 10u64.pow(18)),
+			U256::from(CAP_AMOUNT),
 			a_addr(gw),
 		)
 		.await?;
@@ -70,7 +73,6 @@ async fn oats_evm() -> Result<()> {
 		}
 	}
 
-	const TRANSFER_AMOUNT: u64 = 1 * 10u64.pow(18);
 	let mut alice_balances = vec![];
 	// Check initial balances
 	for (_nw, token) in contracts.iter() {
@@ -80,6 +82,26 @@ async fn oats_evm() -> Result<()> {
 		assert_ne!(alice_bal, U256::ZERO);
 		assert_eq!(bob_bal, U256::ZERO);
 		alice_balances.push(alice_bal);
+	}
+    // Transfer tokens to next network, ring way
+    let mut ring = contracts.iter().cycle().take(contracts.len()+1).peekable();
+    while let Some((_, token)) = ring.next() {
+        if let Some((nw, _)) = ring.peek() {
+        let next_nw = nw.clone();
+        let gmp_fee = token.cost(next_nw).call().await?;
+        token.send(next_nw, token.address().clone(), U256::from(TRANSFER_AMOUNT))
+             .value(gmp_fee)
+             .send().await?
+             .get_receipt().await?;
+        };
+    }
+	// Check resulting balances
+	for (i, (_nw, token)) in contracts.iter().enumerate() {
+		let alice_bal = token.balanceOf(ALICE).call().await?;
+		let bob_bal = token.balanceOf(BOB).call().await?;
+		// On every chain, ALICE now has -=TRANSFER_AMOUNT, BOB has TRANSFER_AMOUNT
+		assert_eq!(alice_bal, alice_balances[i]-U256::from(TRANSFER_AMOUNT));
+		assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
 	}
 
 	Ok(())

@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use anyhow::{anyhow, Result, Context};
-use futures::stream::StreamExt;
 use alloy::primitives::address;
 use alloy::providers::WsConnect;
 use alloy::sol;
@@ -9,8 +6,12 @@ use alloy::{
 	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
 	signers::local::PrivateKeySigner,
 };
+use anyhow::{Context, Result};
 use e2e_tests::{Backend, TestEnv};
+use futures::stream::StreamExt;
 use gmp::Gateway;
+use std::sync::Arc;
+use tc_cli::MessageTrace;
 use time_primitives::{Address32, MessageId};
 
 // Anvil's default accounts
@@ -105,26 +106,31 @@ async fn oats_evm() -> Result<()> {
 				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
 				.map(|e| e.id.into())
 				.next()
-				.ok_or(anyhow!("Failed to send gmp message"))?;
+				.context("Failed to send gmp message")?;
 			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(&msg_id));
-			msgs.push(msg_id);
+			msgs.push((nw.clone(), msg_id));
 		};
 	}
 	// Track messages
-	let msg_id = msgs.last().unwrap().clone();
 	let mut blocks = tc.finality_notification_stream();
 	let mut id = None;
-	let (_exec, _end) = loop {
-		let (hash, end) = blocks.next().await.context("expected block")?;
-		let trace = tc.message_trace(1, msg_id, hash).await?;
-		let exec = trace.exec.as_ref().map(|t| t.task);
-		tracing::info!("waiting for messages to be executed");
-		id = Some(tc.print_table(id, "message", vec![trace]).await?);
-		if let Some(exec) = exec {
-			break (exec, end);
+	loop {
+		let (hash, _) = blocks.next().await.context("expected block")?;
+		let mut traces: Vec<MessageTrace> = vec![];
+		for (nw, msg_id) in &msgs {
+			let trace = &tc
+				.message_trace(nw.clone(), msg_id.clone(), hash)
+				.await
+				.context("failed to get message trace")?;
+			traces.push(trace.clone());
 		}
-	};
-
+		let executed = traces.iter().filter_map(|t| t.exec.clone()).count();
+		tracing::info!("waiting for messages to be executed");
+		id = Some(tc.print_table(id, "message", traces).await?);
+		if executed == msgs.len() {
+			break;
+		}
+	}
 	// Check resulting balances
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;

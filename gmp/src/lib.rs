@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use time_primitives::{ConnectorParams, IConnector, IConnectorAdmin, IConnectorBuilder};
 
+pub use gmp_evm::sol::Gateway;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Backend {

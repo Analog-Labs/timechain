@@ -5152,8 +5152,10 @@ checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
 name = "e2e-tests"
 version = "0.8.1"
 dependencies = [
+ "alloy",
  "anyhow",
  "futures",
+ "gmp",
  "hex",
  "serde_yaml",
  "tar",

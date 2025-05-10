@@ -49,7 +49,7 @@ type Address20 = alloy::primitives::Address;
 pub(crate) mod cctp;
 pub(crate) mod custom;
 pub(crate) mod dict;
-pub(crate) mod sol;
+pub mod sol;
 
 const DEFAULT_TX_TIMEOUT: u64 = 60;
 

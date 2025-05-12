@@ -421,17 +421,9 @@ impl IConnectorAdmin for Connector {
 			gmpGasLimit: 1_000_000,
 		};
 
-		// 0.1 usdc
-		let amount_u128: u128 = 100_000;
+		// 0.0001 eth
+		let amount_u128: u128 = 10000000000000;
 		let amount = U256::from(amount_u128);
-
-		// approve token
-		let approval_call = sol::ERC20Approval::approveCall {
-			spender: a_addr(src_zenswap_addr),
-			amount,
-		};
-		let receipt = self.evm_send(t_addr(src_usdc), approval_call, 0).await?;
-		tracing::info!("Token approved sent, {:?}", receipt.transaction_hash);
 
 		let deadline = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
@@ -439,40 +431,72 @@ impl IConnectorAdmin for Connector {
 			.as_secs()
 			+ 3600;
 
-		let dest_path_encoded = DynSolValue::Tuple(vec![
-			DynSolValue::Address(dest_usdc),
+		// src params
+
+		// WRAP_ETH
+		//     address The recipient of the WETH
+		//     uint256 The amount of ETH to wrap
+		let wrap_eth = DynSolValue::Tuple(vec![
+			DynSolValue::Address(a_addr(src_contracts.universal_router)),
+			DynSolValue::Uint(amount, 256),
+		])
+		.abi_encode();
+
+		// trade path
+		// token_in, fee, token_out
+		let src_path_encoded = DynSolValue::Tuple(vec![
+			DynSolValue::Address(a_addr(src_contracts.weth)),
 			DynSolValue::Uint(U256::from(100), 24),
-			DynSolValue::Address(dest_usdc),
+			DynSolValue::Address(src_usdc),
 		])
 		.abi_encode_packed();
 
-		let dest_swap_exact_in = DynSolValue::Tuple(vec![
-			DynSolValue::Address(src_usdc),
-			DynSolValue::Uint(amount, 256),
+		// V3_SWAP_EXACT_IN
+		//     address The recipient of the output of the trade
+		//     uint256 The amount of input tokens for the trade
+		//     uint256 The minimum amount of output tokens the user wants
+		//     bytes The UniswapV3 encoded path to trade along
+		//     bool A flag for whether the input tokens should come from the msg.sender (through Permit2) or whether the funds are already in the UniversalRouter
+		let src_swap_data = DynSolValue::Tuple(vec![
+			// universal factory address from source
+			DynSolValue::Address(a_addr(src_contracts.universal_router)),
+			DynSolValue::Uint(U256::from(amount), 256),
 			DynSolValue::Uint(U256::from(1), 256),
-			DynSolValue::Bytes(dest_path_encoded.clone()),
+			DynSolValue::Bytes(src_path_encoded.into()),
 			DynSolValue::Bool(false),
 		])
 		.abi_encode();
-		let dest_swap_exact_in: Vec<u8> = dest_swap_exact_in[20..].into();
+		let src_swap_data: Vec<u8> = src_swap_data[32..].into();
+
+		// SWEEP
+		//     address The ERC20 token to sweep (or Constants.ETH for ETH)
+		//     address The recipient of the sweep
+		//     uint256 The minimum required tokens to receive from the sweep
+		let sweep_data = DynSolValue::Tuple(vec![
+			DynSolValue::Address(src_usdc),
+			DynSolValue::Address(a_addr(src_zenswap_addr)),
+			DynSolValue::Uint(U256::from(1), 256),
+		])
+		.abi_encode();
 
 		let src_swap_params = sol::ZenSwap::SwapParams {
-			tokenIn: src_usdc,
+			tokenIn: Address20::ZERO,
 			tokenOut: src_usdc,
 			deadline: U256::from(deadline),
-			commands: vec![].into(),
-			inputs: vec![].into(),
+			commands: hex::decode("0b0004").unwrap().into(),
+			inputs: vec![wrap_eth.into(), src_swap_data.into(), sweep_data.into()].into(),
 		};
+		/////////////
 
+		// Dest side, swapping setup.
 		let dst_swap_params = sol::ZenSwap::SwapParams {
 			tokenIn: dest_usdc,
 			tokenOut: dest_usdc,
 			deadline: U256::from(deadline),
-			// commands: vec![].into(),
-			// inputs: vec![],
-			commands: b"\x00".to_vec().into(),
-			inputs: vec![dest_swap_exact_in.into()].into(),
+			commands: vec![].into(),
+			inputs: vec![].into(),
 		};
+		/////////
 
 		let swap_call = sol::ZenSwap::swapSendCall {
 			pluginParams: params.abi_encode().into(),
@@ -485,8 +509,7 @@ impl IConnectorAdmin for Connector {
 		let gas_cost = self
 			.estimate_message_cost(src_plugin, dest, 1_000_000, swap_call.abi_encode())
 			.await?;
-		let receipt = self.evm_send(src_zenswap_addr, swap_call, gas_cost).await?;
-		tracing::info!("swap sent: {}", receipt.transaction_hash);
+		let receipt = self.evm_send(src_zenswap_addr, swap_call, gas_cost + amount_u128).await?;
 		receipt
 			.inner
 			.inner

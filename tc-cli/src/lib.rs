@@ -1246,7 +1246,7 @@ impl Tc {
 		let src_backend = self.config.backend(src)?;
 		let dest_backend = self.config.backend(dest)?;
 		let src_config = self.config.network(src)?;
-		let dst_config = self.config.network(src)?;
+		let dst_config = self.config.network(dest)?;
 		let (Some(_), Some(_), Some(_), Some(_), Some(src_contracts), Some(dst_contracts)) = (
 			src_backend.zenswap,
 			src_backend.zenswap_plugin,

@@ -1,19 +1,17 @@
-use std::collections::VecDeque;
-
-use anyhow::Result;
+use crate::worker::TxData;
+use crate::{metadata, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
+use anyhow::{Context, Result};
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
+use metadata::runtime_types::sp_runtime::DispatchError;
+use metadata::system::events::ExtrinsicFailed;
+use metadata::technical_committee::events::MemberExecuted;
+use std::collections::VecDeque;
 use subxt::utils::H256;
 use subxt::{
 	client::{Update, UpgradeError},
 	tx::Payload,
 };
 pub use subxt_signer::sr25519::Keypair;
-
-use crate::worker::TxData;
-use crate::{metadata, ExtrinsicParams, OnlineClient, SubmittableExtrinsic};
-use metadata::runtime_types::sp_runtime::DispatchError;
-use metadata::system::events::ExtrinsicFailed;
-use metadata::technical_committee::events::MemberExecuted;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BlockId {
@@ -85,10 +83,12 @@ pub struct SignedTransaction {
 }
 
 pub struct TimechainBlock {
+	pub client: OnlineClient,
 	pub block: crate::Block,
 }
 
 pub struct TimechainExtrinsic {
+	pub client: OnlineClient,
 	pub extrinsic: crate::ExtrinsicDetails,
 }
 
@@ -133,13 +133,18 @@ impl ITimechainClient for TimechainOnlineClient {
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
 		let finalized_stream = self.client.blocks().subscribe_finalized().await?;
-		let stream_with_txs = finalized_stream.map(|res| res.map_err(anyhow::Error::new)).and_then(
-			|block| async move {
-				let block = TimechainBlock { block };
-				let extrinsics = IBlock::extrinsics(&block).await?;
-				Ok((block, extrinsics))
-			},
-		);
+		let client = self.client.clone();
+		let stream_with_txs =
+			finalized_stream
+				.map(|res| res.map_err(anyhow::Error::new))
+				.and_then(move |block| {
+					let client = client.clone();
+					async move {
+						let block = TimechainBlock { client, block };
+						let extrinsics = IBlock::extrinsics(&block).await?;
+						Ok((block, extrinsics))
+					}
+				});
 		Ok(stream_with_txs.boxed())
 	}
 	async fn best_block_stream(
@@ -147,14 +152,16 @@ impl ITimechainClient for TimechainOnlineClient {
 	) -> Result<BoxStream<'static, Result<(Self::Block, Vec<<Self::Block as IBlock>::Extrinsic>)>>>
 	{
 		let best_stream = self.client.blocks().subscribe_best().await?;
+		let client = self.client.clone();
 		let stream_with_txs =
-			best_stream
-				.map(|res| res.map_err(anyhow::Error::new))
-				.and_then(|block| async move {
-					let block = TimechainBlock { block };
+			best_stream.map(|res| res.map_err(anyhow::Error::new)).and_then(move |block| {
+				let client = client.clone();
+				async move {
+					let block = TimechainBlock { client, block };
 					let extrinsics = IBlock::extrinsics(&block).await?;
 					Ok((block, extrinsics))
-				});
+				}
+			});
 		Ok(stream_with_txs.boxed())
 	}
 	async fn runtime_updates(&self) -> Result<BoxStream<'static, Result<Self::Update>>> {
@@ -200,7 +207,13 @@ impl IBlock for TimechainBlock {
 	type Extrinsic = TimechainExtrinsic;
 	async fn extrinsics(&self) -> Result<Vec<Self::Extrinsic>> {
 		let extrinsics = self.block.extrinsics().await?;
-		Ok(extrinsics.iter().map(|extrinsic| TimechainExtrinsic { extrinsic }).collect())
+		Ok(extrinsics
+			.iter()
+			.map(|extrinsic| TimechainExtrinsic {
+				client: self.client.clone(),
+				extrinsic,
+			})
+			.collect())
 	}
 	fn number(&self) -> u64 {
 		self.block.number().into()
@@ -239,15 +252,14 @@ impl IExtrinsic for TimechainExtrinsic {
 			};
 
 			let DispatchError::Module(error) = error else {
-				anyhow::bail!("Tx failed with error: {:?}", error);
-			};
-			let event_metadata = ev.event_metadata();
-			let Some(error_metadata) = event_metadata.pallet.error_variant_by_index(error.error[0])
-			else {
-				anyhow::bail!("Tx failed with error: {:?}", error);
+				anyhow::bail!("tx failed with error: {:?}", error);
 			};
 
-			anyhow::bail!("Tx failed with error: {:?}", error_metadata.name);
+			let metadata = self.client.metadata();
+			let pallet = metadata.pallet_by_index_err(error.index)?;
+			let error =
+				pallet.error_variant_by_index(error.error[0]).context("unknown error variant")?;
+			anyhow::bail!("tx failed with error: {}::{}", pallet.name(), error.name);
 		}
 		Ok(())
 	}

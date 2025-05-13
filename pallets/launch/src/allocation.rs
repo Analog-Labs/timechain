@@ -5,8 +5,8 @@ use crate::{
 
 use polkadot_sdk::*;
 
-use frame_support::traits::Currency;
-use frame_support::traits::VestingSchedule;
+use frame_support::assert_ok;
+use frame_support::traits::{Currency, VestingSchedule};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::Get;
 use sp_runtime::traits::CheckedConversion;
@@ -254,5 +254,30 @@ impl AllocationTracker {
 			}
 		}
 		valid
+	}
+
+	/// Mint tokens in accordance with current tracker status into the associated virtual wallets.
+	/// Only to be used in testing or genesis builder as it panics on error.
+	pub fn mint<T: Config>(&self)
+	where
+		Balance: From<BalanceOf<T>>,
+		BalanceOf<T>: From<Balance>,
+	{
+		for i in 1..Allocation::num_of() {
+			let alloc = Allocation::from_index(i);
+
+			assert!(alloc.total() > self.per(alloc));
+
+			let remaining: Balance = alloc.total() - self.per(alloc);
+			let account = alloc.account_id::<T>();
+
+			let _ = CurrencyOf::<T>::deposit_creating(&account, remaining.into());
+
+			if let Some(vs) = alloc.schedule_rel::<T>(remaining.into()) {
+				assert_ok!(pallet_vesting::Pallet::<T>::add_vesting_schedule(
+					&account, vs.0, vs.1, vs.2
+				));
+			}
+		}
 	}
 }

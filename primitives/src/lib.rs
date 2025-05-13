@@ -214,7 +214,6 @@ pub trait ShardsInterface {
 		members: Vec<AccountId>,
 		threshold: u16,
 	) -> Result<ShardId, DispatchError>;
-	fn next_signer(shard_id: ShardId) -> PublicKey;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 }
 

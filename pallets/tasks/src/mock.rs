@@ -57,7 +57,6 @@ impl MembersInterface for MockMembers {
 	fn is_member_registered(_account: &AccountId) -> bool {
 		true
 	}
-	fn do_unregister_member(_account: &AccountId) {}
 }
 
 pub struct MockElections;

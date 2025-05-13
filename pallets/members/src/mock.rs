@@ -55,9 +55,6 @@ impl ShardsInterface for MockShards {
 	) -> Result<ShardId, DispatchError> {
 		Ok(0)
 	}
-	fn next_signer(_shard_id: ShardId) -> PublicKey {
-		pubkey_from_bytes([0; 32])
-	}
 	fn tss_public_key(_shard_id: ShardId) -> Option<TssPublicKey> {
 		None
 	}

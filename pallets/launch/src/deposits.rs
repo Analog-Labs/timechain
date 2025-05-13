@@ -168,16 +168,6 @@ where
 
 		let account = source.account_id::<T>();
 
-		// Ensure account is fully vested
-		if pallet_vesting::Pallet::<T>::vesting_balance(&account)
-			!= Some(CurrencyOf::<T>::free_balance(&account))
-		{
-			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
-				source: source.sub_id().to_vec(),
-			});
-			return weight;
-		}
-
 		// Remove existing schedule before transfer operation
 		if pallet_vesting::Pallet::<T>::remove_vesting_schedule(&account, 0).is_err() {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {

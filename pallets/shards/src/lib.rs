@@ -138,9 +138,13 @@ pub mod pallet {
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
 
-	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
+	#[pallet::storage]
 	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
+
+	/// subxt doesn't allow decoding keys
+	#[pallet::storage]
+	pub type Shards<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, ShardId, OptionQuery>;
 
 	/// Maps `ShardId` to `NetworkId` indicating the network for which shards can be assigned tasks.
 	#[pallet::storage]
@@ -182,10 +186,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MemberShard<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, ShardId, OptionQuery>;
-
-	/// Maps `ShardId` to `u32` indicating the signer index for each shard.
-	#[pallet::storage]
-	pub type SignerIndex<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u32, ValueQuery>;
 
 	/// Double map storing the `MemberStatus` of each `AccountId` in a specific ShardId.
 	#[pallet::storage]
@@ -406,6 +406,7 @@ pub mod pallet {
 				ShardThreshold::<T>::remove(shard_id);
 
 				if let Some(network) = ShardNetwork::<T>::take(shard_id) {
+					Shards::<T>::remove(shard_id);
 					T::Tasks::shard_offline(shard_id, network);
 
 					// Collect all members for election update
@@ -648,6 +649,7 @@ pub mod pallet {
 			);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id.saturating_plus_one());
+			<Shards<T>>::insert(shard_id, shard_id);
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
 			<DkgTimeout<T>>::insert(dkg_timeout_block, shard_id, ());

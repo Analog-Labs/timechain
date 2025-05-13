@@ -151,9 +151,8 @@ impl Tc {
 		network: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<Vec<TssPublicKey>> {
-		let shard_id_counter = self.runtime.shard_id_counter(block_hash).await?;
 		let mut shards = vec![];
-		for shard_id in 0..shard_id_counter {
+		for shard_id in self.runtime.shards(block_hash).await? {
 			match self.runtime.shard_network(shard_id, block_hash).await {
 				Ok(Some(shard_network)) if shard_network == network => {},
 				Ok(_) => continue,
@@ -577,10 +576,9 @@ impl Tc {
 	}
 
 	pub async fn shards(&self, block_hash: BlockHash) -> Result<Vec<Shard>> {
-		let shard_id_counter = self.runtime.shard_id_counter(block_hash).await?;
 		let mut shards = vec![];
 		let mut registered_shards = HashMap::new();
-		for shard in 0..shard_id_counter {
+		for shard in self.runtime.shards(block_hash).await? {
 			let Some(network) = self.runtime.shard_network(shard, block_hash).await? else {
 				continue;
 			};

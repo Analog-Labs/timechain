@@ -88,8 +88,8 @@ pub mod pallet {
 
 	use time_primitives::{
 		AccountId, Balance, Commitment, ElectionsInterface, MemberStatus, MembersInterface,
-		NetworkId, ProofOfKnowledge, PublicKey, ShardId, ShardStatus, ShardsInterface,
-		TasksInterface, TssPublicKey,
+		NetworkId, ProofOfKnowledge, ShardId, ShardStatus, ShardsInterface, TasksInterface,
+		TssPublicKey,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -138,9 +138,13 @@ pub mod pallet {
 		type DkgTimeout: Get<BlockNumberFor<Self>>;
 	}
 
-	#[pallet::storage]
 	/// Counter for creating unique shard_ids during on-chain creation
+	#[pallet::storage]
 	pub type ShardIdCounter<T: Config> = StorageValue<_, ShardId, ValueQuery>;
+
+	/// subxt doesn't allow decoding keys
+	#[pallet::storage]
+	pub type Shards<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, ShardId, OptionQuery>;
 
 	/// Maps `ShardId` to `NetworkId` indicating the network for which shards can be assigned tasks.
 	#[pallet::storage]
@@ -182,10 +186,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MemberShard<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, ShardId, OptionQuery>;
-
-	/// Maps `ShardId` to `u32` indicating the signer index for each shard.
-	#[pallet::storage]
-	pub type SignerIndex<T: Config> = StorageMap<_, Blake2_128Concat, ShardId, u32, ValueQuery>;
 
 	/// Double map storing the `MemberStatus` of each `AccountId` in a specific ShardId.
 	#[pallet::storage]
@@ -406,6 +406,7 @@ pub mod pallet {
 				ShardThreshold::<T>::remove(shard_id);
 
 				if let Some(network) = ShardNetwork::<T>::take(shard_id) {
+					Shards::<T>::remove(shard_id);
 					T::Tasks::shard_offline(shard_id, network);
 
 					// Collect all members for election update
@@ -648,6 +649,7 @@ pub mod pallet {
 			);
 			let shard_id = <ShardIdCounter<T>>::get();
 			<ShardIdCounter<T>>::put(shard_id.saturating_plus_one());
+			<Shards<T>>::insert(shard_id, shard_id);
 			<ShardNetwork<T>>::insert(shard_id, network);
 			<ShardState<T>>::insert(shard_id, ShardStatus::Created);
 			<DkgTimeout<T>>::insert(dkg_timeout_block, shard_id, ());
@@ -659,29 +661,6 @@ pub mod pallet {
 			ShardMembersOnline::<T>::insert(shard_id, members.len() as u16);
 			Self::deposit_event(Event::ShardCreated(shard_id, network));
 			Ok(shard_id)
-		}
-		/// Retrieves the public key of the next signer for the specified shard, updating the signer index.
-		///
-		/// # Flow
-		///   1. Retrieves the list of members (`AccountId`) for the specified `shard_id`.
-		///   2. Retrieves the current `signer_index` for the shard.
-		///   3. Retrieves the public key of the next signer using `T::Members::member_public_key`.
-		///   4. Updates the signer index in [`SignerIndex`].
-		///   5. Returns the retrieved public key of the signer.
-		fn next_signer(shard_id: ShardId) -> PublicKey {
-			let members = Self::get_shard_members(shard_id);
-			let signer_index: usize =
-				SignerIndex::<T>::get(shard_id).try_into().expect("Checked indexing already");
-			let signer = T::Members::member_public_key(&members[signer_index].0)
-				.expect("All signers should be registered members");
-			let next_signer_index =
-				if members.len() as u32 == (signer_index as u32).saturating_plus_one() {
-					0
-				} else {
-					signer_index.saturating_plus_one()
-				};
-			SignerIndex::<T>::insert(shard_id, next_signer_index as u32);
-			signer
 		}
 		/// Retrieves the TSS public key associated with the specified shard, if available.
 		///

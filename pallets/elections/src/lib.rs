@@ -143,9 +143,7 @@ pub mod pallet {
 		fn shard_offline(network: NetworkId, members: Vec<AccountId>) {
 			let mut batch = Vec::new();
 			for member in members {
-				if !T::Members::is_member_registered(&member) {
-					T::Members::do_unregister_member(&member);
-				} else if T::Members::is_member_online(&member) {
+				if T::Members::is_member_online(&member) {
 					batch.push(member.clone());
 				}
 			}

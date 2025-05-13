@@ -8,21 +8,14 @@ use time_primitives::{
 };
 
 impl SubxtClient {
-	/* subxt doesn't support decoding keys, use shard_id_counter for now
-	pub async fn shards(&self) -> Result<Vec<ShardId>> {
+	pub async fn shards(&self, block: BlockHash) -> Result<Vec<ShardId>> {
 		let mut shards = vec![];
-			let storage = metadata::storage().shards().shard_state_iter();
-			let mut iter = self.client.storage().at_latest().await?.iter(storage).await?;
-			while let Some(Ok(kv)) = iter.next().await {
-				shards.push(kv.keys);
-			}
+		let storage = metadata::storage().shards().shards_iter();
+		let mut iter = self.client.storage().at(block).iter(storage).await?;
+		while let Some(Ok(kv)) = iter.next().await {
+			shards.push(kv.value);
+		}
 		Ok(shards)
-	}*/
-
-	pub async fn shard_id_counter(&self, block: BlockHash) -> Result<u64> {
-		let block = H256(block.0);
-		let storage_query = metadata::storage().shards().shard_id_counter();
-		Ok(self.client.storage().at(block).fetch_or_default(&storage_query).await?)
 	}
 
 	pub async fn shard_network(

@@ -6,7 +6,7 @@ use polkadot_sdk::*;
 use frame_support::pallet_prelude::*;
 use sp_runtime::traits::Hash;
 
-use time_primitives::{AccountId, Balance};
+use time_primitives::{AccountId, Balance, ANLOG};
 
 use crate::airdrops::{
 	AirdropBalanceOf, AirdropMintStage, AirdropTransferStage, RawAirdropMintStage,
@@ -93,6 +93,7 @@ impl Stage {
 	pub fn execute<T: Config>(&self, source: Allocation) -> Weight
 	where
 		T::AccountId: From<AccountId>,
+		BalanceOf<T>: From<Balance>,
 		Balance: From<BalanceOf<T>>,
 	{
 		use Stage::*;
@@ -101,7 +102,9 @@ impl Stage {
 			DepositFromUnlocked(raw) => {
 				DepositStage::<T>::parse_with_schedule(raw).transfer_unlocked(source)
 			},
-			DepositAsVested(raw) => DepositStage::<T>::parse(raw).transfer_as_vested(source),
+			DepositAsVested(raw) => {
+				DepositStage::<T>::parse(raw).transfer_as_vested(source, (5 * ANLOG).into())
+			},
 			AirdropFromUnlocked(raw) => AirdropMintStage::<T>::parse(raw).mint(source),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).transfer(),
 		}

@@ -69,7 +69,7 @@ pub mod pallet {
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 31;
+	pub const LAUNCH_VERSION: u16 = 35;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -138,6 +138,37 @@ pub mod pallet {
 		(30, Allocation::Ecosystem, 160_086 * ANLOG, Stage::Retired),
 		// Staking Allocation 2
 		(31, Allocation::Ecosystem, 2_000_200 * ANLOG, Stage::Retired),
+		// Investor Snapshot 1
+		(
+			32,
+			Allocation::Seed,
+			36_231_884 * ANLOG,
+			Stage::DepositAsVested(data::v32::SEED_SNAPSHOT_1),
+		),
+		(
+			33,
+			Allocation::Private1,
+			83_514_493 * ANLOG,
+			Stage::DepositAsVested(data::v33::PRIVATE1_SNAPSHOT_1),
+		),
+		(
+			34,
+			Allocation::Opportunity4,
+			13_028_382_280 * MILLIANLOG,
+			Stage::DepositAsVested(data::v34::OPPORTUNITY4_SNAPSHOT_1),
+		),
+		(
+			35,
+			Allocation::Strategic,
+			63_222_402 * ANLOG,
+			Stage::DepositAsVested(data::v35::STRATEGIC_SNAPSHOT_1),
+		),
+		(
+			36,
+			Allocation::Ecosystem,
+			452_899 * ANLOG,
+			Stage::DepositFromUnlocked(data::v36::ECOSYSTEM_SNAPSHOT_1),
+		),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -232,6 +263,7 @@ pub mod pallet {
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+		BalanceOf<T>: From<Balance>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			match LaunchLedger::compile(LAUNCH_LEDGER) {

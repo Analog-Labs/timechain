@@ -7,7 +7,7 @@ use frame_support::pallet_prelude::*;
 use frame_support::traits::{Currency, ExistenceRequirement, VestingSchedule};
 use frame_system::pallet_prelude::*;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::traits::{CheckedConversion, Zero};
+use sp_runtime::traits::{CheckedConversion, Saturating, Zero};
 use sp_std::{vec, vec::Vec};
 
 use time_primitives::{AccountId, Balance};
@@ -163,7 +163,7 @@ where
 	}
 
 	/// Execute deposits as far as possible, log failed deposit as events
-	pub fn transfer_as_vested(self, source: Allocation) -> Weight {
+	pub fn transfer_as_vested(self, source: Allocation, unlocked: BalanceOf<T>) -> Weight {
 		let mut weight = Weight::zero();
 
 		let account = source.account_id::<T>();
@@ -178,7 +178,7 @@ where
 			return weight;
 		}
 
-		// Remove existing schedule during operation
+		// Remove existing schedule before transfer operation
 		if pallet_vesting::Pallet::<T>::remove_vesting_schedule(&account, 0).is_err() {
 			Pallet::<T>::deposit_event(Event::<T>::DepositSourceMissmatch {
 				source: source.sub_id().to_vec(),
@@ -186,22 +186,18 @@ where
 			return weight;
 		}
 
-		// Handle all the transfers...
-		for (target, amount, no_schedule) in self.0.iter() {
+		// For each of the the transfers
+		for (target, amount, override_schedule) in self.0.iter() {
 			// (Read and write source and schedule, read existential deposit, followed by reading and writing target.)
 			weight += T::DbWeight::get().reads_writes(5, 5);
 
-			// Allocation needs to be the sole provided of the vesting schedule
-			if no_schedule.is_some() {
-				Pallet::<T>::deposit_event(Event::<T>::DepositVestingMissmatch {
-					target: target.clone(),
-				});
-				continue;
-			}
+			// Compute relative vesting schedule unless override schedule is provided ...
+			if let Some(vs) = override_schedule.or(source.schedule_rel::<T>(*amount)) {
+				// ... (optionally allow some tokens to stay unlocked) ...
+				let locked = vs.0.saturating_sub(unlocked);
 
-			// Compute relative vesting schedule
-			if let Some(vs) = source.schedule_rel::<T>(*amount) {
-				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(target, vs.0, vs.1, vs.2)
+				// ... ensure vested transfer can be executed successfully ...
+				if pallet_vesting::Pallet::<T>::can_add_vesting_schedule(target, locked, vs.1, vs.2)
 					.is_err()
 				{
 					Pallet::<T>::deposit_event(Event::<T>::DepositFailed {
@@ -225,7 +221,8 @@ where
 					continue;
 				}
 
-				pallet_vesting::Pallet::<T>::add_vesting_schedule(target, vs.0, vs.1, vs.2)
+				// ... and follow up by locking the transferred tokens via vesting
+				pallet_vesting::Pallet::<T>::add_vesting_schedule(target, locked, vs.1, vs.2)
 					.expect("No other vesting schedule exists, as checked above; qed");
 			} else {
 				Pallet::<T>::deposit_event(Event::<T>::DepositVestingMissmatch {
@@ -235,7 +232,7 @@ where
 			}
 		}
 
-		// Ensure the remaining tokens are locked again
+		// Ensure the remaining tokens are locked again after the transfer
 		let remaining = CurrencyOf::<T>::free_balance(&account);
 		if let Some(vs) = source.schedule_rel::<T>(remaining) {
 			pallet_vesting::Pallet::<T>::add_vesting_schedule(&account, vs.0, vs.1, vs.2)

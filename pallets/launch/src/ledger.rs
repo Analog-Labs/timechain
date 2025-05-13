@@ -28,6 +28,7 @@ impl<T: Config> LaunchLedger<T>
 where
 	T::AccountId: From<AccountId>,
 	Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+	BalanceOf<T>: From<Balance>,
 {
 	/// Parse raw launch plan and check it for consistency
 	pub fn compile(ledger: RawLaunchLedger) -> Result<Self, Error<T>> {

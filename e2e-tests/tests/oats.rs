@@ -290,7 +290,7 @@ async fn oats_sender_evm() -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn forever() -> Result<()> {
-	let (_env, _tc) = TestEnv::new(Backend::Evm, false).await?;
+	let (_env, _tc) = TestEnv::new(Backend::Evm, false, None).await?;
 	tracing::info!("Test env ready. Keeping live indefinitely...");
 	#[allow(clippy::empty_loop)]
 	loop {}

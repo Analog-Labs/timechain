@@ -509,6 +509,8 @@ impl IConnectorAdmin for Connector {
 		let gas_cost = self
 			.estimate_message_cost(src_plugin, dest, 1_000_000, swap_call.abi_encode())
 			.await?;
+		tracing::info!("balance of sender: {:?}", self.balance(self.address()).await);
+		tracing::info!("Sending cost: {:?}", gas_cost + amount_u128);
 		let receipt = self.evm_send(src_zenswap_addr, swap_call, gas_cost + amount_u128).await?;
 		receipt
 			.inner

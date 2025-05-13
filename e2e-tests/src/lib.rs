@@ -208,14 +208,16 @@ impl TestEnvBuilder {
 		network: NetworkId,
 		shard_size: u16,
 		shard_threshold: u16,
-		fork_params: Option<(String, u64)>,
+		fork_params: Option<ForkParams>,
 	) -> Result<()> {
 		let mut name = format!("evm-{network}");
+		let mut zenswap = None;
 		let mut fork_path = String::from("");
 		match fork_params {
 			Some(fork_params) => {
-				name = "ethereum sepolia".into();
-				fork_path = format!("--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2", fork_params.0, fork_params.1);
+				name = fork_params.chain_name;
+				zenswap = Some(fork_params.cctp_args);
+				fork_path = format!("--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2", fork_params.chain_url, fork_params.chain_block);
 			},
 			_ => {},
 		}
@@ -265,14 +267,7 @@ impl TestEnvBuilder {
 				coin_id: 1027,
 				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
 				cctp_contracts: None,
-				zenswap: Some(SwapPrerequisites {
-					universal_router: "4A7b5Da61326A6379179b40d00F57E5bbDC962c2".into(),
-					permit2: "000000000022D473030F116dDEE9F6B43aC78BA3".into(),
-					token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5".into(),
-					msg_transmitter: "acf1ceef35caac005e15888ddb8a3515c41b4872".into(),
-					usdc: "1c7D4B196Cb0C7B01d743Fbc6116a902379C7238".into(),
-					weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14".into(),
-				}),
+				zenswap,
 			},
 		);
 
@@ -364,11 +359,21 @@ impl TestEnv {
 	pub async fn new(
 		backend: Backend,
 		tss: bool,
-		fork_params: Option<(String, u64)>,
+		fork_params: Option<(ForkParams, ForkParams)>,
 	) -> Result<(Self, Tester)> {
 		let mut snapshot = backend.to_string();
+		let mut src_fork = None;
+		let mut dest_fork = None;
 		if let Some(fork_params) = fork_params.clone() {
-			snapshot.push_str(&format!("-fork-{}", fork_params.1));
+			snapshot.push_str(&format!(
+				"-fork-{}-{}-{}-{}",
+				fork_params.0.chain_name,
+				fork_params.0.chain_block,
+				fork_params.1.chain_name,
+				fork_params.1.chain_block
+			));
+			src_fork = Some(fork_params.0);
+			dest_fork = Some(fork_params.1);
 		}
 		if tss {
 			snapshot.push_str("-tss");
@@ -379,8 +384,8 @@ impl TestEnv {
 		let mut builder = TestEnvBuilder::new(snapshot_path).await?;
 		match backend {
 			Backend::Evm => {
-				builder.add_evm(0, shard_size, shard_threshold, fork_params.clone()).await?;
-				builder.add_evm(1, shard_size, shard_threshold, fork_params).await?;
+				builder.add_evm(0, shard_size, shard_threshold, src_fork).await?;
+				builder.add_evm(1, shard_size, shard_threshold, dest_fork).await?;
 			},
 			Backend::Grpc => {
 				builder.add_grpc(0, shard_size, shard_threshold).await?;
@@ -493,4 +498,11 @@ fn pick_free_port() -> Result<u16> {
 	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
 	let port = listener.local_addr()?.port();
 	Ok(port)
+}
+#[derive(Clone)]
+pub struct ForkParams {
+	pub chain_url: String,
+	pub chain_name: String,
+	pub chain_block: u64,
+	pub cctp_args: SwapPrerequisites,
 }

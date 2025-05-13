@@ -1,5 +1,6 @@
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnv, Tester};
+use e2e_tests::{Backend, ForkParams, TestEnv, Tester};
+use tc_cli::config::SwapPrerequisites;
 use time_primitives::CCTPMessage;
 
 async fn test_cctp(mut tc: Tester) -> Result<()> {
@@ -37,7 +38,7 @@ async fn test_zenswap(mut tc: Tester) -> Result<()> {
 	let (block_hash, _) = tc.latest_block().await?;
 	tc.set_network_config(src, block_hash).await?;
 	let msg_id = tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
-	tracing::info!("swap sent with msg_id: {:?}", msg_id);
+	tracing::info!("swap sent with msg_id: {:?}", hex::encode(msg_id));
 	Ok(())
 }
 
@@ -56,12 +57,40 @@ async fn cctp_evm() -> Result<()> {
 
 #[tokio::test]
 async fn zenswap_evm() -> Result<()> {
-	let (_env, tc) = TestEnv::new(
-		Backend::Evm,
-		// TestingBackend::evm_fork("https://sepolia.drpc.org".into(), 8226023u64),
-		false,
-		None,
-	)
-	.await?;
-	test_zenswap(tc).await
+	let sepolia_url = std::env::var("SEPOLIA_HTTP").unwrap_or("https://sepolia.drpc.org".into());
+	// TODO add arbitrum url
+	let arbitrum_url = std::env::var("ARBITRUM_HTTP")
+		.unwrap_or("https://arbitrum-sepolia-rpc.publicnode.com".into());
+	let sepolia_fork_params = ForkParams {
+		chain_url: sepolia_url,
+		chain_name: "ethereum sepolia".into(),
+		chain_block: 8317282u64,
+		cctp_args: SwapPrerequisites {
+			universal_router: "3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b".into(),
+			permit2: "000000000022D473030F116dDEE9F6B43aC78BA3".into(),
+			token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5".into(),
+			msg_transmitter: "7865fAfC2db2093669d92c0F33AeEF291086BEFD".into(),
+			usdc: "1c7D4B196Cb0C7B01d743Fbc6116a902379C7238".into(),
+			weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14".into(),
+		},
+	};
+
+	let arbitrum_fork_params = ForkParams {
+		chain_url: arbitrum_url,
+		chain_name: "arbitrum sepolia".into(),
+		chain_block: 152503798u64,
+		cctp_args: SwapPrerequisites {
+			universal_router: "4A7b5Da61326A6379179b40d00F57E5bbDC962c2".into(),
+			permit2: "000000000022D473030F116dDEE9F6B43aC78BA3".into(),
+			token_messenger: "9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5".into(),
+			msg_transmitter: "acf1ceef35caac005e15888ddb8a3515c41b4872".into(),
+			usdc: "75faf114eafb1bdbe2f0316df893fd58ce46aa4d".into(),
+			weth: "fFf9976782d46CC05630D1f6eBAb18b2324d6B14".into(),
+		},
+	};
+
+	let (_env, tc) =
+		TestEnv::new(Backend::Evm, false, Some((sepolia_fork_params, arbitrum_fork_params)))
+			.await?;
+	test_zenswap(tc).await?;
 }

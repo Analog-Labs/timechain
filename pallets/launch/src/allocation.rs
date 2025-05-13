@@ -66,24 +66,29 @@ impl Allocation {
 		(unsafe { *(self as *const Self as *const u8) }) as usize
 	}
 
-	/// Retrieve sub id used in virtual wallet generation
-	pub fn sub_id(&self) -> &'static [u8] {
+	/// Retrieve string used in virtual wallet generation
+	pub fn string(&self) -> &'static str {
 		use Allocation::*;
 
 		match self {
-			Ignore | SIZE => b"",
-			Seed => b"seed",
-			Opportunity1 => b"opportunity1",
-			Private1 => b"private1",
-			Opportunity2 => b"opportunity2",
-			Opportunity3 => b"opportunity3",
-			Opportunity4 => b"opportunity4",
-			Strategic => b"strategic",
-			Team => b"team",
-			Airdrop => b"airdrop",
-			Initiatives => b"initiatives",
-			Ecosystem => b"ecosystem",
+			Ignore | SIZE => "",
+			Seed => "seed",
+			Opportunity1 => "opportunity1",
+			Private1 => "private1",
+			Opportunity2 => "opportunity2",
+			Opportunity3 => "opportunity3",
+			Opportunity4 => "opportunity4",
+			Strategic => "strategic",
+			Team => "team",
+			Airdrop => "airdrop",
+			Initiatives => "initiatives",
+			Ecosystem => "ecosystem",
 		}
+	}
+
+	/// Retrieve sub id bytes used in virtual wallet generation
+	pub fn sub_id(&self) -> &'static [u8] {
+		self.string().as_bytes()
 	}
 
 	/// Compute account id of virtual wallet tracking issuance
@@ -226,7 +231,7 @@ impl AllocationTracker {
 			if self.per(alloc) > alloc.total() {
 				log::error!(
 					target: LOG_TARGET,
-					"🧾 Allocation exceeded for {:?}: {:?} > {}", alloc.sub_id(), self.per(alloc), alloc.total()
+					"🧾 Allocation exceeded for '{}': {:?} > {}", alloc.string(), self.per(alloc), alloc.total()
 				);
 				valid = false;
 			}
@@ -237,13 +242,13 @@ impl AllocationTracker {
 			if exact && remaining != free {
 				log::error!(
 					target: LOG_TARGET,
-					"🧾 Allocation missmatch for {:?}: {} != {}", alloc.sub_id(), remaining, free
+					"🧾 Allocation missmatch for '{}': {} != {}", alloc.string(), remaining, free
 				);
 				valid = false;
 			} else if !exact && remaining > free {
 				log::error!(
 					target: LOG_TARGET,
-					"🧾 Allocation exceeded for {:?}: {} > {}", alloc.sub_id(), remaining, free
+					"🧾 Allocation exceeded for '{}': {} > {}", alloc.string(), remaining, free
 				);
 				valid = false;
 			}

@@ -117,17 +117,17 @@ impl Allocation {
 
 		match self {
 			Ignore | SIZE => None,
-			Seed => Some((2_116_870_581_830 * mANLOG, 178_512 * mANLOG, 4_586_070)),
-			Opportunity1 => Some((170_807_453_140 * mANLOG, 16_204 * mANLOG, 3_268_470)),
-			Private1 => Some((914_546_375_350 * mANLOG, 86_762 * mANLOG, 3_268_470)),
-			Opportunity2 => Some((42_701_863_290 * mANLOG, 4_051 * mANLOG, 3_268_470)),
-			Opportunity3 => Some((53_495_311_080 * mANLOG, 6_766 * mANLOG, 3_268_470)),
-			Opportunity4 => Some((44_418_704_640 * mANLOG, 5_618 * mANLOG, 1_950_870)),
-			Strategic => Some((376_857_707_180 * mANLOG, 47_669 * mANLOG, 1_950_870)),
-			Team => Some((1_714_673_910_300 * mANLOG, 108_446 * mANLOG, 4_586_070)),
+			Seed => Some((2_116_870_581_830 * mANLOG, 178_512 * mANLOG, 4_643_670)),
+			Opportunity1 => Some((170_807_453_140 * mANLOG, 16_204 * mANLOG, 3_326_070)),
+			Private1 => Some((914_546_375_350 * mANLOG, 86_762 * mANLOG, 3_326_070)),
+			Opportunity2 => Some((42_701_863_290 * mANLOG, 4_051 * mANLOG, 3_326_070)),
+			Opportunity3 => Some((53_495_311_080 * mANLOG, 6_766 * mANLOG, 3_326_070)),
+			Opportunity4 => Some((44_418_704_640 * mANLOG, 5_618 * mANLOG, 2_008_470)),
+			Strategic => Some((376_857_707_180 * mANLOG, 47_669 * mANLOG, 2_008_470)),
+			Team => Some((1_714_673_910_300 * mANLOG, 108_446 * mANLOG, 4_643_670)),
 			Airdrop => None,
-			Initiatives => Some((1_086_956_520_000 * mANLOG, 68_745 * mANLOG, 633_270)),
-			Ecosystem => Some((679_553_171_595 * mANLOG, 32_234 * mANLOG, 633_270)),
+			Initiatives => Some((1_086_956_520_000 * mANLOG, 68_745 * mANLOG, 690_870)),
+			Ecosystem => Some((679_553_171_595 * mANLOG, 32_234 * mANLOG, 690_870)),
 		}
 	}
 

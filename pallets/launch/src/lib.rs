@@ -160,8 +160,14 @@ pub mod pallet {
 		(
 			35,
 			Allocation::Strategic,
-			85_867_330 * ANLOG,
+			63_222_402 * ANLOG,
 			Stage::DepositAsVested(data::v35::STRATEGIC_SNAPSHOT_1),
+		),
+		(
+			36,
+			Allocation::Ecosystem,
+			452_899 * ANLOG,
+			Stage::DepositFromUnlocked(data::v36::ECOSYSTEM_SNAPSHOT_1),
 		),
 	];
 

@@ -4,7 +4,7 @@ use time_primitives::ANLOG;
 
 pub const STRATEGIC_SNAPSHOT_1: RawDepositStage = &[
 	("an9fFa1vrJPC61rP3yhdJAWudbK7QWuxe1qcriJa9kebKqtDL", 18115942 * ANLOG),
-	("an9qWaJiRw2kWGEC76AcD2ZTau3fmgTrAhNjPR55pm31aECWS", 45289856 * ANLOG),
+	("an9qWaJiRw2kWGEC76AcD2ZTau3fmgTrAhNjPR55pm31aECWS", 22644928 * ANLOG),
 	("an7ow1PmbtugNftTvS59gUhvm79LYkXcD4rp3HPq4G82uZoEd", 1887077 * ANLOG),
 	("an72QZwmMUs2o8hyWf8rvqVaiWNZCphqFD9mijyvEHK53VRDp", 6265097 * ANLOG),
 	("an88EBV7Lz7QwAQpew9V6axACi5rxA75mvrqkdxwLd8MUXWzf", 2264493 * ANLOG),

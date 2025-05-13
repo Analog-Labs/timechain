@@ -1706,4 +1706,39 @@ impl Tc {
 		self.config
 			.add_cctp_contract(network, self.format_address(Some(network), contract)?)
 	}
+
+	pub async fn track_msg_id(
+		&self,
+		msg_id: MessageId,
+		src: NetworkId,
+		dest: NetworkId,
+		dest_addr: Address32,
+	) -> Result<()> {
+		let mut blocks = self.finality_notification_stream();
+		let (_, start) = blocks.next().await.context("expected block")?;
+		let mut id = None;
+		let (exec, end) = loop {
+			let (hash, end) = blocks.next().await.context("expected block")?;
+			let trace = self.message_trace(src, msg_id, hash).await?;
+			let exec = trace.exec.as_ref().map(|t| t.task);
+			tracing::info!("waiting for message {}", hex::encode(msg_id));
+			id = Some(self.print_table(id, "message", vec![trace]).await?);
+			if let Some(exec) = exec {
+				break (exec, end);
+			}
+		};
+
+		// read message
+		let (hash, _) = blocks.next().await.context("expected block")?;
+		let blocks = self.read_events_blocks(exec, hash).await?;
+		let msgs = self.messages(dest, dest_addr, blocks).await?;
+		let msg = msgs
+			.into_iter()
+			.find(|msg| msg.message_id() == msg_id)
+			.context("failed to find message")?;
+		self.print_table(None, "message", vec![msg.clone()]).await?;
+		self.println(None, format!("received message after {} blocks", end - start))
+			.await?;
+		Ok(())
+	}
 }

@@ -38,7 +38,7 @@ async fn test_zenswap(mut tc: Tester) -> Result<()> {
 	let (block_hash, _) = tc.latest_block().await?;
 	tc.set_network_config(src, block_hash).await?;
 	let msg_id = tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
-	tracing::info!("swap sent with msg_id: {:?}", hex::encode(msg_id));
+	tc.track_msg_id(msg_id, src, dst, d_plug).await?;
 	Ok(())
 }
 
@@ -92,5 +92,5 @@ async fn zenswap_evm() -> Result<()> {
 	let (_env, tc) =
 		TestEnv::new(Backend::Evm, false, Some((sepolia_fork_params, arbitrum_fork_params)))
 			.await?;
-	test_zenswap(tc).await?;
+	test_zenswap(tc).await
 }

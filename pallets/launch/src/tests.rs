@@ -10,7 +10,7 @@ use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 31;
+const ON_CHAIN_STAGE: u16 = 36;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -39,9 +39,9 @@ fn launch_ledger_validation() {
 		ON_CHAIN_VERSION.put::<Pallet<Test>>();
 
 		// Set expected on-chain funds as currently tracked on the books
-		mint_virtual(Allocation::Seed, 2_116_870_581_830 * mANLOG);
+		mint_virtual(Allocation::Seed, 2_080_638_697_830 * mANLOG);
 		mint_virtual(Allocation::Opportunity1, 170_807_453_140 * mANLOG);
-		mint_virtual(Allocation::Private1, 914_546_375_350 * mANLOG);
+		mint_virtual(Allocation::Private1, 831_031_882_350 * mANLOG);
 		mint_virtual(Allocation::Opportunity2, 42_701_863_290 * mANLOG);
 		mint_virtual(Allocation::Opportunity3, 53_495_311_080 * mANLOG);
 		mint_virtual(Allocation::Opportunity4, 44_418_704_640 * mANLOG);
@@ -50,7 +50,7 @@ fn launch_ledger_validation() {
 
 		mint_virtual(Allocation::Airdrop, 18_529_097_702_450_211_764);
 		mint_virtual(Allocation::Initiatives, 1_093_404_819_500 * mANLOG);
-		mint_virtual(Allocation::Ecosystem, 691_780_648_804 * mANLOG);
+		mint_virtual(Allocation::Ecosystem, 691_327_749_804 * mANLOG);
 
 		// Start new block to collect events
 		System::set_block_number(1);

@@ -87,7 +87,6 @@
 // The runtime is split into its components
 pub mod apis;
 pub mod configs;
-pub mod migrations;
 pub mod offchain;
 pub mod version;
 
@@ -644,19 +643,7 @@ mod runtime {
 	pub type Revive = pallet_revive;
 }
 
-// All migrations executed on runtime upgrade on mainnet
-#[cfg(not(any(feature = "testnet", feature = "develop")))]
-type Migrations = (
-	migrations::ExtendedProviderMigration<Runtime>,
-	pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
-	>,
-);
-
-// All migrations executed on runtime upgrade everywhere else.
-#[cfg(any(feature = "testnet", feature = "develop"))]
+// All migrations executed on runtime upgrade.
 type Migrations = (
 	pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<

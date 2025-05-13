@@ -232,6 +232,7 @@ pub mod pallet {
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+		BalanceOf<T>: From<Balance>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			match LaunchLedger::compile(LAUNCH_LEDGER) {

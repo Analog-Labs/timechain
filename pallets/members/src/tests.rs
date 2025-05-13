@@ -89,7 +89,7 @@ fn unregister_member_works() {
 		let a: AccountId = A.into();
 		assert_ok!(register_member(A));
 		assert_ok!(unregister_member(A));
-		System::assert_last_event(Event::<Test>::UnRegisteredMember(a.clone(), ETHEREUM).into());
+		System::assert_last_event(Event::<Test>::MembersOffline(vec![a.clone()]).into());
 		assert_eq!(Members::member_peer_id(&a), None);
 		assert_eq!(Balances::reserved_balance(&a), 0);
 		assert_eq!(Balances::free_balance(&a), 10000000000);

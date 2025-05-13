@@ -95,6 +95,11 @@ pub mod pallet {
 		type MaxTimeoutsPerBlock: Get<u32>;
 	}
 
+	/// Get if member is electable.
+	#[pallet::storage]
+	pub type MemberRegistered<T: Config> =
+		StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
+
 	/// Get network for member
 	#[pallet::storage]
 	pub type MemberNetwork<T: Config> =
@@ -121,11 +126,6 @@ pub mod pallet {
 	/// Set of members that have not submitted a heartbeat within last period
 	#[pallet::storage]
 	pub type TimedOut<T: Config> = StorageValue<_, Vec<AccountId>, ValueQuery>;
-
-	/// Get if member is electable.
-	#[pallet::storage]
-	pub type MemberRegistered<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
 
 	/// Define events emitted by the pallet.
 	#[pallet::event]
@@ -196,7 +196,13 @@ pub mod pallet {
 			peer_id: PeerId,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Self::execute_register_member(network, public_key, peer_id)
+			let member = public_key.clone().into_account();
+			MemberNetwork::<T>::insert(&member, network);
+			MemberPublicKey::<T>::insert(&member, public_key);
+			MemberPeerId::<T>::insert(&member, peer_id);
+			MemberRegistered::<T>::insert(&member, ());
+			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
+			Ok(())
 		}
 
 		///  - `unregister_member`: Unregisters a member from the network.
@@ -213,7 +219,17 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_member())]
 		pub fn unregister_member(origin: OriginFor<T>, member: AccountId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Self::execute_unregister_member(member)
+			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
+			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
+			MemberNetwork::<T>::remove(&member);
+			MemberPeerId::<T>::remove(&member);
+			MemberPublicKey::<T>::remove(&member);
+			Heartbeat::<T>::remove(&member);
+			MemberOnline::<T>::remove(&member);
+			TimedOut::<T>::mutate(|members| members.retain(|m| *m != member));
+			Self::deposit_event(Event::UnRegisteredMember(member.clone(), network));
+			Self::members_offline(vec![member], network);
+			Ok(())
 		}
 
 		/// `send_heartbeat`: Updates the last heartbeat time for a member.
@@ -234,27 +250,9 @@ pub mod pallet {
 		))]
 		pub fn send_heartbeat(origin: OriginFor<T>) -> DispatchResult {
 			let member = ensure_signed(origin)?;
-			Self::execute_send_heartbeat(member)
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		fn execute_register_member(
-			network: NetworkId,
-			public_key: PublicKey,
-			peer_id: PeerId,
-		) -> DispatchResult {
-			let member = public_key.clone().into_account();
-			MemberNetwork::<T>::insert(&member, network);
-			MemberPublicKey::<T>::insert(&member, public_key);
-			MemberPeerId::<T>::insert(&member, peer_id);
-			MemberRegistered::<T>::insert(&member, ());
-			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
-			Ok(())
-		}
-		fn execute_send_heartbeat(member: AccountId) -> DispatchResult {
-			ensure!(Heartbeat::<T>::get(&member).is_none(), Error::<T>::AlreadySubmittedHeartbeat);
+			ensure!(MemberRegistered::<T>::contains_key(&member), Error::<T>::NotRegistered);
 			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
+			ensure!(Heartbeat::<T>::get(&member).is_none(), Error::<T>::AlreadySubmittedHeartbeat);
 			if !Self::is_member_online(&member) {
 				Self::member_online(&member, network);
 			}
@@ -263,13 +261,9 @@ pub mod pallet {
 			Self::deposit_event(Event::HeartbeatReceived(member));
 			Ok(())
 		}
-		fn execute_unregister_member(member: AccountId) -> DispatchResult {
-			let network = MemberNetwork::<T>::get(&member).ok_or(Error::<T>::NotMember)?;
-			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
-			Self::do_unregister_member(&member);
-			Self::deposit_event(Event::UnRegisteredMember(member, network));
-			Ok(())
-		}
+	}
+
+	impl<T: Config> Pallet<T> {
 		/// Handles periodic heartbeat checks and manages member online/offline statuses.
 		pub(crate) fn timeout_heartbeats() -> Weight {
 			let timed_out_members = TimedOut::<T>::take();
@@ -357,14 +351,6 @@ pub mod pallet {
 
 		fn is_member_registered(account: &AccountId) -> bool {
 			MemberRegistered::<T>::contains_key(account)
-		}
-
-		fn do_unregister_member(account: &AccountId) {
-			if !T::Shards::is_shard_member(account) {
-				MemberNetwork::<T>::remove(account);
-				MemberPeerId::<T>::remove(account);
-				MemberPublicKey::<T>::remove(account);
-			}
 		}
 	}
 }

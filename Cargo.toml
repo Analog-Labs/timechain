@@ -19,6 +19,7 @@ members = [
 	"gmp/rust",
 	"node",
 	"pallets/airdrop",
+	"pallets/bridge",
 	"pallets/dmail",
 	"pallets/elections",
 	"pallets/governance",

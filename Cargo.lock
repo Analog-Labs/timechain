@@ -10351,6 +10351,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-bridge"
+version = "0.8.1"
+dependencies = [
+ "env_logger 0.11.8",
+ "lazy_static",
+ "log",
+ "pallet-elections",
+ "pallet-members",
+ "pallet-networks",
+ "pallet-shards",
+ "pallet-tasks",
+ "parity-scale-codec",
+ "polkadot-sdk 2503.0.1",
+ "scale-info",
+ "simple-mermaid 0.2.0",
+ "time-primitives",
+]
+
+[[package]]
 name = "pallet-bridge-grandpa"
 version = "0.20.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.18.3-anlog0#0c51511a272b70df1d3539352fa131b7e6a68db4"

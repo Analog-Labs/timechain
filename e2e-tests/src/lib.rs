@@ -362,7 +362,7 @@ impl TestEnv {
 				builder.add_grpc(1, shard_size, shard_threshold).await?;
 			},
 			Backend::Rust => {
-				anyhow::bail!("Backend not supported")
+				anyhow::bail!("unsupported backend {backend}")
 			},
 		}
 		let env = builder.build()?;

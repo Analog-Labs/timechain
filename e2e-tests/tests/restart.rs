@@ -99,6 +99,6 @@ async fn chain_restart_evm() -> Result<()> {
 
 #[tokio::test]
 async fn validator_restart_grpc() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
 	validator_restart(&env, tc).await
 }

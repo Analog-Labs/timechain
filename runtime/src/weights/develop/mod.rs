@@ -7,6 +7,7 @@ pub mod frame_system;
 
 pub mod pallet_bags_list;
 pub mod pallet_balances;
+pub mod pallet_bridge;
 pub mod pallet_dmail;
 pub mod pallet_elections;
 pub mod pallet_im_online;

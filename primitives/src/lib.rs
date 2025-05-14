@@ -105,6 +105,8 @@ pub const SS58_ADDRESS_FORMAT: Ss58AddressFormatRegistry =
 /// Export const primitive of raw prefifx
 pub const SS58_ADDRESS_PREFIX: u16 = from_known_address_format(SS58_ADDRESS_FORMAT);
 
+pub const DEFAULT_TC_NETWORK_ID: NetworkId = 1000;
+
 /// Helper to set default ss58 format
 pub fn init_ss58_version() {
 	set_default_ss58_version(SS58_ADDRESS_FORMAT.into())
@@ -179,6 +181,9 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait NetworksInterface {
+	fn tc_network() -> NetworkId {
+		DEFAULT_TC_NETWORK_ID
+	}
 	fn get_networks() -> Vec<NetworkId>;
 	fn gateway(network: NetworkId) -> Option<Address32>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;

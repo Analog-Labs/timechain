@@ -638,7 +638,7 @@ mod runtime {
 	pub type Dmail = pallet_dmail;
 
 	#[runtime::pallet_index(40)]
-	pub type Bridge = pallet_assets_bridge;
+	pub type Bridge = pallet_bridge;
 
 	// Smart Contracts
 

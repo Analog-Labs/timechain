@@ -1,13 +1,18 @@
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
+use polkadot_sdk::sp_runtime::DispatchResult;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 use polkadot_sdk::*;
 
 use frame_support::traits::IsSubType;
-use frame_support::{ensure, parameter_types, traits::ConstU32, weights::Weight};
+use frame_support::{
+	ensure, parameter_types,
+	traits::{ConstU16, ConstU32, Get},
+	weights::Weight,
+};
 
 use sp_runtime::{
 	impl_tx_ext_default,
@@ -17,15 +22,15 @@ use sp_runtime::{
 	},
 };
 
-use time_primitives::{MembersInterface, ANLOG};
+use time_primitives::{Address32, GmpMessage, MembersInterface, NetworkId, ANLOG};
 
 use pallet_bridge::NetworkDataOf;
 use pallet_members::WeightInfo;
 
 // Local module imports
 use crate::{
-	weights, AccountId, Balance, Balances, Bridge, DefaultAdminOrigin, Elections, Members,
-	Networks, Runtime, RuntimeEvent, Shards, Tasks,
+	configs::tokenomics::DealWithFees, weights, AccountId, Balance, Balances, Bridge,
+	DefaultAdminOrigin, Elections, Members, Networks, Runtime, RuntimeEvent, Shards, Tasks,
 };
 
 // Custom pallet config
@@ -220,25 +225,25 @@ parameter_types! {
 	pub BridgePot: AccountId = Bridge::account_id();
 }
 
-impl pallet_assets_bridge::Config for Runtime {
+impl pallet_bridge::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type BridgePot = BridgePot;
 	type Currency = pallet_balances::Pallet<Runtime>;
 	type FeeDestination = DealWithFees;
 	type NetworkId = NetworkId;
-	type Beneficiary = Address;
+	type Beneficiary = Address32;
 	type Teleporter = Tasks;
 }
 
-impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
+impl pallet_bridge::AssetTeleporter<Runtime> for Tasks {
 	fn handle_register(
 		network_id: NetworkId,
 		_data: &mut NetworkDataOf<Runtime>,
 	) -> DispatchResult {
 		ensure!(
 			network_id.ne(&<Runtime as pallet_networks::Config>::TimechainNetworkId::get() as &u16),
-			pallet_assets_bridge::Error::<Runtime>::NetworkAlreadyExists
+			pallet_bridge::Error::<Runtime>::NetworkAlreadyExists
 		);
 
 		// TODO check that network is active, i.e. actually has some
@@ -251,10 +256,10 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 		source: &AccountId,
 		network_id: NetworkId,
 		data: &mut NetworkDataOf<Runtime>,
-		beneficiary: &Address,
+		beneficiary: &Address32,
 		amount: Balance,
 	) -> DispatchResult {
-		let src: Address = source.clone().into();
+		let src: Address32 = source.clone().into();
 		// see struct TeleportCommand in the teleport-tokens/BasicERC20.sol
 		// TODO refactor with alloy
 		let mut teleport_command = [0u8; 96];
@@ -278,8 +283,7 @@ impl pallet_assets_bridge::AssetTeleporter<Runtime> for Tasks {
 			bytes: teleport_command.to_vec(),
 		};
 
-		data.incr_nonce()
-			.ok_or(pallet_assets_bridge::Error::<Runtime>::NetworkNonceOverflow)?;
+		data.incr_nonce().ok_or(pallet_bridge::Error::<Runtime>::NetworkNonceOverflow)?;
 		Self::push_gmp_message(msg);
 
 		Ok(())

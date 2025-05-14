@@ -66,11 +66,19 @@ pub mod pallet {
 	use sp_std::vec::Vec;
 
 	use time_primitives::{
-		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
-		GmpEvents, Hash as TxHash, MessageId, NetworkId, NetworksInterface, ShardId,
-		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
-		MAX_GMP_EVENTS,
+		AccountId, Address32, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent, GmpEvents, GmpMessage, Hash as TxHash, MessageId, NetworkId, NetworksInterface, ShardId, ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature, MAX_GMP_EVENTS, U256
 	};
+
+	/// Teleport handlers.
+	pub trait TeleportReciever<T> {
+		fn handle_teleport(recipient: &AccountId, amount: Balance) -> DispatchResult;
+	}
+
+	impl<T> TeleportReciever<T> for () {
+		fn handle_teleport(_recipient: &AccountId, _amount: Balance) -> DispatchResult {
+			Ok(())
+		}
+	}
 
 	/// Trait to define the weights for various extrinsics in the pallet.
 	pub trait WeightInfo {
@@ -130,6 +138,7 @@ pub mod pallet {
 		type MaxTasksPerBlock: Get<u32>;
 		/// Maximum number of batches started per block in `on_initialize`
 		type MaxBatchesPerBlock: Get<u32>;
+		type Teleporter: TeleportReciever<Self>;
 	}
 
 	/// Double map storage for unassigned tasks.
@@ -493,6 +502,24 @@ pub mod pallet {
 					GmpEvent::ShardUnregistered(pubkey) => {
 						ShardRegistered::<T>::remove(pubkey);
 					},
+					GmpEvent::MessageReceived(msg)
+						if msg.dest_network.eq(&T::Networks::tc_network()) =>
+					{
+						let msg_id = msg.message_id();
+						if msg.bytes.len() != 96 {
+							log::error!(
+								"received invalid bridge message (wrong length): {msg_id:?}"
+							);
+							continue;
+						}
+						let mut recipient = Address32::default();
+						recipient.copy_from_slice(&msg.bytes[32..64]);
+						let amount = U256::from_big_endian(&msg.bytes[64..]).low_u128();
+						let _ = T::Teleporter::handle_teleport(&recipient.into(), amount);
+
+						MessageReceivedTaskId::<T>::insert(msg_id, task_id);
+						Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+					},
 					GmpEvent::MessageReceived(msg) => {
 						let msg_id = msg.message_id();
 						Self::ops_queue(msg.dest_network).push(GatewayOp::SendMessage(msg));
@@ -758,6 +785,21 @@ pub mod pallet {
 			let task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			PendingBatches::<T>::insert(batch_id, ());
 			BatchTaskId::<T>::insert(batch_id, task_id);
+		}
+
+		/// This method must be used only when the message is sent by the timechain.
+		pub fn push_gmp_message(msg: GmpMessage) -> MessageId {
+			// TODO: must check if the network exists.
+			let network = msg.dest_network;
+			let msg_id = msg.message_id();
+			Self::ops_queue(network).push(GatewayOp::SendMessage(msg));
+			Self::deposit_event(Event::<T>::MessageReceived(msg_id));
+			// TODO: fixme - hack to format [u8;32] into a hexadecimal string.
+			log::debug!(
+				"push gmp message {:x?} (network {network})",
+				polkadot_sdk::sp_core::U256::from_big_endian(&msg_id[..])
+			);
+			msg_id
 		}
 	}
 

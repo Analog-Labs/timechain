@@ -1,5 +1,5 @@
 use polkadot_sdk::frame_support::pallet_prelude::RuntimeDebug;
-use scale_codec::{Decode, Encode, MaxEncodedLen};
+use scale_codec::{Decode, Encode, MaxEncodedLen, DecodeWithMemTracking};
 use scale_info::TypeInfo;
 
 /// NetworkDetails holds the current config of the network.
@@ -16,7 +16,7 @@ pub struct NetworkDetails<Balance, AccountId> {
 }
 
 /// Network Data, akin to pallet_balances::AccountData
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct NetworkData<AccountId> {
 	/// Nonce for the GMP message
 	pub nonce: u64,

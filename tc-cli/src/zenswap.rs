@@ -187,8 +187,8 @@ impl Tc {
 		dest: NetworkId,
 		src_zen: Address32,
 		src_plugin: Address32,
-		dst_zen: Address32,
-		dst_plugin: Address32,
+		dest_zen: Address32,
+		dest_plugin: Address32,
 		block_hash: BlockHash,
 	) -> Result<MessageId> {
 		let src_url = self
@@ -199,24 +199,11 @@ impl Tc {
 			.url
 			.clone();
 		let eth_wallet = EthWallet::new(src_url).await?;
-		let src_backend = self.config.backend(src)?;
-		let dest_backend = self.config.backend(dest)?;
-		let src_config = self.config.network(src)?;
-		let dst_config = self.config.network(dest)?;
-		let (Some(_), Some(_), Some(_), Some(_), Some(src_contracts), Some(dst_contracts)) = (
-			src_backend.zenswap,
-			src_backend.zenswap_plugin,
-			dest_backend.zenswap,
-			dest_backend.zenswap_plugin,
-			src_config.zenswap.clone(),
-			dst_config.zenswap.clone(),
-		) else {
-			anyhow::bail!("Swap not supported between {src} {dest}");
-		};
+		let (src_contracts, dest_contracts) = self.get_swap_contracts(src, dest)?;
 		let src_contracts =
 			src_contracts.to_address32(src, |net, addr| self.parse_address(net, addr))?;
-		let dst_contracts =
-			dst_contracts.to_address32(dest, |net, addr| self.parse_address(net, addr))?;
+		let dest_contracts =
+			dest_contracts.to_address32(dest, |net, addr| self.parse_address(net, addr))?;
 
 		let dest_chain_name =
 			self.runtime.network_name(dest, block_hash).await?.context("invalid network")?;
@@ -225,12 +212,12 @@ impl Tc {
 
 		let sender = self.address(Some(src))?;
 		let src_usdc = a_addr(src_contracts.usdc);
-		let dest_usdc = a_addr(dst_contracts.usdc);
+		let dest_usdc = a_addr(dest_contracts.usdc);
 
 		let domain_id = chain_to_domain_id(&dest_chain_name)?;
 		let params = ZenSwapGmpPlugin::PluginParams {
-			destPlugin: a_addr(dst_plugin),
-			recipient: a_addr(dst_zen),
+			destPlugin: a_addr(dest_plugin),
+			recipient: a_addr(dest_zen),
 			fallbackRecipient: a_addr(sender),
 			cctpDestinationDomain: domain_id,
 			gmpDestNetwork: dest,
@@ -305,7 +292,7 @@ impl Tc {
 		/////////////
 
 		// Dest side, swapping setup.
-		let dst_swap_params = ZenSwap::SwapParams {
+		let dest_swap_params = ZenSwap::SwapParams {
 			tokenIn: dest_usdc,
 			tokenOut: dest_usdc,
 			deadline: U256::from(deadline),
@@ -317,7 +304,7 @@ impl Tc {
 		let swap_call = ZenSwap::swapSendCall {
 			pluginParams: params.abi_encode().into(),
 			sourceParams: src_swap_params,
-			destParams: dst_swap_params,
+			destParams: dest_swap_params,
 			recipient: a_addr(sender),
 			plugin: a_addr(src_plugin),
 			amountIn: amount,
@@ -340,7 +327,7 @@ impl Tc {
 			.ok_or(anyhow::anyhow!("Failed to send message"))
 	}
 
-	pub fn check_swap_support(
+	pub fn get_swap_contracts(
 		&self,
 		src: NetworkId,
 		dest: NetworkId,

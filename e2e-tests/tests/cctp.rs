@@ -26,8 +26,8 @@ async fn test_cctp(mut tc: Tester) -> Result<()> {
 }
 
 async fn test_zenswap(mut tc: Tester) -> Result<()> {
-	let src = 0;
-	let dst = 1;
+	let src = 10;
+	let dst = 13;
 	let (block, _) = tc.latest_block().await?;
 	let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 	let (d_zen, d_plug) =

@@ -78,6 +78,7 @@ fi
 # Build docker image
 forge build --root analog-gmp
 cd $WORKSPACE_ROOT/zenswap
+yarn install
 npx hardhat compile
 cd $WORKSPACE_ROOT
 cp -r $WORKSPACE_ROOT/zenswap/artifacts/contracts/* $WORKSPACE_ROOT/analog-gmp/out/

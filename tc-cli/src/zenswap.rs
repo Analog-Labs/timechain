@@ -122,7 +122,7 @@ impl Tc {
 			_cctpMessenger: messenger,
 			_cctpReceiver: transmitter,
 			_usdc: usdc,
-			_fee: U256::from_be_bytes(<[u8; 32]>::try_from([0u8; 32]).unwrap()),
+			_fee: U256::from_be_bytes([0u8; 32]),
 		};
 
 		let zenswap_contructor = ZenSwap::constructorCall {
@@ -181,6 +181,7 @@ impl Tc {
 		// Ok(tester)
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	pub async fn send_swap(
 		&self,
 		src: NetworkId,
@@ -194,7 +195,7 @@ impl Tc {
 		let src_url = self
 			.config
 			.networks()
-			.get(&&src)
+			.get(&src)
 			.ok_or(anyhow::anyhow!("Config does not contain network: {:?}", src))?
 			.url
 			.clone();
@@ -265,7 +266,7 @@ impl Tc {
 			DynSolValue::Address(a_addr(src_contracts.universal_router)),
 			DynSolValue::Uint(U256::from(amount), 256),
 			DynSolValue::Uint(U256::from(1), 256),
-			DynSolValue::Bytes(src_path_encoded.into()),
+			DynSolValue::Bytes(src_path_encoded),
 			DynSolValue::Bool(false),
 		])
 		.abi_encode();
@@ -287,7 +288,7 @@ impl Tc {
 			tokenOut: src_usdc,
 			deadline: U256::from(deadline),
 			commands: hex::decode("0b0004").unwrap().into(),
-			inputs: vec![wrap_eth.into(), src_swap_data.into(), sweep_data.into()].into(),
+			inputs: vec![wrap_eth.into(), src_swap_data.into(), sweep_data.into()],
 		};
 		/////////////
 
@@ -297,7 +298,7 @@ impl Tc {
 			tokenOut: dest_usdc,
 			deadline: U256::from(deadline),
 			commands: vec![].into(),
-			inputs: vec![].into(),
+			inputs: vec![],
 		};
 		/////////
 

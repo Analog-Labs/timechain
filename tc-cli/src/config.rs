@@ -160,30 +160,12 @@ impl Config {
 					.with_context(|| format!("failed to read from {}", full_path.display()))
 			};
 			BackendData {
-				proxy: {
-					let path = self.relative_path(&backend.proxy);
-					std::fs::read(&path).with_context(|| {
-						format!("failed to read proxy contract from {}", path.display())
-					})?
-				},
-				gateway: {
-					let path = self.relative_path(&backend.gateway);
-					std::fs::read(&path).with_context(|| {
-						format!("failed to read gateway contract from {}", path.display())
-					})?
-				},
-				tester: {
-					let path = self.relative_path(&backend.tester);
-					std::fs::read(&path).with_context(|| {
-						format!("failed to read tester contract from {}", path.display())
-					})?
-				},
-				chain_dict: {
-					let path = self.relative_path(&backend.chain_dict);
-					std::fs::read(&path).with_context(|| {
-						format!("failed to read chain dict from {}", path.display())
-					})?
-				},
+				proxy: read_file(&backend.proxy)?,
+				gateway: read_file(&backend.gateway)?,
+				tester: read_file(&backend.tester)?,
+				chain_dict: read_file(&backend.chain_dict)?,
+				zenswap: backend.zenswap.as_ref().map(read_file).transpose()?,
+				zenswap_plugin: backend.zenswap_plugin.as_ref().map(read_file).transpose()?,
 			}
 		} else {
 			BackendData::default()

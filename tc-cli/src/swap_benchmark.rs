@@ -55,6 +55,7 @@ pub struct SwapBenchmark {
 }
 
 impl SwapBenchmark {
+	#[allow(clippy::too_many_arguments)]
 	pub fn new(
 		tc: Tc,
 		src: NetworkId,
@@ -129,7 +130,7 @@ impl SwapBenchmark {
 			num_received: self.route.num_received,
 			num_total: self.total_msgs,
 			latency: self.route.sum_latency as f64 / self.route.num_received as f64,
-			throughput: self.route.num_received as f64 / total_blocks as f64,
+			throughput: self.route.num_received as f64 / total_blocks,
 			msg_cost: 0.0,
 		};
 		self.tc.print_table(id, "benchmark", vec![stats]).await

@@ -3504,6 +3504,15 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "convert_case"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
@@ -3678,7 +3687,7 @@ dependencies = [
  "itertools 0.10.5",
  "log",
  "smallvec",
- "wasmparser",
+ "wasmparser 0.102.0",
  "wasmtime-types",
 ]
 
@@ -4892,6 +4901,7 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
+ "convert_case 0.6.0",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -5867,11 +5877,11 @@ dependencies = [
 
 [[package]]
 name = "frame-decode"
-version = "0.7.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7cb8796f93fa038f979a014234d632e9688a120e745f936e2635123c77537f7"
+checksum = "e1276c23a1fb234d9f81b5f71c526437f2a55ab4419f29bfe1196ac4ee2f706c"
 dependencies = [
- "frame-metadata 21.0.0",
+ "frame-metadata 23.0.0",
  "parity-scale-codec",
  "scale-decode 0.16.0",
  "scale-info",
@@ -5950,13 +5960,14 @@ dependencies = [
 
 [[package]]
 name = "frame-metadata"
-version = "21.0.0"
+version = "23.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20dfd1d7eae1d94e32e869e2fb272d81f52dd8db57820a373adb83ea24d7d862"
+checksum = "d8c26fcb0454397c522c05fdad5380c4e622f8a875638af33bff5a320d1fc965"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
  "scale-info",
+ "serde",
 ]
 
 [[package]]
@@ -15667,7 +15678,7 @@ checksum = "ac3ffab8f9715a0d455df4bbb9d21e91135aab3cd3ca187af0cd0c3c3f868fdc"
 dependencies = [
  "byteorder",
  "thiserror-core",
- "twox-hash",
+ "twox-hash 1.6.3",
 ]
 
 [[package]]
@@ -15679,6 +15690,12 @@ dependencies = [
  "byteorder",
  "derive_more 0.99.20",
 ]
+
+[[package]]
+name = "ruzstd"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fad02996bfc73da3e301efe90b1837be9ed8f4a462b6ed410aa35d00381de89f"
 
 [[package]]
 name = "rvs_derive"
@@ -18010,7 +18027,7 @@ dependencies = [
  "slab",
  "smallvec",
  "soketto 0.7.1",
- "twox-hash",
+ "twox-hash 1.6.3",
  "wasmi 0.31.2",
  "x25519-dalek",
  "zeroize",
@@ -18064,8 +18081,62 @@ dependencies = [
  "slab",
  "smallvec",
  "soketto 0.8.1",
- "twox-hash",
+ "twox-hash 1.6.3",
  "wasmi 0.32.3",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "smoldot"
+version = "0.19.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6664ea2d3d3c1d77b8f24032aca6462dc0da8378d25c5bdde6130699b6740fe"
+dependencies = [
+ "arrayvec 0.7.6",
+ "async-lock 3.4.0",
+ "atomic-take",
+ "base64 0.22.1",
+ "bip39",
+ "blake2-rfc",
+ "bs58",
+ "chacha20",
+ "crossbeam-queue",
+ "derive_more 1.0.0",
+ "ed25519-zebra",
+ "either",
+ "event-listener 5.4.0",
+ "fnv",
+ "futures-lite 2.6.0",
+ "futures-util",
+ "hashbrown 0.15.3",
+ "hex",
+ "hmac 0.12.1",
+ "itertools 0.13.0",
+ "libm",
+ "libsecp256k1",
+ "merlin",
+ "nom",
+ "num-bigint",
+ "num-rational",
+ "num-traits",
+ "pbkdf2",
+ "pin-project",
+ "poly1305",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "ruzstd 0.7.3",
+ "schnorrkel 0.11.4",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sha3",
+ "siphasher 1.0.1",
+ "slab",
+ "smallvec",
+ "soketto 0.8.1",
+ "twox-hash 2.1.0",
+ "wasmi 0.40.0",
  "x25519-dalek",
  "zeroize",
 ]
@@ -18139,6 +18210,42 @@ dependencies = [
  "slab",
  "smol 2.0.2",
  "smoldot 0.18.0",
+ "zeroize",
+]
+
+[[package]]
+name = "smoldot-light"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bad7762a41b43cc95e5253214ca8f85a2308a048f4fe8217927888065bafd30c"
+dependencies = [
+ "async-channel 2.3.1",
+ "async-lock 3.4.0",
+ "base64 0.22.1",
+ "blake2-rfc",
+ "bs58",
+ "derive_more 1.0.0",
+ "either",
+ "event-listener 5.4.0",
+ "fnv",
+ "futures-channel",
+ "futures-lite 2.6.0",
+ "futures-util",
+ "hashbrown 0.15.3",
+ "hex",
+ "itertools 0.13.0",
+ "log",
+ "lru 0.12.5",
+ "parking_lot 0.12.3",
+ "pin-project",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_json",
+ "siphasher 1.0.1",
+ "slab",
+ "smol 2.0.2",
+ "smoldot 0.19.3",
  "zeroize",
 ]
 
@@ -18537,7 +18644,7 @@ dependencies = [
  "digest 0.10.7",
  "sha2 0.10.9",
  "sha3",
- "twox-hash",
+ "twox-hash 1.6.3",
 ]
 
 [[package]]
@@ -18550,7 +18657,7 @@ dependencies = [
  "digest 0.10.7",
  "sha2 0.10.9",
  "sha3",
- "twox-hash",
+ "twox-hash 1.6.3",
 ]
 
 [[package]]
@@ -19545,13 +19652,13 @@ dependencies = [
 
 [[package]]
 name = "subxt"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "async-trait",
  "derive-where",
  "either",
- "frame-metadata 20.0.0",
+ "frame-metadata 23.0.0",
  "futures",
  "hex",
  "jsonrpsee",
@@ -19565,10 +19672,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "subxt-core 0.41.0",
- "subxt-lightclient 0.41.0",
- "subxt-macro 0.41.0",
- "subxt-metadata 0.41.0",
+ "subxt-core 0.42.1",
+ "subxt-lightclient 0.42.1",
+ "subxt-macro 0.42.1",
+ "subxt-metadata 0.42.1",
  "subxt-rpcs",
  "thiserror 2.0.12",
  "tokio",
@@ -19598,8 +19705,8 @@ dependencies = [
 
 [[package]]
 name = "subxt-codegen"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "heck 0.5.0",
  "parity-scale-codec",
@@ -19607,7 +19714,7 @@ dependencies = [
  "quote",
  "scale-info",
  "scale-typegen 0.11.1",
- "subxt-metadata 0.41.0",
+ "subxt-metadata 0.42.1",
  "syn 2.0.101",
  "thiserror 2.0.12",
 ]
@@ -19643,14 +19750,14 @@ dependencies = [
 
 [[package]]
 name = "subxt-core"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "base58",
  "blake2 0.10.6",
  "derive-where",
- "frame-decode 0.7.1",
- "frame-metadata 20.0.0",
+ "frame-decode 0.8.0",
+ "frame-metadata 23.0.0",
  "hashbrown 0.14.5",
  "hex",
  "impl-serde",
@@ -19665,7 +19772,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "subxt-metadata 0.41.0",
+ "subxt-metadata 0.42.1",
  "thiserror 2.0.12",
  "tracing",
 ]
@@ -19689,14 +19796,14 @@ dependencies = [
 
 [[package]]
 name = "subxt-lightclient"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "futures",
  "futures-util",
  "serde",
  "serde_json",
- "smoldot-light 0.16.2",
+ "smoldot-light 0.17.1",
  "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
@@ -19721,16 +19828,17 @@ dependencies = [
 
 [[package]]
 name = "subxt-macro"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "darling",
  "parity-scale-codec",
  "proc-macro-error2",
  "quote",
  "scale-typegen 0.11.1",
- "subxt-codegen 0.41.0",
- "subxt-utils-fetchmetadata 0.41.0",
+ "subxt-codegen 0.42.1",
+ "subxt-metadata 0.42.1",
+ "subxt-utils-fetchmetadata 0.42.1",
  "syn 2.0.101",
 ]
 
@@ -19750,11 +19858,11 @@ dependencies = [
 
 [[package]]
 name = "subxt-metadata"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
- "frame-decode 0.7.1",
- "frame-metadata 20.0.0",
+ "frame-decode 0.8.0",
+ "frame-metadata 23.0.0",
  "hashbrown 0.14.5",
  "parity-scale-codec",
  "scale-info",
@@ -19764,12 +19872,12 @@ dependencies = [
 
 [[package]]
 name = "subxt-rpcs"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "derive-where",
  "finito",
- "frame-metadata 20.0.0",
+ "frame-metadata 23.0.0",
  "futures",
  "hex",
  "impl-serde",
@@ -19778,8 +19886,8 @@ dependencies = [
  "primitive-types 0.13.1",
  "serde",
  "serde_json",
- "subxt-core 0.41.0",
- "subxt-lightclient 0.41.0",
+ "subxt-core 0.42.1",
+ "subxt-lightclient 0.42.1",
  "thiserror 2.0.12",
  "tokio",
  "tokio-util",
@@ -19818,8 +19926,8 @@ dependencies = [
 
 [[package]]
 name = "subxt-signer"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "base64 0.22.1",
  "bip39",
@@ -19838,7 +19946,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "subxt-core 0.41.0",
+ "subxt-core 0.42.1",
  "thiserror 2.0.12",
  "zeroize",
 ]
@@ -19856,8 +19964,8 @@ dependencies = [
 
 [[package]]
 name = "subxt-utils-fetchmetadata"
-version = "0.41.0"
-source = "git+https://github.com/Analog-Labs/subxt?tag=v0.41.0-anlog0#9340b66d8660413a79b9fc5ae22978a83f781da6"
+version = "0.42.1"
+source = "git+https://github.com/Analog-Labs/subxt?tag=v0.42.1-anlog0#706c0219ad0b5f8a87e69eff7cb776ad1683e9b5"
 dependencies = [
  "hex",
  "parity-scale-codec",
@@ -20079,8 +20187,8 @@ dependencies = [
  "scale-decode 0.16.0",
  "scale-info",
  "serde",
- "subxt 0.41.0",
- "subxt-signer 0.41.0",
+ "subxt 0.42.1",
+ "subxt-signer 0.42.1",
  "tc-subxt-metadata",
  "time-primitives",
  "tokio",
@@ -20092,7 +20200,7 @@ dependencies = [
 name = "tc-subxt-metadata"
 version = "0.1.0"
 dependencies = [
- "subxt 0.41.0",
+ "subxt 0.42.1",
  "time-primitives",
  "timechain-runtime",
 ]
@@ -20981,6 +21089,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "twox-hash"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7b17f197b3050ba473acf9181f7b1d3b66d1cf7356c6cc57886662276e65908"
+
+[[package]]
 name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21514,9 +21628,25 @@ dependencies = [
  "num-traits",
  "smallvec",
  "spin 0.9.8",
- "wasmi_collections",
+ "wasmi_collections 0.32.3",
  "wasmi_core 0.32.3",
  "wasmparser-nostd",
+]
+
+[[package]]
+name = "wasmi"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19af97fcb96045dd1d6b4d23e2b4abdbbe81723dbc5c9f016eb52145b320063"
+dependencies = [
+ "arrayvec 0.7.6",
+ "multi-stash",
+ "smallvec",
+ "spin 0.9.8",
+ "wasmi_collections 0.40.0",
+ "wasmi_core 0.40.0",
+ "wasmi_ir",
+ "wasmparser 0.221.3",
 ]
 
 [[package]]
@@ -21535,6 +21665,12 @@ dependencies = [
  "hashbrown 0.14.5",
  "string-interner",
 ]
+
+[[package]]
+name = "wasmi_collections"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e80d6b275b1c922021939d561574bf376613493ae2b61c6963b15db0e8813562"
 
 [[package]]
 name = "wasmi_core"
@@ -21561,6 +21697,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmi_core"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a8c51482cc32d31c2c7ff211cd2bedd73c5bd057ba16a2ed0110e7a96097c33"
+dependencies = [
+ "downcast-rs",
+ "libm",
+]
+
+[[package]]
+name = "wasmi_ir"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e431a14c186db59212a88516788bd68ed51f87aa1e08d1df742522867b5289a"
+dependencies = [
+ "wasmi_core 0.40.0",
+]
+
+[[package]]
 name = "wasmparser"
 version = "0.102.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21568,6 +21723,15 @@ checksum = "48134de3d7598219ab9eaf6b91b15d8e50d31da76b8519fe4ecfcec2cf35104b"
 dependencies = [
  "indexmap 1.9.3",
  "url",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.221.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d06bfa36ab3ac2be0dee563380147a5b81ba10dd8885d7fbbc9eb574be67d185"
+dependencies = [
+ "bitflags 2.9.0",
 ]
 
 [[package]]
@@ -21598,7 +21762,7 @@ dependencies = [
  "rayon",
  "serde",
  "target-lexicon",
- "wasmparser",
+ "wasmparser 0.102.0",
  "wasmtime-cache",
  "wasmtime-cranelift",
  "wasmtime-environ",
@@ -21653,7 +21817,7 @@ dependencies = [
  "object 0.30.4",
  "target-lexicon",
  "thiserror 1.0.69",
- "wasmparser",
+ "wasmparser 0.102.0",
  "wasmtime-cranelift-shared",
  "wasmtime-environ",
 ]
@@ -21688,7 +21852,7 @@ dependencies = [
  "serde",
  "target-lexicon",
  "thiserror 1.0.69",
- "wasmparser",
+ "wasmparser 0.102.0",
  "wasmtime-types",
 ]
 
@@ -21771,7 +21935,7 @@ dependencies = [
  "cranelift-entity",
  "serde",
  "thiserror 1.0.69",
- "wasmparser",
+ "wasmparser 0.102.0",
 ]
 
 [[package]]

@@ -72,6 +72,9 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
 		type Tasks: TasksInterface;
+		/// NetworkId of the Timechain
+		#[pallet::constant]
+		type TimechainNetworkId: Get<NetworkId>;
 	}
 
 	#[pallet::event]
@@ -190,7 +193,11 @@ pub mod pallet {
 		///    3. Insert the new network into the [`Networks`] storage map with the current `NetworkId`.
 		///    4. Return the new `NetworkId`.
 		fn insert_network(network: &Network) -> Result<(), Error<T>> {
-			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
+			ensure!(
+					network.id.ne(&T::TimechainNetworkId::get())
+						&& Networks::<T>::get(network.id).is_none(),
+					Error::<T>::NetworkExists
+				);
 			Networks::<T>::insert(network.id, network.id);
 			NetworkName::<T>::insert(network.id, network.chain_name.clone());
 			let current_gateway = NetworkGatewayAddress::<T>::get(network.id);

@@ -19,13 +19,13 @@ use sp_runtime::{
 
 use time_primitives::{MembersInterface, ANLOG};
 
-use pallet_members::WeightInfo;
 use pallet_bridge::NetworkDataOf;
+use pallet_members::WeightInfo;
 
 // Local module imports
 use crate::{
-	weights, AccountId, Balance, Balances, Bridge, DefaultAdminOrigin, Elections, Members, Networks,
-	Runtime, RuntimeEvent, Shards, Tasks,
+	weights, AccountId, Balance, Balances, Bridge, DefaultAdminOrigin, Elections, Members,
+	Networks, Runtime, RuntimeEvent, Shards, Tasks,
 };
 
 // Custom pallet config

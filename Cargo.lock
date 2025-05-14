@@ -20400,6 +20400,7 @@ dependencies = [
  "env_logger 0.11.8",
  "log",
  "pallet-airdrop",
+ "pallet-bridge",
  "pallet-dmail",
  "pallet-elections",
  "pallet-governance",

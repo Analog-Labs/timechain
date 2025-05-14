@@ -34,6 +34,8 @@ const PER_COUNCIL_STASH: Balance = ANLOG * 100_000;
 const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
 
+const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
+
 /// Node `ChainSpec` extensions.
 ///
 /// Additional parameters for some Substrate core modules,
@@ -73,7 +75,7 @@ pub struct GenesisKeysConfig {
 }
 
 impl Default for GenesisKeysConfig {
-	/// Default configuration using know development keys
+	/// Default configuration using known development keys
 	fn default() -> Self {
 		GenesisKeysConfig {
 			admins: vec![Eve.into(), Ferdie.into()],
@@ -84,7 +86,7 @@ impl Default for GenesisKeysConfig {
 				Alice.to_raw_public().unchecked_into(),
 			)],
 			chronicles: vec![],
-			endowments: vec![],
+			endowments: vec![(BRIDGE_PALLET_ID.into_account_truncating(), 1)],
 			stakes: vec![Alice.into(), Bob.into(), Charlie.into(), Dave.into()],
 		}
 	}

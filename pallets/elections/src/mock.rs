@@ -4,7 +4,7 @@ use polkadot_sdk::*;
 
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
-use sp_core::{ConstU128, ConstU32, ConstU64};
+use sp_core::{ConstU128, ConstU32, ConstU16, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
@@ -120,6 +120,7 @@ impl pallet_networks::Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type Tasks = MockTasks;
+	type TimechainNetworkId = ConstU16<1000>;
 }
 
 // Build genesis storage according to the mock runtime.

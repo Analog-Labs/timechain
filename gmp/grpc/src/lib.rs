@@ -3,8 +3,8 @@ use std::ops::Range;
 use std::sync::Arc;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, SwapPrerequisites,
-	TssPublicKey, TssSignature,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -231,29 +231,6 @@ impl IConnectorAdmin for Connector {
 		Ok((response.address, response.block))
 	}
 
-	/// Deploys a test contract.
-	async fn deploy_zenswap(
-		&self,
-		_gateway: Address32,
-		_zenswap: &[u8],
-		_zenswap_plugin: &[u8],
-		_helper_contracts: SwapPrerequisites,
-	) -> Result<(Address32, Address32)> {
-		anyhow::bail!("Not supported")
-	}
-	async fn send_swap(
-		&self,
-		_dest: NetworkId,
-		_dest_name: String,
-		_src_zenswap_addr: Address32,
-		_src_plugin: Address32,
-		_dst_zenswap_addr: Address32,
-		_dst_plugin: Address32,
-		_src_contracts: SwapPrerequisites,
-		_dst_contracts: SwapPrerequisites,
-	) -> Result<MessageId> {
-		anyhow::bail!("Not supported")
-	}
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,

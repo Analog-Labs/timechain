@@ -1,7 +1,7 @@
 use crate::cctp::FixedSizeEncodable;
-use crate::{NetworkId, TssPublicKey, TssSignature};
 #[cfg(feature = "std")]
-use crate::{SwapPrerequisites, U256};
+use crate::U256;
+use crate::{NetworkId, TssPublicKey, TssSignature};
 #[cfg(feature = "std")]
 use anyhow::Result;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};

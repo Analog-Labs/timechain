@@ -281,15 +281,11 @@ pub struct SwapPrerequisites {
 }
 
 impl SwapPrerequisites {
-	pub fn to_address32<F>(
-		&self,
-		network_id: NetworkId,
-		f: F,
-	) -> Result<time_primitives::SwapPrerequisites>
+	pub fn to_address32<F>(&self, network_id: NetworkId, f: F) -> Result<SwapPrerequisitesAddresses>
 	where
 		F: for<'a> Fn(Option<NetworkId>, &'a str) -> Result<Address32>,
 	{
-		Ok(time_primitives::SwapPrerequisites {
+		Ok(SwapPrerequisitesAddresses {
 			universal_router: f(Some(network_id), &self.universal_router)?,
 			permit2: f(Some(network_id), &self.permit2)?,
 			token_messenger: f(Some(network_id), &self.token_messenger)?,
@@ -298,6 +294,16 @@ impl SwapPrerequisites {
 			weth: f(Some(network_id), &self.weth)?,
 		})
 	}
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SwapPrerequisitesAddresses {
+	pub universal_router: Address32,
+	pub permit2: Address32,
+	pub token_messenger: Address32,
+	pub msg_transmitter: Address32,
+	pub usdc: Address32,
+	pub weth: Address32,
 }
 
 #[cfg(test)]

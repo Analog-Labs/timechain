@@ -26,6 +26,7 @@ mod loki;
 mod print;
 mod swap_benchmark;
 mod table;
+mod zenswap;
 
 pub use crate::benchmark::{Benchmark, BenchmarkStats};
 pub use crate::config::Config;
@@ -1205,82 +1206,6 @@ impl Tc {
 		)
 		.await?;
 		Ok(tester)
-	}
-
-	pub async fn deploy_zenswap(
-		&self,
-		network: NetworkId,
-		block_hash: BlockHash,
-	) -> Result<(Address32, Address32)> {
-		let backend = self.config.backend(network)?;
-
-		let network_config = self.config.network(network)?;
-		let (Some(zenswap), Some(zenswap_plugin), Some(helper_contracts)) =
-			(backend.zenswap, backend.zenswap_plugin, network_config.zenswap.clone())
-		else {
-			anyhow::bail!("Zenswap not supported on {network}");
-		};
-		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		let tester = connector
-			.deploy_zenswap(
-				gateway,
-				&zenswap,
-				&zenswap_plugin,
-				helper_contracts
-					.to_address32(network, |net, addr| self.parse_address(net, addr))?,
-			)
-			.await?;
-		Ok(tester)
-	}
-
-	pub async fn send_swap(
-		&self,
-		src: NetworkId,
-		dest: NetworkId,
-		src_zen: Address32,
-		src_plugin: Address32,
-		dst_zen: Address32,
-		dst_plugin: Address32,
-		block_hash: BlockHash,
-	) -> Result<MessageId> {
-		let src_backend = self.config.backend(src)?;
-		let dest_backend = self.config.backend(dest)?;
-		let src_config = self.config.network(src)?;
-		let dst_config = self.config.network(dest)?;
-		let (Some(_), Some(_), Some(_), Some(_), Some(src_contracts), Some(dst_contracts)) = (
-			src_backend.zenswap,
-			src_backend.zenswap_plugin,
-			dest_backend.zenswap,
-			dest_backend.zenswap_plugin,
-			src_config.zenswap.clone(),
-			dst_config.zenswap.clone(),
-		) else {
-			anyhow::bail!("Swap not supported between {src} {dest}");
-		};
-		let src_contracts =
-			src_contracts.to_address32(src, |net, addr| self.parse_address(net, addr))?;
-		let dst_contracts =
-			dst_contracts.to_address32(dest, |net, addr| self.parse_address(net, addr))?;
-		let connector = self.connector(src)?;
-
-		let chain_name =
-			self.runtime.network_name(dest, block_hash).await?.context("invalid network")?;
-		let chain_name = String::decode(&mut chain_name.0.to_vec().as_slice()).unwrap_or_default();
-
-		let msg_id = connector
-			.send_swap(
-				dest,
-				chain_name,
-				src_zen,
-				src_plugin,
-				dst_zen,
-				dst_plugin,
-				src_contracts,
-				dst_contracts,
-			)
-			.await?;
-		tracing::info!("received msg_id: {:?} for swap", hex::encode(msg_id));
-		Ok(msg_id)
 	}
 
 	pub async fn estimate_message_gas_limit(

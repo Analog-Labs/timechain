@@ -3,7 +3,6 @@ use crate::custom::BEP226;
 use crate::dict::Currency;
 use crate::sol::{Gateway, GatewayProxy, GmpProxy, IGmpReceiver};
 use alloy::{
-	dyn_abi::DynSolValue,
 	eips::{BlockId, BlockNumberOrTag},
 	network::{
 		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, ReceiptResponse,
@@ -32,8 +31,8 @@ use serde::Deserialize;
 use std::{ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, SwapPrerequisites,
-	TssPublicKey, TssSignature,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 use tokio::sync::Mutex;
 
@@ -333,195 +332,6 @@ impl IConnectorAdmin for Connector {
 		let call = GmpProxy::constructorCall { gateway: a_addr(gateway) };
 		let (addr, block) = self.deploy_contract(tester, call).await?;
 		Ok((t_addr(addr), block))
-	}
-
-	async fn deploy_zenswap(
-		&self,
-		gateway: Address32,
-		zenswap: &[u8],
-		zenswap_plugin: &[u8],
-		helper_contracts: SwapPrerequisites,
-	) -> Result<(Address32, Address32)> {
-		let universal_router = a_addr(helper_contracts.universal_router);
-		let transmitter = a_addr(helper_contracts.msg_transmitter);
-		let permit2 = a_addr(helper_contracts.permit2);
-		let messenger = a_addr(helper_contracts.token_messenger);
-		let usdc = a_addr(helper_contracts.usdc);
-
-		let plugin_initializer = sol::ZenSwapGmpPlugin::initializeCall {
-			_gmpGateway: a_addr(gateway),
-			_cctpMessenger: messenger,
-			_cctpReceiver: transmitter,
-			_usdc: usdc,
-			_fee: u256(&[0u8; 32]),
-		};
-
-		let zenswap_contructor = sol::ZenSwap::constructorCall {
-			_universalRouter: universal_router,
-			_permit2: permit2,
-		};
-
-		let mut zenswap_bytecode = extract_bytecode(zenswap, Default::default())?;
-		zenswap_bytecode.extend(zenswap_contructor.abi_encode());
-
-		// Zenswap deployment
-		let tx = TransactionRequest::default().with_deploy_code(zenswap_bytecode);
-		let receipt =
-			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
-		let zenswap_addr =
-			receipt.contract_address.ok_or(anyhow!("Unable to get contract address"))?;
-
-		// Message lib deployment
-		let msg_lib_code = hex::decode(sol::CIRCLE_MESSAGE_LIB_BYTECODE)?;
-		let tx = TransactionRequest::default().with_deploy_code(msg_lib_code);
-		let receipt =
-			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
-		let lib_addr = receipt
-			.contract_address
-			.ok_or(anyhow!("Unable to get message library address"))?;
-
-		// ZenswapPlugin deployment
-		let mut replacement_keys = HashMap::new();
-		replacement_keys.insert("__$2e72248e36cbd9e27bfc8c16586a2f5547$__", hex::encode(lib_addr));
-		let plugin_bytecode = extract_bytecode(zenswap_plugin, replacement_keys)?;
-		let tx = TransactionRequest::default().with_deploy_code(plugin_bytecode);
-		let receipt =
-			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
-		let plugin_address =
-			receipt.contract_address.ok_or(anyhow!("Unable to get plugin address"))?;
-
-		//initialize the plugin
-		self.evm_send(t_addr(plugin_address), plugin_initializer, 0).await?;
-		tracing::info!("zenswap addr: {}", hex::encode(zenswap_addr));
-		tracing::info!("zenswap plugin addr: {}", hex::encode(plugin_address));
-		Ok((t_addr(zenswap_addr), t_addr(plugin_address)))
-	}
-
-	async fn send_swap(
-		&self,
-		dest: NetworkId,
-		dest_name: String,
-		src_zenswap_addr: Address32,
-		src_plugin: Address32,
-		dst_zenswap_addr: Address32,
-		dst_plugin: Address32,
-		src_contracts: SwapPrerequisites,
-		dst_contracts: SwapPrerequisites,
-	) -> Result<MessageId> {
-		let src_usdc = a_addr(src_contracts.usdc);
-		let dest_usdc = a_addr(dst_contracts.usdc);
-
-		let domain_id = chain_to_domain_id(&dest_name)?;
-		let params = sol::ZenSwapGmpPlugin::PluginParams {
-			destPlugin: a_addr(dst_plugin),
-			recipient: a_addr(dst_zenswap_addr),
-			fallbackRecipient: a_addr(self.address()),
-			cctpDestinationDomain: domain_id,
-			gmpDestNetwork: dest,
-			gmpGasLimit: 1_000_000,
-		};
-
-		// 0.0001 eth
-		let amount_u128: u128 = 10000000000000;
-		let amount = U256::from(amount_u128);
-
-		let deadline = SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.expect("Time went backwards")
-			.as_secs()
-			+ 3600;
-
-		// src params
-
-		// WRAP_ETH
-		//     address The recipient of the WETH
-		//     uint256 The amount of ETH to wrap
-		let wrap_eth = DynSolValue::Tuple(vec![
-			DynSolValue::Address(a_addr(src_contracts.universal_router)),
-			DynSolValue::Uint(amount, 256),
-		])
-		.abi_encode();
-
-		// trade path
-		// token_in, fee, token_out
-		let src_path_encoded = DynSolValue::Tuple(vec![
-			DynSolValue::Address(a_addr(src_contracts.weth)),
-			DynSolValue::Uint(U256::from(100), 24),
-			DynSolValue::Address(src_usdc),
-		])
-		.abi_encode_packed();
-
-		// V3_SWAP_EXACT_IN
-		//     address The recipient of the output of the trade
-		//     uint256 The amount of input tokens for the trade
-		//     uint256 The minimum amount of output tokens the user wants
-		//     bytes The UniswapV3 encoded path to trade along
-		//     bool A flag for whether the input tokens should come from the msg.sender (through Permit2) or whether the funds are already in the UniversalRouter
-		let src_swap_data = DynSolValue::Tuple(vec![
-			// universal factory address from source
-			DynSolValue::Address(a_addr(src_contracts.universal_router)),
-			DynSolValue::Uint(U256::from(amount), 256),
-			DynSolValue::Uint(U256::from(1), 256),
-			DynSolValue::Bytes(src_path_encoded.into()),
-			DynSolValue::Bool(false),
-		])
-		.abi_encode();
-		let src_swap_data: Vec<u8> = src_swap_data[32..].into();
-
-		// SWEEP
-		//     address The ERC20 token to sweep (or Constants.ETH for ETH)
-		//     address The recipient of the sweep
-		//     uint256 The minimum required tokens to receive from the sweep
-		let sweep_data = DynSolValue::Tuple(vec![
-			DynSolValue::Address(src_usdc),
-			DynSolValue::Address(a_addr(src_zenswap_addr)),
-			DynSolValue::Uint(U256::from(1), 256),
-		])
-		.abi_encode();
-
-		let src_swap_params = sol::ZenSwap::SwapParams {
-			tokenIn: Address20::ZERO,
-			tokenOut: src_usdc,
-			deadline: U256::from(deadline),
-			commands: hex::decode("0b0004").unwrap().into(),
-			inputs: vec![wrap_eth.into(), src_swap_data.into(), sweep_data.into()].into(),
-		};
-		/////////////
-
-		// Dest side, swapping setup.
-		let dst_swap_params = sol::ZenSwap::SwapParams {
-			tokenIn: dest_usdc,
-			tokenOut: dest_usdc,
-			deadline: U256::from(deadline),
-			commands: vec![].into(),
-			inputs: vec![].into(),
-		};
-		/////////
-
-		let swap_call = sol::ZenSwap::swapSendCall {
-			pluginParams: params.abi_encode().into(),
-			sourceParams: src_swap_params,
-			destParams: dst_swap_params,
-			recipient: a_addr(self.address()),
-			plugin: a_addr(src_plugin),
-			amountIn: amount,
-		};
-		let gas_cost = self
-			.estimate_message_cost(src_plugin, dest, 1_000_000, swap_call.abi_encode())
-			.await?;
-		tracing::info!("balance of sender: {:?}", self.balance(self.address()).await);
-		tracing::info!("Sending cost: {:?}", gas_cost + amount_u128);
-		let receipt = self.evm_send(src_zenswap_addr, swap_call, gas_cost + amount_u128).await?;
-		receipt
-			.inner
-			.inner
-			.logs()
-			.iter()
-			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
-			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data()).ok())
-			.map(|e| e.id.into())
-			.next()
-			.ok_or(anyhow!("Failed to send message"))
 	}
 
 	/// Returns gateway admin

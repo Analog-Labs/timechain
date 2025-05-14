@@ -34,12 +34,3 @@ pub(crate) fn load(data: &[u8]) -> Result<ChainDict> {
 	let chains: Vec<Chain> = serde_json::from_slice(data)?;
 	Ok(chains.into_iter().map(|c| (c.chain_id, c)).collect::<_>())
 }
-
-// since network_ids are not same for each deployment depending on chain name in runtime
-pub(crate) fn chain_to_domain_id(chain_name: &str) -> Result<u32> {
-	match chain_name {
-		"ethereum sepolia" => Ok(0),
-		"arbitrum sepolia" => Ok(3),
-		_ => anyhow::bail!("Unsupported chain name for cctp"),
-	}
-}

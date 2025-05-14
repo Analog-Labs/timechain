@@ -10,8 +10,8 @@ impl Mnemonics {
 		Self {
 			timechain_mnemonic: std::env::var("TIMECHAIN_MNEMONIC")
 				.unwrap_or_else(|_| "//Eve".to_string()),
-			target_mnemonic: DEFAULT_MNEMONIC.to_string(), // target_mnemonic: std::env::var("TARGET_MNEMONIC")
-			                                               // 	.unwrap_or_else(|_| DEFAULT_MNEMONIC.to_string()),
+			target_mnemonic: std::env::var("TARGET_MNEMONIC")
+				.unwrap_or_else(|_| DEFAULT_MNEMONIC.to_string()),
 		}
 	}
 }

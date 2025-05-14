@@ -7,7 +7,6 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tar::{Archive, Builder};
-use tc_cli::config::SwapPrerequisites;
 use tc_cli::{
 	config::{BackendConfig, ConfigYaml, GlobalConfig, NetworkConfig},
 	NetworkId, Sender, Tc,
@@ -208,19 +207,7 @@ impl TestEnvBuilder {
 		network: NetworkId,
 		shard_size: u16,
 		shard_threshold: u16,
-		fork_params: Option<ForkParams>,
 	) -> Result<()> {
-		let mut name = format!("evm-{network}");
-		let mut zenswap = None;
-		let mut fork_path = String::from("");
-		match fork_params {
-			Some(fork_params) => {
-				name = fork_params.chain_name;
-				zenswap = Some(fork_params.cctp_args);
-				fork_path = format!("--fork-url {} --fork-block-number {} --fork-chain-id 11155111 --fork-retry-backoff 2", fork_params.chain_url, fork_params.chain_block);
-			},
-			_ => {},
-		}
 		// add chain to docker compose
 		let chain_name = format!("chain-evm-{network}");
 		let chain_mount = self.temp.path().join(&chain_name);
@@ -250,7 +237,7 @@ impl TestEnvBuilder {
 			network,
 			NetworkConfig {
 				backend: Backend::Evm,
-				name,
+				name: format!("evm-{network}"),
 				url: chain_url.clone(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
@@ -267,7 +254,7 @@ impl TestEnvBuilder {
 				coin_id: 1027,
 				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
 				cctp_contracts: None,
-				zenswap,
+				zenswap: None,
 			},
 		);
 
@@ -356,25 +343,8 @@ pub struct TestEnv {
 
 impl TestEnv {
 	/// Creates a new test environment.
-	pub async fn new(
-		backend: Backend,
-		tss: bool,
-		fork_params: Option<(ForkParams, ForkParams)>,
-	) -> Result<(Self, Tester)> {
+	pub async fn new(backend: Backend, tss: bool) -> Result<(Self, Tester)> {
 		let mut snapshot = backend.to_string();
-		let mut src_fork = None;
-		let mut dest_fork = None;
-		if let Some(fork_params) = fork_params.clone() {
-			snapshot.push_str(&format!(
-				"-fork-{}-{}-{}-{}",
-				fork_params.0.chain_name,
-				fork_params.0.chain_block,
-				fork_params.1.chain_name,
-				fork_params.1.chain_block
-			));
-			src_fork = Some(fork_params.0);
-			dest_fork = Some(fork_params.1);
-		}
 		if tss {
 			snapshot.push_str("-tss");
 		}
@@ -384,8 +354,8 @@ impl TestEnv {
 		let mut builder = TestEnvBuilder::new(snapshot_path).await?;
 		match backend {
 			Backend::Evm => {
-				builder.add_evm(0, shard_size, shard_threshold, src_fork).await?;
-				builder.add_evm(1, shard_size, shard_threshold, dest_fork).await?;
+				builder.add_evm(0, shard_size, shard_threshold).await?;
+				builder.add_evm(1, shard_size, shard_threshold).await?;
 			},
 			Backend::Grpc => {
 				builder.add_grpc(0, shard_size, shard_threshold).await?;
@@ -498,11 +468,4 @@ fn pick_free_port() -> Result<u16> {
 	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
 	let port = listener.local_addr()?.port();
 	Ok(port)
-}
-#[derive(Clone)]
-pub struct ForkParams {
-	pub chain_url: String,
-	pub chain_name: String,
-	pub chain_block: u64,
-	pub cctp_args: SwapPrerequisites,
 }

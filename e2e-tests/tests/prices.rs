@@ -16,6 +16,6 @@ async fn prices() -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn prices_grpc() -> Result<()> {
-	let _env = TestEnv::new(Backend::Grpc, false, None).await?;
+	let _env = TestEnv::new(Backend::Grpc, false).await?;
 	test_prices().await
 }

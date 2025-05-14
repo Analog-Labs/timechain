@@ -80,25 +80,25 @@ async fn validator_restart(env: &TestEnv, tc: Tester) -> Result<()> {
 
 #[tokio::test]
 async fn chronicle_restart_evm_tss() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Evm, true, None).await?;
+	let (env, tc) = TestEnv::new(Backend::Evm, true).await?;
 	chronicle_restart(&env, tc).await
 }
 
 #[tokio::test]
 #[ignore]
 async fn chain_restart_grpc() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Grpc, false, None).await?;
+	let (env, tc) = TestEnv::new(Backend::Grpc, false).await?;
 	chain_restart(&env, tc).await
 }
 
 #[tokio::test]
 async fn chain_restart_evm() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Evm, false, None).await?;
+	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	chain_restart(&env, tc).await
 }
 
 #[tokio::test]
 async fn validator_restart_grpc() -> Result<()> {
-	let (env, tc) = TestEnv::new(Backend::Evm, false, None).await?;
+	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	validator_restart(&env, tc).await
 }

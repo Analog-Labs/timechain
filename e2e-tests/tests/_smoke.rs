@@ -15,24 +15,24 @@ async fn smoke() -> Result<()> {
 
 #[tokio::test]
 async fn smoke_evm() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Evm, false, None).await?;
+	let (_env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	test_smoke(tc).await
 }
 
 #[tokio::test]
 async fn smoke_grpc() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Grpc, false, None).await?;
+	let (_env, tc) = TestEnv::new(Backend::Grpc, false).await?;
 	test_smoke(tc).await
 }
 
 #[tokio::test]
 async fn smoke_grpc_tss() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Grpc, true, None).await?;
+	let (_env, tc) = TestEnv::new(Backend::Grpc, true).await?;
 	test_smoke(tc).await
 }
 
 #[tokio::test]
 async fn smoke_evm_tss() -> Result<()> {
-	let (_env, tc) = TestEnv::new(Backend::Evm, true, None).await?;
+	let (_env, tc) = TestEnv::new(Backend::Evm, true).await?;
 	test_smoke(tc).await
 }

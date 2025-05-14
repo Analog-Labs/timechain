@@ -382,35 +382,39 @@ async fn real_main() -> Result<()> {
 		},
 		Command::SendSwap { src, dst } => {
 			// let (zen, plug) = tc.deploy_zenswap(src, block).await?;
-			// let (d_zen, d_plug) =
-			// 	if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
-
-			// tc.add_cctp_contract(src, plug)?;
-			// let (block_hash, _) = tc.latest_block().await?;
-			// tc.set_network_config(src, block_hash).await?;
-
 			let (zen, plug) = (
-				hex::decode("00000000000000000000000069291ff2f37ae0e81857c2f8944cc555c581884c")
+				hex::decode("0000000000000000000000002cde829869a8f963d4e36f3a45be03a6ae97c8b7")
 					.unwrap()
 					.try_into()
 					.unwrap(),
-				hex::decode("0000000000000000000000009a1fd6cba0d20de7871c5cc0fe150cad26b16cb2")
-					.unwrap()
-					.try_into()
-					.unwrap(),
-			);
-			let (d_zen, d_plug) = (
-				hex::decode("0000000000000000000000006796aca1e2815f41ccef01b8d23b02a5288fedc3")
-					.unwrap()
-					.try_into()
-					.unwrap(),
-				hex::decode("000000000000000000000000606991d21bf296635b0fbb1ae3794e1ba6ff2206")
+				hex::decode("0000000000000000000000005e91ce7a829a5f73c839468adb35ba72d0f25dc9")
 					.unwrap()
 					.try_into()
 					.unwrap(),
 			);
+			let (d_zen, d_plug) =
+				if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
 
+			tc.add_cctp_contract(src, plug)?;
 			let (block_hash, _) = tc.latest_block().await?;
+			tc.set_network_config(src, block_hash).await?;
+
+			// let (d_zen, d_plug) = (
+			// 	hex::decode("0000000000000000000000006796aca1e2815f41ccef01b8d23b02a5288fedc3")
+			// 		.unwrap()
+			// 		.try_into()
+			// 		.unwrap(),
+			// 	hex::decode("000000000000000000000000606991d21bf296635b0fbb1ae3794e1ba6ff2206")
+			// 		.unwrap()
+			// 		.try_into()
+			// 		.unwrap(),
+			// );
+
+			tc.add_cctp_contract(src, plug)?;
+			let (block_hash, _) = tc.latest_block().await?;
+			tc.set_network_config(src, block_hash).await?;
+
+			// let (block_hash, _) = tc.latest_block().await?;
 			tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,

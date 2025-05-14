@@ -66,6 +66,8 @@ impl CctpMessage {
 		}
 		let burn_message = &cctp.message;
 		let burn_hash: [u8; 32] = sha3::Keccak256::digest(burn_message).into();
+		tracing::info!("cctp_burn_msg: {}", hex::encode(burn_message));
+		tracing::info!("cctp_burn_hash: {}", hex::encode(burn_hash));
 		let url = url.trim_end_matches('/');
 		let url = format!("{}/0x{}", url, hex::encode(burn_hash));
 		Some(Self { msg, url, retry_count: 0, cctp })

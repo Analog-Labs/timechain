@@ -234,6 +234,7 @@ impl pallet_bridge::Config for Runtime {
 	type NetworkId = NetworkId;
 	type Beneficiary = Address32;
 	type Teleporter = Tasks;
+	type AdminOrigin = DefaultAdminOrigin;
 }
 
 impl pallet_bridge::AssetTeleporter<Runtime> for Tasks {

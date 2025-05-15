@@ -121,7 +121,8 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as polkadot_sdk::frame_system::Config>::RuntimeEvent>;
 
-		// type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		type WeightInfo: WeightInfo;
 	}
 
@@ -187,7 +188,7 @@ pub mod pallet {
 			beneficiary: T::Beneficiary,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::do_teleport_out(
 				source,
 				network,
@@ -205,7 +206,7 @@ pub mod pallet {
 			base_fee: BalanceOf<T>,
 			data: NetworkDataOf<T>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			Self::do_register_network(network, base_fee, data)
 		}
 
@@ -217,7 +218,7 @@ pub mod pallet {
 			active: bool,
 			maybe_data: Option<NetworkDataOf<T>>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 			let network_ref = &network;
 			Network::<T>::try_mutate_exists(network_ref, move |maybe_network| -> DispatchResult {
 				// Check if the network exists.

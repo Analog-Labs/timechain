@@ -143,6 +143,9 @@ enum Command {
 	SendSwap {
 		src: NetworkId,
 		dest: NetworkId,
+		// Value resolves to 0.00001 eth
+		#[arg(long, default_value = "10000000000000")]
+		amount: u128,
 	},
 	RemoveTask {
 		task_id: TaskId,
@@ -190,6 +193,9 @@ enum Command {
 	SwapBenchmark {
 		src: NetworkId,
 		dest: NetworkId,
+		// Value resolves to 0.00001 eth
+		#[arg(long, default_value = "10000000000000")]
+		amount: u128,
 		#[arg(long, default_value = "2")]
 		total_swaps: u64,
 	},
@@ -380,7 +386,7 @@ async fn real_main() -> Result<()> {
 		Command::DeployZenswap { network } => {
 			tc.deploy_zenswap(network, block).await?;
 		},
-		Command::SendSwap { src, dest } => {
+		Command::SendSwap { src, amount, dest } => {
 			tc.get_swap_contracts(src, dest)?;
 			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 			let (d_zen, d_plug) =
@@ -397,7 +403,7 @@ async fn real_main() -> Result<()> {
 				dest_zen: d_zen,
 				dest_plugin: d_plug,
 				block_hash,
-				amount: 10000000000000,
+				amount,
 			};
 			tc.send_swap(swap_config).await?;
 		},
@@ -470,7 +476,7 @@ async fn real_main() -> Result<()> {
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
-		Command::SwapBenchmark { src, dest, total_swaps } => {
+		Command::SwapBenchmark { src, dest, total_swaps, amount } => {
 			tc.get_swap_contracts(src, dest)?;
 			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 			let (d_zen, d_plug) =
@@ -486,7 +492,7 @@ async fn real_main() -> Result<()> {
 				dest_zen: d_zen,
 				dest_plugin: d_plug,
 				block_hash,
-				amount: 10000000000000,
+				amount,
 			};
 			let mut benchmark = SwapBenchmark::new(tc, config, total_swaps);
 			benchmark.wait_for_sync().await?;

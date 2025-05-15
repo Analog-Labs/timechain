@@ -68,6 +68,8 @@ polkadot-sdk = { workspace = true, features = [
 	"pallet-transaction-payment-rpc-runtime-api",
 	"pallet-utility",
 	"pallet-vesting",
+	# TODO remove
+	"pallet-sudo",
 
 	"sp-api",
 	"sp-block-builder",

@@ -66,7 +66,7 @@ pub mod pallet {
 		traits::{Currency, ExistenceRequirement, ReservableCurrency},
 	};
 
-	use frame_system::pallet_prelude::{ensure_root, ensure_signed, OriginFor};
+	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 
 	pub trait WeightInfo {
 		fn teleport_keep_alive() -> Weight;

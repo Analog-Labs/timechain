@@ -224,7 +224,8 @@ impl GenesisKeysConfig {
 				)
 			})
 			.collect::<Vec<_>>();
-
+		// TODO rm
+		let root_account = self.admins.first().cloned().unwrap();
 		let mut genesis_patch = serde_json::json!({
 			"balances": {
 				"balances": endowments,
@@ -254,6 +255,9 @@ impl GenesisKeysConfig {
 			"technicalCommittee": {
 				"members": Some(self.admins.clone()),
 			},
+			"sudo": {
+				"key": root_account,
+			}
 		});
 
 		if cfg!(feature = "testnet") {

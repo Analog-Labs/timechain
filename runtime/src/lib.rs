@@ -338,6 +338,14 @@ parameter_types! {
 
 pub type TechnicalCollective = pallet_collective::Instance1;
 
+// TODO remove
+#[cfg(feature = "testnet")]
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
 /// Mainnet runtime assembly
 #[cfg(not(feature = "testnet"))]
 #[frame_support::runtime]
@@ -639,6 +647,10 @@ mod runtime {
 
 	#[runtime::pallet_index(40)]
 	pub type Bridge = pallet_bridge;
+
+	// TODO: remove and add tc-cli command
+	#[runtime::pallet_index(49)]
+	pub type Sudo = pallet_sudo;
 
 	// Smart Contracts
 

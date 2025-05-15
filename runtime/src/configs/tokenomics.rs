@@ -14,7 +14,8 @@ use frame_support::{
 };
 #[cfg(feature = "testnet")]
 use frame_support::{
-	traits::{Currency, Imbalance, OnUnbalanced},
+	traits::tokens::fungible::Balanced,
+	traits::{Imbalance, OnUnbalanced},
 	PalletId,
 };
 
@@ -25,10 +26,7 @@ use sp_runtime::{
 	FixedPointNumber, Perbill, Perquintill,
 };
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
+pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 
 // Local module imports
 use crate::{
@@ -36,7 +34,7 @@ use crate::{
 	RuntimeHoldReason, System, ANLOG, MAX_BLOCK_LENGTH,
 };
 #[cfg(feature = "testnet")]
-use crate::{Authorship, NegativeImbalance};
+use crate::{Authorship, RuntimeCredit};
 #[cfg(feature = "testnet")]
 use time_primitives::AccountId;
 use time_primitives::{MICROANLOG, MILLIANLOG};
@@ -143,27 +141,29 @@ impl Treasury {
 
 /// Unbalance handler to provide rewards to treasury wallet
 #[cfg(feature = "testnet")]
-impl OnUnbalanced<NegativeImbalance> for Treasury {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		Balances::resolve_creating(&Self::account_id(), amount);
+impl OnUnbalanced<RuntimeCredit> for Treasury {
+	fn on_nonzero_unbalanced(amount: RuntimeCredit) {
+		// Requires treasury account to exist, otherwise will burn rewards.
+		let _ = Balances::resolve(&Self::account_id(), amount);
 	}
 }
 
 /// Unbalance handler to provide rewards to block authors
 pub struct Author;
 #[cfg(feature = "testnet")]
-impl OnUnbalanced<NegativeImbalance> for Author {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+impl OnUnbalanced<RuntimeCredit> for Author {
+	fn on_nonzero_unbalanced(amount: RuntimeCredit) {
 		if let Some(author) = Authorship::author() {
-			Balances::resolve_creating(&author, amount);
+			// Failure ignored, as block authors account should exist.
+			let _ = Balances::resolve(&author, amount);
 		}
 	}
 }
 
 pub struct DealWithFees;
 #[cfg(feature = "testnet")]
-impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+impl OnUnbalanced<RuntimeCredit> for DealWithFees {
+	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = RuntimeCredit>) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
 			let mut split = fees.ration(80, 20);
@@ -247,16 +247,15 @@ impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 
 	#[cfg(not(feature = "testnet"))]
-	/// Disabled fee distribution on mainnet
-	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+	/// Specify how to charge transaction fees.
+	/// Currently we have disabled fee distribution on mainnet.
+	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
 
-	/// Specifies the currency adapter used for charging transaction fees.
-	/// The `CurrencyAdapter` is used to charge the fees and deal with any adjustments or redistribution of those fees.
 	#[cfg(feature = "testnet")]
-	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+	/// Specify how to charge transaction fees.
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 
 	/// The multiplier applied to operational transaction fees.
-	/// Operational fees are used for transactions that are essential for the network's operation.
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 
 	/// Use our custom weight to fee curve

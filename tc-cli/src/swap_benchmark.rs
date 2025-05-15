@@ -1,9 +1,9 @@
-use crate::{BenchmarkStats, TableRef, Tc};
+use crate::{zenswap::SwapConfig, BenchmarkStats, TableRef, Tc};
 use anyhow::{Context, Result};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::{collections::HashMap, time::Duration};
-use time_primitives::{Address32, BlockHash, BlockNumber, MessageId, NetworkId};
+use time_primitives::{BlockHash, BlockNumber, MessageId};
 use tokio::time::interval;
 
 #[derive(Clone, Copy)]
@@ -40,42 +40,22 @@ impl MessageStats {
 
 pub struct SwapBenchmark {
 	tc: Tc,
-	src: NetworkId,
-	dest: NetworkId,
-	// (zenswap_contract, zenswap_plugin_contract)
-	src_contracts: (Address32, Address32),
-	// (dest_zenswap_contract, dest_zenswap_plugin_contract)
-	dest_contracts: (Address32, Address32),
-	messages: HashMap<MessageId, MessageStats>,
+	config: SwapConfig,
 	current_block: BlockNumber,
+	messages: HashMap<MessageId, MessageStats>,
 	route: RouteStats,
-	// blocks: BlockNumber,
-	// num_blocks: BlockNumber,
 	total_msgs: u64,
 }
 
 impl SwapBenchmark {
-	#[allow(clippy::too_many_arguments)]
-	pub fn new(
-		tc: Tc,
-		src: NetworkId,
-		dest: NetworkId,
-		zenswap: Address32,
-		zenswap_plug: Address32,
-		dest_zenswap: Address32,
-		dest_zenswap_plug: Address32,
-		total_msgs: u64,
-	) -> Self {
+	pub fn new(tc: Tc, config: SwapConfig, total_msgs: u64) -> Self {
 		let route = RouteStats::new();
 		Self {
 			tc,
-			src,
-			dest,
-			src_contracts: (zenswap, zenswap_plug),
-			dest_contracts: (dest_zenswap, dest_zenswap_plug),
+			config,
+			current_block: 0,
 			messages: Default::default(),
 			route,
-			current_block: 0,
 			total_msgs,
 		}
 	}
@@ -83,7 +63,7 @@ impl SwapBenchmark {
 	pub async fn wait_for_sync(&mut self) -> Result<()> {
 		let mut sync = FuturesUnordered::new();
 		for network in self.tc.iter() {
-			if network == self.src || network == self.dest {
+			if network == self.config.src || network == self.config.dest {
 				sync.push(self.tc.wait_for_sync(network));
 			}
 		}
@@ -124,8 +104,8 @@ impl SwapBenchmark {
 			0.0
 		};
 		let stats = BenchmarkStats {
-			src: self.src,
-			dest: self.dest,
+			src: self.config.src,
+			dest: self.config.dest,
 			num_sent: self.route.num_sent,
 			num_received: self.route.num_received,
 			num_total: self.total_msgs,
@@ -160,14 +140,7 @@ impl SwapBenchmark {
 						self.route.first_msg_sent = self.current_block;
 					}
 					match self.tc.send_swap(
-						self.src,
-						self.dest,
-						self.src_contracts.0,
-						self.src_contracts.1,
-						self.dest_contracts.0,
-						self.dest_contracts.1,
-						// only needed to get the network_chain so old block is fine
-						latest_block.0
+						self.config.clone()
 					).await {
 						Ok(message_id) =>  {
 							self.route.num_sent += 1;

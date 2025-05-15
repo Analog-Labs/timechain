@@ -1,5 +1,6 @@
 use anyhow::Result;
 use e2e_tests::{Backend, TestEnv, Tester};
+use tc_cli::zenswap::SwapConfig;
 use time_primitives::CCTPMessage;
 
 async fn test_cctp(mut tc: Tester) -> Result<()> {
@@ -27,16 +28,27 @@ async fn test_cctp(mut tc: Tester) -> Result<()> {
 
 async fn test_zenswap(mut tc: Tester) -> Result<()> {
 	let src = 10;
-	let dst = 13;
+	let dest = 13;
 	let (block, _) = tc.latest_block().await?;
 	let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 	let (d_zen, d_plug) =
-		if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
+		if src != dest { tc.deploy_zenswap(dest, block).await? } else { (zen, plug) };
 
 	tc.add_cctp_contract(src, plug)?;
 	let (block_hash, _) = tc.latest_block().await?;
 	tc.set_network_config(src, block_hash).await?;
-	let msg_id = tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
+	let config = SwapConfig {
+		src,
+		dest,
+		src_zen: zen,
+		src_plugin: plug,
+		dest_zen: d_zen,
+		dest_plugin: d_plug,
+		block_hash,
+		// 0.00001 eth
+		amount: 10000000000000,
+	};
+	let msg_id = tc.send_swap(config).await?;
 	tc.track_msg_id(msg_id, src, dst, d_plug).await?;
 	Ok(())
 }

@@ -181,53 +181,44 @@ impl Tc {
 		// Ok(tester)
 	}
 
-	#[allow(clippy::too_many_arguments)]
-	pub async fn send_swap(
-		&self,
-		src: NetworkId,
-		dest: NetworkId,
-		src_zen: Address32,
-		src_plugin: Address32,
-		dest_zen: Address32,
-		dest_plugin: Address32,
-		block_hash: BlockHash,
-	) -> Result<MessageId> {
+	pub async fn send_swap(&self, config: SwapConfig) -> Result<MessageId> {
 		let src_url = self
 			.config
 			.networks()
-			.get(&src)
-			.ok_or(anyhow::anyhow!("Config does not contain network: {:?}", src))?
+			.get(&config.src)
+			.ok_or(anyhow::anyhow!("Config does not contain network: {:?}", config.src))?
 			.url
 			.clone();
 		let eth_wallet = EthWallet::new(src_url).await?;
-		let (src_contracts, dest_contracts) = self.get_swap_contracts(src, dest)?;
+		let (src_contracts, dest_contracts) = self.get_swap_contracts(config.src, config.dest)?;
 		let src_contracts =
-			src_contracts.to_address32(src, |net, addr| self.parse_address(net, addr))?;
+			src_contracts.to_address32(config.src, |net, addr| self.parse_address(net, addr))?;
 		let dest_contracts =
-			dest_contracts.to_address32(dest, |net, addr| self.parse_address(net, addr))?;
+			dest_contracts.to_address32(config.dest, |net, addr| self.parse_address(net, addr))?;
 
-		let dest_chain_name =
-			self.runtime.network_name(dest, block_hash).await?.context("invalid network")?;
+		let dest_chain_name = self
+			.runtime
+			.network_name(config.dest, config.block_hash)
+			.await?
+			.context("invalid network")?;
 		let dest_chain_name =
 			String::decode(&mut dest_chain_name.0.to_vec().as_slice()).unwrap_or_default();
 
-		let sender = self.address(Some(src))?;
+		let sender = self.address(Some(config.src))?;
 		let src_usdc = a_addr(src_contracts.usdc);
 		let dest_usdc = a_addr(dest_contracts.usdc);
 
 		let domain_id = chain_to_domain_id(&dest_chain_name)?;
 		let params = ZenSwapGmpPlugin::PluginParams {
-			destPlugin: a_addr(dest_plugin),
-			recipient: a_addr(dest_zen),
+			destPlugin: a_addr(config.dest_plugin),
+			recipient: a_addr(config.dest_zen),
 			fallbackRecipient: a_addr(sender),
 			cctpDestinationDomain: domain_id,
-			gmpDestNetwork: dest,
+			gmpDestNetwork: config.dest,
 			gmpGasLimit: 1_000_000,
 		};
 
-		// 0.0001 eth
-		let amount_u128: u128 = 10000000000000;
-		let amount = U256::from(amount_u128);
+		let amount = U256::from(config.amount);
 
 		let deadline = SystemTime::now()
 			.duration_since(UNIX_EPOCH)
@@ -278,7 +269,7 @@ impl Tc {
 		//     uint256 The minimum required tokens to receive from the sweep
 		let sweep_data = DynSolValue::Tuple(vec![
 			DynSolValue::Address(src_usdc),
-			DynSolValue::Address(a_addr(src_zen)),
+			DynSolValue::Address(a_addr(config.src_zen)),
 			DynSolValue::Uint(U256::from(1), 256),
 		])
 		.abi_encode();
@@ -307,15 +298,21 @@ impl Tc {
 			sourceParams: src_swap_params,
 			destParams: dest_swap_params,
 			recipient: a_addr(sender),
-			plugin: a_addr(src_plugin),
+			plugin: a_addr(config.src_plugin),
 			amountIn: amount,
 		};
 
-		let connector = self.connector(src)?;
+		let connector = self.connector(config.src)?;
 		let gas_cost = connector
-			.estimate_message_cost(src_plugin, dest, 1_000_000, swap_call.abi_encode())
+			.estimate_message_cost(
+				config.src_plugin,
+				config.dest,
+				1_000_000,
+				swap_call.abi_encode(),
+			)
 			.await?;
-		let receipt = eth_wallet.evm_send(src_zen, swap_call, gas_cost + amount_u128).await?;
+		let receipt =
+			eth_wallet.evm_send(config.src_zen, swap_call, gas_cost + config.amount).await?;
 		receipt
 			.inner
 			.inner
@@ -450,4 +447,16 @@ struct Contract {
 enum Bytecode {
 	Object { object: String },
 	Code(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct SwapConfig {
+	pub src: NetworkId,
+	pub dest: NetworkId,
+	pub src_zen: Address32,
+	pub src_plugin: Address32,
+	pub dest_zen: Address32,
+	pub dest_plugin: Address32,
+	pub block_hash: BlockHash,
+	pub amount: u128,
 }

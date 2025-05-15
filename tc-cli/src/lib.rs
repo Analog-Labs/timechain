@@ -26,7 +26,7 @@ mod loki;
 mod print;
 mod swap_benchmark;
 mod table;
-mod zenswap;
+pub mod zenswap;
 
 pub use crate::benchmark::{Benchmark, BenchmarkStats};
 pub use crate::config::Config;

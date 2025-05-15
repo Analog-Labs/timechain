@@ -3,7 +3,7 @@ use clap::Parser;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
-use tc_cli::{Benchmark, Query, Sender, SwapBenchmark, Tc};
+use tc_cli::{zenswap::SwapConfig, Benchmark, Query, Sender, SwapBenchmark, Tc};
 use time_primitives::{BatchId, BlockNumber, Hash, NetworkId, ShardId, TaskId};
 use tracing_subscriber::filter::EnvFilter;
 
@@ -142,7 +142,7 @@ enum Command {
 	},
 	SendSwap {
 		src: NetworkId,
-		dst: NetworkId,
+		dest: NetworkId,
 	},
 	RemoveTask {
 		task_id: TaskId,
@@ -380,15 +380,26 @@ async fn real_main() -> Result<()> {
 		Command::DeployZenswap { network } => {
 			tc.deploy_zenswap(network, block).await?;
 		},
-		Command::SendSwap { src, dst } => {
-			tc.get_swap_contracts(src, dst)?;
+		Command::SendSwap { src, dest } => {
+			tc.get_swap_contracts(src, dest)?;
 			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
 			let (d_zen, d_plug) =
-				if src != dst { tc.deploy_zenswap(dst, block).await? } else { (zen, plug) };
+				if src != dest { tc.deploy_zenswap(dest, block).await? } else { (zen, plug) };
 			tc.add_cctp_contract(src, plug)?;
 			let (block_hash, _) = tc.latest_block().await?;
 			tc.set_network_config(src, block_hash).await?;
-			tc.send_swap(src, dst, zen, plug, d_zen, d_plug, block_hash).await?;
+
+			let swap_config = SwapConfig {
+				src,
+				dest,
+				src_zen: zen,
+				src_plugin: plug,
+				dest_zen: d_zen,
+				dest_plugin: d_plug,
+				block_hash,
+				amount: 10000000000000,
+			};
+			tc.send_swap(swap_config).await?;
 		},
 		Command::RemoveTask { task_id } => tc.remove_task(task_id).await?,
 		Command::CompleteBatch { batch_id } => tc.complete_batch(batch_id, block).await?,
@@ -467,8 +478,17 @@ async fn real_main() -> Result<()> {
 			tc.add_cctp_contract(src, plug)?;
 			let (block_hash, _) = tc.latest_block().await?;
 			tc.set_network_config(src, block_hash).await?;
-			let mut benchmark =
-				SwapBenchmark::new(tc, src, dest, zen, plug, d_zen, d_plug, total_swaps);
+			let config = SwapConfig {
+				src,
+				dest,
+				src_zen: zen,
+				src_plugin: plug,
+				dest_zen: d_zen,
+				dest_plugin: d_plug,
+				block_hash,
+				amount: 10000000000000,
+			};
+			let mut benchmark = SwapBenchmark::new(tc, config, total_swaps);
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},

@@ -146,7 +146,7 @@ enum Command {
 		// Value resolves to 0.00001 eth
 		#[arg(long, default_value = "10000000000000")]
 		amount: u128,
-		#[arg(long, default_value_t = "true")]
+		#[arg(long, default_value_t = true)]
 		redeploy: bool,
 	},
 	RemoveTask {
@@ -200,7 +200,7 @@ enum Command {
 		amount: u128,
 		#[arg(long, default_value = "2")]
 		total_swaps: u64,
-		#[arg(long, default_value_t = "true")]
+		#[arg(long, default_value_t = true)]
 		redeploy: bool,
 	},
 	Log {

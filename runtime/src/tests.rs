@@ -10,25 +10,15 @@ use frame_system::RawOrigin;
 use pallet_collective::RawOrigin as CollectiveOrigin;
 use pallet_shards::ShardMembers;
 use sp_core::hexdisplay::HexDisplay;
-use sp_core::Pair;
 use sp_runtime::{BoundedVec, Percent};
 use std::collections::HashSet;
 use time_primitives::{
 	AccountId, ChainName, ElectionsInterface, MembersInterface, Network, NetworkConfig, NetworkId,
-	PublicKey, ShardStatus, ShardsInterface, TasksInterface,
+	ShardStatus, ShardsInterface, TasksInterface,
 };
 
-fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
-}
-fn acc_pub(acc_num: u8) -> sp_core::sr25519::Public {
-	sp_core::sr25519::Public::from_raw([acc_num; 32])
-}
-fn get_peer_id(random_num: [u8; 32]) -> [u8; 32] {
-	sp_core::ed25519::Pair::from_string(&format!("//{:?}", random_num), None)
-		.unwrap()
-		.public()
-		.into()
+fn acc_pub(i: u8) -> [u8; 32] {
+	[i; 32]
 }
 
 fn network() -> Network {
@@ -66,7 +56,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut balances = vec![];
 	for i in 1..=(SHARD_SIZE * 3) {
-		balances.push((acc_pub(i.try_into().unwrap()).into(), 100_000 * ANLOG));
+		balances.push((acc_pub(i.try_into().unwrap()).into(), 10 * ANLOG));
 	}
 	balances.push((acc_pub(42u8).into(), 100_000 * ANLOG));
 	pallet_balances::GenesisConfig::<Runtime> { balances, dev_accounts: None }
@@ -108,26 +98,11 @@ fn shard_not_stuck_in_committed_state() {
 			CollectiveOrigin::Member(s.clone()).into(),
 			network(),
 		));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(A),
-			get_peer_id(A),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, A.into(), A,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(B),
-			get_peer_id(B),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, B.into(), B,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(b.clone()).into()));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(C),
-			get_peer_id(C),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, C.into(), C,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(1);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
@@ -150,33 +125,13 @@ fn elections_chooses_top_members_by_stake() {
 	let first_shard = [c.clone(), b.clone(), a.clone()].to_vec();
 	let second_shard = [d.clone(), c.clone(), b.clone()].to_vec();
 	new_test_ext().execute_with(|| {
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(A),
-			get_peer_id(A),
-		));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(B),
-			get_peer_id(B),
-		));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(C),
-			get_peer_id(C),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, A.into(), A,));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, B.into(), B,));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, C.into(), C,));
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(0) {
 			assert!(first_shard.contains(&m));
 		}
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(D),
-			get_peer_id(D),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, D.into(), D,));
 		Elections::shard_offline(ETHEREUM, vec![a.clone(), b.clone(), c.clone()]);
 		for (m, _) in ShardMembers::<Runtime>::iter_prefix(1) {
 			assert!(second_shard.contains(&m));
@@ -198,27 +153,12 @@ fn register_unregister_kills_task() {
 			CollectiveOrigin::Member(s.clone()).into(),
 			network(),
 		));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(A),
-			get_peer_id(A),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, A.into(), A,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(a.clone()).into()));
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(B),
-			get_peer_id(B),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, B.into(), B,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(b.clone()).into()));
 		roll(1);
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(C),
-			get_peer_id(C),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, C.into(), C,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(c.clone()).into()));
 		roll(1);
 		// verify shard 0 created for Network Ethereum
@@ -249,20 +189,10 @@ fn register_unregister_kills_task() {
 		// task not killed
 		assert!(Tasks::tasks(1).is_some());
 		// new member
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(D),
-			get_peer_id(D),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, D.into(), D,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(d.clone()).into()));
 		// new member
-		assert_ok!(Members::register_member(
-			RawOrigin::Root.into(),
-			ETHEREUM,
-			pubkey_from_bytes(E),
-			get_peer_id(E),
-		));
+		assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, E.into(), E,));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(e.clone()).into()));
 		roll(1);
 		// verify shard 1 created for Network Ethereum

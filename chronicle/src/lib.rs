@@ -190,7 +190,6 @@ pub async fn run_chronicle(
 		.send(AdminMsg::SetConfig(Config {
 			network: config.network_id,
 			account,
-			public_key: substrate.public_key().clone(),
 			address,
 			peer_id,
 			peer_id_hex: hex::encode(network.peer_id()),
@@ -226,7 +225,6 @@ mod tests {
 	use polkadot_sdk::sp_runtime::BoundedVec;
 	use scale_codec::Encode;
 	use std::time::Duration;
-	use time_primitives::traits::IdentifyAccount;
 	use time_primitives::{AccountId, BlockHash, ChainName, ShardStatus, Task};
 
 	/// Asynchronous test helper to run Chronicle.
@@ -265,7 +263,7 @@ mod tests {
 					tracing::info!("received chronicle config");
 					mock.register_member(
 						network_id,
-						config.public_key,
+						config.account.parse().unwrap(),
 						hex::decode(&config.peer_id_hex).unwrap().try_into().unwrap(),
 					);
 					tracing::info!("registered chronicle");
@@ -310,11 +308,8 @@ mod tests {
 			break;
 		}
 		// Collect member accounts.
-		let members: Vec<AccountId> = mock
-			.members(network_id)
-			.into_iter()
-			.map(|(public, _)| public.into_account())
-			.collect();
+		let members: Vec<AccountId> =
+			mock.members(network_id).into_iter().map(|(public, _)| public).collect();
 		// Create a shard.
 		let shard_id = mock.create_shard(members.clone(), t);
 		// Wait for the shard to be online.
@@ -373,11 +368,8 @@ mod tests {
 			break;
 		}
 		// Collect member accounts.
-		let members: Vec<AccountId> = mock
-			.members(network_id)
-			.into_iter()
-			.map(|(public, _)| public.into_account())
-			.collect();
+		let members: Vec<AccountId> =
+			mock.members(network_id).into_iter().map(|(public, _)| public).collect();
 		// Create a shard.
 		let shard_id = mock.create_shard(members.clone(), 2);
 		// Wait for the shard to be online.

@@ -9,7 +9,7 @@ use sp_runtime::{
 };
 use time_primitives::{
 	Address32, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
-	PublicKey, ShardsInterface,
+	ShardsInterface,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -47,9 +47,6 @@ pub struct MockMembers;
 impl MembersInterface for MockMembers {
 	fn member_peer_id(_: &AccountId) -> Option<PeerId> {
 		None
-	}
-	fn member_public_key(_account: &AccountId) -> Option<PublicKey> {
-		Some(sp_runtime::MultiSigner::Sr25519(sp_core::sr25519::Public::from_raw([0u8; 32])))
 	}
 	fn is_member_online(_: &AccountId) -> bool {
 		true

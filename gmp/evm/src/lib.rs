@@ -389,7 +389,7 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Deploys test contract
-	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
 		let call = sol::GmpTester::constructorCall { gateway: a_addr(gateway) };
 		let (addr, block) = self.deploy_contract(tester, call).await?;
 		Ok((t_addr(addr), block))
@@ -417,7 +417,6 @@ impl IConnectorAdmin for Connector {
 		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
-
 		let _receipt = self.evm_send(gateway, call, 0).await?;
 		Ok(())
 	}

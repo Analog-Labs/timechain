@@ -34,7 +34,7 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{IdentifyAccount, Zero};
+	use sp_runtime::traits::Zero;
 	use sp_std::collections::btree_map::BTreeMap;
 	use sp_std::vec;
 	use sp_std::vec::Vec;
@@ -42,7 +42,7 @@ pub mod pallet {
 	use polkadot_sdk::pallet_balances;
 
 	use time_primitives::{
-		AccountId, Balance, ElectionsInterface, MembersInterface, NetworkId, PeerId, PublicKey,
+		AccountId, Balance, ElectionsInterface, MembersInterface, NetworkId, PeerId,
 		ShardsInterface,
 	};
 
@@ -111,11 +111,6 @@ pub mod pallet {
 	pub type MemberPeerId<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountId, PeerId, OptionQuery>;
 
-	/// Get PublicKey for member
-	#[pallet::storage]
-	pub type MemberPublicKey<T: Config> =
-		StorageMap<_, Blake2_128Concat, AccountId, PublicKey, OptionQuery>;
-
 	/// Get status of member
 	#[pallet::storage]
 	pub type MemberOnline<T: Config> = StorageMap<_, Blake2_128Concat, AccountId, (), OptionQuery>;
@@ -179,11 +174,11 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// `register_member`: Registers a member with specified network ID, public key, peer ID, and bond (staking amount).
 		/// # Flow
-		///	1. Receives `origin` (caller's account), `network` (NetworkId), `public_key` (PublicKey), `peer_id` (PeerId), `bond` (Balance to stake).
+		///	1. Receives `origin` (caller's account), `network` (NetworkId), `peer_id` (PeerId).
 		///	2. Ensures the `origin` is AdminOrigin (authenticated).
 		///	3. Validates the `public_key` against the `origin` account.
 		///	4. Checks if the member is already registered and unregisters them if necessary.
-		///	5. Inserts member data into respective storage maps ([`MemberNetwork::<T>`], [`MemberPublicKey::<T>`], [`MemberPeerId::<T>`], [`MemberStake::<T>`], [`Heartbeat::<T>`]).
+		///	5. Inserts member data into respective storage maps ([`MemberNetwork::<T>`], [`MemberPeerId::<T>`], [`MemberStake::<T>`], [`Heartbeat::<T>`]).
 		///	6. Marks the member as online ([`MemberOnline::<T>`]).
 		///	7. Emits [`Event::RegisteredMember`].
 		///	8. Calls `Self::member_online` to notify the network election system.
@@ -193,13 +188,11 @@ pub mod pallet {
 		pub fn register_member(
 			origin: OriginFor<T>,
 			network: NetworkId,
-			public_key: PublicKey,
+			member: AccountId,
 			peer_id: PeerId,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			let member = public_key.clone().into_account();
 			MemberNetwork::<T>::insert(&member, network);
-			MemberPublicKey::<T>::insert(&member, public_key);
 			MemberPeerId::<T>::insert(&member, peer_id);
 			MemberRegistered::<T>::insert(&member, ());
 			Self::deposit_event(Event::RegisteredMember(member, network, peer_id));
@@ -212,7 +205,7 @@ pub mod pallet {
 		///	2. Ensures the `origin` is signed (authenticated) and retrieves the `member` account.
 		///	3. Retrieves the current `network` of the member ([`MemberNetwork::<T>::take(&member)`]).
 		///	4. Calls `Self::unregister_member_from_network` to perform the actual unregistration tasks:
-		///	5. Removes data from storage ([`MemberPublicKey::<T>`], [`MemberPeerId::<T>`], [`Heartbeat::<T>`], [`MemberOnline::<T>`]).
+		///	5. Removes data from storage ([`MemberPeerId::<T>`], [`Heartbeat::<T>`], [`MemberOnline::<T>`]).
 		///	6. Emits [`Event::UnRegisteredMember`].
 		///	7. Calls `Self::member_offline` to mark the member as offline and calculate weight adjustments.
 		///	8. Returns `Ok(())` if successful.
@@ -224,7 +217,6 @@ pub mod pallet {
 			ensure!(MemberRegistered::<T>::take(&member).is_some(), Error::<T>::NotRegistered);
 			MemberNetwork::<T>::remove(&member);
 			MemberPeerId::<T>::remove(&member);
-			MemberPublicKey::<T>::remove(&member);
 			Heartbeat::<T>::remove(&member);
 			MemberOnline::<T>::remove(&member);
 			TimedOut::<T>::mutate(|members| members.retain(|m| *m != member));
@@ -338,11 +330,6 @@ pub mod pallet {
 		/// Retrieves the peer ID of a specific member.
 		fn member_peer_id(account: &AccountId) -> Option<PeerId> {
 			MemberPeerId::<T>::get(account)
-		}
-
-		/// Retrieves the public key of a specific member.
-		fn member_public_key(account: &AccountId) -> Option<PublicKey> {
-			MemberPublicKey::<T>::get(account)
 		}
 
 		/// Checks if a specific member is online.

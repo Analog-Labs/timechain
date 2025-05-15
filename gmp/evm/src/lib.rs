@@ -1,11 +1,6 @@
 use crate::cctp::CctpHandler;
 use crate::custom::BEP226;
 use crate::dict::Currency;
-use crate::sol::{
-	u256,
-	IExecutor::{self, IExecutorInstance},
-	TssKey,
-};
 use alloy::{
 	eips::{BlockId, BlockNumberOrTag},
 	network::{
@@ -47,8 +42,6 @@ pub(crate) mod custom;
 pub(crate) mod dict;
 pub mod sol;
 
-const DEFAULT_TX_TIMEOUT: u64 = 60;
-
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
 }
@@ -78,6 +71,7 @@ pub struct Connector {
 	cctp: Arc<CctpHandler>,
 	chain_id: u64,
 	currency: Currency,
+	tx_timeout: Duration,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
 }
@@ -117,6 +111,7 @@ impl IConnectorBuilder for Connector {
 			cctp: Arc::new(CctpHandler::new()),
 			chain_id,
 			currency,
+			tx_timeout: Duration::from_secs(60),
 			wallet_guard: Default::default(),
 		})
 	}
@@ -145,51 +140,34 @@ impl IChain for Connector {
 	}
 	/// Funds Connector's account
 	async fn faucet(&self, balance: u128) -> Result<()> {
-		let ws = WsConnect::new(self.url.clone());
-		let provider = ProviderBuilder::new().connect_ws(ws).await?;
-		let sponsor = provider
+		let sponsor = self
+			.rpc
 			.get_accounts()
 			.await?
 			.first()
 			.ok_or(anyhow!("Node owns no account"))?
 			.to_owned();
-		let nonce = provider.get_transaction_count(sponsor).await?;
-
 		let tx = TransactionRequest::default()
 			.with_from(sponsor)
-			.with_nonce(nonce)
 			.with_to(a_addr(self.address()))
-			.with_value(U256::from(balance))
-			.with_gas_limit(21_000);
-
-		let guard = self.wallet_guard.lock().await;
-		let pending_tx = provider.send_transaction(tx).await?;
-		drop(guard);
-		let tx_hash = pending_tx
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?
-			.transaction_hash;
-		tracing::info!("Faucet sent {balance} to {}, tx: {tx_hash}", a_addr(self.address()));
+			.with_value(U256::from(balance));
+		let receipt = self.submit(tx).await?;
+		tracing::info!(
+			"faucet sent {balance} to {}, tx: {:?}",
+			a_addr(self.address()),
+			receipt.transaction_hash()
+		);
 		Ok(())
 	}
 	/// Transfers an amount to an account
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
-		let to = a_addr(address);
-		let tx = TransactionRequest::default()
-			.with_from(self.signer.address())
-			.with_to(to)
-			.with_value(U256::from(amount));
-
-		let guard = self.wallet_guard.lock().await;
-		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
-		drop(guard);
-		let tx_hash = pending_tx
-			.with_timeout(Some(Duration::from_secs(60)))
-			.get_receipt()
-			.await?
-			.transaction_hash;
-		tracing::info!("Transferred sent {amount} to {to}, tx: {tx_hash}");
+	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
+		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
+		let receipt = self.submit(tx).await?;
+		tracing::info!(
+			"transferred {amount} to {}, tx: {:?}",
+			a_addr(to),
+			receipt.transaction_hash()
+		);
 		Ok(())
 	}
 	/// Queries the account balance
@@ -298,54 +276,20 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let signature = IExecutor::Signature {
-			xCoord: u256(&signer[1..33]),
-			e: u256(&sig[..32]),
-			s: u256(&sig[32..]),
+		let signature = sol::Signature {
+			xCoord: sol::u256(&signer[1..33]),
+			e: sol::u256(&sig[..32]),
+			s: sol::u256(&sig[32..]),
 		};
-		// Adding extra overhead for gateway call
-		let total_gas = msg.gas().saturating_add(200_000u128);
-		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
-			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
-			u64::MAX
-		});
-		let ops: Vec<IExecutor::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
-		let message = IExecutor::InboundMessage {
+		let ops: Vec<sol::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
+		let message = sol::InboundMessage {
 			version: 0,
 			batchID: batch,
 			ops,
 		};
-		tracing::info!("submitting batch {batch} with {gas_limit} gas");
-
-		let address = a_addr(gateway);
-		let gw = IExecutorInstance::new(address, self.rpc.clone());
-
-		let gw_call = gw.batchExecute(signature, message);
-		let estimated_gas = gw_call.estimate_gas().await.map_err(|err| err.to_string())?;
-		let max_gas = std::cmp::max(estimated_gas, gas_limit);
-
-		let receipt = gw_call
-			.gas(max_gas)
-			.send()
-			.await
-			.map_err(|err| {
-				tracing::info!("failed to submit batch: {:?}", err);
-				err.to_string()
-			})?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await
-			.map_err(|err| err.to_string())?;
-		let tx_hash = receipt.transaction_hash;
-
-		if !receipt.inner.inner.is_success() {
-			let err = format!("batch {batch} failed with tx: {tx_hash}");
-			tracing::error!(err);
-			return Err(err);
-		} else {
-			tracing::info!("batch {batch} submitted with tx: {tx_hash}");
-		}
-
+		let call = sol::Gateway::batchExecuteCall { signature, message };
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
 	}
 }
@@ -376,16 +320,8 @@ impl IConnectorAdmin for Connector {
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};
-		let tx = TransactionRequest::default()
-			.with_to(proxy)
-			.with_chain_id(self.chain_id)
-			.with_call(&call);
-		self.rpc
-			.send_transaction(WithOtherFields::new(tx))
-			.await?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?;
+		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
+		self.submit(tx).await?;
 		Ok(())
 	}
 	/// Deploys test contract
@@ -397,39 +333,42 @@ impl IConnectorAdmin for Connector {
 
 	/// Returns gateway admin
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
-		let admin_address = self.evm_call(gateway, sol::Gateway::adminCall {}).await?.0;
+		let admin_address = self.call(gateway, sol::Gateway::adminCall {}).await?.0;
 		Ok(t_addr(admin_address.into()))
 	}
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Returns registered shard keys
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
-		let keys = self.evm_call(gateway, sol::Gateway::shardsCall {}).await?;
+		let keys = self.call(gateway, sol::Gateway::shardsCall {}).await?;
 		let keys = keys.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
 	/// Sets registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
-		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
+		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<sol::TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = sol::Gateway::setShardsCall { publicKeys: shards };
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
-		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?;
+		let routes = self.call(gateway, sol::Gateway::routesCall {}).await?;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = sol::Gateway::setRouteCall { info: route.into() };
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Estimates message gas limit
@@ -447,10 +386,7 @@ impl IConnectorAdmin for Connector {
 			nonce: 0,
 			payload: payload.into(),
 		};
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(contract))
-			.with_chain_id(self.chain_id)
-			.with_call(&call);
+		let tx = TransactionRequest::default().with_to(a_addr(contract)).with_call(&call);
 
 		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
 	}
@@ -477,7 +413,7 @@ impl IConnectorAdmin for Connector {
 			messageSize: U256::from(msg.abi_encoded_size() + 4),
 			gasLimit: U256::from(gas_limit),
 		};
-		let result = self.evm_call(gateway, call).await?;
+		let result = self.call(gateway, call).await?;
 		let msg_cost: u128 = result.try_into().map_err(|e| anyhow!("{e}"))?;
 
 		Ok(msg_cost)
@@ -503,7 +439,11 @@ impl IConnectorAdmin for Connector {
 		};
 		tracing::debug!("Sending GMP message: {:#?}", &msg);
 		let call = sol::GmpTester::sendMessageCall { msg };
-		let receipt = self.evm_send(contract, call, gas_cost).await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(contract))
+			.with_call(&call)
+			.with_value(U256::from(gas_cost));
+		let receipt = self.submit(tx).await?;
 
 		receipt
 			.inner
@@ -580,7 +520,8 @@ impl IConnectorAdmin for Connector {
 			recipient: a_addr(recipient),
 			data: vec![].into(),
 		};
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		self.submit(tx).await?;
 		Ok(())
 	}
 
@@ -608,32 +549,28 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
-	async fn evm_call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(to))
-			.with_chain_id(self.chain_id)
-			.with_call(&call);
-
+	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
+		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
-
 		Ok(C::abi_decode_returns(&result)?)
 	}
 
-	async fn evm_send<C: SolCall>(
+	async fn submit(
 		&self,
-		to: Address32,
-		call: C,
-		value: u128,
+		tx: TransactionRequest,
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(to))
-			.with_chain_id(self.chain_id)
-			.with_call(&call)
-			.with_value(U256::from(value));
+		let guard = self.wallet_guard.lock().await;
+		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
+		drop(guard);
+		tracing::info!("tx {:?} submitted", pending_tx.tx_hash());
 
-		let _guard = self.wallet_guard.lock().await;
+		let receipt = pending_tx.with_timeout(Some(self.tx_timeout)).get_receipt().await?;
+		tracing::info!("tx {:?} confirmed", receipt.transaction_hash());
 
-		Ok(self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?)
+		if !receipt.inner.inner.is_success() {
+			anyhow::bail!("tx {:?} failed", receipt.transaction_hash());
+		}
+		Ok(receipt)
 	}
 
 	async fn latest_block(&self) -> Result<Header<AnyHeader>> {
@@ -665,20 +602,14 @@ impl Connector {
 		bytecode.extend(constructor.abi_encode());
 
 		let tx = TransactionRequest::default().with_deploy_code(bytecode);
-		let receipt = self
-			.rpc
-			.send_transaction(WithOtherFields::new(tx))
-			.await?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?;
+		let receipt = self.submit(tx).await?;
+
 		let contract_address = receipt
 			.contract_address()
 			.ok_or(anyhow!("Failed to get deployed contract address"))?;
 		let block_number = receipt
 			.block_number
 			.ok_or(anyhow!("Failed to get contract deployement block"))?;
-
 		Ok((contract_address, block_number))
 	}
 }

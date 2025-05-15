@@ -112,7 +112,6 @@ impl TestEnvBuilder {
 						Backend::Evm,
 						BackendConfig {
 							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json"),
-							factory: workspace.join("gmp/evm/auxiliary/factory.json"),
 							proxy: workspace
 								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
 							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),

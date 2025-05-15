@@ -173,12 +173,6 @@ impl Config {
 						format!("failed to read tester contract from {}", path.display())
 					})?
 				},
-				factory: {
-					let path = self.relative_path(&backend.factory);
-					std::fs::read(&path).with_context(|| {
-						format!("failed to read additional params from {}", path.display())
-					})?
-				},
 				chain_dict: {
 					let path = self.relative_path(&backend.chain_dict);
 					std::fs::read(&path).with_context(|| {
@@ -229,7 +223,6 @@ pub struct GlobalConfig {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BackendConfig {
-	pub factory: PathBuf,
 	pub proxy: PathBuf,
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
@@ -238,7 +231,6 @@ pub struct BackendConfig {
 
 #[derive(Default)]
 pub struct BackendData {
-	pub factory: Vec<u8>,
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,

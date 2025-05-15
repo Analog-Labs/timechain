@@ -6,7 +6,6 @@ config:
 backends:
   evm:
     chain_dict: "auxiliary/chains.json"
-    factory: "auxiliary/factory.json"
     proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"

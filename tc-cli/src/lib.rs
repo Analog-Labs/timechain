@@ -4,6 +4,7 @@ use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
 use futures::TryStreamExt;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
+use time_primitives::U256;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -49,9 +50,14 @@ pub struct Tc {
 	runtime: SubxtClient,
 	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
 	msg: Sender,
+	tc_network_id: NetworkId,
 }
 
 impl Tc {
+	pub fn runtime(&self) -> &SubxtClient {
+		&self.runtime
+	}
+
 	pub async fn from_env(env: PathBuf, config: &str, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
@@ -102,12 +108,14 @@ impl Tc {
 			}
 		}
 		let runtime = runtime.await??;
+		let tc_network_id = runtime.tc_network_id().await?;
 
 		Ok(Self {
 			config,
 			runtime,
 			connectors,
 			msg,
+			tc_network_id,
 		})
 	}
 
@@ -130,6 +138,24 @@ impl Tc {
 			.await?
 			.with_context(|| format!("no gateway configured for {network}"))?;
 		Ok((connector, gateway))
+	}
+
+	// TODO might be done w test_setup()
+	pub async fn set_tc_route(&self, src: NetworkId, src_gateway: Address32) -> Result<()> {
+		let connector = self.connector(src)?;
+		let route = Route {
+			network_id: self.tc_network_id,
+			// note: TC does not have GW,
+			// but GMP GW does not accept 0x here,
+			// hence we set it to src_gateway as well.
+			gateway: src_gateway,
+			// TODO ??explain
+			relative_gas_price: (U256::from(1), U256::from(1)),
+			// TODO ??explain
+			gas_limit: 15_000_000,
+			gmp_base_fee: Default::default(),
+		};
+		connector.set_route(src_gateway, route).await
 	}
 
 	pub fn finality_notification_stream(&self) -> BoxStream<'static, (BlockHash, BlockNumber)> {

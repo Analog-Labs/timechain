@@ -165,6 +165,10 @@ enum Command {
 		gas_cost: u128,
 		payload: String,
 	},
+	SetTcRoute {
+		src_network: NetworkId,
+		src_gateway: String,
+	},
 	SmokeTest {
 		src: NetworkId,
 		dest: NetworkId,
@@ -417,6 +421,10 @@ async fn real_main() -> Result<()> {
 				)
 				.await?;
 			tc.println(None, hex::encode(msg_id)).await?;
+		},
+		Command::SetTcRoute { src_network, src_gateway } => {
+			let src_gateway = tc.parse_address(Some(src_network), &src_gateway)?;
+			tc.set_tc_route(src_network, src_gateway).await?;
 		},
 		Command::SmokeTest { src, dest } => {
 			tc.setup_test().await?;

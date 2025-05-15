@@ -346,6 +346,49 @@ impl Tc {
 		};
 		Ok((src_contracts, dest_contracts))
 	}
+
+	pub async fn get_zenswap_contracts(
+		&mut self,
+		src: NetworkId,
+		dest: NetworkId,
+		redeploy: bool,
+	) -> Result<[Address32; 4]> {
+		let (block_hash, _) = self.latest_block().await?;
+		let (zen, plug, d_zen, d_plug) = if redeploy {
+			// redeploys the contract on the network
+			self.get_swap_contracts(src, dest)?;
+			let (zen, plug) = self.deploy_zenswap(src, block_hash).await?;
+			let (d_zen, d_plug) = if src != dest {
+				self.deploy_zenswap(dest, block_hash).await?
+			} else {
+				(zen, plug)
+			};
+			self.add_cctp_contract(src, plug)?;
+			self.set_network_config(src, block_hash).await?;
+			(zen, plug, d_zen, d_plug)
+		} else {
+			// loads contract from zenswap testnet
+			let contracts = load_zenswap_deployed_contracts().await?;
+			let src_contracts = contracts
+				.get(&src)
+				.ok_or(anyhow::anyhow!("Unable to load contracts for: {:?}", src))?;
+			let dest_contracts = contracts
+				.get(&dest)
+				.ok_or(anyhow::anyhow!("Unable to load contracts for: {:?}", dest))?;
+
+			let zen = self.parse_address(Some(src), &src_contracts.zenswap)?;
+			let plug = self.parse_address(Some(src), &src_contracts.zenswap_plugin)?;
+			let d_zen = self.parse_address(Some(dest), &dest_contracts.zenswap)?;
+			let d_plug = self.parse_address(Some(dest), &dest_contracts.zenswap_plugin)?;
+			(zen, plug, d_zen, d_plug)
+		};
+		tracing::info!("src zenswap: {:?}", hex::encode(zen));
+		tracing::info!("src zenswap plugin: {:?}", hex::encode(plug));
+		tracing::info!("dest zenswap: {:?}", hex::encode(d_zen));
+		tracing::info!("dest zenswap plugin: {:?}", hex::encode(d_plug));
+		let contracts = [zen, plug, d_zen, d_plug];
+		Ok(contracts)
+	}
 }
 
 sol! {
@@ -406,6 +449,28 @@ sol! {
 			bytes data
 		);
 	}
+
+
+}
+
+pub async fn load_zenswap_deployed_contracts() -> Result<HashMap<NetworkId, ZenswapContracts>> {
+	let url = "https://testnet.zenswap.io/env.json";
+	let env_json = reqwest::get(url)
+		.await?
+		.json::<EnvJson>()
+		.await
+		.context("Failed to parse JSON response")?;
+
+	let contracts_map = env_json
+		.router
+		.contracts
+		.into_iter()
+		.filter_map(|(chain_id, contracts)| {
+			env_json.gmp.ids.get(&chain_id).map(|&network_id| (network_id, contracts))
+		})
+		.collect();
+
+	Ok(contracts_map)
 }
 
 fn chain_to_domain_id(chain_name: &str) -> Result<u32> {
@@ -459,4 +524,27 @@ pub struct SwapConfig {
 	pub dest_plugin: Address32,
 	pub block_hash: BlockHash,
 	pub amount: u128,
+}
+
+#[derive(Deserialize, Debug)]
+struct EnvJson {
+	router: Router,
+	gmp: Gmp,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Router {
+	contracts: HashMap<String, ZenswapContracts>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ZenswapContracts {
+	pub zenswap: String,
+	#[serde(rename = "gmpPlugin")]
+	pub zenswap_plugin: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct Gmp {
+	ids: HashMap<String, NetworkId>,
 }

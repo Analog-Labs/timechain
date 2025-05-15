@@ -436,7 +436,7 @@ pub struct Tester {
 }
 
 impl Tester {
-	pub async fn new() -> Result<Self> {
+	pub async fn new(setup_test: bool) -> Result<Self> {
 		try_init_logger();
 		let env = std::env::var("TC_CLI_ENV").context("TC_CLI_ENV not set")?;
 		let env = Path::new(&env).to_path_buf();
@@ -444,7 +444,9 @@ impl Tester {
 			Tc::from_env(env.clone(), "config.yaml", Sender::default(), env.join("tc-cli-tx.redb"))
 				.await
 				.context("Error creating Tc client")?;
-		tc.setup_test().await?;
+		if setup_test {
+			tc.setup_test().await?;
+		}
 		Ok(Self { tc })
 	}
 }

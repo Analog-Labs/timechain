@@ -9,7 +9,7 @@ async fn test_smoke(tc: Tester) -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn smoke() -> Result<()> {
-	let tc = Tester::new().await?;
+	let tc = Tester::new(true).await?;
 	test_smoke(tc).await
 }
 

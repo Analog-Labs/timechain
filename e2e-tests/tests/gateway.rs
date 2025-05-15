@@ -46,7 +46,7 @@ async fn test_gateway_payments(tc: Tester) -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn gateway_payments() -> Result<()> {
-	let tc = Tester::new().await?;
+	let tc = Tester::new(true).await?;
 	test_gateway_payments(tc).await
 }
 

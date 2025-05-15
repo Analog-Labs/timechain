@@ -146,6 +146,8 @@ enum Command {
 		// Value resolves to 0.00001 eth
 		#[arg(long, default_value = "10000000000000")]
 		amount: u128,
+		#[arg(long, default_value_t = "true")]
+		redeploy: bool,
 	},
 	RemoveTask {
 		task_id: TaskId,
@@ -198,6 +200,8 @@ enum Command {
 		amount: u128,
 		#[arg(long, default_value = "2")]
 		total_swaps: u64,
+		#[arg(long, default_value_t = "true")]
+		redeploy: bool,
 	},
 	Log {
 		#[clap(subcommand)]
@@ -386,22 +390,17 @@ async fn real_main() -> Result<()> {
 		Command::DeployZenswap { network } => {
 			tc.deploy_zenswap(network, block).await?;
 		},
-		Command::SendSwap { src, amount, dest } => {
-			tc.get_swap_contracts(src, dest)?;
-			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
-			let (d_zen, d_plug) =
-				if src != dest { tc.deploy_zenswap(dest, block).await? } else { (zen, plug) };
-			tc.add_cctp_contract(src, plug)?;
+		Command::SendSwap { src, amount, dest, redeploy } => {
 			let (block_hash, _) = tc.latest_block().await?;
-			tc.set_network_config(src, block_hash).await?;
+			let contracts = tc.get_zenswap_contracts(src, dest, redeploy).await?;
 
 			let swap_config = SwapConfig {
 				src,
 				dest,
-				src_zen: zen,
-				src_plugin: plug,
-				dest_zen: d_zen,
-				dest_plugin: d_plug,
+				src_zen: contracts[0],
+				src_plugin: contracts[1],
+				dest_zen: contracts[2],
+				dest_plugin: contracts[3],
 				block_hash,
 				amount,
 			};
@@ -476,21 +475,22 @@ async fn real_main() -> Result<()> {
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;
 		},
-		Command::SwapBenchmark { src, dest, total_swaps, amount } => {
-			tc.get_swap_contracts(src, dest)?;
-			let (zen, plug) = tc.deploy_zenswap(src, block).await?;
-			let (d_zen, d_plug) =
-				if src != dest { tc.deploy_zenswap(dest, block).await? } else { (zen, plug) };
-			tc.add_cctp_contract(src, plug)?;
+		Command::SwapBenchmark {
+			src,
+			dest,
+			total_swaps,
+			amount,
+			redeploy,
+		} => {
 			let (block_hash, _) = tc.latest_block().await?;
-			tc.set_network_config(src, block_hash).await?;
+			let contracts = tc.get_zenswap_contracts(src, dest, redeploy).await?;
 			let config = SwapConfig {
 				src,
 				dest,
-				src_zen: zen,
-				src_plugin: plug,
-				dest_zen: d_zen,
-				dest_plugin: d_plug,
+				src_zen: contracts[0],
+				src_plugin: contracts[1],
+				dest_zen: contracts[2],
+				dest_plugin: contracts[3],
 				block_hash,
 				amount,
 			};

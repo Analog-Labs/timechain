@@ -49,14 +49,14 @@ async fn test_zenswap(mut tc: Tester) -> Result<()> {
 		amount: 10000000000000,
 	};
 	let msg_id = tc.send_swap(config).await?;
-	tc.track_msg_id(msg_id, src, dst, d_plug).await?;
+	tc.track_msg_id(msg_id, src, dest, d_plug).await?;
 	Ok(())
 }
 
 #[tokio::test]
 #[ignore]
 async fn cctp() -> Result<()> {
-	let tc = Tester::new().await?;
+	let tc = Tester::new(false).await?;
 	test_cctp(tc).await
 }
 
@@ -69,6 +69,6 @@ async fn cctp_evm() -> Result<()> {
 #[tokio::test]
 #[ignore]
 async fn zenswap_evm() -> Result<()> {
-	let tc = Tester::new().await?;
+	let tc = Tester::new(false).await?;
 	test_zenswap(tc).await
 }

@@ -2,7 +2,7 @@ use anyhow::Result;
 use e2e_tests::{Backend, TestEnv, Tester};
 
 async fn test_prices() -> Result<()> {
-	let mut tc = Tester::new().await?;
+	let mut tc = Tester::new(false).await?;
 	tc.fetch_token_prices().await?;
 	Ok(())
 }

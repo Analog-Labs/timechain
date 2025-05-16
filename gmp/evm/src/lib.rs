@@ -319,9 +319,8 @@ impl IConnectorAdmin for Connector {
 			)
 			.await?;
 
-		let call = Gateway::upgradeAndCallCall {
+		let call = GatewayProxy::upgradeCall {
 			newImplementation: gateway_addr,
-			initializer: Default::default(),
 		};
 		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
 		self.submit(tx).await?;

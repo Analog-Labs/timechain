@@ -1,179 +1,37 @@
 use crate::{a_addr, t_addr};
 use alloy::{primitives::U256, sol, sol_types::SolValue};
 
-sol! {
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct TssKey {
-		uint8 yParity;
-		uint256 xCoord;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct TssSignature {
-		uint256 e;
-		uint256 s;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct GmpMessage {
-		bytes32 source;
-		uint16 srcNetwork;
-		address dest;
-		uint16 destNetwork;
-		uint64 gasLimit;
-		uint64 nonce;
-		bytes data;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct Route {
-		uint16 networkId;
-		uint64 gasLimit;
-		uint128 baseFee;
-		bytes32 gateway;
-		uint256 relativeGasPriceNumerator;
-		uint256 relativeGasPriceDenominator;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct Network {
-		uint16 id;
-		address gateway;
-	}
-
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct CCTP {
-		/// The attestation (obs: will be provided by the chronicle).
-		bytes attestation;
-		/// The message bytes emitted by the MessageSent event (must be provided).
-		bytes message;
-		/// Extra data field used by cctp implementers for custom usage
-		bytes extraData;
-	}
-
-	contract GatewayProxy {
-		constructor(address admin) payable;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct Signature {
-		uint256 xCoord;
-		uint256 e;
-		uint256 s;
-	}
-
+sol!(
+	#[allow(clippy::too_many_arguments)]
+	#[allow(missing_docs)]
 	#[derive(Debug)]
-	enum GmpStatus {
-		NOT_FOUND,
-		SUCCESS,
-		REVERT,
-		INSUFFICIENT_FUNDS,
-		PENDING
-	}
+	GatewayProxy,
+	"../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
+);
 
-	struct InboundMessage {
-		uint8 version;
-		uint64 batchID;
-		GatewayOp[] ops;
-	}
-
-	struct GatewayOp {
-		Command command;
-		bytes params;
-	}
-
-
+sol!(
+	#[allow(clippy::too_many_arguments)]
+	#[allow(missing_docs)]
 	#[derive(Debug)]
-	enum Command {
-		Invalid,
-		GMP,
-		RegisterShard,
-		UnregisterShard,
-		SetRoute
-	}
+	Gateway,
+	"../../analog-gmp/out/Gateway.sol/Gateway.json"
+);
 
-	contract Gateway {
-		constructor(uint16 network, address proxy) payable;
-		function initialize(address admin, TssKey[] memory keys, Network[] calldata networks) external;
-		function upgrade(address newImplementation) external payable;
-		function execute(TssSignature memory signature, uint256 xCoord, bytes memory message) external;
-		function execute(Signature calldata signature, GmpMessage calldata message)
-			external
-			returns (GmpStatus status, bytes32 result);
-		function batchExecute(Signature calldata signature, InboundMessage calldata message) external;
-		function admin() external view returns (address);
-		function setAdmin(address admin) external payable;
-		function shards() external view returns (TssKey[] memory);
-		function setShards(TssKey[] calldata publicKeys) external;
-		function routes() external view returns (Route[]);
-		function setRoute(Route calldata info) external;
-		function nonceOf(address account) external view returns (uint64);
-		function estimateMessageCost(uint16 networkid, uint256 messageSize, uint256 gasLimit) external view returns (uint256);
-		function withdraw(uint256 amount, address recipient, bytes calldata data) external returns (bytes memory output);
+sol!(
+	#[allow(clippy::too_many_arguments)]
+	#[allow(missing_docs)]
+	#[derive(Debug)]
+	IGmpReceiver,
+	"../../analog-gmp/out/IGmpReceiver.sol/IGmpReceiver.json"
+);
 
-		event ShardsRegistered(TssKey[] keys);
-		event ShardsUnregistered(TssKey[] keys);
-		event GmpCreated(
-			bytes32 indexed id,
-			bytes32 indexed source,
-			address indexed destinationAddress,
-			uint16 destinationNetwork,
-			uint64 executionGasLimit,
-			uint64 gasCost,
-			uint64 nonce,
-			bytes data
-		);
-		#[derive(Debug)]
-		event GmpExecuted(
-			bytes32 indexed id,
-			bytes32 indexed source,
-			address indexed dest,
-			GmpStatus status,
-			bytes32 result
-		);
-		event BatchExecuted(
-			uint64 batch,
-		);
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct ProxyContext {
-		uint8 v;
-		bytes32 r;
-		bytes32 s;
-		address implementation;
-	}
-
-	#[derive(Debug, Default, PartialEq, Eq)]
-	struct ProxyDigest {
-		address proxy;
-		address implementation;
-	}
-
-	contract GmpTester {
-		constructor(address gateway);
-		function sendMessage(GmpMessage msg) payable returns (bytes32);
-		function estimateMessageCost(uint256 messageSize, uint256 gasLimit) external view returns (uint256);
-		event MessageReceived(GmpMessage msg);
-	}
-
-	// reference: https://github.com/Analog-Labs/universal-factory/blob/main/src/IUniversalFactory.sol
-	interface IUniversalFactory {
-		function create2(bytes32 salt, bytes calldata creationCode) external payable returns (address);
-		function create2(bytes32 salt, bytes calldata creationCode, bytes calldata arguments, bytes calldata callback)
-			external
-			payable
-			returns (address);
-	}
-
-	interface IGmpReceiver {
-		function onGmpReceived(bytes32 id, uint128 network, bytes32 source, uint64 nonce, bytes calldata payload)
-			external
-			payable
-			returns (bytes32);
-	}
-}
+sol!(
+	#[allow(clippy::too_many_arguments)]
+	#[allow(missing_docs)]
+	#[derive(Debug)]
+	GmpProxy,
+	"../../analog-gmp/out/GmpProxy.sol/GmpProxy.json"
+);
 
 pub fn u256(bytes: &[u8]) -> U256 {
 	U256::from_be_bytes(<[u8; 32]>::try_from(bytes).unwrap())
@@ -183,7 +41,7 @@ fn bytes32(u: U256) -> [u8; 32] {
 	u.to_be_bytes::<32>()
 }
 
-impl From<time_primitives::TssPublicKey> for TssKey {
+impl From<time_primitives::TssPublicKey> for Gateway::TssKey {
 	fn from(key: time_primitives::TssPublicKey) -> Self {
 		Self {
 			yParity: key[0],
@@ -192,8 +50,8 @@ impl From<time_primitives::TssPublicKey> for TssKey {
 	}
 }
 
-impl From<TssKey> for time_primitives::TssPublicKey {
-	fn from(key: TssKey) -> Self {
+impl From<Gateway::TssKey> for time_primitives::TssPublicKey {
+	fn from(key: Gateway::TssKey) -> Self {
 		let mut public = [0; 33];
 		public[0] = key.yParity;
 		public[1..].copy_from_slice(&bytes32(key.xCoord));
@@ -201,25 +59,7 @@ impl From<TssKey> for time_primitives::TssPublicKey {
 	}
 }
 
-impl From<time_primitives::TssSignature> for TssSignature {
-	fn from(sig: time_primitives::TssSignature) -> Self {
-		Self {
-			e: u256(&sig[..32]),
-			s: u256(&sig[32..]),
-		}
-	}
-}
-
-impl From<TssSignature> for time_primitives::TssSignature {
-	fn from(sig: TssSignature) -> Self {
-		let mut bytes = [0; 64];
-		bytes[..32].copy_from_slice(&bytes32(sig.e));
-		bytes[32..].copy_from_slice(&bytes32(sig.s));
-		bytes
-	}
-}
-
-impl From<time_primitives::Route> for Route {
+impl From<time_primitives::Route> for Gateway::Route {
 	fn from(route: time_primitives::Route) -> Self {
 		Self {
 			networkId: route.network_id,
@@ -232,8 +72,8 @@ impl From<time_primitives::Route> for Route {
 	}
 }
 
-impl From<Route> for time_primitives::Route {
-	fn from(route: Route) -> Self {
+impl From<Gateway::Route> for time_primitives::Route {
+	fn from(route: Gateway::Route) -> Self {
 		Self {
 			network_id: route.networkId,
 			gateway: route.gateway.into(),
@@ -247,8 +87,8 @@ impl From<Route> for time_primitives::Route {
 	}
 }
 
-impl From<GmpMessage> for time_primitives::GmpMessage {
-	fn from(msg: GmpMessage) -> Self {
+impl From<GmpProxy::GmpMessage> for time_primitives::GmpMessage {
+	fn from(msg: GmpProxy::GmpMessage) -> Self {
 		Self {
 			src_network: msg.srcNetwork,
 			dest_network: msg.destNetwork,
@@ -262,7 +102,7 @@ impl From<GmpMessage> for time_primitives::GmpMessage {
 	}
 }
 
-impl From<time_primitives::GmpMessage> for GmpMessage {
+impl From<time_primitives::GmpMessage> for Gateway::GmpMessage {
 	fn from(msg: time_primitives::GmpMessage) -> Self {
 		Self {
 			srcNetwork: msg.src_network,
@@ -276,34 +116,21 @@ impl From<time_primitives::GmpMessage> for GmpMessage {
 	}
 }
 
-impl From<time_primitives::GatewayOp> for GatewayOp {
+impl From<time_primitives::GatewayOp> for Gateway::GatewayOp {
 	fn from(msg: time_primitives::GatewayOp) -> Self {
 		match msg {
-			time_primitives::GatewayOp::SendMessage(msg) => GatewayOp {
-				command: Command::GMP,
-				params: Into::<GmpMessage>::into(msg).abi_encode().into(),
+			time_primitives::GatewayOp::SendMessage(msg) => Gateway::GatewayOp {
+				command: 1,
+				params: Into::<Gateway::GmpMessage>::into(msg).abi_encode().into(),
 			},
-			time_primitives::GatewayOp::RegisterShard(shard_id) => GatewayOp {
-				command: Command::RegisterShard,
-				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
+			time_primitives::GatewayOp::RegisterShard(shard_id) => Gateway::GatewayOp {
+				command: 2,
+				params: Into::<Gateway::TssKey>::into(shard_id).abi_encode().into(),
 			},
-			time_primitives::GatewayOp::UnregisterShard(shard_id) => GatewayOp {
-				command: Command::UnregisterShard,
-				params: Into::<TssKey>::into(shard_id).abi_encode().into(),
+			time_primitives::GatewayOp::UnregisterShard(shard_id) => Gateway::GatewayOp {
+				command: 3,
+				params: Into::<Gateway::TssKey>::into(shard_id).abi_encode().into(),
 			},
 		}
-	}
-}
-
-impl CCTP {
-	pub fn get_version(&self) -> anyhow::Result<u32> {
-		if self.message.len() < 4 {
-			return Err(anyhow::anyhow!("Message is too short to contain a version field"));
-		}
-		let version_bytes: [u8; 4] = self.message[0..4]
-			.try_into()
-			.map_err(|_| anyhow::anyhow!("Failed to extract version bytes"))?;
-		let version = u32::from_be_bytes(version_bytes);
-		Ok(version)
 	}
 }

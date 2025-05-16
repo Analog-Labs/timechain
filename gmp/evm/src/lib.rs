@@ -1,6 +1,7 @@
 use crate::cctp::CctpHandler;
 use crate::custom::BEP226;
 use crate::dict::Currency;
+use crate::sol::{Gateway, GatewayProxy, GmpProxy, IGmpReceiver};
 use alloy::{
 	eips::{BlockId, BlockNumberOrTag},
 	network::{
@@ -37,10 +38,10 @@ use tokio::sync::Mutex;
 
 type Address20 = alloy::primitives::Address;
 
-pub(crate) mod cctp;
-pub(crate) mod custom;
-pub(crate) mod dict;
-pub mod sol;
+mod cctp;
+mod custom;
+mod dict;
+mod sol;
 
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
@@ -276,18 +277,18 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let signature = sol::Signature {
+		let signature = Gateway::Signature {
 			xCoord: sol::u256(&signer[1..33]),
 			e: sol::u256(&sig[..32]),
 			s: sol::u256(&sig[32..]),
 		};
-		let ops: Vec<sol::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
-		let message = sol::InboundMessage {
+		let ops: Vec<Gateway::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
+		let message = Gateway::InboundMessage {
 			version: 0,
 			batchID: batch,
 			ops,
 		};
-		let call = sol::Gateway::batchExecuteCall { signature, message };
+		let call = Gateway::batchExecuteCall { signature, message };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
@@ -299,7 +300,7 @@ impl IConnectorAdmin for Connector {
 	/// Deploys proxy contract
 	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)> {
 		let admin = a_addr(self.address());
-		let proxy_constructor = sol::GatewayProxy::constructorCall { admin };
+		let proxy_constructor = GatewayProxy::constructorCall { admin };
 		let (proxy_addr, proxy_block) = self.deploy_contract(proxy, proxy_constructor).await?;
 		Ok((t_addr(proxy_addr), proxy_block))
 	}
@@ -310,23 +311,25 @@ impl IConnectorAdmin for Connector {
 		let (gateway_addr, _gateway_block) = self
 			.deploy_contract(
 				gateway,
-				sol::Gateway::constructorCall {
+				Gateway::constructorCall {
 					network: self.network_id,
 					proxy,
 				},
 			)
 			.await?;
 
-		let call = sol::Gateway::upgradeCall {
+		let call = Gateway::upgradeAndCallCall {
 			newImplementation: gateway_addr,
+			initializer: Default::default(),
 		};
 		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
 		self.submit(tx).await?;
+
 		Ok(())
 	}
 	/// Deploys test contract
 	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
-		let call = sol::GmpTester::constructorCall { gateway: a_addr(gateway) };
+		let call = GmpProxy::constructorCall { gateway: a_addr(gateway) };
 		let (addr, block) = self.deploy_contract(tester, call).await?;
 		Ok((t_addr(addr), block))
 	}
@@ -338,7 +341,7 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
-		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
+		let call = Gateway::setAdminCall { newAdmin: a_addr(admin) };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		let _receipt = self.submit(tx).await?;
 		Ok(())
@@ -351,22 +354,22 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Sets registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
-		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<sol::TssKey>>();
+		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<Gateway::TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
-		let call = sol::Gateway::setShardsCall { publicKeys: shards };
+		let call = Gateway::setShardsCall { publicKeys: shards };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
-		let routes = self.call(gateway, sol::Gateway::routesCall {}).await?;
+		let routes = self.call(gateway, Gateway::routesCall {}).await?;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
-		let call = sol::Gateway::setRouteCall { info: route.into() };
+		let call = Gateway::setRouteCall { info: route.into() };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		let _receipt = self.submit(tx).await?;
 		Ok(())
@@ -379,7 +382,7 @@ impl IConnectorAdmin for Connector {
 		src: Address32,
 		payload: Vec<u8>,
 	) -> Result<u128> {
-		let call = sol::IGmpReceiver::onGmpReceivedCall {
+		let call = IGmpReceiver::onGmpReceivedCall {
 			id: [0; 32].into(),
 			network: src_network.into(),
 			source: src.into(),
@@ -398,7 +401,7 @@ impl IConnectorAdmin for Connector {
 		gas_limit: u128,
 		payload: Vec<u8>,
 	) -> Result<u128> {
-		let msg = sol::GmpMessage {
+		let msg = Gateway::GmpMessage {
 			source: [0; 32].into(),
 			srcNetwork: 0,
 			dest: [0; 20].into(),
@@ -407,7 +410,7 @@ impl IConnectorAdmin for Connector {
 			nonce: 0,
 			data: payload.into(),
 		};
-		let call = sol::Gateway::estimateMessageCostCall {
+		let call = Gateway::estimateMessageCostCall {
 			networkid: dest_network,
 			// abi_encoded_size returns the size without the 4 byte selector
 			messageSize: U256::from(msg.abi_encoded_size() + 4),
@@ -428,7 +431,7 @@ impl IConnectorAdmin for Connector {
 		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
-		let msg = sol::GmpMessage {
+		let message = GmpProxy::GmpMessage {
 			srcNetwork: self.network_id,
 			source: contract.into(),
 			destNetwork: dest_network,
@@ -437,8 +440,8 @@ impl IConnectorAdmin for Connector {
 			gasLimit: gas_limit as _,
 			data: payload.into(),
 		};
-		tracing::debug!("Sending GMP message: {:#?}", &msg);
-		let call = sol::GmpTester::sendMessageCall { msg };
+		tracing::debug!("Sending GMP message: {:#?}", &message);
+		let call = GmpProxy::sendMessageCall { message };
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
 			.with_call(&call)
@@ -450,8 +453,8 @@ impl IConnectorAdmin for Connector {
 			.inner
 			.logs()
 			.iter()
-			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
-			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data()).ok())
+			.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+			.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
 			.map(|e| e.id.into())
 			.next()
 			.ok_or(anyhow!("Failed to send message"))
@@ -474,8 +477,8 @@ impl IConnectorAdmin for Connector {
 
 		Ok(logs
 			.into_iter()
-			.filter(|e| e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
-			.filter_map(|e| sol::GmpTester::MessageReceived::decode_log_data(e.data()).ok())
+			.filter(|e| e.topics().contains(&GmpProxy::MessageReceived::SIGNATURE_HASH))
+			.filter_map(|e| GmpProxy::MessageReceived::decode_log_data(e.data()).ok())
 			.map(|e| e.msg.into())
 			.collect::<Vec<_>>())
 	}
@@ -552,6 +555,7 @@ impl Connector {
 	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
+		tracing::debug!("{result:?}");
 		Ok(C::abi_decode_returns(&result)?)
 	}
 

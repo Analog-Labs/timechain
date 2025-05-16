@@ -41,7 +41,8 @@ type Address20 = alloy::primitives::Address;
 mod cctp;
 mod custom;
 mod dict;
-mod sol;
+// some e2e tests use it
+pub mod sol;
 
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())

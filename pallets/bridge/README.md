@@ -1,41 +1,35 @@
 # DEMO 
-## Set Up
 
-### TC 
+## 0. Setup environment
 
-Start TC
+Build and launch containers 
 
 ``` sh
 scripts/build_docker.sh
-docker compose --profile bridge up -d
+cargo test -p e2e-tests forever -- --ignored
 ```
 
-### GMP
-
-Deploy gateways
+Check env ready with 
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml deploy
+cargo run -p tc-cli --features=testnet,develop -- --env $TMP_DIR networks
 ```
 
-Register TC network (route) to the gateway at network `2`:
+
+## 1. Register TC as a GMP network 
+
+Register TC route to the gateway at network `1`:
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml set-tc-route 2 0x49877F1e26d523e716d941a424af46B86EcaF09E
+cargo run -p tc-cli --features=testnet,develop -- --env $TMP_DIR set-tc-route 1 $GATEWAY
 ```
 
-Register shard for the network `2`:
-    
-``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml register-shards 2
-```
-
-### ERC20 
+## 2. Deploy ERC20 teleportable token 
 
 We use `AnlogTokenV2` from **Analog-Labs/erc20-token** [`bridge`](https://github.com/Analog-Labs/erc20-token/tree/bridge) branch.
 
 Run tests 
-
+``
 ``` sh
 cd ../erc20-token
 forge clean && forge test
@@ -47,22 +41,10 @@ Build contract
 forge clean && forge build
 ```
 
-We'll deploy it to network `2` which should have RPC exposed at `8545` port:
+We'll deploy it to network `1`
 
-1. Find out chronicle's address on target network 
 
-``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml chronicles
-```
-
-And save it to env var:
-
-``` sh
-# Set this to chronicle's address 
-export MINTER=0xC969dEa46d374E26A9f60A6A71c3Fe186050F35F
-```
-
-2. Set env vars 
+1. Set env vars 
 
 ```sh 
 # well-known (thus key compromised) Anvil default account(0)
@@ -80,7 +62,7 @@ export GATEWAY=0x49877F1e26d523e716d941a424af46B86EcaF09E
 (provide the well-known key of `account(0)` of anvil)
 
 ``` sh
-forge script script/00_Deploy.V1.s.sol --rpc-url="http://localhost:8545" --broadcast -i 1
+forge script script/00_Deploy.V1.s.sol --rpc-url=$RPC1 --broadcast --private-key $DEPLOYER_KEY
 
 ##### anvil-hardhat
 ✅  [Success] Hash: 0xdbb41e7ccba67cd14e54c335cc0f2d709586342f17f4ac4f654a411ad77b7da4
@@ -112,7 +94,7 @@ export MINIMAL_TELEPORT_VALUE=1000000000000
 
 (provide the well-known key of `account(2)` of anvil)
 ``` sh
-forge script script/01_Upgrade.V1.V2.s.sol --rpc-url=localhost:8545 --broadcast -i 1
+forge script script/01_Upgrade.V1.V2.s.sol --rpc-url=$RPC1 --broadcast --private-key $UPGRADER_KEY
 
 ##### anvil-hardhat
 ✅  [Success] Hash: 0x2fbbf7a8b936a8ca75da75b01824f4724f8668fdf2731ae111b6764a0d62f283
@@ -130,34 +112,33 @@ Paid: 0.000112896 ETH (37632 gas * 3 gwei)
 
 ```
 
-### Bridge Pallet 
+## 2. Register teleport destination 
 
 Register a new (or update an existing) network for teleportation at bridge pallet: 
 
 call `bridge/register_network` extrinsic (or `force_update_network`) from sudo with following parameters:
 
-+ network: `2`
++ network: `1`
 + baseFee: 0
 + data:
   + nonce: 0                         
-  + dest: `0x0000000000000000000000009fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` (address of our ERC20 contract (proxy), zero-prefixed to match 32bytes size)
+  + dest: `0x000000000000000000000000Cf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9` (address of our ERC20 contract (proxy), zero-prefixed to match 32bytes size)
 
-## Flow 
 
-### TC -> ERC20 
+## 3. Teleport: TC -> ERC20 
 
 Let's teleport some ANLOG to `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` address.
 
 Check that it has zero ANLOG first: 
 
 ``` sh
-cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 -r $RPC1
 0
 ```
 
 Send `teleport_keep_alive` extrinsic from any account having ANLOG (e.g. `//Eve`):
 
-+ network_id: `2`
++ network_id: `1`
 + beneficiary: `0x000000000000000000000000f39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
 + amount: 15000000000000
 
@@ -166,22 +147,22 @@ You should see `bridge.Teleported` event emitted, as well as `task.TaskCreated`,
 You can track task status with 
 
 ``` sh
-docker compose run --remove-orphans tc-cli --config local-evm-bridge.yaml task 13
+cargo run -p tc-cli --features=testnet,develop -- --env $TMP_DIR task 31
 ```
 
 Also, you can monitor tx_hash for the corresponding transaction on the target chain, by getting msg index from the command above, and then querying `batchTxHash` storage of the pallet_tasks.
 
 Once task is successfully completed, ANLOG tokens should have been teleported to target account. 
-Let's check that on network `2`:
+Let's check that on network `1`:
 
 ``` sh
-cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 -r $RPC1
 15000000000000
 ```
 
 We can see that the requested amount is successfully teleported.
 
-### ERC20->TC 
+### 4. Teleport: ERC20->TC 
 
 Let's now teleport some ERC20 back to TC, to `//Alice` account. 
 
@@ -192,21 +173,21 @@ First we note current Alice balance in TC, (e.g. is `free: 1,001,000,033,212,589
 Then we need to figure out GMP cost for the teleportation message:
 ``` sh
 cast call $PROXY "estimateTeleportCost()" | cast 2d
-181255
+181424
 ```
 
 Then we send the teleport tx: 
 
 ``` sh
-cast send --from 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --unlocked --value 181255 $PROXY "teleport(bytes32,uint256)" 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d 6000000000000
+cast send --from 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 --unlocked $PROXY "teleport(bytes32,uint256)" 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d 11000000000000 -r $RPC1 --value 181424
 ```
 
 here we provide: 
 
-+ 181255 (*10^-18) ethers as a payment for GMP message passing thru gateway 
++ 181424 (*10^-18) ethers as a payment for GMP message passing thru gateway 
 + `teleport(bytes32,uint256)` args:
   + Alice's public key on TC (hex-encoded)
-    this can be queried with `subkey Alice //inspect`
+    this can be queried with `subkey inspect //Alice`
   + Amount to be teleported 
 
 You can see the tx result and block number as the command's output. Note that block number, once events from the block are reported to TC by chronicle, 
@@ -216,14 +197,12 @@ Alice should get the teleported `6` ANLOG to her TC account.
 
 1. If you see task as "completed", but tokens are not delivered to dest network: 
    1. Note batch_id of the task: It's x in `SubmitMessage(x)` which you see w `tc-cli task x`;
-   2. Query [GmpStatus](https://github.com/Analog-Labs/analog-gmp-examples/blob/00090ef5b83574c5fdaa2a10d428f87e1702cc79/examples/teleport-tokens/BasicERC20.sol) of the message  via querying `gmpInfo(bytes32)` on the gateway:
-      
-      !note: even if tc-cli report task status as __completed_, message itself could have been reverted. 
-      To check actual message status run: 
-      ```sh
-      cast call 0x49877F1e26d523e716d941a424af46B86EcaF09E "gmpInfo(bytes32)" <msg_id>
-      ``` 
-   2. Query GMP message tx_hash by batch_id from tasks pallet storage: `batchTxHash(u64)`;
+   2. Get message id and tx_hash with 
+      ```sh 
+      cargo run -p tc-cli --features=testnet,develop -- --env $TMP_DIR batch <batch_id>
+      ```
    3. Re-run that tx with trace: 
-      `$> cast run <tx_hash>`;
+      ```sh
+      cast run <tx_hash> -r $RPC1
+      ```
    This will show you tx execution trace 

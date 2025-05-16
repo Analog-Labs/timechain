@@ -48,9 +48,11 @@ pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
+	use core::marker::PhantomData;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
-		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
+		BuildGenesisConfig, Currency, ExistenceRequirement, LockableCurrency, StorageVersion,
+		WithdrawReasons,
 	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
@@ -173,6 +175,38 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		/// Stage to which initialize storage, defaults to latest stage.
+		stage: u16,
+		phantom: PhantomData<T>,
+	}
+
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self {
+				stage: LAUNCH_VERSION,
+				phantom: PhantomData,
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		T::AccountId: From<AccountId>,
+		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+		BalanceOf<T>: From<Balance>,
+	{
+		fn build(&self) {
+			StorageVersion::new(self.stage).put::<Pallet<T>>();
+			let plan =
+				LaunchLedger::<T>::compile(LAUNCH_LEDGER).expect("Failed to parse launch ledger");
+			plan.to_genesis();
+			assert!(plan.verify().is_ok(), "Failed to generate valid genesis");
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config:
 		polkadot_sdk::frame_system::Config + pallet_vesting::Config + pallet_airdrop::Config
@@ -256,7 +290,7 @@ pub mod pallet {
 		BalanceOf<T>: From<Balance>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			match LaunchLedger::compile(LAUNCH_LEDGER) {
+			match LaunchLedger::compile(LAUNCH_LEDGER).and_then(|p| p.verify()) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {
 					log::error!(

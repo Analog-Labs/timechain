@@ -71,9 +71,7 @@ pub struct Connector {
 	cctp: Arc<CctpHandler>,
 	chain_id: u64,
 	currency: Currency,
-	tx_timeout: Duration,
-	// Temporary fix to avoid nonce overlap
-	wallet_guard: Arc<Mutex<()>>,
+	submitter: Submitter,
 }
 
 #[async_trait]
@@ -111,8 +109,7 @@ impl IConnectorBuilder for Connector {
 			cctp: Arc::new(CctpHandler::new()),
 			chain_id,
 			currency,
-			tx_timeout: Duration::from_secs(60),
-			wallet_guard: Default::default(),
+			submitter: Submitter::new(Duration::from_secs(60)),
 		})
 	}
 }
@@ -140,18 +137,21 @@ impl IChain for Connector {
 	}
 	/// Funds Connector's account
 	async fn faucet(&self, balance: u128) -> Result<()> {
-		let sponsor = self
-			.rpc
+		let ws = WsConnect::new(self.url.clone());
+		let provider = ProviderBuilder::new().network::<AnyNetwork>().connect_ws(ws).await?;
+		let sponsor = provider
 			.get_accounts()
 			.await?
 			.first()
 			.ok_or(anyhow!("Node owns no account"))?
 			.to_owned();
+
 		let tx = TransactionRequest::default()
 			.with_from(sponsor)
 			.with_to(a_addr(self.address()))
 			.with_value(U256::from(balance));
-		let receipt = self.submit(tx).await?;
+
+		let receipt = self.submitter.submit(&provider, tx).await?;
 		tracing::info!(
 			"faucet sent {balance} to {}, tx: {:?}",
 			a_addr(self.address()),
@@ -559,18 +559,7 @@ impl Connector {
 		&self,
 		tx: TransactionRequest,
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
-		let guard = self.wallet_guard.lock().await;
-		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
-		drop(guard);
-		tracing::info!("tx {:?} submitted", pending_tx.tx_hash());
-
-		let receipt = pending_tx.with_timeout(Some(self.tx_timeout)).get_receipt().await?;
-		tracing::info!("tx {:?} confirmed", receipt.transaction_hash());
-
-		if !receipt.inner.inner.is_success() {
-			anyhow::bail!("tx {:?} failed", receipt.transaction_hash());
-		}
-		Ok(receipt)
+		self.submitter.submit(&self.rpc, tx).await
 	}
 
 	async fn latest_block(&self) -> Result<Header<AnyHeader>> {
@@ -611,5 +600,42 @@ impl Connector {
 			.block_number
 			.ok_or(anyhow!("Failed to get contract deployement block"))?;
 		Ok((contract_address, block_number))
+	}
+}
+
+#[derive(Clone)]
+struct Submitter {
+	// Temporary fix to avoid nonce overlap
+	wallet_guard: Arc<Mutex<()>>,
+	tx_timeout: Duration,
+}
+
+impl Submitter {
+	fn new(tx_timeout: Duration) -> Self {
+		Self {
+			tx_timeout,
+			wallet_guard: Default::default(),
+		}
+	}
+}
+
+impl Submitter {
+	async fn submit(
+		&self,
+		provider: impl Provider<AnyNetwork>,
+		tx: TransactionRequest,
+	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
+		let guard = self.wallet_guard.lock().await;
+		let pending_tx = provider.send_transaction(WithOtherFields::new(tx)).await?;
+		drop(guard);
+		tracing::info!("tx {:?} submitted", pending_tx.tx_hash());
+
+		let receipt = pending_tx.with_timeout(Some(self.tx_timeout)).get_receipt().await?;
+		tracing::info!("tx {:?} confirmed", receipt.transaction_hash());
+
+		if !receipt.inner.inner.is_success() {
+			anyhow::bail!("tx {:?} failed", receipt.transaction_hash());
+		}
+		Ok(receipt)
 	}
 }

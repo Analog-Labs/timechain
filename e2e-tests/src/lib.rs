@@ -305,11 +305,14 @@ impl TestEnvBuilder {
 		Ok(())
 	}
 
-	pub async fn build(self) -> Result<TestEnv> {
+	pub fn build(mut self) -> Result<TestEnv> {
 		let env = self.temp.path().to_path_buf();
 		std::fs::write(env.join("config.yaml"), serde_yaml::to_string(&self.config)?)?;
 		tc_cli::config::write_prices(&env.join("prices.csv"), &self.prices)?;
 		std::env::set_var("TC_CLI_ENV", &env);
+		if std::env::var("TESTCONTAINERS_COMMAND").as_deref() == Ok("keep") {
+			self.temp.disable_cleanup(true);
+		}
 		Ok(TestEnv {
 			temp: self.temp,
 			validator: self.validator,
@@ -352,7 +355,7 @@ impl TestEnv {
 				anyhow::bail!("unsupported backend {backend}");
 			},
 		}
-		let env = builder.build().await?;
+		let env = builder.build()?;
 		let tc = Tester::new().await?;
 		env.snapshot().await?;
 		Ok((env, tc))

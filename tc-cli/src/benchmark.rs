@@ -2,8 +2,9 @@ use crate::{TableRef, Tc};
 use anyhow::{Context, Result};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use time_primitives::{Address32, BlockHash, BlockNumber, MessageId, NetworkId};
+use tokio::time::interval;
 
 #[derive(Clone, Copy)]
 struct RouteStats {
@@ -15,6 +16,8 @@ struct RouteStats {
 	num_sent: u64,
 	num_received: u64,
 	sum_latency: u64,
+	first_msg_sent: BlockNumber,
+	last_msg_received: BlockNumber,
 }
 
 impl RouteStats {
@@ -34,6 +37,8 @@ impl RouteStats {
 			num_sent: 0,
 			num_received: 0,
 			sum_latency: 0,
+			first_msg_sent: BlockNumber::MAX,
+			last_msg_received: 0,
 		}
 	}
 }
@@ -54,12 +59,12 @@ pub struct BenchmarkStats {
 struct MessageStats {
 	src: NetworkId,
 	dest: NetworkId,
-	block: BlockNumber,
+	sent_block: BlockNumber,
 }
 
 impl MessageStats {
-	pub fn new(src: NetworkId, dest: NetworkId, block: BlockNumber) -> Self {
-		Self { src, dest, block }
+	pub fn new(src: NetworkId, dest: NetworkId, sent_block: BlockNumber) -> Self {
+		Self { src, dest, sent_block }
 	}
 }
 
@@ -68,21 +73,20 @@ pub struct Benchmark {
 	messages: HashMap<MessageId, MessageStats>,
 	tc: Tc,
 	payload: Vec<u8>,
-	blocks: BlockNumber,
-	num_blocks: BlockNumber,
-	msgs_per_block: u16,
+	num_msgs: u64,
+	latest_block: BlockNumber,
+	// msgs_per_block: u16,
 }
 
 impl Benchmark {
-	pub fn new(tc: Tc, payload: Vec<u8>, msgs_per_block: u16, num_blocks: BlockNumber) -> Self {
+	pub fn new(tc: Tc, payload: Vec<u8>, num_msgs: u64) -> Self {
 		Self {
 			routes: Default::default(),
 			messages: Default::default(),
 			tc,
 			payload,
-			blocks: 0,
-			num_blocks,
-			msgs_per_block,
+			latest_block: 0,
+			num_msgs,
 		}
 	}
 
@@ -164,6 +168,24 @@ impl Benchmark {
 		Ok(())
 	}
 
+	async fn send_single_message(&self, src: NetworkId, dest: NetworkId) -> Result<MessageId> {
+		let route = self.routes.get(&(src, dest)).context("Route not found")?;
+		let message_id = self
+			.tc
+			.send_message(
+				src,
+				route.src_addr,
+				dest,
+				route.dest_addr,
+				route.gas_limit,
+				route.gas_cost,
+				self.payload.clone(),
+			)
+			.await?;
+
+		Ok(message_id)
+	}
+
 	async fn receive_messages(&mut self, block: (BlockHash, BlockNumber)) -> Result<()> {
 		let mut messages = FuturesUnordered::new();
 		for message_id in self.messages.keys().copied() {
@@ -182,56 +204,110 @@ impl Benchmark {
 				let Some(route) = self.routes.get_mut(&(msg.src, msg.dest)) else {
 					continue;
 				};
-				let latency = block.1 - msg.block;
+				let latency = block.1 - msg.sent_block;
 				route.num_received += 1;
 				route.sum_latency += latency as u64;
+
+				if msg.sent_block < route.first_msg_sent {
+					route.first_msg_sent = msg.sent_block;
+				}
+				if block.1 > route.last_msg_received {
+					route.last_msg_received = block.1;
+				}
 			}
 		}
 		Ok(())
 	}
 
-	async fn on_block(&mut self, block: (BlockHash, BlockNumber)) -> Result<bool> {
-		let mut finished = true;
-		if self.num_blocks > self.blocks {
-			self.blocks += 1;
-			self.send_messages(block.1).await?;
-			finished = false;
-		}
-		if !self.messages.is_empty() {
-			self.receive_messages(block).await?;
-			finished = false;
-		}
-		Ok(finished)
-	}
-
 	async fn print_stats(&self, id: Option<TableRef>) -> Result<TableRef> {
 		let mut stats = Vec::with_capacity(self.routes.len());
 		for ((src, dest), route) in &self.routes {
+			let total_blocks = if route.first_msg_sent <= route.last_msg_received {
+				(route.last_msg_received - route.first_msg_sent + 1) as f64
+			} else {
+				0.0
+			};
+
+			let latency = if route.num_received > 0 {
+				route.sum_latency as f64 / route.num_received as f64
+			} else {
+				0.0
+			};
+
 			stats.push(BenchmarkStats {
 				src: *src,
 				dest: *dest,
 				msg_cost_usd: route.msg_cost_usd,
 				num_sent: route.num_sent,
 				num_received: route.num_received,
-				num_total: self.msgs_per_block as u64 * self.num_blocks as u64,
-				latency: route.sum_latency as f64 / route.num_received as f64,
-				throughput: route.num_received as f64 / self.blocks as f64,
+				num_total: self.num_msgs,
+				latency,
+				throughput: route.num_received as f64 / total_blocks as f64,
 			});
 		}
 		self.tc.print_table(id, "benchmark", stats).await
 	}
 
 	pub async fn exec(&mut self) -> Result<()> {
-		let mut blocks = self.tc.finality_notification_stream();
 		let mut id = None;
-		loop {
-			let (hash, block) = blocks.next().await.context("expected block")?;
-			let finished = self.on_block((hash, block)).await?;
-			id = Some(self.print_stats(id).await?);
-			if finished {
-				break;
+		let routes: Vec<_> = self.routes.keys().copied().collect();
+
+		for (src, dest) in routes {
+			let mut error_count = 0;
+			let mut messages_sent = 0;
+
+			let latest_block = self.tc.latest_block().await?;
+			self.latest_block = latest_block.1;
+
+			let mut send_interval = interval(Duration::from_secs(2));
+			let mut block_stream = self.tc.finality_notification_stream();
+
+			loop {
+				tokio::select! {
+					Some(block) = block_stream.next() => {
+						self.latest_block = block.1;
+						self.receive_messages(block).await?;
+						id = Some(self.print_stats(id).await?);
+
+						if let Some(route) = self.routes.get(&(src, dest)) {
+							if route.num_received >= self.num_msgs {
+								break;
+							}
+						}
+					}
+
+					_ = send_interval.tick(), if messages_sent < self.num_msgs && error_count < 3 => {
+						match self.send_single_message(src, dest).await {
+							Ok(msg_id) => {
+								self.messages.insert(
+									msg_id,
+									MessageStats::new(src, dest, self.latest_block)
+								);
+								messages_sent += 1;
+
+								if let Some(route) = self.routes.get_mut(&(src, dest)) {
+									route.num_sent += 1;
+									if route.first_msg_sent == BlockNumber::MAX {
+										route.first_msg_sent = self.latest_block;
+									}
+								}
+								error_count = 0;
+							}
+							Err(e) => {
+								error_count += 1;
+								tracing::error!("Error sending message: {:?}", e);
+							}
+						}
+					}
+				}
+
+				let received = self.routes.get(&(src, dest)).map_or(0, |r| r.num_received);
+				if messages_sent >= self.num_msgs && received >= self.num_msgs {
+					break;
+				}
 			}
 		}
+
 		Ok(())
 	}
 }

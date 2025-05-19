@@ -253,7 +253,6 @@ impl Benchmark {
 		let routes: Vec<_> = self.routes.keys().copied().collect();
 
 		for (src, dest) in routes {
-			let mut error_count = 0;
 			let mut messages_sent = 0;
 
 			let latest_block = self.tc.latest_block().await?;
@@ -276,7 +275,7 @@ impl Benchmark {
 						}
 					}
 
-					_ = send_interval.tick(), if messages_sent < self.num_msgs && error_count < 3 => {
+					_ = send_interval.tick(), if messages_sent < self.num_msgs => {
 						match self.send_single_message(src, dest).await {
 							Ok(msg_id) => {
 								self.messages.insert(
@@ -291,10 +290,8 @@ impl Benchmark {
 										route.first_msg_sent = self.latest_block;
 									}
 								}
-								error_count = 0;
 							}
 							Err(e) => {
-								error_count += 1;
 								tracing::error!("Error sending message: {:?}", e);
 							}
 						}

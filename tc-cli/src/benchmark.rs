@@ -242,7 +242,7 @@ impl Benchmark {
 				num_received: route.num_received,
 				num_total: self.num_msgs,
 				latency,
-				throughput: route.num_received as f64 / total_blocks as f64,
+				throughput: route.num_received as f64 / total_blocks,
 			});
 		}
 		self.tc.print_table(id, "benchmark", stats).await

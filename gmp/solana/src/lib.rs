@@ -1,7 +1,9 @@
+use std::rc::Rc;
 use std::str::FromStr;
 use std::{ops::Range, pin::Pin, sync::Arc};
 
-use anchor_client::Client;
+use anchor_client::anchor_lang::AnchorDeserialize;
+use anchor_client::{Client as AnchorClient, Cluster};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
@@ -10,7 +12,7 @@ use anchor_client::solana_client::nonblocking::pubsub_client::PubsubClient;
 use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
 use anchor_client::solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config;
 use anchor_client::solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter};
-use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
+use anchor_client::solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::solana_sdk::message::Message;
 use anchor_client::solana_sdk::signature::Signature;
@@ -27,12 +29,15 @@ use time_primitives::{
 };
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use types::{GatewayState, GmpPdaSeeds};
 
-fn a_addr(address: Address32) -> Pubkey {
+mod types;
+
+pub fn a_addr(address: Address32) -> Pubkey {
 	Pubkey::new_from_array(address)
 }
 
-fn t_addr(pubkey: Pubkey) -> Address32 {
+pub fn t_addr(pubkey: Pubkey) -> Address32 {
 	pubkey.to_bytes()
 }
 
@@ -40,6 +45,7 @@ pub struct Connector {
 	network_id: NetworkId,
 	client: Arc<RpcClient>,
 	pubsub_client: Arc<PubsubClient>,
+	anchor_client: AnchorClient<Arc<Keypair>>,
 	wallet: Arc<Keypair>,
 }
 
@@ -66,13 +72,22 @@ impl IConnectorBuilder for Connector {
 	{
 		let ws_url = params.url.clone();
 		let http_url = params.url.replace("ws", "http");
-		let client = RpcClient::new(http_url);
+		let client = RpcClient::new(http_url.clone());
 		let pubsub_client = PubsubClient::new(&ws_url).await?;
+		let keypair = Keypair::new();
+		let an_client = AnchorClient::new_with_options(
+			Cluster::Custom(http_url, ws_url),
+			Arc::new(keypair),
+			CommitmentConfig {
+				commitment: CommitmentLevel::Finalized,
+			},
+		);
 		let connector = Self {
 			network_id: params.network_id,
 			client: Arc::new(client),
 			wallet: Arc::new(Keypair::new()),
 			pubsub_client: Arc::new(pubsub_client),
+			anchor_client: an_client,
 		};
 		Ok(connector)
 	}
@@ -236,28 +251,44 @@ impl IConnectorAdmin for Connector {
 
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let program_id = a_addr(gateway);
-		let (state_pda, _bump) = Pubkey::find_program_address(&[b"gateway_state"], &program_id);
+		let (state_pda, _bump) =
+			Pubkey::find_program_address(&[&GmpPdaSeeds::State.to_seed()], &program_id);
 
 		let data = self.client.get_account_data(&state_pda).await?;
-		// let state = Default::try_deserialize(&mut data.as_slice())?;
-		// Ok(t_addr(state.admin))
-		todo!()
+		let state = GatewayState::deserialize(&mut data.as_slice())?;
+		Ok(t_addr(state.admin))
 	}
 
-	async fn set_admin(&self, _gateway: Address32, _admin: Address32) -> Result<()> {
-		todo!("Need gateway implementation")
+	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
+		let program = self.anchor_client.program(a_addr(gateway))?;
+		let instruction = gmp_solana_contract::instruction::SetAdmin { new_admin: a_addr(admin) };
+		let result = program.request().args(instruction);
 	}
 
-	async fn shards(&self, _gateway: Address32) -> Result<Vec<TssPublicKey>> {
-		todo!("Need gateway implementation")
+	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
+		let program_id = a_addr(gateway);
+		let (state_pda, _bump) =
+			Pubkey::find_program_address(&[&GmpPdaSeeds::State.to_seed()], &program_id);
+
+		let data = self.client.get_account_data(&state_pda).await?;
+		let state = GatewayState::deserialize(&mut data.as_slice())?;
+		let shards = state.shards.iter().map(|item| item.shard.clone().into()).collect();
+		Ok(shards)
 	}
 
 	async fn set_shards(&self, _gateway: Address32, _keys: &[TssPublicKey]) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
 
-	async fn routes(&self, _gateway: Address32) -> Result<Vec<Route>> {
-		todo!("Need gateway implementation")
+	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
+		let program_id = a_addr(gateway);
+		let (state_pda, _bump) =
+			Pubkey::find_program_address(&[&GmpPdaSeeds::State.to_seed()], &program_id);
+
+		let data = self.client.get_account_data(&state_pda).await?;
+		let state = GatewayState::deserialize(&mut data.as_slice())?;
+		let routes = state.routes.iter().map(|item| item.clone().into()).collect();
+		Ok(routes)
 	}
 
 	async fn set_route(&self, _gateway: Address32, _route: Route) -> Result<()> {

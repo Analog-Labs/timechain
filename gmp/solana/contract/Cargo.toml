@@ -6,4 +6,3 @@ edition = "2021"
 [dependencies]
 anchor-lang = "0.31.0"
 solana-program = "2.2.1"
-shared = { path = "../shared" }

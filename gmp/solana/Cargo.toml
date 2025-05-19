@@ -9,12 +9,13 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+anchor-client = "0.31.0"
 anyhow.workspace = true
 async-trait.workspace = true
 futures.workspace = true
 hex.workspace = true
 sha3 = { version = "0.10", default-features = false }
-anchor-client = "0.31.0"
+gmp-solana-contract = { path = "contract" }
 solana-transaction-status = "2.2.3"
 time-primitives.workspace = true
 tokio.workspace = true

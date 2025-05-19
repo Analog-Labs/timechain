@@ -19,7 +19,6 @@ members = [
 	"gmp/rust",
 	"gmp/solana",
 	"gmp/solana/contract",
-	"gmp/solana/shared",
 	"node",
 	"pallets/airdrop",
 	"pallets/elections",

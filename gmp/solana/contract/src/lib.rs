@@ -25,7 +25,7 @@ mod gateway {
 	}
 
 	// Admin executable
-	pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
+	pub fn set_admin(ctx: Context<Gateway>, new_admin: Pubkey) -> Result<()> {
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
 		require!(state.is_initialized, GatewayError::AlreadyInitialized);
@@ -34,7 +34,7 @@ mod gateway {
 	}
 
 	// only executed by admin
-	pub fn set_shards(ctx: Context<SetShards>, shards: Vec<Shard>) -> Result<()> {
+	pub fn set_shards(ctx: Context<Gateway>, shards: Vec<Shard>) -> Result<()> {
 		require!(shards.len() < MAX_SHARDS_LEN, GatewayError::ShardsLengthExceedLimit);
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
@@ -69,14 +69,14 @@ mod gateway {
 		Ok(())
 	}
 
-	pub fn set_route(ctx: Context<SetRoute>, _route: NetworkInfo) -> Result<()> {
+	pub fn set_route(ctx: Context<Gateway>, _route: NetworkInfo) -> Result<()> {
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
 		Ok(())
 	}
 
 	// excuted by user
-	pub fn submit_message(_ctx: Context<SubmitMessage>, msg: GmpMessage) -> Result<()> {
+	pub fn submit_message(_ctx: Context<Gateway>, msg: GmpMessage) -> Result<()> {
 		require_gt!(MAX_PAYLOAD_SIZE, msg.bytes.len() as u128, GatewayError::MsgTooLarge);
 		let msg_id = msg.message_id();
 		emit!(GmpCreated { msg_id, msg });
@@ -85,7 +85,7 @@ mod gateway {
 
 	// excuted by chronicles
 	pub fn execute_batch(
-		ctx: Context<ExecuteBatch>,
+		ctx: Context<Gateway>,
 		msg: GatewayMessage,
 		batch_id: BatchId,
 	) -> Result<()> {

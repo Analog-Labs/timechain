@@ -1,66 +1,38 @@
 #![allow(unexpected_cfgs)]
+use crate::borsh::maybestd::collections::HashMap;
 use anchor_lang::prelude::*;
 use borsh::{BorshDeserialize, BorshSerialize};
-use shared::*;
 use solana_program::keccak;
 
 type NetworkId = u16;
-pub type BatchId = u64;
 type Address32 = [u8; 32];
+pub type BatchId = u64;
 pub type MessageId = [u8; 32];
 pub type TssPublicKey = [u8; 33];
+pub const MAX_SHARDS_LEN: usize = 50;
+pub const MAX_NETWORKS_LEN: usize = 50;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
 	#[account(
         init,
         payer = signer,
-        space = 8 + GatewayState::INIT_SPACE,
+        space = 8 + std::mem::size_of::<Gateway>(),
         seeds = [&GmpPdaSeeds::State.to_seed()],
         bump
     )]
 	pub gateway_state: Account<'info, GatewayState>,
-
 	#[account(mut)]
 	pub signer: Signer<'info>,
 	pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct SetAdmin<'info> {
-	#[account(mut)]
-	pub gateway_state: Account<'info, GatewayState>,
-	#[account(mut)]
-	pub signer: Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct SetShards<'info> {
-	#[account(mut)]
-	pub gateway_state: Account<'info, GatewayState>,
-	#[account(mut)]
-	pub signer: Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct SetRoute<'info> {
-	#[account(mut)]
-	pub gateway_state: Account<'info, GatewayState>,
-	#[account(mut)]
-	pub signer: Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct SubmitMessage<'info> {
-	#[account(mut)]
-	pub gateway_state: Account<'info, GatewayState>,
-	#[account(mut)]
-	pub signer: Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct ExecuteBatch<'info> {
-	#[account(mut)]
+pub struct Gateway<'info> {
+	#[account(mut,
+	    seeds = [&GmpPdaSeeds::State.to_seed()],
+	    bump
+	)]
 	pub gateway_state: Account<'info, GatewayState>,
 	#[account(mut)]
 	pub signer: Signer<'info>,
@@ -77,6 +49,35 @@ pub struct GmpInfo {
 	pub msg: [u8; 32],
 	pub y_parity: u8,
 	pub nonce: u64,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct GatewayState {
+	pub admin: Pubkey,
+	pub is_initialized: bool,
+	#[max_len(MAX_SHARDS_LEN)]
+	pub shards: Vec<ShardAcc>,
+	#[max_len(MAX_NETWORKS_LEN)]
+	pub routes: Vec<NetworkInfo>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct ShardAcc {
+	pub shard: Shard,
+	pub nonce: u64,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct NetworkInfo {
+	network_id: u16,
+	destination_gateway: Pubkey,
+	relative_gas_price_n: u128,
+	relative_gas_price_d: u128,
+	gas_limit: u64,
+	gmp_base_fee: u128,
 }
 
 #[account]
@@ -98,13 +99,6 @@ pub struct GmpExecuted {
 #[event]
 pub struct BatchExecuted {
 	pub batch_id: BatchId,
-}
-
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct NetworkInfo {
-	gas_limit: u64,
-	relative_gas_price: (u128, u128),
-	base_fee: u128,
 }
 
 #[derive(Clone, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
@@ -167,4 +161,23 @@ pub enum GatewayOp {
 	SendMessage(GmpMessage),
 	RegisterShard(TssPublicKey),
 	UnregisterShard(TssPublicKey),
+}
+pub enum GmpPdaSeeds {
+	State,
+	Vault,
+}
+
+impl GmpPdaSeeds {
+	pub fn to_seed(&self) -> Vec<u8> {
+		match self {
+			GmpPdaSeeds::State => b"gateway_state".into(),
+			GmpPdaSeeds::Vault => b"gateway_vault".into(),
+		}
+	}
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize, InitSpace)]
+pub struct Shard {
+	pub x_coord: [u8; 32],
+	pub y_parity: u8,
 }

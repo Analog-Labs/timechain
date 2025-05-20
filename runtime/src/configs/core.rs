@@ -18,11 +18,6 @@ use sp_version::RuntimeVersion;
 use sp_runtime::Perbill;
 use time_primitives::{BlockHash, BlockNumber, Moment, SS58_ADDRESS_PREFIX};
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
-
 // Local module imports
 use crate::{
 	weights::{self, BlockExecutionWeight, ExtrinsicBaseWeight},

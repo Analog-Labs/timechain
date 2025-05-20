@@ -46,13 +46,8 @@ where
 
 				match version.cmp(&from) {
 					// Older migrations are just added up for verification
-					Ordering::Less => {
+					Ordering::Less | Ordering::Equal => {
 						tracker.add(*source, *amount);
-					},
-					// Current stage is used to verify issuance.
-					Ordering::Equal => {
-						tracker.add(*source, *amount);
-						ensure!(tracker.check::<T>(true), Error::<T>::TotalIssuanceExceeded);
 					},
 					// New migrations are added to launch plan
 					Ordering::Greater => {
@@ -74,6 +69,18 @@ where
 		}
 
 		Ok(LaunchLedger(tracker, stages, Default::default()))
+	}
+
+	/// Verify the current on-chain state based on previous stages in ledger
+	pub fn verify(self) -> Result<Self, Error<T>> {
+		ensure!(self.0.check::<T>(true), Error::<T>::TotalIssuanceExceeded);
+		Ok(self)
+	}
+
+	/// Build currently expected state of virtual wallet before the execution of any launch stage.
+	/// To be used in testing to more easily simulate current on-chain state, panics on error.
+	pub fn to_genesis(&self) {
+		self.0.mint::<T>();
 	}
 
 	/// Run a compiled and verified LaunchLedger as far as possible and return

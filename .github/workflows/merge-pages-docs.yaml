@@ -41,16 +41,9 @@ jobs:
         with:
           command: doc
           args: --no-deps --all-features --document-private-items
-      - name: Assemble structure
-        env:
-          DOCS_HIDEOUT: an8ohgahmoot6ro8ieReib9micau0Oow
-        run: |
-          mkdir dist
-          cp -r target/doc dist/$DOCS_HIDEOUT
-          cp docs/robots.txt dist/$DOCS_HIDEOUT
       - name: Upload docs
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: target/doc
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4

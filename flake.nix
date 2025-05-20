@@ -48,7 +48,7 @@
           tools = lib.attrVals (builtins.filter (c: toolchain ? ${c}) components) toolchain;
 
           # Additionally add toolchain for cross chain target and any from the toolchain file
-          targets = [ (tpkgs.rust.toRustTarget tpkgs.stdenv.targetPlatform) ] ++ toml.toolchain.targets or [];
+          targets = [ tpkgs.stdenv.targetPlatform.rust.rustcTarget ] ++ toml.toolchain.targets or [];
 
           # Helper function to retrieve toolchain for each target
           toTargetToolchain = target: (fpkgs.targets.${target}.fromManifest toolchain.manifest).rust-std;
@@ -61,7 +61,8 @@
       # Create developer shell for combination of build and target package set
       mkDevShell = pkgs: tpkgs: tpkgs.mkShell {
         # Provide target platform to cargo via env var
-        CARGO_BUILD_TARGET = tpkgs.rust.toRustTarget tpkgs.stdenv.targetPlatform;
+        CARGO_BUILD_TARGET = tpkgs.stdenv.targetPlatform.rust.rustcTarget;
+
 
         # Provide needed build tools:
         nativeBuildInputs = [
@@ -71,6 +72,8 @@
           # - Some helpers to improve compatibility
           pkgs.gcc
           pkgs.pkg-config
+          pkgs.foundry
+          pkgs.subxt
         ];
 
         # - libclang needed by Rocksdb

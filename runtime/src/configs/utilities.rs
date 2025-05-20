@@ -11,11 +11,6 @@ use frame_support::{
 
 use sp_runtime::{traits::BlakeTwo256, RuntimeDebug};
 
-// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
-// <https://github.com/paritytech/polkadot-sdk/issues/226>
-#[allow(deprecated)]
-pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
-
 // Local module imports
 use crate::{
 	deposit, weights, Balance, Balances, OriginCaller, Runtime, RuntimeCall, RuntimeEvent, System,

@@ -74,8 +74,10 @@ impl From<time_primitives::Route> for NetworkInfo {
 		Self {
 			network_id: value.network_id,
 			destination_gateway: a_addr(value.gateway),
-			relative_gas_price_n: value.relative_gas_price.0,
-			relative_gas_price_d: value.relative_gas_price.1,
+			// FIXME wrong conversion from u256 to u128
+			relative_gas_price_n: value.relative_gas_price.0.as_u128(),
+			// FIXME wrong conversion from u256 to u128
+			relative_gas_price_d: value.relative_gas_price.1.as_u128(),
 			gas_limit: value.gas_limit,
 			gmp_base_fee: value.gmp_base_fee,
 		}
@@ -87,7 +89,11 @@ impl From<NetworkInfo> for time_primitives::Route {
 		Self {
 			network_id: value.network_id,
 			gateway: t_addr(value.destination_gateway),
-			relative_gas_price: (value.relative_gas_price_n, value.relative_gas_price_d),
+			relative_gas_price: (
+				// FIXME fix take u256 instead of u128
+				value.relative_gas_price_n.into(),
+				value.relative_gas_price_d.into(),
+			),
 			gas_limit: value.gas_limit,
 			gmp_base_fee: value.gmp_base_fee,
 		}

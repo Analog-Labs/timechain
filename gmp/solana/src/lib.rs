@@ -24,8 +24,9 @@ use anchor_client::solana_sdk::{pubkey::Pubkey, signer::Signer};
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, IChain, IConnector,
-	IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
+	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
+	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
+	TssSignature,
 };
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -131,35 +132,6 @@ impl IChain for Connector {
 		let block = self.client.get_slot_with_commitment(CommitmentConfig::finalized()).await?;
 		Ok(block)
 	}
-
-	// TODO add retry logic
-	fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send + 'static>> {
-		let filter = RpcBlockSubscribeFilter::All;
-		let config = RpcBlockSubscribeConfig {
-			commitment: Some(CommitmentConfig::finalized()),
-			encoding: None,
-			transaction_details: None,
-			show_rewards: Some(false),
-			max_supported_transaction_version: None,
-		};
-
-		let pubsub_client = self.pubsub_client.clone();
-		let (tx, rx) = mpsc::unbounded_channel::<u64>();
-
-		tokio::spawn(async move {
-			let block_subscribe = pubsub_client.block_subscribe(filter, Some(config));
-			let (mut subscription, _) = block_subscribe.await.expect("Block subscription failed");
-
-			while let Some(response) = subscription.next().await {
-				let slot = response.value.slot;
-				if tx.send(slot).is_err() {
-					break;
-				}
-			}
-		});
-
-		Box::pin(UnboundedReceiverStream::new(rx))
-	}
 }
 
 #[async_trait]
@@ -217,12 +189,7 @@ impl IConnectorAdmin for Connector {
 		Ok((t_addr(program_pubkey), slot))
 	}
 
-	async fn redeploy_gateway(
-		&self,
-		_additional_params: &[u8],
-		proxy: Address32,
-		gateway: &[u8],
-	) -> Result<()> {
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let pubkey = a_addr(proxy);
 		let retract_ix = solana_sdk::loader_v4::retract(&pubkey, &self.wallet.pubkey());
 
@@ -263,6 +230,7 @@ impl IConnectorAdmin for Connector {
 		let program = self.anchor_client.program(a_addr(gateway))?;
 		let instruction = gmp_solana_contract::instruction::SetAdmin { new_admin: a_addr(admin) };
 		let result = program.request().args(instruction);
+		Ok(())
 	}
 
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
@@ -362,6 +330,10 @@ impl IConnectorAdmin for Connector {
 		_address: Address32,
 	) -> Result<()> {
 		todo!("Need gateway implementation")
+	}
+
+	async fn debug_transaction(&self, _hash: Hash) -> Result<String> {
+		todo!("Not available")
 	}
 }
 

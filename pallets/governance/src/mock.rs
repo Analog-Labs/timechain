@@ -25,7 +25,8 @@ construct_runtime!(
 ord_parameter_types! {
 	pub const SystemAdmin: AccountId = 1;
 	pub const StakingAdmin: AccountId = 2;
-	pub const Other: AccountId = 3;
+	pub const BalancesAdmin: AccountId = 3;
+	pub const Other: AccountId = 4;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -113,6 +114,8 @@ impl pallet_staking::Config for Test {
 impl pallet_governance::Config for Test {
 	type SystemAdmin = EnsureSignedBy<SystemAdmin, AccountId>;
 	type StakingAdmin = EnsureSignedBy<StakingAdmin, AccountId>;
+	#[cfg(feature = "develop")]
+	type BalancesAdmin = EnsureSignedBy<BalancesAdmin, AccountId>;
 }
 
 // Build genesis storage according to the mock runtime.

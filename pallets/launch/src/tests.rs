@@ -10,7 +10,7 @@ use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 38;
+const ON_CHAIN_STAGE: u16 = 40;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -39,13 +39,13 @@ fn launch_ledger_validation() {
 		ON_CHAIN_VERSION.put::<Pallet<Test>>();
 
 		// Set expected on-chain funds as currently tracked on the books
-		mint_virtual(Allocation::Seed, 2_080_638_697_830 * mANLOG);
+		mint_virtual(Allocation::Seed, 2_040_783_625_830 * mANLOG);
 		mint_virtual(Allocation::Opportunity1, 170_807_453_140 * mANLOG);
 		mint_virtual(Allocation::Private1, 831_031_882_350 * mANLOG);
 		mint_virtual(Allocation::Opportunity2, 42_701_863_290 * mANLOG);
 		mint_virtual(Allocation::Opportunity3, 53_495_311_080 * mANLOG);
 		mint_virtual(Allocation::Opportunity4, 31_390_322_360 * mANLOG);
-		mint_virtual(Allocation::Strategic, 313_635_305_180 * mANLOG);
+		mint_virtual(Allocation::Strategic, 263_742_143_180 * mANLOG);
 		mint_virtual(Allocation::Team, 1_669_384_055_300 * mANLOG);
 
 		mint_virtual(Allocation::Airdrop, 18_529_097_702_450_211_764);
@@ -57,15 +57,19 @@ fn launch_ledger_validation() {
 
 		// Ensure ledger can be parsed without error events
 		let plan = LaunchLedger::<Test>::compile(LAUNCH_LEDGER)
+			.and_then(|p| p.verify())
 			.expect("Included launch ledger should always be valid");
-		assert_eq!(System::read_events_for_pallet::<Event::<Test>>().len(), 0);
+		let events = System::read_events_for_pallet::<Event<Test>>();
+		for event in events.iter() {
+			println!("Compile event: {event:?}");
+		}
+		assert_eq!(events.len(), 0);
 
 		// Ensure each of the migrations can be run successful
 		let _w = plan.run();
 		let events = System::read_events_for_pallet::<Event<Test>>();
-
 		for event in events.iter() {
-			println!("{event:?}");
+			println!("Runtime event: {event:?}");
 		}
 		assert_eq!(events.len(), NUM_AIRDROP_TRANSFER + NUM_MIGRATIONS as usize);
 		for event in events.iter() {

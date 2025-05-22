@@ -71,7 +71,7 @@ pub mod pallet {
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 40;
+	pub const LAUNCH_VERSION: u16 = 44;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -149,17 +149,32 @@ pub mod pallet {
 		(37, Allocation::Opportunity4, 13_028_382_280 * MILLIANLOG, Stage::Retired),
 		(38, Allocation::Strategic, 63_222_402 * ANLOG, Stage::Retired),
 		// Investor Snapshot 2
+		(39, Allocation::Seed, 39_855_072 * ANLOG, Stage::Retired),
+		(40, Allocation::Strategic, 49_893_162 * ANLOG, Stage::Retired),
+		// Investor Snapshot 3
 		(
-			39,
+			41,
 			Allocation::Seed,
-			39_855_072 * ANLOG,
-			Stage::DepositAsVested(data::v39::SEED_SNAPSHOT_2),
+			380_434_782 * ANLOG,
+			Stage::DepositAsVested(data::v41::SEED_SNAPSHOT_3),
 		),
 		(
-			40,
+			42,
+			Allocation::Opportunity4,
+			237_703_800 * MILLIANLOG,
+			Stage::DepositAsVested(data::v42::OPPORTUNITY4_SNAPSHOT_3),
+		),
+		(
+			43,
 			Allocation::Strategic,
-			49_893_162 * ANLOG,
-			Stage::DepositAsVested(data::v40::STRATEGIC_SNAPSHOT_2),
+			7_461_504 * ANLOG,
+			Stage::DepositAsVested(data::v43::STRATEGIC_SNAPSHOT_3),
+		),
+		(
+			44,
+			Allocation::Ecosystem,
+			620_954_533 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v44::ECOSYSTEM_SNAPSHOT_3),
 		),
 	];
 

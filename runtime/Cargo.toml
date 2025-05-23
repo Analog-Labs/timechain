@@ -113,6 +113,7 @@ testnet = [ "time-primitives/testnet" ]
 develop = [
   "genesis-builder",
   "time-primitives/develop",
+  "pallet-governance/develop",
 ]
 with-tracing = [ "polkadot-sdk/with-tracing" ]
 std = [

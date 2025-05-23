@@ -26,6 +26,7 @@ polkadot-sdk = { workspace = true, features = [ "frame-election-provider-support
 
 [features]
 default = ["std"]
+develop = []
 std = [
 	"scale-codec/std",
 	"scale-info/std",
@@ -41,4 +42,3 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-sdk/try-runtime",
 ]
-broken = []

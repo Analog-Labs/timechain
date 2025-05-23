@@ -104,6 +104,9 @@ parameter_types! {
 impl pallet_governance::Config for Runtime {
 	/// Default admin origin for system related governance
 	type SystemAdmin = DefaultAdminOrigin;
-	// Default admin origin for staking related governance
+	/// Default admin origin for staking related governance
 	type StakingAdmin = DefaultAdminOrigin;
+	#[cfg(feature = "develop")]
+	/// Default admin origin for balances related governance
+	type BalancesAdmin = DefaultAdminOrigin;
 }

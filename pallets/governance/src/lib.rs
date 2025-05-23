@@ -32,8 +32,14 @@ pub mod pallet {
 	// Additional custom imports
 	use frame_system::{RawOrigin, WeightInfo as SystemWeights};
 
+	#[cfg(feature = "develop")]
+	use pallet_balances::WeightInfo as BalancesWeights;
+
 	use pallet_staking::{ConfigOp, WeightInfo as StakingWeights};
 	use sp_runtime::{Perbill, Percent};
+
+	#[cfg(feature = "develop")]
+	use sp_runtime::traits::StaticLookup;
 
 	// Useful coupling shorthands
 	type CurrencyBalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
@@ -47,8 +53,11 @@ pub mod pallet {
 	{
 		/// Allowed origin for system calls
 		type SystemAdmin: EnsureOrigin<Self::RuntimeOrigin>;
-		// Allowed origin for staking calls
+		/// Allowed origin for staking calls
 		type StakingAdmin: EnsureOrigin<Self::RuntimeOrigin>;
+		#[cfg(feature = "develop")]
+		/// Allowed origin for balances calls
+		type BalancesAdmin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::call]
@@ -106,6 +115,21 @@ pub mod pallet {
 				min_commission,
 				max_staked_rewards,
 			)
+		}
+
+		#[cfg(feature = "develop")]
+		#[pallet::call_index(4)]
+		#[pallet::weight(
+			<T as pallet_balances::Config>::WeightInfo::force_set_balance_creating()
+				.max(<T as pallet_balances::Config>::WeightInfo::force_set_balance_killing())
+		)]
+		pub fn force_set_balance(
+			origin: OriginFor<T>,
+			who: <T::Lookup as StaticLookup>::Source,
+			#[pallet::compact] new_free: T::Balance,
+		) -> DispatchResult {
+			T::BalancesAdmin::ensure_origin(origin)?;
+			pallet_balances::Pallet::<T>::force_set_balance(RawOrigin::Root.into(), who, new_free)
 		}
 	}
 }

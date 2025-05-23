@@ -299,11 +299,12 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
 
-/// TODO: Clean this up and move to tokenomics
-pub const STORAGE_BYTE_FEE: Balance = 300 * MILLIANLOG; // Change based on benchmarking
+/// Shared per-byte storage fee
+pub const STORAGE_BYTE_FEE: Balance = MILLIANLOG;
 
+/// Shared fee structure for items put in storage
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
-	items as Balance * 750 * MILLIANLOG + (bytes as Balance) * STORAGE_BYTE_FEE
+	items as Balance * 10 * ANLOG + (bytes as Balance) * STORAGE_BYTE_FEE
 }
 
 parameter_types! {

@@ -70,9 +70,11 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
 
+	const GAS_LIMIT_STEP: u64 = 50_000;
+
 	let mut contracts = vec![];
 	// Deploy Token + Callee to every network
-	for nw in tc.networks(block).await? {
+	for (i, nw) in tc.networks(block).await?.into_iter().enumerate() {
 		let gw = nw.info.unwrap().gateway;
 		let nw_id = nw.network;
 		let c = env.chain_container(nw_id).unwrap();
@@ -95,17 +97,17 @@ async fn oats_sender_caller_evm() -> Result<()> {
 
 		let callee = Callee::deploy(rpc.clone(), *token.address()).await?;
 
-		contracts.push((nw_id, token, callee));
+		contracts.push((nw_id, token, callee, U256::from(GAS_LIMIT_STEP * (i as u64 + 1))));
 	}
 	// Set OMNI token networks
-	for (nw, token, _) in contracts.iter() {
-		for (n, t, _) in contracts.iter().filter(|(n, _, _)| n.ne(nw)) {
+	for (nw, token, _, _) in contracts.iter() {
+		for (n, t, _, _) in contracts.iter().filter(|(n, _, _, _)| n.ne(nw)) {
 			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
 		}
 	}
 	// Check initial balances
 	let mut alice_balances = vec![];
-	for (_nw, token, callee) in contracts.iter() {
+	for (_nw, token, callee, _) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let bob_bal = token.balanceOf(BOB).call().await?;
 		// On every chain, ALICE has some OMNI tokens, and BOB has none.
@@ -118,14 +120,15 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	// Transfer tokens from every network to next network, and call callee, ring way
 	let mut msgs = vec![];
 	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
-	while let Some((nw, token, callee)) = ring.next() {
-		if let Some((nw2, _, _)) = ring.peek() {
-			let gmp_fee = token.cost(*nw2, Bytes::new()).call().await?;
+	while let Some((nw, token, callee, gas_limit)) = ring.next() {
+		if let Some((nw2, _, _, _)) = ring.peek() {
+			let gmp_fee = token.cost(*nw2, *gas_limit, Bytes::new()).call().await?;
 			let receipt = token
 				.sendAndCall(
 					*nw2,
 					BOB,
 					U256::from(TRANSFER_AMOUNT),
+					*gas_limit,
 					*callee.address(),
 					Bytes::new(),
 				)
@@ -169,14 +172,20 @@ async fn oats_sender_caller_evm() -> Result<()> {
 		}
 	}
 	// Check resulting balances
-	for (i, (_nw, token, callee)) in contracts.iter().enumerate() {
+	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE now has -=TRANSFER_AMOUNT), BOB has TRANSFER_AMOUNT
+		// On every chain, ALICE now has -=TRANSFER_AMOUNT
 		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
-		// Callee total should be equal the U256::from(TRANSFER_AMOUNT)
-		assert_eq!(callee.total().call().await?, U256::from(TRANSFER_AMOUNT));
+		if i == 0 {
+			// sufficient gas_limit: call succeeds, BOB has TRANSFER_AMOUNT
+			assert_eq!(callee.total().call().await?, U256::from(TRANSFER_AMOUNT));
+			assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
+		} else {
+			// insufficient gas_limit: call fails, BOB has 0
+			assert_eq!(callee.total().call().await?, U256::ZERO);
+			assert_eq!(bob_bal, U256::ZERO);
+		}
 	}
 
 	Ok(())

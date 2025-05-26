@@ -177,15 +177,15 @@ async fn oats_sender_caller_evm() -> Result<()> {
 		let bob_bal = token.balanceOf(BOB).call().await?;
 		// On every chain, ALICE now has -=TRANSFER_AMOUNT
 		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
-		if i == 0 {
-			// sufficient gas_limit: call succeeds, BOB has TRANSFER_AMOUNT
-			assert_eq!(callee.total().call().await?, U256::from(TRANSFER_AMOUNT));
-			assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
+		let received_amount = if i == 1 {
+			// insufficient gas_limit: call fails, BOB gets 0
+			U256::ZERO
 		} else {
-			// insufficient gas_limit: call fails, BOB has 0
-			assert_eq!(callee.total().call().await?, U256::ZERO);
-			assert_eq!(bob_bal, U256::ZERO);
-		}
+			// sufficient gas_limit: call succeeds, BOB gets TRANSFER_AMOUNT
+			U256::from(TRANSFER_AMOUNT)
+		};
+		assert_eq!(callee.total().call().await?, received_amount);
+		assert_eq!(bob_bal, received_amount);
 	}
 
 	Ok(())

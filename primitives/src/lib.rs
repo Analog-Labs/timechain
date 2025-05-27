@@ -28,6 +28,8 @@ pub mod shard;
 pub mod task;
 
 // ... and unscoped
+#[cfg(feature = "std")]
+pub use crate::balance::*;
 pub use crate::bounds::*;
 pub use crate::cctp::*;
 pub use crate::currency::*;
@@ -190,7 +192,6 @@ pub trait NetworksInterface {
 
 pub trait MembersInterface {
 	fn member_peer_id(account: &AccountId) -> Option<PeerId>;
-	fn member_public_key(account: &AccountId) -> Option<PublicKey>;
 	fn is_member_registered(account: &AccountId) -> bool;
 	fn is_member_online(account: &AccountId) -> bool;
 }

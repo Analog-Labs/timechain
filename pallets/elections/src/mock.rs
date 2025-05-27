@@ -9,9 +9,7 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{
-	Address32, NetworkId, NetworksInterface, PublicKey, ShardId, TasksInterface,
-};
+use time_primitives::{Address32, NetworkId, NetworksInterface, ShardId, TasksInterface};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -160,8 +158,4 @@ fn next_block() {
 	now += 1;
 	System::set_block_number(now);
 	Elections::on_initialize(now);
-}
-
-pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }

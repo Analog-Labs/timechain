@@ -56,12 +56,7 @@ fn member_offline_removes_unassigned() {
 }
 
 fn register_member(pubkey: [u8; 32]) {
-	assert_ok!(Members::register_member(
-		RawOrigin::Root.into(),
-		ETHEREUM,
-		pubkey_from_bytes(pubkey),
-		pubkey,
-	));
+	assert_ok!(Members::register_member(RawOrigin::Root.into(), ETHEREUM, pubkey.into(), pubkey,));
 }
 
 #[test]

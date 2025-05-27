@@ -3,7 +3,7 @@ use crate::{metadata, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
 use subxt::utils::H256;
-use time_primitives::{AccountId, BlockHash, BlockNumber, NetworkId, PeerId, PublicKey};
+use time_primitives::{AccountId, BlockHash, BlockNumber, NetworkId, PeerId};
 
 impl SubxtClient {
 	pub async fn member_network(
@@ -63,12 +63,11 @@ impl SubxtClient {
 	pub async fn register_member(
 		&self,
 		network: NetworkId,
-		public_key: PublicKey,
+		account: AccountId,
 		peer_id: PeerId,
 	) -> Result<()> {
 		let (tx, rx) = oneshot::channel();
-		self.tx
-			.unbounded_send((Tx::RegisterMember { network, public_key, peer_id }, tx))?;
+		self.tx.unbounded_send((Tx::RegisterMember { network, account, peer_id }, tx))?;
 		let tx = rx.await?;
 		self.is_success(&tx).await?;
 		Ok(())

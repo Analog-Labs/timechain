@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	balance::BalanceFormatter, traits::IdentifyAccount, AccountId, Address32, BatchId, BlockHash,
-	BlockNumber, CctpContracts, CctpUrl, ChainName, ConnectorParams, GatewayMessage, GmpEvent,
-	GmpEvents, GmpMessage, Hash, IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId,
-	PublicKey, Route, ShardId, ShardStatus, TaskId, TssPublicKey,
+	AccountId, Address32, BalanceFormatter, BatchId, BlockHash, BlockNumber, CctpContracts,
+	CctpUrl, ChainName, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash,
+	IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus,
+	TaskId, TssPublicKey,
 };
 
 mod benchmark;
@@ -351,7 +351,6 @@ pub struct Chronicle {
 struct ChronicleConfig {
 	network: NetworkId,
 	account: AccountId,
-	public_key: PublicKey,
 	peer_id: PeerId,
 	peer_id_str: String,
 	address: Address32,
@@ -859,10 +858,8 @@ impl Tc {
 				self.set_network_config(network, block_hash).await?;
 				gateway
 			} else {
-				self.println(None, format!("deploying gateway {network}")).await?;
-				let (gateway, block) = connector
-					.deploy_gateway(&backend.factory, &backend.proxy, &backend.gateway)
-					.await?;
+				self.println(None, format!("deploying proxy {network}")).await?;
+				let (gateway, block) = connector.deploy_proxy(&backend.proxy).await?;
 				self.println(None, format!("register_network {network}")).await?;
 				self.runtime
 					.register_network(time_primitives::Network {
@@ -873,6 +870,8 @@ impl Tc {
 						config: self.network_config(network)?,
 					})
 					.await?;
+				self.println(None, format!("deploying gateway {network}")).await?;
+				connector.deploy_gateway(gateway, &backend.gateway).await?;
 				gateway
 			};
 		Ok(gateway)
@@ -978,7 +977,6 @@ impl Tc {
 			network: config.network,
 			account: self.parse_address(None, &config.account)?.into(),
 			address: self.parse_address(Some(config.network), &config.address)?,
-			public_key: config.public_key,
 			peer_id: hex::decode(&config.peer_id_hex)?
 				.try_into()
 				.map_err(|_| anyhow::anyhow!("chronicle returned invalid peer id"))?,
@@ -1020,20 +1018,19 @@ impl Tc {
 	pub async fn register_member(
 		&self,
 		network: NetworkId,
-		public_key: PublicKey,
+		account: AccountId,
 		peer_id: PeerId,
 		block_hash: BlockHash,
 	) -> Result<()> {
-		let member = public_key.clone().into_account();
-		if self.runtime.member_registered(&member, block_hash).await? {
+		if self.runtime.member_registered(&account, block_hash).await? {
 			return Ok(());
 		}
 		self.println(
 			None,
-			format!("register_member {}", self.format_address(None, member.clone().into())?),
+			format!("register_member {}", self.format_address(None, account.clone().into())?),
 		)
 		.await?;
-		self.runtime.register_member(network, public_key, peer_id).await?;
+		self.runtime.register_member(network, account, peer_id).await?;
 		Ok(())
 	}
 
@@ -1102,13 +1099,8 @@ impl Tc {
 		let (result_tc, result_target) = futures::future::join(fund_tc, fund_target).await;
 		result_tc?;
 		result_target?;
-		self.register_member(
-			chronicle.network,
-			chronicle.public_key,
-			chronicle.peer_id,
-			block_hash,
-		)
-		.await?;
+		self.register_member(chronicle.network, chronicle.account, chronicle.peer_id, block_hash)
+			.await?;
 		Ok(())
 	}
 
@@ -1188,7 +1180,7 @@ impl Tc {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let backend = self.config.backend(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
-		connector.redeploy_gateway(gateway, &backend.gateway).await?;
+		connector.deploy_gateway(gateway, &backend.gateway).await?;
 		Ok(())
 	}
 
@@ -1200,7 +1192,7 @@ impl Tc {
 		let backend = self.config.backend(network)?;
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
-		let tester = connector.deploy_test(gateway, &backend.tester).await?;
+		let tester = connector.deploy_tester(gateway, &backend.tester).await?;
 		self.println(
 			Some(id),
 			format!(

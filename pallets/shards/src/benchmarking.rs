@@ -4,14 +4,14 @@ use crate::{Config, Pallet};
 use frame_benchmarking::benchmarks;
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin;
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_runtime, sp_std};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_runtime, sp_std};
 use sp_runtime::{BoundedVec, Saturating};
 
 use sp_std::vec;
 use sp_std::vec::Vec;
 
 use time_primitives::{
-	AccountId, Commitment, ElectionsInterface, NetworkId, ProofOfKnowledge, PublicKey, ShardStatus,
+	AccountId, Commitment, ElectionsInterface, NetworkId, ProofOfKnowledge, ShardStatus,
 	ShardsInterface,
 };
 
@@ -20,10 +20,6 @@ pub const BOB: [u8; 32] = [2u8; 32];
 pub const CHARLIE: [u8; 32] = [3u8; 32];
 pub const ETHEREUM: NetworkId = 0;
 const SHARD_ID: u64 = 0;
-
-fn public_key(acc: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
-}
 
 // Since benchmarks are no-std and we need std computation on constructing proof so
 // these values are taken by running the code in pallets/shards/src/tests.rs
@@ -94,7 +90,7 @@ benchmarks! {
 			pallet_members::Pallet::<T>::register_member(
 				RawOrigin::Root.into(),
 				ETHEREUM,
-				public_key(member),
+				member_account.clone(),
 				member,
 			)?;
 			if member != ALICE {
@@ -118,7 +114,7 @@ benchmarks! {
 			pallet_members::Pallet::<T>::register_member(
 				RawOrigin::Root.into(),
 				ETHEREUM,
-				public_key(member),
+				member_account.clone(),
 				member,
 			)?;
 			Pallet::<T>::commit(

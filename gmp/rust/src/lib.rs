@@ -313,12 +313,7 @@ impl IConnector for Connector {
 
 #[async_trait::async_trait]
 impl IConnectorAdmin for Connector {
-	async fn deploy_gateway(
-		&self,
-		_additional_params: &[u8],
-		_gateway: &[u8],
-		_gateway_impl: &[u8],
-	) -> Result<(Address32, u64)> {
+	async fn deploy_proxy(&self, _proxy: &[u8]) -> Result<(Address32, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::fill(&mut gateway).unwrap();
 		let block = self.block()?;
@@ -331,9 +326,9 @@ impl IConnectorAdmin for Connector {
 		Ok((gateway, block))
 	}
 
-	async fn redeploy_gateway(&self, gateway: Address32, _gateway_impl: &[u8]) -> Result<()> {
+	async fn deploy_gateway(&self, proxy: Address32, _gateway: &[u8]) -> Result<()> {
 		let tx = self.db.begin_write()?;
-		self.ensure_admin(&tx, gateway)
+		self.ensure_admin(&tx, proxy)
 	}
 
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
@@ -433,7 +428,7 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
-	async fn deploy_test(&self, gateway: Address32, _path: &[u8]) -> Result<(Address32, u64)> {
+	async fn deploy_tester(&self, gateway: Address32, _path: &[u8]) -> Result<(Address32, u64)> {
 		let mut tester = [0; 32];
 		getrandom::fill(&mut tester).unwrap();
 		let block = self.block()?;
@@ -641,7 +636,8 @@ mod tests {
 		assert_eq!(chain.balance(chain.address()).await?, 0);
 		chain.faucet(100_000).await?;
 		assert_eq!(chain.balance(chain.address()).await?, 100_000);
-		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref(), "".as_ref()).await?;
+		let (gateway, block) = chain.deploy_proxy("".as_ref()).await?;
+		chain.deploy_gateway(gateway, "".as_ref()).await?;
 		chain.transfer(gateway, 10_000).await?;
 		assert_eq!(chain.balance(gateway).await?, 10_000);
 		chain.set_shards(gateway, &[shard.public_key()]).await?;
@@ -650,8 +646,8 @@ mod tests {
 		let current = chain.finalized_block().await.unwrap();
 		let events = chain.read_events(gateway, block..current, None).await?;
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
-		let (src, _) = chain.deploy_test(gateway, "".as_ref()).await?;
-		let (dest, _) = chain.deploy_test(gateway, "".as_ref()).await?;
+		let (src, _) = chain.deploy_tester(gateway, "".as_ref()).await?;
+		let (dest, _) = chain.deploy_tester(gateway, "".as_ref()).await?;
 		let payload = vec![];
 		let gas_limit =
 			chain.estimate_message_gas_limit(dest, network, src, payload.clone()).await?;

@@ -68,7 +68,7 @@ pub struct Mock {
 	public_key: Option<PublicKey>,
 	account_id: Option<AccountId>,
 	networks: Map<NetworkId, MockNetwork>,
-	members: Map<NetworkId, Vec<(PublicKey, PeerId)>>,
+	members: Map<NetworkId, Vec<(AccountId, PeerId)>>,
 	shards: Map<ShardId, MockShard>,
 	tasks: Map<TaskId, MockTask>,
 	assigned_tasks: Map<TaskId, ShardId>,
@@ -133,7 +133,7 @@ impl Mock {
 		assigned_tasks.insert(task_id, shard_id);
 	}
 
-	pub fn members(&self, network_id: NetworkId) -> Vec<(PublicKey, PeerId)> {
+	pub fn members(&self, network_id: NetworkId) -> Vec<(AccountId, PeerId)> {
 		let members = self.members.lock().unwrap();
 		members.get(&network_id).cloned().unwrap_or_default()
 	}
@@ -149,9 +149,9 @@ impl Mock {
 		tasks.get(&task_id).cloned()
 	}
 
-	pub fn register_member(&self, network: NetworkId, public_key: PublicKey, peer_id: PeerId) {
+	pub fn register_member(&self, network: NetworkId, account: AccountId, peer_id: PeerId) {
 		let mut members = self.members.lock().unwrap();
-		members.entry(network).or_default().push((public_key, peer_id));
+		members.entry(network).or_default().push((account, peer_id));
 	}
 }
 
@@ -207,7 +207,7 @@ impl Runtime for Mock {
 		Ok(members
 			.iter()
 			.flat_map(|(_, members)| members.iter())
-			.find(|(acc, _)| &acc.clone().into_account() == account)
+			.find(|(acc, _)| acc == account)
 			.map(|(_, peer_id)| *peer_id))
 	}
 

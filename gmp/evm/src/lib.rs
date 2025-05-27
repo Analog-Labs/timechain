@@ -1,3 +1,7 @@
+use crate::cctp::CctpHandler;
+use crate::custom::BEP226;
+use crate::dict::Currency;
+use crate::sol::{Gateway, GatewayProxy, GmpProxy, IGmpReceiver};
 use alloy::{
 	eips::{BlockId, BlockNumberOrTag},
 	network::{
@@ -18,21 +22,12 @@ use alloy::{
 	signers::{
 		k256::ecdsa::SigningKey,
 		local::{coins_bip39::English, LocalSigner, MnemonicBuilder},
-		SignerSync,
 	},
 	sol_types::{SolCall, SolConstructor, SolEvent, SolValue},
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use custom::BEP226;
-use dict::Currency;
 use serde::Deserialize;
-use sha3::{Digest, Keccak256};
-use sol::{
-	u256,
-	IExecutor::{self, IExecutorInstance},
-	TssKey,
-};
 use std::{ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
@@ -41,17 +36,13 @@ use time_primitives::{
 };
 use tokio::sync::Mutex;
 
-use crate::cctp::CctpHandler;
-use crate::sol::{ProxyContext, ProxyDigest};
-
 type Address20 = alloy::primitives::Address;
 
-pub(crate) mod cctp;
-pub(crate) mod custom;
-pub(crate) mod dict;
+mod cctp;
+mod custom;
+mod dict;
+// some e2e tests use it
 pub mod sol;
-
-const DEFAULT_TX_TIMEOUT: u64 = 60;
 
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
@@ -82,8 +73,7 @@ pub struct Connector {
 	cctp: Arc<CctpHandler>,
 	chain_id: u64,
 	currency: Currency,
-	// Temporary fix to avoid nonce overlap
-	wallet_guard: Arc<Mutex<()>>,
+	submitter: Submitter,
 }
 
 #[async_trait]
@@ -121,7 +111,7 @@ impl IConnectorBuilder for Connector {
 			cctp: Arc::new(CctpHandler::new()),
 			chain_id,
 			currency,
-			wallet_guard: Default::default(),
+			submitter: Submitter::new(Duration::from_secs(60)),
 		})
 	}
 }
@@ -150,50 +140,36 @@ impl IChain for Connector {
 	/// Funds Connector's account
 	async fn faucet(&self, balance: u128) -> Result<()> {
 		let ws = WsConnect::new(self.url.clone());
-		let provider = ProviderBuilder::new().connect_ws(ws).await?;
+		let provider = ProviderBuilder::new().network::<AnyNetwork>().connect_ws(ws).await?;
 		let sponsor = provider
 			.get_accounts()
 			.await?
 			.first()
 			.ok_or(anyhow!("Node owns no account"))?
 			.to_owned();
-		let nonce = provider.get_transaction_count(sponsor).await?;
 
 		let tx = TransactionRequest::default()
 			.with_from(sponsor)
-			.with_nonce(nonce)
 			.with_to(a_addr(self.address()))
-			.with_value(U256::from(balance))
-			.with_gas_limit(21_000);
+			.with_value(U256::from(balance));
 
-		let guard = self.wallet_guard.lock().await;
-		let pending_tx = provider.send_transaction(tx).await?;
-		drop(guard);
-		let tx_hash = pending_tx
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?
-			.transaction_hash;
-		tracing::info!("Faucet sent {balance} to {}, tx: {tx_hash}", a_addr(self.address()));
+		let receipt = self.submitter.submit(&provider, tx).await?;
+		tracing::info!(
+			"faucet sent {balance} to {}, tx: {:?}",
+			a_addr(self.address()),
+			receipt.transaction_hash()
+		);
 		Ok(())
 	}
 	/// Transfers an amount to an account
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
-		let to = a_addr(address);
-		let tx = TransactionRequest::default()
-			.with_from(self.signer.address())
-			.with_to(to)
-			.with_value(U256::from(amount));
-
-		let guard = self.wallet_guard.lock().await;
-		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
-		drop(guard);
-		let tx_hash = pending_tx
-			.with_timeout(Some(Duration::from_secs(60)))
-			.get_receipt()
-			.await?
-			.transaction_hash;
-		tracing::info!("Transferred sent {amount} to {to}, tx: {tx_hash}");
+	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
+		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
+		let receipt = self.submit(tx).await?;
+		tracing::info!(
+			"transferred {amount} to {}, tx: {:?}",
+			a_addr(to),
+			receipt.transaction_hash()
+		);
 		Ok(())
 	}
 	/// Queries the account balance
@@ -302,179 +278,100 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let signature = IExecutor::Signature {
-			xCoord: u256(&signer[1..33]),
-			e: u256(&sig[..32]),
-			s: u256(&sig[32..]),
+		let signature = Gateway::Signature {
+			xCoord: sol::u256(&signer[1..33]),
+			e: sol::u256(&sig[..32]),
+			s: sol::u256(&sig[32..]),
 		};
-		// Adding extra overhead for gateway call
-		let total_gas = msg.gas().saturating_add(200_000u128);
-		let gas_limit: u64 = total_gas.try_into().unwrap_or_else(|_| {
-			tracing::error!("Gas {:?} could not be converted to u64", total_gas);
-			u64::MAX
-		});
-		let ops: Vec<IExecutor::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
-		let message = IExecutor::InboundMessage {
+		let ops: Vec<Gateway::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
+		let message = Gateway::InboundMessage {
 			version: 0,
 			batchID: batch,
 			ops,
 		};
-		tracing::info!("submitting batch {batch} with {gas_limit} gas");
-
-		let address = a_addr(gateway);
-		let gw = IExecutorInstance::new(address, self.rpc.clone());
-
-		let gw_call = gw.batchExecute(signature, message);
-		let estimated_gas = gw_call.estimate_gas().await.map_err(|err| err.to_string())?;
-		let max_gas = std::cmp::max(estimated_gas, gas_limit);
-
-		let receipt = gw_call
-			.gas(max_gas)
-			.send()
-			.await
-			.map_err(|err| {
-				tracing::info!("failed to submit batch: {:?}", err);
-				err.to_string()
-			})?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await
-			.map_err(|err| err.to_string())?;
-		let tx_hash = receipt.transaction_hash;
-
-		if !receipt.inner.inner.is_success() {
-			let err = format!("batch {batch} failed with tx: {tx_hash}");
-			tracing::error!(err);
-			return Err(err);
-		} else {
-			tracing::info!("batch {batch} submitted with tx: {tx_hash}");
-		}
-
+		let call = Gateway::batchExecuteCall { signature, message };
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
 	}
 }
 
 #[async_trait]
 impl IConnectorAdmin for Connector {
-	/// Deploys gateway contract
-	async fn deploy_gateway(
-		&self,
-		additional_params: &[u8],
-		proxy: &[u8],
-		gateway: &[u8],
-	) -> Result<(Address32, u64)> {
-		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
-		let proxy = extract_bytecode(proxy)?;
-		let gateway = extract_bytecode(gateway)?;
-		// deploy factory
-		let factory_address = a_addr(self.parse_address(&config.factory_address)?).0 .0;
-		let factory_deployed_code = self.rpc.get_code_at(factory_address.into()).await?;
-
-		if factory_deployed_code.is_empty() {
-			self.deploy_factory_contract(&config).await?;
-		}
-		// compute proxy address
+	/// Deploys proxy contract
+	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)> {
 		let admin = a_addr(self.address());
-		let constructor = sol::GatewayProxy::constructorCall { admin };
-		let proxy_address =
-			compute_create2_address(factory_address, config.deployment_salt, &proxy, constructor)?;
-		// check if proxy is deployed
-		let proxy_deployed_code = self.rpc.get_code_at(proxy_address).await?;
-		if !proxy_deployed_code.is_empty() {
-			let block = self.latest_block().await?;
-			tracing::info!("Proxy already deployed. Please use redeploy-gateway instead");
-			return Ok((t_addr(proxy_address), block.number));
-		}
-		// deploy gateway
-		let gateway_address = self.deploy_gateway_contract(proxy_address, gateway).await?;
-		// compute proxy arguments
-		let (proxy_address, block) = self
-			.deploy_proxy_contract(&config, proxy_address, gateway_address, proxy)
+		let proxy_constructor = GatewayProxy::constructorCall { admin };
+		let (proxy_addr, proxy_block) = self.deploy_contract(proxy, proxy_constructor).await?;
+		Ok((t_addr(proxy_addr), proxy_block))
+	}
+
+	/// Deploys gateway contract
+	async fn deploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
+		let proxy = a_addr(proxy);
+		let (gateway_addr, _gateway_block) = self
+			.deploy_contract(
+				gateway,
+				Gateway::constructorCall {
+					network: self.network_id,
+					proxy,
+				},
+			)
 			.await?;
 
-		Ok((t_addr(proxy_address), block))
-	}
-	/// Redeploys gateway contract
-	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
-		let gateway = extract_bytecode(gateway)?;
-		let proxy_address = a_addr(proxy);
-
-		let gateway_addr = self.deploy_gateway_contract(proxy_address, gateway).await?;
-		let call = sol::Gateway::upgradeCall {
+		let call = GatewayProxy::upgradeCall {
 			newImplementation: gateway_addr,
 		};
+		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
+		self.submit(tx).await?;
 
-		let tx = TransactionRequest::default()
-			.with_to(proxy_address)
-			.with_chain_id(self.chain_id)
-			.with_call(&call);
-
-		self.rpc
-			.send_transaction(WithOtherFields::new(tx))
-			.await?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?;
-
-		tracing::info!("redeployment done");
 		Ok(())
 	}
 	/// Deploys test contract
-	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
-		let call = sol::GmpTester::constructorCall { gateway: a_addr(gateway) };
-		let mut bytecode = extract_bytecode(tester)?;
-		bytecode.extend(call.abi_encode());
-
-		let tx = TransactionRequest::default().with_deploy_code(bytecode);
-
-		let receipt =
-			self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?;
-		let contract_address = receipt
-			.contract_address()
-			.ok_or(anyhow!("Failed to get deployed contract address"))?;
-		let block_number = receipt
-			.block_number
-			.ok_or(anyhow!("Failed to get contract deployement block"))?;
-
-		Ok((t_addr(contract_address), block_number))
+	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+		let call = GmpProxy::constructorCall { gateway: a_addr(gateway) };
+		let (addr, block) = self.deploy_contract(tester, call).await?;
+		Ok((t_addr(addr), block))
 	}
 
 	/// Returns gateway admin
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
-		let admin_address = self.evm_call(gateway, sol::Gateway::adminCall {}).await?.0;
+		let admin_address = self.call(gateway, sol::Gateway::adminCall {}).await?.0;
 		Ok(t_addr(admin_address.into()))
 	}
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
-		let call = sol::Gateway::setAdminCall { admin: a_addr(admin) };
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let call = Gateway::setAdminCall { newAdmin: a_addr(admin) };
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Returns registered shard keys
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
-		let keys = self.evm_call(gateway, sol::Gateway::shardsCall {}).await?;
+		let keys = self.call(gateway, sol::Gateway::shardsCall {}).await?;
 		let keys = keys.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
 	/// Sets registered shard keys. Overwrites any other keys.
 	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
-		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<TssKey>>();
+		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<Gateway::TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
-		let call = sol::Gateway::setShardsCall { publicKeys: shards };
-
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let call = Gateway::setShardsCall { publicKeys: shards };
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
-		let routes = self.evm_call(gateway, sol::Gateway::routesCall {}).await?;
+		let routes = self.call(gateway, Gateway::routesCall {}).await?;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
-		let call = sol::Gateway::setRouteCall { info: route.into() };
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let call = Gateway::setRouteCall { info: route.into() };
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
 	/// Estimates message gas limit
@@ -485,17 +382,14 @@ impl IConnectorAdmin for Connector {
 		src: Address32,
 		payload: Vec<u8>,
 	) -> Result<u128> {
-		let call = sol::IGmpReceiver::onGmpReceivedCall {
+		let call = IGmpReceiver::onGmpReceivedCall {
 			id: [0; 32].into(),
 			network: src_network.into(),
 			source: src.into(),
 			nonce: 0,
 			payload: payload.into(),
 		};
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(contract))
-			.with_chain_id(self.chain_id)
-			.with_call(&call);
+		let tx = TransactionRequest::default().with_to(a_addr(contract)).with_call(&call);
 
 		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
 	}
@@ -507,7 +401,7 @@ impl IConnectorAdmin for Connector {
 		gas_limit: u128,
 		payload: Vec<u8>,
 	) -> Result<u128> {
-		let msg = sol::GmpMessage {
+		let msg = Gateway::GmpMessage {
 			source: [0; 32].into(),
 			srcNetwork: 0,
 			dest: [0; 20].into(),
@@ -516,13 +410,13 @@ impl IConnectorAdmin for Connector {
 			nonce: 0,
 			data: payload.into(),
 		};
-		let call = sol::Gateway::estimateMessageCostCall {
+		let call = Gateway::estimateMessageCostCall {
 			networkid: dest_network,
 			// abi_encoded_size returns the size without the 4 byte selector
 			messageSize: U256::from(msg.abi_encoded_size() + 4),
 			gasLimit: U256::from(gas_limit),
 		};
-		let result = self.evm_call(gateway, call).await?;
+		let result = self.call(gateway, call).await?;
 		let msg_cost: u128 = result.try_into().map_err(|e| anyhow!("{e}"))?;
 
 		Ok(msg_cost)
@@ -537,7 +431,7 @@ impl IConnectorAdmin for Connector {
 		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
-		let msg = sol::GmpMessage {
+		let message = GmpProxy::GmpMessage {
 			srcNetwork: self.network_id,
 			source: contract.into(),
 			destNetwork: dest_network,
@@ -546,17 +440,21 @@ impl IConnectorAdmin for Connector {
 			gasLimit: gas_limit as _,
 			data: payload.into(),
 		};
-		tracing::debug!("Sending GMP message: {:#?}", &msg);
-		let call = sol::GmpTester::sendMessageCall { msg };
-		let receipt = self.evm_send(contract, call, gas_cost).await?;
+		tracing::debug!("Sending GMP message: {:#?}", &message);
+		let call = GmpProxy::sendMessageCall { message };
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(contract))
+			.with_call(&call)
+			.with_value(U256::from(gas_cost));
+		let receipt = self.submit(tx).await?;
 
 		receipt
 			.inner
 			.inner
 			.logs()
 			.iter()
-			.filter(|e| e.topics().contains(&sol::Gateway::GmpCreated::SIGNATURE_HASH))
-			.filter_map(|e| sol::Gateway::GmpCreated::decode_log_data(e.data()).ok())
+			.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+			.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
 			.map(|e| e.id.into())
 			.next()
 			.ok_or(anyhow!("Failed to send message"))
@@ -579,8 +477,8 @@ impl IConnectorAdmin for Connector {
 
 		Ok(logs
 			.into_iter()
-			.filter(|e| e.topics().contains(&sol::GmpTester::MessageReceived::SIGNATURE_HASH))
-			.filter_map(|e| sol::GmpTester::MessageReceived::decode_log_data(e.data()).ok())
+			.filter(|e| e.topics().contains(&GmpProxy::MessageReceived::SIGNATURE_HASH))
+			.filter_map(|e| GmpProxy::MessageReceived::decode_log_data(e.data()).ok())
 			.map(|e| e.msg.into())
 			.collect::<Vec<_>>())
 	}
@@ -625,9 +523,11 @@ impl IConnectorAdmin for Connector {
 			recipient: a_addr(recipient),
 			data: vec![].into(),
 		};
-		let _receipt = self.evm_send(gateway, call, 0).await?;
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		self.submit(tx).await?;
 		Ok(())
 	}
+
 	/// Debug a transaction.
 	// TODO could be done with alloy as well
 	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
@@ -652,32 +552,18 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
-	async fn evm_call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(to))
-			.with_chain_id(self.chain_id)
-			.with_call(&call);
-
+	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
+		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
-
+		tracing::debug!("{result:?}");
 		Ok(C::abi_decode_returns(&result)?)
 	}
 
-	async fn evm_send<C: SolCall>(
+	async fn submit(
 		&self,
-		to: Address32,
-		call: C,
-		value: u128,
+		tx: TransactionRequest,
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
-		let tx = TransactionRequest::default()
-			.with_to(a_addr(to))
-			.with_chain_id(self.chain_id)
-			.with_call(&call)
-			.with_value(U256::from(value));
-
-		let _guard = self.wallet_guard.lock().await;
-
-		Ok(self.rpc.send_transaction(WithOtherFields::new(tx)).await?.get_receipt().await?)
+		self.submitter.submit(&self.rpc, tx).await
 	}
 
 	async fn latest_block(&self) -> Result<Header<AnyHeader>> {
@@ -688,199 +574,72 @@ impl Connector {
 			.ok_or(anyhow!("failed querying finalized block"))
 	}
 
-	/// init_code == contract_bytecode + contractor_code
-	async fn deploy_contract_with_factory(
+	async fn deploy_contract<C: SolConstructor>(
 		&self,
-		config: &DeploymentConfig,
-		call: Vec<u8>,
+		contract: &[u8],
+		constructor: C,
 	) -> Result<(Address20, u64)> {
-		let factory_address = a_addr(self.parse_address(&config.factory_address)?);
+		#[derive(Deserialize)]
+		struct Contract {
+			bytecode: Bytecode,
+		}
 
-		let tx = TransactionRequest::default()
-			.with_to(factory_address)
-			.with_chain_id(self.chain_id)
-			// TODO why magic value
-			.with_gas_limit(20_000_000)
-			.with_input(call);
+		#[derive(Deserialize)]
+		struct Bytecode {
+			object: String,
+		}
 
+		let contract_abi: Contract = serde_json::from_slice(contract)?;
+		let mut bytecode = hex::decode(contract_abi.bytecode.object.replace("0x", ""))
+			.with_context(|| "Failed to get contract bytecode")?;
+		bytecode.extend(constructor.abi_encode());
+
+		let tx = TransactionRequest::default().with_deploy_code(bytecode);
+		let receipt = self.submit(tx).await?;
+
+		let contract_address = receipt
+			.contract_address()
+			.ok_or(anyhow!("Failed to get deployed contract address"))?;
+		let block_number = receipt
+			.block_number
+			.ok_or(anyhow!("Failed to get contract deployement block"))?;
+		Ok((contract_address, block_number))
+	}
+}
+
+#[derive(Clone)]
+struct Submitter {
+	// Temporary fix to avoid nonce overlap
+	wallet_guard: Arc<Mutex<()>>,
+	tx_timeout: Duration,
+}
+
+impl Submitter {
+	fn new(tx_timeout: Duration) -> Self {
+		Self {
+			tx_timeout,
+			wallet_guard: Default::default(),
+		}
+	}
+}
+
+impl Submitter {
+	async fn submit(
+		&self,
+		provider: impl Provider<AnyNetwork>,
+		tx: TransactionRequest,
+	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
 		let guard = self.wallet_guard.lock().await;
-		let pending_tx = self.rpc.send_transaction(WithOtherFields::new(tx)).await?;
+		let pending_tx = provider.send_transaction(WithOtherFields::new(tx)).await?;
 		drop(guard);
-		let tx_hash = *pending_tx.tx_hash();
-		tracing::debug!("deployment tx: {tx_hash}");
+		tracing::info!("tx {:?} submitted", pending_tx.tx_hash());
 
-		let receipt = pending_tx.get_receipt().await?;
-		tracing::debug!("deployment tx receipt: {receipt:?}");
+		let receipt = pending_tx.with_timeout(Some(self.tx_timeout)).get_receipt().await?;
+		tracing::info!("tx {:?} confirmed", receipt.transaction_hash());
 
-		let log = receipt
-			.inner
-			.inner
-			.logs()
-			.iter()
-			.find(|log| log.address() == factory_address)
-			.with_context(|| format!("tx {tx_hash} logs not found"))?;
-
-		let topic =
-			log.topics().first().with_context(|| format!("tx {tx_hash} topic not found"))?;
-
-		let contract_address = Address20::from_slice(&topic[12..]);
-		Ok((contract_address, receipt.block_number.unwrap()))
+		if !receipt.inner.inner.is_success() {
+			anyhow::bail!("tx {:?} failed", receipt.transaction_hash());
+		}
+		Ok(receipt)
 	}
-
-	// TODO this needs refactoring: why deployer and contract bytecode are hard-coded?
-	async fn deploy_factory_contract(&self, config: &DeploymentConfig) -> Result<()> {
-		let deployer_address = self.parse_address(&config.factory_deployer)?;
-		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		self.transfer(deployer_address, config.required_balance).await?;
-		//Step2: load transaction from config
-		let encoded_tx = hex::decode(config.raw_tx.strip_prefix("0x").unwrap_or(&config.raw_tx))?;
-		//Step3: send eth_rawTransaction
-		let tx_hash = self
-			.rpc
-			.send_raw_transaction(&encoded_tx)
-			.await?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?
-			.transaction_hash;
-		tracing::info!("factory deployed with tx {tx_hash}");
-
-		Ok(())
-	}
-
-	async fn deploy_gateway_contract(
-		&self,
-		proxy: Address20,
-		mut bytecode: Vec<u8>,
-	) -> Result<Address20> {
-		let constructor = sol::Gateway::constructorCall {
-			network: self.network_id,
-			proxy,
-		};
-		bytecode.extend(constructor.abi_encode());
-		let tx = TransactionRequest::default()
-			.with_chain_id(self.chain_id)
-			.with_deploy_code(bytecode);
-
-		let _guard = self.wallet_guard.lock().await;
-		let receipt = self
-			.rpc
-			.send_transaction(WithOtherFields::new(tx))
-			.await?
-			.with_timeout(Some(Duration::from_secs(DEFAULT_TX_TIMEOUT)))
-			.get_receipt()
-			.await?;
-		drop(_guard);
-		let gateway_address = receipt.contract_address().expect("Failed to get contract address");
-
-		tracing::info!("Gateway deployed at: {:?}", gateway_address);
-
-		Ok(gateway_address)
-	}
-
-	async fn deploy_proxy_contract(
-		&self,
-		config: &DeploymentConfig,
-		proxy_addr: Address20,
-		gateway_address: Address20,
-		mut bytecode: Vec<u8>,
-	) -> Result<(Address20, u64)> {
-		// constructor params
-		let admin = a_addr(self.address());
-		let constructor = sol::GatewayProxy::constructorCall { admin };
-		bytecode.extend(constructor.abi_encode());
-		// computing signature for security purpose
-		let digest = ProxyDigest {
-			proxy: proxy_addr,
-			implementation: gateway_address,
-		}
-		.abi_encode();
-		let payload: [u8; 32] = Keccak256::digest(digest).into();
-		let sig = self.signer.sign_hash_sync(&payload.into())?;
-		let arguments = ProxyContext {
-			// Ethereum verification uses 27,28 instead of 0,1 for recovery id
-			v: sig.v() as u8 + 27,
-			r: sig.r().into(),
-			s: sig.s().into(),
-			implementation: gateway_address,
-		}
-		.abi_encode();
-
-		let initializer = sol::Gateway::initializeCall {
-			admin,
-			keys: vec![],
-			networks: vec![],
-		}
-		.abi_encode();
-
-		// Proxy creation
-		let call = sol::IUniversalFactory::create2_1Call {
-			salt: config.deployment_salt.into(),
-			creationCode: bytecode.into(),
-			arguments: arguments.into(),
-			callback: initializer.into(),
-		}
-		.abi_encode();
-
-		let (proxy_address, block) = self.deploy_contract_with_factory(config, call).await?;
-
-		if proxy_address != proxy_addr {
-			anyhow::bail!(
-				"Unable to compute proxy address: expected: {:?}, got {:?}",
-				proxy_addr,
-				proxy_address
-			);
-		}
-		tracing::info!("proxy deployed at {} {}", proxy_address, block);
-		Ok((proxy_address, block))
-	}
-}
-
-fn compute_create2_address(
-	factory_address: [u8; 20],
-	salt: [u8; 32],
-	bytecode: &[u8],
-	constructor: impl SolConstructor,
-) -> Result<Address20> {
-	// solidity
-	// bytes32 create2hash = keccak256(abi.encodePacked(uint8(0xff), address(factory), salt, initcodeHash));
-	// return address(uint160(uint256(create2hash)));
-	let mut hasher = Keccak256::new();
-	hasher.update(bytecode);
-	hasher.update(constructor.abi_encode());
-	let init_code_hash = hasher.finalize();
-
-	let mut hasher = Keccak256::new();
-	hasher.update([0xff]);
-	hasher.update(factory_address);
-	hasher.update(salt);
-	hasher.update(init_code_hash);
-	let proxy_hashed = hasher.finalize();
-
-	Ok(Address20::from_slice(&proxy_hashed[12..]))
-}
-
-fn extract_bytecode(json_abi: &[u8]) -> Result<Vec<u8>> {
-	let contract_abi: Contract = serde_json::from_slice(json_abi)?;
-	hex::decode(contract_abi.bytecode.object.replace("0x", ""))
-		.with_context(|| "Failed to get contract bytecode")
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct DeploymentConfig {
-	pub factory_deployer: String,
-	pub required_balance: u128,
-	pub raw_tx: String,
-	pub factory_address: String,
-	pub deployment_salt: [u8; 32],
-}
-
-#[derive(Deserialize)]
-struct Contract {
-	bytecode: Bytecode,
-}
-
-#[derive(Deserialize)]
-struct Bytecode {
-	object: String,
 }

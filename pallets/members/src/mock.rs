@@ -10,9 +10,7 @@ use sp_runtime::{
 	BuildStorage, DispatchError, MultiSignature,
 };
 
-use time_primitives::{
-	ElectionsInterface, NetworkId, PublicKey, ShardId, ShardsInterface, TssPublicKey,
-};
+use time_primitives::{ElectionsInterface, NetworkId, ShardId, ShardsInterface, TssPublicKey};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -25,10 +23,6 @@ impl ElectionsInterface for MockElections {
 	fn member_online(_: &AccountId, _: NetworkId) {}
 	fn members_offline(_: Vec<AccountId>, _: NetworkId) {}
 	fn shard_offline(_network: NetworkId, _members: Vec<AccountId>) {}
-}
-
-pub fn pubkey_from_bytes(bytes: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(bytes))
 }
 
 pub struct MockShards;

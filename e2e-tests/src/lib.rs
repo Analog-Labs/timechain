@@ -112,7 +112,6 @@ impl TestEnvBuilder {
 						Backend::Evm,
 						BackendConfig {
 							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json"),
-							factory: workspace.join("gmp/evm/auxiliary/factory.json"),
 							proxy: workspace
 								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
 							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
@@ -214,7 +213,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
-				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7",
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7 -vvvvv",
 			])
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
@@ -306,11 +305,14 @@ impl TestEnvBuilder {
 		Ok(())
 	}
 
-	pub async fn build(self) -> Result<TestEnv> {
+	pub fn build(mut self) -> Result<TestEnv> {
 		let env = self.temp.path().to_path_buf();
 		std::fs::write(env.join("config.yaml"), serde_yaml::to_string(&self.config)?)?;
 		tc_cli::config::write_prices(&env.join("prices.csv"), &self.prices)?;
 		std::env::set_var("TC_CLI_ENV", &env);
+		if std::env::var("TESTCONTAINERS_COMMAND").as_deref() == Ok("keep") {
+			self.temp.disable_cleanup(true);
+		}
 		Ok(TestEnv {
 			temp: self.temp,
 			validator: self.validator,
@@ -353,7 +355,7 @@ impl TestEnv {
 				anyhow::bail!("unsupported backend {backend}");
 			},
 		}
-		let env = builder.build().await?;
+		let env = builder.build()?;
 		let tc = Tester::new().await?;
 		env.snapshot().await?;
 		Ok((env, tc))

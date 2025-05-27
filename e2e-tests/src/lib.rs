@@ -366,7 +366,7 @@ impl TestEnv {
 			},
 		}
 		let env = builder.build()?;
-		let tc = Tester::new().await?;
+		let tc = Tester::new(true).await?;
 		env.snapshot().await?;
 		Ok((env, tc))
 	}

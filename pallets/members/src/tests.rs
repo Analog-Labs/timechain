@@ -14,7 +14,7 @@ const C: [u8; 32] = [3u8; 32];
 const ETHEREUM: NetworkId = 0;
 
 fn register_member(pubkey: [u8; 32]) -> DispatchResult {
-	Members::register_member(RawOrigin::Root.into(), ETHEREUM, pubkey_from_bytes(pubkey), pubkey)
+	Members::register_member(RawOrigin::Root.into(), ETHEREUM, pubkey.into(), pubkey)
 }
 
 fn unregister_member(pubkey: [u8; 32]) -> DispatchResult {

@@ -365,15 +365,10 @@ pub trait IConnector: IChain {
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IConnector {
+	/// Deploys the proxy contract.
+	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)>;
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(
-		&self,
-		additional_params: &[u8],
-		proxy: &[u8],
-		gateway: &[u8],
-	) -> Result<(Address32, u64)>;
-	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()>;
+	async fn deploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32>;
 	/// Sets the gateway admin.
@@ -387,7 +382,7 @@ pub trait IConnectorAdmin: IConnector {
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()>;
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)>;
+	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)>;
 	/// Estimates the message gas limit.
 	async fn estimate_message_gas_limit(
 		&self,

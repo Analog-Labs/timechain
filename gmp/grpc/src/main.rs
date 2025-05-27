@@ -117,28 +117,28 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::SubmitCommandsResponse {}))
 	}
 
+	async fn deploy_proxy(
+		&self,
+		request: Request<proto::DeployProxyRequest>,
+	) -> GmpResult<proto::DeployProxyResponse> {
+		let (connector, msg) = self.connector(request)?;
+		let (address, block) = connector
+			.deploy_proxy(&msg.proxy)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::DeployProxyResponse { address, block }))
+	}
+
 	async fn deploy_gateway(
 		&self,
 		request: Request<proto::DeployGatewayRequest>,
 	) -> GmpResult<proto::DeployGatewayResponse> {
 		let (connector, msg) = self.connector(request)?;
-		let (address, block) = connector
-			.deploy_gateway(&[], &msg.proxy, &msg.gateway)
-			.await
-			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::DeployGatewayResponse { address, block }))
-	}
-
-	async fn redeploy_gateway(
-		&self,
-		request: Request<proto::RedeployGatewayRequest>,
-	) -> GmpResult<proto::RedeployGatewayResponse> {
-		let (connector, msg) = self.connector(request)?;
 		connector
-			.redeploy_gateway(msg.proxy, &msg.gateway)
+			.deploy_gateway(msg.proxy, &msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::RedeployGatewayResponse {}))
+		Ok(Response::new(proto::DeployGatewayResponse {}))
 	}
 
 	async fn admin(
@@ -217,16 +217,16 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::SetRouteResponse {}))
 	}
 
-	async fn deploy_test(
+	async fn deploy_tester(
 		&self,
-		request: Request<proto::DeployTestRequest>,
-	) -> GmpResult<proto::DeployTestResponse> {
+		request: Request<proto::DeployTesterRequest>,
+	) -> GmpResult<proto::DeployTesterResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let (address, block) = connector
-			.deploy_test(msg.gateway, &msg.tester)
+			.deploy_tester(msg.gateway, &msg.tester)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::DeployTestResponse { address, block }))
+		Ok(Response::new(proto::DeployTesterResponse { address, block }))
 	}
 
 	async fn estimate_message_gas_limit(

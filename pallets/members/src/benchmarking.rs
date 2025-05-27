@@ -6,69 +6,58 @@ use polkadot_sdk::*;
 use frame_benchmarking::benchmarks;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use time_primitives::{AccountId, MembersInterface, NetworkId, PublicKey};
+use time_primitives::{AccountId, MembersInterface, NetworkId};
 
 pub const ALICE: [u8; 32] = [1u8; 32];
 pub const ETHEREUM: NetworkId = 1;
 
-fn public_key() -> PublicKey {
-	pk_from_account(ALICE)
-}
-
-fn pk_from_account(r: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(r))
-}
-
 benchmarks! {
 	register_member {
-		let caller: AccountId = ALICE.into();
-	}: _(RawOrigin::Root, ETHEREUM, public_key(), ALICE)
+	}: _(RawOrigin::Root, ETHEREUM, ALICE.into(), ALICE)
 	verify { }
 
 	send_heartbeat {
-		let caller: AccountId = ALICE.into();
-		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
-	}: _(RawOrigin::Signed(caller))
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, ALICE.into(), ALICE);
+	}: _(RawOrigin::Signed(ALICE.into()))
 	verify { }
 
 	unregister_member {
-		let caller: AccountId = ALICE.into();
-		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
-	}: _(RawOrigin::Root, caller)
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, ALICE.into(), ALICE);
+	}: _(RawOrigin::Root, ALICE.into())
 	verify { }
 
 	timeout_heartbeats {
 		let b in 1..T::MaxTimeoutsPerBlock::get();
 		for i in 0..b {
 			let raw = [i as u8; 32];
-			let caller: AccountId = raw.into();
-			Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, pk_from_account(raw), caller.clone().into())?;
+			let acc: AccountId = raw.into();
+			Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, acc.clone(), raw)?;
 			// Send heartbeat to set caller online and set heartbeat
-			Pallet::<T>::send_heartbeat(RawOrigin::Signed(caller.clone()).into())?;
-			assert!(MemberOnline::<T>::get(&caller).is_some());
-			assert!(Heartbeat::<T>::get(&caller).is_some());
+			Pallet::<T>::send_heartbeat(RawOrigin::Signed(acc.clone()).into())?;
+			assert!(MemberOnline::<T>::get(&acc).is_some());
+			assert!(Heartbeat::<T>::get(&acc).is_some());
 			// Add to timed out as if heartbeat was never submitted
-			TimedOut::<T>::mutate(|x| x.push(caller.clone()));
+			TimedOut::<T>::mutate(|x| x.push(acc.clone()));
 		}
 	}: {
 		Pallet::<T>::timeout_heartbeats();
 	} verify {
 		for i in 0..b {
-			let caller: AccountId = [i as u8; 32].into();
-			assert!(MemberOnline::<T>::get(&caller).is_none());
-			assert!(Heartbeat::<T>::get(&caller).is_none());
+			let raw = [i as u8; 32];
+			let acc: AccountId = raw.into();
+			assert!(MemberOnline::<T>::get(&acc).is_none());
+			assert!(Heartbeat::<T>::get(&acc).is_none());
 			// Next timed out set is derived from heartbeats previously in storage
-			assert!(TimedOut::<T>::get().contains(&caller));
+			assert!(TimedOut::<T>::get().contains(&acc));
 		}
 	}
 
 	is_member {
-		let caller: AccountId = ALICE.into();
-		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, public_key(), ALICE);
+		let _ = Pallet::<T>::register_member(RawOrigin::Root.into(), ETHEREUM, ALICE.into(), ALICE);
 
 		let result: bool;
 	} : {
-		result = Pallet::<T>::is_member_registered(&caller);
+		result = Pallet::<T>::is_member_registered(&ALICE.into());
 	} verify {
 		assert!(result);
 	}

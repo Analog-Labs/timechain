@@ -75,25 +75,24 @@ pub struct SubmitCommandsRequest {
 pub struct SubmitCommandsResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployGatewayRequest {
+pub struct DeployProxyRequest {
 	pub proxy: Vec<u8>,
-	pub gateway: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployGatewayResponse {
+pub struct DeployProxyResponse {
 	pub address: Address32,
 	pub block: u64,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RedeployGatewayRequest {
+pub struct DeployGatewayRequest {
 	pub proxy: Address32,
 	pub gateway: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RedeployGatewayResponse {}
+pub struct DeployGatewayResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct AdminRequest {
@@ -153,13 +152,13 @@ pub struct SetRouteRequest {
 pub struct SetRouteResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployTestRequest {
+pub struct DeployTesterRequest {
 	pub gateway: Address32,
 	pub tester: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployTestResponse {
+pub struct DeployTesterResponse {
 	pub address: Address32,
 	pub block: u64,
 }

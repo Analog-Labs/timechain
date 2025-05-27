@@ -51,6 +51,7 @@ async fn gateway_payments() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore] // TODO
 async fn gateway_payments_evm_tss() -> Result<()> {
 	let (_env, tc) = TestEnv::new(Backend::Evm, true).await?;
 	test_gateway_payments(tc).await

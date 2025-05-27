@@ -49,7 +49,7 @@ pub enum Tx {
 	// members
 	RegisterMember {
 		network: NetworkId,
-		public_key: PublicKey,
+		account: AccountId,
 		peer_id: PeerId,
 	},
 	UnregisterMember {
@@ -199,12 +199,12 @@ where
 				self.client.sign_payload(&payload, params)
 			},
 			// members
-			Tx::RegisterMember { network, public_key, peer_id } => {
-				let public_key = subxt::utils::Static(public_key);
+			Tx::RegisterMember { network, account, peer_id } => {
+				let member = subxt::utils::Static(account);
 				let runtime_call = RuntimeCall::Members(
 					metadata::runtime_types::pallet_members::pallet::Call::register_member {
 						network,
-						public_key,
+						member,
 						peer_id,
 					},
 				);

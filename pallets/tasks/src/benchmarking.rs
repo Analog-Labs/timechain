@@ -6,16 +6,14 @@ use frame_benchmarking::benchmarks;
 use frame_support::pallet_prelude::Get;
 use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
-use pallet_members::MemberPublicKey;
 use pallet_networks::NetworkGatewayAddress;
 use pallet_shards::{ShardCommitment, ShardState};
-use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_core, sp_runtime, sp_std};
+use polkadot_sdk::{frame_benchmarking, frame_support, frame_system, sp_runtime, sp_std};
 use sp_runtime::{BoundedVec, Vec};
 use sp_std::vec;
 use time_primitives::{
-	AccountId, Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, PublicKey,
-	ShardStatus, ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey,
-	TssSignature,
+	Commitment, ElectionsInterface, ErrorMsg, GmpEvents, NetworkId, ShardStatus, ShardsInterface,
+	Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -43,11 +41,6 @@ fn create_shard<
 		1,
 	)
 	.unwrap_or_default();
-	for m in [[0u8; 32], [1u8; 32], [2u8; 32]] {
-		let pk = PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(m));
-		let acc: AccountId = m.into();
-		MemberPublicKey::<T>::insert(acc, pk);
-	}
 	ShardCommitment::<T>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![PUBKEY])));
 	ShardRegistered::<T>::insert(PUBKEY, ());
 	Pallet::<T>::shard_online(shard_id, network);

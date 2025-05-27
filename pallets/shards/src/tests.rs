@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::{Event, ShardMembers, ShardNetwork, ShardState};
 
-use polkadot_sdk::{frame_support, frame_system, sp_core, sp_runtime};
+use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -12,7 +12,7 @@ use schnorr_evm::VerifyingKey;
 use sp_runtime::BoundedVec;
 
 use time_primitives::{
-	AccountId, Commitment, NetworkId, PeerId, PublicKey, ShardId, ShardStatus, ShardsInterface,
+	AccountId, Commitment, NetworkId, PeerId, ShardId, ShardStatus, ShardsInterface,
 };
 
 const ETHEREUM: NetworkId = 0;
@@ -22,10 +22,6 @@ struct Member {
 	peer_id: PeerId,
 	scalar: Scalar,
 	public_key: [u8; 33],
-}
-
-fn public_key(acc: [u8; 32]) -> PublicKey {
-	PublicKey::Sr25519(sp_core::sr25519::Public::from_raw(acc))
 }
 
 impl Member {
@@ -70,7 +66,7 @@ fn create_shard(shard_id: ShardId, shard: &[Member], threshold: u16) {
 		assert_ok!(Members::register_member(
 			RawOrigin::Root.into(),
 			ETHEREUM,
-			public_key(member.peer_id),
+			member.account_id.clone(),
 			member.peer_id,
 		));
 		assert_ok!(Members::send_heartbeat(RawOrigin::Signed(member.account_id.clone()).into()));
@@ -122,7 +118,7 @@ fn test_register_shard() {
 				assert_ok!(Members::register_member(
 					RawOrigin::Root.into(),
 					ETHEREUM,
-					public_key(member.peer_id),
+					member.account_id.clone(),
 					member.peer_id,
 				));
 				assert_ok!(Shards::commit(

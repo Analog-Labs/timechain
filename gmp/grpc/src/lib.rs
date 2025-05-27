@@ -165,27 +165,19 @@ impl IConnector for Connector {
 
 #[tonic::async_trait]
 impl IConnectorAdmin for Connector {
-	/// Deploys the gateway contract.
-	async fn deploy_gateway(
-		&self,
-		_additional_params: &[u8],
-		proxy: &[u8],
-		gateway: &[u8],
-	) -> Result<(Address32, u64)> {
-		let request = Request::new(proto::DeployGatewayRequest {
-			proxy: proxy.to_vec(),
-			gateway: gateway.to_vec(),
-		});
-		let response = self.client.lock().await.deploy_gateway(request).await?.into_inner();
+	/// Deploys the proxy contract.
+	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)> {
+		let request = Request::new(proto::DeployProxyRequest { proxy: proxy.to_vec() });
+		let response = self.client.lock().await.deploy_proxy(request).await?.into_inner();
 		Ok((response.address, response.block))
 	}
-	/// Redeploys the gateway contract.
-	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
-		let request = Request::new(proto::RedeployGatewayRequest {
+	/// Deploys the gateway contract.
+	async fn deploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
+		let request = Request::new(proto::DeployGatewayRequest {
 			proxy,
 			gateway: gateway.to_vec(),
 		});
-		self.client.lock().await.redeploy_gateway(request).await?;
+		self.client.lock().await.deploy_gateway(request).await?;
 		Ok(())
 	}
 	/// Returns the gateway admin.
@@ -230,12 +222,12 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 	/// Deploys a test contract.
-	async fn deploy_test(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
-		let request = Request::new(proto::DeployTestRequest {
+	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+		let request = Request::new(proto::DeployTesterRequest {
 			gateway,
 			tester: tester.to_vec(),
 		});
-		let response = self.client.lock().await.deploy_test(request).await?.into_inner();
+		let response = self.client.lock().await.deploy_tester(request).await?.into_inner();
 		Ok((response.address, response.block))
 	}
 	/// Estimates the message gas limit.

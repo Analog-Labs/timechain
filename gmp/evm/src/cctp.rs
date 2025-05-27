@@ -1,4 +1,3 @@
-use crate::sol::CCTP;
 use alloy::sol_types::SolValue;
 use anyhow::Result;
 use futures::future::BoxFuture;
@@ -22,6 +21,31 @@ type CircleRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock>;
 struct AttestationResponse {
 	status: String,
 	attestation: Option<String>,
+}
+
+alloy::sol! {
+	#[derive(Debug, Default, PartialEq, Eq)]
+	struct CCTP {
+		/// The attestation (obs: will be provided by the chronicle).
+		bytes attestation;
+		/// The message bytes emitted by the MessageSent event (must be provided).
+		bytes message;
+		/// Extra data field used by cctp implementers for custom usage
+		bytes extraData;
+	}
+}
+
+impl CCTP {
+	pub fn get_version(&self) -> anyhow::Result<u32> {
+		if self.message.len() < 4 {
+			return Err(anyhow::anyhow!("Message is too short to contain a version field"));
+		}
+		let version_bytes: [u8; 4] = self.message[0..4]
+			.try_into()
+			.map_err(|_| anyhow::anyhow!("Failed to extract version bytes"))?;
+		let version = u32::from_be_bytes(version_bytes);
+		Ok(version)
+	}
 }
 
 #[derive(Clone, Debug)]

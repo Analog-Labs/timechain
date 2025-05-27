@@ -25,10 +25,7 @@ fn derive(path: &Path, module: &str) -> String {
 		"time_primitives::task::GmpEvents",
 		"time_primitives::task::ErrorMsg",
 	];
-	let others = [
-		("sp_core::crypto::AccountId32", "time_primitives::AccountId"),
-		("sp_runtime::MultiSigner", "time_primitives::PublicKey"),
-	];
+	let others = [("sp_core::crypto::AccountId32", "time_primitives::AccountId")];
 	let mut substitutes = String::new();
 	for ty in simple_types {
 		substitutes.push_str(&substitute(ty, ty));

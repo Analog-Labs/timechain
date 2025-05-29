@@ -89,6 +89,9 @@
         buildInputs = [
           tpkgs.zlib.static
         ];
+
+        # Hardening breaks tikv-jemallocator
+        NIX_HARDENING_ENABLE = "";
       };
 
       # Create developer shell for combination of build package set and target abi

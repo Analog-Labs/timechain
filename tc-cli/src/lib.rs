@@ -1540,15 +1540,13 @@ impl Tc {
 				self.parse_balance(Some(chronicle.network), &config.chronicle_funds)?;
 			let balance =
 				self.balance(Some(chronicle.network), chronicle.address, block_hash).await?;
+			let diff = balance as i128 - chronicle_funds as i128;
+			let sign = if diff < 0 { "-" } else { "" };
 			tracing::info!(
-				"initial chronicle balance {}",
-				self.format_balance(Some(chronicle.network), chronicle_funds)?
+				"chronicle balance diff {sign}{}",
+				self.format_balance(Some(chronicle.network), diff.abs() as u128)?
 			);
-			tracing::info!(
-				"current chronicle balance {}",
-				self.format_balance(Some(chronicle.network), balance)?
-			);
-			anyhow::ensure!(balance >= chronicle_funds, "reimbursement failed");
+			anyhow::ensure!(diff == 0, "reimbursement failed");
 		}
 		Ok(())
 	}

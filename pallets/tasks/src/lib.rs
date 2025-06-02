@@ -746,10 +746,10 @@ pub mod pallet {
 						let msg_id = msg.message_id();
 						MessageBatchId::<T>::insert(msg_id, batch_id);
 					},
-					GatewayOp::RegisterShard(key) => {
+					GatewayOp::RegisterShard(key, _) => {
 						ShardRegisterBatchId::<T>::insert(key, batch_id);
 					},
-					GatewayOp::UnregisterShard(key) => {
+					GatewayOp::UnregisterShard(key, _) => {
 						ShardUnregisterBatchId::<T>::insert(key, batch_id);
 					},
 				}
@@ -808,7 +808,10 @@ pub mod pallet {
 				let Some(key) = T::Shards::tss_public_key(shard_id) else {
 					return;
 				};
-				Self::ops_queue(network).push(GatewayOp::RegisterShard(key));
+				let Some(sessions) = T::Shards::num_sessions(shard_id) else {
+					return;
+				};
+				Self::ops_queue(network).push(GatewayOp::RegisterShard(key, sessions));
 			}
 		}
 
@@ -827,7 +830,10 @@ pub mod pallet {
 			let Some(key) = T::Shards::tss_public_key(shard_id) else {
 				return;
 			};
-			Self::ops_queue(network).push(GatewayOp::UnregisterShard(key));
+			let Some(sessions) = T::Shards::num_sessions(shard_id) else {
+				return;
+			};
+			Self::ops_queue(network).push(GatewayOp::UnregisterShard(key, sessions));
 		}
 
 		fn gateway_registered(network: NetworkId, block: u64) {

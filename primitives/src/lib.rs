@@ -148,8 +148,6 @@ sp_api::decl_runtime_apis! {
 	pub trait NetworksApi {
 		fn get_network(network_id: NetworkId) -> Option<ChainName>;
 		fn get_gateway(network: NetworkId) -> Option<Address32>;
-		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts>;
-		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl>;
 	}
 
 	pub trait ShardsApi {
@@ -180,7 +178,7 @@ pub trait NetworksInterface {
 	fn get_networks() -> Vec<NetworkId>;
 	fn gateway(network: NetworkId) -> Option<Address32>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
-	fn batch_gas_limit(network: NetworkId) -> u128;
+	fn batch_gas_limit(network: NetworkId) -> u64;
 	fn shard_task_limit(network: NetworkId) -> u32;
 	fn shard_size(network: NetworkId) -> u16;
 	fn shard_threshold(network: NetworkId) -> u16;
@@ -212,6 +210,7 @@ pub trait ShardsInterface {
 		threshold: u16,
 	) -> Result<ShardId, DispatchError>;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
+	fn num_sessions(shard_id: ShardId) -> Option<u16>;
 }
 
 pub trait TasksInterface {

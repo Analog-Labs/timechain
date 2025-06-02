@@ -670,5 +670,11 @@ pub mod pallet {
 		fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey> {
 			ShardCommitment::<T>::get(shard_id).map(|commitment| commitment.0[0])
 		}
+
+		fn num_sessions(shard_id: ShardId) -> Option<u16> {
+			let threshold = <ShardThreshold<T>>::get(shard_id)?;
+			let size = ShardCommitment::<T>::get(shard_id)?.0.len() as u16;
+			Some(size - threshold + 1)
+		}
 	}
 }

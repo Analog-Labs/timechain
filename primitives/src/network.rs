@@ -5,10 +5,9 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
 pub const CHAIN_NAME_LEN: u32 = 50;
-pub const MAX_CCTP_ADDRESSES: u32 = 50;
-pub const MAX_CCTP_URL_LEN: u32 = 200;
 
 pub type NetworkId = u16;
+
 #[derive(
 	Encode,
 	Decode,
@@ -22,32 +21,6 @@ pub type NetworkId = u16;
 	Deserialize,
 )]
 pub struct ChainName(pub BoundedVec<u8, ConstU32<CHAIN_NAME_LEN>>);
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	PartialEq,
-	Eq,
-	Clone,
-	Debug,
-	Serialize,
-	Deserialize,
-)]
-pub struct CctpContracts(pub BoundedVec<Address32, ConstU32<MAX_CCTP_ADDRESSES>>);
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	PartialEq,
-	Eq,
-	Clone,
-	Debug,
-	Serialize,
-	Deserialize,
-)]
-pub struct CctpUrl(pub BoundedVec<u8, ConstU32<MAX_CCTP_URL_LEN>>);
 
 #[derive(
 	Clone,
@@ -84,10 +57,8 @@ pub struct Network {
 pub struct NetworkConfig {
 	pub batch_size: u32,
 	pub batch_offset: u32,
-	pub batch_gas_limit: u128,
+	pub batch_gas_limit: u64,
 	pub shard_task_limit: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub cctp_contracts: Option<CctpContracts>,
-	pub cctp_url: Option<CctpUrl>,
 }

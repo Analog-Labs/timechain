@@ -24,7 +24,11 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 	}
 	let shard_id = Shards::create_shard(network, members, t).unwrap_or_default();
 	let pub_key = MockTssSigner::new(shard_id).public_key();
-	ShardCommitment::<Test>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![pub_key])));
+	let mut commitment = vec![pub_key];
+	for _ in 0..(n - 1) {
+		commitment.push([0; 33]);
+	}
+	ShardCommitment::<Test>::insert(shard_id, Commitment(BoundedVec::truncate_from(commitment)));
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 	Tasks::shard_online(shard_id, network);
 	shard_id
@@ -145,7 +149,7 @@ fn test_shard_online_registers_shard() {
 		assert_eq!(
 			Tasks::get_batch_message(0),
 			Some(GatewayMessage {
-				ops: vec![GatewayOp::RegisterShard(MockTssSigner::new(shard).public_key())],
+				ops: vec![GatewayOp::RegisterShard(MockTssSigner::new(shard).public_key(), 3)],
 			})
 		);
 	})
@@ -164,7 +168,7 @@ fn test_shard_offline_unregisters_shard() {
 		assert_eq!(
 			Tasks::get_batch_message(1),
 			Some(GatewayMessage {
-				ops: vec![GatewayOp::UnregisterShard(MockTssSigner::new(shard).public_key())],
+				ops: vec![GatewayOp::UnregisterShard(MockTssSigner::new(shard).public_key(), 3)],
 			})
 		);
 	})

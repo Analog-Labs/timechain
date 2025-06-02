@@ -12,7 +12,6 @@ readme.workspace = true
 [dependencies]
 timechain-runtime.workspace = true
 
-pallet-dmail.workspace = true
 pallet-elections.workspace = true
 pallet-members.workspace = true
 pallet-networks.workspace = true

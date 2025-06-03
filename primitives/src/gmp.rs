@@ -164,12 +164,7 @@ impl GatewayOp {
 	}
 
 	pub fn gas(&self) -> u64 {
-		todo!();
-		/*match self {
-			Self::SendMessage(msg) => msg.gas_cost,
-			// TODO
-			_ => 40_000,
-		}*/
+		200_000
 	}
 }
 

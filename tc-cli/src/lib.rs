@@ -887,25 +887,11 @@ impl Tc {
 					relative_gas_price: (numerator, denominator),
 					gas_limit: config.route_gas_limit,
 					gmp_base_fee: config.route_base_fee,
+					base_gas: config.base_gas(),
+					msg_byte_gas: config.msg_byte_gas(),
 				};
-				if let Some(r) = routes.iter().find(|r| r.network_id == route.network_id) {
-					if r.relative_gas_price.1.is_zero() || route.relative_gas_price.1.is_zero() {
-						anyhow::bail!("Denominator cannot be zero");
-					}
-					let price_in_threshold = gas_price::is_relative_gas_in_threshold(
-						r.relative_gas_price,
-						route.relative_gas_price,
-						// percentage of diff
-						1,
-					)
-					.ok_or(anyhow::anyhow!("relative_gas_price overflow"))?;
-
-					if r.gas_limit == route.gas_limit
-						&& r.gmp_base_fee == route.gmp_base_fee
-						&& price_in_threshold
-					{
-						continue;
-					}
+				if routes.contains(&route) {
+					continue;
 				}
 				self.println(None, format!("register_route {src} {dest}")).await?;
 				set_routes.push(connector.set_route(src_gateway, route));
@@ -1113,14 +1099,15 @@ impl Tc {
 		let shards = connector.shards(gateway).await?;
 		let mut register = Vec::with_capacity(keys.len());
 		let mut revoke = Vec::with_capacity(shards.len());
-		for key in keys {
-			if !shards.contains(key) {
-				register.push(key);
+		let num_sessions = self.config.network(network)?.num_sessions();
+		for key in &keys {
+			if !shards.contains(&key) {
+				register.push((*key, num_sessions));
 			}
 		}
-		for key in shards {
-			if !keys.contains(key) {
-				revoke.push(key);
+		for key in &shards {
+			if !keys.contains(&key) {
+				revoke.push((*key, num_sessions));
 			}
 		}
 		if register.is_empty() && revoke.is_empty() {

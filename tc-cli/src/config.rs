@@ -238,16 +238,37 @@ pub struct NetworkConfig {
 	pub admin_funds: Option<String>,
 	pub gateway_funds: String,
 	pub chronicle_funds: String,
+	pub shard_task_limit: u32,
 	pub batch_size: u32,
 	pub batch_offset: u32,
 	pub batch_gas_limit: u64,
 	pub gmp_margin: f64,
-	pub shard_task_limit: u32,
 	pub route_gas_limit: u64,
 	pub route_base_fee: u128,
+	pub coin_id: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub coin_id: u32,
+	pub session_gas: u64,
+	pub session_msg_byte_gas: u64,
+	pub session_exec_gas: u64,
+}
+
+impl NetworkConfig {
+	pub fn num_sessions(&self) -> u16 {
+		self.shard_size - self.shard_threshold + 1
+	}
+
+	pub fn base_gas(&self) -> u64 {
+		self.num_sessions() as u64 * self.session_gas + self.session_exec_gas
+	}
+
+	pub fn msg_byte_gas(&self) -> u64 {
+		self.num_sessions() as u64 * self.session_msg_byte_gas
+	}
+
+	pub fn gas(&self, msg_size: u16, gas_limit: u64) -> u64 {
+		self.msg_byte_gas() * msg_size as u64 + self.base_gas() + gas_limit
+	}
 }
 
 #[cfg(test)]

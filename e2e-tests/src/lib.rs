@@ -177,8 +177,9 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 825,
-				cctp_contracts: None,
-				cctp_url: None,
+				session_gas: 50_000,
+				session_msg_byte_gas: 20,
+				session_exec_gas: 50_000,
 			},
 		);
 
@@ -243,8 +244,9 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 1027,
-				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
-				cctp_contracts: None,
+				session_gas: 50_000,
+				session_msg_byte_gas: 20,
+				session_exec_gas: 50_000,
 			},
 		);
 

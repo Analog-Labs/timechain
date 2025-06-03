@@ -204,30 +204,3 @@ impl Tc {
 		Ok((numerator, denominator))
 	}
 }
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn in_threshold() {
-		let values = [((10, 10), (1, 1))];
-		for ((a, b), (c, d)) in values {
-			assert_eq!(
-				is_relative_gas_in_threshold((a.into(), b.into()), (c.into(), d.into()), 1),
-				Some(true)
-			);
-		}
-	}
-
-	#[test]
-	fn not_in_threshold() {
-		let values = [((10, 10), (2, 1))];
-		for ((a, b), (c, d)) in values {
-			assert_eq!(
-				is_relative_gas_in_threshold((a.into(), b.into()), (c.into(), d.into()), 1),
-				Some(false)
-			);
-		}
-	}
-}

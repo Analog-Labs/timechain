@@ -1101,12 +1101,12 @@ impl Tc {
 		let mut revoke = Vec::with_capacity(shards.len());
 		let num_sessions = self.config.network(network)?.num_sessions();
 		for key in &keys {
-			if !shards.contains(&key) {
+			if !shards.contains(key) {
 				register.push((*key, num_sessions));
 			}
 		}
 		for key in &shards {
-			if !keys.contains(&key) {
+			if !keys.contains(key) {
 				revoke.push((*key, num_sessions));
 			}
 		}
@@ -1510,7 +1510,7 @@ impl Tc {
 			let sign = if diff < 0 { "-" } else { "" };
 			tracing::info!(
 				"chronicle balance diff {sign}{}",
-				self.format_balance(Some(chronicle.network), diff.abs() as u128)?
+				self.format_balance(Some(chronicle.network), diff.unsigned_abs())?
 			);
 			anyhow::ensure!(diff == 0, "reimbursement failed");
 		}

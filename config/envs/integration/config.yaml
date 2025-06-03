@@ -26,9 +26,9 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    cctp_contracts:
-    - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
-    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
   13:
     backend: "evm"
     name: "arbitrum sepolia"
@@ -45,9 +45,9 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    cctp_contracts:
-    - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
-    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-19.integration.analog.one

@@ -27,6 +27,9 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 825
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 
   1:
     backend: "grpc"
@@ -45,6 +48,9 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 825
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 
   2:
     backend: "grpc"
@@ -63,6 +69,9 @@ networks:
     shard_size: 3
     shard_threshold: 2
     coin_id: 825
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 
   3:
     backend: "grpc"
@@ -81,6 +90,9 @@ networks:
     shard_size: 3
     shard_threshold: 2
     coin_id: 825
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 
   4:
     backend: "evm"
@@ -99,9 +111,9 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    cctp_contracts:
-    - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
-    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 
   5:
     backend: "evm"
@@ -122,6 +134,9 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 12885
+    session_gas: 50000
+    session_exec_gas: 50000
+    session_msg_byte_gas: 20
 
 chronicles:
 - https://chronicle-1.development.analog.one

@@ -34,8 +34,6 @@ fn network() -> Network {
 			shard_task_limit: 10,
 			shard_size: 3,
 			shard_threshold: 2,
-			cctp_contracts: None,
-			cctp_url: None,
 		},
 	}
 }

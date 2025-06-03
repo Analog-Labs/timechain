@@ -221,7 +221,7 @@ impl IConnector for Connector {
 							src: log.source.into(),
 							dest: t_addr(log.destinationAddress),
 							nonce: log.nonce,
-							gas_limit: log.gasLimit.into(),
+							gas_limit: log.gasLimit,
 							bytes: log.data.data.into(),
 						};
 						tracing::info!("gmp created: {:?}", hex::encode(gmp_message.message_id()));

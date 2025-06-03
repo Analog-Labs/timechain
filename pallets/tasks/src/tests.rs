@@ -83,7 +83,6 @@ fn mock_gmp_msg(nonce: u64) -> GmpMessage {
 		dest: [0; 32],
 		nonce,
 		gas_limit: 10_000,
-		gas_cost: 10_000,
 		bytes: vec![],
 	}
 }

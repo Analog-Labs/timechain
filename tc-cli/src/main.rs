@@ -387,11 +387,11 @@ async fn real_main() -> Result<()> {
 			msg_size,
 			gas_limit,
 		} => {
-			let payload = hex::decode(payload)?;
-			let gas_cost = tc
+			let msg_cost = tc
 				.estimate_message_cost(src_network, dest_network, msg_size, gas_limit, block)
 				.await?;
-			tc.println(None, gas_cost.to_string()).await?;
+			let balance = tc.format_balance(Some(src_network), msg_cost)?;
+			tc.println(None, balance).await?;
 		},
 		Command::SendMessage {
 			src_network,

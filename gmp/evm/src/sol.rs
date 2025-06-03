@@ -100,7 +100,7 @@ impl From<GmpProxy::GmpMessage> for time_primitives::GmpMessage {
 			src: msg.source.into(),
 			dest: t_addr(msg.dest),
 			nonce: msg.nonce,
-			gas_limit: msg.gasLimit.into(),
+			gas_limit: msg.gasLimit,
 			bytes: msg.data.into(),
 		}
 	}
@@ -114,7 +114,7 @@ impl From<time_primitives::GmpMessage> for Gateway::GmpMessage {
 			source: msg.src.into(),
 			dest: a_addr(msg.dest),
 			nonce: msg.nonce,
-			gasLimit: msg.gas_limit as u64,
+			gasLimit: msg.gas_limit,
 			data: msg.bytes.into(),
 		}
 	}

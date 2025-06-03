@@ -35,7 +35,7 @@ impl NetworksInterface for MockNetworks {
 	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
 		5
 	}
-	fn batch_gas_limit(_network: NetworkId) -> u128 {
+	fn batch_gas_limit(_network: NetworkId) -> u64 {
 		10
 	}
 	fn shard_task_limit(_network: NetworkId) -> u32 {

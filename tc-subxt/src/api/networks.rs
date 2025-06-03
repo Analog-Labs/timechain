@@ -3,9 +3,7 @@ use crate::{metadata, SubxtClient};
 use anyhow::Result;
 use futures::channel::oneshot;
 use subxt::utils::H256;
-use time_primitives::{
-	Address32, BlockHash, CctpContracts, CctpUrl, ChainName, Network, NetworkConfig, NetworkId,
-};
+use time_primitives::{Address32, BlockHash, ChainName, Network, NetworkConfig, NetworkId};
 
 impl SubxtClient {
 	pub async fn register_network(&self, network: Network) -> Result<()> {
@@ -51,40 +49,6 @@ impl SubxtClient {
 		Ok(data)
 	}
 
-	pub async fn get_cctp_contracts(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<Option<CctpContracts>> {
-		let block = H256(block.0);
-		let runtime_call = metadata::apis().networks_api().get_cctp_contracts(network);
-		let data: Option<CctpContracts> = self
-			.client
-			.runtime_api()
-			.at(block)
-			.call(runtime_call)
-			.await?
-			.map(|contracts| (*contracts).clone());
-		Ok(data)
-	}
-
-	pub async fn get_cctp_url(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<Option<CctpUrl>> {
-		let block = H256(block.0);
-		let runtime_call = metadata::apis().networks_api().get_cctp_url(network);
-		let data: Option<CctpUrl> = self
-			.client
-			.runtime_api()
-			.at(block)
-			.call(runtime_call)
-			.await?
-			.map(|url| (*url).clone());
-		Ok(data)
-	}
-
 	pub async fn network_gateway(
 		&self,
 		network: NetworkId,
@@ -114,7 +78,7 @@ impl SubxtClient {
 		&self,
 		network: NetworkId,
 		block: BlockHash,
-	) -> Result<u128> {
+	) -> Result<u64> {
 		let block = H256(block.0);
 		let storage_query = metadata::storage().networks().network_batch_gas_limit(network);
 		let data = self.client.storage().at(block).fetch(&storage_query).await?.unwrap_or_default();

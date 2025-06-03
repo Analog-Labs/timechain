@@ -6,14 +6,10 @@ fn substitute(path: &str, with: &str) -> String {
 
 fn derive(path: &Path, module: &str) -> String {
 	let simple_types = [
-		"time_primitives::dmail::DmailTo",
-		"time_primitives::dmail::DmailPath",
 		"time_primitives::gmp::GmpMessage",
 		"time_primitives::gmp::GatewayOp",
 		"time_primitives::gmp::GatewayMessage",
 		"time_primitives::gmp::GmpEvent",
-		"time_primitives::network::CctpContracts",
-		"time_primitives::network::CctpUrl",
 		"time_primitives::network::ChainName",
 		"time_primitives::network::Network",
 		"time_primitives::network::NetworkConfig",

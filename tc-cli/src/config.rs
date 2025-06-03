@@ -192,14 +192,6 @@ impl Config {
 	pub fn network(&self, network: NetworkId) -> Result<&NetworkConfig> {
 		self.yaml.networks.get(&network).context("no network config")
 	}
-
-	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: String) -> Result<()> {
-		let config = self.yaml.networks.get_mut(&network).context("no network config")?;
-		let mut contracts = config.cctp_contracts.take().unwrap_or_default();
-		contracts.push(contract);
-		config.cctp_contracts = Some(contracts);
-		Ok(())
-	}
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -248,15 +240,13 @@ pub struct NetworkConfig {
 	pub chronicle_funds: String,
 	pub batch_size: u32,
 	pub batch_offset: u32,
-	pub batch_gas_limit: u128,
+	pub batch_gas_limit: u64,
 	pub gmp_margin: f64,
 	pub shard_task_limit: u32,
 	pub route_gas_limit: u64,
 	pub route_base_fee: u128,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub cctp_contracts: Option<Vec<String>>,
-	pub cctp_url: Option<String>,
 	pub coin_id: u32,
 }
 

@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address32, BalanceFormatter, BatchId, BlockHash, BlockNumber, CctpContracts,
-	CctpUrl, ChainName, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash,
-	IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus,
-	TaskId, TssPublicKey,
+	AccountId, Address32, BalanceFormatter, BatchId, BlockHash, BlockNumber, ChainName,
+	ConnectorParams, GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash, IConnectorAdmin,
+	MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus, TaskId,
+	TssPublicKey,
 };
 
 mod benchmark;
@@ -458,18 +458,6 @@ pub struct MessageTrace {
 	pub exec: Option<Task>,
 }
 
-fn same<T: PartialEq>(a: &[T], b: &[T]) -> bool {
-	if a.len() != b.len() {
-		return false;
-	}
-	for a in a {
-		if !b.contains(a) {
-			return false;
-		}
-	}
-	true
-}
-
 impl Tc {
 	pub async fn read_events_blocks(
 		&self,
@@ -689,7 +677,7 @@ impl Tc {
 		block_hash: BlockHash,
 	) -> Result<Vec<GmpEvent>> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		connector.read_events(gateway, blocks, None).await
+		connector.read_events(gateway, blocks).await
 	}
 
 	pub async fn messages(
@@ -813,26 +801,6 @@ impl Tc {
 impl Tc {
 	fn network_config(&self, network: NetworkId) -> Result<NetworkConfig> {
 		let config = self.config.network(network)?;
-		let (cctp_url, cctp_contracts) = if let (Some(cctp_url), Some(cctp_contracts)) =
-			(config.cctp_url.as_ref(), config.cctp_contracts.as_ref())
-		{
-			let mut contracts = Vec::with_capacity(cctp_contracts.len());
-			for contract in cctp_contracts {
-				contracts.push(self.parse_address(Some(network), contract)?);
-			}
-			(
-				Some(CctpUrl(
-					BoundedVec::try_from(cctp_url.as_bytes().to_vec())
-						.map_err(|_| anyhow::anyhow!("cctp url too long"))?,
-				)),
-				Some(CctpContracts(
-					BoundedVec::try_from(contracts)
-						.map_err(|_| anyhow::anyhow!("too many cctp contracts"))?,
-				)),
-			)
-		} else {
-			(None, None)
-		};
 		Ok(NetworkConfig {
 			batch_size: config.batch_size,
 			batch_offset: config.batch_offset,
@@ -840,8 +808,6 @@ impl Tc {
 			shard_task_limit: config.shard_task_limit,
 			shard_size: config.shard_size,
 			shard_threshold: config.shard_threshold,
-			cctp_contracts,
-			cctp_url,
 		})
 	}
 
@@ -858,8 +824,9 @@ impl Tc {
 				self.set_network_config(network, block_hash).await?;
 				gateway
 			} else {
-				self.println(None, format!("deploying proxy {network}")).await?;
-				let (gateway, block) = connector.deploy_proxy(&backend.proxy).await?;
+				self.println(None, format!("deploying gateway {network}")).await?;
+				let (gateway, block) =
+					connector.deploy_gateway(&backend.proxy, &backend.gateway).await?;
 				self.println(None, format!("register_network {network}")).await?;
 				self.runtime
 					.register_network(time_primitives::Network {
@@ -870,8 +837,6 @@ impl Tc {
 						config: self.network_config(network)?,
 					})
 					.await?;
-				self.println(None, format!("deploying gateway {network}")).await?;
-				connector.deploy_gateway(gateway, &backend.gateway).await?;
 				gateway
 			};
 		Ok(gateway)
@@ -890,8 +855,6 @@ impl Tc {
 		let shard_task_limit = self.runtime.network_shard_task_limit(network, block_hash).await?;
 		let shard_size = self.runtime.network_shard_size(network, block_hash).await?;
 		let shard_threshold = self.runtime.network_shard_threshold(network, block_hash).await?;
-		let runtime_cctp_contracts = self.runtime.get_cctp_contracts(network, block_hash).await?;
-		let runtime_cctp_url = self.runtime.get_cctp_url(network, block_hash).await?;
 
 		if batch_size == config.batch_size
 			&& batch_offset == config.batch_offset
@@ -899,8 +862,6 @@ impl Tc {
 			&& shard_task_limit == config.shard_task_limit
 			&& shard_size == config.shard_size
 			&& shard_threshold == config.shard_threshold
-			&& runtime_cctp_contracts == config.cctp_contracts
-			&& runtime_cctp_url == config.cctp_url
 		{
 			return Ok(());
 		}
@@ -1150,11 +1111,27 @@ impl Tc {
 	) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let shards = connector.shards(gateway).await?;
-		if same(&keys, &shards) {
+		let mut register = Vec::with_capacity(keys.len());
+		let mut revoke = Vec::with_capacity(shards.len());
+		for key in keys {
+			if !shards.contains(key) {
+				register.push(key);
+			}
+		}
+		for key in shards {
+			if !keys.contains(key) {
+				revoke.push(key);
+			}
+		}
+		if register.is_empty() && revoke.is_empty() {
 			return Ok(());
 		}
-		self.println(None, format!("register_shards {network} {}", keys.len())).await?;
-		connector.set_shards(gateway, &keys).await
+		self.println(
+			None,
+			format!("register_shards {network} {} {}", register.len(), revoke.len()),
+		)
+		.await?;
+		connector.set_shards(gateway, &register, &revoke).await
 	}
 
 	pub async fn set_gateway_admin(
@@ -1180,7 +1157,7 @@ impl Tc {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let backend = self.config.backend(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
-		connector.deploy_gateway(gateway, &backend.gateway).await?;
+		connector.redeploy_gateway(gateway, &backend.gateway).await?;
 		Ok(())
 	}
 
@@ -1212,7 +1189,7 @@ impl Tc {
 		src_network: NetworkId,
 		src_addr: Address32,
 		payload: Vec<u8>,
-	) -> Result<u128> {
+	) -> Result<u64> {
 		let connector = self.connector(dest_network)?;
 		connector
 			.estimate_message_gas_limit(dest_addr, src_network, src_addr, payload)
@@ -1223,12 +1200,14 @@ impl Tc {
 		&self,
 		src_network: NetworkId,
 		dest_network: NetworkId,
-		gas_limit: u128,
-		payload: Vec<u8>,
+		msg_size: u16,
+		gas_limit: u64,
 		block_hash: BlockHash,
 	) -> Result<u128> {
 		let (connector, gateway) = self.gateway(src_network, block_hash).await?;
-		connector.estimate_message_cost(gateway, dest_network, gas_limit, payload).await
+		connector
+			.estimate_message_cost(gateway, dest_network, msg_size, gas_limit)
+			.await
 	}
 
 	#[allow(clippy::too_many_arguments)]
@@ -1238,7 +1217,7 @@ impl Tc {
 		src_addr: Address32,
 		dest_network: NetworkId,
 		dest_addr: Address32,
-		gas_limit: u128,
+		gas_limit: u64,
 		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
@@ -1585,8 +1564,9 @@ impl Tc {
 		let gas_limit = self
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 			.await?;
-		let gas_cost =
-			self.estimate_message_cost(src, dest, gas_limit, payload.clone(), hash).await?;
+		let gas_cost = self
+			.estimate_message_cost(src, dest, payload.len() as u16, gas_limit, hash)
+			.await?;
 
 		// send message
 		let mut blocks = self.finality_notification_stream();
@@ -1620,10 +1600,5 @@ impl Tc {
 		self.println(None, format!("received message after {} blocks", end - start))
 			.await?;
 		Ok(msg)
-	}
-
-	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: Address32) -> Result<()> {
-		self.config
-			.add_cctp_contract(network, self.format_address(Some(network), contract)?)
 	}
 }

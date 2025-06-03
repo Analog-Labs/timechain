@@ -93,7 +93,6 @@ impl TaskParams {
 		self,
 		block_hash: BlockHash,
 		block_number: BlockNumber,
-		cctp_info: Option<(Vec<Address32>, String)>,
 		network_id: NetworkId,
 		gateway: Address32,
 		shard_id: ShardId,
@@ -114,7 +113,7 @@ impl TaskParams {
 				tracing::info!(parent: &span, "Starting ReadGatewayEvents({:?})", &blocks);
 				let events = self
 					.connector
-					.read_events(gateway, blocks, cctp_info)
+					.read_events(gateway, blocks)
 					.instrument(span.clone())
 					.await
 					.context("read_events")?;
@@ -191,13 +190,11 @@ impl TaskExecutor {
 			.get_gateway(network, block_hash)
 			.await?
 			.context("no gateway registered")?;
-		let cctp_info = self.params.runtime.get_cctp_info(network, block_hash).await?;
 		let mut start_sessions = vec![];
 		let tasks = self.params.runtime.get_shard_tasks(shard_id, block_hash).await?;
 
 		let failed_tasks: Arc<Mutex<u64>> = Default::default();
 		for task_id in tasks.iter().copied() {
-			let cctp_info = cctp_info.clone();
 			let total_failed = failed_tasks.clone();
 			if self.running_tasks.contains_key(&task_id) {
 				continue;
@@ -240,7 +237,6 @@ impl TaskExecutor {
 					.execute(
 						block_hash,
 						block_number,
-						cctp_info,
 						network,
 						gateway,
 						shard_id,

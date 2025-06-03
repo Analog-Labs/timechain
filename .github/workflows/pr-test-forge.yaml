@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -26,20 +24,20 @@ jobs:
           version: nightly
 
       - name: Install Soldeer dependencies
-        run: forge soldeer install
+        run: cd gmp/evm/gateway && forge soldeer install
 
       - name: Run Forge build
         run: |
-          forge --version
-          forge build --sizes
+          cd gmp/evm/gateway && forge --version
+          cd gmp/evm/gateway && forge build --sizes
         id: build
 
       - name: Run Forge tests
         run: |
-          forge test -vvv
+          cd gmp/evm/gateway && forge test -vvv
         id: test
 
       - name: Run Forge fmt
         run: |
-          forge fmt --check
+          cd gmp/evm/gateway && forge fmt --check
         id: fmt

@@ -222,7 +222,6 @@ impl IConnector for Connector {
 							dest: t_addr(log.destinationAddress),
 							nonce: log.nonce,
 							gas_limit: log.gasLimit.into(),
-							gas_cost: log.gasCost.into(),
 							bytes: log.data.data.into(),
 						};
 						tracing::info!("gmp created: {:?}", hex::encode(gmp_message.message_id()));
@@ -390,17 +389,17 @@ impl IConnectorAdmin for Connector {
 		};
 		let result = self.call(gateway, call).await?;
 		let msg_cost: u128 = result.try_into().map_err(|e| anyhow!("{e}"))?;
-
 		Ok(msg_cost)
 	}
-	// Sends a message using the test contract
+
+	/// Sends a message using the test contract
 	async fn send_message(
 		&self,
 		contract: Address32,
 		dest_network: NetworkId,
 		dest: Address32,
 		gas_limit: u64,
-		gas_cost: u64,
+		msg_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
 		let message = GmpProxy::GmpMessage {
@@ -417,7 +416,7 @@ impl IConnectorAdmin for Connector {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
 			.with_call(&call)
-			.with_value(U256::from(gas_cost));
+			.with_value(U256::from(msg_cost));
 		let receipt = self.submit(tx).await?;
 
 		receipt

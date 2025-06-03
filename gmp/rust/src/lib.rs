@@ -6,7 +6,6 @@ use redb::{
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::ops::Range;
 use std::path::Path;
@@ -16,7 +15,7 @@ use tempfile::NamedTempFile;
 use time_primitives::{
 	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
 	GmpParams, Hash, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId,
-	Route, TssPublicKey, TssSignature, U256,
+	Route, TssPublicKey, TssSignature,
 };
 
 const CONFIG: TableDefinition<u64, u64> = TableDefinition::new("config");
@@ -239,12 +238,7 @@ impl IChain for Connector {
 #[async_trait::async_trait]
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(
-		&self,
-		gateway: Address32,
-		blocks: Range<u64>,
-		_cctp_info: Option<(Vec<Address32>, String)>,
-	) -> Result<Vec<GmpEvent>> {
+	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_multimap_table(EVENTS)?;
 		let mut events = vec![];
@@ -279,11 +273,11 @@ impl IConnector for Connector {
 				let block = self.block()?;
 				for op in &msg.ops {
 					match op {
-						GatewayOp::RegisterShard(key) => {
+						GatewayOp::RegisterShard(key, _) => {
 							shards.insert(gateway, key)?;
 							events.insert((gateway, block), GmpEvent::ShardRegistered(*key))?;
 						},
-						GatewayOp::UnregisterShard(key) => {
+						GatewayOp::UnregisterShard(key, _) => {
 							shards.remove(gateway, key)?;
 							events.insert((gateway, block), GmpEvent::ShardUnregistered(*key))?;
 						},
@@ -313,7 +307,7 @@ impl IConnector for Connector {
 
 #[async_trait::async_trait]
 impl IConnectorAdmin for Connector {
-	async fn deploy_proxy(&self, _proxy: &[u8]) -> Result<(Address32, u64)> {
+	async fn deploy_gateway(&self, _proxy: &[u8], _gateway: &[u8]) -> Result<(Address32, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::fill(&mut gateway).unwrap();
 		let block = self.block()?;
@@ -326,7 +320,7 @@ impl IConnectorAdmin for Connector {
 		Ok((gateway, block))
 	}
 
-	async fn deploy_gateway(&self, proxy: Address32, _gateway: &[u8]) -> Result<()> {
+	async fn redeploy_gateway(&self, proxy: Address32, _gateway: &[u8]) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		self.ensure_admin(&tx, proxy)
 	}
@@ -358,27 +352,26 @@ impl IConnectorAdmin for Connector {
 		Ok(shards)
 	}
 
-	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
+	async fn set_shards(
+		&self,
+		gateway: Address32,
+		register: &[(TssPublicKey, u16)],
+		revoke: &[(TssPublicKey, u16)],
+	) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
 			self.ensure_admin(&tx, gateway)?;
 			let mut events = tx.open_multimap_table(EVENTS)?;
 			let mut shards = tx.open_multimap_table(SHARDS)?;
 			let block = self.block()?;
-			let values = shards.remove_all(gateway)?;
-			let keys: BTreeSet<_> = keys.iter().copied().collect();
-			let mut old_keys = BTreeSet::new();
-			for value in values {
-				let old_key = value?.value();
-				old_keys.insert(old_key);
-				if !keys.contains(&old_key) {
-					events.insert((gateway, block), GmpEvent::ShardUnregistered(old_key))?;
+			for (key, _) in revoke {
+				if shards.remove(gateway, key)? {
+					events.insert((gateway, block), GmpEvent::ShardUnregistered(*key))?;
 				}
 			}
-			for key in keys {
-				shards.insert(gateway, key)?;
-				if !old_keys.contains(&key) {
-					events.insert((gateway, block), GmpEvent::ShardRegistered(key))?;
+			for (key, _) in register {
+				if !shards.insert(gateway, key)? {
+					events.insert((gateway, block), GmpEvent::ShardRegistered(*key))?;
 				}
 			}
 		}
@@ -410,18 +403,10 @@ impl IConnectorAdmin for Connector {
 				.remove((gateway, new_route.network_id))?
 				.map(|g| g.value())
 				.unwrap_or(new_route.clone());
-			if new_route.gateway != [0; 32] {
-				route.gateway = new_route.gateway;
-			}
-			if new_route.relative_gas_price != (U256::zero(), U256::zero()) {
-				route.relative_gas_price = new_route.relative_gas_price;
-			}
-			if new_route.gas_limit != 0 {
-				route.gas_limit = new_route.gas_limit;
-			}
-			if new_route.gmp_base_fee != 0 {
-				route.gmp_base_fee = new_route.gmp_base_fee;
-			}
+			route.gateway = new_route.gateway;
+			route.relative_gas_price = new_route.relative_gas_price;
+			route.gas_limit = new_route.gas_limit;
+			route.gmp_base_fee = new_route.gmp_base_fee;
 			t.insert((gateway, route.network_id), route)?;
 		}
 		tx.commit()?;
@@ -449,7 +434,7 @@ impl IConnectorAdmin for Connector {
 		_src_network: NetworkId,
 		_src: Address32,
 		_payload: Vec<u8>,
-	) -> Result<u128> {
+	) -> Result<u64> {
 		Ok(100_000)
 	}
 
@@ -457,18 +442,18 @@ impl IConnectorAdmin for Connector {
 		&self,
 		_gateway: Address32,
 		_dest_network: NetworkId,
-		gas_limit: u128,
-		payload: Vec<u8>,
+		msg_size: u16,
+		gas_limit: u64,
 	) -> Result<u128> {
-		Ok(gas_limit + payload.len() as u128 * 100)
+		Ok(gas_limit as u128 + msg_size as u128 * 20 + 100_000)
 	}
 	async fn send_message(
 		&self,
 		src: Address32,
 		dest_network: NetworkId,
 		dest: Address32,
-		gas_limit: u128,
-		gas_cost: u128,
+		gas_limit: u64,
+		_msg_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
 		let tx = self.db.begin_write()?;
@@ -484,7 +469,6 @@ impl IConnectorAdmin for Connector {
 				dest,
 				nonce,
 				gas_limit,
-				gas_cost,
 				bytes: payload,
 			};
 			let id = msg.message_id();
@@ -623,7 +607,6 @@ mod tests {
 			dest,
 			nonce: 0,
 			gas_limit: 100_000,
-			gas_cost: 100_000,
 			bytes: vec![],
 		}
 	}
@@ -636,29 +619,29 @@ mod tests {
 		assert_eq!(chain.balance(chain.address()).await?, 0);
 		chain.faucet(100_000).await?;
 		assert_eq!(chain.balance(chain.address()).await?, 100_000);
-		let (gateway, block) = chain.deploy_proxy("".as_ref()).await?;
-		chain.deploy_gateway(gateway, "".as_ref()).await?;
+		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref()).await?;
+		chain.redeploy_gateway(gateway, "".as_ref()).await?;
 		chain.transfer(gateway, 10_000).await?;
 		assert_eq!(chain.balance(gateway).await?, 10_000);
-		chain.set_shards(gateway, &[shard.public_key()]).await?;
+		chain.set_shards(gateway, &[(shard.public_key(), 1)], &[]).await?;
 		assert_eq!(&chain.shards(gateway).await?, &[shard.public_key()]);
 		tokio::time::sleep(Duration::from_secs(6)).await;
 		let current = chain.finalized_block().await.unwrap();
-		let events = chain.read_events(gateway, block..current, None).await?;
+		let events = chain.read_events(gateway, block..current).await?;
 		assert_eq!(events, vec![GmpEvent::ShardRegistered(shard.public_key())]);
 		let (src, _) = chain.deploy_tester(gateway, "".as_ref()).await?;
 		let (dest, _) = chain.deploy_tester(gateway, "".as_ref()).await?;
 		let payload = vec![];
 		let gas_limit =
 			chain.estimate_message_gas_limit(dest, network, src, payload.clone()).await?;
-		let gas_cost = chain
-			.estimate_message_cost(gateway, network, gas_limit, payload.clone())
+		let msg_cost = chain
+			.estimate_message_cost(gateway, network, payload.len() as u16, gas_limit)
 			.await?;
-		chain.send_message(src, network, dest, gas_limit, gas_cost, payload).await?;
+		chain.send_message(src, network, dest, gas_limit, msg_cost, payload).await?;
 		let msg = gmp_msg(src, dest);
 		tokio::time::sleep(Duration::from_secs(6)).await;
 		let current2 = chain.finalized_block().await.unwrap();
-		let events = chain.read_events(gateway, current..current2, None).await?;
+		let events = chain.read_events(gateway, current..current2).await?;
 		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);
 		let cmds = GatewayMessage::new(vec![GatewayOp::SendMessage(msg.clone())]);
 		let sig = shard.sign_gateway_message(network, gateway, 0, &cmds);

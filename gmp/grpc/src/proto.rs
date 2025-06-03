@@ -75,24 +75,25 @@ pub struct SubmitCommandsRequest {
 pub struct SubmitCommandsResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployProxyRequest {
+pub struct DeployGatewayRequest {
 	pub proxy: Vec<u8>,
+	pub gateway: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployProxyResponse {
+pub struct DeployGatewayResponse {
 	pub address: Address32,
 	pub block: u64,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployGatewayRequest {
+pub struct RedeployGatewayRequest {
 	pub proxy: Address32,
 	pub gateway: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DeployGatewayResponse {}
+pub struct RedeployGatewayResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct AdminRequest {
@@ -126,7 +127,8 @@ pub struct ShardsResponse {
 #[derive(Serialize, Deserialize)]
 pub struct SetShardsRequest {
 	pub gateway: Address32,
-	pub shards: Vec<Array<u8, 33>>,
+	pub register: Vec<(Array<u8, 33>, u16)>,
+	pub revoke: Vec<(Array<u8, 33>, u16)>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -173,15 +175,15 @@ pub struct EstimateMessageGasLimitRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct EstimateMessageGasLimitResponse {
-	pub gas_limit: u128,
+	pub gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct EstimateMessageCostRequest {
 	pub gateway: Address32,
 	pub dest_network: NetworkId,
-	pub gas_limit: u128,
-	pub payload: Vec<u8>,
+	pub msg_size: u16,
+	pub gas_limit: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -194,8 +196,8 @@ pub struct SendMessageRequest {
 	pub src: Address32,
 	pub dest_network: NetworkId,
 	pub dest: Address32,
-	pub gas_limit: u128,
-	pub gas_cost: u128,
+	pub gas_limit: u64,
+	pub msg_cost: u128,
 	pub payload: Vec<u8>,
 }
 

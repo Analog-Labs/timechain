@@ -83,7 +83,6 @@ pub struct GmpMessage {
 	pub dest: Address32,
 	pub nonce: u64,
 	pub gas_limit: u64,
-	pub gas_cost: u64,
 	pub bytes: Vec<u8>,
 }
 
@@ -164,11 +163,12 @@ impl GatewayOp {
 	}
 
 	pub fn gas(&self) -> u64 {
-		match self {
+		todo!();
+		/*match self {
 			Self::SendMessage(msg) => msg.gas_cost,
 			// TODO
 			_ => 40_000,
-		}
+		}*/
 	}
 }
 
@@ -437,7 +437,7 @@ pub trait IConnectorAdmin: IConnector {
 		dest_network: NetworkId,
 		dest: Address32,
 		gas_limit: u64,
-		gas_cost: u64,
+		msg_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId>;
 	/// Receives messages from test contract.

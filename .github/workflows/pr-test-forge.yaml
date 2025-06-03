@@ -24,20 +24,24 @@ jobs:
           version: nightly
 
       - name: Install Soldeer dependencies
-        run: cd gmp/evm/gateway && forge soldeer install
+        run: forge soldeer install
+        working-directory: gmp/evm/gateway
 
       - name: Run Forge build
         run: |
-          cd gmp/evm/gateway && forge --version
-          cd gmp/evm/gateway && forge build --sizes
+          forge --version
+          forge build --sizes
         id: build
+        working-directory: gmp/evm/gateway
 
       - name: Run Forge tests
         run: |
-          cd gmp/evm/gateway && forge test -vvv
+          forge test -vvv
         id: test
+        working-directory: gmp/evm/gateway
 
       - name: Run Forge fmt
         run: |
-          cd gmp/evm/gateway && forge fmt --check
+          forge fmt --check
         id: fmt
+        working-directory: gmp/evm/gateway

@@ -102,7 +102,7 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 	/// Proof: `Networks::NetworkBatchGasLimit` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `a` is `[1, 50]`.
 	/// The range of component `b` is `[1, 200]`.
-	fn set_network_config(a: u32, b: u32, ) -> Weight {
+	fn set_network_config() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `376`
 		//  Estimated: `3841`
@@ -110,9 +110,9 @@ impl<T: frame_system::Config> pallet_networks::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(39_573_387, 0)
 			.saturating_add(Weight::from_parts(0, 3841))
 			// Standard Error: 3_375
-			.saturating_add(Weight::from_parts(26_318, 0).saturating_mul(a.into()))
+			.saturating_add(Weight::from_parts(26_318, 0))
 			// Standard Error: 829
-			.saturating_add(Weight::from_parts(4_371, 0).saturating_mul(b.into()))
+			.saturating_add(Weight::from_parts(4_371, 0))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}

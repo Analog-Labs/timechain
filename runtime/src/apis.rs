@@ -37,8 +37,8 @@ pub use time_primitives::{MembersInterface, NetworksInterface};
 
 #[cfg(feature = "testnet")]
 use time_primitives::{
-	Address32, BatchId, BlockNumber, CctpContracts, CctpUrl, ChainName, Commitment, ErrorMsg,
-	GatewayMessage, MemberStatus, NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
+	Address32, BatchId, BlockNumber, ChainName, Commitment, ErrorMsg, GatewayMessage, MemberStatus,
+	NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
 };
 
 // Local module imports
@@ -340,14 +340,6 @@ sp_api::impl_runtime_apis! {
 
 		fn get_gateway(network: NetworkId) -> Option<Address32> {
 			Networks::gateway(network)
-		}
-
-		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts> {
-			Networks::get_cctp_contracts(network)
-		}
-
-		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl> {
-			Networks::get_cctp_url(network)
 		}
 	}
 

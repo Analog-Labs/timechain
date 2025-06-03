@@ -503,7 +503,7 @@ impl IConnectorAdmin for Connector {
 	// TODO could be done with alloy as well
 	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
 		let analog_gmp_dir =
-			std::env::var("ANALOG_GMP_DIR").context("failed to find ANALOG_GMP_DIR")?;
+			std::env::var("EVM_GATEWAY_DIR").context("failed to find EVM_GATEWAY_DIR")?;
 		let output = Command::new("cast")
 			.current_dir(analog_gmp_dir)
 			.arg("run")

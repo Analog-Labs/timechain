@@ -6,7 +6,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	ERC1967Proxy,
-	"../../analog-gmp/out/ERC1967Proxy.sol/ERC1967Proxy.json"
+	"gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"
 );
 
 sol!(
@@ -14,7 +14,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	Gateway,
-	"../../analog-gmp/out/Gateway.sol/Gateway.json"
+	"gateway/out/Gateway.sol/Gateway.json"
 );
 
 sol!(
@@ -22,7 +22,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	IGmpReceiver,
-	"../../analog-gmp/out/IGmpReceiver.sol/IGmpReceiver.json"
+	"gateway/out/IGmpReceiver.sol/IGmpReceiver.json"
 );
 
 sol!(
@@ -30,7 +30,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	GmpProxy,
-	"../../analog-gmp/out/GmpProxy.sol/GmpProxy.json"
+	"gateway/out/GmpProxy.sol/GmpProxy.json"
 );
 
 pub fn u256(bytes: &[u8]) -> U256 {

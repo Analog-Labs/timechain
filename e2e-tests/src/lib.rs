@@ -113,9 +113,10 @@ impl TestEnvBuilder {
 						BackendConfig {
 							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json"),
 							proxy: workspace
-								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
-							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
-							tester: workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
+								.join("gmp/evm/gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"),
+							gateway: workspace.join("gmp/evm/gateway/out/Gateway.sol/Gateway.json"),
+							tester: workspace
+								.join("gmp/evm/gateway/out/GmpProxy.sol/GmpProxy.json"),
 						},
 					);
 					backends

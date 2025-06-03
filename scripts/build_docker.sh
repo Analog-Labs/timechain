@@ -76,7 +76,6 @@ if command -v lld 3>&1 >/dev/null; then
 fi
 
 # Build docker image
-forge build --root analog-gmp
 cargo build -p timechain-node -p chronicle -p tc-cli -p gmp-grpc --target "$rustTarget" --profile "$profile" --features "$features"
 
 mkdir -p $WORKSPACE_ROOT/target/docker/tc-cli
@@ -84,8 +83,8 @@ mkdir -p $WORKSPACE_ROOT/target/docker/chronicle
 cp -rL $WORKSPACE_ROOT/gmp/evm/auxiliary/chains.json target/docker/chronicle/
 rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/envs
 cp -rL $WORKSPACE_ROOT/config/envs target/docker/tc-cli/envs
-rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
-cp -r $WORKSPACE_ROOT/analog-gmp $WORKSPACE_ROOT/target/docker/tc-cli/analog-gmp
+rm -rf $WORKSPACE_ROOT/target/docker/tc-cli/evm
+cp -r $WORKSPACE_ROOT/gmp/evm/gateway $WORKSPACE_ROOT/target/docker/tc-cli/evm
 
 build_image () {
 	local TARGET=$WORKSPACE_ROOT/"target/$rustTarget/$profile/$1"

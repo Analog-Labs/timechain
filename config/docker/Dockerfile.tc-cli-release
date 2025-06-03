@@ -3,12 +3,12 @@ WORKDIR /app
 
 COPY tc-cli tc-cli
 COPY envs /etc/envs
-COPY analog-gmp /analog-gmp
+COPY evm /evm
 
 RUN apt update && apt install -y wget
 
 RUN wget -O /app/foundry.tar.gz https://github.com/foundry-rs/foundry/releases/download/nightly/foundry_nightly_linux_amd64.tar.gz
 RUN tar -xvzf /app/foundry.tar.gz -C /usr/local/bin
 
-ENV ANALOG_GMP_DIR=/analog-gmp
+ENV EVM_GATEWAY_DIR=/evm
 ENTRYPOINT ["/app/tc-cli"]

@@ -1,0 +1,7 @@
+@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.3.0/
+@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.3.0/
+forge-std/=dependencies/forge-std-1.9.7/src/
+frost-evm/=dependencies/frost-evm-0.1.0/sol/
+gmp-0.0.1/=dependencies/gmp-0.0.1/
+gmp/=gmp/src/
+src/=src/

@@ -114,20 +114,22 @@ contract GasUtilsTest is Test {
         vm.prank(submitter.addr);
         gateway.execute(sig, batch);
         VmSafe.Gas memory gas = vm.lastCallGas();
-        console.log('callGas', gas.gasTotalUsed - gasLimit);
+        console.log("callGas", gas.gasTotalUsed - gasLimit);
         uint256 balanceAfter = submitter.addr.balance;
 
         // check message executed
         assertEq(uint256(gateway.messages(gmp.messageId())), uint256(GmpStatus.SUCCESS));
         // check reimbursment
-        assertEq(balanceAfter - balanceBefore - baseGas - gasLimit, gas.gasTotalUsed - gasLimit, "Balance should not change");
+        assertEq(
+            balanceAfter - balanceBefore - baseGas - gasLimit, gas.gasTotalUsed - gasLimit, "Balance should not change"
+        );
 
         // execute second signing session
         balanceBefore = submitter.addr.balance;
         vm.prank(submitter.addr);
         gateway.execute(sig, batch);
         gas = vm.lastCallGas();
-        console.log('callGas', gas.gasTotalUsed);
+        console.log("callGas", gas.gasTotalUsed);
         balanceAfter = submitter.addr.balance;
 
         // check reimbursment

@@ -118,7 +118,7 @@ contract GatewayTest is Test {
 
         // // Replace one shard key
         signer = new Signer(12345);
-        TssKey memory newKey = TssKey({ xCoord: signer.xCoord(), yParity: signer.yParity(), numSessions: 1 });
+        TssKey memory newKey = TssKey({xCoord: signer.xCoord(), yParity: signer.yParity(), numSessions: 1});
         TssKey[] memory register = new TssKey[](1);
         register[0] = newKey;
         TssKey[] memory revoke = new TssKey[](1);
@@ -284,9 +284,7 @@ contract GatewayTest is Test {
 
         // Submit message with sufficient funds
         vm.expectEmit(true, true, true, true);
-        emit IGateway.GmpCreated(
-            id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data
-        );
+        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data);
         vm.startPrank(sender);
         bytes32 rid = gateway.submitMessage{value: value}(gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data);
         vm.stopPrank();
@@ -298,9 +296,7 @@ contract GatewayTest is Test {
 
         // Expect event
         vm.expectEmit(true, true, true, true);
-        emit IGateway.GmpCreated(
-            id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data
-        );
+        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data);
         vm.startPrank(sender);
         rid = gateway.submitMessage{value: value}(gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data);
         vm.stopPrank();

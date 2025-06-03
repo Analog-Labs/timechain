@@ -217,9 +217,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
                 GmpMessage(source, networkId(), destinationAddress, network, gasLimit, nextNonce, data);
 
             bytes32 messageId = message.messageId();
-            emit GmpCreated(
-                messageId, source, destinationAddress, network, gasLimit, nextNonce, message.data
-            );
+            emit GmpCreated(messageId, source, destinationAddress, network, gasLimit, nextNonce, message.data);
             return messageId;
         }
     }

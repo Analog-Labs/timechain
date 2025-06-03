@@ -143,20 +143,21 @@ impl GatewayOp {
 	}
 
 	fn hash(&self) -> [u8; 32] {
-		let mut bytes = [0; 64];
+		let mut bytes = [0; 96];
 		match self {
 			Self::SendMessage(msg) => {
 				let data = Keccak256::digest(&msg.bytes);
 				bytes[..32].copy_from_slice(&msg.message_id());
 				bytes[32..].copy_from_slice(&data);
+				return Keccak256::digest(&bytes[..64]).into();
 			},
 			Self::RegisterShard(pubkey, sessions) => {
-				bytes[31..].copy_from_slice(pubkey);
-				bytes[32..48].copy_from_slice(&sessions.to_be_bytes());
+				bytes[31..64].copy_from_slice(pubkey);
+				bytes[64..96].copy_from_slice(&sessions.to_be_bytes().left_pad_32());
 			},
 			Self::UnregisterShard(pubkey, sessions) => {
-				bytes[31..].copy_from_slice(pubkey);
-				bytes[32..48].copy_from_slice(&sessions.to_be_bytes());
+				bytes[31..64].copy_from_slice(pubkey);
+				bytes[64..96].copy_from_slice(&sessions.to_be_bytes().left_pad_32());
 			},
 		}
 		Keccak256::digest(bytes).into()

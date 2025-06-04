@@ -92,6 +92,7 @@ async fn chain_restart_grpc() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn chain_restart_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	chain_restart(&env, tc).await

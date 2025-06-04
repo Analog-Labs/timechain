@@ -4,7 +4,7 @@
 
 ## Dependencies
 
-This project uses **Forge** Ethereum testing framework (like Truffle, Hardhat and DappTools).
+This project uses **Forge** Solidity development framework (like Truffle, Hardhat and DappTools).
 Install instructions: https://book.getfoundry.sh/
 
 ## Usage

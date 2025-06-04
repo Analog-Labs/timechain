@@ -167,7 +167,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 		let executed = traces.iter().filter_map(|t| t.exec.clone()).count();
 		tracing::info!("waiting for messages to be executed");
 		id = Some(tc.print_table(id, "message", traces).await?);
-		if executed == msgs.len() {
+		if executed == msgs.len() - 1 {
 			break;
 		}
 	}

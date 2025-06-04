@@ -174,9 +174,13 @@ library TestUtils {
         return TestUtils.sign(shard, hash);
     }
 
-    function calcBaseGas(uint16 messageSize) internal pure returns (uint256) {
-        uint256 calldataSize = GasUtils.calldataSize(messageSize);
-        return 21000 + calldataSize * 16; // assume every byte is a 1
+    function calldataSize(uint16 messageSize) internal pure returns (uint256) {
+        return uint256(messageSize).align32() + 676; // selector + Signature + Batch
+    }
+
+    function baseGas(uint16 messageSize) internal pure returns (uint256) {
+        uint256 size = TestUtils.calldataSize(messageSize);
+        return 21000 + size * 16; // assume every byte is a 1
     }
 
     function measureGas(uint16 messageSize) internal returns (Gas memory) {
@@ -206,7 +210,7 @@ library TestUtils {
         return Gas({
             executeGas: gasUsed - gmp.gasLimit,
             reimbursmentGas: gasUsed2 - gmp.gasLimit,
-            baseGas: calcBaseGas(messageSize)
+            baseGas: baseGas(messageSize)
         });
     }
 }

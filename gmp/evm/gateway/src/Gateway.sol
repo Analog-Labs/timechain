@@ -491,11 +491,11 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         // Refund the chronicle gas
         unchecked {
             // Extra gas overhead used to execute the refund logic + selector overhead
-            uint256 gasUsed = 2968;
+            uint256 gasUsed = 7797;
 
             // Compute the gas used + base cost + proxy overhead
             gasUsed += GasUtils.txBaseGas();
-            gasUsed += GasUtils.proxyOverheadGas(uint16(msg.data.length));
+            gasUsed += GasUtils.proxyOverheadGas();
             gasUsed += initialGas - gasleft();
 
             // Compute refund amount

@@ -11,38 +11,17 @@ import {PrimitiveUtils} from "./Primitives.sol";
 library GasUtils {
     using PrimitiveUtils for uint256;
 
-    function calldataSize(uint16 messageSize) internal pure returns (uint256) {
-        return uint256(messageSize).align32() + 676; // selector + Signature + Batch
-    }
-
     /**
-     * @dev Compute the amount of gas used by the `GatewayProxy`.
-     * @param calldataLen The length of the calldata in bytes
+     * @dev Compute the amount of gas used by the proxy.
      */
-    function proxyOverheadGas(uint256 calldataLen) internal pure returns (uint256) {
+    function proxyOverheadGas() internal pure returns (uint256) {
         unchecked {
-            // Base cost: OPCODES + COLD SLOAD + COLD DELEGATECALL + RETURNDATACOPY
-            uint256 gas = 31 + 2100 + 2600 + 32 + 66;
-
+            uint256 words = msg.data.length.toWordCount();
             // CALLDATACOPY
-            gas += calldataLen.toWordCount() * 3;
-
-            // RETURNDATACOPY
-            // gas += returnLen.toWordCount() * 3;
-
-            // MEMORY EXPANSION (minimal 3 due mstore(0x40, 0x80))
-            gas += memoryExpansionGas(calldataLen.toWordCount());
+            uint256 gas = words * 3;
+            // MEMORY EXPANSION
+            gas += ((words * words) >> 9) + words * 3;
             return gas;
-        }
-    }
-
-    /**
-     * @dev Compute the gas cost of memory expansion.
-     * @param words number of words, where a word is 32 bytes
-     */
-    function memoryExpansionGas(uint256 words) internal pure returns (uint256) {
-        unchecked {
-            return ((words * words) >> 9) + words * 3;
         }
     }
 

@@ -31,10 +31,6 @@ contract MeasureGas {
     function baseGas(Signature calldata, Batch calldata) external pure returns (uint256) {
         return GasUtils.txBaseGas();
     }
-
-    function proxyOverheadGas(Signature calldata, Batch calldata) external pure returns (uint256) {
-        return GasUtils.proxyOverheadGas(msg.data.length);
-    }
 }
 
 contract GasUtilsTest is Test {
@@ -71,7 +67,7 @@ contract GasUtilsTest is Test {
         Batch memory batch = TestUtils.makeBatch(1, gmp);
         Signature memory sig = TestUtils.sign(TestUtils.shard1, gateway, batch);
         bytes memory call = abi.encodeCall(gateway.execute, (sig, batch));
-        assertEq(call.length, GasUtils.calldataSize(messageSize));
+        assertEq(call.length, TestUtils.calldataSize(messageSize));
     }
 
     /**

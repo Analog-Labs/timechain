@@ -48,6 +48,178 @@ networks:
     cctp_contracts:
     - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
     cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+  14:
+    backend: "evm"
+    name: "base testnet"
+    url: "wss://base-sepolia-rpc.publicnode.com"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  15:
+    backend: "evm"
+    name: "avalanche fuji"
+    #url: "wss://avalanche-fuji.drpc.org"
+    url: "wss://palpable-greatest-star.avalanche-testnet.quiknode.pro/254a5b9bb5bdb4d25e87b4005fe6efed82f666eb/ext/bc/C/ws/"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  16:
+    backend: "evm"
+    name: "polygon amoy"
+    #url: "wss://polygon-amoy-bor-rpc.publicnode.com"
+    url: "wss://palpable-greatest-star.matic-amoy.quiknode.pro/254a5b9bb5bdb4d25e87b4005fe6efed82f666eb"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  # 17:
+  #   backend: "evm"
+  #   name: "bnb testnet"
+  #   #url: "wss://bsc-testnet.drpc.org"
+  #   url: "wss://palpable-greatest-star.bsc-testnet.quiknode.pro/254a5b9bb5bdb4d25e87b4005fe6efed82f666eb"
+  #   gateway_funds: .8
+  #   chronicle_funds: .2
+  #   batch_size: 1024
+  #   batch_offset: 0
+  #   batch_gas_limit: 500000000000000
+  #   gmp_margin: 0.0
+  #   shard_task_limit: 100
+  #   route_gas_limit: 10000000
+  #   route_base_fee: 1400000000
+  #   shard_size: 1
+  #   shard_threshold: 1
+  #   coin_id: 1027
+  18:
+    backend: "evm"
+    name: "optimism sepolia"
+    url: "wss://palpable-greatest-star.optimism-sepolia.quiknode.pro/254a5b9bb5bdb4d25e87b4005fe6efed82f666eb"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  19:
+    backend: "evm"
+    name: "blast sepolia"
+    url: "wss://serene-old-frost.blast-sepolia.quiknode.pro/fc1d68bef577b7b85e854895f0273429e5dbbc42"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 512
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  20:
+    backend: "evm"
+    name: "soneium minato"
+    url: "wss://soneium-sepolia.blastapi.io/9728a34e-0283-4dd2-98f4-de3069274bbc"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 400
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  # 21:
+  #   backend: "evm"
+  #   name: "zksync sepolia"
+  #   url: "wss://palpable-greatest-star.zksync-sepolia.quiknode.pro/254a5b9bb5bdb4d25e87b4005fe6efed82f666eb"
+  #   gateway_funds: .8
+  #   chronicle_funds: .4
+  #   batch_size: 1024
+  #   batch_offset: 0
+  #   batch_gas_limit: 500000000000000
+  #   gmp_margin: 0.0
+  #   shard_task_limit: 100
+  #   route_gas_limit: 10000000
+  #   route_base_fee: 1400000000
+  #   shard_size: 1
+  #   shard_threshold: 1
+  #   coin_id: 1027
+  22:
+    backend: "evm"
+    name: "celo alfajores"
+    url: "wss://celo-alfajores.g.alchemy.com/v2/rHqUExCRcfpczXXH6K6JY"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 400
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  23:
+    backend: "evm"
+    name: "unichain sepolia"
+    url: "wss://palpable-greatest-star.unichain-sepolia.quiknode.pro/254a5b9bb5bdb4d25e87b4005fe6efed82f666eb"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 512
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-19.integration.analog.one
+- https://chronicle-25.integration.analog.one
+- https://chronicle-26.integration.analog.one
+- https://chronicle-27.integration.analog.one
+- https://chronicle-28.integration.analog.one
+- https://chronicle-29.integration.analog.one
+- https://chronicle-30.integration.analog.one
+# - https://chronicle-31.integration.analog.one
+- https://chronicle-32.integration.analog.one
+- https://chronicle-33.integration.analog.one

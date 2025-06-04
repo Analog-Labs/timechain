@@ -215,7 +215,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
-				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7 -vvvvv",
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --gas-price=1 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7 -vvvvv",
 			])
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()

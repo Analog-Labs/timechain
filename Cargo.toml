@@ -44,7 +44,7 @@ default-members = [
 
 [workspace.dependencies]
 # common shared synced libs
-alloy = { version = "^0.15", default-features = false, features = [
+alloy = { version = "^1.0", default-features = false, features = [
     "full",
     "rpc-types-debug",
     "rpc-types-trace",

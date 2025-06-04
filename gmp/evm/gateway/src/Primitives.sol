@@ -3,6 +3,7 @@
 
 pragma solidity >=0.8.0;
 
+string constant DOMAIN_SEPARATOR = "Analog GMP v3";
 uint8 constant GMP_VERSION = 0;
 
 /**

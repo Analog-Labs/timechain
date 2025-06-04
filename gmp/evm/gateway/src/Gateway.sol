@@ -20,6 +20,7 @@ import {
     PrimitiveUtils,
     Signature,
     TssKey,
+    DOMAIN_SEPARATOR,
     MAX_PAYLOAD_SIZE
 } from "./Primitives.sol";
 import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
@@ -478,7 +479,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         // Compute the Batch signing hash
         rootHash = PrimitiveUtils.hash(batch.version, batch.batchId, uint256(rootHash));
         bytes32 signingHash = keccak256(
-            abi.encodePacked("Analog GMP v2", networkId(), bytes32(uint256(uint160(address(this)))), rootHash)
+            abi.encodePacked(DOMAIN_SEPARATOR, networkId(), bytes32(uint256(uint160(address(this)))), rootHash)
         );
 
         // Verify Signature

@@ -19,6 +19,7 @@ import {
     Batch,
     GatewayOp,
     Command,
+    DOMAIN_SEPARATOR,
     GMP_VERSION,
     MAX_PAYLOAD_SIZE
 } from "../src/Primitives.sol";
@@ -61,7 +62,7 @@ contract SigningHash {
         }
         rootHash = PrimitiveUtils.hash(batch.version, batch.batchId, uint256(rootHash));
         return keccak256(
-            abi.encodePacked("Analog GMP v2", gw.networkId(), bytes32(uint256(uint160(address(gw)))), rootHash)
+            abi.encodePacked(DOMAIN_SEPARATOR, gw.networkId(), bytes32(uint256(uint160(address(gw)))), rootHash)
         );
     }
 }

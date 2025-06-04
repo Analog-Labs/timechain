@@ -16,7 +16,7 @@ pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
 
-const GMP_VERSION: &str = "Analog GMP v2";
+const GMP_VERSION: &str = "Analog GMP v3";
 
 pub trait FixedSizeEncodable {
 	fn left_pad_32(&self) -> [u8; 32];

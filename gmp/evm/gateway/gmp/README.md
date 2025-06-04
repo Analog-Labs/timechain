@@ -5,7 +5,7 @@ This repo contains two interfaces by Analog.
 2. IGmpReceiver.sol
 
 ### IGateway.sol
-Must be implemented by smart contracts which sends a message to Analog's gmp gateway.
+Must be implemented by smart contract which sends a message to Analog's gmp gateway.
 
 ### IGmpReceiver.sol
 Must be implemented by smart contract which receives a message from Analog's gmp gateway.

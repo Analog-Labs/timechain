@@ -2,6 +2,7 @@ use crate::cctp::CctpHandler;
 use crate::custom::BEP226;
 use crate::dict::Currency;
 use crate::sol::{Gateway, GatewayProxy, GmpProxy, IGmpReceiver};
+use alloy::eips::eip1559::Eip1559Estimation;
 use alloy::{
 	eips::{BlockId, BlockNumberOrTag},
 	network::{
@@ -163,7 +164,14 @@ impl IChain for Connector {
 	}
 	/// Transfers an amount to an account
 	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
-		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
+		let estimation = self
+			.estimate_eip1559_fees()
+			.await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(to))
+			.with_value(U256::from(amount))
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
 		let receipt = self.submit(tx).await?;
 		tracing::info!(
 			"transferred {amount} to {}, tx: {:?}",
@@ -485,25 +493,7 @@ impl IConnectorAdmin for Connector {
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
-			// Polygon
-			137 => (Eip1559Estimator::Default, 15, 10.0),
-			// BNB
-			97 | 56 => (Eip1559Estimator::Custom(Box::new(BEP226)), 1, 5.0),
-			// Default
-			_ => (Eip1559Estimator::Default, 10, 5.0),
-		};
-
-		let block = self.latest_block().await?;
-		let base_fee = block.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
-
-		let rewards = self
-			.rpc
-			.get_fee_history(past_blocks, BlockNumberOrTag::Latest, &[reward_percentile])
-			.await?
-			.reward
-			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
-		Ok(fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas)
+		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
 	}
 
 	/// Returns gas limit of latest block
@@ -552,6 +542,29 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
+	/// Get EIP1559 estimate for the connector's chain
+	async fn estimate_eip1559_fees(&self) -> Result<Eip1559Estimation> {
+		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
+			// Polygon
+			137 => (Eip1559Estimator::Default, 15, 10.0),
+			// BNB
+			97 | 56 => (Eip1559Estimator::Custom(Box::new(BEP226)), 1, 5.0),
+			// Default
+			_ => (Eip1559Estimator::Default, 10, 5.0),
+		};
+
+		let block = self.latest_block().await?;
+		let base_fee = block.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
+
+		let rewards = self
+			.rpc
+			.get_fee_history(past_blocks, BlockNumberOrTag::Latest, &[reward_percentile])
+			.await?
+			.reward
+			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
+		Ok(fee_estimator.estimate(base_fee.into(), &rewards))
+	}
+
 	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;

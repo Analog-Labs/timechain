@@ -1,121 +1,24 @@
 config:
-  chronicle_funds: 1.
-  timechain_url: 'wss://rpc.development.analog.one'
+  chronicle_funds: 10.
+  timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
   testers_path: 'testers.csv'
 backends:
   evm:
     chain_dict: "auxiliary/chains.json"
-    proxy: "contracts/ERC1967Proxy.sol/ERC1967Proxy.json"
+    proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"
 networks:
-  0:
-    backend: "grpc"
-    name: "grpc-1"
-    url: "https://gmp-grpc-1.development.analog.one:443"
-    admin_funds: 100.
-    gateway_funds: 10.
-    chronicle_funds: 10.
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    shard_task_limit: 50
-    route_gas_limit: 10000
-    route_base_fee: 10000
-    gmp_margin: 0.1
-    shard_size: 1
-    shard_threshold: 1
-    coin_id: 825
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-
-  1:
-    backend: "grpc"
-    name: "grpc-2"
-    url: "https://gmp-grpc-2.development.analog.one:443"
-    admin_funds: 100.
-    gateway_funds: 10.
-    chronicle_funds: 10.
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    shard_task_limit: 50
-    route_gas_limit: 10000
-    route_base_fee: 10000
-    gmp_margin: 0.1
-    shard_size: 1
-    shard_threshold: 1
-    coin_id: 825
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-
-  2:
-    backend: "grpc"
-    name: "grpc-3"
-    url: "https://gmp-grpc-3.development.analog.one:443"
-    admin_funds: 100.
-    gateway_funds: 10.
-    chronicle_funds: 10.
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    shard_task_limit: 50
-    route_gas_limit: 10000
-    route_base_fee: 10000
-    gmp_margin: 0.1
-    shard_size: 3
-    shard_threshold: 2
-    coin_id: 825
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-
-  3:
-    backend: "grpc"
-    name: "grpc-4"
-    url: "https://gmp-grpc-4.development.analog.one:443"
-    admin_funds: 100.
-    gateway_funds: 10.
-    chronicle_funds: 10.
-    batch_size: 64
-    batch_offset: 0
-    batch_gas_limit: 10000
-    shard_task_limit: 50
-    route_gas_limit: 10000
-    route_base_fee: 10000
-    gmp_margin: 0.1
-    shard_size: 3
-    shard_threshold: 2
-    coin_id: 825
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-
-  4:
+  10:
     backend: "evm"
-    name: "ethereum"
+    name: "ethereum sepolia"
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
-    admin_funds: 0
     gateway_funds: 1.
-    chronicle_funds: .3
-    batch_size: 32
+    chronicle_funds: .1
+    batch_size: 16
     batch_offset: 0
-    batch_gas_limit: 350000
+    batch_gas_limit: 18000000
     gmp_margin: 0.0
     shard_task_limit: 100
     route_gas_limit: 10000000
@@ -123,40 +26,221 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-
-  5:
+    cctp_contracts:
+    - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+  13:
     backend: "evm"
-    name: "astar"
-    #url: "wss://rpc.shibuya.astar.network"
-    #url: "wss://shibuya-rpc.dwellir.com"
-    url: "wss://shibuya.public.blastapi.io"
-    admin_funds: 0
+    name: "arbitrum sepolia"
+    url: "wss://arbitrum-sepolia-rpc.publicnode.com"
     gateway_funds: 1.
-    chronicle_funds: .1
-    batch_size: 32
+    chronicle_funds: .5
+    batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 350000
+    batch_gas_limit: 500000000000000
     gmp_margin: 0.0
-    shard_task_limit: 50
+    shard_task_limit: 100
     route_gas_limit: 10000000
     route_base_fee: 1400000000
     shard_size: 1
     shard_threshold: 1
-    coin_id: 12885
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-
-chronicles:
+    coin_id: 1027
+    cctp_contracts:
+    - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
+    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+  14:
+    backend: "evm"
+    name: "base testnet"
+    url: "wss://base-sepolia-rpc.publicnode.com"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  15:
+    backend: "evm"
+    name: "avalanche fuji"
+    url: "wss://avalanche-fuji.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  16:
+    backend: "evm"
+    name: "polygon amoy"
+    url: "wss://polygon-amoy-bor-rpc.publicnode.com"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  17:
+    backend: "evm"
+    name: "bnb testnet"
+    url: "wss://bsc-testnet.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  18:
+    backend: "evm"
+    name: "optimism sepolia"
+    url: "wss://optimism-sepolia.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  19:
+    backend: "evm"
+    name: "blast sepolia"
+    url: "wss://blast-sepolia.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .2
+    batch_size: 512
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  20:
+    backend: "evm"
+    name: "soneium minato"
+    url: "wss://soneium-minato.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 400
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  21:
+    backend: "evm"
+    name: "zksync sepolia"
+    url: "wss://zksync-sepolia.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 1024
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  22:
+    backend: "evm"
+    name: "celo alfajores"
+    url: "wss://celo-alfajores.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 400
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  23:
+    backend: "evm"
+    name: "unichain sepolia"
+    url: "wss://unichain-sepolia.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 512
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  24:
+    backend: "evm"
+    name: "worldchain sepolia"
+    url: "wss://worldchain-sepolia.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 512
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+  25:
+    backend: "evm"
+    name: "zora sepolia"
+    url: "wss://zora.drpc.org"
+    gateway_funds: .8
+    chronicle_funds: .4
+    batch_size: 400
+    batch_offset: 0
+    batch_gas_limit: 500000000000000
+    gmp_margin: 0.0
+    shard_task_limit: 100
+    route_gas_limit: 10000000
+    route_base_fee: 1400000000
+    shard_size: 1
+    shard_threshold: 1
+    coin_id: 1027
+chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-13.integration.analog.one
 - https://chronicle-19.integration.analog.one

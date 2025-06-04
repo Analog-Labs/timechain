@@ -149,10 +149,13 @@ impl IChain for Connector {
 			.ok_or(anyhow!("Node owns no account"))?
 			.to_owned();
 
+		let estimation = self.estimate_eip1559_fees().await?;
 		let tx = TransactionRequest::default()
 			.with_from(sponsor)
 			.with_to(a_addr(self.address()))
-			.with_value(U256::from(balance));
+			.with_value(U256::from(balance))
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
 
 		let receipt = self.submitter.submit(&provider, tx).await?;
 		tracing::info!(
@@ -164,9 +167,7 @@ impl IChain for Connector {
 	}
 	/// Transfers an amount to an account
 	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
-		let estimation = self
-			.estimate_eip1559_fees()
-			.await?;
+		let estimation = self.estimate_eip1559_fees().await?;
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(to))
 			.with_value(U256::from(amount))
@@ -298,7 +299,14 @@ impl IConnector for Connector {
 			ops,
 		};
 		let call = Gateway::batchExecuteCall { signature, message };
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+
+		let estimation = self.estimate_eip1559_fees().await.map_err(|err| err.to_string())?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
 	}
@@ -330,7 +338,13 @@ impl IConnectorAdmin for Connector {
 		let call = GatewayProxy::upgradeCall {
 			newImplementation: gateway_addr,
 		};
-		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(proxy)
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		self.submit(tx).await?;
 
 		Ok(())
@@ -350,7 +364,14 @@ impl IConnectorAdmin for Connector {
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = Gateway::setAdminCall { newAdmin: a_addr(admin) };
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
@@ -365,7 +386,13 @@ impl IConnectorAdmin for Connector {
 		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<Gateway::TssKey>>();
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = Gateway::setShardsCall { publicKeys: shards };
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
@@ -378,7 +405,13 @@ impl IConnectorAdmin for Connector {
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = Gateway::setRouteCall { info: route.into() };
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
@@ -397,7 +430,13 @@ impl IConnectorAdmin for Connector {
 			nonce: 0,
 			payload: payload.into(),
 		};
-		let tx = TransactionRequest::default().with_to(a_addr(contract)).with_call(&call);
+
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(contract))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
 
 		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
 	}
@@ -513,7 +552,14 @@ impl IConnectorAdmin for Connector {
 			recipient: a_addr(recipient),
 			data: vec![].into(),
 		};
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		self.submit(tx).await?;
 		Ok(())
 	}
@@ -566,7 +612,13 @@ impl Connector {
 	}
 
 	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
-		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(to))
+			.with_call(&call)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
 		tracing::debug!("{result:?}");
 		Ok(C::abi_decode_returns(&result)?)
@@ -607,7 +659,12 @@ impl Connector {
 			.with_context(|| "Failed to get contract bytecode")?;
 		bytecode.extend(constructor.abi_encode());
 
-		let tx = TransactionRequest::default().with_deploy_code(bytecode);
+		let estimation = self.estimate_eip1559_fees().await?;
+		let tx = TransactionRequest::default()
+			.with_deploy_code(bytecode)
+			.with_max_fee_per_gas(estimation.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimation.max_priority_fee_per_gas);
+
 		let receipt = self.submit(tx).await?;
 
 		let contract_address = receipt

@@ -44,7 +44,7 @@ fn bytes32(u: U256) -> [u8; 32] {
 impl From<(time_primitives::TssPublicKey, u16)> for Gateway::TssKey {
 	fn from((key, num_sessions): (time_primitives::TssPublicKey, u16)) -> Self {
 		Self {
-			yParity: key[0],
+			yParity: key[0] + 25,
 			xCoord: u256(&key[1..]),
 			numSessions: num_sessions,
 		}
@@ -54,7 +54,7 @@ impl From<(time_primitives::TssPublicKey, u16)> for Gateway::TssKey {
 impl From<Gateway::TssKey> for time_primitives::TssPublicKey {
 	fn from(key: Gateway::TssKey) -> Self {
 		let mut public = [0; 33];
-		public[0] = key.yParity;
+		public[0] = key.yParity - 25;
 		public[1..].copy_from_slice(&bytes32(key.xCoord));
 		public
 	}

@@ -126,7 +126,7 @@ contract RouteStoreTest is Test {
     }
 
     function testGetNonExistentRoute() public {
-        vm.expectRevert(abi.encodeWithSelector(RouteStore.RouteNotExists.selector, TEST_NETWORK_ID));
+        vm.expectRevert("missing route");
         this.externalGet(TEST_NETWORK_ID);
     }
 

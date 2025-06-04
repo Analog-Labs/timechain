@@ -55,10 +55,6 @@ library ShardStore {
         mapping(uint256 => ShardInfo) shards;
     }
 
-    error ShardNotExists(uint256 xCoord);
-    error InvalidYParity();
-    error YParityMismatch();
-
     function getMainStorage() internal pure returns (MainStorage storage $) {
         assembly {
             $.slot := _EIP7201_NAMESPACE
@@ -73,7 +69,7 @@ library ShardStore {
      */
     function get(MainStorage storage store, uint256 xCoord) internal view returns (ShardInfo storage) {
         if (!store.shardIds.contains(xCoord)) {
-            revert ShardNotExists(xCoord);
+            revert("missing shard");
         }
         return store.shards[xCoord];
     }
@@ -86,7 +82,7 @@ library ShardStore {
     function register(MainStorage storage store, TssKey calldata newKey) internal returns (bool) {
         // Check y-parity
         if (newKey.yParity != 27 && newKey.yParity != 28) {
-            revert InvalidYParity();
+            revert("invalid yParity");
         }
 
         ShardInfo storage stored = store.shards[newKey.xCoord];
@@ -94,7 +90,7 @@ library ShardStore {
         // Check if the shard is already registered
         if (store.shardIds.contains(newKey.xCoord)) {
             if (newKey.yParity != stored.yParity) {
-                revert YParityMismatch();
+                revert("yParity missmatch");
             }
             return false;
         }
@@ -120,7 +116,7 @@ library ShardStore {
         // Check y-parity
         ShardInfo storage stored = store.shards[key.xCoord];
         if (stored.yParity != key.yParity) {
-            revert YParityMismatch();
+            revert("yParity missmatch");
         }
 
         store.shardIds.remove(key.xCoord);

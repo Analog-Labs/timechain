@@ -68,10 +68,6 @@ library RouteStore {
         mapping(uint16 => NetworkInfo) routes;
     }
 
-    error RouteNotExists(uint16 id);
-    error ZeroGatewayForNewRoute();
-    error InvalidRouteParameters();
-
     function getMainStorage() internal pure returns (MainStorage storage $) {
         assembly {
             $.slot := _EIP7201_NAMESPACE
@@ -86,7 +82,7 @@ library RouteStore {
      */
     function get(MainStorage storage store, uint16 id) internal view returns (NetworkInfo storage) {
         if (!store.routeIds.contains(uint256(id))) {
-            revert RouteNotExists(id);
+            revert("missing route");
         }
         return store.routes[id];
     }

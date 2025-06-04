@@ -84,7 +84,7 @@ contract ShardStoreTest is Test {
     }
 
     function testRegisterInvalidYParity() public {
-        vm.expectRevert(ShardStore.InvalidYParity.selector);
+        vm.expectRevert("invalid yParity");
         register(invalidKey);
     }
 
@@ -125,13 +125,13 @@ contract ShardStoreTest is Test {
 
         TssKey memory wrongParityKey = TssKey({yParity: keys[0].yParity - 2, xCoord: keys[0].xCoord, numSessions: 1});
 
-        vm.expectRevert(ShardStore.YParityMismatch.selector);
+        vm.expectRevert("yParity missmatch");
         revoke(wrongParityKey);
     }
 
     function testGetNonExistentShard() public {
         uint256 nonExistentId = keys[0].xCoord;
-        vm.expectRevert(abi.encodeWithSelector(ShardStore.ShardNotExists.selector, nonExistentId));
+        vm.expectRevert("missing shard");
         get(nonExistentId);
     }
 

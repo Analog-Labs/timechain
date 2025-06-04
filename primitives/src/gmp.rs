@@ -148,7 +148,7 @@ impl GatewayOp {
 			Self::SendMessage(msg) => {
 				let data = Keccak256::digest(&msg.bytes);
 				bytes[..32].copy_from_slice(&msg.message_id());
-				bytes[32..].copy_from_slice(&data);
+				bytes[32..64].copy_from_slice(&data);
 				return Keccak256::digest(&bytes[..64]).into();
 			},
 			Self::RegisterShard(pubkey, sessions) => {

@@ -102,6 +102,8 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
 
     function _include_gmp_message(GmpMessage memory) external {}
 
+    receive() external payable {}
+
     /**
      * Withdraw funds from the gateway contract
      * @param amount The amount to withdraw

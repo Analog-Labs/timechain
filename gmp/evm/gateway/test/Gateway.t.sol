@@ -328,7 +328,7 @@ contract GatewayTest is Test {
         TestUtils.prankAdmin();
         gateway.upgradeToAndCall(address(gatewayV2), "");
 
-        TestGatewayV2 upgraded = TestGatewayV2(address(gateway));
+        TestGatewayV2 upgraded = TestGatewayV2(payable(address(gateway)));
 
         address notAdmin = address(0x0000000000000000000000000000000000000000);
         vm.prank(notAdmin);

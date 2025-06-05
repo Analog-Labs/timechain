@@ -584,7 +584,7 @@ impl Connector {
 		let estimate = self.estimate_eip1559_fees().await?;
 		let tx = tx
 			.with_max_fee_per_gas(estimate.max_fee_per_gas)
-			.with_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas));
+			.with_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas);
 		self.submitter.submit(&self.rpc, tx).await
 	}
 

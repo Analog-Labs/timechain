@@ -545,7 +545,6 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
-
 	/// Get EIP1559 estimate for the connector's chain
 	async fn estimate_eip1559_fees(&self) -> Result<Eip1559Estimation> {
 		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {

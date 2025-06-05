@@ -2,7 +2,7 @@ use crate::custom::BEP226;
 use crate::dict::Currency;
 use crate::sol::{ERC1967Proxy, Gateway, GmpProxy, IGmpReceiver};
 use alloy::{
-	eips::{BlockId, BlockNumberOrTag},
+	eips::{eip1559::Eip1559Estimation, BlockId, BlockNumberOrTag},
 	network::{
 		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, ReceiptResponse,
 		TransactionBuilder,
@@ -148,8 +148,8 @@ impl IChain for Connector {
 			.with_from(sponsor)
 			.with_to(a_addr(self.address()))
 			.with_value(U256::from(balance));
-
 		let receipt = self.submitter.submit(&provider, tx).await?;
+
 		tracing::info!(
 			"faucet sent {balance} to {}, tx: {:?}",
 			a_addr(self.address()),
@@ -315,6 +315,7 @@ impl IConnectorAdmin for Connector {
 		let admin_address = self.call(gateway, sol::Gateway::adminCall {}).await?.0;
 		Ok(t_addr(admin_address.into()))
 	}
+
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = Gateway::setAdminCall { newAdmin: a_addr(admin) };
@@ -322,12 +323,14 @@ impl IConnectorAdmin for Connector {
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
+
 	/// Returns registered shard keys
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
 		let keys = self.call(gateway, sol::Gateway::shardsCall {}).await?;
 		let keys = keys.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
+
 	/// Sets registered shard keys. Overwrites any other keys.
 	async fn set_shards(
 		&self,
@@ -342,12 +345,14 @@ impl IConnectorAdmin for Connector {
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
+
 	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
 		let routes = self.call(gateway, Gateway::routesCall {}).await?;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
+
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = Gateway::setRouteCall { info: route.into() };
@@ -355,6 +360,7 @@ impl IConnectorAdmin for Connector {
 		let _receipt = self.submit(tx).await?;
 		Ok(())
 	}
+
 	/// Estimates message gas limit
 	async fn estimate_message_gas_limit(
 		&self,
@@ -371,9 +377,9 @@ impl IConnectorAdmin for Connector {
 			payload: payload.into(),
 		};
 		let tx = TransactionRequest::default().with_to(a_addr(contract)).with_call(&call);
-
 		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await?)
 	}
+
 	/// Estimates message cost
 	async fn estimate_message_cost(
 		&self,
@@ -456,25 +462,7 @@ impl IConnectorAdmin for Connector {
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
 	async fn max_fee_per_gas(&self) -> Result<u128> {
-		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
-			// Polygon
-			137 => (Eip1559Estimator::Default, 15, 10.0),
-			// BNB
-			97 | 56 => (Eip1559Estimator::Custom(Box::new(BEP226)), 1, 5.0),
-			// Default
-			_ => (Eip1559Estimator::Default, 10, 5.0),
-		};
-
-		let block = self.latest_block().await?;
-		let base_fee = block.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
-
-		let rewards = self
-			.rpc
-			.get_fee_history(past_blocks, BlockNumberOrTag::Latest, &[reward_percentile])
-			.await?
-			.reward
-			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
-		Ok(fee_estimator.estimate(base_fee.into(), &rewards).max_fee_per_gas)
+		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
 	}
 
 	/// Returns gas limit of latest block
@@ -523,6 +511,29 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
+	/// Get EIP1559 estimate for the connector's chain
+	async fn estimate_eip1559_fees(&self) -> Result<Eip1559Estimation> {
+		let (fee_estimator, past_blocks, reward_percentile) = match self.chain_id {
+			// Polygon
+			137 => (Eip1559Estimator::Default, 15, 10.0),
+			// BNB
+			97 | 56 => (Eip1559Estimator::Custom(Box::new(BEP226)), 1, 5.0),
+			// Default
+			_ => (Eip1559Estimator::Default, 10, 5.0),
+		};
+
+		let block = self.latest_block().await?;
+		let base_fee = block.base_fee_per_gas.ok_or(anyhow!("Failed to get latest base fee"))?;
+
+		let rewards = self
+			.rpc
+			.get_fee_history(past_blocks, BlockNumberOrTag::Latest, &[reward_percentile])
+			.await?
+			.reward
+			.ok_or(anyhow!("Failed to get rewards from fee history"))?;
+		Ok(fee_estimator.estimate(base_fee.into(), &rewards))
+	}
+
 	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
@@ -534,6 +545,10 @@ impl Connector {
 		&self,
 		tx: TransactionRequest,
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
+		let estimate = self.estimate_eip1559_fees().await?;
+		let tx = tx
+			.with_max_fee_per_gas(estimate.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas);
 		self.submitter.submit(&self.rpc, tx).await
 	}
 

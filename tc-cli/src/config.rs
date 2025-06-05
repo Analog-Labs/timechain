@@ -92,7 +92,7 @@ impl Config {
 		self.prices
 			.get(&network)
 			.map(|(_, price)| *price)
-			.ok_or_else(|| anyhow::anyhow!("Not token price data for network {}", network))
+			.ok_or_else(|| anyhow::anyhow!("No token price data for network {}", network))
 	}
 
 	pub fn load_prices(&mut self) -> Result<()> {

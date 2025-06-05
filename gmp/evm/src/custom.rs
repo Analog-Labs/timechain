@@ -1,7 +1,7 @@
 //! Custom chains logic
 use alloy::{eips::eip1559::Eip1559Estimation, providers::utils::Eip1559EstimatorFn};
 
-const BEP226_MIN_PRIORITY_FEE: u128 = 1000000000;
+const BEP226_MIN_PRIORITY_FEE: u128 = 1_000_000_000;
 
 /// BNB EIP1559 estimator.
 /// See [`BEP226`](https://github.com/bnb-chain/BEPs/pull/226).

@@ -236,7 +236,7 @@ library TestUtils {
                 require(uint256(gateway.messages(gmp.messageId())) == uint256(GmpStatus.SUCCESS), "message failed");
                 numMsg += 1;
                 gasLimit += gmp.gasLimit;
-                msgLen += gmp.data.length;
+                msgLen += gmp.data.length.align32();
             } else if (op.command == Command.RegisterShard) {
                 numReg += 1;
             } else if (op.command == Command.UnregisterShard) {

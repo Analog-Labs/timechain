@@ -164,7 +164,11 @@ impl GatewayOp {
 	}
 
 	pub fn gas(&self) -> u64 {
-		200_000
+		match self {
+			Self::SendMessage(msg) => 33761 + msg.data.len() * 20 + msg.gas_limit,
+			Self::RegisterShard(_, _) => 99121,
+			Self::UnregisterShard(_, _) => 26528,
+		}
 	}
 }
 
@@ -236,7 +240,7 @@ impl BatchBuilder {
 	pub fn new(batch_gas_limit: u64) -> Self {
 		Self {
 			batch_gas_limit,
-			gas: 0,
+			gas: 68193,
 			ops: Default::default(),
 		}
 	}

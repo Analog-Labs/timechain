@@ -68,9 +68,13 @@ contract SigningHash {
 }
 
 struct Gas {
-    uint256 executeGas;
-    uint256 reimbursmentGas;
-    uint256 baseGas;
+    uint256 numMsg;
+    uint256 numReg;
+    uint256 numUnreg;
+    uint256 msgLen;
+    uint256 calldataLen;
+    uint256 sessionGas;
+    uint256 executionGas;
 }
 
 /**
@@ -88,6 +92,7 @@ library TestUtils {
     uint256 internal constant admin = uint256(keccak256("admin"));
     uint256 internal constant shard1 = uint256(keccak256("shard1"));
     uint256 internal constant shard2 = uint256(keccak256("shard2"));
+    uint256 internal constant newShard = uint256(keccak256("newShard"));
 
     function setupGateway(uint16 network) internal returns (Gateway gateway) {
         VmSafe.Wallet memory _admin = vm.createWallet(admin);
@@ -106,10 +111,8 @@ library TestUtils {
 
         // register shards
         TssKey[] memory keys = new TssKey[](2);
-        Signer signer = new Signer(shard1);
-        keys[0] = TssKey({xCoord: signer.xCoord(), yParity: signer.yParity(), numSessions: 1});
-        signer = new Signer(shard2);
-        keys[1] = TssKey({xCoord: signer.xCoord(), yParity: signer.yParity(), numSessions: 2});
+        keys[0] = TestUtils.tssKey(shard1, 1);
+        keys[1] = TestUtils.tssKey(shard2, 2);
         gateway.setShards(keys, new TssKey[](0));
 
         // register routes
@@ -134,6 +137,14 @@ library TestUtils {
         vm.prank(_admin.addr);
     }
 
+    function tssKey(uint256 privateKey, uint16 numSessions) internal returns (TssKey memory) {
+        return TestUtils.tssKey(new Signer(privateKey), numSessions);
+    }
+
+    function tssKey(Signer signer, uint16 numSessions) internal view returns (TssKey memory) {
+        return TssKey({xCoord: signer.xCoord(), yParity: signer.yParity(), numSessions: numSessions});
+    }
+
     function msgOp(GmpMessage memory gmp) internal pure returns (GatewayOp memory) {
         return GatewayOp({command: Command.GMP, params: abi.encode(gmp)});
     }
@@ -148,6 +159,10 @@ library TestUtils {
 
     function makeBatch(uint64 batch, GmpMessage memory gmp) internal pure returns (Batch memory) {
         return TestUtils.makeBatch(batch, TestUtils.msgOp(gmp));
+    }
+
+    function makeBatch(uint64 batch) internal pure returns (Batch memory) {
+        return TestUtils.makeBatch(batch, new GatewayOp[](0));
     }
 
     function makeBatch(uint64 batch, GatewayOp memory op) internal pure returns (Batch memory) {
@@ -174,17 +189,19 @@ library TestUtils {
         return TestUtils.sign(shard, hash);
     }
 
-    function calldataSize(uint16 messageSize) internal pure returns (uint256) {
-        return uint256(messageSize).align32() + 676; // selector + Signature + Batch
+    function emptyBatch(uint64 batchId) internal pure returns (Batch memory) {
+        return TestUtils.makeBatch(batchId);
     }
 
-    function baseGas(uint16 messageSize) internal pure returns (uint256) {
-        uint256 size = TestUtils.calldataSize(messageSize);
-        return 21000 + size * 16; // assume every byte is a 1
+    function registerBatch(uint64 batchId) internal returns (Batch memory) {
+        return TestUtils.makeBatch(batchId, TestUtils.registerOp(TestUtils.tssKey(newShard, 1)));
     }
 
-    function measureGas(uint16 messageSize) internal returns (Gas memory) {
-        Gateway gateway = TestUtils.setupGateway(42);
+    function unregisterBatch(uint64 batchId) internal returns (Batch memory) {
+        return TestUtils.makeBatch(batchId, TestUtils.unregisterOp(TestUtils.tssKey(shard1, 1)));
+    }
+
+    function gmpBatch(uint256 messageSize) internal returns (Batch memory) {
         bytes memory data = new bytes(messageSize);
         assembly {
             mstore(add(data, 32), 5000)
@@ -198,19 +215,48 @@ library TestUtils {
             nonce: 0,
             data: data
         });
-        Batch memory batch = TestUtils.makeBatch(uint64(messageSize), gmp);
+        return TestUtils.makeBatch(uint64(messageSize), gmp);
+    }
+
+    function measureGas(Gateway gateway, Batch memory batch) internal returns (Gas memory) {
         Signature memory sig = TestUtils.sign(shard2, gateway, batch);
 
         gateway.execute(sig, batch);
         uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-        require(uint256(gateway.messages(gmp.messageId())) == uint256(GmpStatus.SUCCESS), "message failed");
+
+        uint64 gasLimit = 0;
+        uint256 numMsg = 0;
+        uint256 msgLen = 0;
+        uint256 numReg = 0;
+        uint256 numUnreg = 0;
+        for (uint256 i = 0; i < batch.ops.length; i++) {
+            GatewayOp memory op = batch.ops[i];
+            if (op.command == Command.GMP) {
+                GmpMessage memory gmp = abi.decode(op.params, (GmpMessage));
+                require(uint256(gateway.messages(gmp.messageId())) == uint256(GmpStatus.SUCCESS), "message failed");
+                numMsg += 1;
+                gasLimit += gmp.gasLimit;
+                msgLen += gmp.data.length;
+            } else if (op.command == Command.RegisterShard) {
+                numReg += 1;
+            } else if (op.command == Command.UnregisterShard) {
+                numUnreg += 1;
+            }
+        }
 
         gateway.execute(sig, batch);
-        uint256 gasUsed2 = vm.lastCallGas().gasTotalUsed;
+        uint256 sessionGas = vm.lastCallGas().gasTotalUsed;
+
+        bytes memory call = abi.encodeCall(gateway.execute, (sig, batch));
+
         return Gas({
-            executeGas: gasUsed - gmp.gasLimit,
-            reimbursmentGas: gasUsed2 - gmp.gasLimit,
-            baseGas: baseGas(messageSize)
+            numMsg: numMsg,
+            numReg: numReg,
+            numUnreg: numUnreg,
+            msgLen: msgLen,
+            calldataLen: call.length,
+            sessionGas: sessionGas,
+            executionGas: gasUsed - gasLimit - sessionGas
         });
     }
 }

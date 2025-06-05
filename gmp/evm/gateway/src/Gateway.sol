@@ -322,7 +322,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
      * @dev Register a single shard and returns the GatewayOp hash.
      */
     function _registerShardCommand(bytes calldata params, bool dry) private returns (bytes32 operationHash) {
-        require(params.length == 64, "invalid TssKey");
+        require(params.length == 96, "invalid TssKey");
         TssKey calldata publicKey;
         assembly {
             publicKey := params.offset
@@ -340,7 +340,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
      * @dev Removes a single shard from the set.
      */
     function _unregisterShardCommand(bytes calldata params, bool dry) private returns (bytes32 operationHash) {
-        require(params.length == 64, "invalid TssKey");
+        require(params.length == 96, "invalid TssKey");
         TssKey calldata publicKey;
         assembly {
             publicKey := params.offset

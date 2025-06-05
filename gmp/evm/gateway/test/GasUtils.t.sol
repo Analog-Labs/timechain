@@ -24,9 +24,6 @@ import {
     MAX_PAYLOAD_SIZE
 } from "../src/Primitives.sol";
 
-uint256 constant secret = 0x42;
-uint256 constant nonce = 0x69;
-
 contract MeasureGas {
     function baseGas(Signature calldata, Batch calldata) external pure returns (uint256) {
         return GasUtils.txBaseGas();
@@ -41,33 +38,9 @@ contract GasUtilsTest is Test {
     Gateway internal gateway;
     IGmpReceiver internal receiver;
 
-    bytes32 private constant SENDER = bytes32(uint256(0xdead_beef));
-    uint16 private constant SRC_NETWORK_ID = 1234;
-    uint16 private constant DEST_NETWORK_ID = 1337;
-
-    string path = "gas.csv";
-
     constructor() {
-        gateway = TestUtils.setupGateway(DEST_NETWORK_ID);
+        gateway = TestUtils.setupGateway(42);
         receiver = IGmpReceiver(new GasSpender());
-        vm.writeFile(path, "messageSize, executeGas, reimbursmentGas, baseGas\n");
-    }
-
-    function test_calldata_size(uint16 messageSize) external {
-        bytes memory data = new bytes(messageSize);
-        GmpMessage memory gmp = GmpMessage({
-            source: SENDER,
-            srcNetwork: SRC_NETWORK_ID,
-            dest: address(receiver),
-            destNetwork: DEST_NETWORK_ID,
-            gasLimit: 42,
-            nonce: 42,
-            data: data
-        });
-        Batch memory batch = TestUtils.makeBatch(1, gmp);
-        Signature memory sig = TestUtils.sign(TestUtils.shard1, gateway, batch);
-        bytes memory call = abi.encodeCall(gateway.execute, (sig, batch));
-        assertEq(call.length, TestUtils.calldataSize(messageSize));
     }
 
     /**
@@ -87,10 +60,10 @@ contract GasUtilsTest is Test {
             mstore(add(data, 32), gasLimit)
         }
         GmpMessage memory gmp = GmpMessage({
-            source: SENDER,
-            srcNetwork: SRC_NETWORK_ID,
+            source: bytes32(uint256(0xdead_beef)),
+            srcNetwork: 42,
             dest: address(receiver),
-            destNetwork: DEST_NETWORK_ID,
+            destNetwork: 42,
             gasLimit: gasLimit,
             nonce: gasLimit,
             data: data
@@ -136,20 +109,47 @@ contract GasUtilsTest is Test {
         gateway.execute(sig, batch);
     }
 
-    function test_measure_gas(uint16 messageSize) external {
-        vm.assume(messageSize <= MAX_PAYLOAD_SIZE - 32);
-        messageSize += 32;
-        Gas memory gas = TestUtils.measureGas(messageSize);
+    string path = "gas.csv";
 
+    function writeFile() private {
+        vm.writeFile(path, "numMsg, numReg, numUnreg, msgLen, calldataLen, sessionGas, executionGas\n");
+    }
+
+    function writeGas(Gas memory gas) private {
         string memory line = string.concat(
-            Strings.toString(messageSize),
+            Strings.toString(gas.numMsg),
             ", ",
-            Strings.toString(gas.executeGas),
+            Strings.toString(gas.numReg),
             ", ",
-            Strings.toString(gas.reimbursmentGas),
+            Strings.toString(gas.numUnreg),
             ", ",
-            Strings.toString(gas.baseGas)
+            Strings.toString(gas.msgLen),
+            ", ",
+            Strings.toString(gas.calldataLen),
+            ", ",
+            Strings.toString(gas.sessionGas),
+            ", ",
+            Strings.toString(gas.executionGas)
         );
         vm.writeLine(path, line);
+    }
+
+    function test_measure_gas() external {
+        writeFile();
+        Batch memory batch = TestUtils.emptyBatch(0);
+        Gas memory gas = TestUtils.measureGas(gateway, batch);
+        writeGas(gas);
+        batch = TestUtils.registerBatch(1);
+        gas = TestUtils.measureGas(gateway, batch);
+        writeGas(gas);
+        batch = TestUtils.unregisterBatch(2);
+        gas = TestUtils.measureGas(gateway, batch);
+        writeGas(gas);
+        batch = TestUtils.gmpBatch(32);
+        gas = TestUtils.measureGas(gateway, batch);
+        writeGas(gas);
+        batch = TestUtils.gmpBatch(MAX_PAYLOAD_SIZE);
+        gas = TestUtils.measureGas(gateway, batch);
+        writeGas(gas);
     }
 }

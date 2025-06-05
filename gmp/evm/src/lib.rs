@@ -166,7 +166,6 @@ impl IChain for Connector {
 	/// Transfers an amount to an account
 	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
-		let tx = self.fill_eip1159_fees(tx).await?;
 		let receipt = self.submit(tx).await?;
 		tracing::info!(
 			"transferred {amount} to {}, tx: {:?}",
@@ -295,7 +294,6 @@ impl IConnector for Connector {
 		let call = Gateway::batchExecuteCall { signature, message };
 
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
-		let tx = self.fill_eip1159_fees(tx).await.map_err(|err| err.to_string())?;
 		self.submit(tx).await.map_err(|err| err.to_string())?;
 
 		Ok(())
@@ -329,7 +327,6 @@ impl IConnectorAdmin for Connector {
 			newImplementation: gateway_addr,
 		};
 		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
-		let tx = self.fill_eip1159_fees(tx).await?;
 		self.submit(tx).await?;
 
 		Ok(())
@@ -351,7 +348,6 @@ impl IConnectorAdmin for Connector {
 		let call = Gateway::setAdminCall { newAdmin: a_addr(admin) };
 
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
-		let tx = self.fill_eip1159_fees(tx).await?;
 		let _receipt = self.submit(tx).await?;
 
 		Ok(())
@@ -368,7 +364,6 @@ impl IConnectorAdmin for Connector {
 		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
 		let call = Gateway::setShardsCall { publicKeys: shards };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
-		let tx = self.fill_eip1159_fees(tx).await?;
 		let _receipt = self.submit(tx).await?;
 
 		Ok(())
@@ -384,7 +379,6 @@ impl IConnectorAdmin for Connector {
 		let call = Gateway::setRouteCall { info: route.into() };
 
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
-		let tx = self.fill_eip1159_fees(tx).await?;
 		let _receipt = self.submit(tx).await?;
 
 		Ok(())
@@ -523,7 +517,6 @@ impl IConnectorAdmin for Connector {
 		};
 
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
-		let tx = self.fill_eip1159_fees(tx).await?;
 		self.submit(tx).await?;
 
 		Ok(())
@@ -595,6 +588,7 @@ impl Connector {
 		&self,
 		tx: TransactionRequest,
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
+		let tx = self.fill_eip1159_fees(tx).await?;
 		self.submitter.submit(&self.rpc, tx).await
 	}
 
@@ -627,7 +621,6 @@ impl Connector {
 		bytecode.extend(constructor.abi_encode());
 
 		let tx = TransactionRequest::default().with_deploy_code(bytecode);
-		let tx = self.fill_eip1159_fees(tx).await?;
 		let receipt = self.submit(tx).await?;
 
 		let contract_address = receipt

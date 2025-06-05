@@ -153,7 +153,6 @@ impl IChain for Connector {
 			.with_from(sponsor)
 			.with_to(a_addr(self.address()))
 			.with_value(U256::from(balance));
-		let tx = self.fill_eip1159_fees(tx).await?;
 		let receipt = self.submitter.submit(&provider, tx).await?;
 
 		tracing::info!(
@@ -546,12 +545,6 @@ impl IConnectorAdmin for Connector {
 }
 
 impl Connector {
-	async fn fill_eip1159_fees(&self, tx: TransactionRequest) -> Result<TransactionRequest> {
-		let estimate = self.estimate_eip1559_fees().await?;
-		Ok(tx
-			.with_max_fee_per_gas(estimate.max_fee_per_gas)
-			.with_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas))
-	}
 
 	/// Get EIP1559 estimate for the connector's chain
 	async fn estimate_eip1559_fees(&self) -> Result<Eip1559Estimation> {
@@ -588,7 +581,10 @@ impl Connector {
 		&self,
 		tx: TransactionRequest,
 	) -> Result<WithOtherFields<TransactionReceipt<AnyReceiptEnvelope<Log>>>> {
-		let tx = self.fill_eip1159_fees(tx).await?;
+		let estimate = self.estimate_eip1559_fees().await?;
+		let tx = tx
+			.with_max_fee_per_gas(estimate.max_fee_per_gas)
+			.with_max_priority_fee_per_gas(estimate.max_priority_fee_per_gas));
 		self.submitter.submit(&self.rpc, tx).await
 	}
 

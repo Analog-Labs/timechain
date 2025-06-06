@@ -48,9 +48,6 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    cctp_contracts:
-    - "293B37788019317F09d015b56895F0CB6Fc53Fa7"
-    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
     batch_exec_gas: 68193
     reg_op_exec_gas: 99121
     unreg_op_exec_gas: 26528

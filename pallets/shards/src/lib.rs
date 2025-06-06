@@ -45,7 +45,7 @@
 //! ready, and a check is performed to see if all members are ready. If all members are ready, the
 //! shard state is updated to `Online`, and the `shard_online` task is scheduled. The process ends
 //! with the logging of a `ShardOnline` event.
-//!  
+//!
 #![doc = simple_mermaid::mermaid!("../docs/shard_callfunctions.mmd")]
 //!
 //! ## **on_initialize Hook**
@@ -433,7 +433,7 @@ pub mod pallet {
 		/// # Flow
 		///   1. Iterate over the [`DkgTimeout`] storage.
 		///   2. Check if the DKG process of any shard has timed out.
-		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardsOfflineDKGTimedOut`] event.
+		///   3. For timed-out shards, update their status to offline and emit the [`Event::ShardsOffline`] event.
 		///   4. Remove DKG timeout entries for shards that are no longer in `Created` or `Committed` states.
 		pub(crate) fn timeout_dkgs(n: BlockNumberFor<T>) -> Weight {
 			let mut num_timeouts = 0u32;

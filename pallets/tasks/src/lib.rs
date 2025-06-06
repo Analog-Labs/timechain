@@ -265,7 +265,7 @@ pub mod pallet {
 
 	/// Map storage for batches.
 	#[pallet::storage]
-	pub type BatchMessage<T: Config> =
+	pub type Batch<T: Config> =
 		StorageMap<_, Blake2_128Concat, BatchId, GatewayMessage, OptionQuery>;
 
 	#[pallet::storage]
@@ -276,7 +276,7 @@ pub mod pallet {
 
 	/// List of failed batches.
 	#[pallet::storage]
-	pub type FailedBatchIds<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
+	pub type FailedBatches<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
 
 	/// TxHash of the batch executed.
 	///
@@ -393,7 +393,7 @@ pub mod pallet {
 					let members = T::Shards::shard_members(shard);
 					ensure!(members.contains(&signer), Error::<T>::InvalidSigner);
 					PendingBatches::<T>::remove(batch_id);
-					FailedBatchIds::<T>::insert(batch_id, ());
+					FailedBatches::<T>::insert(batch_id, ());
 					Err(error)
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
@@ -413,7 +413,7 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			for event in events.0.iter() {
 				if let GmpEvent::BatchExecuted { batch_id, .. } = event {
-					FailedBatchIds::<T>::remove(batch_id);
+					FailedBatches::<T>::remove(batch_id);
 					if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
 						TaskOutput::<T>::remove(task_id);
 					}
@@ -452,7 +452,7 @@ pub mod pallet {
 				return Err(Error::<T>::CannotRemoveTask.into());
 			}
 			if let Some(Task::SubmitGatewayMessage { batch_id }) = Tasks::<T>::take(task) {
-				if let Some(msg) = BatchMessage::<T>::take(batch_id) {
+				if let Some(msg) = Batch::<T>::take(batch_id) {
 					for op in msg.ops {
 						if let GatewayOp::SendMessage(msg) = op {
 							let message = msg.message_id();
@@ -476,7 +476,7 @@ pub mod pallet {
 			let new_task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			BatchTaskId::<T>::insert(batch_id, new_task_id);
 			PendingBatches::<T>::insert(batch_id, ());
-			FailedBatchIds::<T>::remove(batch_id);
+			FailedBatches::<T>::remove(batch_id);
 			Self::deposit_event(Event::BatchRestarted(old_task_id, new_task_id));
 			Ok(())
 		}
@@ -753,7 +753,7 @@ pub mod pallet {
 					},
 				}
 			}
-			BatchMessage::<T>::insert(batch_id, msg);
+			Batch::<T>::insert(batch_id, msg);
 			let task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			PendingBatches::<T>::insert(batch_id, ());
 			BatchTaskId::<T>::insert(batch_id, task_id);
@@ -786,12 +786,12 @@ pub mod pallet {
 		}
 
 		pub fn batch_message(batch: BatchId) -> Option<GatewayMessage> {
-			BatchMessage::<T>::get(batch)
+			Batch::<T>::get(batch)
 		}
 
 		/// Get all failed batch IDs
 		pub fn failed_batches() -> Vec<BatchId> {
-			FailedBatchIds::<T>::iter_keys().collect()
+			FailedBatches::<T>::iter_keys().collect()
 		}
 
 		/// Get all failed batch IDs

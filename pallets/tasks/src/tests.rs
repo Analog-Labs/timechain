@@ -1,5 +1,5 @@
 use crate::{
-	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatchIds, PendingBatches,
+	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatches, PendingBatches,
 	ShardRegistered, TaskOutput, TaskShard,
 };
 
@@ -83,7 +83,6 @@ fn mock_gmp_msg(nonce: u64) -> GmpMessage {
 		dest: [0; 32],
 		nonce,
 		gas_limit: 10_000,
-		gas_cost: 0,
 		bytes: vec![],
 	}
 }
@@ -429,12 +428,12 @@ fn test_restart_failed_batch() {
 		roll(1);
 		let submitter = task_submitter(initial_task_id);
 		submit_submission_error(submitter, initial_task_id, "batch failed");
-		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(FailedBatches::<Test>::contains_key(batch_id));
 		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
 		let new_task_id = 3;
 		assert_eq!(Tasks::task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		assert_eq!(BatchTaskId::<Test>::get(batch_id), Some(new_task_id));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 		assert!(Tasks::task_result(initial_task_id).is_some());
 		let event = System::events().into_iter().find_map(|r| {
 			if let RuntimeEvent::Tasks(Event::BatchRestarted(old, new)) = r.event {
@@ -462,14 +461,14 @@ fn test_submit_gmp_events() {
 		roll(1);
 		let submitter = task_submitter(task_id);
 		submit_submission_error(submitter, task_id, "batch failed");
-		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(FailedBatches::<Test>::contains_key(batch_id));
 		let events = [GmpEvent::BatchExecuted {
 			batch_id,
 			tx_hash: Some([0; 32]),
 		}];
 		let events = GmpEvents(BoundedVec::truncate_from(events.to_vec()));
 		assert_ok!(Tasks::submit_gmp_events(RawOrigin::Root.into(), ETHEREUM, events));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Ok(())));
 	});
 }
@@ -492,7 +491,7 @@ fn test_pending_batches_storage() {
 		assert!(!PendingBatches::<Test>::contains_key(batch_id));
 		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
 		assert!(PendingBatches::<Test>::contains_key(batch_id));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 		let new_task_id = 3;
 		assert_eq!(Tasks::task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		let events = [GmpEvent::BatchExecuted {
@@ -502,7 +501,7 @@ fn test_pending_batches_storage() {
 		let events = GmpEvents(BoundedVec::truncate_from(events.to_vec()));
 		assert_ok!(Tasks::submit_gmp_events(RawOrigin::Root.into(), ETHEREUM, events));
 		assert!(!PendingBatches::<Test>::contains_key(batch_id));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 	});
 }
 

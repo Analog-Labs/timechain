@@ -62,6 +62,10 @@ jobs:
         with:
           path: ${{ github.workspace }}/target/${{matrix.profile}}
           key: docker-chronicle-${{ matrix.profile }}-${{ hashFiles('Cargo.lock', 'config/docker/Dockerfile.chronicle-release') }}
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
       - name: Build OCI Image
         uses: ./.github/actions/buildah-action
         with:

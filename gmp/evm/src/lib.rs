@@ -538,7 +538,11 @@ impl Connector {
 	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
-		tracing::debug!("eth_call to: {} on chain {} result: {result:?}", a_addr(to).to_string(), self.chain_id);
+		tracing::debug!(
+			"eth_call to: {} on chain {} result: {result:?}",
+			a_addr(to).to_string(),
+			self.chain_id
+		);
 		Ok(C::abi_decode_returns(&result)?)
 	}
 

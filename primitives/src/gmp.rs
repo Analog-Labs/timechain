@@ -82,7 +82,8 @@ pub struct GmpMessage {
 	pub dest: Address32,
 	pub nonce: u64,
 	pub gas_limit: u128,
-	pub deprecated_field: u128,
+	/// deprecated field
+	pub gas_cost: u128,
 	pub bytes: Vec<u8>,
 }
 

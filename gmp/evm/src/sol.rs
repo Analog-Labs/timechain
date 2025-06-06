@@ -101,7 +101,7 @@ impl From<GmpProxy::GmpMessage> for time_primitives::GmpMessage {
 			dest: t_addr(msg.dest),
 			nonce: msg.nonce,
 			gas_limit: msg.gasLimit as _,
-			deprecated_field: 0,
+			gas_cost: 0,
 			bytes: msg.data.into(),
 		}
 	}

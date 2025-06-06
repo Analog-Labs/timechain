@@ -248,9 +248,12 @@ pub struct NetworkConfig {
 	pub coin_id: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub session_gas: u64,
-	pub session_msg_byte_gas: u64,
-	pub session_exec_gas: u64,
+	pub batch_exec_gas: u64,
+	pub reg_op_exec_gas: u64,
+	pub unreg_op_exec_gas: u64,
+	pub msg_op_exec_gas: u64,
+	pub msg_session_gas: u64,
+	pub msg_byte_gas: u64,
 }
 
 impl NetworkConfig {
@@ -259,11 +262,14 @@ impl NetworkConfig {
 	}
 
 	pub fn base_gas(&self) -> u64 {
-		self.num_sessions() as u64 * self.session_gas + self.session_exec_gas
+		self.num_sessions() as u64 * self.msg_session_gas
+			+ self.batch_exec_gas
+			+ self.msg_op_exec_gas
+			- self.msg_session_gas
 	}
 
 	pub fn msg_byte_gas(&self) -> u64 {
-		self.num_sessions() as u64 * self.session_msg_byte_gas
+		self.num_sessions() as u64 * self.msg_byte_gas
 	}
 
 	pub fn gas(&self, msg_size: u16, gas_limit: u64) -> u64 {

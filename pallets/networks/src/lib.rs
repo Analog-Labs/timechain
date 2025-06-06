@@ -37,7 +37,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::vec::Vec;
 	use time_primitives::{
-		Address32, ChainName, Network, NetworkConfig, NetworkId, NetworksInterface, TasksInterface,
+		Address32, BatchGasParams, ChainName, Network, NetworkConfig, NetworkId, NetworksInterface,
+		TasksInterface,
 	};
 
 	pub trait WeightInfo {
@@ -128,6 +129,31 @@ pub mod pallet {
 	pub type NetworkBatchGasLimit<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
 
+	/// Map storage for batch exec gas.
+	#[pallet::storage]
+	pub type NetworkBatchExecGas<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	/// Map storage for reg op exec gas.
+	#[pallet::storage]
+	pub type NetworkRegOpExecGas<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	/// Map storage for unreg op exec gas.
+	#[pallet::storage]
+	pub type NetworkUnregOpExecGas<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	/// Map storage for msg op exec gas.
+	#[pallet::storage]
+	pub type NetworkMsgOpExecGas<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
+	/// Map storage for msg byte gas.
+	#[pallet::storage]
+	pub type NetworkMsgByteGas<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+
 	/// Map storage for shard task limits.
 	#[pallet::storage]
 	pub type NetworkShardTaskLimit<T: Config> =
@@ -194,7 +220,7 @@ pub mod pallet {
 					network.gateway_block,
 				));
 			}
-			Self::insert_network_config(network.id, network.config.clone())?;
+			Self::insert_network_config(network.id, network.config)?;
 			Ok(())
 		}
 
@@ -213,10 +239,15 @@ pub mod pallet {
 			);
 			NetworkBatchSize::<T>::insert(network, config.batch_size);
 			NetworkBatchOffset::<T>::insert(network, config.batch_offset);
-			NetworkBatchGasLimit::<T>::insert(network, config.batch_gas_limit);
 			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
 			NetworkShardSize::<T>::insert(network, config.shard_size);
 			NetworkShardThreshold::<T>::insert(network, config.shard_threshold);
+			NetworkBatchGasLimit::<T>::insert(network, config.batch_gas_params.batch_gas_limit);
+			NetworkBatchExecGas::<T>::insert(network, config.batch_gas_params.batch_exec_gas);
+			NetworkRegOpExecGas::<T>::insert(network, config.batch_gas_params.reg_op_exec_gas);
+			NetworkUnregOpExecGas::<T>::insert(network, config.batch_gas_params.unreg_op_exec_gas);
+			NetworkMsgOpExecGas::<T>::insert(network, config.batch_gas_params.msg_op_exec_gas);
+			NetworkMsgByteGas::<T>::insert(network, config.batch_gas_params.msg_byte_gas);
 			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
 		}
@@ -270,6 +301,11 @@ pub mod pallet {
 			NetworkGatewayBlock::<T>::remove(network);
 			NetworkBatchSize::<T>::remove(network);
 			NetworkBatchGasLimit::<T>::remove(network);
+			NetworkBatchExecGas::<T>::remove(network);
+			NetworkRegOpExecGas::<T>::remove(network);
+			NetworkUnregOpExecGas::<T>::remove(network);
+			NetworkMsgOpExecGas::<T>::remove(network);
+			NetworkMsgByteGas::<T>::remove(network);
 			NetworkShardTaskLimit::<T>::remove(network);
 			NetworkShardSize::<T>::remove(network);
 			NetworkShardThreshold::<T>::remove(network);
@@ -283,13 +319,24 @@ pub mod pallet {
 		///  # Flow
 		///  1. Call [`Networks`] to fetch the network information.
 		///  2. Return the network information if it exists, otherwise return `None`.
-		pub fn get_network(network: NetworkId) -> Option<ChainName> {
+		pub fn network_name(network: NetworkId) -> Option<ChainName> {
 			NetworkName::<T>::get(network)
+		}
+
+		pub fn network_config(network: NetworkId) -> NetworkConfig {
+			NetworkConfig {
+				batch_size: NetworkBatchSize::<T>::get(network).unwrap_or(32),
+				batch_offset: NetworkBatchOffset::<T>::get(network).unwrap_or_default(),
+				shard_task_limit: Self::shard_task_limit(network),
+				shard_size: Self::shard_size(network),
+				shard_threshold: Self::shard_threshold(network),
+				batch_gas_params: Self::batch_gas_params(network),
+			}
 		}
 	}
 
 	impl<T: Config> NetworksInterface for Pallet<T> {
-		fn get_networks() -> Vec<NetworkId> {
+		fn networks() -> Vec<NetworkId> {
 			NetworkName::<T>::iter().map(|(n, _)| n).collect()
 		}
 
@@ -304,8 +351,15 @@ pub mod pallet {
 				- ((block_height + network_offset as u64) % network_batch_size as u64) as u32
 		}
 
-		fn batch_gas_limit(network: NetworkId) -> u64 {
-			NetworkBatchGasLimit::<T>::get(network).unwrap_or(10_000)
+		fn batch_gas_params(network: NetworkId) -> BatchGasParams {
+			BatchGasParams {
+				batch_gas_limit: NetworkBatchGasLimit::<T>::get(network).unwrap_or_default(),
+				batch_exec_gas: NetworkBatchExecGas::<T>::get(network).unwrap_or_default(),
+				reg_op_exec_gas: NetworkRegOpExecGas::<T>::get(network).unwrap_or_default(),
+				unreg_op_exec_gas: NetworkUnregOpExecGas::<T>::get(network).unwrap_or_default(),
+				msg_op_exec_gas: NetworkMsgOpExecGas::<T>::get(network).unwrap_or_default(),
+				msg_byte_gas: NetworkMsgByteGas::<T>::get(network).unwrap_or_default(),
+			}
 		}
 
 		fn shard_task_limit(network: NetworkId) -> u32 {

@@ -5,16 +5,23 @@ use frame_system::RawOrigin;
 use polkadot_sdk::{frame_support, frame_system, sp_runtime};
 use scale_codec::Encode;
 use sp_runtime::BoundedVec;
-use time_primitives::{ChainName, Network, NetworkConfig};
+use time_primitives::{BatchGasParams, ChainName, Network, NetworkConfig};
 
 fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
 		batch_size: 32,
 		batch_offset: 0,
-		batch_gas_limit: 10_000,
 		shard_task_limit: 10,
 		shard_size: 3,
 		shard_threshold: 2,
+		batch_gas_params: BatchGasParams {
+			batch_gas_limit: 500_000,
+			batch_exec_gas: 10_000,
+			reg_op_exec_gas: 20_000,
+			unreg_op_exec_gas: 20_000,
+			msg_op_exec_gas: 100_000,
+			msg_byte_gas: 20,
+		},
 	}
 }
 

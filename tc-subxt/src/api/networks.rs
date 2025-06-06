@@ -43,7 +43,7 @@ impl SubxtClient {
 		block: BlockHash,
 	) -> Result<Option<ChainName>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().networks_api().get_network(network);
+		let runtime_call = metadata::apis().networks_api().network_name(network);
 		let data: Option<ChainName> =
 			self.client.runtime_api().at(block).call(runtime_call).await?.map(|name| name.0);
 		Ok(data)
@@ -55,70 +55,19 @@ impl SubxtClient {
 		block: BlockHash,
 	) -> Result<Option<Address32>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().networks_api().get_gateway(network);
+		let runtime_call = metadata::apis().networks_api().network_gateway(network);
 		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data)
 	}
 
-	pub async fn network_batch_size(&self, network: NetworkId, block: BlockHash) -> Result<u32> {
-		let block = H256(block.0);
-		let storage_query = metadata::storage().networks().network_batch_size(network);
-		let data = self.client.storage().at(block).fetch(&storage_query).await?.unwrap_or_default();
-		Ok(data)
-	}
-
-	pub async fn network_batch_offset(&self, network: NetworkId, block: BlockHash) -> Result<u32> {
-		let block = H256(block.0);
-		let storage_query = metadata::storage().networks().network_batch_offset(network);
-		let data = self.client.storage().at(block).fetch(&storage_query).await?.unwrap_or_default();
-		Ok(data)
-	}
-
-	pub async fn network_batch_gas_limit(
+	pub async fn network_config(
 		&self,
 		network: NetworkId,
 		block: BlockHash,
-	) -> Result<u64> {
+	) -> Result<NetworkConfig> {
 		let block = H256(block.0);
-		let storage_query = metadata::storage().networks().network_batch_gas_limit(network);
-		let data = self.client.storage().at(block).fetch(&storage_query).await?.unwrap_or_default();
+		let runtime_call = metadata::apis().networks_api().network_config(network);
+		let data = self.client.runtime_api().at(block).call(runtime_call).await?.0;
 		Ok(data)
-	}
-
-	pub async fn network_shard_task_limit(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<u32> {
-		let block = H256(block.0);
-		let storage_query = metadata::storage().networks().network_shard_task_limit(network);
-		let data = self.client.storage().at(block).fetch(&storage_query).await?.unwrap_or_default();
-		Ok(data)
-	}
-
-	pub async fn network_shard_size(&self, network: NetworkId, block: BlockHash) -> Result<u16> {
-		let block = H256(block.0);
-		let storage_query = metadata::storage().networks().network_shard_size(network);
-		self.client
-			.storage()
-			.at(block)
-			.fetch(&storage_query)
-			.await?
-			.ok_or_else(|| anyhow::anyhow!("Shard size not found"))
-	}
-
-	pub async fn network_shard_threshold(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<u16> {
-		let block = H256(block.0);
-		let storage_query = metadata::storage().networks().network_shard_threshold(network);
-		self.client
-			.storage()
-			.at(block)
-			.fetch(&storage_query)
-			.await?
-			.ok_or_else(|| anyhow::anyhow!("Shard size not found"))
 	}
 }

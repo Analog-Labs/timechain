@@ -13,8 +13,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{BoundedVec, Percent};
 use std::collections::HashSet;
 use time_primitives::{
-	AccountId, ChainName, ElectionsInterface, MembersInterface, Network, NetworkConfig, NetworkId,
-	ShardStatus, ShardsInterface, TasksInterface,
+	AccountId, BatchGasParams, ChainName, ElectionsInterface, MembersInterface, Network,
+	NetworkConfig, NetworkId, ShardStatus, ShardsInterface, TasksInterface,
 };
 
 fn acc_pub(i: u8) -> [u8; 32] {
@@ -30,10 +30,13 @@ fn network() -> Network {
 		config: NetworkConfig {
 			batch_size: 32,
 			batch_offset: 0,
-			batch_gas_limit: 10000,
 			shard_task_limit: 10,
 			shard_size: 3,
 			shard_threshold: 2,
+			batch_gas_params: BatchGasParams {
+				batch_gas_limit: 10000,
+				..Default::default()
+			},
 		},
 	}
 }

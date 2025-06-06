@@ -38,7 +38,7 @@ pub use time_primitives::{MembersInterface, NetworksInterface};
 #[cfg(feature = "testnet")]
 use time_primitives::{
 	Address32, BatchId, BlockNumber, ChainName, Commitment, ErrorMsg, GatewayMessage, MemberStatus,
-	NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
+	NetworkConfig, NetworkId, PeerId, ShardId, ShardStatus, Task, TaskId,
 };
 
 // Local module imports
@@ -323,77 +323,81 @@ sp_api::impl_runtime_apis! {
 
 	#[cfg(feature = "testnet")]
 	impl time_primitives::MembersApi<Block> for Runtime {
-		fn get_member_peer_id(account: &AccountId) -> Option<PeerId> {
+		fn member_peer_id(account: &AccountId) -> Option<PeerId> {
 			Members::member_peer_id(account)
 		}
 
-		fn get_heartbeat_timeout() -> BlockNumber {
-			Members::get_heartbeat_timeout()
+		fn heartbeat_timeout() -> BlockNumber {
+			Members::heartbeat_timeout()
 		}
 	}
 
 	#[cfg(feature = "testnet")]
 	impl time_primitives::NetworksApi<Block> for Runtime {
-		fn get_network(network_id: NetworkId) -> Option<ChainName> {
-			Networks::get_network(network_id)
+		fn network_name(network_id: NetworkId) -> Option<ChainName> {
+			Networks::network_name(network_id)
 		}
 
-		fn get_gateway(network: NetworkId) -> Option<Address32> {
+		fn network_gateway(network: NetworkId) -> Option<Address32> {
 			Networks::gateway(network)
+		}
+
+		fn network_config(network: NetworkId) -> NetworkConfig {
+			Networks::network_config(network)
 		}
 	}
 
 	#[cfg(feature = "testnet")]
 	impl time_primitives::ShardsApi<Block> for Runtime {
-		fn get_shards(account: &AccountId) -> Vec<ShardId> {
-			Shards::get_shards(account)
+		fn shards(account: &AccountId) -> Vec<ShardId> {
+			Shards::shards(account)
 		}
 
-		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
-			Shards::get_shard_members(shard_id)
+		fn shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
+			Shards::shard_members(shard_id)
 		}
 
-		fn get_shard_threshold(shard_id: ShardId) -> u16 {
-			Shards::get_shard_threshold(shard_id)
+		fn shard_threshold(shard_id: ShardId) -> u16 {
+			Shards::shard_threshold(shard_id)
 		}
 
-		fn get_shard_status(shard_id: ShardId) -> ShardStatus {
-			Shards::get_shard_status(shard_id)
+		fn shard_status(shard_id: ShardId) -> ShardStatus {
+			Shards::shard_status(shard_id)
 		}
 
-		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
-			Shards::get_shard_commitment(shard_id)
+		fn shard_commitment(shard_id: ShardId) -> Option<Commitment> {
+			Shards::shard_commitment(shard_id)
 		}
 	}
 
 	#[cfg(feature = "testnet")]
 	impl time_primitives::TasksApi<Block> for Runtime {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
-			Tasks::get_shard_tasks(shard_id)
+		fn shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+			Tasks::shard_tasks(shard_id)
 		}
 
-		fn get_task(task_id: TaskId) -> Option<Task>{
-			Tasks::get_task(task_id)
+		fn task(task_id: TaskId) -> Option<Task>{
+			Tasks::task(task_id)
 		}
 
-		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{
-			Tasks::get_task_result(task_id)
+		fn task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>{
+			Tasks::task_result(task_id)
 		}
 
-		fn get_task_shard(task_id: TaskId) -> Option<ShardId>{
-			Tasks::get_task_shard(task_id)
+		fn task_shard(task_id: TaskId) -> Option<ShardId>{
+			Tasks::task_shard(task_id)
 		}
 
-		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
-			Tasks::get_batch_message(batch_id)
+		fn batch_message(batch_id: BatchId) -> Option<GatewayMessage> {
+			Tasks::batch_message(batch_id)
 		}
 
-		fn get_failed_batches() -> Vec<BatchId> {
-			Tasks::get_failed_batches()
+		fn failed_batches() -> Vec<BatchId> {
+			Tasks::failed_batches()
 		}
 
-		fn get_pending_batches() -> Vec<BatchId> {
-			Tasks::get_pending_batches()
+		fn pending_batches() -> Vec<BatchId> {
+			Tasks::pending_batches()
 		}
 	}
 

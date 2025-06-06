@@ -5,7 +5,6 @@ use crate::{TssSignature, U256};
 use anyhow::Result;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 #[cfg(feature = "std")]
@@ -117,6 +116,29 @@ impl std::fmt::Display for GmpMessage {
 	}
 }
 
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Copy,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	TypeInfo,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+pub struct BatchGasParams {
+	pub batch_gas_limit: u64,
+	pub batch_exec_gas: u64,
+	pub reg_op_exec_gas: u64,
+	pub unreg_op_exec_gas: u64,
+	pub msg_op_exec_gas: u64,
+	pub msg_byte_gas: u64,
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub enum GatewayOp {
@@ -163,11 +185,15 @@ impl GatewayOp {
 		Keccak256::digest(bytes).into()
 	}
 
-	pub fn gas(&self) -> u64 {
+	pub fn gas(&self, params: &BatchGasParams) -> u64 {
 		match self {
-			Self::SendMessage(msg) => 33761 + msg.data.len() * 20 + msg.gas_limit,
-			Self::RegisterShard(_, _) => 99121,
-			Self::UnregisterShard(_, _) => 26528,
+			Self::SendMessage(msg) => {
+				params.msg_op_exec_gas
+					+ msg.bytes.len() as u64 * params.msg_byte_gas
+					+ msg.gas_limit
+			},
+			Self::RegisterShard(_, _) => params.reg_op_exec_gas,
+			Self::UnregisterShard(_, _) => params.unreg_op_exec_gas,
 		}
 	}
 }
@@ -225,28 +251,24 @@ impl GatewayMessage {
 		Keccak256::digest(buf).into()
 	}
 
-	pub fn gas(&self) -> u64 {
-		self.ops.iter().fold(0u64, |acc, op| acc.saturating_add(op.gas()))
+	pub fn gas(&self, params: &BatchGasParams) -> u64 {
+		self.ops.iter().fold(0u64, |acc, op| acc.saturating_add(op.gas(params)))
 	}
 }
 
 pub struct BatchBuilder {
-	batch_gas_limit: u64,
+	params: BatchGasParams,
 	gas: u64,
 	ops: Vec<GatewayOp>,
 }
 
 impl BatchBuilder {
-	pub fn new(batch_gas_limit: u64) -> Self {
+	pub fn new(params: BatchGasParams) -> Self {
 		Self {
-			batch_gas_limit,
-			gas: 68193,
+			gas: params.batch_exec_gas,
+			params,
 			ops: Default::default(),
 		}
-	}
-
-	pub fn set_gas_limit(&mut self, batch_gas_limit: u64) {
-		self.batch_gas_limit = batch_gas_limit;
 	}
 
 	pub fn take_batch(&mut self) -> Option<GatewayMessage> {
@@ -259,8 +281,9 @@ impl BatchBuilder {
 	}
 
 	pub fn push(&mut self, op: GatewayOp) -> Option<GatewayMessage> {
-		let gas = op.gas();
-		let batch = if self.gas + gas > self.batch_gas_limit { self.take_batch() } else { None };
+		let gas = op.gas(&self.params);
+		let batch =
+			if self.gas + gas > self.params.batch_gas_limit { self.take_batch() } else { None };
 		self.ops.push(op);
 		batch
 	}

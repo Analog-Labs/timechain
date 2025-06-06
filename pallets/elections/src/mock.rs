@@ -9,7 +9,9 @@ use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
 };
-use time_primitives::{Address32, NetworkId, NetworksInterface, ShardId, TasksInterface};
+use time_primitives::{
+	Address32, BatchGasParams, NetworkId, NetworksInterface, ShardId, TasksInterface,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -29,14 +31,14 @@ impl NetworksInterface for MockNetworks {
 	fn gateway(_network: NetworkId) -> Option<Address32> {
 		Some([0; 32])
 	}
-	fn get_networks() -> Vec<NetworkId> {
+	fn networks() -> Vec<NetworkId> {
 		vec![0]
 	}
 	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
 		5
 	}
-	fn batch_gas_limit(_network: NetworkId) -> u64 {
-		10
+	fn batch_gas_params(_network: NetworkId) -> BatchGasParams {
+		Default::default()
 	}
 	fn shard_task_limit(_network: NetworkId) -> u32 {
 		10

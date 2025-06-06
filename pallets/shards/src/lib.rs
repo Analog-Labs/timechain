@@ -462,7 +462,7 @@ pub mod pallet {
 		/// # Flow
 		///   1. Iterate over [`ShardMembers`] storage to find all shards the account is a member of.
 		///   2. Collect and return the shard IDs.
-		pub fn get_shards(account: &AccountId) -> Vec<ShardId> {
+		pub fn shards(account: &AccountId) -> Vec<ShardId> {
 			ShardMembers::<T>::iter()
 				.filter_map(
 					|(shard_id, member, _)| {
@@ -479,27 +479,27 @@ pub mod pallet {
 		/// # Flow
 		///   1. Iterate over [`ShardMembers`] storage for the given shard ID.
 		///   2. Collect and return the member statuses.
-		pub fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
+		pub fn shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)> {
 			ShardMembers::<T>::iter_prefix(shard_id).collect()
 		}
 		/// Retrieves the threshold value of a specified shard.
 		///
 		/// # Flow
 		///   1. Retrieve and return the threshold value from [`ShardThreshold`] storage.
-		pub fn get_shard_threshold(shard_id: ShardId) -> u16 {
+		pub fn shard_threshold(shard_id: ShardId) -> u16 {
 			ShardThreshold::<T>::get(shard_id).unwrap_or_default()
 		}
 		/// Retrieves the current status of a specified shard.
 		/// # Flow
 		///   1. Retrieve and return the status from [`ShardState`] storage.
-		pub fn get_shard_status(shard_id: ShardId) -> ShardStatus {
+		pub fn shard_status(shard_id: ShardId) -> ShardStatus {
 			ShardState::<T>::get(shard_id).unwrap_or_default()
 		}
 		/// Retrieves the commitment of a specified shard, if available.
 		///
 		/// # Flow
 		///   1. Retrieve and return the commitment from [`ShardCommitment`] storage.
-		pub fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment> {
+		pub fn shard_commitment(shard_id: ShardId) -> Option<Commitment> {
 			ShardCommitment::<T>::get(shard_id)
 		}
 	}

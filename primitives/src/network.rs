@@ -1,4 +1,4 @@
-use crate::Address32;
+use crate::{Address32, BatchGasParams};
 use polkadot_sdk::{sp_core::ConstU32, sp_runtime::BoundedVec};
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
@@ -44,6 +44,7 @@ pub struct Network {
 
 #[derive(
 	Clone,
+	Copy,
 	Debug,
 	Eq,
 	PartialEq,
@@ -57,8 +58,8 @@ pub struct Network {
 pub struct NetworkConfig {
 	pub batch_size: u32,
 	pub batch_offset: u32,
-	pub batch_gas_limit: u64,
 	pub shard_task_limit: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
+	pub batch_gas_params: BatchGasParams,
 }

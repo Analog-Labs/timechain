@@ -178,9 +178,12 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 825,
-				session_gas: 50_000,
-				session_msg_byte_gas: 20,
-				session_exec_gas: 50_000,
+				batch_exec_gas: 70_000,
+				reg_op_exec_gas: 100_000,
+				unreg_op_exec_gas: 25_000,
+				msg_op_exec_gas: 30_000,
+				msg_byte_gas: 20,
+				msg_session_gas: 50_000,
 			},
 		);
 
@@ -245,9 +248,12 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 1027,
-				session_gas: 50_000,
-				session_msg_byte_gas: 20,
-				session_exec_gas: 50_000,
+				batch_exec_gas: 70_000,
+				reg_op_exec_gas: 100_000,
+				unreg_op_exec_gas: 25_000,
+				msg_op_exec_gas: 30_000,
+				msg_byte_gas: 20,
+				msg_session_gas: 50_000,
 			},
 		);
 

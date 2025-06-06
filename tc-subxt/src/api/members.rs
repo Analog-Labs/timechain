@@ -24,7 +24,7 @@ impl SubxtClient {
 	) -> Result<Option<PeerId>> {
 		let block = H256(block.0);
 		let account = subxt::utils::Static(account.clone());
-		let runtime_call = metadata::apis().members_api().get_member_peer_id(account);
+		let runtime_call = metadata::apis().members_api().member_peer_id(account);
 		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data)
 	}
@@ -56,7 +56,7 @@ impl SubxtClient {
 
 	pub async fn heartbeat_timeout(&self, block: BlockHash) -> Result<BlockNumber> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().members_api().get_heartbeat_timeout();
+		let runtime_call = metadata::apis().members_api().heartbeat_timeout();
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 

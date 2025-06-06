@@ -11,7 +11,7 @@ use time_primitives::{
 impl SubxtClient {
 	pub async fn task(&self, task_id: TaskId, block: BlockHash) -> Result<Option<Task>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_task(task_id);
+		let runtime_call = metadata::apis().tasks_api().task(task_id);
 		let task = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(task.map(|s| s.0))
 	}
@@ -28,19 +28,19 @@ impl SubxtClient {
 
 	pub async fn assigned_tasks(&self, shard: ShardId, block: BlockHash) -> Result<Vec<TaskId>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_shard_tasks(shard);
+		let runtime_call = metadata::apis().tasks_api().shard_tasks(shard);
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
-	pub async fn get_failed_batches(&self, block: BlockHash) -> Result<Vec<BatchId>> {
+	pub async fn failed_batches(&self, block: BlockHash) -> Result<Vec<BatchId>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_failed_batches();
+		let runtime_call = metadata::apis().tasks_api().failed_batches();
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
-	pub async fn get_pending_batches(&self, block: BlockHash) -> Result<Vec<BatchId>> {
+	pub async fn pending_batches(&self, block: BlockHash) -> Result<Vec<BatchId>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_pending_batches();
+		let runtime_call = metadata::apis().tasks_api().pending_batches();
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
@@ -101,7 +101,7 @@ impl SubxtClient {
 		block: BlockHash,
 	) -> Result<Option<GatewayMessage>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().tasks_api().get_batch_message(batch);
+		let runtime_call = metadata::apis().tasks_api().batch_message(batch);
 		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data.map(|s| s.0))
 	}

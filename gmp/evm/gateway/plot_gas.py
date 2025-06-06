@@ -102,26 +102,34 @@ print('execution_gas_msg', execution_gas_msg)
 print('execution_gas_msg_slope', execution_gas_msg_slope)
 print()
 
-session_gas_base = session_gas_base + base_gas_base
-session_gas_reg = session_gas_reg + base_gas_reg
-session_gas_unreg = session_gas_unreg + base_gas_unreg
-session_gas_msg = session_gas_msg + base_gas_msg
-msg_slope = base_gas_msg_slope + session_gas_msg_slope + execution_gas_msg_slope
+print('gas constants')
+print('=============')
+batch_exec_gas = int(base_gas_base + session_gas_base + execution_gas_base)
+reg_op_exec_gas = int(base_gas_reg + session_gas_reg + execution_gas_reg)
+unreg_op_exec_gas = int(base_gas_unreg + session_gas_unreg + execution_gas_unreg)
+msg_op_exec_gas = int(base_gas_msg + session_gas_msg + execution_gas_msg)
+msg_session_gas = int(base_gas_base + session_gas_base + base_gas_msg + session_gas_msg)
+msg_byte_gas = int(base_gas_msg_slope + session_gas_msg_slope + execution_gas_msg_slope)
 
-def session_gas(nr, nu, nm):
-    return session_gas_base + session_gas_reg * nr + session_gas_unreg * nu + session_gas_msg * nm
+print('batch_exec_gas', batch_exec_gas)
+print('reg_op_exec_gas', reg_op_exec_gas)
+print('unreg_op_exec_gas', unreg_op_exec_gas)
+print('msg_op_exec_gas', msg_op_exec_gas)
+print('msg_session_gas', msg_session_gas)
+print('msg_byte_gas', msg_byte_gas)
+print()
 
-def execution_gas(nr, nu, nm):
-    return execution_gas_base + execution_gas_reg * nr + execution_gas_unreg * nu + execution_gas_msg * nm
-
-def batch_gas(s, nr, nu, nm, msg_len, gas_limit):
-    return (session_gas(nr, nu, nm) + msg_len * msg_slope) * s + execution_gas(nr, nu, nm) + gas_limit
+def batch_gas(nr, nu, nm, msg_len, gas_limit):
+    return batch_exec_gas + nr * reg_op_exec_gas + nu * unreg_op_exec_gas + nm * msg_op_exec_gas + msg_len * msg_byte_gas + gas_limit
 
 def c0(s):
-    return int(session_gas(0, 0, 1) * s + execution_gas(0, 0, 1))
+    return msg_session_gas * s + batch_exec_gas + msg_op_exec_gas - msg_session_gas
 
 def c1(s):
-    return int(msg_slope * s)
+    return msg_byte_gas * s
+
+def msg_gas(s, msg_size, gas_limit):
+    return c0(s) + c1(s) * msg_size + gas_limit
 
 print('send message constants')
 print('======================')
@@ -130,14 +138,28 @@ print('s=%s c0=%s c1=%s' % (2, c0(2), c1(2)))
 print('s=%s c0=%s c1=%s' % (3, c0(3), c1(3)))
 print()
 
-print('gas')
-print('===')
-empty = int(batch_gas(1, 0, 0, 0, 0, 0))
-reg = int(batch_gas(1, 1, 0, 0, 0, 0) - empty)
-unreg = int(batch_gas(1, 0, 1, 0, 0, 0) - empty)
-msg = int(batch_gas(1, 0, 0, 1, 0, 0) - empty)
+print('msg gas')
+print('=======')
+print('s=%s gas=%s' % (1, msg_gas(1, 0, 0)))
+print('s=%s gas=%s' % (2, msg_gas(2, 0, 0)))
+print('s=%s gas=%s' % (3, msg_gas(3, 0, 0)))
+print()
 
-print('empty', empty)
-print('reg', reg)
-print('unreg', unreg)
-print('msg', msg)
+print('batch gas')
+print('=========')
+print('reg', batch_gas(1, 0, 0, 0, 0))
+print('unreg', batch_gas(0, 1, 0, 0, 0))
+print('msg', batch_gas(0, 0, 1, 0, 0))
+
+assert(batch_exec_gas == 68193)
+assert(reg_op_exec_gas == 99121)
+assert(unreg_op_exec_gas == 26528)
+assert(msg_op_exec_gas == 33761)
+assert(msg_session_gas == 53001)
+assert(msg_byte_gas == 20)
+assert(c0(1) == 101954)
+assert(c0(2) == 154955)
+assert(c0(3) == 207956)
+assert(c1(1) == 20)
+assert(c1(2) == 40)
+assert(c1(3) == 60)

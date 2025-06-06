@@ -35,7 +35,7 @@ impl SubxtClient {
 	) -> Result<Vec<ShardId>> {
 		let block = H256(block.0);
 		let account = subxt::utils::Static(account.clone());
-		let runtime_call = metadata::apis().shards_api().get_shards(account);
+		let runtime_call = metadata::apis().shards_api().shards(account);
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
@@ -45,20 +45,20 @@ impl SubxtClient {
 		block: BlockHash,
 	) -> Result<Vec<(AccountId, MemberStatus)>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().shards_api().get_shard_members(shard_id);
+		let runtime_call = metadata::apis().shards_api().shard_members(shard_id);
 		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data.into_iter().map(|(account, status)| (account.0, status.0)).collect())
 	}
 
 	pub async fn shard_threshold(&self, shard_id: ShardId, block: BlockHash) -> Result<u16> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().shards_api().get_shard_threshold(shard_id);
+		let runtime_call = metadata::apis().shards_api().shard_threshold(shard_id);
 		Ok(self.client.runtime_api().at(block).call(runtime_call).await?)
 	}
 
 	pub async fn shard_status(&self, shard_id: ShardId, block: BlockHash) -> Result<ShardStatus> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().shards_api().get_shard_status(shard_id);
+		let runtime_call = metadata::apis().shards_api().shard_status(shard_id);
 		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
 		Ok(data.0)
 	}
@@ -69,7 +69,7 @@ impl SubxtClient {
 		block: BlockHash,
 	) -> Result<Option<Commitment>> {
 		let block = H256(block.0);
-		let runtime_call = metadata::apis().shards_api().get_shard_commitment(shard_id);
+		let runtime_call = metadata::apis().shards_api().shard_commitment(shard_id);
 		let output = self.client.runtime_api().at(block).call(runtime_call).await?;
 		let output_converted = output.map(|static_commitment| (*static_commitment).clone());
 		Ok(output_converted)

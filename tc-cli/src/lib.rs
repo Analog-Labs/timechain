@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address32, BalanceFormatter, BatchId, BlockHash, BlockNumber, ChainName,
-	ConnectorParams, GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash, IConnectorAdmin,
-	MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus, TaskId,
-	TssPublicKey,
+	AccountId, Address32, BalanceFormatter, BatchGasParams, BatchId, BlockHash, BlockNumber,
+	ChainName, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash,
+	IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus,
+	TaskId, TssPublicKey,
 };
 
 mod benchmark;
@@ -638,8 +638,8 @@ impl Tc {
 		Ok(tasks)
 	}
 
-	pub async fn get_failed_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
-		let batch_ids = self.runtime.get_failed_batches(block_hash).await?;
+	pub async fn failed_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
+		let batch_ids = self.runtime.failed_batches(block_hash).await?;
 		let mut batches = Vec::with_capacity(batch_ids.len());
 		for id in batch_ids {
 			batches.push(self.batch(id, block_hash).await?);
@@ -647,8 +647,8 @@ impl Tc {
 		Ok(batches)
 	}
 
-	pub async fn get_pending_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
-		let batch_ids = self.runtime.get_pending_batches(block_hash).await?;
+	pub async fn pending_batches(&self, block_hash: BlockHash) -> Result<Vec<Batch>> {
+		let batch_ids = self.runtime.pending_batches(block_hash).await?;
 		let mut batches = Vec::with_capacity(batch_ids.len());
 		for id in batch_ids {
 			batches.push(self.batch(id, block_hash).await?);
@@ -804,10 +804,17 @@ impl Tc {
 		Ok(NetworkConfig {
 			batch_size: config.batch_size,
 			batch_offset: config.batch_offset,
-			batch_gas_limit: config.batch_gas_limit,
 			shard_task_limit: config.shard_task_limit,
 			shard_size: config.shard_size,
 			shard_threshold: config.shard_threshold,
+			batch_gas_params: BatchGasParams {
+				batch_gas_limit: config.batch_gas_limit,
+				batch_exec_gas: config.batch_exec_gas,
+				reg_op_exec_gas: config.reg_op_exec_gas,
+				unreg_op_exec_gas: config.unreg_op_exec_gas,
+				msg_op_exec_gas: config.msg_op_exec_gas,
+				msg_byte_gas: config.msg_byte_gas,
+			},
 		})
 	}
 
@@ -848,21 +855,8 @@ impl Tc {
 		block_hash: BlockHash,
 	) -> Result<()> {
 		let config = self.network_config(network)?;
-
-		let batch_size = self.runtime.network_batch_size(network, block_hash).await?;
-		let batch_offset = self.runtime.network_batch_offset(network, block_hash).await?;
-		let batch_gas_limit = self.runtime.network_batch_gas_limit(network, block_hash).await?;
-		let shard_task_limit = self.runtime.network_shard_task_limit(network, block_hash).await?;
-		let shard_size = self.runtime.network_shard_size(network, block_hash).await?;
-		let shard_threshold = self.runtime.network_shard_threshold(network, block_hash).await?;
-
-		if batch_size == config.batch_size
-			&& batch_offset == config.batch_offset
-			&& batch_gas_limit == config.batch_gas_limit
-			&& shard_task_limit == config.shard_task_limit
-			&& shard_size == config.shard_size
-			&& shard_threshold == config.shard_threshold
-		{
+		let old_config = self.runtime.network_config(network, block_hash).await?;
+		if config == old_config {
 			return Ok(());
 		}
 		self.println(None, format!("set_network_config {network}")).await?;

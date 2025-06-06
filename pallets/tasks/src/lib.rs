@@ -183,7 +183,6 @@ pub mod pallet {
 
 	/// Map storage for task shard by task ID.
 	#[pallet::storage]
-	#[pallet::getter(fn task_shard)]
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	/// Double map storage for network shards.
@@ -717,8 +716,8 @@ pub mod pallet {
 		pub(crate) fn prepare_batches() -> Weight {
 			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
-				let batch_gas_limit = T::Networks::batch_gas_limit(network);
-				let mut batcher = BatchBuilder::new(batch_gas_limit);
+				let batch_gas_params = T::Networks::batch_gas_params(network);
+				let mut batcher = BatchBuilder::new(batch_gas_params);
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
@@ -764,39 +763,39 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Retrieves a list of tasks associated with a given shard.
 		/// Look up the tasks associated with the provided `shard_id` in the storage.
-		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+		pub fn shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
 			ShardTasks::<T>::iter_prefix(shard_id).map(|(task_id, _)| task_id).collect()
 		}
 
 		/// Retrieves the descriptor for a given task.
 		/// Look up the `TaskDescriptor` associated with the provided `task_id` in the storage.
-		pub fn get_task(task_id: TaskId) -> Option<Task> {
+		pub fn task(task_id: TaskId) -> Option<Task> {
 			Tasks::<T>::get(task_id)
 		}
 
 		/// Retrieves the shard ID associated with a given task.
 		/// Look up the shard ID associated with the provided `task_id` in the storage.
-		pub fn get_task_shard(task_id: TaskId) -> Option<ShardId> {
+		pub fn task_shard(task_id: TaskId) -> Option<ShardId> {
 			TaskShard::<T>::get(task_id)
 		}
 
 		/// Retrieves the result of a given task.
 		/// Look up the `TaskResult` associated with the provided `task_id` in the storage.
-		pub fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>> {
+		pub fn task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>> {
 			TaskOutput::<T>::get(task_id)
 		}
 
-		pub fn get_batch_message(batch: BatchId) -> Option<GatewayMessage> {
+		pub fn batch_message(batch: BatchId) -> Option<GatewayMessage> {
 			BatchMessage::<T>::get(batch)
 		}
 
 		/// Get all failed batch IDs
-		pub fn get_failed_batches() -> Vec<BatchId> {
+		pub fn failed_batches() -> Vec<BatchId> {
 			FailedBatchIds::<T>::iter_keys().collect()
 		}
 
 		/// Get all failed batch IDs
-		pub fn get_pending_batches() -> Vec<BatchId> {
+		pub fn pending_batches() -> Vec<BatchId> {
 			PendingBatches::<T>::iter_keys().collect()
 		}
 	}

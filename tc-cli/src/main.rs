@@ -293,11 +293,11 @@ async fn real_main() -> Result<()> {
 			tc.print_table(None, "assigned-tasks", tasks).await?;
 		},
 		Command::FailedBatches => {
-			let batches = tc.get_failed_batches(block).await?;
+			let batches = tc.failed_batches(block).await?;
 			tc.print_table(None, "failed-batches", batches).await?;
 		},
 		Command::PendingBatches => {
-			let batches = tc.get_pending_batches(block).await?;
+			let batches = tc.pending_batches(block).await?;
 			tc.print_table(None, "pending-batches", batches).await?;
 		},
 		Command::MaxFeePerGas { network } => {

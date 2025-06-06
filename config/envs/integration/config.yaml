@@ -26,9 +26,12 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    session_gas: 50000
-    session_exec_gas: 50000
-    session_msg_byte_gas: 20
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
   13:
     backend: "evm"
     name: "arbitrum sepolia"
@@ -45,9 +48,12 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    session_gas: 50000
-    session_exec_gas: 50000
-    session_msg_byte_gas: 20
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-19.integration.analog.one

@@ -321,7 +321,7 @@ pub mod pallet {
 		///
 		/// This function fetches the timeout duration for heartbeats from the associated configuration.
 		/// The heartbeat timeout is used to determine the maximum allowed duration between heartbeats before considering the node as inactive.
-		pub fn get_heartbeat_timeout() -> BlockNumberFor<T> {
+		pub fn heartbeat_timeout() -> BlockNumberFor<T> {
 			T::HeartbeatTimeout::get()
 		}
 	}

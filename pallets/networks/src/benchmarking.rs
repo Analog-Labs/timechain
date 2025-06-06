@@ -15,10 +15,10 @@ fn mock_network_config() -> NetworkConfig {
 	NetworkConfig {
 		batch_size: 32,
 		batch_offset: 0,
-		batch_gas_limit: 10_000,
 		shard_task_limit: 10,
 		shard_size: 3,
 		shard_threshold: 2,
+		batch_gas_params: Default::default(),
 	}
 }
 

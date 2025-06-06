@@ -10,7 +10,7 @@ use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 44;
+const ON_CHAIN_STAGE: u16 = 45;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
@@ -45,7 +45,7 @@ fn launch_ledger_validation() {
 		mint_virtual(Allocation::Opportunity2, 42_701_863_290 * mANLOG);
 		mint_virtual(Allocation::Opportunity3, 53_495_311_080 * mANLOG);
 		mint_virtual(Allocation::Opportunity4, 31_152_618_560 * mANLOG);
-		mint_virtual(Allocation::Strategic, 256_280_639_180 * mANLOG);
+		mint_virtual(Allocation::Strategic, 247_977_500_180 * mANLOG);
 		mint_virtual(Allocation::Team, 1_669_384_055_300 * mANLOG);
 		mint_virtual(Allocation::Airdrop, 18_529_097_702_450_211_764);
 		mint_virtual(Allocation::Initiatives, 1_093_404_819_500 * mANLOG);

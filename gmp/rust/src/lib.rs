@@ -468,7 +468,8 @@ impl IConnectorAdmin for Connector {
 				dest_network,
 				dest,
 				nonce,
-				gas_limit,
+				gas_limit: gas_limit as _,
+				deprecated_field: 0,
 				bytes: payload,
 			};
 			let id = msg.message_id();
@@ -607,6 +608,7 @@ mod tests {
 			dest,
 			nonce: 0,
 			gas_limit: 100_000,
+			deprecated_field: 0,
 			bytes: vec![],
 		}
 	}

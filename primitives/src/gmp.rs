@@ -81,7 +81,8 @@ pub struct GmpMessage {
 	pub src: Address32,
 	pub dest: Address32,
 	pub nonce: u64,
-	pub gas_limit: u64,
+	pub gas_limit: u128,
+	pub deprecated_field: u128,
 	pub bytes: Vec<u8>,
 }
 
@@ -98,7 +99,7 @@ impl GmpMessage {
 		hdr[64..96].copy_from_slice(&self.src_network.to_be_bytes().left_pad_32());
 		hdr[96..128].copy_from_slice(&self.dest.left_pad_32());
 		hdr[128..160].copy_from_slice(&self.dest_network.to_be_bytes().left_pad_32());
-		hdr[160..192].copy_from_slice(&self.gas_limit.to_be_bytes().left_pad_32());
+		hdr[160..192].copy_from_slice(&(self.gas_limit as u64).to_be_bytes().left_pad_32());
 		hdr[192..224].copy_from_slice(&self.nonce.to_be_bytes().left_pad_32());
 		hdr
 	}
@@ -190,7 +191,7 @@ impl GatewayOp {
 			Self::SendMessage(msg) => {
 				params.msg_op_exec_gas
 					+ msg.bytes.len() as u64 * params.msg_byte_gas
-					+ msg.gas_limit
+					+ msg.gas_limit as u64
 			},
 			Self::RegisterShard(_, _) => params.reg_op_exec_gas,
 			Self::UnregisterShard(_, _) => params.unreg_op_exec_gas,

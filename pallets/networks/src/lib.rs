@@ -127,7 +127,7 @@ pub mod pallet {
 	/// Map storage for batch gas limit.
 	#[pallet::storage]
 	pub type NetworkBatchGasLimit<T: Config> =
-		StorageMap<_, Blake2_128Concat, NetworkId, u64, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, NetworkId, u128, OptionQuery>;
 
 	/// Map storage for batch exec gas.
 	#[pallet::storage]
@@ -242,7 +242,10 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::insert(network, config.shard_task_limit);
 			NetworkShardSize::<T>::insert(network, config.shard_size);
 			NetworkShardThreshold::<T>::insert(network, config.shard_threshold);
-			NetworkBatchGasLimit::<T>::insert(network, config.batch_gas_params.batch_gas_limit);
+			NetworkBatchGasLimit::<T>::insert(
+				network,
+				config.batch_gas_params.batch_gas_limit as u128,
+			);
 			NetworkBatchExecGas::<T>::insert(network, config.batch_gas_params.batch_exec_gas);
 			NetworkRegOpExecGas::<T>::insert(network, config.batch_gas_params.reg_op_exec_gas);
 			NetworkUnregOpExecGas::<T>::insert(network, config.batch_gas_params.unreg_op_exec_gas);
@@ -353,7 +356,7 @@ pub mod pallet {
 
 		fn batch_gas_params(network: NetworkId) -> BatchGasParams {
 			BatchGasParams {
-				batch_gas_limit: NetworkBatchGasLimit::<T>::get(network).unwrap_or_default(),
+				batch_gas_limit: NetworkBatchGasLimit::<T>::get(network).unwrap_or_default() as u64,
 				batch_exec_gas: NetworkBatchExecGas::<T>::get(network).unwrap_or_default(),
 				reg_op_exec_gas: NetworkRegOpExecGas::<T>::get(network).unwrap_or_default(),
 				unreg_op_exec_gas: NetworkUnregOpExecGas::<T>::get(network).unwrap_or_default(),

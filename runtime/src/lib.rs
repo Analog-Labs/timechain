@@ -635,9 +635,6 @@ mod runtime {
 	#[runtime::pallet_index(38)]
 	pub type Networks = pallet_networks;
 
-	#[runtime::pallet_index(39)]
-	pub type Dmail = pallet_dmail;
-
 	// Smart Contracts
 
 	#[runtime::pallet_index(50)]

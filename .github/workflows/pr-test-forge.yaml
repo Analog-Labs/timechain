@@ -1,0 +1,47 @@
+name: test
+
+on:
+  pull_request:
+    paths:
+      - 'gmp/evm/gateway/**'
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Foundry project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install Soldeer dependencies
+        run: forge soldeer install
+        working-directory: gmp/evm/gateway
+
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge build --sizes
+        id: build
+        working-directory: gmp/evm/gateway
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: gmp/evm/gateway
+
+      - name: Run Forge fmt
+        run: |
+          forge fmt --check
+        id: fmt
+        working-directory: gmp/evm/gateway

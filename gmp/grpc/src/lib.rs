@@ -123,12 +123,7 @@ impl IChain for Connector {
 #[tonic::async_trait]
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(
-		&self,
-		gateway: Address32,
-		blocks: Range<u64>,
-		_cctp_info: Option<(Vec<Address32>, String)>,
-	) -> Result<Vec<GmpEvent>> {
+	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let request = Request::new(proto::ReadEventsRequest {
 			gateway,
 			start_block: blocks.start,
@@ -166,18 +161,21 @@ impl IConnector for Connector {
 #[tonic::async_trait]
 impl IConnectorAdmin for Connector {
 	/// Deploys the proxy contract.
-	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)> {
-		let request = Request::new(proto::DeployProxyRequest { proxy: proxy.to_vec() });
-		let response = self.client.lock().await.deploy_proxy(request).await?.into_inner();
+	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
+		let request = Request::new(proto::DeployGatewayRequest {
+			proxy: proxy.to_vec(),
+			gateway: gateway.to_vec(),
+		});
+		let response = self.client.lock().await.deploy_gateway(request).await?.into_inner();
 		Ok((response.address, response.block))
 	}
 	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
-		let request = Request::new(proto::DeployGatewayRequest {
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
+		let request = Request::new(proto::RedeployGatewayRequest {
 			proxy,
 			gateway: gateway.to_vec(),
 		});
-		self.client.lock().await.deploy_gateway(request).await?;
+		self.client.lock().await.redeploy_gateway(request).await?;
 		Ok(())
 	}
 	/// Returns the gateway admin.
@@ -203,9 +201,16 @@ impl IConnectorAdmin for Connector {
 		})
 	}
 	/// Sets the registered shard keys. Overwrites any other keys.
-	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
-		let shards = keys.iter().copied().map(serde_big_array::Array).collect();
-		let request = Request::new(proto::SetShardsRequest { gateway, shards });
+	async fn set_shards(
+		&self,
+		gateway: Address32,
+		register: &[(TssPublicKey, u16)],
+		revoke: &[(TssPublicKey, u16)],
+	) -> Result<()> {
+		let register =
+			register.iter().copied().map(|(k, s)| (serde_big_array::Array(k), s)).collect();
+		let revoke = revoke.iter().copied().map(|(k, s)| (serde_big_array::Array(k), s)).collect();
+		let request = Request::new(proto::SetShardsRequest { gateway, register, revoke });
 		self.client.lock().await.set_shards(request).await?;
 		Ok(())
 	}
@@ -237,7 +242,7 @@ impl IConnectorAdmin for Connector {
 		src_network: NetworkId,
 		src: Address32,
 		payload: Vec<u8>,
-	) -> Result<u128> {
+	) -> Result<u64> {
 		let request = Request::new(proto::EstimateMessageGasLimitRequest {
 			contract,
 			src_network,
@@ -253,14 +258,14 @@ impl IConnectorAdmin for Connector {
 		&self,
 		gateway: Address32,
 		dest_network: NetworkId,
-		gas_limit: u128,
-		payload: Vec<u8>,
+		msg_size: u16,
+		gas_limit: u64,
 	) -> Result<u128> {
 		let request = Request::new(proto::EstimateMessageCostRequest {
 			gateway,
 			dest_network,
+			msg_size,
 			gas_limit,
-			payload,
 		});
 		let response = self.client.lock().await.estimate_message_cost(request).await?.into_inner();
 		Ok(response.cost)
@@ -271,8 +276,8 @@ impl IConnectorAdmin for Connector {
 		src: Address32,
 		dest_network: NetworkId,
 		dest: Address32,
-		gas_limit: u128,
-		gas_cost: u128,
+		gas_limit: u64,
+		msg_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
 		let request = Request::new(proto::SendMessageRequest {
@@ -280,7 +285,7 @@ impl IConnectorAdmin for Connector {
 			dest_network,
 			dest,
 			gas_limit,
-			gas_cost,
+			msg_cost,
 			payload,
 		});
 		let response = self.client.lock().await.send_message(request).await?.into_inner();

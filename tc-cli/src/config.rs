@@ -192,14 +192,6 @@ impl Config {
 	pub fn network(&self, network: NetworkId) -> Result<&NetworkConfig> {
 		self.yaml.networks.get(&network).context("no network config")
 	}
-
-	pub fn add_cctp_contract(&mut self, network: NetworkId, contract: String) -> Result<()> {
-		let config = self.yaml.networks.get_mut(&network).context("no network config")?;
-		let mut contracts = config.cctp_contracts.take().unwrap_or_default();
-		contracts.push(contract);
-		config.cctp_contracts = Some(contracts);
-		Ok(())
-	}
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -246,18 +238,43 @@ pub struct NetworkConfig {
 	pub admin_funds: Option<String>,
 	pub gateway_funds: String,
 	pub chronicle_funds: String,
+	pub shard_task_limit: u32,
 	pub batch_size: u32,
 	pub batch_offset: u32,
-	pub batch_gas_limit: u128,
+	pub batch_gas_limit: u64,
 	pub gmp_margin: f64,
-	pub shard_task_limit: u32,
 	pub route_gas_limit: u64,
 	pub route_base_fee: u128,
+	pub coin_id: u32,
 	pub shard_size: u16,
 	pub shard_threshold: u16,
-	pub cctp_contracts: Option<Vec<String>>,
-	pub cctp_url: Option<String>,
-	pub coin_id: u32,
+	pub batch_exec_gas: u64,
+	pub reg_op_exec_gas: u64,
+	pub unreg_op_exec_gas: u64,
+	pub msg_op_exec_gas: u64,
+	pub msg_session_gas: u64,
+	pub msg_byte_gas: u64,
+}
+
+impl NetworkConfig {
+	pub fn num_sessions(&self) -> u16 {
+		self.shard_size - self.shard_threshold + 1
+	}
+
+	pub fn base_gas(&self) -> u64 {
+		self.num_sessions() as u64 * self.msg_session_gas
+			+ self.batch_exec_gas
+			+ self.msg_op_exec_gas
+			- self.msg_session_gas
+	}
+
+	pub fn msg_byte_gas(&self) -> u64 {
+		self.num_sessions() as u64 * self.msg_byte_gas
+	}
+
+	pub fn gas(&self, msg_size: u16, gas_limit: u64) -> u64 {
+		self.msg_byte_gas() * msg_size as u64 + self.base_gas() + gas_limit
+	}
 }
 
 #[cfg(test)]

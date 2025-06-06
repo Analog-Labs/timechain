@@ -52,6 +52,9 @@ impl ShardsInterface for MockShards {
 	fn tss_public_key(_shard_id: ShardId) -> Option<TssPublicKey> {
 		None
 	}
+	fn num_sessions(_shard_id: ShardId) -> Option<u16> {
+		None
+	}
 }
 
 frame_support::construct_runtime!(

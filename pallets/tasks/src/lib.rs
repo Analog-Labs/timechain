@@ -183,7 +183,6 @@ pub mod pallet {
 
 	/// Map storage for task shard by task ID.
 	#[pallet::storage]
-	#[pallet::getter(fn task_shard)]
 	pub type TaskShard<T: Config> = StorageMap<_, Blake2_128Concat, TaskId, ShardId, OptionQuery>;
 
 	/// Double map storage for network shards.
@@ -266,7 +265,7 @@ pub mod pallet {
 
 	/// Map storage for batches.
 	#[pallet::storage]
-	pub type BatchMessage<T: Config> =
+	pub type Batch<T: Config> =
 		StorageMap<_, Blake2_128Concat, BatchId, GatewayMessage, OptionQuery>;
 
 	#[pallet::storage]
@@ -277,7 +276,7 @@ pub mod pallet {
 
 	/// List of failed batches.
 	#[pallet::storage]
-	pub type FailedBatchIds<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
+	pub type FailedBatches<T: Config> = StorageMap<_, Blake2_128Concat, BatchId, (), OptionQuery>;
 
 	/// TxHash of the batch executed.
 	///
@@ -394,7 +393,7 @@ pub mod pallet {
 					let members = T::Shards::shard_members(shard);
 					ensure!(members.contains(&signer), Error::<T>::InvalidSigner);
 					PendingBatches::<T>::remove(batch_id);
-					FailedBatchIds::<T>::insert(batch_id, ());
+					FailedBatches::<T>::insert(batch_id, ());
 					Err(error)
 				},
 				(_, _) => return Err(Error::<T>::InvalidTaskResult.into()),
@@ -414,7 +413,7 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			for event in events.0.iter() {
 				if let GmpEvent::BatchExecuted { batch_id, .. } = event {
-					FailedBatchIds::<T>::remove(batch_id);
+					FailedBatches::<T>::remove(batch_id);
 					if let Some(task_id) = BatchTaskId::<T>::get(batch_id) {
 						TaskOutput::<T>::remove(task_id);
 					}
@@ -453,7 +452,7 @@ pub mod pallet {
 				return Err(Error::<T>::CannotRemoveTask.into());
 			}
 			if let Some(Task::SubmitGatewayMessage { batch_id }) = Tasks::<T>::take(task) {
-				if let Some(msg) = BatchMessage::<T>::take(batch_id) {
+				if let Some(msg) = Batch::<T>::take(batch_id) {
 					for op in msg.ops {
 						if let GatewayOp::SendMessage(msg) = op {
 							let message = msg.message_id();
@@ -477,7 +476,7 @@ pub mod pallet {
 			let new_task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			BatchTaskId::<T>::insert(batch_id, new_task_id);
 			PendingBatches::<T>::insert(batch_id, ());
-			FailedBatchIds::<T>::remove(batch_id);
+			FailedBatches::<T>::remove(batch_id);
 			Self::deposit_event(Event::BatchRestarted(old_task_id, new_task_id));
 			Ok(())
 		}
@@ -717,8 +716,8 @@ pub mod pallet {
 		pub(crate) fn prepare_batches() -> Weight {
 			let mut num_batches_started = 0u32;
 			for (network, _) in ReadEventsTask::<T>::iter() {
-				let batch_gas_limit = T::Networks::batch_gas_limit(network);
-				let mut batcher = BatchBuilder::new(batch_gas_limit);
+				let batch_gas_params = T::Networks::batch_gas_params(network);
+				let mut batcher = BatchBuilder::new(batch_gas_params);
 				let queue = Self::ops_queue(network);
 				while let Some(op) = queue.pop() {
 					if let Some(msg) = batcher.push(op) {
@@ -746,15 +745,15 @@ pub mod pallet {
 						let msg_id = msg.message_id();
 						MessageBatchId::<T>::insert(msg_id, batch_id);
 					},
-					GatewayOp::RegisterShard(key) => {
+					GatewayOp::RegisterShard(key, _) => {
 						ShardRegisterBatchId::<T>::insert(key, batch_id);
 					},
-					GatewayOp::UnregisterShard(key) => {
+					GatewayOp::UnregisterShard(key, _) => {
 						ShardUnregisterBatchId::<T>::insert(key, batch_id);
 					},
 				}
 			}
-			BatchMessage::<T>::insert(batch_id, msg);
+			Batch::<T>::insert(batch_id, msg);
 			let task_id = Self::create_task(network, Task::SubmitGatewayMessage { batch_id });
 			PendingBatches::<T>::insert(batch_id, ());
 			BatchTaskId::<T>::insert(batch_id, task_id);
@@ -764,39 +763,39 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Retrieves a list of tasks associated with a given shard.
 		/// Look up the tasks associated with the provided `shard_id` in the storage.
-		pub fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
+		pub fn shard_tasks(shard_id: ShardId) -> Vec<TaskId> {
 			ShardTasks::<T>::iter_prefix(shard_id).map(|(task_id, _)| task_id).collect()
 		}
 
 		/// Retrieves the descriptor for a given task.
 		/// Look up the `TaskDescriptor` associated with the provided `task_id` in the storage.
-		pub fn get_task(task_id: TaskId) -> Option<Task> {
+		pub fn task(task_id: TaskId) -> Option<Task> {
 			Tasks::<T>::get(task_id)
 		}
 
 		/// Retrieves the shard ID associated with a given task.
 		/// Look up the shard ID associated with the provided `task_id` in the storage.
-		pub fn get_task_shard(task_id: TaskId) -> Option<ShardId> {
+		pub fn task_shard(task_id: TaskId) -> Option<ShardId> {
 			TaskShard::<T>::get(task_id)
 		}
 
 		/// Retrieves the result of a given task.
 		/// Look up the `TaskResult` associated with the provided `task_id` in the storage.
-		pub fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>> {
+		pub fn task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>> {
 			TaskOutput::<T>::get(task_id)
 		}
 
-		pub fn get_batch_message(batch: BatchId) -> Option<GatewayMessage> {
-			BatchMessage::<T>::get(batch)
+		pub fn batch_message(batch: BatchId) -> Option<GatewayMessage> {
+			Batch::<T>::get(batch)
 		}
 
 		/// Get all failed batch IDs
-		pub fn get_failed_batches() -> Vec<BatchId> {
-			FailedBatchIds::<T>::iter_keys().collect()
+		pub fn failed_batches() -> Vec<BatchId> {
+			FailedBatches::<T>::iter_keys().collect()
 		}
 
 		/// Get all failed batch IDs
-		pub fn get_pending_batches() -> Vec<BatchId> {
+		pub fn pending_batches() -> Vec<BatchId> {
 			PendingBatches::<T>::iter_keys().collect()
 		}
 	}
@@ -808,7 +807,10 @@ pub mod pallet {
 				let Some(key) = T::Shards::tss_public_key(shard_id) else {
 					return;
 				};
-				Self::ops_queue(network).push(GatewayOp::RegisterShard(key));
+				let Some(sessions) = T::Shards::num_sessions(shard_id) else {
+					return;
+				};
+				Self::ops_queue(network).push(GatewayOp::RegisterShard(key, sessions));
 			}
 		}
 
@@ -827,7 +829,10 @@ pub mod pallet {
 			let Some(key) = T::Shards::tss_public_key(shard_id) else {
 				return;
 			};
-			Self::ops_queue(network).push(GatewayOp::UnregisterShard(key));
+			let Some(sessions) = T::Shards::num_sessions(shard_id) else {
+				return;
+			};
+			Self::ops_queue(network).push(GatewayOp::UnregisterShard(key, sessions));
 		}
 
 		fn gateway_registered(network: NetworkId, block: u64) {

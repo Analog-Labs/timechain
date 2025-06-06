@@ -19,9 +19,7 @@ pub mod admin;
 #[cfg(feature = "std")]
 pub mod balance;
 pub mod bounds;
-pub mod cctp;
 pub mod currency;
-pub mod dmail;
 pub mod gmp;
 pub mod network;
 pub mod shard;
@@ -31,9 +29,7 @@ pub mod task;
 #[cfg(feature = "std")]
 pub use crate::balance::*;
 pub use crate::bounds::*;
-pub use crate::cctp::*;
 pub use crate::currency::*;
-pub use crate::dmail::*;
 pub use crate::gmp::*;
 pub use crate::network::*;
 pub use crate::shard::*;
@@ -145,33 +141,32 @@ impl<'de> Deserialize<'de> for U256 {
 
 sp_api::decl_runtime_apis! {
 	pub trait MembersApi {
-		fn get_member_peer_id(account: &AccountId) -> Option<PeerId>;
-		fn get_heartbeat_timeout() -> BlockNumber;
+		fn member_peer_id(account: &AccountId) -> Option<PeerId>;
+		fn heartbeat_timeout() -> BlockNumber;
 	}
 
 	pub trait NetworksApi {
-		fn get_network(network_id: NetworkId) -> Option<ChainName>;
-		fn get_gateway(network: NetworkId) -> Option<Address32>;
-		fn get_cctp_contracts(network: NetworkId) -> Option<CctpContracts>;
-		fn get_cctp_url(network: NetworkId) -> Option<CctpUrl>;
+		fn network_name(network: NetworkId) -> Option<ChainName>;
+		fn network_gateway(network: NetworkId) -> Option<Address32>;
+		fn network_config(network: NetworkId) -> NetworkConfig;
 	}
 
 	pub trait ShardsApi {
-		fn get_shards(account: &AccountId) -> Vec<ShardId>;
-		fn get_shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
-		fn get_shard_threshold(shard_id: ShardId) -> u16;
-		fn get_shard_status(shard_id: ShardId) -> ShardStatus;
-		fn get_shard_commitment(shard_id: ShardId) -> Option<Commitment>;
+		fn shards(account: &AccountId) -> Vec<ShardId>;
+		fn shard_members(shard_id: ShardId) -> Vec<(AccountId, MemberStatus)>;
+		fn shard_threshold(shard_id: ShardId) -> u16;
+		fn shard_status(shard_id: ShardId) -> ShardStatus;
+		fn shard_commitment(shard_id: ShardId) -> Option<Commitment>;
 	}
 
 	pub trait TasksApi {
-		fn get_shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
-		fn get_task(task_id: TaskId) -> Option<Task>;
-		fn get_task_shard(task_id: TaskId) -> Option<ShardId>;
-		fn get_task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>;
-		fn get_batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
-		fn get_failed_batches() -> Vec<TaskId>;
-		fn get_pending_batches() -> Vec<TaskId>;
+		fn shard_tasks(shard_id: ShardId) -> Vec<TaskId>;
+		fn task(task_id: TaskId) -> Option<Task>;
+		fn task_shard(task_id: TaskId) -> Option<ShardId>;
+		fn task_result(task_id: TaskId) -> Option<Result<(), ErrorMsg>>;
+		fn batch_message(batch_id: BatchId) -> Option<GatewayMessage>;
+		fn failed_batches() -> Vec<TaskId>;
+		fn pending_batches() -> Vec<TaskId>;
 	}
 
 	pub trait SubmitTransactionApi{
@@ -181,10 +176,10 @@ sp_api::decl_runtime_apis! {
 }
 
 pub trait NetworksInterface {
-	fn get_networks() -> Vec<NetworkId>;
+	fn networks() -> Vec<NetworkId>;
 	fn gateway(network: NetworkId) -> Option<Address32>;
 	fn next_batch_size(network: NetworkId, block_height: u64) -> u32;
-	fn batch_gas_limit(network: NetworkId) -> u128;
+	fn batch_gas_params(network: NetworkId) -> BatchGasParams;
 	fn shard_task_limit(network: NetworkId) -> u32;
 	fn shard_size(network: NetworkId) -> u16;
 	fn shard_threshold(network: NetworkId) -> u16;
@@ -216,6 +211,7 @@ pub trait ShardsInterface {
 		threshold: u16,
 	) -> Result<ShardId, DispatchError>;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
+	fn num_sessions(shard_id: ShardId) -> Option<u16>;
 }
 
 pub trait TasksInterface {

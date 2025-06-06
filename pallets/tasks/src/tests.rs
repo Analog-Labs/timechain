@@ -1,5 +1,5 @@
 use crate::{
-	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatchIds, PendingBatches,
+	mock::*, BatchIdCounter, BatchTaskId, BatchTxHash, Event, FailedBatches, PendingBatches,
 	ShardRegistered, TaskOutput, TaskShard,
 };
 
@@ -24,7 +24,11 @@ fn create_shard(network: NetworkId, n: u8, t: u16) -> ShardId {
 	}
 	let shard_id = Shards::create_shard(network, members, t).unwrap_or_default();
 	let pub_key = MockTssSigner::new(shard_id).public_key();
-	ShardCommitment::<Test>::insert(shard_id, Commitment(BoundedVec::truncate_from(vec![pub_key])));
+	let mut commitment = vec![pub_key];
+	for _ in 0..(n - 1) {
+		commitment.push([0; 33]);
+	}
+	ShardCommitment::<Test>::insert(shard_id, Commitment(BoundedVec::truncate_from(commitment)));
 	ShardState::<Test>::insert(shard_id, ShardStatus::Online);
 	Tasks::shard_online(shard_id, network);
 	shard_id
@@ -79,7 +83,6 @@ fn mock_gmp_msg(nonce: u64) -> GmpMessage {
 		dest: [0; 32],
 		nonce,
 		gas_limit: 10_000,
-		gas_cost: 10_000,
 		bytes: vec![],
 	}
 }
@@ -104,10 +107,10 @@ fn queue_size<T: crate::Config>(network: NetworkId) -> usize {
 #[test]
 fn test_read_events_starts_when_gateway_is_registered() {
 	new_test_ext().execute_with(|| {
-		assert!(Tasks::get_task(0).is_none());
+		assert!(Tasks::task(0).is_none());
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
-		assert!(Tasks::get_task(2).is_none());
+		assert_eq!(Tasks::task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert!(Tasks::task(2).is_none());
 	})
 }
 
@@ -115,10 +118,10 @@ fn test_read_events_starts_when_gateway_is_registered() {
 fn test_read_events_is_assigned_when_shard_is_online() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard_id = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard_id), vec![1]);
+		assert_eq!(Tasks::shard_tasks(shard_id), vec![1]);
 	})
 }
 
@@ -126,12 +129,12 @@ fn test_read_events_is_assigned_when_shard_is_online() {
 fn test_read_events_completes_starts_next_read_events() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![1]);
 		submit_gateway_events(shard, 1, &[]);
-		assert_eq!(Tasks::get_task(3), Some(Task::ReadGatewayEvents { blocks: 47..52 }));
+		assert_eq!(Tasks::task(3), Some(Task::ReadGatewayEvents { blocks: 47..52 }));
 	})
 }
 
@@ -141,11 +144,11 @@ fn test_shard_online_registers_shard() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(Tasks::task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		assert_eq!(
-			Tasks::get_batch_message(0),
+			Tasks::batch_message(0),
 			Some(GatewayMessage {
-				ops: vec![GatewayOp::RegisterShard(MockTssSigner::new(shard).public_key())],
+				ops: vec![GatewayOp::RegisterShard(MockTssSigner::new(shard).public_key(), 3)],
 			})
 		);
 	})
@@ -155,16 +158,16 @@ fn test_shard_online_registers_shard() {
 fn test_shard_offline_unregisters_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
 		shard_offline(ETHEREUM, shard);
 		roll(1);
-		assert_eq!(Tasks::get_task(3), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
+		assert_eq!(Tasks::task(3), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
 		assert_eq!(
-			Tasks::get_batch_message(1),
+			Tasks::batch_message(1),
 			Some(GatewayMessage {
-				ops: vec![GatewayOp::UnregisterShard(MockTssSigner::new(shard).public_key())],
+				ops: vec![GatewayOp::UnregisterShard(MockTssSigner::new(shard).public_key(), 3)],
 			})
 		);
 	})
@@ -174,16 +177,16 @@ fn test_shard_offline_unregisters_shard() {
 fn test_recv_msg_sends_msg() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![1]);
 		let msg = mock_gmp_msg(1);
 		submit_gateway_events(shard, 1, &[GmpEvent::MessageReceived(msg.clone())]);
 		roll(1);
-		assert_eq!(Tasks::get_task(4), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
+		assert_eq!(Tasks::task(4), Some(Task::SubmitGatewayMessage { batch_id: 1 }));
 		assert_eq!(
-			Tasks::get_batch_message(1),
+			Tasks::batch_message(1),
 			Some(GatewayMessage {
 				ops: vec![GatewayOp::SendMessage(msg)],
 			})
@@ -197,10 +200,10 @@ fn test_shard_offline_unassigns_tasks() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![1]);
 		shard_offline(ETHEREUM, shard);
 		roll(1);
-		assert!(Tasks::get_shard_tasks(shard).is_empty());
+		assert!(Tasks::shard_tasks(shard).is_empty());
 	})
 }
 
@@ -208,10 +211,10 @@ fn test_shard_offline_unassigns_tasks() {
 fn test_shard_registered_event_registers_or_unregisters_shard() {
 	new_test_ext().execute_with(|| {
 		register_gateway(ETHEREUM, 42);
-		assert_eq!(Tasks::get_task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
+		assert_eq!(Tasks::task(1), Some(Task::ReadGatewayEvents { blocks: 42..47 }));
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![1]);
 		assert!(!Tasks::is_shard_registered(shard));
 		submit_gateway_events(
 			shard,
@@ -235,10 +238,10 @@ fn test_msg_execution_event_completes_submit_task() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(Tasks::task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
 		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted { batch_id: 0, tx_hash: None }]);
-		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
+		assert_eq!(Tasks::task_result(2), Some(Ok(())));
 	})
 }
 
@@ -248,7 +251,7 @@ fn test_msg_execution_event_completes_submit_task_with_tx_hash() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(Tasks::task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
 		submit_gateway_events(
 			shard,
@@ -258,7 +261,7 @@ fn test_msg_execution_event_completes_submit_task_with_tx_hash() {
 				tx_hash: Some([0u8; 32]),
 			}],
 		);
-		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
+		assert_eq!(Tasks::task_result(2), Some(Ok(())));
 		assert_eq!(BatchTxHash::<Test>::get(0), Some([0u8; 32]));
 	})
 }
@@ -269,13 +272,13 @@ fn test_msg_execution_error_completes_submit_task() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(Tasks::task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
-		assert!(Tasks::get_task_result(2).is_none());
+		assert!(Tasks::task_result(2).is_none());
 		let account = task_submitter(2);
 		submit_submission_error(account, 2, "error message");
 		assert_eq!(
-			Tasks::get_task_result(2),
+			Tasks::task_result(2),
 			Some(Err(ErrorMsg(BoundedVec::truncate_from("error message".encode()))))
 		);
 	})
@@ -289,7 +292,7 @@ fn test_tasks_are_assigned_to_registered_shards() {
 		register_shard(shard);
 		assert!(Tasks::is_shard_registered(shard));
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![1, 2]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![1, 2]);
 	})
 }
 
@@ -303,9 +306,9 @@ fn test_max_tasks_per_block() {
 		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 0 });
 		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 1 });
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 2]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![3, 1, 2]);
 		roll(1);
-		assert_eq!(Tasks::get_shard_tasks(shard), vec![3, 1, 4, 2]);
+		assert_eq!(Tasks::shard_tasks(shard), vec![3, 1, 4, 2]);
 	})
 }
 
@@ -350,9 +353,9 @@ fn test_read_event_task_assignment() {
 		register_shard(shard2);
 		Tasks::create_task(ETHEREUM, Task::SubmitGatewayMessage { batch_id: 0 });
 		roll(1);
-		assert!(Tasks::get_shard_tasks(shard2).contains(&1));
+		assert!(Tasks::shard_tasks(shard2).contains(&1));
 		// before `break` was added in #1165 the following assertion failed
-		assert!(!Tasks::get_shard_tasks(shard).contains(&1));
+		assert!(!Tasks::shard_tasks(shard).contains(&1));
 	})
 }
 
@@ -362,12 +365,12 @@ fn task_completion_unassigns_task() {
 		register_gateway(ETHEREUM, 42);
 		let shard = create_shard(ETHEREUM, 3, 1);
 		roll(1);
-		assert_eq!(Tasks::get_task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
+		assert_eq!(Tasks::task(2), Some(Task::SubmitGatewayMessage { batch_id: 0 }));
 		Tasks::assign_task(shard, 2);
-		assert_eq!(Tasks::get_task_shard(2), Some(shard));
+		assert_eq!(Tasks::task_shard(2), Some(shard));
 		submit_gateway_events(shard, 1, &[GmpEvent::BatchExecuted { batch_id: 0, tx_hash: None }]);
-		assert_eq!(Tasks::get_task_result(2), Some(Ok(())));
-		assert_eq!(Tasks::get_task_shard(2), None);
+		assert_eq!(Tasks::task_result(2), Some(Ok(())));
+		assert_eq!(Tasks::task_shard(2), None);
 	})
 }
 
@@ -408,7 +411,7 @@ fn test_task_stuck_in_unassigned_queue() {
 		shard_offline(ETHEREUM, shard_2);
 		roll(1);
 		roll(1);
-		assert!(Tasks::get_task_shard(9).is_some());
+		assert!(Tasks::task_shard(9).is_some());
 	})
 }
 
@@ -421,17 +424,17 @@ fn test_restart_failed_batch() {
 		let batch_id = 0;
 		let initial_task_id = 2;
 		Tasks::assign_task(shard, 2);
-		assert_eq!(Tasks::get_task(initial_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		assert_eq!(Tasks::task(initial_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		roll(1);
 		let submitter = task_submitter(initial_task_id);
 		submit_submission_error(submitter, initial_task_id, "batch failed");
-		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(FailedBatches::<Test>::contains_key(batch_id));
 		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
 		let new_task_id = 3;
-		assert_eq!(Tasks::get_task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		assert_eq!(Tasks::task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		assert_eq!(BatchTaskId::<Test>::get(batch_id), Some(new_task_id));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
-		assert!(Tasks::get_task_result(initial_task_id).is_some());
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
+		assert!(Tasks::task_result(initial_task_id).is_some());
 		let event = System::events().into_iter().find_map(|r| {
 			if let RuntimeEvent::Tasks(Event::BatchRestarted(old, new)) = r.event {
 				Some((old, new))
@@ -454,18 +457,18 @@ fn test_submit_gmp_events() {
 		let batch_id = 0;
 		let task_id = 2;
 		Tasks::assign_task(shard, 2);
-		assert_eq!(Tasks::get_task(task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		assert_eq!(Tasks::task(task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		roll(1);
 		let submitter = task_submitter(task_id);
 		submit_submission_error(submitter, task_id, "batch failed");
-		assert!(FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(FailedBatches::<Test>::contains_key(batch_id));
 		let events = [GmpEvent::BatchExecuted {
 			batch_id,
 			tx_hash: Some([0; 32]),
 		}];
 		let events = GmpEvents(BoundedVec::truncate_from(events.to_vec()));
 		assert_ok!(Tasks::submit_gmp_events(RawOrigin::Root.into(), ETHEREUM, events));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 		assert_eq!(TaskOutput::<Test>::get(task_id), Some(Ok(())));
 	});
 }
@@ -479,7 +482,7 @@ fn test_pending_batches_storage() {
 		let batch_id = 0;
 		let task_id = 2;
 		Tasks::assign_task(shard, 2);
-		assert_eq!(Tasks::get_task(task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		assert_eq!(Tasks::task(task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		roll(1);
 		assert!(PendingBatches::<Test>::contains_key(batch_id));
 		let submitter = task_submitter(task_id);
@@ -488,9 +491,9 @@ fn test_pending_batches_storage() {
 		assert!(!PendingBatches::<Test>::contains_key(batch_id));
 		assert_ok!(Tasks::restart_batch(RawOrigin::Root.into(), batch_id));
 		assert!(PendingBatches::<Test>::contains_key(batch_id));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 		let new_task_id = 3;
-		assert_eq!(Tasks::get_task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
+		assert_eq!(Tasks::task(new_task_id), Some(Task::SubmitGatewayMessage { batch_id }));
 		let events = [GmpEvent::BatchExecuted {
 			batch_id,
 			tx_hash: Some([0; 32]),
@@ -498,7 +501,7 @@ fn test_pending_batches_storage() {
 		let events = GmpEvents(BoundedVec::truncate_from(events.to_vec()));
 		assert_ok!(Tasks::submit_gmp_events(RawOrigin::Root.into(), ETHEREUM, events));
 		assert!(!PendingBatches::<Test>::contains_key(batch_id));
-		assert!(!FailedBatchIds::<Test>::contains_key(batch_id));
+		assert!(!FailedBatches::<Test>::contains_key(batch_id));
 	});
 }
 

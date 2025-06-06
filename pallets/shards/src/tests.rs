@@ -103,17 +103,17 @@ fn test_register_shard() {
 			));
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {
-			let members = Shards::get_shard_members(shard_id as _);
-			let threshold = Shards::get_shard_threshold(shard_id as _);
+			let members = Shards::shard_members(shard_id as _);
+			let threshold = Shards::shard_threshold(shard_id as _);
 			assert_eq!(members.len(), shard.len());
 			assert_eq!(threshold, 1);
 		}
 		for member in shard() {
-			let shards = Shards::get_shards(&member.account_id);
+			let shards = Shards::shards(&member.account_id);
 			assert_eq!(shards.len(), 1);
 		}
 		for (shard_id, shard) in shards.iter().enumerate() {
-			let threshold = Shards::get_shard_threshold(shard_id as _);
+			let threshold = Shards::shard_threshold(shard_id as _);
 			for member in shard {
 				assert_ok!(Members::register_member(
 					RawOrigin::Root.into(),

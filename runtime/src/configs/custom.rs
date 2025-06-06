@@ -94,11 +94,6 @@ impl pallet_networks::Config for Runtime {
 	type Tasks = Tasks;
 }
 
-impl pallet_dmail::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_dmail::WeightInfo<Runtime>;
-}
-
 /// Transaction extensions to prevalidate feeless transactions to avoid spam.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]

@@ -1,10 +1,8 @@
-use crate::cctp::CctpHandler;
 use crate::custom::BEP226;
 use crate::dict::Currency;
-use crate::sol::{Gateway, GatewayProxy, GmpProxy, IGmpReceiver};
-use alloy::eips::eip1559::Eip1559Estimation;
+use crate::sol::{ERC1967Proxy, Gateway, GmpProxy, IGmpReceiver};
 use alloy::{
-	eips::{BlockId, BlockNumberOrTag},
+	eips::{eip1559::Eip1559Estimation, BlockId, BlockNumberOrTag},
 	network::{
 		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, ReceiptResponse,
 		TransactionBuilder,
@@ -24,7 +22,7 @@ use alloy::{
 		k256::ecdsa::SigningKey,
 		local::{coins_bip39::English, LocalSigner, MnemonicBuilder},
 	},
-	sol_types::{SolCall, SolConstructor, SolEvent, SolValue},
+	sol_types::{SolCall, SolConstructor, SolEvent},
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -39,7 +37,6 @@ use tokio::sync::Mutex;
 
 type Address20 = alloy::primitives::Address;
 
-mod cctp;
 mod custom;
 mod dict;
 // some e2e tests use it
@@ -71,7 +68,6 @@ pub struct Connector {
 	rpc: Arc<CProvider>,
 	url: String,
 	signer: Arc<LocalSigner<SigningKey>>,
-	cctp: Arc<CctpHandler>,
 	chain_id: u64,
 	currency: Currency,
 	submitter: Submitter,
@@ -109,7 +105,6 @@ impl IConnectorBuilder for Connector {
 			url: params.url,
 			rpc: provider,
 			signer: Arc::new(signer),
-			cctp: Arc::new(CctpHandler::new()),
 			chain_id,
 			currency,
 			submitter: Submitter::new(Duration::from_secs(60)),
@@ -189,12 +184,7 @@ impl IChain for Connector {
 #[async_trait]
 impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(
-		&self,
-		gateway: Address32,
-		blocks: Range<u64>,
-		cctp_info: Option<(Vec<Address32>, String)>,
-	) -> Result<Vec<GmpEvent>> {
+	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let contract = a_addr(gateway);
 		let filter = Filter::new()
 			.address(contract)
@@ -215,17 +205,13 @@ impl IConnector for Connector {
 			.ok_or_else(|| anyhow::format_err!("failed to decode log"))?;
 			for topic in log.topics() {
 				match *topic {
-					sol::Gateway::ShardsRegistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardsRegistered::decode_log(&log)?;
-						for key in log.keys.iter() {
-							events.push(GmpEvent::ShardRegistered(key.clone().into()));
-						}
+					sol::Gateway::ShardRegistered::SIGNATURE_HASH => {
+						let log = sol::Gateway::ShardRegistered::decode_log(&log)?;
+						events.push(GmpEvent::ShardRegistered(log.key.clone().into()));
 					},
-					sol::Gateway::ShardsUnregistered::SIGNATURE_HASH => {
-						let log = sol::Gateway::ShardsUnregistered::decode_log(&log)?;
-						for key in log.keys.iter() {
-							events.push(GmpEvent::ShardUnregistered(key.clone().into()));
-						}
+					sol::Gateway::ShardRevoked::SIGNATURE_HASH => {
+						let log = sol::Gateway::ShardRevoked::decode_log(&log)?;
+						events.push(GmpEvent::ShardUnregistered(log.key.clone().into()));
 					},
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpCreated::decode_log(&log)?;
@@ -235,17 +221,11 @@ impl IConnector for Connector {
 							src: log.source.into(),
 							dest: t_addr(log.destinationAddress),
 							nonce: log.nonce,
-							gas_limit: log.executionGasLimit.into(),
-							gas_cost: log.gasCost.into(),
+							gas_limit: log.gasLimit as _,
 							bytes: log.data.data.into(),
 						};
-						if !self.cctp.needs_attestation(&gmp_message, cctp_info.as_ref()) {
-							tracing::info!(
-								"gmp created: {:?}",
-								hex::encode(gmp_message.message_id())
-							);
-							events.push(GmpEvent::MessageReceived(gmp_message));
-						}
+						tracing::info!("gmp created: {:?}", hex::encode(gmp_message.message_id()));
+						events.push(GmpEvent::MessageReceived(gmp_message));
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log)?;
@@ -262,11 +242,6 @@ impl IConnector for Connector {
 					_ => {},
 				}
 			}
-		}
-		// CCTP calls processing
-		while let Some(msg) = self.cctp.pop_attested().await {
-			tracing::info!("gmp created: {:?}", hex::encode(msg.message_id()));
-			events.push(GmpEvent::MessageReceived(msg));
 		}
 		Ok(events)
 	}
@@ -285,16 +260,14 @@ impl IConnector for Connector {
 			s: sol::u256(&sig[32..]),
 		};
 		let ops: Vec<Gateway::GatewayOp> = msg.ops.iter().map(|op| op.clone().into()).collect();
-		let message = Gateway::InboundMessage {
+		let batch = Gateway::Batch {
 			version: 0,
-			batchID: batch,
+			batchId: batch,
 			ops,
 		};
-		let call = Gateway::batchExecuteCall { signature, message };
-
+		let call = Gateway::executeCall { signature, batch };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		self.submit(tx).await.map_err(|err| err.to_string())?;
-
 		Ok(())
 	}
 }
@@ -302,34 +275,34 @@ impl IConnector for Connector {
 #[async_trait]
 impl IConnectorAdmin for Connector {
 	/// Deploys proxy contract
-	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)> {
-		let admin = a_addr(self.address());
-		let proxy_constructor = GatewayProxy::constructorCall { admin };
+	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
+		let (gateway_addr, _gateway_block) =
+			self.deploy_contract(gateway, Gateway::constructorCall {}).await?;
+		let initialize = Gateway::initializeCall { _networkId: self.network_id };
+		let proxy_constructor = ERC1967Proxy::constructorCall {
+			implementation: gateway_addr,
+			_data: initialize.abi_encode().into(),
+		};
 		let (proxy_addr, proxy_block) = self.deploy_contract(proxy, proxy_constructor).await?;
 		Ok((t_addr(proxy_addr), proxy_block))
 	}
 
-	/// Deploys gateway contract
-	async fn deploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
+	/// Redeploys gateway contract
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let proxy = a_addr(proxy);
-		let (gateway_addr, _gateway_block) = self
-			.deploy_contract(
-				gateway,
-				Gateway::constructorCall {
-					network: self.network_id,
-					proxy,
-				},
-			)
-			.await?;
+		let (gateway_addr, _gateway_block) =
+			self.deploy_contract(gateway, Gateway::constructorCall {}).await?;
 
-		let call = GatewayProxy::upgradeCall {
+		let call = Gateway::upgradeToAndCallCall {
 			newImplementation: gateway_addr,
+			data: [].into(),
 		};
 		let tx = TransactionRequest::default().with_to(proxy).with_call(&call);
 		self.submit(tx).await?;
 
 		Ok(())
 	}
+
 	/// Deploys test contract
 	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
 		let call = GmpProxy::constructorCall { gateway: a_addr(gateway) };
@@ -342,46 +315,52 @@ impl IConnectorAdmin for Connector {
 		let admin_address = self.call(gateway, sol::Gateway::adminCall {}).await?.0;
 		Ok(t_addr(admin_address.into()))
 	}
+
 	/// Sets gateway admin
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let call = Gateway::setAdminCall { newAdmin: a_addr(admin) };
-
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		let _receipt = self.submit(tx).await?;
-
 		Ok(())
 	}
+
 	/// Returns registered shard keys
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
 		let keys = self.call(gateway, sol::Gateway::shardsCall {}).await?;
 		let keys = keys.into_iter().map(Into::into).collect();
 		Ok(keys)
 	}
+
 	/// Sets registered shard keys. Overwrites any other keys.
-	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()> {
-		let mut shards = keys.iter().copied().map(Into::into).collect::<Vec<Gateway::TssKey>>();
-		shards.sort_by(|a, b| a.xCoord.cmp(&b.xCoord));
-		let call = Gateway::setShardsCall { publicKeys: shards };
+	async fn set_shards(
+		&self,
+		gateway: Address32,
+		register: &[(TssPublicKey, u16)],
+		revoke: &[(TssPublicKey, u16)],
+	) -> Result<()> {
+		let register = register.iter().copied().map(Into::into).collect::<Vec<Gateway::TssKey>>();
+		let revoke = revoke.iter().copied().map(Into::into).collect::<Vec<Gateway::TssKey>>();
+		let call = Gateway::setShardsCall { register, revoke };
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		let _receipt = self.submit(tx).await?;
-
 		Ok(())
 	}
+
 	/// Returns gateway routing table
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
 		let routes = self.call(gateway, Gateway::routesCall {}).await?;
 		let routes = routes.into_iter().map(Into::into).collect();
 		Ok(routes)
 	}
+
 	/// Updates an entry in gateway routing table
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let call = Gateway::setRouteCall { info: route.into() };
-
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		let _receipt = self.submit(tx).await?;
-
 		Ok(())
 	}
+
 	/// Estimates message gas limit
 	async fn estimate_message_gas_limit(
 		&self,
@@ -389,7 +368,7 @@ impl IConnectorAdmin for Connector {
 		src_network: NetworkId,
 		src: Address32,
 		payload: Vec<u8>,
-	) -> Result<u128> {
+	) -> Result<u64> {
 		let call = IGmpReceiver::onGmpReceivedCall {
 			id: [0; 32].into(),
 			network: src_network.into(),
@@ -397,47 +376,36 @@ impl IConnectorAdmin for Connector {
 			nonce: 0,
 			payload: payload.into(),
 		};
-
 		let tx = TransactionRequest::default().with_to(a_addr(contract)).with_call(&call);
-
-		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await? as u128)
+		Ok(self.rpc.estimate_gas(WithOtherFields::new(tx)).await?)
 	}
+
 	/// Estimates message cost
 	async fn estimate_message_cost(
 		&self,
 		gateway: Address32,
 		dest_network: NetworkId,
-		gas_limit: u128,
-		payload: Vec<u8>,
+		msg_size: u16,
+		gas_limit: u64,
 	) -> Result<u128> {
-		let msg = Gateway::GmpMessage {
-			source: [0; 32].into(),
-			srcNetwork: 0,
-			dest: [0; 20].into(),
-			destNetwork: 0,
-			gasLimit: 0,
-			nonce: 0,
-			data: payload.into(),
-		};
 		let call = Gateway::estimateMessageCostCall {
-			networkid: dest_network,
-			// abi_encoded_size returns the size without the 4 byte selector
-			messageSize: U256::from(msg.abi_encoded_size() + 4),
-			gasLimit: U256::from(gas_limit),
+			network: dest_network,
+			messageSize: msg_size,
+			gasLimit: gas_limit,
 		};
 		let result = self.call(gateway, call).await?;
 		let msg_cost: u128 = result.try_into().map_err(|e| anyhow!("{e}"))?;
-
 		Ok(msg_cost)
 	}
-	// Sends a message using the test contract
+
+	/// Sends a message using the test contract
 	async fn send_message(
 		&self,
 		contract: Address32,
 		dest_network: NetworkId,
 		dest: Address32,
-		gas_limit: u128,
-		gas_cost: u128,
+		gas_limit: u64,
+		msg_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
 		let message = GmpProxy::GmpMessage {
@@ -454,7 +422,7 @@ impl IConnectorAdmin for Connector {
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
 			.with_call(&call)
-			.with_value(U256::from(gas_cost));
+			.with_value(U256::from(msg_cost));
 		let receipt = self.submit(tx).await?;
 
 		receipt
@@ -514,10 +482,8 @@ impl IConnectorAdmin for Connector {
 			recipient: a_addr(recipient),
 			data: vec![].into(),
 		};
-
 		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
 		self.submit(tx).await?;
-
 		Ok(())
 	}
 
@@ -525,7 +491,7 @@ impl IConnectorAdmin for Connector {
 	// TODO could be done with alloy as well
 	async fn debug_transaction(&self, hash: Hash) -> Result<String> {
 		let analog_gmp_dir =
-			std::env::var("ANALOG_GMP_DIR").context("failed to find ANALOG_GMP_DIR")?;
+			std::env::var("EVM_GATEWAY_DIR").context("failed to find EVM_GATEWAY_DIR")?;
 		let output = Command::new("cast")
 			.current_dir(analog_gmp_dir)
 			.arg("run")
@@ -571,8 +537,11 @@ impl Connector {
 	async fn call<C: SolCall>(&self, to: Address32, call: C) -> Result<C::Return> {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
-
-		tracing::debug!("{result:?}");
+		tracing::debug!(
+			"eth_call to: {} on chain {} result: {result:?}",
+			a_addr(to).to_string(),
+			self.chain_id
+		);
 		Ok(C::abi_decode_returns(&result)?)
 	}
 

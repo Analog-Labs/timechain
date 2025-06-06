@@ -1,4 +1,3 @@
-use crate::cctp::FixedSizeEncodable;
 use crate::{NetworkId, TssPublicKey};
 #[cfg(feature = "std")]
 use crate::{TssSignature, U256};
@@ -6,7 +5,6 @@ use crate::{TssSignature, U256};
 use anyhow::Result;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 #[cfg(feature = "std")]
@@ -17,7 +15,30 @@ pub type MessageId = [u8; 32];
 pub type Hash = [u8; 32];
 pub type BatchId = u64;
 
-const GMP_VERSION: &str = "Analog GMP v2";
+const GMP_VERSION: &str = "Analog GMP v3";
+
+pub trait FixedSizeEncodable {
+	fn left_pad_32(&self) -> [u8; 32];
+}
+
+macro_rules! impl_fixed_size_encodable {
+    ($($n:expr),*) => {
+        $(
+            impl FixedSizeEncodable for [u8; $n] {
+                fn left_pad_32(&self) -> [u8; 32] {
+                    let mut out = [0u8; 32];
+                    out[32-$n..].copy_from_slice(self);
+                    out
+                }
+            }
+        )*
+    }
+}
+
+impl_fixed_size_encodable!(
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+	26, 27, 28, 29, 30, 31, 32
+);
 
 #[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub struct GmpParams {
@@ -60,8 +81,7 @@ pub struct GmpMessage {
 	pub src: Address32,
 	pub dest: Address32,
 	pub nonce: u64,
-	pub gas_limit: u128,
-	pub gas_cost: u128,
+	pub gas_limit: u64,
 	pub bytes: Vec<u8>,
 }
 
@@ -96,6 +116,29 @@ impl std::fmt::Display for GmpMessage {
 	}
 }
 
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Copy,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	TypeInfo,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+)]
+pub struct BatchGasParams {
+	pub batch_gas_limit: u64,
+	pub batch_exec_gas: u64,
+	pub reg_op_exec_gas: u64,
+	pub unreg_op_exec_gas: u64,
+	pub msg_op_exec_gas: u64,
+	pub msg_byte_gas: u64,
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Decode, DecodeWithMemTracking, Encode, TypeInfo, PartialEq)]
 pub enum GatewayOp {
@@ -103,10 +146,12 @@ pub enum GatewayOp {
 	RegisterShard(
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
 		TssPublicKey,
+		u16,
 	),
 	UnregisterShard(
 		#[cfg_attr(feature = "std", serde(with = "crate::shard::serde_tss_public_key"))]
 		TssPublicKey,
+		u16,
 	),
 }
 
@@ -114,33 +159,41 @@ impl GatewayOp {
 	fn code(&self) -> u8 {
 		match self {
 			GatewayOp::SendMessage(_) => 1,
-			GatewayOp::RegisterShard(_) => 2,
-			GatewayOp::UnregisterShard(_) => 3,
+			GatewayOp::RegisterShard(_, _) => 2,
+			GatewayOp::UnregisterShard(_, _) => 3,
 		}
 	}
 
 	fn hash(&self) -> [u8; 32] {
-		let mut bytes = [0; 64];
+		let mut bytes = [0; 96];
 		match self {
 			Self::SendMessage(msg) => {
 				let data = Keccak256::digest(&msg.bytes);
 				bytes[..32].copy_from_slice(&msg.message_id());
-				bytes[32..].copy_from_slice(&data);
+				bytes[32..64].copy_from_slice(&data);
+				return Keccak256::digest(&bytes[..64]).into();
 			},
-			Self::RegisterShard(pubkey) => {
-				bytes[31..].copy_from_slice(pubkey);
+			Self::RegisterShard(pubkey, sessions) => {
+				bytes[31..64].copy_from_slice(pubkey);
+				bytes[64..96].copy_from_slice(&sessions.to_be_bytes().left_pad_32());
 			},
-			Self::UnregisterShard(pubkey) => {
-				bytes[31..].copy_from_slice(pubkey);
+			Self::UnregisterShard(pubkey, sessions) => {
+				bytes[31..64].copy_from_slice(pubkey);
+				bytes[64..96].copy_from_slice(&sessions.to_be_bytes().left_pad_32());
 			},
 		}
 		Keccak256::digest(bytes).into()
 	}
 
-	pub fn gas(&self) -> u128 {
+	pub fn gas(&self, params: &BatchGasParams) -> u64 {
 		match self {
-			Self::SendMessage(msg) => msg.gas_cost,
-			_ => 40_000,
+			Self::SendMessage(msg) => {
+				params.msg_op_exec_gas
+					+ msg.bytes.len() as u64 * params.msg_byte_gas
+					+ msg.gas_limit
+			},
+			Self::RegisterShard(_, _) => params.reg_op_exec_gas,
+			Self::UnregisterShard(_, _) => params.unreg_op_exec_gas,
 		}
 	}
 }
@@ -152,11 +205,11 @@ impl std::fmt::Display for GatewayOp {
 			Self::SendMessage(msg) => {
 				writeln!(f, "send_message {}", hex::encode(msg.message_id()))
 			},
-			Self::RegisterShard(key) => {
-				writeln!(f, "register_shard {}", hex::encode(key))
+			Self::RegisterShard(key, sessions) => {
+				writeln!(f, "register_shard {} {}", hex::encode(key), sessions)
 			},
-			Self::UnregisterShard(key) => {
-				writeln!(f, "unregister_shard {}", hex::encode(key))
+			Self::UnregisterShard(key, sessions) => {
+				writeln!(f, "unregister_shard {} {}", hex::encode(key), sessions)
 			},
 		}
 	}
@@ -198,28 +251,24 @@ impl GatewayMessage {
 		Keccak256::digest(buf).into()
 	}
 
-	pub fn gas(&self) -> u128 {
-		self.ops.iter().fold(0u128, |acc, op| acc.saturating_add(op.gas()))
+	pub fn gas(&self, params: &BatchGasParams) -> u64 {
+		self.ops.iter().fold(0u64, |acc, op| acc.saturating_add(op.gas(params)))
 	}
 }
 
 pub struct BatchBuilder {
-	batch_gas_limit: u128,
-	gas: u128,
+	params: BatchGasParams,
+	gas: u64,
 	ops: Vec<GatewayOp>,
 }
 
 impl BatchBuilder {
-	pub fn new(batch_gas_limit: u128) -> Self {
+	pub fn new(params: BatchGasParams) -> Self {
 		Self {
-			batch_gas_limit,
-			gas: 0,
+			gas: params.batch_exec_gas,
+			params,
 			ops: Default::default(),
 		}
-	}
-
-	pub fn set_gas_limit(&mut self, batch_gas_limit: u128) {
-		self.batch_gas_limit = batch_gas_limit;
 	}
 
 	pub fn take_batch(&mut self) -> Option<GatewayMessage> {
@@ -232,8 +281,9 @@ impl BatchBuilder {
 	}
 
 	pub fn push(&mut self, op: GatewayOp) -> Option<GatewayMessage> {
-		let gas = op.gas();
-		let batch = if self.gas + gas > self.batch_gas_limit { self.take_batch() } else { None };
+		let gas = op.gas(&self.params);
+		let batch =
+			if self.gas + gas > self.params.batch_gas_limit { self.take_batch() } else { None };
 		self.ops.push(op);
 		batch
 	}
@@ -306,6 +356,10 @@ pub struct Route {
 	pub gas_limit: u64,
 	/// GMP protocol fee for message delivery to the destination network, expressed in source network token
 	pub gmp_base_fee: u128,
+	/// Base gas coefficient.
+	pub base_gas: u64,
+	/// Gas per message byte.
+	pub msg_byte_gas: u64,
 }
 
 #[cfg(feature = "std")]
@@ -345,12 +399,7 @@ pub trait IChain: Send + Sync + 'static {
 #[async_trait::async_trait]
 pub trait IConnector: IChain {
 	/// Reads gmp messages from the target chain.
-	async fn read_events(
-		&self,
-		gateway: Address32,
-		blocks: Range<u64>,
-		cctp_info: Option<(Vec<Address32>, String)>,
-	) -> Result<Vec<GmpEvent>>;
+	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
@@ -366,9 +415,9 @@ pub trait IConnector: IChain {
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IConnector {
 	/// Deploys the proxy contract.
-	async fn deploy_proxy(&self, proxy: &[u8]) -> Result<(Address32, u64)>;
-	/// Deploys the gateway contract.
-	async fn deploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()>;
+	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)>;
+	/// Redeploys the gateway contract.
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32>;
 	/// Sets the gateway admin.
@@ -376,7 +425,12 @@ pub trait IConnectorAdmin: IConnector {
 	/// Returns the registered shard keys.
 	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>>;
 	/// Sets the registered shard keys. Overwrites any other keys.
-	async fn set_shards(&self, gateway: Address32, keys: &[TssPublicKey]) -> Result<()>;
+	async fn set_shards(
+		&self,
+		gateway: Address32,
+		register: &[(TssPublicKey, u16)],
+		revoke: &[(TssPublicKey, u16)],
+	) -> Result<()>;
 	/// Returns the gateway routing table.
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>>;
 	/// Updates an entry in the gateway routing table.
@@ -390,14 +444,14 @@ pub trait IConnectorAdmin: IConnector {
 		src_network: NetworkId,
 		src: Address32,
 		payload: Vec<u8>,
-	) -> Result<u128>;
+	) -> Result<u64>;
 	/// Estimates the message cost.
 	async fn estimate_message_cost(
 		&self,
 		gateway: Address32,
 		dest_network: NetworkId,
-		gas_limit: u128,
-		payload: Vec<u8>,
+		msg_size: u16,
+		gas_limit: u64,
 	) -> Result<u128>;
 	/// Sends a message using the test contract and returns the message id.
 	async fn send_message(
@@ -405,8 +459,8 @@ pub trait IConnectorAdmin: IConnector {
 		src: Address32,
 		dest_network: NetworkId,
 		dest: Address32,
-		gas_limit: u128,
-		gas_cost: u128,
+		gas_limit: u64,
+		msg_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId>;
 	/// Receives messages from test contract.

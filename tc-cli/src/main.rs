@@ -153,15 +153,15 @@ enum Command {
 	EstimateMessageGasCost {
 		src_network: NetworkId,
 		dest_network: NetworkId,
-		gas_limit: u128,
-		payload: String,
+		msg_size: u16,
+		gas_limit: u64,
 	},
 	SendMessage {
 		src_network: NetworkId,
 		src_addr: String,
 		dest_network: NetworkId,
 		dest_addr: String,
-		gas_limit: u128,
+		gas_limit: u64,
 		gas_cost: u128,
 		payload: String,
 	},
@@ -293,11 +293,11 @@ async fn real_main() -> Result<()> {
 			tc.print_table(None, "assigned-tasks", tasks).await?;
 		},
 		Command::FailedBatches => {
-			let batches = tc.get_failed_batches(block).await?;
+			let batches = tc.failed_batches(block).await?;
 			tc.print_table(None, "failed-batches", batches).await?;
 		},
 		Command::PendingBatches => {
-			let batches = tc.get_pending_batches(block).await?;
+			let batches = tc.pending_batches(block).await?;
 			tc.print_table(None, "pending-batches", batches).await?;
 		},
 		Command::MaxFeePerGas { network } => {
@@ -384,14 +384,14 @@ async fn real_main() -> Result<()> {
 		Command::EstimateMessageGasCost {
 			src_network,
 			dest_network,
+			msg_size,
 			gas_limit,
-			payload,
 		} => {
-			let payload = hex::decode(payload)?;
-			let gas_cost = tc
-				.estimate_message_cost(src_network, dest_network, gas_limit, payload, block)
+			let msg_cost = tc
+				.estimate_message_cost(src_network, dest_network, msg_size, gas_limit, block)
 				.await?;
-			tc.println(None, gas_cost.to_string()).await?;
+			let balance = tc.format_balance(Some(src_network), msg_cost)?;
+			tc.println(None, balance).await?;
 		},
 		Command::SendMessage {
 			src_network,

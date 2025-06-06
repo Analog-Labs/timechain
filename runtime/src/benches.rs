@@ -39,7 +39,6 @@ polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[pallet_bags_list, VoterList]
 	[pallet_balances, Balances]
 	[pallet_collective, TechnicalCommittee]
-	[pallet_dmail, Dmail]
 	[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 	[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 	[pallet_elections, Elections]

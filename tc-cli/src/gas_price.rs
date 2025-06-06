@@ -114,37 +114,6 @@ fn convert_bigint_to_u256(value: &BigUint) -> Result<U256> {
 	Ok(U256::from_big_endian(&num_bytes))
 }
 
-pub fn is_relative_gas_in_threshold(
-	old_factor: (U256, U256),
-	new_factor: (U256, U256),
-	threshold_percent: u64,
-) -> Option<bool> {
-	let (old_num, old_den) = old_factor;
-	let (new_num, new_den) = new_factor;
-	tracing::debug!(
-		"Price comparison: old={}/{} new={}/{} threshold={}",
-		old_num,
-		old_den,
-		new_num,
-		new_den,
-		threshold_percent
-	);
-
-	// cross multiplication to find diff
-	let old_val = old_num.checked_mul(new_den)?;
-	let new_val = new_num.checked_mul(old_den)?;
-
-	let abs_diff = old_val.abs_diff(new_val);
-
-	// 100 * |old_val - new_val| <= old_val * threshold_percent
-	let left = abs_diff.checked_mul(100.into())?;
-	let right = old_val.checked_mul(threshold_percent.into())?;
-
-	let result = left <= right;
-	tracing::debug!("diff={abs_diff} {result}");
-	Some(result)
-}
-
 impl Tc {
 	pub async fn fetch_token_prices(&mut self) -> Result<()> {
 		let env = CoinMarketCap::from_env();
@@ -233,32 +202,5 @@ impl Tc {
 		let numerator = convert_bigint_to_u256(ratio.numer())?;
 		let denominator = convert_bigint_to_u256(ratio.denom())?;
 		Ok((numerator, denominator))
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn in_threshold() {
-		let values = [((10, 10), (1, 1))];
-		for ((a, b), (c, d)) in values {
-			assert_eq!(
-				is_relative_gas_in_threshold((a.into(), b.into()), (c.into(), d.into()), 1),
-				Some(true)
-			);
-		}
-	}
-
-	#[test]
-	fn not_in_threshold() {
-		let values = [((10, 10), (2, 1))];
-		for ((a, b), (c, d)) in values {
-			assert_eq!(
-				is_relative_gas_in_threshold((a.into(), b.into()), (c.into(), d.into()), 1),
-				Some(false)
-			);
-		}
 	}
 }

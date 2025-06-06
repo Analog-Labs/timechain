@@ -99,7 +99,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::ReadEventsResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let events = connector
-			.read_events(msg.gateway, msg.start_block..msg.end_block, None)
+			.read_events(msg.gateway, msg.start_block..msg.end_block)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::ReadEventsResponse { events }))
@@ -117,28 +117,28 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::SubmitCommandsResponse {}))
 	}
 
-	async fn deploy_proxy(
-		&self,
-		request: Request<proto::DeployProxyRequest>,
-	) -> GmpResult<proto::DeployProxyResponse> {
-		let (connector, msg) = self.connector(request)?;
-		let (address, block) = connector
-			.deploy_proxy(&msg.proxy)
-			.await
-			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::DeployProxyResponse { address, block }))
-	}
-
 	async fn deploy_gateway(
 		&self,
 		request: Request<proto::DeployGatewayRequest>,
 	) -> GmpResult<proto::DeployGatewayResponse> {
 		let (connector, msg) = self.connector(request)?;
-		connector
-			.deploy_gateway(msg.proxy, &msg.gateway)
+		let (address, block) = connector
+			.deploy_gateway(&msg.proxy, &msg.gateway)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::DeployGatewayResponse {}))
+		Ok(Response::new(proto::DeployGatewayResponse { address, block }))
+	}
+
+	async fn redeploy_gateway(
+		&self,
+		request: Request<proto::RedeployGatewayRequest>,
+	) -> GmpResult<proto::RedeployGatewayResponse> {
+		let (connector, msg) = self.connector(request)?;
+		connector
+			.redeploy_gateway(msg.proxy, &msg.gateway)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::RedeployGatewayResponse {}))
 	}
 
 	async fn admin(
@@ -185,9 +185,10 @@ impl Gmp for ConnectorWrapper {
 		request: Request<proto::SetShardsRequest>,
 	) -> GmpResult<proto::SetShardsResponse> {
 		let (connector, msg) = self.connector(request)?;
-		let shards: Vec<TssPublicKey> = unsafe { std::mem::transmute(msg.shards) };
+		let register: Vec<(TssPublicKey, u16)> = unsafe { std::mem::transmute(msg.register) };
+		let revoke: Vec<(TssPublicKey, u16)> = unsafe { std::mem::transmute(msg.revoke) };
 		connector
-			.set_shards(msg.gateway, &shards)
+			.set_shards(msg.gateway, &register, &revoke)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::SetShardsResponse {}))
@@ -247,7 +248,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::EstimateMessageCostResponse> {
 		let (connector, msg) = self.connector(request)?;
 		let cost = connector
-			.estimate_message_cost(msg.gateway, msg.dest_network, msg.gas_limit, msg.payload)
+			.estimate_message_cost(msg.gateway, msg.dest_network, msg.msg_size, msg.gas_limit)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::EstimateMessageCostResponse { cost }))
@@ -264,7 +265,7 @@ impl Gmp for ConnectorWrapper {
 				msg.dest_network,
 				msg.dest,
 				msg.gas_limit,
-				msg.gas_cost,
+				msg.msg_cost,
 				msg.payload,
 			)
 			.await

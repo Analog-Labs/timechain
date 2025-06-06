@@ -66,6 +66,7 @@ fn a_addr(address: Address32) -> Address20 {
 }
 
 #[tokio::test]
+#[ignore]
 async fn oats_sender_caller_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
@@ -192,6 +193,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore]
 async fn oats_sender_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;

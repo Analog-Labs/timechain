@@ -64,12 +64,6 @@ pub trait Runtime: Send + Sync + 'static {
 
 	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Address32>>;
 
-	async fn get_cctp_info(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<Option<(Vec<Address32>, String)>>;
-
 	async fn submit_heartbeat(&self) -> Result<()>;
 
 	async fn submit_commitment(
@@ -176,24 +170,6 @@ impl Runtime for SubxtClient {
 
 	async fn get_gateway(&self, network: NetworkId, block: BlockHash) -> Result<Option<Address32>> {
 		self.network_gateway(network, block).await
-	}
-
-	async fn get_cctp_info(
-		&self,
-		network: NetworkId,
-		block: BlockHash,
-	) -> Result<Option<(Vec<Address32>, String)>> {
-		let contracts_opt = self.get_cctp_contracts(network, block).await?;
-		let url_opt = self.get_cctp_url(network, block).await?;
-
-		match (contracts_opt, url_opt) {
-			(Some(contracts), Some(url)) => {
-				let contracts = contracts.0.to_vec();
-				let url = String::from_utf8(url.0.to_vec())?;
-				Ok(Some((contracts, url)))
-			},
-			_ => Ok(None),
-		}
 	}
 
 	async fn submit_heartbeat(&self) -> Result<()> {

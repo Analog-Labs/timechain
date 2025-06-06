@@ -5,8 +5,8 @@ sol!(
 	#[allow(clippy::too_many_arguments)]
 	#[allow(missing_docs)]
 	#[derive(Debug)]
-	GatewayProxy,
-	"../../analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"
+	ERC1967Proxy,
+	"gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"
 );
 
 sol!(
@@ -14,7 +14,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	Gateway,
-	"../../analog-gmp/out/Gateway.sol/Gateway.json"
+	"gateway/out/Gateway.sol/Gateway.json"
 );
 
 sol!(
@@ -22,7 +22,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	IGmpReceiver,
-	"../../analog-gmp/out/IGmpReceiver.sol/IGmpReceiver.json"
+	"gateway/out/IGmpReceiver.sol/IGmpReceiver.json"
 );
 
 sol!(
@@ -30,7 +30,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[derive(Debug)]
 	GmpProxy,
-	"../../analog-gmp/out/GmpProxy.sol/GmpProxy.json"
+	"gateway/out/GmpProxy.sol/GmpProxy.json"
 );
 
 pub fn u256(bytes: &[u8]) -> U256 {
@@ -41,11 +41,12 @@ fn bytes32(u: U256) -> [u8; 32] {
 	u.to_be_bytes::<32>()
 }
 
-impl From<time_primitives::TssPublicKey> for Gateway::TssKey {
-	fn from(key: time_primitives::TssPublicKey) -> Self {
+impl From<(time_primitives::TssPublicKey, u16)> for Gateway::TssKey {
+	fn from((key, num_sessions): (time_primitives::TssPublicKey, u16)) -> Self {
 		Self {
-			yParity: key[0],
+			yParity: key[0] + 25,
 			xCoord: u256(&key[1..]),
+			numSessions: num_sessions,
 		}
 	}
 }
@@ -53,7 +54,7 @@ impl From<time_primitives::TssPublicKey> for Gateway::TssKey {
 impl From<Gateway::TssKey> for time_primitives::TssPublicKey {
 	fn from(key: Gateway::TssKey) -> Self {
 		let mut public = [0; 33];
-		public[0] = key.yParity;
+		public[0] = key.yParity - 25;
 		public[1..].copy_from_slice(&bytes32(key.xCoord));
 		public
 	}
@@ -68,6 +69,8 @@ impl From<time_primitives::Route> for Gateway::Route {
 			relativeGasPriceDenominator: u256(&route.relative_gas_price.1.to_big_endian()),
 			gasLimit: route.gas_limit,
 			baseFee: route.gmp_base_fee,
+			gasCoef0: route.base_gas,
+			gasCoef1: route.msg_byte_gas,
 		}
 	}
 }
@@ -83,6 +86,8 @@ impl From<Gateway::Route> for time_primitives::Route {
 			),
 			gas_limit: route.gasLimit,
 			gmp_base_fee: route.baseFee,
+			base_gas: route.gasCoef0,
+			msg_byte_gas: route.gasCoef1,
 		}
 	}
 }
@@ -95,8 +100,7 @@ impl From<GmpProxy::GmpMessage> for time_primitives::GmpMessage {
 			src: msg.source.into(),
 			dest: t_addr(msg.dest),
 			nonce: msg.nonce,
-			gas_limit: msg.gasLimit.into(),
-			gas_cost: 0,
+			gas_limit: msg.gasLimit,
 			bytes: msg.data.into(),
 		}
 	}
@@ -110,7 +114,7 @@ impl From<time_primitives::GmpMessage> for Gateway::GmpMessage {
 			source: msg.src.into(),
 			dest: a_addr(msg.dest),
 			nonce: msg.nonce,
-			gasLimit: msg.gas_limit as u64,
+			gasLimit: msg.gas_limit,
 			data: msg.bytes.into(),
 		}
 	}
@@ -123,13 +127,13 @@ impl From<time_primitives::GatewayOp> for Gateway::GatewayOp {
 				command: 1,
 				params: Into::<Gateway::GmpMessage>::into(msg).abi_encode().into(),
 			},
-			time_primitives::GatewayOp::RegisterShard(shard_id) => Gateway::GatewayOp {
+			time_primitives::GatewayOp::RegisterShard(key, sessions) => Gateway::GatewayOp {
 				command: 2,
-				params: Into::<Gateway::TssKey>::into(shard_id).abi_encode().into(),
+				params: Into::<Gateway::TssKey>::into((key, sessions)).abi_encode().into(),
 			},
-			time_primitives::GatewayOp::UnregisterShard(shard_id) => Gateway::GatewayOp {
+			time_primitives::GatewayOp::UnregisterShard(key, sessions) => Gateway::GatewayOp {
 				command: 3,
-				params: Into::<Gateway::TssKey>::into(shard_id).abi_encode().into(),
+				params: Into::<Gateway::TssKey>::into((key, sessions)).abi_encode().into(),
 			},
 		}
 	}

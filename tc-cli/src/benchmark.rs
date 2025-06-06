@@ -9,9 +9,9 @@ use time_primitives::{Address32, BlockHash, BlockNumber, MessageId, NetworkId};
 struct RouteStats {
 	src_addr: Address32,
 	dest_addr: Address32,
-	gas_limit: u128,
-	gas_cost: u128,
-	msg_cost: f64,
+	gas_limit: u64,
+	msg_cost: u128,
+	msg_cost_usd: f64,
 	num_sent: u64,
 	num_received: u64,
 	sum_latency: u64,
@@ -21,16 +21,16 @@ impl RouteStats {
 	pub fn new(
 		src_addr: Address32,
 		dest_addr: Address32,
-		gas_limit: u128,
-		gas_cost: u128,
-		msg_cost: f64,
+		gas_limit: u64,
+		msg_cost: u128,
+		msg_cost_usd: f64,
 	) -> Self {
 		Self {
 			src_addr,
 			dest_addr,
 			gas_limit,
-			gas_cost,
 			msg_cost,
+			msg_cost_usd,
 			num_sent: 0,
 			num_received: 0,
 			sum_latency: 0,
@@ -42,7 +42,7 @@ impl RouteStats {
 pub struct BenchmarkStats {
 	pub src: NetworkId,
 	pub dest: NetworkId,
-	pub msg_cost: f64,
+	pub msg_cost_usd: f64,
 	pub num_sent: u64,
 	pub num_received: u64,
 	pub num_total: u64,
@@ -100,7 +100,7 @@ impl Benchmark {
 			.await?;
 		let gas_cost = self
 			.tc
-			.estimate_message_cost(src, dest, gas_limit, self.payload.clone(), block_hash)
+			.estimate_message_cost(src, dest, self.payload.len() as u16, gas_limit, block_hash)
 			.await?;
 		let msg_cost = self.tc.balance_to_usd(src, gas_cost)?;
 		Ok(RouteStats::new(src_addr, dest_addr, gas_limit, gas_cost, msg_cost))
@@ -147,7 +147,7 @@ impl Benchmark {
 					*dest,
 					route.dest_addr,
 					route.gas_limit,
-					route.gas_cost,
+					route.msg_cost,
 					self.payload.clone(),
 				);
 				messages.push(async move {
@@ -210,7 +210,7 @@ impl Benchmark {
 			stats.push(BenchmarkStats {
 				src: *src,
 				dest: *dest,
-				msg_cost: route.msg_cost,
+				msg_cost_usd: route.msg_cost_usd,
 				num_sent: route.num_sent,
 				num_received: route.num_received,
 				num_total: self.msgs_per_block as u64 * self.num_blocks as u64,

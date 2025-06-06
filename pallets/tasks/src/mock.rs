@@ -8,8 +8,8 @@ use sp_runtime::{
 	BuildStorage, MultiSignature,
 };
 use time_primitives::{
-	Address32, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface, PeerId,
-	ShardsInterface,
+	Address32, BatchGasParams, ElectionsInterface, MembersInterface, NetworkId, NetworksInterface,
+	PeerId, ShardsInterface,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -22,14 +22,17 @@ impl NetworksInterface for MockNetworks {
 	fn gateway(_network: NetworkId) -> Option<Address32> {
 		Some([0; 32])
 	}
-	fn get_networks() -> Vec<NetworkId> {
+	fn networks() -> Vec<NetworkId> {
 		vec![0]
 	}
 	fn next_batch_size(_network: NetworkId, _block_height: u64) -> u32 {
 		5
 	}
-	fn batch_gas_limit(_network: NetworkId) -> u128 {
-		10
+	fn batch_gas_params(_network: NetworkId) -> BatchGasParams {
+		BatchGasParams {
+			batch_gas_limit: 10,
+			..Default::default()
+		}
 	}
 	fn shard_task_limit(_network: NetworkId) -> u32 {
 		10

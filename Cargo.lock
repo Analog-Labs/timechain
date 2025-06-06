@@ -955,7 +955,6 @@ name = "analog-docs"
 version = "0.8.1"
 dependencies = [
  "chronicle",
- "pallet-dmail",
  "pallet-elections",
  "pallet-members",
  "pallet-networks",
@@ -10691,16 +10690,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-dmail"
-version = "0.8.1"
-dependencies = [
- "parity-scale-codec",
- "polkadot-sdk 2503.0.1",
- "scale-info",
- "time-primitives",
-]
-
-[[package]]
 name = "pallet-election-provider-multi-phase"
 version = "39.2.0"
 source = "git+https://github.com/Analog-Labs/polkadot-sdk?tag=v1.18.5-anlog0#b5f4a94ad034a82abc5ece1682cd49dd8e4c52ed"
@@ -20391,7 +20380,6 @@ dependencies = [
  "env_logger 0.11.8",
  "log",
  "pallet-airdrop",
- "pallet-dmail",
  "pallet-elections",
  "pallet-governance",
  "pallet-launch",

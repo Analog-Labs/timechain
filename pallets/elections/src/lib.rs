@@ -108,7 +108,7 @@ pub mod pallet {
 		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			log::info!("on_initialize begin");
 			let mut num_elections = 0u32;
-			let networks = T::Networks::get_networks();
+			let networks = T::Networks::networks();
 			let net_counter0 = NetworkCounter::<T>::get();
 			let (mut net_counter, mut all_nets_elected) = (net_counter0, false);
 			while num_elections < T::MaxElectionsPerBlock::get() {

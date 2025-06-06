@@ -211,14 +211,6 @@ impl Runtime for Mock {
 			.map(|(_, peer_id)| *peer_id))
 	}
 
-	async fn get_cctp_info(
-		&self,
-		_network: NetworkId,
-		_: BlockHash,
-	) -> Result<Option<(Vec<Address32>, String)>> {
-		Ok(None)
-	}
-
 	async fn get_heartbeat_timeout(&self, _: BlockHash) -> Result<BlockNumber> {
 		Ok(1000)
 	}

@@ -113,9 +113,10 @@ impl TestEnvBuilder {
 						BackendConfig {
 							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json"),
 							proxy: workspace
-								.join("analog-gmp/out/GatewayProxy.sol/GatewayProxy.json"),
-							gateway: workspace.join("analog-gmp/out/Gateway.sol/Gateway.json"),
-							tester: workspace.join("analog-gmp/out/GmpProxy.sol/GmpProxy.json"),
+								.join("gmp/evm/gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"),
+							gateway: workspace.join("gmp/evm/gateway/out/Gateway.sol/Gateway.json"),
+							tester: workspace
+								.join("gmp/evm/gateway/out/GmpProxy.sol/GmpProxy.json"),
 						},
 					);
 					backends
@@ -177,8 +178,12 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 825,
-				cctp_contracts: None,
-				cctp_url: None,
+				batch_exec_gas: 70_000,
+				reg_op_exec_gas: 100_000,
+				unreg_op_exec_gas: 25_000,
+				msg_op_exec_gas: 30_000,
+				msg_byte_gas: 20,
+				msg_session_gas: 50_000,
 			},
 		);
 
@@ -213,7 +218,7 @@ impl TestEnvBuilder {
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
 			.with_cmd([
-				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7 -vvvvv",
+				"anvil -b=6 --steps-tracing --order=fifo --base-fee=0 --gas-price=1 --no-request-size-limit --slots-in-an-epoch 1 --state /state/anvil -s 7 -vvvvv",
 			])
 			.with_mount(Mount::bind_mount(chain_mount.to_str().unwrap(), "/state"))
 			.start()
@@ -243,8 +248,12 @@ impl TestEnvBuilder {
 				shard_size,
 				shard_threshold,
 				coin_id: 1027,
-				cctp_url: Some("https://iris-api-sandbox.circle.com/attestations/".into()),
-				cctp_contracts: None,
+				batch_exec_gas: 70_000,
+				reg_op_exec_gas: 100_000,
+				unreg_op_exec_gas: 25_000,
+				msg_op_exec_gas: 30_000,
+				msg_byte_gas: 20,
+				msg_session_gas: 50_000,
 			},
 		);
 

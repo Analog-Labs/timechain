@@ -1,5 +1,5 @@
 use crate::{
-	BatchIdCounter, BatchTaskId, Call, Config, FailedBatchIds, Pallet, ReadEventsTask,
+	BatchIdCounter, BatchTaskId, Call, Config, FailedBatches, Pallet, ReadEventsTask,
 	ShardRegistered, TaskIdCounter, TaskNetwork, TaskOutput, TaskShard,
 };
 use frame_benchmarking::benchmarks;
@@ -146,7 +146,7 @@ benchmarks! {
 			network,
 			Task::SubmitGatewayMessage { batch_id }
 		);
-		FailedBatchIds::<T>::insert(batch_id, ());
+		FailedBatches::<T>::insert(batch_id, ());
 		BatchTaskId::<T>::insert(batch_id, initial_task_id);
 		TaskNetwork::<T>::insert(initial_task_id, network);
 	}: _(RawOrigin::Root, batch_id) verify {
@@ -157,7 +157,7 @@ benchmarks! {
 			"New task not created"
 		);
 		assert!(
-			!FailedBatchIds::<T>::contains_key(batch_id),
+			!FailedBatches::<T>::contains_key(batch_id),
 			"Batch not removed from failed list"
 		);
 	}

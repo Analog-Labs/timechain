@@ -6,7 +6,7 @@ config:
 backends:
   evm:
     chain_dict: "auxiliary/chains.json"
-    proxy: "contracts/GatewayProxy.sol/GatewayProxy.json"
+    proxy: "contracts/ERC1967Proxy.sol/ERC1967Proxy.json"
     gateway: "contracts/Gateway.sol/Gateway.json"
     tester: "contracts/GmpProxy.sol/GmpProxy.json"
 networks:
@@ -27,6 +27,12 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 825
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 
   1:
     backend: "grpc"
@@ -45,6 +51,12 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 825
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 
   2:
     backend: "grpc"
@@ -63,6 +75,12 @@ networks:
     shard_size: 3
     shard_threshold: 2
     coin_id: 825
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 
   3:
     backend: "grpc"
@@ -81,6 +99,12 @@ networks:
     shard_size: 3
     shard_threshold: 2
     coin_id: 825
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 
   4:
     backend: "evm"
@@ -99,9 +123,12 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 1027
-    cctp_contracts:
-    - "D2b0db0D3E48DeA780Fa6C417B015A0950D2A4A9"
-    cctp_url: "https://iris-api-sandbox.circle.com/attestations/"
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 
   5:
     backend: "evm"
@@ -122,6 +149,12 @@ networks:
     shard_size: 1
     shard_threshold: 1
     coin_id: 12885
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
 
 chronicles:
 - https://chronicle-1.development.analog.one

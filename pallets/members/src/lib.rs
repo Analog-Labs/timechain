@@ -178,7 +178,7 @@ pub mod pallet {
 		///	2. Ensures the `origin` is AdminOrigin (authenticated).
 		///	3. Validates the `public_key` against the `origin` account.
 		///	4. Checks if the member is already registered and unregisters them if necessary.
-		///	5. Inserts member data into respective storage maps ([`MemberNetwork::<T>`], [`MemberPeerId::<T>`], [`MemberStake::<T>`], [`Heartbeat::<T>`]).
+		///	5. Inserts member data into respective storage maps ([`MemberNetwork::<T>`], [`MemberPeerId::<T>`], [`Heartbeat::<T>`]).
 		///	6. Marks the member as online ([`MemberOnline::<T>`]).
 		///	7. Emits [`Event::RegisteredMember`].
 		///	8. Calls `Self::member_online` to notify the network election system.

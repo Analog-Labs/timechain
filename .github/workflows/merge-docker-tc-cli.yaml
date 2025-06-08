@@ -4,6 +4,7 @@ on:
     paths-ignore:
       - '.github/**'
       - '!.github/workflows/merge-docker-tc-cli.yaml'
+      - '!.github/actions/build-contracts-tc-cli'
       - '.cargo/**'
       - 'chronicle/**'
       - 'docs/**'

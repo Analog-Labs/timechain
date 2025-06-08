@@ -33,6 +33,7 @@ runs:
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
     - name: Install deps
+      shell: bash
       run: forge soldeer install
     - name: Build contracts
       shell: bash

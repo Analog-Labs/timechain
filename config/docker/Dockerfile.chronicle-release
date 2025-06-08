@@ -1,4 +1,7 @@
+FROM ghcr.io/foundry-rs/foundry:latest as foundry
 FROM rust:1.85.1 AS builder
+
+COPY --from=foundry /usr/local/bin/forge /bin/forge
 
 ARG PROFILE
 ARG FEATURES=default

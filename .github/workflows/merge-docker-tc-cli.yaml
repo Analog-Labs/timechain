@@ -43,12 +43,8 @@ jobs:
     steps:
       - name: Fetch latest code
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
+      - name: Setup foundry and build GMP contracts
+        uses: ./.github/actions/build-contracts-tc-cli
       - name: Build and push
         uses: ./.github/actions/buildah-action
         with:

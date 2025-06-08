@@ -32,16 +32,13 @@ runs:
       uses: Swatinem/rust-cache@v2
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
-    - name: Install deps
-      shell: bash
-      run: forge soldeer install
-    - name: Build contracts
-      shell: bash
-      run: forge build --root gmp/evm/gateway --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
     # At the moment mainnet doesn't support GMP, so the only compatible metadata is the testnet one
     - name: Build tc-cli
       shell: bash
       run: cargo build --profile testnet -p tc-cli --target x86_64-unknown-linux-musl --features testnet,develop
+    - name: Build contracts
+      shell: bash
+      run: forge build --root gmp/evm/gateway --optimize --optimizer-runs=200000 --evm-version=shanghai --use=0.8.25 --force
     - name: Prepare context
       shell: bash
       run: |

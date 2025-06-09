@@ -569,15 +569,8 @@ where
 {
 	let database_path = config.database.path().map(Path::to_path_buf);
 
-	// Override default backend to litep2p for testnet builds
-	let default_backend = if cfg!(feature = "testnet") {
-		NetworkBackendType::Litep2p
-	} else {
-		NetworkBackendType::Libp2p
-	};
-
 	let task_manager =
-		match config.network.network_backend.unwrap_or(default_backend) {
+		match config.network.network_backend {
 			NetworkBackendType::Libp2p => new_full_base::<
 				sc_network::NetworkWorker<_, _>,
 				RuntimeApi,

@@ -952,7 +952,7 @@ checksum = "4436e0292ab1bb631b42973c61205e704475fe8126af845c8d923c0996328127"
 
 [[package]]
 name = "analog-docs"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "chronicle",
  "pallet-elections",
@@ -3089,7 +3089,7 @@ dependencies = [
 
 [[package]]
 name = "chronicle"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5129,7 +5129,7 @@ checksum = "1c7a8fb8a9fbf66c1f703fe16184d10ca0ee9d23be5b4436400408ba54a95005"
 
 [[package]]
 name = "e2e-tests"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "alloy",
  "anyhow",
@@ -6539,7 +6539,7 @@ dependencies = [
 
 [[package]]
 name = "gmp"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "gmp-evm",
@@ -6551,7 +6551,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-evm"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "alloy",
  "anyhow",
@@ -6571,7 +6571,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-grpc"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -6591,7 +6591,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-rust"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "async-channel 2.3.1",
@@ -10011,7 +10011,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pallet-airdrop"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",
@@ -10726,7 +10726,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-elections"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "env_logger 0.11.8",
  "log",
@@ -10797,7 +10797,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-governance"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",
@@ -10890,7 +10890,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-launch"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "env_logger 0.11.8",
  "log",
@@ -10916,7 +10916,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-members"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "env_logger 0.11.8",
  "log",
@@ -11038,7 +11038,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-networks"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",
@@ -11562,7 +11562,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-shards"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "log",
  "pallet-elections",
@@ -11706,7 +11706,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-tasks"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "env_logger 0.11.8",
  "log",
@@ -11723,7 +11723,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-timegraph"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",
@@ -17832,7 +17832,7 @@ dependencies = [
 
 [[package]]
 name = "slack-bot"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "axum 0.8.4",
@@ -20032,7 +20032,7 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "tc-cli"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -20345,7 +20345,7 @@ dependencies = [
 
 [[package]]
 name = "timechain-node"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "async-channel 2.3.1",
@@ -20375,7 +20375,7 @@ dependencies = [
 
 [[package]]
 name = "timechain-runtime"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "env_logger 0.11.8",
  "log",

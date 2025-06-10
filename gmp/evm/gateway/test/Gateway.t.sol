@@ -11,7 +11,6 @@ import {GasSpender} from "./GasSpender.sol";
 import {Gateway} from "../src/Gateway.sol";
 import {GasUtils} from "../src/GasUtils.sol";
 import {ShardStore} from "../src/storage/Shards.sol";
-import {IGateway} from "gmp/IGateway.sol";
 import {IGmpReceiver} from "gmp/IGmpReceiver.sol";
 import {
     Batch,
@@ -284,7 +283,7 @@ contract GatewayTest is Test {
 
         // Submit message with sufficient funds
         vm.expectEmit(true, true, true, true);
-        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data);
+        emit Gateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data);
         vm.startPrank(sender);
         bytes32 rid = gateway.submitMessage{value: value}(gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data);
         vm.stopPrank();
@@ -296,7 +295,7 @@ contract GatewayTest is Test {
 
         // Expect event
         vm.expectEmit(true, true, true, true);
-        emit IGateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data);
+        emit Gateway.GmpCreated(id, gmp.source, gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.nonce, gmp.data);
         vm.startPrank(sender);
         rid = gateway.submitMessage{value: value}(gmp.dest, gmp.destNetwork, gmp.gasLimit, gmp.data);
         vm.stopPrank();

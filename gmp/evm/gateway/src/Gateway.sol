@@ -198,7 +198,11 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
      * @param messageSize Message size
      * @param messageSize Message gas limit
      */
-    function estimateMessageCost(uint16 network, uint256 messageSize, uint64 gasLimit) external view returns (uint256) {
+    function estimateMessageCost(uint16 network, uint256 messageSize, uint64 gasLimit)
+        external
+        view
+        returns (uint256)
+    {
         RouteStore.NetworkInfo memory route = RouteStore.getMainStorage().get(network);
         uint256 gas = route.estimateGas(messageSize, gasLimit);
         return route.estimateCost(gas);

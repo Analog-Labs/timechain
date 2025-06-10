@@ -20075,7 +20075,7 @@ dependencies = [
 
 [[package]]
 name = "tc-subxt"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -20100,7 +20100,7 @@ dependencies = [
 
 [[package]]
 name = "tc-subxt-metadata"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "subxt 0.41.0",
  "time-primitives",

@@ -1,5 +1,7 @@
 ## Analog GMP Interfaces
 
+Version: 1.0.0
+
 This repo contains two interfaces by Analog.
 1. IGateway.sol
 2. IGmpReceiver.sol

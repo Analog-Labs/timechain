@@ -32,10 +32,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Checkout sources
         uses: actions/checkout@v4
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
         with:
-          submodules: recursive
-      - name: Build contracts
-        uses: ./.github/actions/build-contracts
+          version: nightly
       - name: Build docs
         uses: ./.github/actions/cargo-command
         with:

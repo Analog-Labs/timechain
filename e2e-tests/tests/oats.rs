@@ -66,7 +66,6 @@ fn a_addr(address: Address32) -> Address20 {
 }
 
 #[tokio::test]
-#[ignore]
 async fn oats_sender_caller_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
@@ -98,7 +97,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 
 		let callee = Callee::deploy(rpc.clone(), *token.address()).await?;
 
-		contracts.push((nw_id, token, callee, U256::from(GAS_LIMIT_STEP * (i as u64 + 1))));
+		contracts.push((nw_id, token, callee, GAS_LIMIT_STEP * (i as u64 + 1)));
 	}
 	// Set OMNI token networks
 	for (nw, token, _, _) in contracts.iter() {
@@ -193,7 +192,6 @@ async fn oats_sender_caller_evm() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore]
 async fn oats_sender_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;

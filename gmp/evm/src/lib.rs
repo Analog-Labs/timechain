@@ -390,7 +390,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<u128> {
 		let call = Gateway::estimateMessageCostCall {
 			network: dest_network,
-			messageSize: msg_size,
+			messageSize: U256::from(msg_size),
 			gasLimit: gas_limit,
 		};
 		let result = self.call(gateway, call).await?;

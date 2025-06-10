@@ -40,6 +40,26 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
     using RouteStore for RouteStore.NetworkInfo;
 
     /**
+     * @dev New GMP submitted by calling the `submitMessage` method.
+     * @param id EIP-712 hash of the `GmpPayload`, which is it's unique identifier
+     * @param source sender account, with an extra flag indicating if it is a contract or an EOA
+     * @param destinationAddress the target address on the destination chain.
+     * @param destinationNetwork the target chain where the contract call will be made.
+     * @param gasLimit the gas limit available for the contract call
+     * @param nonce Sequence number per sender, used to guarantee each message is unique.
+     * @param data message data with no specified format
+     */
+    event GmpCreated(
+        bytes32 indexed id,
+        bytes32 indexed source,
+        address indexed destinationAddress,
+        uint16 destinationNetwork,
+        uint64 gasLimit,
+        uint64 nonce,
+        bytes data
+    );
+
+    /**
      * @dev Emitted when a Batch is executed.
      * @param batch batch_id which is executed
      */
@@ -178,7 +198,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
      * @param messageSize Message size
      * @param messageSize Message gas limit
      */
-    function estimateMessageCost(uint16 network, uint16 messageSize, uint64 gasLimit) external view returns (uint256) {
+    function estimateMessageCost(uint16 network, uint256 messageSize, uint64 gasLimit) external view returns (uint256) {
         RouteStore.NetworkInfo memory route = RouteStore.getMainStorage().get(network);
         uint256 gas = route.estimateGas(messageSize, gasLimit);
         return route.estimateCost(gas);
@@ -491,7 +511,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         // Refund the chronicle gas
         unchecked {
             // Extra gas overhead used to execute the refund logic + selector overhead
-            uint256 gasUsed = 7797;
+            uint256 gasUsed = 7722;
 
             // Compute the gas used + base cost + proxy overhead
             gasUsed += GasUtils.txBaseGas();

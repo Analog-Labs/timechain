@@ -28,7 +28,7 @@ contract RouteStoreTest is Test {
 
     function externalEstimateCost(RouteStore.NetworkInfo memory route, bytes calldata data, uint256 gasLimit)
         external
-        pure
+        view
         returns (uint256)
     {
         uint256 gas = RouteStore.estimateGas(route, uint16(data.length), uint64(gasLimit));
@@ -50,11 +50,13 @@ contract RouteStoreTest is Test {
             networkId: TEST_NETWORK_ID,
             gateway: TEST_GATEWAY,
             gasLimit: TEST_GAS_LIMIT,
-            baseFee: TEST_BASE_FEE,
-            relativeGasPriceNumerator: TEST_NUMERATOR,
-            relativeGasPriceDenominator: TEST_DENOMINATOR,
             gasCoef0: TEST_GAS_COEFF0,
-            gasCoef1: TEST_GAS_COEFF1
+            gasCoef1: TEST_GAS_COEFF1,
+            oracle: address(0),
+            gasPriceChainId: 0,
+            gasPriceType: 0,
+            gasPriceMaxAge: 1,
+            wrappedToken: address(0)
         });
     }
 
@@ -73,25 +75,25 @@ contract RouteStoreTest is Test {
 
         Route memory updatedRoute = getRoute();
         updatedRoute.gasLimit = updatedRoute.gasLimit * 2;
-        updatedRoute.baseFee = updatedRoute.gasLimit * 2;
-        updatedRoute.relativeGasPriceNumerator = updatedRoute.relativeGasPriceNumerator * 3;
 
         vm.expectEmit(true, true, true, true);
         emit RouteStore.RouteUpdated(
             updatedRoute.networkId,
-            updatedRoute.relativeGasPriceNumerator,
-            updatedRoute.relativeGasPriceDenominator,
-            updatedRoute.baseFee,
+            updatedRoute.gateway,
             updatedRoute.gasLimit,
             updatedRoute.gasCoef0,
-            updatedRoute.gasCoef1
+            updatedRoute.gasCoef1,
+            updatedRoute.oracle,
+            updatedRoute.gasPriceChainId,
+            updatedRoute.gasPriceType,
+            updatedRoute.gasPriceMaxAge,
+            updatedRoute.wrappedToken
         );
 
         insertRouteCall(updatedRoute);
 
         RouteStore.NetworkInfo memory stored = getStore().get(TEST_NETWORK_ID);
         assertEq(stored.gasLimit, updatedRoute.gasLimit, "Gas limit update failed");
-        assertEq(stored.baseFee, updatedRoute.baseFee, "Base fee update failed");
     }
 
     function testListRoutes() public {
@@ -101,11 +103,13 @@ contract RouteStoreTest is Test {
                 networkId: i,
                 gateway: bytes32(uint256(i)),
                 gasLimit: uint64(i) * 100_000,
-                baseFee: uint128(i) * 0.01 ether,
-                relativeGasPriceNumerator: i * 2,
-                relativeGasPriceDenominator: i * 3,
                 gasCoef0: i * 3,
-                gasCoef1: i * 3
+                gasCoef1: i * 3,
+                oracle: address(0),
+                gasPriceChainId: 0,
+                gasPriceType: 0,
+                gasPriceMaxAge: 1,
+                wrappedToken: address(0)
             });
             insertRouteCall(r);
         }

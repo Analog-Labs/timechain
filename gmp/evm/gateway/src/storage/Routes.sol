@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import {Signature, Route, MAX_PAYLOAD_SIZE} from "../Primitives.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {GasUtils} from "../GasUtils.sol";
+import {IOracle} from "../oracle/IOracle.sol";
 
 /**
  * @dev EIP-7201 Route's Storage
@@ -21,38 +22,37 @@ library RouteStore {
     /**
      * @dev Network info stored in the Gateway Contract
      * @param gasLimit The maximum amount of gas we allow on this particular network.
-     * @param relativeGasPriceNumerator Gas price of destination chain, in terms of the source chain token.
-     * @param relativeGasPriceDenominator Gas price of destination chain, in terms of the source chain token.
-     * @param baseFee Base fee for cross-chain message approval on destination, in terms of source native gas token.
      */
     struct NetworkInfo {
         bytes32 gateway;
         uint64 gasLimit;
-        uint128 baseFee;
-        uint256 relativeGasPriceNumerator;
-        uint256 relativeGasPriceDenominator;
         uint64 gasCoef0;
         uint64 gasCoef1;
+        address oracle;
+        uint16 gasPriceChainId;
+        uint16 gasPriceType;
+        uint64 gasPriceMaxAge;
+        address wrappedToken;
     }
 
     /**
      * @dev Emitted when a route is updated.
      * @param networkId Network identifier.
-     * @param relativeGasPriceNumerator Gas price of destination chain, in terms of the source chain token.
-     * @param relativeGasPriceDenominator Gas price of destination chain, in terms of the source chain token.
-     * @param baseFee Base fee for cross-chain message approval on destination, in terms of source native gas token.
      * @param gasLimit The maximum amount of gas we allow on this particular network.
      * @param gasCoef0.
      * @param gasCoef1.
      */
     event RouteUpdated(
         uint16 indexed networkId,
-        uint256 relativeGasPriceNumerator,
-        uint256 relativeGasPriceDenominator,
-        uint128 baseFee,
+        bytes32 gateway,
         uint64 gasLimit,
         uint64 gasCoef0,
-        uint64 gasCoef1
+        uint64 gasCoef1,
+        address oracle,
+        uint16 gasPriceChainId,
+        uint16 gasPriceType,
+        uint64 gasPriceMaxAge,
+        address wrappedToken
     );
 
     /**
@@ -97,20 +97,25 @@ library RouteStore {
 
         stored.gateway = route.gateway;
         stored.gasLimit = route.gasLimit;
-        stored.baseFee = route.baseFee;
-        stored.relativeGasPriceNumerator = route.relativeGasPriceNumerator;
-        stored.relativeGasPriceDenominator = route.relativeGasPriceDenominator;
         stored.gasCoef0 = route.gasCoef0;
         stored.gasCoef1 = route.gasCoef1;
+        stored.oracle = route.oracle;
+        stored.gasPriceChainId = route.gasPriceChainId;
+        stored.gasPriceType = route.gasPriceType;
+        stored.gasPriceMaxAge = route.gasPriceMaxAge;
+        stored.wrappedToken = route.wrappedToken;
 
         emit RouteUpdated(
             route.networkId,
-            stored.relativeGasPriceNumerator,
-            stored.relativeGasPriceDenominator,
-            stored.baseFee,
+            stored.gateway,
             stored.gasLimit,
             stored.gasCoef0,
-            stored.gasCoef1
+            stored.gasCoef1,
+            stored.oracle,
+            stored.gasPriceChainId,
+            stored.gasPriceType,
+            stored.gasPriceMaxAge,
+            stored.wrappedToken
         );
     }
 
@@ -133,13 +138,15 @@ library RouteStore {
 
             routes[i] = Route({
                 networkId: networkId,
-                gasLimit: route.gasLimit,
-                baseFee: route.baseFee,
                 gateway: route.gateway,
-                relativeGasPriceNumerator: route.relativeGasPriceNumerator,
-                relativeGasPriceDenominator: route.relativeGasPriceDenominator,
+                gasLimit: route.gasLimit,
                 gasCoef0: route.gasCoef0,
-                gasCoef1: route.gasCoef1
+                gasCoef1: route.gasCoef1,
+                oracle: route.oracle,
+                gasPriceChainId: route.gasPriceChainId,
+                gasPriceType: route.gasPriceType,
+                gasPriceMaxAge: route.gasPriceMaxAge,
+                wrappedToken: route.wrappedToken
             });
         }
         return routes;
@@ -156,8 +163,18 @@ library RouteStore {
         return messageSize * route.gasCoef1 + route.gasCoef0 + gasLimit;
     }
 
-    function estimateCost(NetworkInfo memory route, uint256 gas) internal pure returns (uint256) {
-        require(route.relativeGasPriceDenominator > 0, "route is temporarily disabled");
-        return gas * route.relativeGasPriceNumerator / route.relativeGasPriceDenominator + route.baseFee;
+    function estimateCost(NetworkInfo memory route, uint256 gas) internal view returns (uint256) {
+        IOracle oracle = IOracle(route.oracle);
+        uint256 gasPrice;
+        if (route.gasPriceType == 0) {
+            gasPrice = route.gasPriceMaxAge;
+        } else {
+            gasPrice = oracle.getGasPrice(route.gasPriceChainId, route.gasPriceType, uint48(route.gasPriceMaxAge));
+        }
+        uint256 cost = gasPrice * gas;
+        if (route.wrappedToken != address(0)) {
+            cost = oracle.getAmountIn(route.wrappedToken, cost);
+        }
+        return cost;
     }
 }

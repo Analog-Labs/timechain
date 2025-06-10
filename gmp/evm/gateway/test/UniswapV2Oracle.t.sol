@@ -4,15 +4,15 @@
 pragma solidity >=0.8.0;
 
 import {Test, console} from "forge-std/Test.sol";
-import {UniswapV2Oracle} from "src/oracle/UniswapV2Oracle.sol";
+import {Oracle} from "src/oracle/Oracle.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 interface IERC20 {
     function decimals() external view returns (uint8);
 }
 
-contract UniswapV2OracleTest is Test {
-    UniswapV2Oracle oracle;
+contract OracleTest is Test {
+    Oracle oracle;
 
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
@@ -20,24 +20,17 @@ contract UniswapV2OracleTest is Test {
 
     function setUp() public {
         vm.createSelectFork({urlOrAlias: "https://eth.meowrpc.com"});
-        oracle = new UniswapV2Oracle(FACTORY, USDT);
+        oracle = new Oracle(FACTORY, USDT, address(0));
         vm.makePersistent(address(oracle));
     }
 
-    function testGetNativePrice() public view {
-        (uint256 usdPrice,) = oracle.getPrice(WETH);
-        console.log("ETH USDT price", usdPrice);
-        assert(usdPrice > 0);
-    }
-
     function testGetAmountIn() public view {
-        (uint256 usdPrice,) = oracle.getPrice(WETH);
-        (uint256 usdtRequired) = oracle.getAmountIn(USDT, WETH, 1 ether);
+        (uint256 usdtRequired) = oracle.getAmountIn(WETH, 1 ether);
         uint256 usdtDecimals = IERC20(USDT).decimals();
         uint256 usdtScale = 10 ** usdtDecimals;
         uint256 usdtRequiredForOneEth = usdtRequired / usdtScale;
         console.log("ETH pool price", usdtRequiredForOneEth);
-        require(usdtRequiredForOneEth - usdPrice < 50);
+        require(usdtRequiredForOneEth > 0);
     }
 
     function testGeneratePricesRange() public {
@@ -55,14 +48,18 @@ contract UniswapV2OracleTest is Test {
             uint256 targetBlock = startBlock - (i * BLOCK_STEP);
             vm.createSelectFork(rpc_url, targetBlock);
             uint256 timestamp = block.timestamp;
-            (uint256 usdPrice, uint256 fraction) = oracle.getPrice(WETH);
+            uint256 price = oracle.getAmountIn(WETH, 1 ether);
+            uint256 tokenDecimals = IERC20(USDT).decimals();
+            uint256 scale = 10 ** tokenDecimals;
+            uint256 integer_part = price / scale;
+            uint256 fraction = price % scale;
             csv = string.concat(
                 csv,
                 Strings.toString(targetBlock),
                 ",",
                 Strings.toString(timestamp),
                 ",",
-                Strings.toString(usdPrice),
+                Strings.toString(integer_part),
                 ".",
                 Strings.toString(fraction),
                 "\n"

@@ -6538,7 +6538,7 @@ dependencies = [
 
 [[package]]
 name = "gmp"
-version = "0.8.2"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "gmp-evm",
@@ -6550,7 +6550,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-evm"
-version = "0.8.2"
+version = "0.3.0"
 dependencies = [
  "alloy",
  "anyhow",
@@ -6570,7 +6570,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-grpc"
-version = "0.8.2"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -6590,7 +6590,7 @@ dependencies = [
 
 [[package]]
 name = "gmp-rust"
-version = "0.8.2"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-channel 2.3.1",

@@ -5,7 +5,7 @@ out = "out"
 libs = ["dependencies"]
 auto_detect_remappings = false
 # Permissions
-fs_permissions = [{ access = "read-write", path = "gas.csv" }]
+fs_permissions = [{ access = "read-write", path = "gas.csv" },{ access = "read-write", path = "uni_prices.csv" }]
 
 ########
 # Lint #

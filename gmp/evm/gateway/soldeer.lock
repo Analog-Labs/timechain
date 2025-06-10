@@ -27,7 +27,7 @@ rev = "63a217a8d0a6f186dab69f070ea45c28099885df"
 
 [[dependencies]]
 name = "gmp"
-version = "0.0.1"
-url = "https://soldeer-revisions.s3.amazonaws.com/gmp/0_0_1_30-05-2025_11:25:21_gmp.zip"
-checksum = "b9129cb011edbc9d42a854ccf676620dd23868df78af8be2c773b710b4758e2b"
-integrity = "e639345d453405977661ab67f1941a824be8257717b3db4385c8019bc88b1130"
+version = "1.0.0"
+url = "https://soldeer-revisions.s3.amazonaws.com/gmp/1_0_0_06-06-2025_12:49:08_gmp.zip"
+checksum = "594d3dd4486c3b66f5ca255cb29b7edd1741111dc065cd32440b939aacf444f7"
+integrity = "efca2e753ed102fc1ae006ac552c6971f00681b1a475d0fa03f2b5e05fe752dc"

@@ -3,5 +3,6 @@
 forge-std/=dependencies/forge-std-1.9.7/src/
 frost-evm/=dependencies/frost-evm-0.1.0/sol/
 gmp-0.0.1/=dependencies/gmp-0.0.1/
+gmp-1.0.0/=dependencies/gmp-1.0.0/
 gmp/=gmp/src/
 src/=src/

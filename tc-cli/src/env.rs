@@ -16,15 +16,6 @@ impl Mnemonics {
 	}
 }
 
-impl Default for Mnemonics {
-	fn default() -> Self {
-		Self {
-			timechain_mnemonic: "//Eve".into(),
-			target_mnemonic: DEFAULT_MNEMONIC.into(),
-		}
-	}
-}
-
 pub struct Loki {
 	pub loki_url: String,
 	pub loki_username: String,

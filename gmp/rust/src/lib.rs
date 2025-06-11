@@ -13,9 +13,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tempfile::NamedTempFile;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GatewayOp, GmpEvent, GmpMessage,
-	GmpParams, Hash, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId,
-	Route, TssPublicKey, TssSignature,
+	Address32, BatchId, GatewayMessage, GatewayOp, GmpEvent, GmpMessage, GmpParams, Hash, IChain,
+	IConnect, IConnector, IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
 
 const CONFIG: TableDefinition<u64, u64> = TableDefinition::new("config");
@@ -35,74 +34,63 @@ const TESTERS: MultimapTableDefinition<Address32, Address32> =
 const BLOCK_KEY: u64 = 0;
 
 #[derive(Clone)]
-pub struct Connector {
+pub struct Chain {
 	network_id: NetworkId,
 	address: Address32,
-	db: Arc<Database>,
-	_tmpfile: Option<Arc<NamedTempFile>>,
 }
 
-impl Connector {
-	pub fn with_mnemonic(&self, mnemonic: String) -> Self {
-		self.with_address(mnemonic_to_address(mnemonic))
-	}
-
-	pub fn with_address(&self, address: Address32) -> Self {
-		let mut clone = Clone::clone(self);
-		clone.address = address;
-		clone
-	}
-
-	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address32) -> Result<()> {
-		let t = tx.open_table(ADMIN)?;
-		let admin = read_admin(&t, gateway)?;
-		if admin != self.address {
-			anyhow::bail!("not admin");
-		}
-		Ok(())
-	}
-
-	fn transfer_from(
-		&self,
-		tx: &WriteTransaction,
-		from: Address32,
-		to: Address32,
-		amount: u128,
-	) -> Result<()> {
-		let mut t = tx.open_table(BALANCE)?;
-		let balance = read_balance(&t, from)?;
-		if balance < amount {
-			anyhow::bail!("insufficient balance");
-		}
-		let dest_balance = read_balance(&t, to)?;
-		t.insert(from, balance - amount)?;
-		t.insert(to, dest_balance + amount)?;
-		Ok(())
-	}
-
-	fn block(&self) -> Result<u64> {
-		let tx = self.db.begin_read()?;
-		let t = tx.open_table(CONFIG)?;
-		Ok(t.get(BLOCK_KEY)?.map(|v| v.value()).unwrap_or_default())
-	}
-}
-
-pub fn mnemonic_to_address(mnemonic: String) -> Address32 {
+fn mnemonic_to_address(mnemonic: &str) -> Address32 {
 	*blake3::hash(mnemonic.as_bytes()).as_bytes()
 }
 
-pub fn format_address(address: Address32) -> String {
-	hex::encode(address)
+impl Chain {
+	pub fn new(network_id: NetworkId, mnemonic: &str) -> Self {
+		let address = mnemonic_to_address(mnemonic);
+		Self { network_id, address }
+	}
+
+	pub fn open(self, db: String) -> Result<Connector> {
+		Connector::new(self, db)
+	}
 }
 
-pub fn parse_address(address: &str) -> Result<Address32> {
-	let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
-	let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
-	Ok(addr)
+impl IChain for Chain {
+	/// Formats an address into a string.
+	fn format_address(&self, address: Address32) -> String {
+		hex::encode(address)
+	}
+
+	/// Parses an address from a string.
+	fn parse_address(&self, address: &str) -> Result<Address32> {
+		let addr = hex::decode(address).map_err(|_| anyhow::anyhow!("invalid address"))?;
+		let addr = addr.try_into().map_err(|_| anyhow::anyhow!("invalid address"))?;
+		Ok(addr)
+	}
+
+	/// Network identifier.
+	fn network_id(&self) -> NetworkId {
+		self.network_id
+	}
+
+	/// Human readable connector account identifier.
+	fn address(&self) -> Address32 {
+		self.address
+	}
 }
 
-pub fn currency() -> (u32, &'static str) {
-	(6, "USDT")
+#[async_trait::async_trait]
+impl IConnect for Chain {
+	fn chain(&self) -> &dyn IChain {
+		self
+	}
+
+	async fn connect(&self, url: String) -> Result<Arc<dyn IConnector>> {
+		Ok(Arc::new(Connector::new(self.clone(), url)?))
+	}
+
+	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>> {
+		Ok(Arc::new(Connector::new(self.clone(), url)?))
+	}
 }
 
 fn read_balance<T: ReadableTable<Address32, u128>>(table: &T, addr: Address32) -> Result<u128> {
@@ -116,20 +104,33 @@ fn read_admin<T: ReadableTable<Address32, Address32>>(
 	Ok(table.get(gateway)?.context("invalid gateway")?.value())
 }
 
-#[async_trait::async_trait]
-impl IConnectorBuilder for Connector {
-	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>
-	where
-		Self: Sized,
-	{
-		let address = mnemonic_to_address(params.mnemonic);
-		let (tmpfile, path) = if params.url == "tempfile" {
+#[derive(Clone)]
+pub struct Connector {
+	chain: Chain,
+	db: Arc<Database>,
+	_tmpfile: Option<Arc<NamedTempFile>>,
+}
+
+impl Connector {
+	pub fn with_mnemonic(&self, mnemonic: &str) -> Self {
+		self.with_address(mnemonic_to_address(mnemonic))
+	}
+
+	pub fn with_address(&self, address: Address32) -> Self {
+		let mut clone = Clone::clone(self);
+		clone.chain.address = address;
+		clone
+	}
+}
+
+impl Connector {
+	fn new(chain: Chain, url: String) -> Result<Self> {
+		let (tmpfile, path) = if url == "tempfile" {
 			let file = NamedTempFile::new()?;
 			let path = file.path().to_owned();
 			(Some(Arc::new(file)), path)
 		} else {
-			(None, Path::new(&params.url).to_owned())
+			(None, Path::new(&url).to_owned())
 		};
 		let db = Arc::new(Database::create(path)?);
 		let tx = db.begin_write()?;
@@ -168,75 +169,53 @@ impl IConnectorBuilder for Connector {
 				tokio::time::sleep(Duration::from_secs(6)).await;
 			}
 		});
-		Ok(Self {
-			network_id: params.network_id,
-			address,
-			db,
-			_tmpfile: tmpfile,
-		})
-	}
-}
-
-#[async_trait::async_trait]
-impl IChain for Connector {
-	/// Formats an address into a string.
-	fn format_address(&self, address: Address32) -> String {
-		format_address(address)
+		Ok(Self { chain, db, _tmpfile: tmpfile })
 	}
 
-	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address32> {
-		parse_address(address)
-	}
-
-	/// Network identifier.
-	fn network_id(&self) -> NetworkId {
-		self.network_id
-	}
-
-	/// Human readable connector account identifier.
-	fn address(&self) -> Address32 {
-		self.address
-	}
-
-	fn currency(&self) -> (u32, &str) {
-		currency()
-	}
-
-	async fn faucet(&self, balance: u128) -> Result<()> {
-		let tx = self.db.begin_write()?;
-		{
-			let mut t = tx.open_table(BALANCE)?;
-			t.insert(self.address, balance)?;
+	fn ensure_admin(&self, tx: &WriteTransaction, gateway: Address32) -> Result<()> {
+		let t = tx.open_table(ADMIN)?;
+		let admin = read_admin(&t, gateway)?;
+		if admin != self.chain.address {
+			anyhow::bail!("not admin");
 		}
-		tx.commit()?;
 		Ok(())
 	}
 
-	/// Queries the account balance.
-	async fn balance(&self, addr: Address32) -> Result<u128> {
+	fn transfer_from(
+		&self,
+		tx: &WriteTransaction,
+		from: Address32,
+		to: Address32,
+		amount: u128,
+	) -> Result<()> {
+		let mut t = tx.open_table(BALANCE)?;
+		let balance = read_balance(&t, from)?;
+		if balance < amount {
+			anyhow::bail!("insufficient balance");
+		}
+		let dest_balance = read_balance(&t, to)?;
+		t.insert(from, balance - amount)?;
+		t.insert(to, dest_balance + amount)?;
+		Ok(())
+	}
+
+	fn block(&self) -> Result<u64> {
 		let tx = self.db.begin_read()?;
-		let t = tx.open_table(BALANCE)?;
-		let Some(balance) = t.get(addr)? else {
-			return Ok(0);
-		};
-		Ok(balance.value())
-	}
-
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
-		let tx = self.db.begin_write()?;
-		self.transfer_from(&tx, self.address, address, amount)?;
-		tx.commit()?;
-		Ok(())
-	}
-
-	async fn finalized_block(&self) -> Result<u64> {
-		self.block()
+		let t = tx.open_table(CONFIG)?;
+		Ok(t.get(BLOCK_KEY)?.map(|v| v.value()).unwrap_or_default())
 	}
 }
 
 #[async_trait::async_trait]
 impl IConnector for Connector {
+	fn chain(&self) -> &dyn IChain {
+		&self.chain
+	}
+
+	async fn finalized_block(&self) -> Result<u64> {
+		self.block()
+	}
+
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let tx = self.db.begin_read()?;
@@ -261,7 +240,7 @@ impl IConnector for Connector {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
-		let hash = GmpParams::new(self.network_id(), gateway).hash(&msg.hash(batch));
+		let hash = GmpParams::new(self.chain.network_id, gateway).hash(&msg.hash(batch));
 
 		time_primitives::verify_signature(signer, &hash, sig)
 			.map_err(|_| "invalid signature".to_string())?;
@@ -307,6 +286,33 @@ impl IConnector for Connector {
 
 #[async_trait::async_trait]
 impl IConnectorAdmin for Connector {
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		{
+			let mut t = tx.open_table(BALANCE)?;
+			t.insert(self.chain.address, balance)?;
+		}
+		tx.commit()?;
+		Ok(())
+	}
+
+	/// Queries the account balance.
+	async fn balance(&self, addr: Address32) -> Result<u128> {
+		let tx = self.db.begin_read()?;
+		let t = tx.open_table(BALANCE)?;
+		let Some(balance) = t.get(addr)? else {
+			return Ok(0);
+		};
+		Ok(balance.value())
+	}
+
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
+		let tx = self.db.begin_write()?;
+		self.transfer_from(&tx, self.chain.address, address, amount)?;
+		tx.commit()?;
+		Ok(())
+	}
+
 	async fn deploy_gateway(&self, _proxy: &[u8], _gateway: &[u8]) -> Result<(Address32, u64)> {
 		let mut gateway = [0; 32];
 		getrandom::fill(&mut gateway).unwrap();
@@ -314,7 +320,7 @@ impl IConnectorAdmin for Connector {
 		let tx = self.db.begin_write()?;
 		{
 			let mut t = tx.open_table(ADMIN)?;
-			t.insert(gateway, self.address)?;
+			t.insert(gateway, self.chain.address)?;
 		}
 		tx.commit()?;
 		Ok((gateway, block))
@@ -463,7 +469,7 @@ impl IConnectorAdmin for Connector {
 			let nonce = t.get((src, dest))?.map(|a| a.value()).unwrap_or_default();
 			// construct msg
 			let msg = GmpMessage {
-				src_network: self.network_id,
+				src_network: self.chain.network_id,
 				src,
 				dest_network,
 				dest,
@@ -589,14 +595,10 @@ mod tests {
 	use super::*;
 	use time_primitives::MockTssSigner;
 
-	async fn connector(network: NetworkId, mnemonic: u8) -> Result<Connector> {
-		Connector::new(ConnectorParams {
-			network_id: network,
-			url: "tempfile".to_string(),
-			mnemonic: mnemonic.to_string(),
-			chain_dict: Default::default(),
-		})
-		.await
+	async fn connector(network: NetworkId, mnemonic: u8) -> Result<Arc<dyn IConnectorAdmin>> {
+		Chain::new(network, &mnemonic.to_string())
+			.connect_admin("tempfile".to_string())
+			.await
 	}
 
 	fn gmp_msg(src: Address32, dest: Address32) -> GmpMessage {
@@ -616,9 +618,9 @@ mod tests {
 		let network = 0;
 		let chain = connector(network, 0).await?;
 		let shard = MockTssSigner::new(0);
-		assert_eq!(chain.balance(chain.address()).await?, 0);
+		assert_eq!(chain.balance(chain.chain().address()).await?, 0);
 		chain.faucet(100_000).await?;
-		assert_eq!(chain.balance(chain.address()).await?, 100_000);
+		assert_eq!(chain.balance(chain.chain().address()).await?, 100_000);
 		let (gateway, block) = chain.deploy_gateway("".as_ref(), "".as_ref()).await?;
 		chain.redeploy_gateway(gateway, "".as_ref()).await?;
 		chain.transfer(gateway, 10_000).await?;

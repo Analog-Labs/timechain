@@ -11,7 +11,7 @@ use scale_codec::Decode;
 use std::path::PathBuf;
 use std::sync::Arc;
 use time_primitives::admin::Config;
-use time_primitives::{ConnectorParams, NetworkId};
+use time_primitives::NetworkId;
 use tracing::{span, Level};
 
 use opentelemetry::{trace::TracerProvider as _, KeyValue};
@@ -101,8 +101,6 @@ pub struct ChronicleConfig {
 	pub target_mnemonic: String,
 	/// Path to a cache for TSS key shares.
 	pub tss_keyshare_cache: PathBuf,
-	/// Path to chain dictionary.
-	pub chain_dict: Option<PathBuf>,
 	/// Backend
 	pub backend: Backend,
 }
@@ -144,19 +142,10 @@ pub async fn run_chronicle(
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 
-	let chain_dict = match config.chain_dict.as_deref() {
-		Some(path) => std::fs::read(path)?,
-		None => Default::default(),
-	};
+	let chain = config.backend.chain(config.network_id, &config.target_mnemonic)?;
 
-	let connector_params = ConnectorParams {
-		network_id: config.network_id,
-		url: config.target_url,
-		mnemonic: config.target_mnemonic,
-		chain_dict,
-	};
 	let connector = loop {
-		match config.backend.connect(&connector_params).await {
+		match chain.connect(config.target_url.clone()).await {
 			Ok(connector) => break connector,
 			Err(error) => {
 				tracing::info!(
@@ -175,7 +164,7 @@ pub async fn run_chronicle(
 
 	// initialize wallets
 	let account = time_primitives::format_address(substrate.account_id());
-	let address = connector.format_address(connector.address());
+	let address = connector.chain().format_address(connector.chain().address());
 	let peer_id = network.format_peer_id(network.peer_id());
 	let span = span!(
 		parent: &span,
@@ -251,7 +240,6 @@ mod tests {
 				target_mnemonic: "mnemonic".into(),
 				tss_keyshare_cache,
 				backend: Backend::Rust,
-				chain_dict: None,
 			},
 			Arc::new(mock.clone()),
 			tx,

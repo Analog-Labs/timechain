@@ -173,12 +173,6 @@ impl Config {
 						format!("failed to read tester contract from {}", path.display())
 					})?
 				},
-				chain_dict: {
-					let path = self.relative_path(&backend.chain_dict);
-					std::fs::read(&path).with_context(|| {
-						format!("failed to read chain dict from {}", path.display())
-					})?
-				},
 			}
 		} else {
 			BackendData::default()
@@ -218,7 +212,6 @@ pub struct BackendConfig {
 	pub proxy: PathBuf,
 	pub gateway: PathBuf,
 	pub tester: PathBuf,
-	pub chain_dict: PathBuf,
 }
 
 #[derive(Default)]
@@ -226,7 +219,6 @@ pub struct BackendData {
 	pub proxy: Vec<u8>,
 	pub gateway: Vec<u8>,
 	pub tester: Vec<u8>,
-	pub chain_dict: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -254,6 +246,8 @@ pub struct NetworkConfig {
 	pub msg_op_exec_gas: u64,
 	pub msg_session_gas: u64,
 	pub msg_byte_gas: u64,
+	pub currency_decimals: u32,
+	pub currency_symbol: String,
 }
 
 impl NetworkConfig {

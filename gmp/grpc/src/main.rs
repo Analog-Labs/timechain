@@ -4,10 +4,7 @@ use gmp_grpc::{proto, Gmp, GmpServer};
 use gmp_rust::Connector;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use time_primitives::{
-	ConnectorParams, IChain, IConnector, IConnectorAdmin, IConnectorBuilder, NetworkId,
-	TssPublicKey,
-};
+use time_primitives::{IConnector, IConnectorAdmin, NetworkId, TssPublicKey};
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 use tracing_subscriber::filter::EnvFilter;
@@ -15,18 +12,12 @@ use tracing_subscriber::filter::EnvFilter;
 type GmpResult<T> = Result<Response<T>, Status>;
 
 pub struct ConnectorWrapper {
-	connector: Connector,
+	connector: gmp_rust::Connector,
 }
 
 impl ConnectorWrapper {
 	pub async fn new(network: NetworkId, db: &Path) -> Result<Self> {
-		let connector = Connector::new(ConnectorParams {
-			network_id: network,
-			url: db.to_str().unwrap().to_string(),
-			mnemonic: String::new(),
-			chain_dict: Default::default(),
-		})
-		.await?;
+		let connector = gmp_rust::Chain::new(network, "").open(db.to_str().unwrap().to_string())?;
 		Ok(Self { connector })
 	}
 
@@ -34,7 +25,7 @@ impl ConnectorWrapper {
 		let Some(addr) = req.metadata().get("address") else {
 			return Err(Status::unauthenticated("No address provided"));
 		};
-		let Ok(addr) = gmp_rust::parse_address(addr.to_str().unwrap()) else {
+		let Ok(addr) = self.connector.chain().parse_address(addr.to_str().unwrap()) else {
 			return Err(Status::unauthenticated("No valid address provided"));
 		};
 		let connector = self.connector.with_address(addr);

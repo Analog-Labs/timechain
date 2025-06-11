@@ -111,7 +111,6 @@ impl TestEnvBuilder {
 					backends.insert(
 						Backend::Evm,
 						BackendConfig {
-							chain_dict: workspace.join("gmp/evm/auxiliary/chains.json"),
 							proxy: workspace
 								.join("gmp/evm/gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"),
 							gateway: workspace.join("gmp/evm/gateway/out/Gateway.sol/Gateway.json"),
@@ -184,6 +183,8 @@ impl TestEnvBuilder {
 				msg_op_exec_gas: 30_000,
 				msg_byte_gas: 20,
 				msg_session_gas: 50_000,
+				currency_decimals: 6,
+				currency_symbol: "USDT".into(),
 			},
 		);
 
@@ -254,6 +255,8 @@ impl TestEnvBuilder {
 				msg_op_exec_gas: 30_000,
 				msg_byte_gas: 20,
 				msg_session_gas: 50_000,
+				currency_decimals: 18,
+				currency_symbol: "ETH".into(),
 			},
 		);
 

@@ -1,5 +1,5 @@
 use alloy::primitives::{address, Bytes};
-use alloy::providers::WsConnect;
+use alloy::providers::{Provider, WsConnect};
 use alloy::sol;
 use alloy::sol_types::SolEvent;
 use alloy::{
@@ -10,7 +10,10 @@ use anyhow::{Context, Result};
 use e2e_tests::{Backend, TestEnv};
 use futures::stream::StreamExt;
 use gmp::Gateway;
+use std::fs::File;
+use std::io::Read;
 use std::sync::Arc;
+
 use tc_cli::MessageTrace;
 use time_primitives::{Address32, MessageId};
 
@@ -63,6 +66,79 @@ type Address20 = alloy::primitives::Address;
 
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
+}
+
+#[tokio::test]
+async fn wanlog_evm() -> Result<()> {
+	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	let block = tc.latest_block().await?.0;
+
+	// Load raw deployment txs
+	let mut file = File::open("contracts/txs.raw")?;
+	let mut txs_hex = String::new();
+	file.read_to_string(&mut txs_hex)?;
+
+	let [tx1_raw, tx2_raw] = txs_hex
+		.split(",")
+		.into_iter()
+		.map(|s| s.trim())
+		.filter_map(|s| hex::decode(s).ok())
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap();
+
+	// Deploy Proxy+Token to every network
+	for (i, nw) in tc.networks(block).await?.into_iter().take(1).enumerate() {
+		let gw = nw.info.unwrap().gateway;
+		let nw_id = nw.network;
+		let c = env.chain_container(nw_id).unwrap();
+
+		let port = c.get_host_port_ipv4(8545).await.unwrap();
+		let ws = WsConnect::new(format!("ws://localhost:{port}"));
+		let signer: PrivateKeySigner = ALICE_KEY.parse()?;
+		let wallet = EthereumWallet::from(signer.clone());
+		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
+
+		let pending1 = rpc.send_raw_transaction(&tx1_raw).await?;
+		let pending2 = rpc.send_raw_transaction(&tx2_raw).await?;
+
+		let tx1_hash = pending1.watch().await?;
+		let tx2_hash = pending2.watch().await?;
+
+		let rcp1 = rpc
+        .get_transaction_receipt(tx1_hash)
+        .await?
+        .expect("no deployment receipt for tx1");
+		let address1 = rcp1.contract_address.expect("no contract address");
+		let rcp2 = rpc
+        .get_transaction_receipt(tx2_hash)
+        .await?
+        .expect("no deployment receipt for tx2");
+		let address2 = rcp2.contract_address.expect("no contract address");
+
+		println!("tx1 hash: {tx1_hash}, contract deployed to {address1}");
+		println!("tx2 hash: {tx2_hash}, contract deployed to {address2}");
+
+		loop {}
+	}
+	// 	let token = OATSSenderCaller::deploy(
+	// 		rpc.clone(),
+	// 		"Omni Token".to_string(),
+	// 		"OMNI".to_string(),
+	// 		signer.address(),
+	// 		U256::from(CAP_AMOUNT),
+	// 		a_addr(gw),
+	// 	)
+	// 	.await?;
+
+	// 	let callee = Callee::deploy(rpc.clone(), *token.address()).await?;
+
+	// 	contracts.push((nw_id, token, callee, GAS_LIMIT_STEP * (i as u64 + 1)));
+	// }
+
+	// Err(anyhow!(""))
+
+	Ok(())
 }
 
 #[tokio::test]

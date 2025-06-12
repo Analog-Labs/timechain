@@ -89,7 +89,7 @@ impl Tc {
 		let usd_dest = self.config.token_price_usd(dest_network)?;
 		let src_decimals = self.currency(Some(src_network))?.decimals as i32;
 		let dest_decimals = self.currency(Some(dest_network))?.decimals as i32;
-		let dest_max_gas_price = self.config.network(dest_network)?.max_gas_price;
+		let dest_max_gas_price = self.config.network(dest_network)?.max_gas_price as f64;
 		let gas_price =
 			usd_dest / usd_src * dest_max_gas_price * f64::powi(10., src_decimals - dest_decimals);
 		to_fraction(gas_price)

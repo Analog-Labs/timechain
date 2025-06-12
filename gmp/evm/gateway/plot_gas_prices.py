@@ -131,7 +131,7 @@ def plot_data(chain_results, chain_name='chain'):
     ax1.set_xlabel('Block Number')
     ax1.set_ylabel('Gas Price (Gwei)')
     ax1.legend()
-    ax1.set_title(f'{chain_name} Gas Price Comparison by Block (With Extra Grid Lines)')
+    ax1.set_title(f'{chain_name} Gas Price Comparison by Block')
 
     differences = [abs(c - r) for c, r in zip(csv_prices, rpc_prices)]
     ax2.plot(timestamps, differences, marker='o', color='purple', label='Absolute Difference')

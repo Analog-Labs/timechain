@@ -803,6 +803,7 @@ impl Tc {
 				msg_op_exec_gas: config.msg_op_exec_gas,
 				msg_byte_gas: config.msg_byte_gas,
 			},
+			max_gas_price: config.max_gas_price,
 		})
 	}
 

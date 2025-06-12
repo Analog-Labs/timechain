@@ -62,4 +62,5 @@ pub struct NetworkConfig {
 	pub shard_size: u16,
 	pub shard_threshold: u16,
 	pub batch_gas_params: BatchGasParams,
+	pub max_gas_price: u128,
 }

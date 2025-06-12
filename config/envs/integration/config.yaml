@@ -33,6 +33,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 2000000000
   13:
     backend: "evm"
     name: "arbitrum sepolia"
@@ -57,6 +58,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 100000000
   14:
     backend: "evm"
     name: "base testnet"
@@ -81,6 +83,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 10000000
   15:
     backend: "evm"
     name: "avalanche fuji"
@@ -105,6 +108,8 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    # not sure about it the rpc eth_gasPrice does not return gas price
+    max_gas_price: 10000000
   16:
     backend: "evm"
     name: "polygon amoy"
@@ -129,6 +134,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 100000000000
   17:
     backend: "evm"
     name: "bnb testnet"
@@ -153,6 +159,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 200000000
   18:
     backend: "evm"
     name: "optimism sepolia"
@@ -177,6 +184,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 2000000
   19:
     backend: "evm"
     name: "blast sepolia"
@@ -201,6 +209,8 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    # no idea the eth_gasPrice is not available in it
+    max_gas_price: 2000000
   20:
     backend: "evm"
     name: "soneium minato"
@@ -225,6 +235,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 2000000
   21:
     backend: "evm"
     name: "zksync sepolia"
@@ -249,6 +260,8 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    # no idea the eth_gasPrice is not available in it
+    max_gas_price: 2000000
   22:
     backend: "evm"
     name: "celo alfajores"
@@ -273,6 +286,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 30000000000
   23:
     backend: "evm"
     name: "unichain sepolia"
@@ -297,6 +311,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 2000000
   24:
     backend: "evm"
     name: "worldchain sepolia"
@@ -321,6 +336,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 2000000
   25:
     backend: "evm"
     name: "zora sepolia"
@@ -345,6 +361,8 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    # no idea the eth_gasPrice is not available in it
+    max_gas_price: 2000000
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-13.integration.analog.one

@@ -248,6 +248,7 @@ pub struct NetworkConfig {
 	pub msg_byte_gas: u64,
 	pub currency_decimals: u32,
 	pub currency_symbol: String,
+	pub max_gas_price: u128,
 }
 
 impl NetworkConfig {

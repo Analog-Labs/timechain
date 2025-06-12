@@ -64,7 +64,7 @@ simple_counter_for_loop_unchecked_increment = true
 # Reduce the numbers of runs if fuzz tests takes too long in your machine.
 runs = 2500
 
-# When debuging fuzz tests, uncomment this seed to make tests reproducible.
+# When debugging fuzz tests, uncomment this seed to make tests reproducible.
 # seed = "0xdeadbeefdeadbeefdeadbeefdeadbeef"
 
 # RPC endpoints

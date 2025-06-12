@@ -138,22 +138,25 @@ impl IntoRow for Member {
 pub struct RouteEntry {
 	network: NetworkId,
 	gateway: String,
-	relative_gas_price: String,
-	gas_limit: u64,
-	gmp_base_fee: u128,
+	max_gas_limit: u64,
+	msg_gas: u64,
+	msg_byte_gas: u64,
+	gas_price: String,
+	msg_fee: u64,
 }
 
 impl IntoRow for Route {
 	type Row = RouteEntry;
 
 	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
-		let (num, den) = self.relative_gas_price;
 		Ok(RouteEntry {
 			network: self.network_id,
 			gateway: tc.format_address(Some(self.network_id), self.gateway)?,
-			relative_gas_price: format!("{:?}", num / den),
-			gas_limit: self.gas_limit,
-			gmp_base_fee: self.gmp_base_fee,
+			max_gas_limit: self.max_gas_limit,
+			msg_gas: self.msg_gas,
+			msg_byte_gas: self.msg_byte_gas,
+			gas_price: format!("{}", self.gas_price.0 as f64 / self.gas_price.1 as f64),
+			msg_fee: self.msg_fee,
 		})
 	}
 }

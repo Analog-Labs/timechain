@@ -1,6 +1,6 @@
-use crate::{NetworkId, TssPublicKey};
 #[cfg(feature = "std")]
-use crate::{TssSignature, U256};
+use crate::TssSignature;
+use crate::{NetworkId, TssPublicKey};
 #[cfg(feature = "std")]
 use anyhow::Result;
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
@@ -343,16 +343,16 @@ pub struct Route {
 	pub network_id: NetworkId,
 	/// Destination gateway
 	pub gateway: Address32,
-	/// Gas price on destination network, expressed in source network token
-	pub relative_gas_price: (U256, U256),
 	/// Maximum amount of gas a message is allowed to spend on destination network
-	pub gas_limit: u64,
-	/// GMP protocol fee for message delivery to the destination network, expressed in source network token
-	pub gmp_base_fee: u128,
-	/// Base gas coefficient.
-	pub base_gas: u64,
+	pub max_gas_limit: u64,
+	/// Gas per message.
+	pub msg_gas: u64,
 	/// Gas per message byte.
 	pub msg_byte_gas: u64,
+	/// Gas price on destination network, expressed in source network token
+	pub gas_price: (u64, u64),
+	/// GMP protocol fee for message delivery to the destination network, expressed in source network token
+	pub msg_fee: u64,
 }
 
 #[cfg(feature = "std")]

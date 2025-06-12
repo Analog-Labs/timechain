@@ -63,8 +63,7 @@ enum Command {
     Invalid,
     GMP,
     RegisterShard,
-    UnregisterShard,
-    SetRoute
+    UnregisterShard
 }
 
 /**
@@ -104,13 +103,13 @@ struct Batch {
  */
 struct Route {
     uint16 networkId;
-    uint64 gasLimit;
-    uint128 baseFee;
     bytes32 gateway;
-    uint256 relativeGasPriceNumerator;
-    uint256 relativeGasPriceDenominator;
-    uint64 gasCoef0;
-    uint64 gasCoef1;
+    uint64 maxGasLimit;
+    uint64 msgGas;
+    uint64 msgByteGas;
+    uint64 gasPriceNumerator;
+    uint64 gasPriceDenominator;
+    uint64 msgFee;
 }
 
 /**

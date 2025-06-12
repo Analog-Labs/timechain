@@ -18,8 +18,6 @@ futures.workspace = true
 gmp.workspace = true
 hex.workspace = true
 log.workspace = true
-num-bigint = "0.4.6"
-num-rational = "0.4.2"
 num-traits = "0.2.19"
 polkadot-sdk = { workspace = true, features = ["sp-runtime"]}
 reqwest.workspace = true

@@ -20054,8 +20054,6 @@ dependencies = [
  "gmp",
  "hex",
  "log",
- "num-bigint",
- "num-rational",
  "num-traits",
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",

@@ -119,13 +119,13 @@ library TestUtils {
         gateway.setRoute(
             Route({
                 networkId: network,
-                gasLimit: 1_000_000,
-                baseFee: 0,
                 gateway: address(gateway).toSender(),
-                relativeGasPriceNumerator: 1,
-                relativeGasPriceDenominator: 1,
-                gasCoef0: 100000,
-                gasCoef1: 10
+                maxGasLimit: 1_000_000,
+                msgGas: 100_000,
+                msgByteGas: 20,
+                gasPriceNumerator: 1,
+                gasPriceDenominator: 1,
+                msgFee: 0
             })
         );
 

@@ -12,9 +12,9 @@ contract RouteStoreTest is Test {
     uint16 constant TEST_NETWORK_ID = 1;
     bytes32 constant TEST_GATEWAY = bytes32(uint256(0x1));
     uint64 constant TEST_GAS_LIMIT = 500_000;
-    uint128 constant TEST_BASE_FEE = 0.01 ether;
-    uint256 constant TEST_NUMERATOR = 15;
-    uint256 constant TEST_DENOMINATOR = 10;
+    uint64 constant TEST_BASE_FEE = 0.01 ether;
+    uint64 constant TEST_NUMERATOR = 15;
+    uint64 constant TEST_DENOMINATOR = 10;
     uint64 constant TEST_GAS_COEFF0 = 10;
     uint64 constant TEST_GAS_COEFF1 = 10;
 
@@ -49,12 +49,12 @@ contract RouteStoreTest is Test {
         route = Route({
             networkId: TEST_NETWORK_ID,
             gateway: TEST_GATEWAY,
-            gasLimit: TEST_GAS_LIMIT,
-            baseFee: TEST_BASE_FEE,
-            relativeGasPriceNumerator: TEST_NUMERATOR,
-            relativeGasPriceDenominator: TEST_DENOMINATOR,
-            gasCoef0: TEST_GAS_COEFF0,
-            gasCoef1: TEST_GAS_COEFF1
+            maxGasLimit: TEST_GAS_LIMIT,
+            msgGas: TEST_GAS_COEFF0,
+            msgByteGas: TEST_GAS_COEFF1,
+            gasPriceNumerator: TEST_NUMERATOR,
+            gasPriceDenominator: TEST_DENOMINATOR,
+            msgFee: TEST_BASE_FEE
         });
     }
 
@@ -72,26 +72,27 @@ contract RouteStoreTest is Test {
         testCreateNewRoute();
 
         Route memory updatedRoute = getRoute();
-        updatedRoute.gasLimit = updatedRoute.gasLimit * 2;
-        updatedRoute.baseFee = updatedRoute.gasLimit * 2;
-        updatedRoute.relativeGasPriceNumerator = updatedRoute.relativeGasPriceNumerator * 3;
+        updatedRoute.maxGasLimit = updatedRoute.maxGasLimit * 2;
+        updatedRoute.msgFee = updatedRoute.msgFee * 2;
+        updatedRoute.gasPriceNumerator = updatedRoute.gasPriceNumerator * 3;
 
         vm.expectEmit(true, true, true, true);
         emit RouteStore.RouteUpdated(
             updatedRoute.networkId,
-            updatedRoute.relativeGasPriceNumerator,
-            updatedRoute.relativeGasPriceDenominator,
-            updatedRoute.baseFee,
-            updatedRoute.gasLimit,
-            updatedRoute.gasCoef0,
-            updatedRoute.gasCoef1
+            updatedRoute.gateway,
+            updatedRoute.maxGasLimit,
+            updatedRoute.msgGas,
+            updatedRoute.msgByteGas,
+            updatedRoute.gasPriceNumerator,
+            updatedRoute.gasPriceDenominator,
+            updatedRoute.msgFee
         );
 
         insertRouteCall(updatedRoute);
 
         RouteStore.NetworkInfo memory stored = getStore().get(TEST_NETWORK_ID);
-        assertEq(stored.gasLimit, updatedRoute.gasLimit, "Gas limit update failed");
-        assertEq(stored.baseFee, updatedRoute.baseFee, "Base fee update failed");
+        assertEq(stored.maxGasLimit, updatedRoute.maxGasLimit, "Gas limit update failed");
+        assertEq(stored.msgFee, updatedRoute.msgFee, "Base fee update failed");
     }
 
     function testListRoutes() public {
@@ -100,12 +101,12 @@ contract RouteStoreTest is Test {
             Route memory r = Route({
                 networkId: i,
                 gateway: bytes32(uint256(i)),
-                gasLimit: uint64(i) * 100_000,
-                baseFee: uint128(i) * 0.01 ether,
-                relativeGasPriceNumerator: i * 2,
-                relativeGasPriceDenominator: i * 3,
-                gasCoef0: i * 3,
-                gasCoef1: i * 3
+                maxGasLimit: uint64(i) * 100_000,
+                msgGas: i * 3,
+                msgByteGas: i * 3,
+                gasPriceNumerator: i * 2,
+                gasPriceDenominator: i * 3,
+                msgFee: i * 0.01 ether
             });
             insertRouteCall(r);
         }
@@ -116,7 +117,7 @@ contract RouteStoreTest is Test {
         for (uint16 i = 0; i < numRoutes; i++) {
             uint16 expectedId = i + 1;
             assertEq(routes[i].networkId, expectedId, "Network ID order mismatch");
-            assertEq(routes[i].gasLimit, uint64(expectedId) * 100_000, "Gas limit order mismatch");
+            assertEq(routes[i].maxGasLimit, uint64(expectedId) * 100_000, "Gas limit order mismatch");
         }
     }
 

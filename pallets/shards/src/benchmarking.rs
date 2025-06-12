@@ -23,7 +23,7 @@ const SHARD_ID: u64 = 0;
 
 // Since benchmarks are no-std and we need std computation on constructing proof so
 // these values are taken by running the code in pallets/shards/src/tests.rs
-// in a seperate tests and then taking the data from commitment and pok and using them here.
+// in a separate tests and then taking the data from commitment and pok and using them here.
 
 pub const ALICE_COMMITMENT: [u8; 33] = [
 	3, 27, 132, 197, 86, 123, 18, 100, 64, 153, 93, 62, 213, 170, 186, 5, 101, 215, 30, 24, 52, 96,

@@ -19,6 +19,7 @@ fn mock_network_config() -> NetworkConfig {
 		shard_size: 3,
 		shard_threshold: 2,
 		batch_gas_params: Default::default(),
+		max_gas_price: 0,
 	}
 }
 

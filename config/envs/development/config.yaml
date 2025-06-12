@@ -34,6 +34,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
+    max_gas_price: 0
 
   1:
     backend: "grpc"
@@ -60,6 +61,8 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
+    max_gas_price: 0
+
 
   2:
     backend: "grpc"
@@ -86,6 +89,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
+    max_gas_price: 0
 
   3:
     backend: "grpc"
@@ -112,6 +116,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
+    max_gas_price: 0
 
   4:
     backend: "evm"
@@ -138,6 +143,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 2000000000
 
   5:
     backend: "evm"
@@ -166,6 +172,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 18
     currency_symbol: ETH
+    max_gas_price: 1000000000000
 
 chronicles:
 - https://chronicle-1.development.analog.one

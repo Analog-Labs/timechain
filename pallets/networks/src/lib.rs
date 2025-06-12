@@ -169,6 +169,11 @@ pub mod pallet {
 	pub type NetworkShardThreshold<T: Config> =
 		StorageMap<_, Blake2_128Concat, NetworkId, u16, OptionQuery>;
 
+	/// Map storage for network gas price.
+	#[pallet::storage]
+	pub type NetworkMaxGasPrice<T: Config> =
+		StorageMap<_, Blake2_128Concat, NetworkId, u128, OptionQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T> {
 		pub networks: Vec<Network>,
@@ -251,6 +256,7 @@ pub mod pallet {
 			NetworkUnregOpExecGas::<T>::insert(network, config.batch_gas_params.unreg_op_exec_gas);
 			NetworkMsgOpExecGas::<T>::insert(network, config.batch_gas_params.msg_op_exec_gas);
 			NetworkMsgByteGas::<T>::insert(network, config.batch_gas_params.msg_byte_gas);
+			NetworkMaxGasPrice::<T>::insert(network, config.max_gas_price);
 			Self::deposit_event(Event::NetworkConfigChanged(network, config));
 			Ok(())
 		}
@@ -312,6 +318,7 @@ pub mod pallet {
 			NetworkShardTaskLimit::<T>::remove(network);
 			NetworkShardSize::<T>::remove(network);
 			NetworkShardThreshold::<T>::remove(network);
+			NetworkMaxGasPrice::<T>::remove(network);
 			Ok(())
 		}
 	}
@@ -334,7 +341,12 @@ pub mod pallet {
 				shard_size: Self::shard_size(network),
 				shard_threshold: Self::shard_threshold(network),
 				batch_gas_params: Self::batch_gas_params(network),
+				max_gas_price: NetworkMaxGasPrice::<T>::get(network).unwrap_or(0),
 			}
+		}
+
+		pub fn network_gas_price(network: NetworkId) -> u128 {
+			NetworkMaxGasPrice::<T>::get(network).unwrap_or(0)
 		}
 	}
 

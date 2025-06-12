@@ -22,6 +22,7 @@ fn mock_network_config() -> NetworkConfig {
 			msg_op_exec_gas: 100_000,
 			msg_byte_gas: 20,
 		},
+		max_gas_price: 100,
 	}
 }
 
@@ -47,6 +48,7 @@ fn test_register_network() {
 			pallet_networks::NetworkGatewayBlock::<Test>::get(42),
 			Some(network.gateway_block)
 		);
+		assert_eq!(pallet_networks::NetworkMaxGasPrice::<Test>::get(42), Some(100));
 	});
 }
 

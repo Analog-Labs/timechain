@@ -149,6 +149,7 @@ sp_api::decl_runtime_apis! {
 		fn network_name(network: NetworkId) -> Option<ChainName>;
 		fn network_gateway(network: NetworkId) -> Option<Address32>;
 		fn network_config(network: NetworkId) -> NetworkConfig;
+		fn network_gas_price(network: NetworkId) -> u128;
 	}
 
 	pub trait ShardsApi {

@@ -345,6 +345,10 @@ sp_api::impl_runtime_apis! {
 		fn network_config(network: NetworkId) -> NetworkConfig {
 			Networks::network_config(network)
 		}
+
+		fn network_gas_price(network: NetworkId) -> u128 {
+			Networks::network_gas_price(network)
+		}
 	}
 
 	#[cfg(feature = "testnet")]

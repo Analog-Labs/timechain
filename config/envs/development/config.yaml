@@ -34,7 +34,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
-    max_gas_price: 0
+    max_gas_price: 100
 
   1:
     backend: "grpc"
@@ -61,7 +61,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
-    max_gas_price: 0
+    max_gas_price: 100
 
 
   2:
@@ -89,7 +89,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
-    max_gas_price: 0
+    max_gas_price: 100
 
   3:
     backend: "grpc"
@@ -116,7 +116,7 @@ networks:
     msg_session_gas: 53001
     currency_decimals: 6
     currency_symbol: USDT
-    max_gas_price: 0
+    max_gas_price: 100
 
   4:
     backend: "evm"

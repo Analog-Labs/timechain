@@ -185,7 +185,7 @@ impl TestEnvBuilder {
 				msg_session_gas: 50_000,
 				currency_decimals: 6,
 				currency_symbol: "USDT".into(),
-				max_gas_price: 0,
+				max_gas_price: 100,
 			},
 		);
 
@@ -258,7 +258,7 @@ impl TestEnvBuilder {
 				msg_session_gas: 50_000,
 				currency_decimals: 18,
 				currency_symbol: "ETH".into(),
-				max_gas_price: 0,
+				max_gas_price: 100,
 			},
 		);
 

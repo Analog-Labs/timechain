@@ -37,7 +37,7 @@ fn network() -> Network {
 				batch_gas_limit: 10000,
 				..Default::default()
 			},
-			max_gas_price: 0,
+			max_gas_price: 100,
 		},
 	}
 }

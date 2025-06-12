@@ -346,7 +346,7 @@ pub mod pallet {
 		}
 
 		pub fn network_gas_price(network: NetworkId) -> u128 {
-			NetworkMaxGasPrice::<T>::get(network).unwrap_or(0)
+			NetworkMaxGasPrice::<T>::get(network).unwrap_or(1)
 		}
 	}
 

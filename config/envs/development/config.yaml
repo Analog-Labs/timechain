@@ -5,10 +5,9 @@ config:
   testers_path: 'testers.csv'
 backends:
   evm:
-    chain_dict: "auxiliary/chains.json"
-    proxy: "contracts/ERC1967Proxy.sol/ERC1967Proxy.json"
-    gateway: "contracts/Gateway.sol/Gateway.json"
-    tester: "contracts/GmpProxy.sol/GmpProxy.json"
+    proxy: "evm/ERC1967Proxy.sol/ERC1967Proxy.json"
+    gateway: "evm/Gateway.sol/Gateway.json"
+    tester: "evm/GmpProxy.sol/GmpProxy.json"
 networks:
   0:
     backend: "grpc"
@@ -33,6 +32,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 6
+    currency_symbol: USDT
 
   1:
     backend: "grpc"
@@ -57,6 +58,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 6
+    currency_symbol: USDT
 
   2:
     backend: "grpc"
@@ -81,6 +84,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 6
+    currency_symbol: USDT
 
   3:
     backend: "grpc"
@@ -105,6 +110,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 6
+    currency_symbol: USDT
 
   4:
     backend: "evm"
@@ -129,6 +136,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
 
   5:
     backend: "evm"
@@ -155,6 +164,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
 
 chronicles:
 - https://chronicle-1.development.analog.one

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 const SI_PREFIX: [(i8, char); 12] = [
 	(18, 'E'),
@@ -15,13 +16,14 @@ const SI_PREFIX: [(i8, char); 12] = [
 	(-18, 'a'),
 ];
 
-pub struct BalanceFormatter<'a> {
-	decimals: u32,
-	symbol: &'a str,
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct Currency {
+	pub decimals: u32,
+	pub symbol: String,
 }
 
-impl<'a> BalanceFormatter<'a> {
-	pub fn new(decimals: u32, symbol: &'a str) -> Self {
+impl Currency {
+	pub fn new(decimals: u32, symbol: String) -> Self {
 		Self { decimals, symbol }
 	}
 
@@ -83,7 +85,7 @@ mod tests {
 			(1_200_000_000_000_000, "1.2k ANLG"),
 		];
 		let parse_cases = [("0", 0), ("1_200_000", 1_200_000), ("1.", 1_000_000_000_000)];
-		let fmt = BalanceFormatter::new(12, "ANLG");
+		let fmt = Currency::new(12, "ANLG".into());
 		for (n, s) in fmt_cases {
 			assert_eq!(fmt.format(n), s);
 			assert_eq!(fmt.parse(s).unwrap(), n);

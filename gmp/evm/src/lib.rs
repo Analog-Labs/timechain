@@ -1,5 +1,4 @@
-use crate::custom::BEP226;
-use crate::dict::Currency;
+use crate::bep226::BEP226;
 use crate::sol::{ERC1967Proxy, Gateway, GmpProxy, IGmpReceiver};
 use alloy::{
 	eips::{eip1559::Eip1559Estimation, BlockId, BlockNumberOrTag},
@@ -29,16 +28,14 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use std::{ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address32, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain, IConnect, IConnector,
+	IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 
 type Address20 = alloy::primitives::Address;
 
-mod custom;
-mod dict;
+mod bep226;
 // some e2e tests use it
 pub mod sol;
 
@@ -48,6 +45,56 @@ fn a_addr(address: Address32) -> Address20 {
 
 fn t_addr(address: Address20) -> Address32 {
 	address.into_word().into()
+}
+
+#[derive(Clone)]
+pub struct Chain {
+	network_id: NetworkId,
+	signer: LocalSigner<SigningKey>,
+}
+
+impl Chain {
+	pub fn new(network_id: NetworkId, mnemonic: &str) -> Result<Self> {
+		let signer = MnemonicBuilder::<English>::default().phrase(mnemonic).index(0)?.build()?;
+		Ok(Self { network_id, signer })
+	}
+}
+
+#[async_trait]
+impl IConnect for Chain {
+	fn chain(&self) -> &dyn IChain {
+		self
+	}
+
+	async fn connect(&self, url: String) -> Result<Arc<dyn IConnector>> {
+		Ok(Arc::new(Connector::new(self.clone(), url).await?))
+	}
+
+	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>> {
+		Ok(Arc::new(Connector::new(self.clone(), url).await?))
+	}
+}
+
+impl IChain for Chain {
+	/// Formats an address into a string.
+	fn format_address(&self, address: Address32) -> String {
+		a_addr(address).to_string()
+	}
+
+	/// Parses an address from a string.
+	fn parse_address(&self, address: &str) -> Result<Address32> {
+		Ok(address.parse::<Address20>().map(t_addr)?)
+	}
+
+	/// Network identifier.
+	fn network_id(&self) -> NetworkId {
+		self.network_id
+	}
+
+	/// Human readable connector account identifier.
+	fn address(&self) -> Address32 {
+		t_addr(self.signer.address())
+	}
 }
 
 type CProvider = FillProvider<
@@ -62,116 +109,45 @@ type CProvider = FillProvider<
 	AnyNetwork,
 >;
 
-#[derive(Clone)]
 pub struct Connector {
-	network_id: NetworkId,
-	rpc: Arc<CProvider>,
+	chain: Chain,
 	url: String,
-	signer: Arc<LocalSigner<SigningKey>>,
+	rpc: Arc<CProvider>,
 	chain_id: u64,
-	currency: Currency,
 	submitter: Submitter,
 }
 
-#[async_trait]
-impl IConnectorBuilder for Connector {
+impl Connector {
 	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>
-	where
-		Self: Sized,
-	{
-		let signer = MnemonicBuilder::<English>::default()
-			.phrase(params.mnemonic)
-			.index(0)?
-			.build()?;
-		let ws = WsConnect::new(params.url.clone())
+	async fn new(chain: Chain, url: String) -> Result<Self> {
+		let ws = WsConnect::new(url.clone())
 			.with_max_retries(1200)
 			.with_retry_interval(Duration::from_secs(3));
-
-		let provider = Arc::new(
+		let rpc: Arc<CProvider> = Arc::new(
 			ProviderBuilder::new()
 				.network::<AnyNetwork>()
-				.wallet(signer.clone())
+				.wallet(chain.signer.clone())
 				.connect_ws(ws)
 				.await?,
 		);
-
-		let chain_id = provider.get_chain_id().await?;
-		let dict = dict::load(&params.chain_dict).context("invalid chain dict")?;
-		let currency = dict.get(&chain_id).map(|c| c.currency.clone()).unwrap_or_default();
-
+		let chain_id = rpc.get_chain_id().await?;
 		Ok(Self {
-			network_id: params.network_id,
-			url: params.url,
-			rpc: provider,
-			signer: Arc::new(signer),
+			chain,
+			url,
+			rpc,
 			chain_id,
-			currency,
 			submitter: Submitter::new(Duration::from_secs(60)),
 		})
 	}
 }
 
 #[async_trait]
-impl IChain for Connector {
-	/// Formats an address into a string.
-	fn format_address(&self, address: Address32) -> String {
-		a_addr(address).to_string()
+impl IConnector for Connector {
+	fn chain(&self) -> &dyn IChain {
+		&self.chain
 	}
-	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address32> {
-		Ok(address.parse::<Address20>().map(t_addr)?)
-	}
-	/// Network identifier.
-	fn network_id(&self) -> NetworkId {
-		self.network_id
-	}
-	/// Human readable connector account identifier.
-	fn address(&self) -> Address32 {
-		t_addr(self.signer.address())
-	}
-	fn currency(&self) -> (u32, &str) {
-		(self.currency.decimals as _, self.currency.symbol.as_str())
-	}
-	/// Funds Connector's account
-	async fn faucet(&self, balance: u128) -> Result<()> {
-		let ws = WsConnect::new(self.url.clone());
-		let provider = ProviderBuilder::new().network::<AnyNetwork>().connect_ws(ws).await?;
-		let sponsor = provider
-			.get_accounts()
-			.await?
-			.first()
-			.ok_or(anyhow!("Node owns no account"))?
-			.to_owned();
 
-		let tx = TransactionRequest::default()
-			.with_from(sponsor)
-			.with_to(a_addr(self.address()))
-			.with_value(U256::from(balance));
-		let receipt = self.submitter.submit(&provider, tx).await?;
-
-		tracing::info!(
-			"faucet sent {balance} to {}, tx: {:?}",
-			a_addr(self.address()),
-			receipt.transaction_hash()
-		);
-		Ok(())
-	}
-	/// Transfers an amount to an account
-	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
-		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
-		let receipt = self.submit(tx).await?;
-		tracing::info!(
-			"transferred {amount} to {}, tx: {:?}",
-			a_addr(to),
-			receipt.transaction_hash()
-		);
-		Ok(())
-	}
-	/// Queries the account balance
-	async fn balance(&self, address: Address32) -> Result<u128> {
-		Ok(self.rpc.get_balance(a_addr(address)).await?.try_into()?)
-	}
+	/// Queries the latest finalized block.
 	async fn finalized_block(&self) -> Result<u64> {
 		self.rpc
 			.get_block(BlockId::finalized())
@@ -179,10 +155,7 @@ impl IChain for Connector {
 			.map(|b| b.header.number)
 			.ok_or(anyhow!("failed querying finalized block"))
 	}
-}
 
-#[async_trait]
-impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let contract = a_addr(gateway);
@@ -216,7 +189,7 @@ impl IConnector for Connector {
 					sol::Gateway::GmpCreated::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpCreated::decode_log(&log)?;
 						let gmp_message = GmpMessage {
-							src_network: self.network_id,
+							src_network: self.chain.network_id,
 							dest_network: log.destinationNetwork,
 							src: log.source.into(),
 							dest: t_addr(log.destinationAddress),
@@ -245,6 +218,7 @@ impl IConnector for Connector {
 		}
 		Ok(events)
 	}
+
 	/// Submits a gmp message to the target chain.
 	async fn submit_commands(
 		&self,
@@ -274,11 +248,55 @@ impl IConnector for Connector {
 
 #[async_trait]
 impl IConnectorAdmin for Connector {
+	/// Funds Connector's account
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		let ws = WsConnect::new(self.url.clone());
+		let provider = ProviderBuilder::new().network::<AnyNetwork>().connect_ws(ws).await?;
+		let sponsor = provider
+			.get_accounts()
+			.await?
+			.first()
+			.ok_or(anyhow!("Node owns no account"))?
+			.to_owned();
+
+		let tx = TransactionRequest::default()
+			.with_from(sponsor)
+			.with_to(a_addr(self.chain.address()))
+			.with_value(U256::from(balance));
+		let receipt = self.submitter.submit(&provider, tx).await?;
+
+		tracing::info!(
+			"faucet sent {balance} to {}, tx: {:?}",
+			a_addr(self.chain.address()),
+			receipt.transaction_hash()
+		);
+		Ok(())
+	}
+
+	/// Transfers an amount to an account
+	async fn transfer(&self, to: Address32, amount: u128) -> Result<()> {
+		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
+		let receipt = self.submit(tx).await?;
+		tracing::info!(
+			"transferred {amount} to {}, tx: {:?}",
+			a_addr(to),
+			receipt.transaction_hash()
+		);
+		Ok(())
+	}
+
+	/// Queries the account balance
+	async fn balance(&self, address: Address32) -> Result<u128> {
+		Ok(self.rpc.get_balance(a_addr(address)).await?.try_into()?)
+	}
+
 	/// Deploys proxy contract
 	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
 		let (gateway_addr, _gateway_block) =
 			self.deploy_contract(gateway, Gateway::constructorCall {}).await?;
-		let initialize = Gateway::initializeCall { _networkId: self.network_id };
+		let initialize = Gateway::initializeCall {
+			_networkId: self.chain.network_id,
+		};
 		let proxy_constructor = ERC1967Proxy::constructorCall {
 			implementation: gateway_addr,
 			_data: initialize.abi_encode().into(),
@@ -409,7 +427,7 @@ impl IConnectorAdmin for Connector {
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
 		let message = GmpProxy::GmpMessage {
-			srcNetwork: self.network_id,
+			srcNetwork: self.chain.network_id,
 			source: contract.into(),
 			destNetwork: dest_network,
 			dest: a_addr(dest),

@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 #[cfg(feature = "std")]
 use std::ops::Range;
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 pub type Address32 = [u8; 32];
 pub type MessageId = [u8; 32];
@@ -336,15 +338,6 @@ impl std::fmt::Display for GmpEvent {
 
 #[cfg(feature = "std")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub struct ConnectorParams {
-	pub network_id: NetworkId,
-	pub url: String,
-	pub mnemonic: String,
-	pub chain_dict: Vec<u8>,
-}
-
-#[cfg(feature = "std")]
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Route {
 	/// Destination network Id
 	pub network_id: NetworkId,
@@ -364,40 +357,31 @@ pub struct Route {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
+pub trait IConnect: Send + Sync + 'static {
+	fn chain(&self) -> &dyn IChain;
+	async fn connect(&self, url: String) -> Result<Arc<dyn IConnector>>;
+	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>>;
+}
+
+#[cfg(feature = "std")]
 pub trait IChain: Send + Sync + 'static {
-	/// Formats an address into a string.
-	fn format_address(&self, address: Address32) -> String;
-	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address32>;
-	/// Returns the currency decimals and symobl.
-	fn currency(&self) -> (u32, &str);
-	/// Formats a balance into a string.
-	fn format_balance(&self, balance: u128) -> String {
-		let (decimals, symbol) = self.currency();
-		crate::balance::BalanceFormatter::new(decimals, symbol).format(balance)
-	}
-	/// Parses a balance from a string.
-	fn parse_balance(&self, balance: &str) -> Result<u128> {
-		let (decimals, symbol) = self.currency();
-		crate::balance::BalanceFormatter::new(decimals, symbol).parse(balance)
-	}
 	/// Network identifier.
 	fn network_id(&self) -> NetworkId;
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address32;
-	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self, balance: u128) -> Result<()>;
-	/// Transfers an amount to an account.
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()>;
-	/// Queries the account balance.
-	async fn balance(&self, address: Address32) -> Result<u128>;
-	/// Returns the last finalized block.
-	async fn finalized_block(&self) -> Result<u64>;
+	/// Formats an address into a string.
+	fn format_address(&self, address: Address32) -> String;
+	/// Parses an address from a string.
+	fn parse_address(&self, address: &str) -> Result<Address32>;
 }
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-pub trait IConnector: IChain {
+pub trait IConnector: Send + Sync + 'static {
+	/// Returns an IChain implementation.
+	fn chain(&self) -> &dyn IChain;
+	/// Returns the last finalized block.
+	async fn finalized_block(&self) -> Result<u64>;
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>>;
 	/// Submits a gmp message to the target chain.
@@ -414,6 +398,12 @@ pub trait IConnector: IChain {
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
 pub trait IConnectorAdmin: IConnector {
+	/// Uses a faucet to fund the account when possible.
+	async fn faucet(&self, balance: u128) -> Result<()>;
+	/// Transfers an amount to an account.
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()>;
+	/// Queries the account balance.
+	async fn balance(&self, address: Address32) -> Result<u128>;
 	/// Deploys the proxy contract.
 	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)>;
 	/// Redeploys the gateway contract.
@@ -482,13 +472,6 @@ pub trait IConnectorAdmin: IConnector {
 	) -> Result<()>;
 	/// Debug a transaction.
 	async fn debug_transaction(&self, _tx: Hash) -> Result<String>;
-}
-
-#[cfg(feature = "std")]
-#[async_trait::async_trait]
-pub trait IConnectorBuilder: IConnectorAdmin + Sized {
-	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>;
 }
 
 #[cfg(test)]

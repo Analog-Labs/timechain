@@ -34,7 +34,7 @@ impl TaskParams {
 	}
 
 	pub fn network(&self) -> NetworkId {
-		self.connector.network_id()
+		self.connector.chain().network_id()
 	}
 
 	async fn finalized_block(&self) -> Result<u64> {

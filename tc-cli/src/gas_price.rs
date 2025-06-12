@@ -124,7 +124,7 @@ impl Tc {
 		);
 		let mut prices = HashMap::new();
 		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
-			let symbol = self.currency(Some(*network_id))?.1;
+			let symbol = self.currency(Some(*network_id))?.symbol;
 			let token_url = format!(
 				"https://pro-api.coinmarketcap.com/v2/tools/price-conversion?amount=1&id={coin_id}"
 			);
@@ -152,7 +152,7 @@ impl Tc {
 
 	pub fn balance_to_usd(&self, network: NetworkId, balance: u128) -> Result<f64> {
 		let token_price = self.config.token_price_usd(network)?;
-		let decimals = self.currency(Some(network))?.0;
+		let decimals = self.currency(Some(network))?.decimals;
 		let factor = 10.0f64.powi(decimals as i32);
 		Ok(balance as f64 / factor * token_price)
 	}
@@ -169,9 +169,9 @@ impl Tc {
 
 		let src_config = self.config.network(src_network)?;
 		let src_margin: f64 = src_config.gmp_margin;
-		let src_decimals = self.currency(Some(src_network))?.0;
+		let src_decimals = self.currency(Some(src_network))?.decimals;
 
-		let dest_decimals = self.currency(Some(dest_network))?.0;
+		let dest_decimals = self.currency(Some(dest_network))?.decimals;
 
 		let src_usd_price =
 			Ratio::from_float(src_price).context("Cannot convert float to ratio")?;

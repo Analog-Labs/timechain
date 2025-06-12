@@ -2,9 +2,8 @@ use anyhow::Result;
 use std::ops::Range;
 use std::sync::Arc;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address32, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain, IConnect, IConnector,
+	IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -23,14 +22,38 @@ use gmp::gmp_client::GmpClient;
 pub use gmp::gmp_server::{Gmp, GmpServer};
 
 #[derive(Clone)]
+pub struct Chain(gmp_rust::Chain);
+
+impl Chain {
+	pub fn new(network: NetworkId, mnemonic: &str) -> Result<Self> {
+		Ok(Self(gmp_rust::Chain::new(network, mnemonic)))
+	}
+}
+
+#[tonic::async_trait]
+impl IConnect for Chain {
+	fn chain(&self) -> &dyn IChain {
+		&self.0
+	}
+
+	async fn connect(&self, url: String) -> Result<Arc<dyn IConnector>> {
+		Ok(Arc::new(Connector::new(self.clone(), url).await?))
+	}
+
+	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>> {
+		Ok(Arc::new(Connector::new(self.clone(), url).await?))
+	}
+}
+
+#[derive(Clone)]
 struct AddressInterceptor {
 	address: MetadataValue<Ascii>,
 }
 
 impl AddressInterceptor {
-	fn new(address: Address32) -> Self {
+	fn new(address: String) -> Self {
 		Self {
-			address: gmp_rust::format_address(address).parse().unwrap(),
+			address: address.parse().unwrap(),
 		}
 	}
 }
@@ -46,82 +69,41 @@ type GmpClientT = GmpClient<InterceptedService<Channel, AddressInterceptor>>;
 
 #[derive(Clone)]
 pub struct Connector {
-	network: NetworkId,
-	address: Address32,
+	chain: Chain,
 	client: Arc<Mutex<GmpClientT>>,
 }
 
-#[tonic::async_trait]
-impl IConnectorBuilder for Connector {
+impl Connector {
 	/// Creates a new connector.
-	async fn new(params: ConnectorParams) -> Result<Self>
+	async fn new(chain: Chain, url: String) -> Result<Self>
 	where
 		Self: Sized,
 	{
-		let address = gmp_rust::mnemonic_to_address(params.mnemonic);
-		let channel = if params.url.starts_with("https") {
+		let channel = if url.starts_with("https") {
 			let tls_config = ClientTlsConfig::new().with_native_roots();
-			Channel::from_shared(params.url)?.tls_config(tls_config)?.connect_lazy()
+			Channel::from_shared(url)?.tls_config(tls_config)?.connect_lazy()
 		} else {
-			Channel::from_shared(params.url)?.connect_lazy()
+			Channel::from_shared(url)?.connect_lazy()
 		};
+		let address = chain.chain().format_address(chain.chain().address());
 		let client = GmpClient::with_interceptor(channel, AddressInterceptor::new(address));
 		Ok(Self {
-			network: params.network_id,
-			address,
+			chain,
 			client: Arc::new(Mutex::new(client)),
 		})
 	}
 }
 
 #[tonic::async_trait]
-impl IChain for Connector {
-	/// Formats an address into a string.
-	fn format_address(&self, address: Address32) -> String {
-		gmp_rust::format_address(address)
-	}
-	/// Parses an address from a string.
-	fn parse_address(&self, address: &str) -> Result<Address32> {
-		gmp_rust::parse_address(address)
-	}
-	fn currency(&self) -> (u32, &str) {
-		gmp_rust::currency()
-	}
-	/// Network identifier.
-	fn network_id(&self) -> NetworkId {
-		self.network
-	}
-	/// Human readable connector account identifier.
-	fn address(&self) -> Address32 {
-		self.address
-	}
-	/// Uses a faucet to fund the account when possible.
-	async fn faucet(&self, balance: u128) -> Result<()> {
-		let request = Request::new(proto::FaucetRequest { balance });
-		self.client.lock().await.faucet(request).await?;
-		Ok(())
-	}
-	/// Transfers an amount to an account.
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
-		let request = Request::new(proto::TransferRequest { address, amount });
-		self.client.lock().await.transfer(request).await?;
-		Ok(())
-	}
-	/// Queries the account balance.
-	async fn balance(&self, address: Address32) -> Result<u128> {
-		let request = Request::new(proto::BalanceRequest { address });
-		let response = self.client.lock().await.balance(request).await?;
-		Ok(response.get_ref().balance)
+impl IConnector for Connector {
+	fn chain(&self) -> &dyn IChain {
+		self.chain.chain()
 	}
 	async fn finalized_block(&self) -> Result<u64> {
 		let request = Request::new(proto::FinalizedBlockRequest {});
 		let response = self.client.lock().await.finalized_block(request).await?;
 		Ok(response.get_ref().finalized_block)
 	}
-}
-
-#[tonic::async_trait]
-impl IConnector for Connector {
 	/// Reads gmp messages from the target chain.
 	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		let request = Request::new(proto::ReadEventsRequest {
@@ -160,6 +142,24 @@ impl IConnector for Connector {
 
 #[tonic::async_trait]
 impl IConnectorAdmin for Connector {
+	/// Uses a faucet to fund the account when possible.
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		let request = Request::new(proto::FaucetRequest { balance });
+		self.client.lock().await.faucet(request).await?;
+		Ok(())
+	}
+	/// Transfers an amount to an account.
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
+		let request = Request::new(proto::TransferRequest { address, amount });
+		self.client.lock().await.transfer(request).await?;
+		Ok(())
+	}
+	/// Queries the account balance.
+	async fn balance(&self, address: Address32) -> Result<u128> {
+		let request = Request::new(proto::BalanceRequest { address });
+		let response = self.client.lock().await.balance(request).await?;
+		Ok(response.get_ref().balance)
+	}
 	/// Deploys the proxy contract.
 	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
 		let request = Request::new(proto::DeployGatewayRequest {

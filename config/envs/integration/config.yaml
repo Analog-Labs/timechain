@@ -5,10 +5,9 @@ config:
   testers_path: 'testers.csv'
 backends:
   evm:
-    chain_dict: "auxiliary/chains.json"
-    proxy: "contracts/ERC1967Proxy.sol/ERC1967Proxy.json"
-    gateway: "contracts/Gateway.sol/Gateway.json"
-    tester: "contracts/GmpProxy.sol/GmpProxy.json"
+    proxy: "evm/ERC1967Proxy.sol/ERC1967Proxy.json"
+    gateway: "evm/Gateway.sol/Gateway.json"
+    tester: "evm/GmpProxy.sol/GmpProxy.json"
 networks:
   10:
     backend: "evm"
@@ -32,6 +31,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   13:
     backend: "evm"
     name: "arbitrum sepolia"
@@ -54,6 +55,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   14:
     backend: "evm"
     name: "base testnet"
@@ -76,6 +79,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   15:
     backend: "evm"
     name: "avalanche fuji"
@@ -98,6 +103,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   16:
     backend: "evm"
     name: "polygon amoy"
@@ -120,6 +127,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   17:
     backend: "evm"
     name: "bnb testnet"
@@ -142,6 +151,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   18:
     backend: "evm"
     name: "optimism sepolia"
@@ -164,6 +175,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   19:
     backend: "evm"
     name: "blast sepolia"
@@ -186,6 +199,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   20:
     backend: "evm"
     name: "soneium minato"
@@ -208,6 +223,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   21:
     backend: "evm"
     name: "zksync sepolia"
@@ -230,6 +247,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   22:
     backend: "evm"
     name: "celo alfajores"
@@ -252,6 +271,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   23:
     backend: "evm"
     name: "unichain sepolia"
@@ -274,6 +295,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   24:
     backend: "evm"
     name: "worldchain sepolia"
@@ -296,6 +319,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
   25:
     backend: "evm"
     name: "zora sepolia"
@@ -318,6 +343,8 @@ networks:
     msg_op_exec_gas: 33761
     msg_byte_gas: 20
     msg_session_gas: 53001
+    currency_decimals: 18
+    currency_symbol: ETH
 chronicles: 
 - https://chronicle-1.integration.analog.one
 - https://chronicle-13.integration.analog.one

@@ -4,6 +4,7 @@ use futures::stream::{BoxStream, FuturesUnordered, StreamExt};
 use futures::TryStreamExt;
 use polkadot_sdk::sp_runtime::BoundedVec;
 use scale_codec::{Decode, Encode};
+use std::cell::OnceCell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -12,10 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tc_subxt::SubxtClient;
 use time_primitives::{
-	AccountId, Address32, BalanceFormatter, BatchGasParams, BatchId, BlockHash, BlockNumber,
-	ChainName, ConnectorParams, GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash,
-	IConnectorAdmin, MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus,
-	TaskId, TssPublicKey,
+	AccountId, Address32, BatchGasParams, BatchId, BlockHash, BlockNumber, ChainName, Currency,
+	GatewayMessage, GmpEvent, GmpEvents, GmpMessage, Hash, IChain, IConnect, IConnectorAdmin,
+	MemberStatus, MessageId, NetworkConfig, PeerId, Route, ShardId, ShardStatus, TaskId,
+	TssPublicKey,
 };
 
 mod benchmark;
@@ -47,7 +48,8 @@ async fn sleep_or_abort(duration: Duration) -> Result<()> {
 pub struct Tc {
 	config: Config,
 	runtime: SubxtClient,
-	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
+	chains: HashMap<NetworkId, Arc<dyn IConnect>>,
+	connectors: HashMap<NetworkId, OnceCell<Arc<dyn IConnectorAdmin>>>,
 	msg: Sender,
 }
 
@@ -71,51 +73,49 @@ impl Tc {
 				.context("failed to connect to timechain")?;
 			Ok::<_, anyhow::Error>(runtime)
 		});
+		let mut chains = HashMap::new();
 		let mut connectors = HashMap::new();
 		{
-			let mut connector_futures = FuturesUnordered::new();
 			for (id, network) in config.networks() {
-				let backend = config.backend(*id)?;
-				let id = *id;
-				let params = ConnectorParams {
-					network_id: id,
-					url: network.url.clone(),
-					mnemonic: env.target_mnemonic.clone(),
-					chain_dict: backend.chain_dict.clone(),
-				};
-				let connector = async move {
-					loop {
-						match network.backend.connect_admin(&params).await {
-							Ok(connector) => return Ok::<_, anyhow::Error>((id, connector)),
-							Err(err) => {
-								tracing::info!("waiting for chain {id} to start: {err:?}");
-								sleep_or_abort(Duration::from_secs(1)).await?;
-							},
-						}
-					}
-				};
-				connector_futures.push(connector);
-			}
-			while let Some(res) = connector_futures.next().await {
-				let (network, connector) = res?;
-				connectors.insert(network, connector);
+				chains.insert(*id, network.backend.chain(*id, &env.target_mnemonic)?);
+				connectors.insert(*id, Default::default());
 			}
 		}
 		let runtime = runtime.await??;
-
 		Ok(Self {
 			config,
 			runtime,
+			chains,
 			connectors,
 			msg,
 		})
 	}
 
-	fn connector(&self, network: NetworkId) -> Result<&dyn IConnectorAdmin> {
-		Ok(&**self
+	fn chain(&self, network: NetworkId) -> Result<&dyn IChain> {
+		Ok(self
+			.chains
+			.get(&network)
+			.with_context(|| format!("no connector configured for {network}"))?
+			.chain())
+	}
+
+	async fn connector(&self, network: NetworkId) -> Result<&dyn IConnectorAdmin> {
+		let cell = self
 			.connectors
 			.get(&network)
-			.with_context(|| format!("no connector configured for {network}"))?)
+			.with_context(|| format!("no connector configured for {network}"))?;
+		if let Some(connector) = cell.get() {
+			return Ok(&**connector);
+		}
+		let config = self.config.network(network)?;
+		let connector = self
+			.chains
+			.get(&network)
+			.with_context(|| format!("no connector configured for {network}"))?
+			.connect_admin(config.url.clone())
+			.await?;
+		cell.set(connector).ok();
+		Ok(&**cell.get().expect("once cel failed"))
 	}
 
 	pub async fn gateway(
@@ -123,7 +123,7 @@ impl Tc {
 		network: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<(&dyn IConnectorAdmin, Address32)> {
-		let connector = self.connector(network)?;
+		let connector = self.connector(network).await?;
 		let gateway = self
 			.runtime
 			.network_gateway(network, block_hash)
@@ -184,7 +184,7 @@ impl Tc {
 
 	pub fn parse_address(&self, network: Option<NetworkId>, address: &str) -> Result<Address32> {
 		if let Some(network) = network {
-			self.connector(network)?.parse_address(address)
+			self.chain(network)?.parse_address(address)
 		} else {
 			let address: AccountId = address
 				.parse()
@@ -195,40 +195,33 @@ impl Tc {
 
 	pub fn format_address(&self, network: Option<NetworkId>, address: Address32) -> Result<String> {
 		if let Some(network) = network {
-			Ok(self.connector(network)?.format_address(address))
+			Ok(self.chain(network)?.format_address(address))
 		} else {
 			let address: AccountId = address.into();
 			Ok(time_primitives::format_address(&address))
 		}
 	}
 
-	pub fn currency(&self, network: Option<NetworkId>) -> Result<(u32, &str)> {
+	pub fn currency(&self, network: Option<NetworkId>) -> Result<Currency> {
 		if let Some(network) = network {
-			Ok(self.connector(network)?.currency())
+			let config = self.config.network(network)?;
+			Ok(Currency::new(config.currency_decimals, config.currency_symbol.clone()))
 		} else {
-			Ok((12, "ANLG"))
+			Ok(Currency::new(12, "ANLG".into()))
 		}
 	}
 
 	pub fn parse_balance(&self, network: Option<NetworkId>, balance: &str) -> Result<u128> {
-		if let Some(network) = network {
-			self.connector(network)?.parse_balance(balance)
-		} else {
-			BalanceFormatter::new(12, "ANLG").parse(balance)
-		}
+		self.currency(network)?.parse(balance)
 	}
 
 	pub fn format_balance(&self, network: Option<NetworkId>, balance: u128) -> Result<String> {
-		if let Some(network) = network {
-			Ok(self.connector(network)?.format_balance(balance))
-		} else {
-			Ok(BalanceFormatter::new(12, "ANLG").format(balance))
-		}
+		Ok(self.currency(network)?.format(balance))
 	}
 
 	pub fn address(&self, network: Option<NetworkId>) -> Result<Address32> {
 		Ok(if let Some(network) = network {
-			self.connector(network)?.address()
+			self.chain(network)?.address()
 		} else {
 			self.runtime.account_id().clone().into()
 		})
@@ -251,7 +244,7 @@ impl Tc {
 			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
 		)
 		.await?;
-		self.connector(network)?.faucet(faucet).await.with_context(|| {
+		self.connector(network).await?.faucet(faucet).await.with_context(|| {
 			format!(
 				"faucet failed or is unsupported, please transfer {} to {}",
 				self.format_balance(Some(network), faucet).unwrap(),
@@ -268,7 +261,7 @@ impl Tc {
 		block_hash: BlockHash,
 	) -> Result<u128> {
 		if let Some(network) = network {
-			self.connector(network)?.balance(address).await
+			self.connector(network).await?.balance(address).await
 		} else {
 			self.runtime.balance(&address.into(), block_hash).await
 		}
@@ -290,7 +283,7 @@ impl Tc {
 		)
 		.await?;
 		if let Some(network) = network {
-			self.connector(network)?.transfer(address, balance).await?;
+			self.connector(network).await?.transfer(address, balance).await?;
 		} else {
 			self.runtime.transfer(address.into(), balance).await?;
 		}
@@ -315,7 +308,7 @@ impl Tc {
 	}
 
 	pub fn iter(&self) -> impl Iterator<Item = NetworkId> + '_ {
-		self.connectors.keys().copied()
+		self.chains.keys().copied()
 	}
 }
 
@@ -483,7 +476,8 @@ impl Tc {
 			.context("no read events task")?;
 		let blocks = self.read_events_blocks(sync_task, block_hash).await?;
 		let block = self
-			.connector(network)?
+			.connector(network)
+			.await?
 			.finalized_block()
 			.await
 			.context("failed to read target block")?;
@@ -686,7 +680,7 @@ impl Tc {
 		tester: Address32,
 		blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
-		let connector = self.connector(network)?;
+		let connector = self.connector(network).await?;
 		connector.recv_messages(tester, blocks).await
 	}
 
@@ -707,19 +701,13 @@ impl Tc {
 	}
 
 	pub async fn max_fee_per_gas(&self, network: NetworkId) -> Result<u128> {
-		let connector = self
-			.connectors
-			.get(&network)
-			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
+		let connector = self.connector(network).await?;
 		let fee = connector.max_fee_per_gas().await?;
 		Ok(fee)
 	}
 
 	pub async fn block_gas_limit(&self, network: NetworkId) -> Result<u64> {
-		let connector = self
-			.connectors
-			.get(&network)
-			.with_context(|| format!("Connector for network id: {:?} not found", network))?;
+		let connector = self.connector(network).await?;
 		let gas_limit = connector.block_gas_limit().await?;
 		Ok(gas_limit)
 	}
@@ -823,7 +811,7 @@ impl Tc {
 		network: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<Address32> {
-		let connector = self.connector(network)?;
+		let connector = self.connector(network).await?;
 		let config = self.config.network(network)?;
 		let backend = self.config.backend(network)?;
 		let gateway =
@@ -867,7 +855,7 @@ impl Tc {
 	pub async fn register_routes(&self, gateways: HashMap<NetworkId, Address32>) -> Result<()> {
 		let mut set_routes = FuturesUnordered::new();
 		for (src, src_gateway) in gateways.iter().map(|(src, gateway)| (*src, *gateway)) {
-			let connector = self.connector(src)?;
+			let connector = self.connector(src).await?;
 			let routes = connector.routes(src_gateway).await?;
 			for (dest, dest_gateway) in gateways.iter().map(|(dest, gateway)| (*dest, *gateway)) {
 				if src == dest {
@@ -1171,7 +1159,7 @@ impl Tc {
 		src_addr: Address32,
 		payload: Vec<u8>,
 	) -> Result<u64> {
-		let connector = self.connector(dest_network)?;
+		let connector = self.connector(dest_network).await?;
 		connector
 			.estimate_message_gas_limit(dest_addr, src_network, src_addr, payload)
 			.await
@@ -1202,7 +1190,7 @@ impl Tc {
 		gas_cost: u128,
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
-		let connector = self.connector(src_network)?;
+		let connector = self.connector(src_network).await?;
 		let id = self
 			.println(
 				None,
@@ -1487,7 +1475,7 @@ impl Tc {
 	}
 
 	pub async fn debug_transaction(&self, network: NetworkId, hash: Hash) -> Result<String> {
-		let connector = self.connector(network)?;
+		let connector = self.connector(network).await?;
 		connector.debug_transaction(hash).await
 	}
 

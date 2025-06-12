@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use time_primitives::{ConnectorParams, IConnector, IConnectorAdmin, IConnectorBuilder};
+use time_primitives::{IConnect, NetworkId};
 
 pub use gmp_evm::sol::Gateway;
 
@@ -38,22 +38,11 @@ impl std::fmt::Display for Backend {
 }
 
 impl Backend {
-	pub async fn connect(&self, params: &ConnectorParams) -> Result<Arc<dyn IConnector>> {
+	pub fn chain(self, network: NetworkId, mnemonic: &str) -> Result<Arc<dyn IConnect>> {
 		Ok(match self {
-			Self::Evm => Arc::new(gmp_evm::Connector::new(params.clone()).await?),
-			Self::Grpc => Arc::new(gmp_grpc::Connector::new(params.clone()).await?),
-			Self::Rust => Arc::new(gmp_rust::Connector::new(params.clone()).await?),
-		})
-	}
-
-	pub async fn connect_admin(
-		&self,
-		params: &ConnectorParams,
-	) -> Result<Arc<dyn IConnectorAdmin>> {
-		Ok(match self {
-			Self::Evm => Arc::new(gmp_evm::Connector::new(params.clone()).await?),
-			Self::Grpc => Arc::new(gmp_grpc::Connector::new(params.clone()).await?),
-			Self::Rust => Arc::new(gmp_rust::Connector::new(params.clone()).await?),
+			Self::Evm => Arc::new(gmp_evm::Chain::new(network, mnemonic)?),
+			Self::Grpc => Arc::new(gmp_grpc::Chain::new(network, mnemonic)?),
+			Self::Rust => Arc::new(gmp_rust::Chain::new(network, mnemonic)),
 		})
 	}
 }

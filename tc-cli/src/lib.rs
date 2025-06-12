@@ -276,7 +276,7 @@ impl Tc {
 		self.println(
 			None,
 			format!(
-				"transfering {} to {}",
+				"transferring {} to {}",
 				self.format_balance(network, balance)?,
 				self.format_address(network, address)?,
 			),

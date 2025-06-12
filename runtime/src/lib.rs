@@ -258,7 +258,7 @@ pub type Executive = frame_executive::Executive<
 	Migrations,
 >;
 
-// Useful types when handeling currency
+// Useful types when handling currency
 pub type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 pub type PositiveImbalance = <Balances as Currency<AccountId>>::PositiveImbalance;
 

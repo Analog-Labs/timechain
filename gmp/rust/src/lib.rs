@@ -400,19 +400,11 @@ impl IConnectorAdmin for Connector {
 		Ok(routes)
 	}
 
-	async fn set_route(&self, gateway: Address32, new_route: Route) -> Result<()> {
+	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
 		let tx = self.db.begin_write()?;
 		{
 			self.ensure_admin(&tx, gateway)?;
 			let mut t = tx.open_table(ROUTES)?;
-			let mut route = t
-				.remove((gateway, new_route.network_id))?
-				.map(|g| g.value())
-				.unwrap_or(new_route.clone());
-			route.gateway = new_route.gateway;
-			route.relative_gas_price = new_route.relative_gas_price;
-			route.gas_limit = new_route.gas_limit;
-			route.gmp_base_fee = new_route.gmp_base_fee;
 			t.insert((gateway, route.network_id), route)?;
 		}
 		tx.commit()?;

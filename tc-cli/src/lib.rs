@@ -863,15 +863,15 @@ impl Tc {
 					continue;
 				}
 				let config = self.config.network(dest)?;
-				let (numerator, denominator) = self.relative_gas_price(src, dest).await?;
+				let (numerator, denominator) = self.gas_price(src, dest).await?;
 				let route = Route {
 					network_id: dest,
 					gateway: dest_gateway,
-					relative_gas_price: (numerator, denominator),
-					gas_limit: config.route_gas_limit,
-					gmp_base_fee: config.route_base_fee,
-					base_gas: config.base_gas(),
+					max_gas_limit: config.route_max_gas_limit,
+					msg_gas: config.msg_gas(),
 					msg_byte_gas: config.msg_byte_gas(),
+					gas_price: (numerator, denominator),
+					msg_fee: config.route_msg_fee,
 				};
 				if routes.contains(&route) {
 					continue;

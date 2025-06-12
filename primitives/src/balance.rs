@@ -18,12 +18,12 @@ const SI_PREFIX: [(i8, char); 12] = [
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Currency {
-	pub decimals: u32,
+	pub decimals: u8,
 	pub symbol: String,
 }
 
 impl Currency {
-	pub fn new(decimals: u32, symbol: String) -> Self {
+	pub fn new(decimals: u8, symbol: String) -> Self {
 		Self { decimals, symbol }
 	}
 
@@ -32,7 +32,7 @@ impl Currency {
 			return format!("{} {}", balance, self.symbol);
 		};
 		let digits = balance.ilog10();
-		let rel_digits = digits as i64 - self.decimals as i64;
+		let rel_digits = digits as i32 - self.decimals as i32;
 		let unit = rel_digits / 3 * 3;
 		assert!((-18..=18).contains(&unit), "balance out of range {}", unit);
 		let unit = unit as i8;

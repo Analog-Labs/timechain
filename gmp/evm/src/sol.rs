@@ -65,12 +65,12 @@ impl From<time_primitives::Route> for Gateway::Route {
 		Self {
 			networkId: route.network_id,
 			gateway: route.gateway.into(),
-			relativeGasPriceNumerator: u256(&route.relative_gas_price.0.to_big_endian()),
-			relativeGasPriceDenominator: u256(&route.relative_gas_price.1.to_big_endian()),
-			gasLimit: route.gas_limit,
-			baseFee: route.gmp_base_fee,
-			gasCoef0: route.base_gas,
-			gasCoef1: route.msg_byte_gas,
+			maxGasLimit: route.max_gas_limit,
+			msgGas: route.msg_gas,
+			msgByteGas: route.msg_byte_gas,
+			gasPriceNumerator: route.gas_price.0,
+			gasPriceDenominator: route.gas_price.1,
+			msgFee: route.msg_fee,
 		}
 	}
 }
@@ -80,14 +80,11 @@ impl From<Gateway::Route> for time_primitives::Route {
 		Self {
 			network_id: route.networkId,
 			gateway: route.gateway.into(),
-			relative_gas_price: (
-				time_primitives::U256::from_big_endian(&bytes32(route.relativeGasPriceNumerator)),
-				time_primitives::U256::from_big_endian(&bytes32(route.relativeGasPriceDenominator)),
-			),
-			gas_limit: route.gasLimit,
-			gmp_base_fee: route.baseFee,
-			base_gas: route.gasCoef0,
-			msg_byte_gas: route.gasCoef1,
+			max_gas_limit: route.maxGasLimit,
+			msg_gas: route.msgGas,
+			msg_byte_gas: route.msgByteGas,
+			gas_price: (route.gasPriceNumerator, route.gasPriceDenominator),
+			msg_fee: route.msgFee,
 		}
 	}
 }

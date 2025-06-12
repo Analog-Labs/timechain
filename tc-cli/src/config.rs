@@ -227,27 +227,26 @@ pub struct NetworkConfig {
 	pub backend: Backend,
 	pub name: String,
 	pub url: String,
+	pub coin_id: u32,
+	pub currency_decimals: u8,
+	pub currency_symbol: String,
 	pub admin_funds: Option<String>,
 	pub gateway_funds: String,
 	pub chronicle_funds: String,
+	pub shard_size: u16,
+	pub shard_threshold: u16,
 	pub shard_task_limit: u32,
 	pub batch_size: u32,
 	pub batch_offset: u32,
 	pub batch_gas_limit: u64,
-	pub gmp_margin: f64,
-	pub route_gas_limit: u64,
-	pub route_base_fee: u128,
-	pub coin_id: u32,
-	pub shard_size: u16,
-	pub shard_threshold: u16,
+	pub route_max_gas_limit: u64,
+	pub route_msg_fee: u64,
 	pub batch_exec_gas: u64,
 	pub reg_op_exec_gas: u64,
 	pub unreg_op_exec_gas: u64,
 	pub msg_op_exec_gas: u64,
 	pub msg_session_gas: u64,
 	pub msg_byte_gas: u64,
-	pub currency_decimals: u32,
-	pub currency_symbol: String,
 	pub max_gas_price: u128,
 }
 
@@ -256,7 +255,7 @@ impl NetworkConfig {
 		self.shard_size - self.shard_threshold + 1
 	}
 
-	pub fn base_gas(&self) -> u64 {
+	pub fn msg_gas(&self) -> u64 {
 		self.num_sessions() as u64 * self.msg_session_gas
 			+ self.batch_exec_gas
 			+ self.msg_op_exec_gas
@@ -268,7 +267,7 @@ impl NetworkConfig {
 	}
 
 	pub fn gas(&self, msg_size: u16, gas_limit: u64) -> u64 {
-		self.msg_byte_gas() * msg_size as u64 + self.base_gas() + gas_limit
+		self.msg_byte_gas() * msg_size as u64 + self.msg_gas() + gas_limit
 	}
 }
 

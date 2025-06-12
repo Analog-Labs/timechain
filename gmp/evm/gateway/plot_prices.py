@@ -81,8 +81,7 @@ def main():
     ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
     
-    ax.yaxis.set_major_locator(MultipleLocator(2))
-    ax.yaxis.set_minor_locator(MultipleLocator(1))
+    ax.yaxis.set_major_locator(MultipleLocator(4))
     
     ax.grid(which='major', axis='both', linestyle='-', alpha=0.7)
     ax.grid(which='minor', axis='both', linestyle=':', alpha=0.4)

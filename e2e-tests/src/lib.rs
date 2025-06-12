@@ -293,9 +293,6 @@ impl TestEnvBuilder {
 			format!("--tx-db=/state/tx-db"),
 			format!("--tss-keyshare-cache=/state/tss"),
 		];
-		if backend == Backend::Evm {
-			cmd.push("--chain-dict=/etc/chains.json".to_string());
-		}
 		let guard = PORT_LOCK.lock().unwrap();
 		let chronicle_port = pick_free_port()?;
 		let chronicle = GenericImage::new("analoglabs/chronicle-develop", "latest")

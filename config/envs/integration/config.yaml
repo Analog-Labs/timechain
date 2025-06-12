@@ -5,10 +5,9 @@ config:
   testers_path: 'testers.csv'
 backends:
   evm:
-    chain_dict: "auxiliary/chains.json"
-    proxy: "contracts/ERC1967Proxy.sol/ERC1967Proxy.json"
-    gateway: "contracts/Gateway.sol/Gateway.json"
-    tester: "contracts/GmpProxy.sol/GmpProxy.json"
+    proxy: "evm/ERC1967Proxy.sol/ERC1967Proxy.json"
+    gateway: "evm/Gateway.sol/Gateway.json"
+    tester: "evm/GmpProxy.sol/GmpProxy.json"
 networks:
   10:
     backend: "evm"

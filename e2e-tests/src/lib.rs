@@ -282,7 +282,7 @@ impl TestEnvBuilder {
 		let chronicle_mount = self.temp.path().join(&chronicle_name);
 		std::fs::create_dir_all(&chronicle_mount)?;
 		let chronicle_name = format!("{}-{chronicle_name}", &self.network);
-		let mut cmd = vec![
+		let cmd = vec![
 			format!("--timechain-url=ws://{}:9944", &self.validator_name),
 			format!("--target-url={target_url}"),
 			format!("--backend={backend}"),

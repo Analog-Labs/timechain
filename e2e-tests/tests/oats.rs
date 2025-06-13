@@ -105,10 +105,12 @@ async fn oats_wrapped_evm() -> Result<()> {
 		.try_into()
 		.unwrap();
 
+	let mut contracts = vec![];
+
 	// Deploy Proxy+Token to every network: tx1, tx2;
 	// Mint some tokens;
 	// Upgrade to V2 implementation: tx3.
-	for (i, nw) in tc.networks(block).await?.into_iter().take(1).enumerate() {
+	for nw in tc.networks(block).await?.into_iter().take(1) {
 		let gw = nw.info.unwrap().gateway;
 		let nw_id = nw.network;
 		let c = env.chain_container(nw_id).unwrap();
@@ -171,24 +173,9 @@ async fn oats_wrapped_evm() -> Result<()> {
 		// Balances should stay unchanged
 		assert_eq!(v2.balanceOf(MINTER).call().await?, bal);
 		assert_eq!(v2.totalSupply().call().await?, supply);
+
+		contracts.push((nw_id, OATSSender::new(proxy, rpc.clone())));
 	}
-
-	// 	let token = OATSSenderCaller::deploy(
-	// 		rpc.clone(),
-	// 		"Omni Token".to_string(),
-	// 		"OMNI".to_string(),
-	// 		signer.address(),
-	// 		U256::from(CAP_AMOUNT),
-	// 		a_addr(gw),
-	// 	)
-	// 	.await?;
-
-	// 	let callee = Callee::deploy(rpc.clone(), *token.address()).await?;
-
-	// 	contracts.push((nw_id, token, callee, GAS_LIMIT_STEP * (i as u64 + 1)));
-	// }
-
-	// Err(anyhow!(""))
 
 	Ok(())
 }
@@ -318,6 +305,8 @@ async fn oats_sender_caller_evm() -> Result<()> {
 
 	Ok(())
 }
+
+//async fn test_sender()
 
 #[tokio::test]
 async fn oats_sender_evm() -> Result<()> {

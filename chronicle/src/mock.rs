@@ -198,7 +198,7 @@ impl Runtime for Mock {
 			.map(|network| network.chain_name.clone()))
 	}
 
-	async fn network_gas_price(&self, network: NetworkId, _: BlockHash) -> Result<u128> {
+	async fn network_gas_price(&self, _: NetworkId, _: BlockHash) -> Result<u128> {
 		Ok(100)
 	}
 

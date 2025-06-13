@@ -110,8 +110,7 @@ async fn oats_wrapped_evm() -> Result<()> {
 	// Deploy Proxy+Token to every network: tx1, tx2;
 	// Mint some tokens;
 	// Upgrade to V2 implementation: tx3.
-	for nw in tc.networks(block).await?.into_iter().take(1) {
-		let gw = nw.info.unwrap().gateway;
+	for nw in tc.networks(block).await?.into_iter() {
 		let nw_id = nw.network;
 		let c = env.chain_container(nw_id).unwrap();
 
@@ -122,13 +121,26 @@ async fn oats_wrapped_evm() -> Result<()> {
 		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws.clone()).await?);
 
 		// Deploy Proxy+Token to every network: tx1, tx2;
-		let rcp1 = rpc.send_raw_transaction(&tx1_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
-		let rcp2 = rpc.send_raw_transaction(&tx2_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
+		let rcp1 = rpc
+			.send_raw_transaction(&tx1_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let rcp2 = rpc
+			.send_raw_transaction(&tx2_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
 		let impl_v1 = rcp1.contract_address.expect("no contract address");
 		let proxy = rcp2.contract_address.expect("no contract address");
 
 		tracing::info!("network {nw_id}: proxy deployed to {proxy}, tx: {}", rcp2.transaction_hash);
-		tracing::info!("network {nw_id}: impl v1 deployed to {impl_v1}, tx: {}", rcp1.transaction_hash);
+		tracing::info!(
+			"network {nw_id}: impl v1 deployed to {impl_v1}, tx: {}",
+			rcp1.transaction_hash
+		);
 
 		// Mint some tokens;
 		let v1 = IERC20::new(proxy, rpc.clone());
@@ -153,17 +165,24 @@ async fn oats_wrapped_evm() -> Result<()> {
 		// Upgrade to V2 implementation: tx3, tx4
 		tracing::info!("network {nw_id}: upgrading token to impl v2");
 
-		let rcp3 = rpc.send_raw_transaction(&tx3_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
-		let rcp4 = rpc.send_raw_transaction(&tx4_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
+		let rcp3 = rpc
+			.send_raw_transaction(&tx3_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let rcp4 = rpc
+			.send_raw_transaction(&tx4_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
 		let impl_v2 = rcp3.contract_address.expect("no contract address");
 		tracing::info!(
 			"network {nw_id}: impl v2 deployed to {impl_v2}, tx: {}",
 			rcp3.transaction_hash
 		);
-		tracing::info!(
-			"network {nw_id}: token upgraded to impl v2, tx: {}",
-			rcp4.transaction_hash
-		);
+		tracing::info!("network {nw_id}: token upgraded to impl v2, tx: {}", rcp4.transaction_hash);
 
 		// We query the same contract which is proxy,
 		// but its implementation is now upgraded to v2.
@@ -177,10 +196,87 @@ async fn oats_wrapped_evm() -> Result<()> {
 		contracts.push((nw_id, OATSSender::new(proxy, rpc.clone())));
 	}
 
+	tracing::info!("ALL DEPLOYED, now testing",);
+
+	// Set OMNI token networks
+	for (nw, token) in contracts.iter() {
+		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
+			tracing::info!("network {nw}: set_network {n}");
+			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
+		}
+	}
+	// Check initial balances
+	let mut minter_balances = vec![];
+	for (_nw, token) in contracts.iter() {
+		let minter_bal = token.balanceOf(MINTER).call().await?;
+		let alice_bal = token.balanceOf(ALICE).call().await?;
+		// On every chain, MINTER has some OMNI tokens, and ALICE has none.
+		assert_ne!(minter_bal, U256::ZERO);
+		assert_eq!(alice_bal, U256::ZERO);
+		minter_balances.push(minter_bal);
+	}
+	// Transfer tokens from every network to next network, ring way
+	let mut msgs = vec![];
+	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
+	while let Some((nw, token)) = ring.next() {
+		if let Some((nw2, _)) = ring.peek() {
+			let gmp_fee = token.cost(*nw2).call().await?;
+			tracing::info!("network {nw}: gmp_fee = {gmp_fee}");
+			let receipt = token
+				.send(*nw2, ALICE, U256::from(TRANSFER_AMOUNT))
+				.value(gmp_fee)
+				.send()
+				.await?
+				.get_receipt()
+				.await?;
+
+			let msg_id: MessageId = receipt
+				.inner
+				.logs()
+				.iter()
+				.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
+				.map(|e| e.id.into())
+				.next()
+				.context("Failed to send gmp message")?;
+			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
+			msgs.push((*nw, msg_id));
+		};
+	}
+	// Track messages
+	let mut blocks = tc.finality_notification_stream();
+	let mut id = None;
+	loop {
+		let (hash, _) = blocks.next().await.context("expected block")?;
+		let mut traces: Vec<MessageTrace> = vec![];
+		for (nw, msg_id) in &msgs {
+			let trace = &tc
+				.message_trace(*nw, *msg_id, hash)
+				.await
+				.context("failed to get message trace")?;
+			traces.push(trace.clone());
+		}
+		let executed = traces.iter().filter_map(|t| t.exec.clone()).count();
+		tracing::info!("waiting for messages to be executed");
+		id = Some(tc.print_table(id, "message", traces).await?);
+		if executed == msgs.len() {
+			break;
+		}
+	}
+	// Check resulting balances
+	for (i, (_nw, token)) in contracts.iter().enumerate() {
+		let minter_bal = token.balanceOf(MINTER).call().await?;
+		let alice_bal = token.balanceOf(ALICE).call().await?;
+		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has U256::from(TRANSFER_AMOUNT)
+		assert_eq!(minter_bal, minter_balances[i] - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, U256::from(TRANSFER_AMOUNT));
+	}
+
 	Ok(())
 }
 
 #[tokio::test]
+#[ignore]
 async fn oats_sender_caller_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;

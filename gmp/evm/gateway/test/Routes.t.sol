@@ -13,8 +13,8 @@ contract RouteStoreTest is Test {
     bytes32 constant TEST_GATEWAY = bytes32(uint256(0x1));
     uint64 constant TEST_GAS_LIMIT = 500_000;
     uint64 constant TEST_BASE_FEE = 0.01 ether;
-    uint64 constant TEST_NUMERATOR = 15;
-    uint64 constant TEST_DENOMINATOR = 10;
+    uint64 constant TEST_MANTISSA = 1;
+    int16 constant TEST_EXPONENT = 0;
     uint64 constant TEST_GAS_COEFF0 = 10;
     uint64 constant TEST_GAS_COEFF1 = 10;
 
@@ -52,8 +52,8 @@ contract RouteStoreTest is Test {
             maxGasLimit: TEST_GAS_LIMIT,
             msgGas: TEST_GAS_COEFF0,
             msgByteGas: TEST_GAS_COEFF1,
-            gasPriceNumerator: TEST_NUMERATOR,
-            gasPriceDenominator: TEST_DENOMINATOR,
+            gasPriceMantissa: TEST_MANTISSA,
+            gasPriceExponent: TEST_EXPONENT,
             msgFee: TEST_BASE_FEE
         });
     }
@@ -74,7 +74,8 @@ contract RouteStoreTest is Test {
         Route memory updatedRoute = getRoute();
         updatedRoute.maxGasLimit = updatedRoute.maxGasLimit * 2;
         updatedRoute.msgFee = updatedRoute.msgFee * 2;
-        updatedRoute.gasPriceNumerator = updatedRoute.gasPriceNumerator * 3;
+        updatedRoute.gasPriceMantissa = updatedRoute.gasPriceMantissa * 3;
+        updatedRoute.gasPriceExponent = updatedRoute.gasPriceExponent * 3;
 
         vm.expectEmit(true, true, true, true);
         emit RouteStore.RouteUpdated(
@@ -83,8 +84,8 @@ contract RouteStoreTest is Test {
             updatedRoute.maxGasLimit,
             updatedRoute.msgGas,
             updatedRoute.msgByteGas,
-            updatedRoute.gasPriceNumerator,
-            updatedRoute.gasPriceDenominator,
+            updatedRoute.gasPriceMantissa,
+            updatedRoute.gasPriceExponent,
             updatedRoute.msgFee
         );
 
@@ -104,8 +105,8 @@ contract RouteStoreTest is Test {
                 maxGasLimit: uint64(i) * 100_000,
                 msgGas: i * 3,
                 msgByteGas: i * 3,
-                gasPriceNumerator: i * 2,
-                gasPriceDenominator: i * 3,
+                gasPriceMantissa: i * 2,
+                gasPriceExponent: int16(i) * 3,
                 msgFee: i * 0.01 ether
             });
             insertRouteCall(r);

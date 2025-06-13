@@ -296,7 +296,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         // Cap the GMP gas limit to 50% of the block gas limit
         // OBS: we assume the remaining 50% is enough for the Gateway execution, which is a safe assumption
         // once most EVM blockchains have gas limits above 10M and don't need more than 60k gas for the Gateway execution.
-        uint256 gasLimit = callback.gasLimit.min(block.gaslimit >> 1);
+        uint256 gasLimit = callback.gasLimit;
         unchecked {
             // Add `all but one 64th` to the gas needed, as the defined by EIP-150
             // https://eips.ethereum.org/EIPS/eip-150
@@ -439,10 +439,9 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
      * increase the cost exponentially.
      * @return (uint256, bytes32) Returns a tuple containing the maximum amount of memory used in bytes and the operations root hash.
      */
-    function _executeCommands(GatewayOp[] calldata operations, bool dry) private returns (uint256, bytes32) {
+    function _executeCommands(GatewayOp[] calldata operations, bool dry) private returns (bytes32) {
         // Track the free memory pointer, to reset the memory after each command executed.
         uint256 freeMemPointer = PrimitiveUtils.readAllocatedMemory();
-        uint256 maxAllocatedMemory = freeMemPointer;
 
         // Create the Command LookUp Table
         CommandsLookUpTable lut = _buildCommandsLUT();
@@ -463,16 +462,10 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
                 PrimitiveUtils.hash(uint256(operationsRootHash), uint256(operation.command), uint256(operationHash));
 
             // Restore the memory, to prevent the memory expansion costs to increase exponentially.
-            uint256 newFreeMemPointer = PrimitiveUtils.unsafeReplaceAllocatedMemory(freeMemPointer);
-
-            // Update the Max Allocated Memory
-            maxAllocatedMemory = maxAllocatedMemory.max(newFreeMemPointer);
+            PrimitiveUtils.writeAllocatedMemory(freeMemPointer);
         }
 
-        // Compute what was the maximum amount of memory used in bytes
-        maxAllocatedMemory = maxAllocatedMemory - freeMemPointer;
-
-        return (maxAllocatedMemory, operationsRootHash);
+        return operationsRootHash;
     }
 
     /**
@@ -498,7 +491,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         _signingSessions[batch.batchId] = numSigningSessions;
 
         // Execute the commands and compute the operations root hash
-        (, bytes32 rootHash) = _executeCommands(batch.ops, dry);
+        bytes32 rootHash = _executeCommands(batch.ops, dry);
 
         // Compute the Batch signing hash
         rootHash = PrimitiveUtils.hash(batch.version, batch.batchId, uint256(rootHash));
@@ -515,7 +508,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         // Refund the chronicle gas
         unchecked {
             // Extra gas overhead used to execute the refund logic + selector overhead
-            uint256 gasUsed = 7745;
+            uint256 gasUsed = 7687;
 
             // Compute the gas used + base cost + proxy overhead
             gasUsed += GasUtils.txBaseGas();
@@ -523,7 +516,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
             gasUsed += initialGas - gasleft();
 
             // Compute refund amount
-            uint256 refund = (gasUsed * tx.gasprice).min(address(this).balance);
+            uint256 refund = gasUsed * tx.gasprice;
 
             // Refund the gas used
             assembly ("memory-safe") {

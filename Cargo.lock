@@ -6559,6 +6559,7 @@ dependencies = [
  "governor 0.5.1",
  "hex",
  "hex-literal 1.0.0",
+ "num-traits",
  "reqwest",
  "serde",
  "serde_json",
@@ -20339,7 +20340,6 @@ dependencies = [
  "schnorr-evm",
  "serde",
  "sha3",
- "uint 0.10.0",
 ]
 
 [[package]]

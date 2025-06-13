@@ -337,7 +337,7 @@ impl std::fmt::Display for GmpEvent {
 }
 
 #[cfg(feature = "std")]
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Route {
 	/// Destination network Id
 	pub network_id: NetworkId,
@@ -350,7 +350,7 @@ pub struct Route {
 	/// Gas per message byte.
 	pub msg_byte_gas: u64,
 	/// Gas price on destination network, expressed in source network token
-	pub gas_price: (u64, u64),
+	pub gas_price: f64,
 	/// GMP protocol fee for message delivery to the destination network, expressed in source network token
 	pub msg_fee: u64,
 }

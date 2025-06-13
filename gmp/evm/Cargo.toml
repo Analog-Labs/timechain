@@ -24,3 +24,4 @@ time-primitives = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["time"] }
 tracing.workspace = true
 governor = "0.5.1"
+num-traits = "0.2.19"

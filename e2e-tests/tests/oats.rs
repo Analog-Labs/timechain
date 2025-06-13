@@ -1,3 +1,4 @@
+use alloy::primitives::utils::format_units;
 use alloy::primitives::{address, Bytes};
 use alloy::providers::{Provider, WsConnect};
 use alloy::sol;
@@ -20,7 +21,8 @@ use time_primitives::{Address32, MessageId};
 // Anvil's default accounts
 const ALICE: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 const ALICE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const BOB: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+const MINTER: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+const MINTER_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 const TRANSFER_AMOUNT: u64 = 10u64.pow(18);
 const CAP_AMOUNT: u64 = 5 * TRANSFER_AMOUNT;
@@ -62,6 +64,18 @@ sol! {
 	 }
 }
 
+sol! {
+	#[allow(missing_docs)]
+	#[sol(rpc)]
+	interface IERC20 {
+		function mint(address to, uint256 amount) public;
+		function balanceOf(address account) external view returns (uint256);
+		function totalSupply() external view returns (uint256);
+		function decimals() public pure override returns (uint8);
+		function symbol() public view virtual returns (string memory);
+	}
+}
+
 type Address20 = alloy::primitives::Address;
 
 fn a_addr(address: Address32) -> Address20 {
@@ -70,6 +84,8 @@ fn a_addr(address: Address32) -> Address20 {
 
 #[tokio::test]
 async fn wanlog_evm() -> Result<()> {
+	const MINT_AMOUNT: u64 = TRANSFER_AMOUNT * 2;
+
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
 
@@ -78,7 +94,7 @@ async fn wanlog_evm() -> Result<()> {
 	let mut txs_hex = String::new();
 	file.read_to_string(&mut txs_hex)?;
 
-	let [tx1_raw, tx2_raw] = txs_hex
+	let [tx1_raw, tx2_raw, tx3_raw] = txs_hex
 		.split(",")
 		.into_iter()
 		.map(|s| s.trim())
@@ -87,7 +103,9 @@ async fn wanlog_evm() -> Result<()> {
 		.try_into()
 		.unwrap();
 
-	// Deploy Proxy+Token to every network
+	// Deploy Proxy+Token to every network: tx1, tx2;
+	// Mint some tokens;
+	// Upgrade to V2 implementaion: tx3.
 	for (i, nw) in tc.networks(block).await?.into_iter().take(1).enumerate() {
 		let gw = nw.info.unwrap().gateway;
 		let nw_id = nw.network;
@@ -95,32 +113,47 @@ async fn wanlog_evm() -> Result<()> {
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
 		let ws = WsConnect::new(format!("ws://localhost:{port}"));
-		let signer: PrivateKeySigner = ALICE_KEY.parse()?;
+		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
 		let wallet = EthereumWallet::from(signer.clone());
 		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
 
+		// Deploy Proxy+Token to every network: tx1, tx2;
 		let pending1 = rpc.send_raw_transaction(&tx1_raw).await?;
 		let pending2 = rpc.send_raw_transaction(&tx2_raw).await?;
-
 		let tx1_hash = pending1.watch().await?;
 		let tx2_hash = pending2.watch().await?;
 
 		let rcp1 = rpc
-        .get_transaction_receipt(tx1_hash)
-        .await?
-        .expect("no deployment receipt for tx1");
-		let address1 = rcp1.contract_address.expect("no contract address");
+			.get_transaction_receipt(tx1_hash)
+			.await?
+			.expect("no deployment receipt for tx1");
+		let impl_v1 = rcp1.contract_address.expect("no contract address");
 		let rcp2 = rpc
-        .get_transaction_receipt(tx2_hash)
-        .await?
-        .expect("no deployment receipt for tx2");
-		let address2 = rcp2.contract_address.expect("no contract address");
+			.get_transaction_receipt(tx2_hash)
+			.await?
+			.expect("no deployment receipt for tx2");
+		let proxy = rcp2.contract_address.expect("no contract address");
 
-		println!("tx1 hash: {tx1_hash}, contract deployed to {address1}");
-		println!("tx2 hash: {tx2_hash}, contract deployed to {address2}");
+		tracing::info!("network {nw_id}: proxy deployed to {proxy}, tx: {tx2_hash}");
+		tracing::info!("network {nw_id}: impl v1 deployed to {impl_v1}, tx: {tx1_hash}");
 
-		loop {}
+		// Mint some tokens;
+		let v1 = IERC20::new(proxy, rpc.clone());
+		let _rcp = v1.mint(MINTER, U256::from(MINT_AMOUNT)).send().await?.get_receipt().await?;
+
+		let bal = v1.balanceOf(MINTER).call().await?;
+		assert_eq!(bal, U256::from(MINT_AMOUNT));
+		let supply = v1.totalSupply().call().await?;
+		assert_eq!(supply, U256::from(MINT_AMOUNT));
+
+		let decimals = v1.decimals().call().await?;
+		let ticker = v1.symbol().call().await?;
+		tracing::info!(
+			"network {nw_id}: minted {:.6} {ticker} to {MINTER}",
+			format_units(bal, decimals)?
+		);
 	}
+
 	// 	let token = OATSSenderCaller::deploy(
 	// 		rpc.clone(),
 	// 		"Omni Token".to_string(),
@@ -185,8 +218,8 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	let mut alice_balances = vec![];
 	for (_nw, token, callee, _) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE has some OMNI tokens, and BOB has none.
+		let bob_bal = token.balanceOf(MINTER).call().await?;
+		// On every chain, ALICE has some OMNI tokens, and MINTER has none.
 		assert_ne!(alice_bal, U256::ZERO);
 		assert_eq!(bob_bal, U256::ZERO);
 		alice_balances.push(alice_bal);
@@ -202,7 +235,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 			let receipt = token
 				.sendAndCall(
 					*nw2,
-					BOB,
+					MINTER,
 					U256::from(TRANSFER_AMOUNT),
 					*gas_limit,
 					*callee.address(),
@@ -250,14 +283,14 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	// Check resulting balances
 	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
+		let bob_bal = token.balanceOf(MINTER).call().await?;
 		// On every chain, ALICE now has -=TRANSFER_AMOUNT
 		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
 		let received_amount = if i == 1 {
-			// insufficient gas_limit: call fails, BOB gets 0
+			// insufficient gas_limit: call fails, MINTER gets 0
 			U256::ZERO
 		} else {
-			// sufficient gas_limit: call succeeds, BOB gets TRANSFER_AMOUNT
+			// sufficient gas_limit: call succeeds, MINTER gets TRANSFER_AMOUNT
 			U256::from(TRANSFER_AMOUNT)
 		};
 		assert_eq!(callee.total().call().await?, received_amount);
@@ -307,8 +340,8 @@ async fn oats_sender_evm() -> Result<()> {
 	let mut alice_balances = vec![];
 	for (_nw, token) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE has some OMNI tokens, and BOB has none.
+		let bob_bal = token.balanceOf(MINTER).call().await?;
+		// On every chain, ALICE has some OMNI tokens, and MINTER has none.
 		assert_ne!(alice_bal, U256::ZERO);
 		assert_eq!(bob_bal, U256::ZERO);
 		alice_balances.push(alice_bal);
@@ -320,7 +353,7 @@ async fn oats_sender_evm() -> Result<()> {
 		if let Some((nw2, _)) = ring.peek() {
 			let gmp_fee = token.cost(*nw2).call().await?;
 			let receipt = token
-				.send(*nw2, BOB, U256::from(TRANSFER_AMOUNT))
+				.send(*nw2, MINTER, U256::from(TRANSFER_AMOUNT))
 				.value(gmp_fee)
 				.send()
 				.await?
@@ -363,8 +396,8 @@ async fn oats_sender_evm() -> Result<()> {
 	// Check resulting balances
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE now has -=U256::from(TRANSFER_AMOUNT), BOB has U256::from(TRANSFER_AMOUNT)
+		let bob_bal = token.balanceOf(MINTER).call().await?;
+		// On every chain, ALICE now has -=U256::from(TRANSFER_AMOUNT), MINTER has U256::from(TRANSFER_AMOUNT)
 		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
 		assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
 	}

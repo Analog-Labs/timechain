@@ -95,9 +95,6 @@ enum Command {
 	},
 	FailedBatches,
 	PendingBatches,
-	MaxFeePerGas {
-		network: NetworkId,
-	},
 	Batch {
 		batch: BatchId,
 	},
@@ -299,14 +296,6 @@ async fn real_main() -> Result<()> {
 		Command::PendingBatches => {
 			let batches = tc.pending_batches(block).await?;
 			tc.print_table(None, "pending-batches", batches).await?;
-		},
-		Command::MaxFeePerGas { network } => {
-			let fee = tc.max_fee_per_gas(network).await?;
-			tc.println(
-				None,
-				format!("EIP1559 max_fee_per_gas for network: {} is : {}", network, fee),
-			)
-			.await?;
 		},
 		Command::Batch { batch } => {
 			let mut batch = tc.batch(batch, block).await?;

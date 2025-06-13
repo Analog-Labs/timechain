@@ -138,6 +138,12 @@ impl IConnector for Connector {
 			.map_err(|err| err.message().to_string())?;
 		Ok(())
 	}
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128> {
+		let request = Request::new(proto::MaxFeePerGasRequest {});
+		let response = self.client.lock().await.max_fee_per_gas(request).await?.into_inner();
+		Ok(response.fee)
+	}
 }
 
 #[tonic::async_trait]
@@ -305,12 +311,6 @@ impl IConnectorAdmin for Connector {
 		});
 		let response = self.client.lock().await.recv_messages(request).await?.into_inner();
 		Ok(response.messages)
-	}
-	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		let request = Request::new(proto::MaxFeePerGasRequest {});
-		let response = self.client.lock().await.max_fee_per_gas(request).await?.into_inner();
-		Ok(response.fee)
 	}
 
 	/// Returns gas limit of latest block.

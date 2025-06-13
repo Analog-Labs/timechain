@@ -70,4 +70,11 @@ impl SubxtClient {
 		let data = self.client.runtime_api().at(block).call(runtime_call).await?.0;
 		Ok(data)
 	}
+
+	pub async fn network_gas_price(&self, network: NetworkId, block: BlockHash) -> Result<u128> {
+		let block = H256(block.0);
+		let runtime_call = metadata::apis().networks_api().network_gas_price(network);
+		let data = self.client.runtime_api().at(block).call(runtime_call).await?;
+		Ok(data)
+	}
 }

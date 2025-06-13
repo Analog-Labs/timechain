@@ -282,6 +282,10 @@ impl IConnector for Connector {
 		})()
 		.map_err(|err: anyhow::Error| err.to_string())
 	}
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128> {
+		Ok(1)
+	}
 }
 
 #[async_trait::async_trait]
@@ -501,10 +505,6 @@ impl IConnectorAdmin for Connector {
 			}
 		}
 		Ok(msgs)
-	}
-	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		Ok(1)
 	}
 
 	/// Returns gas limit of latest block.

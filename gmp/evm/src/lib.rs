@@ -244,6 +244,11 @@ impl IConnector for Connector {
 		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
 	}
+
+	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
+	async fn max_fee_per_gas(&self) -> Result<u128> {
+		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
+	}
 }
 
 #[async_trait]
@@ -476,11 +481,6 @@ impl IConnectorAdmin for Connector {
 			.filter_map(|e| GmpProxy::MessageReceived::decode_log_data(e.data()).ok())
 			.map(|e| e.msg.into())
 			.collect::<Vec<_>>())
-	}
-
-	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
 	}
 
 	/// Returns gas limit of latest block

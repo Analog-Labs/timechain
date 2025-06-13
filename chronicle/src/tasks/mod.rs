@@ -146,16 +146,27 @@ impl TaskParams {
 					.context("invalid shard")?
 					.0[0];
 				tracing::info!(parent: &span, "submitting batch");
-				if let Err(mut e) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
-				{
-					tracing::error!(parent: &span, "Error while executing batch: {e}");
-					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-					let result = TaskResult::SubmitGatewayMessage {
-						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-					};
-					tracing::debug!(parent: &span, "submitting task result");
-					self.runtime.submit_task_result(task_id, result).await?;
+				let max_gas_price =
+					self.runtime.get_network_gas_price(network_id, block_hash).await?;
+				let current_gas_price = self.connector.max_fee_per_gas().await?;
+				if current_gas_price <= max_gas_price {
+					tracing::info!(parent: &span, "current_gas price: {current_gas_price} <= max_gas_price: {max_gas_price}");
+					if let Err(mut e) = self
+						.connector
+						.submit_commands(gateway, batch_id, msg, signer, signature)
+						.await
+					{
+						tracing::error!(parent: &span, "Error while executing batch: {e}");
+						e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
+						let result = TaskResult::SubmitGatewayMessage {
+							error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
+						};
+						tracing::debug!(parent: &span, "submitting task result");
+						self.runtime.submit_task_result(task_id, result).await?;
+					}
+				} else {
+					// Alert gas price is high
+					tracing::warn!(parent: &span, "current_gas price: {current_gas_price} > max_gas_price: {max_gas_price}");
 				}
 			},
 		}

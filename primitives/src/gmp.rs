@@ -393,6 +393,8 @@ pub trait IConnector: Send + Sync + 'static {
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String>;
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn max_fee_per_gas(&self) -> Result<u128>;
 }
 
 #[cfg(feature = "std")]
@@ -459,8 +461,6 @@ pub trait IConnectorAdmin: IConnector {
 		contract: Address32,
 		blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>>;
-	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
-	async fn max_fee_per_gas(&self) -> Result<u128>;
 	/// Calculate returns the latest block gas_limit for a chain.
 	async fn block_gas_limit(&self) -> Result<u64>;
 	/// Withdraw gateway funds.

@@ -132,7 +132,7 @@ pub async fn run_chronicle(
 	// Initialize connector
 	let chain = loop {
 		let Some((hash, _)) = ticker.next().await else { continue };
-		let name = substrate.get_network(config.network_id, hash).await?;
+		let name = substrate.network(config.network_id, hash).await?;
 		if let Some(name) = name {
 			break String::decode(&mut name.0.to_vec().as_slice()).unwrap_or_default();
 		}

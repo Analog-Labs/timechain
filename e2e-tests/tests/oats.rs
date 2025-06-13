@@ -14,6 +14,7 @@ use gmp::Gateway;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tc_cli::MessageTrace;
 use time_primitives::{Address32, MessageId};
@@ -25,7 +26,7 @@ const MINTER: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 const MINTER_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 const TRANSFER_AMOUNT: u64 = 10u64.pow(18);
-const CAP_AMOUNT: u64 = 5 * TRANSFER_AMOUNT;
+const CAP_AMOUNT: u64 = 10 * TRANSFER_AMOUNT;
 
 // Codegen from ABI file to interact with the contract.
 sol!(
@@ -73,6 +74,7 @@ sol! {
 		function totalSupply() external view returns (uint256);
 		function decimals() public pure override returns (uint8);
 		function symbol() public view virtual returns (string memory);
+		function cap() public view virtual returns (uint256);
 	}
 }
 
@@ -83,7 +85,7 @@ fn a_addr(address: Address32) -> Address20 {
 }
 
 #[tokio::test]
-async fn wanlog_evm() -> Result<()> {
+async fn oats_wrapped_evm() -> Result<()> {
 	const MINT_AMOUNT: u64 = TRANSFER_AMOUNT * 2;
 
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
@@ -94,7 +96,7 @@ async fn wanlog_evm() -> Result<()> {
 	let mut txs_hex = String::new();
 	file.read_to_string(&mut txs_hex)?;
 
-	let [tx1_raw, tx2_raw, tx3_raw] = txs_hex
+	let [tx1_raw, tx2_raw, tx3_raw, tx4_raw] = txs_hex
 		.split(",")
 		.into_iter()
 		.map(|s| s.trim())
@@ -105,7 +107,7 @@ async fn wanlog_evm() -> Result<()> {
 
 	// Deploy Proxy+Token to every network: tx1, tx2;
 	// Mint some tokens;
-	// Upgrade to V2 implementaion: tx3.
+	// Upgrade to V2 implementation: tx3.
 	for (i, nw) in tc.networks(block).await?.into_iter().take(1).enumerate() {
 		let gw = nw.info.unwrap().gateway;
 		let nw_id = nw.network;
@@ -115,27 +117,16 @@ async fn wanlog_evm() -> Result<()> {
 		let ws = WsConnect::new(format!("ws://localhost:{port}"));
 		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
 		let wallet = EthereumWallet::from(signer.clone());
-		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
+		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws.clone()).await?);
 
 		// Deploy Proxy+Token to every network: tx1, tx2;
-		let pending1 = rpc.send_raw_transaction(&tx1_raw).await?;
-		let pending2 = rpc.send_raw_transaction(&tx2_raw).await?;
-		let tx1_hash = pending1.watch().await?;
-		let tx2_hash = pending2.watch().await?;
-
-		let rcp1 = rpc
-			.get_transaction_receipt(tx1_hash)
-			.await?
-			.expect("no deployment receipt for tx1");
+		let rcp1 = rpc.send_raw_transaction(&tx1_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
+		let rcp2 = rpc.send_raw_transaction(&tx2_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
 		let impl_v1 = rcp1.contract_address.expect("no contract address");
-		let rcp2 = rpc
-			.get_transaction_receipt(tx2_hash)
-			.await?
-			.expect("no deployment receipt for tx2");
 		let proxy = rcp2.contract_address.expect("no contract address");
 
-		tracing::info!("network {nw_id}: proxy deployed to {proxy}, tx: {tx2_hash}");
-		tracing::info!("network {nw_id}: impl v1 deployed to {impl_v1}, tx: {tx1_hash}");
+		tracing::info!("network {nw_id}: proxy deployed to {proxy}, tx: {}", rcp2.transaction_hash);
+		tracing::info!("network {nw_id}: impl v1 deployed to {impl_v1}, tx: {}", rcp1.transaction_hash);
 
 		// Mint some tokens;
 		let v1 = IERC20::new(proxy, rpc.clone());
@@ -152,6 +143,34 @@ async fn wanlog_evm() -> Result<()> {
 			"network {nw_id}: minted {:.6} {ticker} to {MINTER}",
 			format_units(bal, decimals)?
 		);
+
+		// v1 does not have cap() method,
+		// therefore this should fail
+		assert!(v1.cap().call().await.is_err());
+
+		// Upgrade to V2 implementation: tx3, tx4
+		tracing::info!("network {nw_id}: upgrading token to impl v2");
+
+		let rcp3 = rpc.send_raw_transaction(&tx3_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
+		let rcp4 = rpc.send_raw_transaction(&tx4_raw).await?.with_timeout(Some(Duration::from_secs(10))).get_receipt().await?;
+		let impl_v2 = rcp3.contract_address.expect("no contract address");
+		tracing::info!(
+			"network {nw_id}: impl v2 deployed to {impl_v2}, tx: {}",
+			rcp3.transaction_hash
+		);
+		tracing::info!(
+			"network {nw_id}: token upgraded to impl v2, tx: {}",
+			rcp4.transaction_hash
+		);
+
+		// We query the same contract which is proxy,
+		// but its implementation is now upgraded to v2.
+		let v2 = v1;
+		// v2 now has cap() method
+		assert_eq!(v2.cap().call().await?, U256::from(CAP_AMOUNT));
+		// Balances should stay unchanged
+		assert_eq!(v2.balanceOf(MINTER).call().await?, bal);
+		assert_eq!(v2.totalSupply().call().await?, supply);
 	}
 
 	// 	let token = OATSSenderCaller::deploy(

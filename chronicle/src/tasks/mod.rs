@@ -45,6 +45,14 @@ impl TaskParams {
 		Ok(block)
 	}
 
+	async fn gas_price(&self) -> Result<u128> {
+		let gas_price = self.connector.gas_price().await?;
+		if let Err(e) = self.admin.clone().send(AdminMsg::NewGasPrice(gas_price)).await {
+			event!(Level::ERROR, "Admin request error: {e:?}");
+		};
+		Ok(block)
+	}
+
 	async fn tss_sign(
 		&self,
 		block: BlockNumber,
@@ -109,7 +117,7 @@ impl TaskParams {
 		);
 		event!(parent: &span, Level::DEBUG, "executing task");
 		let max_gas_price = self.runtime.network_gas_price(network_id, block_hash).await?;
-		let current_gas_price = self.connector.gas_price().await?;
+		let current_gas_price = self.gas_price().await?;
 		if current_gas_price <= max_gas_price {
 			tracing::info!(parent: &span, "current_gas price: {current_gas_price} <= max_gas_price: {max_gas_price}");
 			match task {
@@ -166,7 +174,6 @@ impl TaskParams {
 				},
 			}
 		} else {
-			// Alert gas price is high
 			tracing::warn!(parent: &span, "current_gas price: {current_gas_price} > max_gas_price: {max_gas_price}");
 		}
 		Ok(())

@@ -303,7 +303,7 @@ mod tests {
 		// Wait for the shard to be online.
 		loop {
 			tracing::info!("waiting for shard");
-			if mock.get_shard_status(shard_id, block).await.unwrap() != ShardStatus::Online {
+			if mock.shard_status(shard_id, block).await.unwrap() != ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}
@@ -363,7 +363,7 @@ mod tests {
 		// Wait for the shard to be online.
 		loop {
 			tracing::info!("waiting for shard");
-			if mock.get_shard_status(shard_id, block).await.unwrap() != ShardStatus::Online {
+			if mock.shard_status(shard_id, block).await.unwrap() != ShardStatus::Online {
 				tokio::time::sleep(Duration::from_secs(1)).await;
 				continue;
 			}

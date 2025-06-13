@@ -116,65 +116,56 @@ impl TaskParams {
 			gmp_task = %task,
 		);
 		event!(parent: &span, Level::DEBUG, "executing task");
-		let max_gas_price = self.runtime.network_gas_price(network_id, block_hash).await?;
-		let current_gas_price = self.gas_price().await?;
-		if current_gas_price <= max_gas_price {
-			tracing::info!(parent: &span, "current_gas price: {current_gas_price} <= max_gas_price: {max_gas_price}");
-			match task {
-				Task::ReadGatewayEvents { blocks } => {
-					tracing::info!(parent: &span, "Starting ReadGatewayEvents({:?})", &blocks);
-					let events = self
-						.connector
-						.read_events(gateway, blocks)
-						.instrument(span.clone())
-						.await
-						.context("read_events")?;
-					tracing::info!(parent: &span, "Completed read {} events", events.len());
-					let mut remaining = true;
-					for chunk in events.chunks(MAX_GMP_EVENTS as _) {
-						remaining = chunk.len() != MAX_GMP_EVENTS as usize;
-						self.submit_events(block_number, shard_id, task_id, chunk.to_vec(), &span)
-							.await?;
-					}
-					if remaining {
-						self.submit_events(block_number, shard_id, task_id, vec![], &span).await?;
-					}
-				},
-				Task::SubmitGatewayMessage { batch_id } => {
-					let span =
-						span!(parent: &span, Level::INFO, "submit_batch", gmp_batch_id = batch_id);
-					let msg = self
-						.runtime
-						.get_batch_message(batch_id, block_hash)
-						.await?
-						.context("invalid task")?;
-					let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
-					let signature =
-						self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
-					let signer = self
-						.runtime
-						.get_shard_commitment(shard_id, block_hash)
-						.await?
-						.context("invalid shard")?
-						.0[0];
-					tracing::info!(parent: &span, "submitting batch");
-					if let Err(mut e) = self
-						.connector
-						.submit_commands(gateway, batch_id, msg, signer, signature)
-						.await
-					{
-						tracing::error!(parent: &span, "Error while executing batch: {e}");
-						e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-						let result = TaskResult::SubmitGatewayMessage {
-							error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-						};
-						tracing::debug!(parent: &span, "submitting task result");
-						self.runtime.submit_task_result(task_id, result).await?;
-					}
-				},
-			}
-		} else {
-			tracing::warn!(parent: &span, "current_gas price: {current_gas_price} > max_gas_price: {max_gas_price}");
+		match task {
+			Task::ReadGatewayEvents { blocks } => {
+				tracing::info!(parent: &span, "Starting ReadGatewayEvents({:?})", &blocks);
+				let events = self
+					.connector
+					.read_events(gateway, blocks)
+					.instrument(span.clone())
+					.await
+					.context("read_events")?;
+				tracing::info!(parent: &span, "Completed read {} events", events.len());
+				let mut remaining = true;
+				for chunk in events.chunks(MAX_GMP_EVENTS as _) {
+					remaining = chunk.len() != MAX_GMP_EVENTS as usize;
+					self.submit_events(block_number, shard_id, task_id, chunk.to_vec(), &span)
+						.await?;
+				}
+				if remaining {
+					self.submit_events(block_number, shard_id, task_id, vec![], &span).await?;
+				}
+			},
+			Task::SubmitGatewayMessage { batch_id } => {
+				let span =
+					span!(parent: &span, Level::INFO, "submit_batch", gmp_batch_id = batch_id);
+				let msg = self
+					.runtime
+					.get_batch_message(batch_id, block_hash)
+					.await?
+					.context("invalid task")?;
+				let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
+				let signature =
+					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
+				let signer = self
+					.runtime
+					.get_shard_commitment(shard_id, block_hash)
+					.await?
+					.context("invalid shard")?
+					.0[0];
+				tracing::info!(parent: &span, "submitting batch");
+				if let Err(mut e) =
+					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
+				{
+					tracing::error!(parent: &span, "Error while executing batch: {e}");
+					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
+					let result = TaskResult::SubmitGatewayMessage {
+						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
+					};
+					tracing::debug!(parent: &span, "submitting task result");
+					self.runtime.submit_task_result(task_id, result).await?;
+				}
+			},
 		}
 		Ok(())
 	}
@@ -211,69 +202,78 @@ impl TaskExecutor {
 		let tasks = self.params.runtime.get_shard_tasks(shard_id, block_hash).await?;
 
 		let failed_tasks: Arc<Mutex<u64>> = Default::default();
-		for task_id in tasks.iter().copied() {
-			let total_failed = failed_tasks.clone();
-			if self.running_tasks.contains_key(&task_id) {
-				continue;
-			}
-			let task = self
-				.params
-				.runtime
-				.get_task(task_id, block_hash)
-				.await?
-				.context("invalid task")?;
 
-			let chain_block = self.params.finalized_block().await?;
+		let max_gas_price =
+			self.params.runtime.network_gas_price(self.params.network(), block_hash).await?;
+		let current_gas_price = self.params.gas_price().await?;
+		if current_gas_price <= max_gas_price {
+			tracing::info!("Tc block: {block_number}, current gas_price: {current_gas_price} <= max gas_price: {max_gas_price}");
+			for task_id in tasks.iter().copied() {
+				let total_failed = failed_tasks.clone();
+				if self.running_tasks.contains_key(&task_id) {
+					continue;
+				}
+				let task = self
+					.params
+					.runtime
+					.get_task(task_id, block_hash)
+					.await?
+					.context("invalid task")?;
 
-			let span = tracing::span!(
-				parent: span,
-				Level::INFO,
-				"task",
-				gmp_task_id = task_id,
-				gmp_task = %task,
-				chain_block,
-			);
+				let chain_block = self.params.finalized_block().await?;
 
-			if chain_block < task.start_block() {
-				tracing::debug!(
-					parent: &span,
-					"task scheduled for future {:?}/{:?}",
+				let span = tracing::span!(
+					parent: span,
+					Level::INFO,
+					"task",
+					gmp_task_id = task_id,
+					gmp_task = %task,
 					chain_block,
-					task.start_block(),
 				);
-				continue;
+
+				if chain_block < task.start_block() {
+					tracing::debug!(
+						parent: &span,
+						"task scheduled for future {:?}/{:?}",
+						chain_block,
+						task.start_block(),
+					);
+					continue;
+				}
+
+				tracing::info!(parent: &span, "task started");
+
+				let exec = self.params.clone();
+				let span2 = span.clone();
+				let handle = tokio::task::spawn(async move {
+					let _enter = span2.enter();
+					match exec
+						.execute(
+							block_hash,
+							block_number,
+							network,
+							gateway,
+							shard_id,
+							task_id,
+							task,
+							span2.clone(),
+						)
+						.await
+					{
+						Ok(()) => {
+							tracing::info!(parent: &span, "task completed");
+						},
+						Err(error) => {
+							*total_failed.lock().await += 1;
+							tracing::error!(parent: &span, ?error, "task failed");
+						},
+					};
+				});
+				start_sessions.push(task_id);
+				self.running_tasks.insert(task_id, handle);
 			}
-
-			tracing::info!(parent: &span, "task started");
-
-			let exec = self.params.clone();
-			let span2 = span.clone();
-			let handle = tokio::task::spawn(async move {
-				let _enter = span2.enter();
-				match exec
-					.execute(
-						block_hash,
-						block_number,
-						network,
-						gateway,
-						shard_id,
-						task_id,
-						task,
-						span2.clone(),
-					)
-					.await
-				{
-					Ok(()) => {
-						tracing::info!(parent: &span, "task completed");
-					},
-					Err(error) => {
-						*total_failed.lock().await += 1;
-						tracing::error!(parent: &span, ?error, "task failed");
-					},
-				};
-			});
-			start_sessions.push(task_id);
-			self.running_tasks.insert(task_id, handle);
+		} else {
+			tracing::warn!("Tc block: {block_number}, current gas_price: {current_gas_price} > max gas_price: {max_gas_price}");
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		// remove from running task if task is completed or we dont receive anymore from pallet

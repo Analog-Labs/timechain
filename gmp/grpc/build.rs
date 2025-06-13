@@ -32,7 +32,7 @@ fn main() {
 		.method(method("estimate_message_cost", "EstimateMessageCost").build())
 		.method(method("send_message", "SendMessage").build())
 		.method(method("recv_messages", "RecvMessages").build())
-		.method(method("max_fee_per_gas", "MaxFeePerGas").build())
+		.method(method("gas_price", "GasPrice").build())
 		.method(method("block_gas_limit", "BlockGasLimit").build())
 		.method(method("withdraw_funds", "WithdrawFunds").build())
 		.method(method("debug_transaction", "DebugTransaction").build())

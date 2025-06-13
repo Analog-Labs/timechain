@@ -24,7 +24,7 @@ pub trait Runtime: Send + Sync + 'static {
 
 	async fn get_network(&self, network: NetworkId, block: BlockHash) -> Result<Option<ChainName>>;
 
-	async fn get_network_gas_price(&self, network: NetworkId, block: BlockHash) -> Result<u128>;
+	async fn network_gas_price(&self, network: NetworkId, block: BlockHash) -> Result<u128>;
 
 	async fn get_member_peer_id(
 		&self,
@@ -110,7 +110,7 @@ impl Runtime for SubxtClient {
 		self.network_name(network, block).await
 	}
 
-	async fn get_network_gas_price(&self, network: NetworkId, block: BlockHash) -> Result<u128> {
+	async fn network_gas_price(&self, network: NetworkId, block: BlockHash) -> Result<u128> {
 		self.network_gas_price(network, block).await
 	}
 

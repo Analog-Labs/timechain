@@ -139,9 +139,9 @@ impl IConnector for Connector {
 		Ok(())
 	}
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		let request = Request::new(proto::MaxFeePerGasRequest {});
-		let response = self.client.lock().await.max_fee_per_gas(request).await?.into_inner();
+	async fn gas_price(&self) -> Result<u128> {
+		let request = Request::new(proto::GasPriceRequest {});
+		let response = self.client.lock().await.gas_price(request).await?.into_inner();
 		Ok(response.fee)
 	}
 }

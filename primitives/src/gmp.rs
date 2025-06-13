@@ -394,7 +394,7 @@ pub trait IConnector: Send + Sync + 'static {
 		sig: TssSignature,
 	) -> Result<(), String>;
 	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
-	async fn max_fee_per_gas(&self) -> Result<u128>;
+	async fn gas_price(&self) -> Result<u128>;
 }
 
 #[cfg(feature = "std")]

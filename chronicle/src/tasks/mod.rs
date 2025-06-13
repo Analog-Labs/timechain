@@ -108,49 +108,48 @@ impl TaskParams {
 			gmp_task = %task,
 		);
 		event!(parent: &span, Level::DEBUG, "executing task");
-		match task {
-			Task::ReadGatewayEvents { blocks } => {
-				tracing::info!(parent: &span, "Starting ReadGatewayEvents({:?})", &blocks);
-				let events = self
-					.connector
-					.read_events(gateway, blocks)
-					.instrument(span.clone())
-					.await
-					.context("read_events")?;
-				tracing::info!(parent: &span, "Completed read {} events", events.len());
-				let mut remaining = true;
-				for chunk in events.chunks(MAX_GMP_EVENTS as _) {
-					remaining = chunk.len() != MAX_GMP_EVENTS as usize;
-					self.submit_events(block_number, shard_id, task_id, chunk.to_vec(), &span)
-						.await?;
-				}
-				if remaining {
-					self.submit_events(block_number, shard_id, task_id, vec![], &span).await?;
-				}
-			},
-			Task::SubmitGatewayMessage { batch_id } => {
-				let span =
-					span!(parent: &span, Level::INFO, "submit_batch", gmp_batch_id = batch_id);
-				let msg = self
-					.runtime
-					.get_batch_message(batch_id, block_hash)
-					.await?
-					.context("invalid task")?;
-				let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
-				let signature =
-					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
-				let signer = self
-					.runtime
-					.get_shard_commitment(shard_id, block_hash)
-					.await?
-					.context("invalid shard")?
-					.0[0];
-				tracing::info!(parent: &span, "submitting batch");
-				let max_gas_price =
-					self.runtime.get_network_gas_price(network_id, block_hash).await?;
-				let current_gas_price = self.connector.max_fee_per_gas().await?;
-				if current_gas_price <= max_gas_price {
-					tracing::info!(parent: &span, "current_gas price: {current_gas_price} <= max_gas_price: {max_gas_price}");
+		let max_gas_price = self.runtime.network_gas_price(network_id, block_hash).await?;
+		let current_gas_price = self.connector.gas_price().await?;
+		if current_gas_price <= max_gas_price {
+			tracing::info!(parent: &span, "current_gas price: {current_gas_price} <= max_gas_price: {max_gas_price}");
+			match task {
+				Task::ReadGatewayEvents { blocks } => {
+					tracing::info!(parent: &span, "Starting ReadGatewayEvents({:?})", &blocks);
+					let events = self
+						.connector
+						.read_events(gateway, blocks)
+						.instrument(span.clone())
+						.await
+						.context("read_events")?;
+					tracing::info!(parent: &span, "Completed read {} events", events.len());
+					let mut remaining = true;
+					for chunk in events.chunks(MAX_GMP_EVENTS as _) {
+						remaining = chunk.len() != MAX_GMP_EVENTS as usize;
+						self.submit_events(block_number, shard_id, task_id, chunk.to_vec(), &span)
+							.await?;
+					}
+					if remaining {
+						self.submit_events(block_number, shard_id, task_id, vec![], &span).await?;
+					}
+				},
+				Task::SubmitGatewayMessage { batch_id } => {
+					let span =
+						span!(parent: &span, Level::INFO, "submit_batch", gmp_batch_id = batch_id);
+					let msg = self
+						.runtime
+						.get_batch_message(batch_id, block_hash)
+						.await?
+						.context("invalid task")?;
+					let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
+					let signature =
+						self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
+					let signer = self
+						.runtime
+						.get_shard_commitment(shard_id, block_hash)
+						.await?
+						.context("invalid shard")?
+						.0[0];
+					tracing::info!(parent: &span, "submitting batch");
 					if let Err(mut e) = self
 						.connector
 						.submit_commands(gateway, batch_id, msg, signer, signature)
@@ -164,11 +163,11 @@ impl TaskParams {
 						tracing::debug!(parent: &span, "submitting task result");
 						self.runtime.submit_task_result(task_id, result).await?;
 					}
-				} else {
-					// Alert gas price is high
-					tracing::warn!(parent: &span, "current_gas price: {current_gas_price} > max_gas_price: {max_gas_price}");
-				}
-			},
+				},
+			}
+		} else {
+			// Alert gas price is high
+			tracing::warn!(parent: &span, "current_gas price: {current_gas_price} > max_gas_price: {max_gas_price}");
 		}
 		Ok(())
 	}

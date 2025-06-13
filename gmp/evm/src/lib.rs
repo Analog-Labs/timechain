@@ -246,7 +246,7 @@ impl IConnector for Connector {
 	}
 
 	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
-	async fn max_fee_per_gas(&self) -> Result<u128> {
+	async fn gas_price(&self) -> Result<u128> {
 		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
 	}
 }

@@ -333,7 +333,7 @@ async fn oats_sender_evm() -> Result<()> {
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
 		let ws = WsConnect::new(format!("ws://localhost:{port}"));
-		let signer: PrivateKeySigner = ALICE_KEY.parse()?;
+		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
 		let wallet = EthereumWallet::from(signer.clone());
 		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
 
@@ -356,14 +356,14 @@ async fn oats_sender_evm() -> Result<()> {
 		}
 	}
 	// Check initial balances
-	let mut alice_balances = vec![];
+	let mut minter_balances = vec![];
 	for (_nw, token) in contracts.iter() {
+		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(MINTER).call().await?;
-		// On every chain, ALICE has some OMNI tokens, and MINTER has none.
-		assert_ne!(alice_bal, U256::ZERO);
-		assert_eq!(bob_bal, U256::ZERO);
-		alice_balances.push(alice_bal);
+		// On every chain, MINTER has some OMNI tokens, and ALICE has none.
+		assert_ne!(minter_bal, U256::ZERO);
+		assert_eq!(alice_bal, U256::ZERO);
+		minter_balances.push(minter_bal);
 	}
 	// Transfer tokens from every network to next network, ring way
 	let mut msgs = vec![];
@@ -372,7 +372,7 @@ async fn oats_sender_evm() -> Result<()> {
 		if let Some((nw2, _)) = ring.peek() {
 			let gmp_fee = token.cost(*nw2).call().await?;
 			let receipt = token
-				.send(*nw2, MINTER, U256::from(TRANSFER_AMOUNT))
+				.send(*nw2, ALICE, U256::from(TRANSFER_AMOUNT))
 				.value(gmp_fee)
 				.send()
 				.await?
@@ -414,11 +414,11 @@ async fn oats_sender_evm() -> Result<()> {
 	}
 	// Check resulting balances
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
+		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(MINTER).call().await?;
-		// On every chain, ALICE now has -=U256::from(TRANSFER_AMOUNT), MINTER has U256::from(TRANSFER_AMOUNT)
-		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
+		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has U256::from(TRANSFER_AMOUNT)
+		assert_eq!(minter_bal, minter_balances[i] - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, U256::from(TRANSFER_AMOUNT));
 	}
 
 	Ok(())

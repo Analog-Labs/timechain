@@ -50,7 +50,7 @@ impl TaskParams {
 		if let Err(e) = self.admin.clone().send(AdminMsg::NewGasPrice(gas_price)).await {
 			event!(Level::ERROR, "Admin request error: {e:?}");
 		};
-		Ok(block)
+		Ok(gas_price)
 	}
 
 	async fn tss_sign(

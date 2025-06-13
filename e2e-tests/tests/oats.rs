@@ -8,15 +8,16 @@ use alloy::{
 	signers::local::PrivateKeySigner,
 };
 use anyhow::{Context, Result};
-use e2e_tests::{Backend, TestEnv};
+use e2e_tests::{Backend, TestEnv, Tester};
 use futures::stream::StreamExt;
 use gmp::Gateway;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 use std::time::Duration;
+use OATSSender::OATSSenderInstance;
 
-use tc_cli::MessageTrace;
+use tc_cli::{MessageTrace, NetworkId};
 use time_primitives::{Address32, MessageId};
 
 // Anvil's default accounts
@@ -196,87 +197,10 @@ async fn oats_wrapped_evm() -> Result<()> {
 		contracts.push((nw_id, OATSSender::new(proxy, rpc.clone())));
 	}
 
-	tracing::info!("ALL DEPLOYED, now testing",);
-
-	// Set OMNI token networks
-	for (nw, token) in contracts.iter() {
-		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
-			tracing::info!("network {nw}: set_network {n}");
-			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
-		}
-	}
-	// Check initial balances
-	let mut minter_balances = vec![];
-	for (_nw, token) in contracts.iter() {
-		let minter_bal = token.balanceOf(MINTER).call().await?;
-		let alice_bal = token.balanceOf(ALICE).call().await?;
-		// On every chain, MINTER has some OMNI tokens, and ALICE has none.
-		assert_ne!(minter_bal, U256::ZERO);
-		assert_eq!(alice_bal, U256::ZERO);
-		minter_balances.push(minter_bal);
-	}
-	// Transfer tokens from every network to next network, ring way
-	let mut msgs = vec![];
-	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
-	while let Some((nw, token)) = ring.next() {
-		if let Some((nw2, _)) = ring.peek() {
-			let gmp_fee = token.cost(*nw2).call().await?;
-			tracing::info!("network {nw}: gmp_fee = {gmp_fee}");
-			let receipt = token
-				.send(*nw2, ALICE, U256::from(TRANSFER_AMOUNT))
-				.value(gmp_fee)
-				.send()
-				.await?
-				.get_receipt()
-				.await?;
-
-			let msg_id: MessageId = receipt
-				.inner
-				.logs()
-				.iter()
-				.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
-				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
-				.map(|e| e.id.into())
-				.next()
-				.context("Failed to send gmp message")?;
-			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
-			msgs.push((*nw, msg_id));
-		};
-	}
-	// Track messages
-	let mut blocks = tc.finality_notification_stream();
-	let mut id = None;
-	loop {
-		let (hash, _) = blocks.next().await.context("expected block")?;
-		let mut traces: Vec<MessageTrace> = vec![];
-		for (nw, msg_id) in &msgs {
-			let trace = &tc
-				.message_trace(*nw, *msg_id, hash)
-				.await
-				.context("failed to get message trace")?;
-			traces.push(trace.clone());
-		}
-		let executed = traces.iter().filter_map(|t| t.exec.clone()).count();
-		tracing::info!("waiting for messages to be executed");
-		id = Some(tc.print_table(id, "message", traces).await?);
-		if executed == msgs.len() {
-			break;
-		}
-	}
-	// Check resulting balances
-	for (i, (_nw, token)) in contracts.iter().enumerate() {
-		let minter_bal = token.balanceOf(MINTER).call().await?;
-		let alice_bal = token.balanceOf(ALICE).call().await?;
-		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has U256::from(TRANSFER_AMOUNT)
-		assert_eq!(minter_bal, minter_balances[i] - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(alice_bal, U256::from(TRANSFER_AMOUNT));
-	}
-
-	Ok(())
+	test_sender(contracts, tc).await
 }
 
 #[tokio::test]
-#[ignore]
 async fn oats_sender_caller_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
 	let block = tc.latest_block().await?.0;
@@ -402,8 +326,6 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	Ok(())
 }
 
-//async fn test_sender()
-
 #[tokio::test]
 async fn oats_sender_evm() -> Result<()> {
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
@@ -434,6 +356,23 @@ async fn oats_sender_evm() -> Result<()> {
 
 		contracts.push((nw_id, token));
 	}
+
+	test_sender(contracts, tc).await
+}
+
+#[tokio::test]
+#[ignore]
+async fn forever() -> Result<()> {
+	let (_env, _tc) = TestEnv::new(Backend::Evm, false).await?;
+	tracing::info!("Test env ready. Keeping live indefinitely...");
+	#[allow(clippy::empty_loop)]
+	loop {}
+}
+
+async fn test_sender<P: Provider>(
+	contracts: Vec<(NetworkId, OATSSenderInstance<P>)>,
+	tc: Tester,
+) -> Result<()> {
 	// Set OMNI token networks
 	for (nw, token) in contracts.iter() {
 		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
@@ -507,13 +446,4 @@ async fn oats_sender_evm() -> Result<()> {
 	}
 
 	Ok(())
-}
-
-#[tokio::test]
-#[ignore]
-async fn forever() -> Result<()> {
-	let (_env, _tc) = TestEnv::new(Backend::Evm, false).await?;
-	tracing::info!("Test env ready. Keeping live indefinitely...");
-	#[allow(clippy::empty_loop)]
-	loop {}
 }

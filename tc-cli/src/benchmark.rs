@@ -102,7 +102,7 @@ impl Benchmark {
 			.tc
 			.estimate_message_cost(src, dest, self.payload.len() as u16, gas_limit, block_hash)
 			.await?;
-		let msg_cost = self.tc.balance_to_usd(src, gas_cost)?;
+		let msg_cost = self.tc.config.balance_to_usd(src, gas_cost)?;
 		Ok(RouteStats::new(src_addr, dest_addr, gas_limit, gas_cost, msg_cost))
 	}
 

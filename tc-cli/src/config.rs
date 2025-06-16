@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use time_primitives::NetworkId;
+use time_primitives::{Currency, NetworkId};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -93,6 +93,42 @@ impl Config {
 			.get(&network)
 			.map(|(_, price)| *price)
 			.ok_or_else(|| anyhow::anyhow!("No token price data for network {}", network))
+	}
+
+	pub fn balance_to_usd(&self, network: NetworkId, balance: u128) -> Result<f64> {
+		let token_price = self.token_price_usd(network)?;
+		let decimals = self.network(network)?.currency_decimals;
+		let factor = 10.0f64.powi(decimals as i32);
+		Ok(balance as f64 / factor * token_price)
+	}
+
+	/// Destination network gas price expressed in source network token
+	pub fn gas_price(&self, src_network: NetworkId, dest_network: NetworkId) -> Result<f64> {
+		let usd_src = self.token_price_usd(src_network)?;
+		let usd_dest = self.token_price_usd(dest_network)?;
+		let src = self.network(src_network)?;
+		let dest = self.network(dest_network)?;
+		Ok(gas_price(
+			usd_src,
+			src.currency_decimals,
+			usd_dest,
+			dest.currency_decimals,
+			dest.max_gas_price,
+		))
+	}
+
+	/// Fee paid for sending a message.
+	pub fn msg_fee(
+		&self,
+		src_network: NetworkId,
+		dest_network: NetworkId,
+		msg_size: u16,
+		gas_limit: u64,
+	) -> Result<u128> {
+		let dest = self.network(dest_network)?;
+		let gas = dest.gas(msg_size, gas_limit);
+		let gas_price = self.gas_price(src_network, dest_network)?;
+		Ok((gas as f64 * gas_price + dest.route_msg_fee as f64) as u128)
 	}
 
 	pub fn load_prices(&mut self) -> Result<()> {
@@ -250,6 +286,18 @@ pub struct NetworkConfig {
 	pub max_gas_price: u128,
 }
 
+fn gas_price(
+	usd_src: f64,
+	src_decimals: u8,
+	usd_dest: f64,
+	dest_decimals: u8,
+	dest_max_gas_price: u128,
+) -> f64 {
+	usd_dest / usd_src
+		* dest_max_gas_price as f64
+		* f64::powi(10., src_decimals as i32 - dest_decimals as i32)
+}
+
 impl NetworkConfig {
 	pub fn num_sessions(&self) -> u16 {
 		self.shard_size - self.shard_threshold + 1
@@ -268,6 +316,10 @@ impl NetworkConfig {
 
 	pub fn gas(&self, msg_size: u16, gas_limit: u64) -> u64 {
 		self.msg_byte_gas() * msg_size as u64 + self.msg_gas() + gas_limit
+	}
+
+	pub fn currency(&self) -> Currency {
+		Currency::new(self.currency_decimals, self.currency_symbol.clone())
 	}
 }
 

@@ -99,7 +99,6 @@ async fn oats_wrapped_evm() -> Result<()> {
 
 	let [tx1_raw, tx2_raw, tx3_raw, tx4_raw] = txs_hex
 		.split(",")
-		.into_iter()
 		.map(|s| s.trim())
 		.filter_map(|s| hex::decode(s).ok())
 		.collect::<Vec<_>>()

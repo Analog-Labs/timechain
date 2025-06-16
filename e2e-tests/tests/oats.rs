@@ -1,5 +1,6 @@
+use alloy::primitives::utils::format_units;
 use alloy::primitives::{address, Bytes};
-use alloy::providers::WsConnect;
+use alloy::providers::{Provider, WsConnect};
 use alloy::sol;
 use alloy::sol_types::SolEvent;
 use alloy::{
@@ -7,20 +8,26 @@ use alloy::{
 	signers::local::PrivateKeySigner,
 };
 use anyhow::{Context, Result};
-use e2e_tests::{Backend, TestEnv};
+use e2e_tests::{Backend, TestEnv, Tester};
 use futures::stream::StreamExt;
 use gmp::Gateway;
+use std::fs::File;
+use std::io::Read;
 use std::sync::Arc;
-use tc_cli::MessageTrace;
+use std::time::Duration;
+use OATSSender::OATSSenderInstance;
+
+use tc_cli::{MessageTrace, NetworkId};
 use time_primitives::{Address32, MessageId};
 
 // Anvil's default accounts
 const ALICE: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 const ALICE_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const BOB: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+const MINTER: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+const MINTER_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 const TRANSFER_AMOUNT: u64 = 10u64.pow(18);
-const CAP_AMOUNT: u64 = 5 * TRANSFER_AMOUNT;
+const CAP_AMOUNT: u64 = 10 * TRANSFER_AMOUNT;
 
 // Codegen from ABI file to interact with the contract.
 sol!(
@@ -59,10 +66,138 @@ sol! {
 	 }
 }
 
+sol! {
+	#[allow(missing_docs)]
+	#[sol(rpc)]
+	interface IERC20 {
+		function mint(address to, uint256 amount) public;
+		function balanceOf(address account) external view returns (uint256);
+		function totalSupply() external view returns (uint256);
+		function decimals() public pure override returns (uint8);
+		function symbol() public view virtual returns (string memory);
+		function cap() public view virtual returns (uint256);
+	}
+}
+
 type Address20 = alloy::primitives::Address;
 
 fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
+}
+
+#[tokio::test]
+async fn oats_wrapped_evm() -> Result<()> {
+	const MINT_AMOUNT: u64 = TRANSFER_AMOUNT * 2;
+
+	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	let block = tc.latest_block().await?.0;
+
+	// Load raw deployment txs
+	let mut file = File::open("contracts/txs.raw")?;
+	let mut txs_hex = String::new();
+	file.read_to_string(&mut txs_hex)?;
+
+	let [tx1_raw, tx2_raw, tx3_raw, tx4_raw] = txs_hex
+		.split(",")
+		.into_iter()
+		.map(|s| s.trim())
+		.filter_map(|s| hex::decode(s).ok())
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap();
+
+	let mut contracts = vec![];
+
+	// Deploy Proxy+Token to every network: tx1, tx2;
+	// Mint some tokens;
+	// Upgrade to V2 implementation: tx3.
+	for nw in tc.networks(block).await?.into_iter() {
+		let nw_id = nw.network;
+		let c = env.chain_container(nw_id).unwrap();
+
+		let port = c.get_host_port_ipv4(8545).await.unwrap();
+		let ws = WsConnect::new(format!("ws://localhost:{port}"));
+		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
+		let wallet = EthereumWallet::from(signer.clone());
+		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws.clone()).await?);
+
+		// Deploy Proxy+Token to every network: tx1, tx2;
+		let rcp1 = rpc
+			.send_raw_transaction(&tx1_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let rcp2 = rpc
+			.send_raw_transaction(&tx2_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let impl_v1 = rcp1.contract_address.expect("no contract address");
+		let proxy = rcp2.contract_address.expect("no contract address");
+
+		tracing::info!("network {nw_id}: proxy deployed to {proxy}, tx: {}", rcp2.transaction_hash);
+		tracing::info!(
+			"network {nw_id}: impl v1 deployed to {impl_v1}, tx: {}",
+			rcp1.transaction_hash
+		);
+
+		// Mint some tokens;
+		let v1 = IERC20::new(proxy, rpc.clone());
+		let _rcp = v1.mint(MINTER, U256::from(MINT_AMOUNT)).send().await?.get_receipt().await?;
+
+		let bal = v1.balanceOf(MINTER).call().await?;
+		assert_eq!(bal, U256::from(MINT_AMOUNT));
+		let supply = v1.totalSupply().call().await?;
+		assert_eq!(supply, U256::from(MINT_AMOUNT));
+
+		let decimals = v1.decimals().call().await?;
+		let ticker = v1.symbol().call().await?;
+		tracing::info!(
+			"network {nw_id}: minted {:.6} {ticker} to {MINTER}",
+			format_units(bal, decimals)?
+		);
+
+		// v1 does not have cap() method,
+		// therefore this should fail
+		assert!(v1.cap().call().await.is_err());
+
+		// Upgrade to V2 implementation: tx3, tx4
+		tracing::info!("network {nw_id}: upgrading token to impl v2");
+
+		let rcp3 = rpc
+			.send_raw_transaction(&tx3_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let rcp4 = rpc
+			.send_raw_transaction(&tx4_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let impl_v2 = rcp3.contract_address.expect("no contract address");
+		tracing::info!(
+			"network {nw_id}: impl v2 deployed to {impl_v2}, tx: {}",
+			rcp3.transaction_hash
+		);
+		tracing::info!("network {nw_id}: token upgraded to impl v2, tx: {}", rcp4.transaction_hash);
+
+		// We query the same contract which is proxy,
+		// but its implementation is now upgraded to v2.
+		let v2 = v1;
+		// v2 now has cap() method
+		assert_eq!(v2.cap().call().await?, U256::from(CAP_AMOUNT));
+		// Balances should stay unchanged
+		assert_eq!(v2.balanceOf(MINTER).call().await?, bal);
+		assert_eq!(v2.totalSupply().call().await?, supply);
+
+		contracts.push((nw_id, OATSSender::new(proxy, rpc.clone())));
+	}
+
+	test_sender(contracts, tc).await
 }
 
 #[tokio::test]
@@ -109,8 +244,8 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	let mut alice_balances = vec![];
 	for (_nw, token, callee, _) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE has some OMNI tokens, and BOB has none.
+		let bob_bal = token.balanceOf(MINTER).call().await?;
+		// On every chain, ALICE has some OMNI tokens, and MINTER has none.
 		assert_ne!(alice_bal, U256::ZERO);
 		assert_eq!(bob_bal, U256::ZERO);
 		alice_balances.push(alice_bal);
@@ -126,7 +261,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 			let receipt = token
 				.sendAndCall(
 					*nw2,
-					BOB,
+					MINTER,
 					U256::from(TRANSFER_AMOUNT),
 					*gas_limit,
 					*callee.address(),
@@ -174,14 +309,14 @@ async fn oats_sender_caller_evm() -> Result<()> {
 	// Check resulting balances
 	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
+		let bob_bal = token.balanceOf(MINTER).call().await?;
 		// On every chain, ALICE now has -=TRANSFER_AMOUNT
 		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
 		let received_amount = if i == 1 {
-			// insufficient gas_limit: call fails, BOB gets 0
+			// insufficient gas_limit: call fails, MINTER gets 0
 			U256::ZERO
 		} else {
-			// sufficient gas_limit: call succeeds, BOB gets TRANSFER_AMOUNT
+			// sufficient gas_limit: call succeeds, MINTER gets TRANSFER_AMOUNT
 			U256::from(TRANSFER_AMOUNT)
 		};
 		assert_eq!(callee.total().call().await?, received_amount);
@@ -205,7 +340,7 @@ async fn oats_sender_evm() -> Result<()> {
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
 		let ws = WsConnect::new(format!("ws://localhost:{port}"));
-		let signer: PrivateKeySigner = ALICE_KEY.parse()?;
+		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
 		let wallet = EthereumWallet::from(signer.clone());
 		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws).await?);
 
@@ -221,6 +356,23 @@ async fn oats_sender_evm() -> Result<()> {
 
 		contracts.push((nw_id, token));
 	}
+
+	test_sender(contracts, tc).await
+}
+
+#[tokio::test]
+#[ignore]
+async fn forever() -> Result<()> {
+	let (_env, _tc) = TestEnv::new(Backend::Evm, false).await?;
+	tracing::info!("Test env ready. Keeping live indefinitely...");
+	#[allow(clippy::empty_loop)]
+	loop {}
+}
+
+async fn test_sender<P: Provider>(
+	contracts: Vec<(NetworkId, OATSSenderInstance<P>)>,
+	tc: Tester,
+) -> Result<()> {
 	// Set OMNI token networks
 	for (nw, token) in contracts.iter() {
 		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
@@ -228,14 +380,14 @@ async fn oats_sender_evm() -> Result<()> {
 		}
 	}
 	// Check initial balances
-	let mut alice_balances = vec![];
+	let mut minter_balances = vec![];
 	for (_nw, token) in contracts.iter() {
+		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE has some OMNI tokens, and BOB has none.
-		assert_ne!(alice_bal, U256::ZERO);
-		assert_eq!(bob_bal, U256::ZERO);
-		alice_balances.push(alice_bal);
+		// On every chain, MINTER has some OMNI tokens, and ALICE has none.
+		assert_ne!(minter_bal, U256::ZERO);
+		assert_eq!(alice_bal, U256::ZERO);
+		minter_balances.push(minter_bal);
 	}
 	// Transfer tokens from every network to next network, ring way
 	let mut msgs = vec![];
@@ -244,7 +396,7 @@ async fn oats_sender_evm() -> Result<()> {
 		if let Some((nw2, _)) = ring.peek() {
 			let gmp_fee = token.cost(*nw2).call().await?;
 			let receipt = token
-				.send(*nw2, BOB, U256::from(TRANSFER_AMOUNT))
+				.send(*nw2, ALICE, U256::from(TRANSFER_AMOUNT))
 				.value(gmp_fee)
 				.send()
 				.await?
@@ -286,21 +438,12 @@ async fn oats_sender_evm() -> Result<()> {
 	}
 	// Check resulting balances
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
+		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(BOB).call().await?;
-		// On every chain, ALICE now has -=U256::from(TRANSFER_AMOUNT), BOB has U256::from(TRANSFER_AMOUNT)
-		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(bob_bal, U256::from(TRANSFER_AMOUNT));
+		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has U256::from(TRANSFER_AMOUNT)
+		assert_eq!(minter_bal, minter_balances[i] - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, U256::from(TRANSFER_AMOUNT));
 	}
 
 	Ok(())
-}
-
-#[tokio::test]
-#[ignore]
-async fn forever() -> Result<()> {
-	let (_env, _tc) = TestEnv::new(Backend::Evm, false).await?;
-	tracing::info!("Test env ready. Keeping live indefinitely...");
-	#[allow(clippy::empty_loop)]
-	loop {}
 }

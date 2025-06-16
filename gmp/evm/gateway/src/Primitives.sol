@@ -107,8 +107,8 @@ struct Route {
     uint64 maxGasLimit;
     uint64 msgGas;
     uint64 msgByteGas;
-    uint64 gasPriceNumerator;
-    uint64 gasPriceDenominator;
+    uint64 gasPriceMantissa;
+    int16 gasPriceExponent;
     uint64 msgFee;
 }
 
@@ -169,9 +169,8 @@ library PrimitiveUtils {
      * CAUTION: Only use this method if you know what you are doing. Make sure you don't overwrite any
      * memory location that is still in use by the current call context.
      */
-    function unsafeReplaceAllocatedMemory(uint256 newPointer) internal pure returns (uint256 oldPointer) {
+    function writeAllocatedMemory(uint256 newPointer) internal pure {
         assembly ("memory-safe") {
-            oldPointer := mload(ALLOCATED_MEMORY)
             mstore(ALLOCATED_MEMORY, newPointer)
         }
     }
@@ -196,20 +195,6 @@ library PrimitiveUtils {
             // Restore the free memory pointer
             mstore(ALLOCATED_MEMORY, freeMemBackup)
         }
-    }
-
-    /**
-     * @dev Returns the smallest of two numbers.
-     */
-    function min(uint256 x, uint256 y) internal pure returns (uint256) {
-        return ternary(x < y, x, y);
-    }
-
-    /**
-     * @dev Returns the largest of two numbers.
-     */
-    function max(uint256 x, uint256 y) internal pure returns (uint256) {
-        return ternary(x > y, x, y);
     }
 
     /**

@@ -141,7 +141,7 @@ pub struct RouteEntry {
 	max_gas_limit: u64,
 	msg_gas: u64,
 	msg_byte_gas: u64,
-	gas_price: String,
+	gas_price: f64,
 	msg_fee: u64,
 }
 
@@ -155,7 +155,7 @@ impl IntoRow for Route {
 			max_gas_limit: self.max_gas_limit,
 			msg_gas: self.msg_gas,
 			msg_byte_gas: self.msg_byte_gas,
-			gas_price: format!("{}", self.gas_price.0 as f64 / self.gas_price.1 as f64),
+			gas_price: self.gas_price,
 			msg_fee: self.msg_fee,
 		})
 	}

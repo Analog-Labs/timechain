@@ -19,7 +19,6 @@ scale-codec.workspace = true
 scale-info.workspace = true
 schnorr-evm = { version = "0.1.2", default-features = false }
 sha3 = { version = "0.10", default-features = false }
-uint = { version = "0.10.0", default-features = false }
 
 polkadot-sdk = { workspace = true, features = [
 	"frame-support",
@@ -41,5 +40,4 @@ std = [
 	"scale-codec/std",
 	"scale-info/std",
 	"schnorr-evm/std",
-	"uint/std",
 ]

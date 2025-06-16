@@ -123,8 +123,8 @@ library TestUtils {
                 maxGasLimit: 1_000_000,
                 msgGas: 100_000,
                 msgByteGas: 20,
-                gasPriceNumerator: 1,
-                gasPriceDenominator: 1,
+                gasPriceMantissa: 1,
+                gasPriceExponent: 1,
                 msgFee: 0
             })
         );

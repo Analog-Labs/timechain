@@ -120,6 +120,7 @@ impl IConnector for Connector {
 		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
+		gas_price: u128,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
@@ -127,6 +128,7 @@ impl IConnector for Connector {
 			gateway,
 			batch,
 			msg,
+			gas_price,
 			signer,
 			sig,
 		});

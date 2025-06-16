@@ -390,6 +390,7 @@ pub trait IConnector: Send + Sync + 'static {
 		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
+		gas_price: u128,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String>;

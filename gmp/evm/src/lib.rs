@@ -225,6 +225,7 @@ impl IConnector for Connector {
 		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
+		gas_price: u128,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
@@ -240,7 +241,10 @@ impl IConnector for Connector {
 			ops,
 		};
 		let call = Gateway::executeCall { signature, batch };
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_gas_price(gas_price);
 		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
 	}

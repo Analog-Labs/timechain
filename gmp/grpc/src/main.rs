@@ -102,7 +102,7 @@ impl Gmp for ConnectorWrapper {
 	) -> GmpResult<proto::SubmitCommandsResponse> {
 		let (connector, msg) = self.connector(request)?;
 		connector
-			.submit_commands(msg.gateway, msg.batch, msg.msg, msg.signer, msg.sig)
+			.submit_commands(msg.gateway, msg.batch, msg.msg, msg.gas_price, msg.signer, msg.sig)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
 		Ok(Response::new(proto::SubmitCommandsResponse {}))

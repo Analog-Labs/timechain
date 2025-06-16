@@ -103,6 +103,7 @@ impl TaskParams {
 		block_number: BlockNumber,
 		network_id: NetworkId,
 		gateway: Address32,
+		gas_price: u128,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
@@ -154,8 +155,10 @@ impl TaskParams {
 					.context("invalid shard")?
 					.0[0];
 				tracing::info!(parent: &span, "submitting batch");
-				if let Err(mut e) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
+				if let Err(mut e) = self
+					.connector
+					.submit_commands(gateway, batch_id, msg, gas_price, signer, signature)
+					.await
 				{
 					tracing::error!(parent: &span, "Error while executing batch: {e}");
 					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
@@ -206,70 +209,70 @@ impl TaskExecutor {
 		let max_gas_price =
 			self.params.runtime.network_gas_price(self.params.network(), block_hash).await?;
 		let current_gas_price = self.params.gas_price().await?;
-		if current_gas_price <= max_gas_price {
-			tracing::info!("Tc block: {block_number}, current gas_price: {current_gas_price} <= max gas_price: {max_gas_price}");
-			for task_id in tasks.iter().copied() {
-				let total_failed = failed_tasks.clone();
-				if self.running_tasks.contains_key(&task_id) {
-					continue;
-				}
-				let task =
-					self.params.runtime.task(task_id, block_hash).await?.context("invalid task")?;
-
-				let chain_block = self.params.finalized_block().await?;
-
-				let span = tracing::span!(
-					parent: span,
-					Level::INFO,
-					"task",
-					gmp_task_id = task_id,
-					gmp_task = %task,
-					chain_block,
-				);
-
-				if chain_block < task.start_block() {
-					tracing::debug!(
-						parent: &span,
-						"task scheduled for future {:?}/{:?}",
-						chain_block,
-						task.start_block(),
-					);
-					continue;
-				}
-
-				tracing::info!(parent: &span, "task started");
-
-				let exec = self.params.clone();
-				let span2 = span.clone();
-				let handle = tokio::task::spawn(async move {
-					let _enter = span2.enter();
-					match exec
-						.execute(
-							block_hash,
-							block_number,
-							network,
-							gateway,
-							shard_id,
-							task_id,
-							task,
-							span2.clone(),
-						)
-						.await
-					{
-						Ok(()) => {
-							tracing::info!(parent: &span, "task completed");
-						},
-						Err(error) => {
-							*total_failed.lock().await += 1;
-							tracing::error!(parent: &span, ?error, "task failed");
-						},
-					};
-				});
-				start_sessions.push(task_id);
-				self.running_tasks.insert(task_id, handle);
+		for task_id in tasks.iter().copied() {
+			if current_gas_price > max_gas_price {
+				tracing::warn!("Skipping {task_id} due to current gas_price: {current_gas_price} > max gas_price: {max_gas_price}");
+				continue;
 			}
-		} else {
-			tracing::warn!("Tc block: {block_number}, current gas_price: {current_gas_price} > max gas_price: {max_gas_price}");
+			let total_failed = failed_tasks.clone();
+			if self.running_tasks.contains_key(&task_id) {
+				continue;
+			}
+			let task =
+				self.params.runtime.task(task_id, block_hash).await?.context("invalid task")?;
+
+			let chain_block = self.params.finalized_block().await?;
+
+			let span = tracing::span!(
+				parent: span,
+				Level::INFO,
+				"task",
+				gmp_task_id = task_id,
+				gmp_task = %task,
+				chain_block,
+			);
+
+			if chain_block < task.start_block() {
+				tracing::debug!(
+					parent: &span,
+					"task scheduled for future {:?}/{:?}",
+					chain_block,
+					task.start_block(),
+				);
+				continue;
+			}
+
+			tracing::info!(parent: &span, "task started");
+
+			let exec = self.params.clone();
+			let span2 = span.clone();
+			let handle = tokio::task::spawn(async move {
+				let _enter = span2.enter();
+				match exec
+					.execute(
+						block_hash,
+						block_number,
+						network,
+						gateway,
+						current_gas_price,
+						shard_id,
+						task_id,
+						task,
+						span2.clone(),
+					)
+					.await
+				{
+					Ok(()) => {
+						tracing::info!(parent: &span, "task completed");
+					},
+					Err(error) => {
+						*total_failed.lock().await += 1;
+						tracing::error!(parent: &span, ?error, "task failed");
+					},
+				};
+			});
+			start_sessions.push(task_id);
+			self.running_tasks.insert(task_id, handle);
 		}
 		let mut completed_sessions = Vec::with_capacity(self.running_tasks.len());
 		// remove from running task if task is completed or we dont receive anymore from pallet

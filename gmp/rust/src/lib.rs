@@ -237,6 +237,7 @@ impl IConnector for Connector {
 		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
+		_gas_price: u128,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
@@ -281,6 +282,10 @@ impl IConnector for Connector {
 			Ok(())
 		})()
 		.map_err(|err: anyhow::Error| err.to_string())
+	}
+	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
+	async fn gas_price(&self) -> Result<u128> {
+		Ok(1)
 	}
 }
 
@@ -502,10 +507,6 @@ impl IConnectorAdmin for Connector {
 		}
 		Ok(msgs)
 	}
-	/// Get EIP1559 `max_fee_per_gas` estimate for a chain.
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		Ok(1)
-	}
 
 	/// Returns gas limit of latest block.
 	async fn block_gas_limit(&self) -> Result<u64> {
@@ -639,7 +640,10 @@ mod tests {
 		assert_eq!(events, vec![GmpEvent::MessageReceived(msg.clone())]);
 		let cmds = GatewayMessage::new(vec![GatewayOp::SendMessage(msg.clone())]);
 		let sig = shard.sign_gateway_message(network, gateway, 0, &cmds);
-		chain.submit_commands(gateway, 0, cmds, shard.public_key(), sig).await.unwrap();
+		chain
+			.submit_commands(gateway, 0, cmds, 1u128, shard.public_key(), sig)
+			.await
+			.unwrap();
 		tokio::time::sleep(Duration::from_secs(6)).await;
 		let current = chain.finalized_block().await.unwrap();
 		let msgs = chain.recv_messages(dest, current2..current).await?;

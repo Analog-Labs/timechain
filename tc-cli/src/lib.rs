@@ -700,12 +700,6 @@ impl Tc {
 		})
 	}
 
-	pub async fn max_fee_per_gas(&self, network: NetworkId) -> Result<u128> {
-		let connector = self.connector(network).await?;
-		let fee = connector.max_fee_per_gas().await?;
-		Ok(fee)
-	}
-
 	pub async fn block_gas_limit(&self, network: NetworkId) -> Result<u64> {
 		let connector = self.connector(network).await?;
 		let gas_limit = connector.block_gas_limit().await?;

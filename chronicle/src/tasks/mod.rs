@@ -45,6 +45,14 @@ impl TaskParams {
 		Ok(block)
 	}
 
+	async fn gas_price(&self) -> Result<u128> {
+		let gas_price = self.connector.gas_price().await?;
+		if let Err(e) = self.admin.clone().send(AdminMsg::NewGasPrice(gas_price)).await {
+			event!(Level::ERROR, "Admin request error: {e:?}");
+		};
+		Ok(gas_price)
+	}
+
 	async fn tss_sign(
 		&self,
 		block: BlockNumber,
@@ -95,6 +103,7 @@ impl TaskParams {
 		block_number: BlockNumber,
 		network_id: NetworkId,
 		gateway: Address32,
+		gas_price: u128,
 		shard_id: ShardId,
 		task_id: TaskId,
 		task: Task,
@@ -133,7 +142,7 @@ impl TaskParams {
 					span!(parent: &span, Level::INFO, "submit_batch", gmp_batch_id = batch_id);
 				let msg = self
 					.runtime
-					.get_batch_message(batch_id, block_hash)
+					.batch_message(batch_id, block_hash)
 					.await?
 					.context("invalid task")?;
 				let payload = GmpParams::new(network_id, gateway).hash(&msg.hash(batch_id));
@@ -141,13 +150,15 @@ impl TaskParams {
 					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
 				let signer = self
 					.runtime
-					.get_shard_commitment(shard_id, block_hash)
+					.shard_commitment(shard_id, block_hash)
 					.await?
 					.context("invalid shard")?
 					.0[0];
 				tracing::info!(parent: &span, "submitting batch");
-				if let Err(mut e) =
-					self.connector.submit_commands(gateway, batch_id, msg, signer, signature).await
+				if let Err(mut e) = self
+					.connector
+					.submit_commands(gateway, batch_id, msg, gas_price, signer, signature)
+					.await
 				{
 					tracing::error!(parent: &span, "Error while executing batch: {e}");
 					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
@@ -187,24 +198,28 @@ impl TaskExecutor {
 		let gateway = self
 			.params
 			.runtime
-			.get_gateway(network, block_hash)
+			.gateway(network, block_hash)
 			.await?
 			.context("no gateway registered")?;
 		let mut start_sessions = vec![];
-		let tasks = self.params.runtime.get_shard_tasks(shard_id, block_hash).await?;
+		let tasks = self.params.runtime.shard_tasks(shard_id, block_hash).await?;
 
 		let failed_tasks: Arc<Mutex<u64>> = Default::default();
+
+		let max_gas_price =
+			self.params.runtime.network_gas_price(self.params.network(), block_hash).await?;
+		let current_gas_price = self.params.gas_price().await?;
 		for task_id in tasks.iter().copied() {
+			if current_gas_price > max_gas_price {
+				tracing::warn!("Skipping {task_id} due to current gas_price: {current_gas_price} > max gas_price: {max_gas_price}");
+				continue;
+			}
 			let total_failed = failed_tasks.clone();
 			if self.running_tasks.contains_key(&task_id) {
 				continue;
 			}
-			let task = self
-				.params
-				.runtime
-				.get_task(task_id, block_hash)
-				.await?
-				.context("invalid task")?;
+			let task =
+				self.params.runtime.task(task_id, block_hash).await?.context("invalid task")?;
 
 			let chain_block = self.params.finalized_block().await?;
 
@@ -239,6 +254,7 @@ impl TaskExecutor {
 						block_number,
 						network,
 						gateway,
+						current_gas_price,
 						shard_id,
 						task_id,
 						task,

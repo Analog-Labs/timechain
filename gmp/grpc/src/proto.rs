@@ -65,6 +65,7 @@ pub struct SubmitCommandsRequest {
 	pub gateway: Address32,
 	pub batch: BatchId,
 	pub msg: GatewayMessage,
+	pub gas_price: u128,
 	#[serde(with = "time_primitives::serde_tss_public_key")]
 	pub signer: TssPublicKey,
 	#[serde(with = "time_primitives::serde_tss_signature")]
@@ -219,10 +220,10 @@ pub struct RecvMessagesResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct MaxFeePerGasRequest {}
+pub struct GasPriceRequest {}
 
 #[derive(Serialize, Deserialize)]
-pub struct MaxFeePerGasResponse {
+pub struct GasPriceResponse {
 	pub fee: u128,
 }
 

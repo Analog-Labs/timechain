@@ -18,12 +18,14 @@ pub enum AdminMsg {
 	SetShards(Vec<ShardId>),
 	NewBlock(u64),
 	NewTargetBlock(u64),
+	NewGasPrice(u128),
 }
 
 #[derive(Default)]
 struct InnerState {
 	shards: Vec<ShardId>,
 	blocks: Blocks,
+	gas_price: u128,
 }
 
 #[derive(Default, Serialize)]
@@ -57,6 +59,10 @@ impl AppState {
 				let mut inner = self.inner.lock().await;
 				inner.blocks.target_block = target_block;
 			},
+			AdminMsg::NewGasPrice(gas_price) => {
+				let mut inner = self.inner.lock().await;
+				inner.gas_price = gas_price;
+			},
 		}
 	}
 }
@@ -71,6 +77,7 @@ pub async fn listen(port: u16, mut admin: mpsc::Receiver<AdminMsg>) -> Result<()
 		.route("/config", axum::routing::get(config))
 		.route("/shards", axum::routing::get(shards))
 		.route("/blocks", axum::routing::get(blocks))
+		.route("/gas_price", axum::routing::get(gas_price))
 		.with_state(state.clone());
 
 	let mut listen = axum::serve(TcpListener::bind(&addr).await?, app).into_future();
@@ -106,4 +113,10 @@ async fn shards(State(state): State<AppState>) -> Response {
 async fn blocks(State(state): State<AppState>) -> Response {
 	let inner = state.inner.lock().await;
 	axum::Json(&inner.blocks).into_response()
+}
+
+// GET `/gas_price`
+async fn gas_price(State(state): State<AppState>) -> Response {
+	let inner = state.inner.lock().await;
+	axum::Json(&inner.gas_price).into_response()
 }

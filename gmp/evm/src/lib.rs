@@ -225,6 +225,7 @@ impl IConnector for Connector {
 		gateway: Address32,
 		batch: BatchId,
 		msg: GatewayMessage,
+		gas_price: u128,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
@@ -240,9 +241,17 @@ impl IConnector for Connector {
 			ops,
 		};
 		let call = Gateway::executeCall { signature, batch };
-		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let tx = TransactionRequest::default()
+			.with_to(a_addr(gateway))
+			.with_call(&call)
+			.with_gas_price(gas_price);
 		self.submit(tx).await.map_err(|err| err.to_string())?;
 		Ok(())
+	}
+
+	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
+	async fn gas_price(&self) -> Result<u128> {
+		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
 	}
 }
 
@@ -476,11 +485,6 @@ impl IConnectorAdmin for Connector {
 			.filter_map(|e| GmpProxy::MessageReceived::decode_log_data(e.data()).ok())
 			.map(|e| e.msg.into())
 			.collect::<Vec<_>>())
-	}
-
-	/// Get EIP1559 `max_fee_per_gas` estimate for the connector's chain
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		self.estimate_eip1559_fees().await.map(|e| e.max_fee_per_gas)
 	}
 
 	/// Returns gas limit of latest block

@@ -189,7 +189,7 @@ impl Runtime for Mock {
 		Ok(true)
 	}
 
-	async fn get_network(&self, network: NetworkId, _: BlockHash) -> Result<Option<ChainName>> {
+	async fn network(&self, network: NetworkId, _: BlockHash) -> Result<Option<ChainName>> {
 		Ok(self
 			.networks
 			.lock()
@@ -198,11 +198,11 @@ impl Runtime for Mock {
 			.map(|network| network.chain_name.clone()))
 	}
 
-	async fn get_member_peer_id(
-		&self,
-		account: &AccountId,
-		_: BlockHash,
-	) -> Result<Option<PeerId>> {
+	async fn network_gas_price(&self, _: NetworkId, _: BlockHash) -> Result<u128> {
+		Ok(100)
+	}
+
+	async fn member_peer_id(&self, account: &AccountId, _: BlockHash) -> Result<Option<PeerId>> {
 		let members = self.members.lock().unwrap();
 		Ok(members
 			.iter()
@@ -211,7 +211,7 @@ impl Runtime for Mock {
 			.map(|(_, peer_id)| *peer_id))
 	}
 
-	async fn get_heartbeat_timeout(&self, _: BlockHash) -> Result<BlockNumber> {
+	async fn heartbeat_timeout(&self, _: BlockHash) -> Result<BlockNumber> {
 		Ok(1000)
 	}
 
@@ -220,7 +220,7 @@ impl Runtime for Mock {
 		Ok(false)
 	}
 
-	async fn get_shards(&self, account: &AccountId, _: BlockHash) -> Result<Vec<ShardId>> {
+	async fn shards(&self, account: &AccountId, _: BlockHash) -> Result<Vec<ShardId>> {
 		let shards = self.shards.lock().unwrap();
 		let shards = shards
 			.iter()
@@ -230,7 +230,7 @@ impl Runtime for Mock {
 		Ok(shards)
 	}
 
-	async fn get_shard_members(
+	async fn shard_members(
 		&self,
 		shard_id: ShardId,
 		_: BlockHash,
@@ -240,13 +240,13 @@ impl Runtime for Mock {
 		Ok(members)
 	}
 
-	async fn get_shard_threshold(&self, shard_id: ShardId, _: BlockHash) -> Result<u16> {
+	async fn shard_threshold(&self, shard_id: ShardId, _: BlockHash) -> Result<u16> {
 		let shards = self.shards.lock().unwrap();
 		let threshold = shards.get(&shard_id).map(|shard| shard.threshold).unwrap_or_default();
 		Ok(threshold)
 	}
 
-	async fn get_shard_status(&self, shard_id: ShardId, _: BlockHash) -> Result<ShardStatus> {
+	async fn shard_status(&self, shard_id: ShardId, _: BlockHash) -> Result<ShardStatus> {
 		let shards = self.shards.lock().unwrap();
 		let Some(shard) = shards.get(&shard_id) else {
 			return Ok(ShardStatus::Offline);
@@ -260,7 +260,7 @@ impl Runtime for Mock {
 		Ok(ShardStatus::Created)
 	}
 
-	async fn get_shard_commitment(
+	async fn shard_commitment(
 		&self,
 		shard_id: ShardId,
 		_: BlockHash,
@@ -285,7 +285,7 @@ impl Runtime for Mock {
 		))))
 	}
 
-	async fn get_shard_tasks(&self, shard_id: ShardId, _: BlockHash) -> Result<Vec<TaskId>> {
+	async fn shard_tasks(&self, shard_id: ShardId, _: BlockHash) -> Result<Vec<TaskId>> {
 		let assigned_tasks = self.assigned_tasks.lock().unwrap();
 		let tasks = assigned_tasks
 			.iter()
@@ -295,21 +295,17 @@ impl Runtime for Mock {
 		Ok(tasks)
 	}
 
-	async fn get_task(&self, task_id: TaskId, _: BlockHash) -> Result<Option<Task>> {
+	async fn task(&self, task_id: TaskId, _: BlockHash) -> Result<Option<Task>> {
 		let tasks = self.tasks.lock().unwrap();
 		Ok(tasks.get(&task_id).map(|task| task.task.clone()))
 	}
 
-	async fn get_batch_message(
-		&self,
-		batch: BatchId,
-		_: BlockHash,
-	) -> Result<Option<GatewayMessage>> {
+	async fn batch_message(&self, batch: BatchId, _: BlockHash) -> Result<Option<GatewayMessage>> {
 		let batches = self.batches.lock().unwrap();
 		Ok(batches.get(&batch).map(|b| b.message.clone()))
 	}
 
-	async fn get_gateway(&self, _network: NetworkId, _: BlockHash) -> Result<Option<Address32>> {
+	async fn gateway(&self, _network: NetworkId, _: BlockHash) -> Result<Option<Address32>> {
 		Ok(Some([0; 32]))
 	}
 

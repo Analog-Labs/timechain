@@ -5,7 +5,6 @@ use anyhow::Result;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::Deserialize;
 use std::collections::HashMap;
-use time_primitives::NetworkId;
 
 #[derive(Clone, Deserialize)]
 struct TokenPriceData {
@@ -27,18 +26,6 @@ struct Quote {
 #[derive(Clone, Deserialize)]
 struct PriceInfo {
 	pub price: Option<f64>,
-}
-
-fn gas_price(
-	usd_src: f64,
-	src_decimals: u8,
-	usd_dest: f64,
-	dest_decimals: u8,
-	dest_max_gas_price: u128,
-) -> f64 {
-	usd_dest / usd_src
-		* dest_max_gas_price as f64
-		* f64::powi(10., src_decimals as i32 - dest_decimals as i32)
 }
 
 impl Tc {
@@ -75,22 +62,5 @@ impl Tc {
 		self.config.save_prices(prices)?;
 		log::info!("Saved in prices.csv");
 		Ok(())
-	}
-
-	pub fn balance_to_usd(&self, network: NetworkId, balance: u128) -> Result<f64> {
-		let token_price = self.config.token_price_usd(network)?;
-		let decimals = self.currency(Some(network))?.decimals;
-		let factor = 10.0f64.powi(decimals as i32);
-		Ok(balance as f64 / factor * token_price)
-	}
-
-	/// Calculates destination network gas fee expressed in source network token
-	pub fn gas_price(&self, src_network: NetworkId, dest_network: NetworkId) -> Result<f64> {
-		let usd_src = self.config.token_price_usd(src_network)?;
-		let usd_dest = self.config.token_price_usd(dest_network)?;
-		let src_decimals = self.currency(Some(src_network))?.decimals;
-		let dest_decimals = self.currency(Some(dest_network))?.decimals;
-		let dest_max_gas_price = self.config.network(dest_network)?.max_gas_price;
-		Ok(gas_price(usd_src, src_decimals, usd_dest, dest_decimals, dest_max_gas_price))
 	}
 }

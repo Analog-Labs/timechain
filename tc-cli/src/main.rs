@@ -195,6 +195,7 @@ enum Command {
 		network: NetworkId,
 		hash: String,
 	},
+	CostMatrix,
 }
 
 #[tokio::main]
@@ -452,6 +453,10 @@ async fn real_main() -> Result<()> {
 		},
 		Command::RestartBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
+		},
+		Command::CostMatrix => {
+			let matrix = tc.cost_matrix().await?;
+			tc.print_table(None, "cost matrix", matrix).await?;
 		},
 	}
 	tracing::debug!("executed query in {}s", now.elapsed().unwrap().as_secs());

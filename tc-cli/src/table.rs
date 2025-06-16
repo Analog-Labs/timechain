@@ -411,3 +411,36 @@ impl IntoRow for BenchmarkStats {
 		})
 	}
 }
+
+#[derive(Serialize)]
+pub struct RouteCostEntry {
+	route: String,
+	dest_gas_price: u128,
+	dest_max_gas_price: u128,
+	src_token_usd: f64,
+	dest_token_usd: f64,
+	gas_price: f64,
+	msg_gas: u64,
+	msg_byte_gas: u64,
+	msg_cost: u128,
+	msg_cost_usd: f64,
+}
+
+impl IntoRow for RouteCost {
+	type Row = RouteCostEntry;
+
+	fn into_row(self, _tc: &Tc) -> Result<Self::Row> {
+		Ok(RouteCostEntry {
+			route: format!("{} {}", self.src, self.dest),
+			dest_gas_price: self.dest_gas_price,
+			dest_max_gas_price: self.dest_max_gas_price,
+			src_token_usd: self.src_token_usd,
+			dest_token_usd: self.dest_token_usd,
+			gas_price: self.gas_price,
+			msg_gas: self.msg_gas,
+			msg_byte_gas: self.msg_byte_gas,
+			msg_cost: self.msg_cost,
+			msg_cost_usd: self.msg_cost_usd,
+		})
+	}
+}

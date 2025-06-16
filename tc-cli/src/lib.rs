@@ -863,7 +863,7 @@ impl Tc {
 					continue;
 				}
 				let config = self.config.network(dest)?;
-				let gas_price = self.gas_price(src, dest)?;
+				let gas_price = self.config.gas_price(src, dest)?;
 				let route = Route {
 					network_id: dest,
 					gateway: dest_gateway,
@@ -1203,7 +1203,7 @@ impl Tc {
 					self.format_address(Some(dest_network), dest_addr)?,
 					gas_limit,
 					self.format_balance(Some(src_network), gas_cost)?,
-					self.balance_to_usd(src_network, gas_cost)?,
+					self.config.balance_to_usd(src_network, gas_cost)?,
 				),
 			)
 			.await?;
@@ -1221,7 +1221,7 @@ impl Tc {
 				self.format_address(Some(dest_network), dest_addr)?,
 				gas_limit,
 				self.format_balance(Some(src_network), gas_cost)?,
-				self.balance_to_usd(src_network, gas_cost)?,
+				self.config.balance_to_usd(src_network, gas_cost)?,
 			),
 		)
 		.await?;
@@ -1505,7 +1505,7 @@ impl Tc {
 		for network in self.iter() {
 			let gateway_funds = &self.config.network(network)?.gateway_funds;
 			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
-			total_funds += self.balance_to_usd(network, gateway_funds)?;
+			total_funds += self.config.balance_to_usd(network, gateway_funds)?;
 		}
 		Ok(total_funds)
 	}
@@ -1515,7 +1515,7 @@ impl Tc {
 		for network in self.iter() {
 			let (_connector, gateway) = self.gateway(network, block_hash).await?;
 			let balance = self.balance(Some(network), gateway, block_hash).await?;
-			total_balance += self.balance_to_usd(network, balance)?;
+			total_balance += self.config.balance_to_usd(network, balance)?;
 		}
 		Ok(total_balance)
 	}
@@ -1571,4 +1571,46 @@ impl Tc {
 			.await?;
 		Ok(msg)
 	}
+
+	pub async fn cost_matrix(&self) -> Result<Vec<RouteCost>> {
+		let mut matrix = vec![];
+		for src in self.iter() {
+			for dest in self.iter() {
+				if src == dest {
+					continue;
+				}
+				let dest_connector = self.connector(dest).await?;
+				let dest_config = self.config.network(dest)?;
+				let msg_cost = self.config.msg_fee(src, dest, 0, 0)?;
+				matrix.push(RouteCost {
+					src,
+					dest,
+					dest_gas_price: dest_connector.max_fee_per_gas().await?,
+					dest_max_gas_price: dest_config.max_gas_price,
+					src_token_usd: self.config.token_price_usd(src)?,
+					dest_token_usd: self.config.token_price_usd(dest)?,
+					gas_price: self.config.gas_price(src, dest)?,
+					msg_gas: dest_config.msg_gas(),
+					msg_byte_gas: dest_config.msg_byte_gas(),
+					msg_cost,
+					msg_cost_usd: self.config.balance_to_usd(src, msg_cost)?,
+				});
+			}
+		}
+		Ok(matrix)
+	}
+}
+
+pub struct RouteCost {
+	pub src: NetworkId,
+	pub dest: NetworkId,
+	pub dest_gas_price: u128,
+	pub dest_max_gas_price: u128,
+	pub src_token_usd: f64,
+	pub dest_token_usd: f64,
+	pub gas_price: f64,
+	pub msg_gas: u64,
+	pub msg_byte_gas: u64,
+	pub msg_cost: u128,
+	pub msg_cost_usd: f64,
 }

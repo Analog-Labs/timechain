@@ -33,6 +33,10 @@ sol!(
 	"gateway/out/GmpProxy.sol/GmpProxy.json"
 );
 
+fn encode_float(m: u64, e: i16) -> f64 {
+	m as f64 * (e as f64).exp2()
+}
+
 pub fn u256(bytes: &[u8]) -> U256 {
 	U256::from_be_bytes(<[u8; 32]>::try_from(bytes).unwrap())
 }
@@ -78,14 +82,13 @@ impl From<time_primitives::Route> for Gateway::Route {
 
 impl From<Gateway::Route> for time_primitives::Route {
 	fn from(route: Gateway::Route) -> Self {
-		let gas_price = ((route.gasPriceExponent as u64) << 52) | route.gasPriceMantissa;
 		Self {
 			network_id: route.networkId,
 			gateway: route.gateway.into(),
 			max_gas_limit: route.maxGasLimit,
 			msg_gas: route.msgGas,
 			msg_byte_gas: route.msgByteGas,
-			gas_price: f64::from_bits(gas_price),
+			gas_price: encode_float(route.gasPriceMantissa, route.gasPriceExponent),
 			msg_fee: route.msgFee,
 		}
 	}
@@ -134,6 +137,23 @@ impl From<time_primitives::GatewayOp> for Gateway::GatewayOp {
 				command: 3,
 				params: Into::<Gateway::TssKey>::into((key, sessions)).abi_encode().into(),
 			},
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_float_encoding() {
+		let cases = [0., 0.1, 1., f64::MAX, f64::MIN_POSITIVE];
+		for case in cases {
+			let (m, e, _) = num_traits::Float::integer_decode(case);
+			let f = encode_float(m, e);
+			let (m2, e2, _) = num_traits::Float::integer_decode(f);
+			println!("m {m} {m2} e {e:b} {e2:b}");
+			assert_eq!(case, f);
 		}
 	}
 }

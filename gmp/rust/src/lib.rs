@@ -416,6 +416,10 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
+	async fn set_prices(&self, _gateway: Address32, _prices: &[f64]) -> Result<()> {
+		Ok(())
+	}
+
 	async fn deploy_tester(&self, gateway: Address32, _path: &[u8]) -> Result<(Address32, u64)> {
 		let mut tester = [0; 32];
 		getrandom::fill(&mut tester).unwrap();

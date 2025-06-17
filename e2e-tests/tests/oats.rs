@@ -90,7 +90,6 @@ async fn oats_wrapped_evm() -> Result<()> {
 	const MINT_AMOUNT: u64 = TRANSFER_AMOUNT * 2;
 
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
-	let block = tc.latest_block().await?.0;
 
 	// Load raw deployment txs
 	let mut file = File::open("contracts/txs.raw")?;
@@ -110,8 +109,7 @@ async fn oats_wrapped_evm() -> Result<()> {
 	// Deploy Proxy+Token to every network: tx1, tx2;
 	// Mint some tokens;
 	// Upgrade to V2 implementation: tx3.
-	for nw in tc.networks(block).await?.into_iter() {
-		let nw_id = nw.network;
+	for nw_id in tc.iter() {
 		let c = env.chain_container(nw_id).unwrap();
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
@@ -208,9 +206,8 @@ async fn oats_sender_caller_evm() -> Result<()> {
 
 	let mut contracts = vec![];
 	// Deploy Token + Callee to every network
-	for (i, nw) in tc.networks(block).await?.into_iter().enumerate() {
-		let gw = nw.info.unwrap().gateway;
-		let nw_id = nw.network;
+	for (i, nw_id) in tc.iter().enumerate() {
+		let (_, gw) = tc.gateway(nw_id, block).await?;
 		let c = env.chain_container(nw_id).unwrap();
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();
@@ -332,9 +329,8 @@ async fn oats_sender_evm() -> Result<()> {
 
 	let mut contracts = vec![];
 	// Deploy Token to every network
-	for nw in tc.networks(block).await? {
-		let gw = nw.info.unwrap().gateway;
-		let nw_id = nw.network;
+	for nw_id in tc.iter() {
+		let (_, gw) = tc.gateway(nw_id, block).await?;
 		let c = env.chain_container(nw_id).unwrap();
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();

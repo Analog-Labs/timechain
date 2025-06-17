@@ -112,6 +112,11 @@ struct Route {
     uint64 msgFee;
 }
 
+struct GasPrice {
+    uint64 mantissa;
+    int16 exponent;
+}
+
 /**
  * @dev Status of a GMP message
  */

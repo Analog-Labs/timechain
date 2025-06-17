@@ -121,6 +121,7 @@ enum Command {
 	},
 	RegisterShards,
 	RegisterRoutes,
+	UpdateGasPrices,
 	RestartBatch {
 		batch_id: BatchId,
 	},
@@ -342,6 +343,7 @@ async fn real_main() -> Result<()> {
 			tc.register_online_shards(block).await?;
 		},
 		Command::RegisterRoutes => tc.register_all_routes(block).await?,
+		Command::UpdateGasPrices => tc.set_prices(block).await?,
 		Command::SetGatewayAdmin { network, admin } => {
 			let admin = tc.parse_address(Some(network), &admin)?;
 			tc.set_gateway_admin(network, admin, block).await?;

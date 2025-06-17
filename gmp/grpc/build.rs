@@ -27,6 +27,7 @@ fn main() {
 		.method(method("set_shards", "SetShards").build())
 		.method(method("routes", "Routes").build())
 		.method(method("set_route", "SetRoute").build())
+		.method(method("set_prices", "SetPrices").build())
 		.method(method("deploy_tester", "DeployTester").build())
 		.method(method("estimate_message_gas_limit", "EstimateMessageGasLimit").build())
 		.method(method("estimate_message_cost", "EstimateMessageCost").build())

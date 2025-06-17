@@ -12,6 +12,7 @@ import {IGmpReceiver} from "gmp/IGmpReceiver.sol";
 import {
     Command,
     Batch,
+    GasPrice,
     GatewayOp,
     GmpCallback,
     GmpMessage,
@@ -183,6 +184,10 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
      */
     function setRoute(Route calldata info) external onlyOwner {
         RouteStore.getMainStorage().insert(info);
+    }
+
+    function setPrices(GasPrice[] calldata prices) external onlyOwner {
+        RouteStore.getMainStorage().setPrices(prices);
     }
 
     // IGateway implementation
@@ -508,7 +513,7 @@ contract Gateway is IGateway, UUPSUpgradeable, OwnableUpgradeable {
         // Refund the chronicle gas
         unchecked {
             // Extra gas overhead used to execute the refund logic + selector overhead
-            uint256 gasUsed = 7687;
+            uint256 gasUsed = 7710;
 
             // Compute the gas used + base cost + proxy overhead
             gasUsed += GasUtils.txBaseGas();

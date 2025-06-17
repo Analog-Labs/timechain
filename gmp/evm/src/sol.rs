@@ -66,17 +66,30 @@ impl From<Gateway::TssKey> for time_primitives::TssPublicKey {
 
 impl From<time_primitives::Route> for Gateway::Route {
 	fn from(route: time_primitives::Route) -> Self {
-		let (mantissa, exponent, _) = num_traits::Float::integer_decode(route.gas_price);
+		let gas_price = Gateway::GasPrice::from(route.gas_price);
 		Self {
 			networkId: route.network_id,
 			gateway: route.gateway.into(),
 			maxGasLimit: route.max_gas_limit,
 			msgGas: route.msg_gas,
 			msgByteGas: route.msg_byte_gas,
-			gasPriceMantissa: mantissa,
-			gasPriceExponent: exponent,
+			gasPriceMantissa: gas_price.mantissa,
+			gasPriceExponent: gas_price.exponent,
 			msgFee: route.msg_fee,
 		}
+	}
+}
+
+impl From<f64> for Gateway::GasPrice {
+	fn from(gas_price: f64) -> Self {
+		let (mantissa, exponent, _) = num_traits::Float::integer_decode(gas_price);
+		Self { mantissa, exponent }
+	}
+}
+
+impl From<Gateway::GasPrice> for f64 {
+	fn from(gas_price: Gateway::GasPrice) -> Self {
+		encode_float(gas_price.mantissa, gas_price.exponent)
 	}
 }
 

@@ -209,6 +209,18 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::SetRouteResponse {}))
 	}
 
+	async fn set_prices(
+		&self,
+		request: Request<proto::SetPricesRequest>,
+	) -> GmpResult<proto::SetPricesResponse> {
+		let (connector, msg) = self.connector(request)?;
+		connector
+			.set_prices(msg.gateway, &msg.prices)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::SetPricesResponse {}))
+	}
+
 	async fn deploy_tester(
 		&self,
 		request: Request<proto::DeployTesterRequest>,

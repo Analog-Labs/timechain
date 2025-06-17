@@ -2,7 +2,7 @@
 // Analog's Contracts (last updated v0.1.0) (src/storage/Routes.sol)
 pragma solidity ^0.8.20;
 
-import {Signature, Route, MAX_PAYLOAD_SIZE} from "../Primitives.sol";
+import {Signature, GasPrice, Route, MAX_PAYLOAD_SIZE} from "../Primitives.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {GasUtils} from "../GasUtils.sol";
 
@@ -143,6 +143,19 @@ library RouteStore {
             });
         }
         return routes;
+    }
+
+    function setPrices(MainStorage storage store, GasPrice[] calldata prices) internal {
+        uint256 len = store.routeIds.length();
+        require(len == prices.length, "invalid length");
+        for (uint256 i = 0; i < len; i++) {
+            (uint256 key,) = store.routeIds.at(i);
+            uint16 networkId = uint16(key);
+            NetworkInfo storage route = store.routes[networkId];
+            GasPrice calldata price = prices[i];
+            route.gasPriceMantissa = price.mantissa;
+            route.gasPriceExponent = price.exponent;
+        }
     }
 
     function estimateGas(NetworkInfo memory route, uint256 messageSize, uint64 gasLimit)

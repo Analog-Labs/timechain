@@ -155,6 +155,15 @@ pub struct SetRouteRequest {
 pub struct SetRouteResponse {}
 
 #[derive(Serialize, Deserialize)]
+pub struct SetPricesRequest {
+	pub gateway: Address32,
+	pub prices: Vec<f64>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SetPricesResponse {}
+
+#[derive(Serialize, Deserialize)]
 pub struct DeployTesterRequest {
 	pub gateway: Address32,
 	pub tester: Vec<u8>,

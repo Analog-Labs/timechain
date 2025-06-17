@@ -63,9 +63,6 @@ enum Command {
 		amount: String,
 	},
 	// read data
-	AverageGasPrice {
-		network: NetworkId,
-	},
 	FetchPrices,
 	Networks,
 	Chronicles,

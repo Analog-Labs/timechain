@@ -1,0 +1,132 @@
+use alloy::primitives::utils::format_units;
+use alloy::providers::{Provider, WsConnect};
+use alloy::{
+	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
+	signers::local::PrivateKeySigner,
+};
+use anyhow::Result;
+use e2e_tests::{Backend, TestEnv};
+use std::fs::File;
+use std::io::Read;
+use std::sync::Arc;
+use std::time::Duration;
+
+
+mod common;
+
+use common::*;
+
+#[tokio::test]
+async fn oats_wrapped_evm() -> Result<()> {
+	const MINT_AMOUNT: u64 = TRANSFER_AMOUNT * 2;
+
+	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
+	let block = tc.latest_block().await?.0;
+
+	// Load raw deployment txs
+	let mut file = File::open("contracts/txs.raw")?;
+	let mut txs_hex = String::new();
+	file.read_to_string(&mut txs_hex)?;
+
+	let [tx1_raw, tx2_raw, tx3_raw, tx4_raw] = txs_hex
+		.split(",")
+		.into_iter()
+		.map(|s| s.trim())
+		.filter_map(|s| hex::decode(s).ok())
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap();
+
+	let mut contracts = vec![];
+
+	// Deploy Proxy+Token to every network: tx1, tx2;
+	// Mint some tokens;
+	// Upgrade to V2 implementation: tx3.
+	for nw in tc.networks(block).await?.into_iter() {
+		let nw_id = nw.network;
+		let c = env.chain_container(nw_id).unwrap();
+
+		let port = c.get_host_port_ipv4(8545).await.unwrap();
+		let ws = WsConnect::new(format!("ws://localhost:{port}"));
+		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
+		let wallet = EthereumWallet::from(signer.clone());
+		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws.clone()).await?);
+
+		// Deploy Proxy+Token to every network: tx1, tx2;
+		let rcp1 = rpc
+			.send_raw_transaction(&tx1_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let rcp2 = rpc
+			.send_raw_transaction(&tx2_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let impl_v1 = rcp1.contract_address.expect("no contract address");
+		let proxy = rcp2.contract_address.expect("no contract address");
+
+		tracing::info!("network {nw_id}: proxy deployed to {proxy}, tx: {}", rcp2.transaction_hash);
+		tracing::info!(
+			"network {nw_id}: impl v1 deployed to {impl_v1}, tx: {}",
+			rcp1.transaction_hash
+		);
+
+		// Mint some tokens;
+		let v1 = IERC20::new(proxy, rpc.clone());
+		let _rcp = v1.mint(MINTER, U256::from(MINT_AMOUNT)).send().await?.get_receipt().await?;
+
+		let bal = v1.balanceOf(MINTER).call().await?;
+		assert_eq!(bal, U256::from(MINT_AMOUNT));
+		let supply = v1.totalSupply().call().await?;
+		assert_eq!(supply, U256::from(MINT_AMOUNT));
+
+		let decimals = v1.decimals().call().await?;
+		let ticker = v1.symbol().call().await?;
+		tracing::info!(
+			"network {nw_id}: minted {:.6} {ticker} to {MINTER}",
+			format_units(bal, decimals)?
+		);
+
+		// v1 does not have cap() method,
+		// therefore this should fail
+		assert!(v1.cap().call().await.is_err());
+
+		// Upgrade to V2 implementation: tx3, tx4
+		tracing::info!("network {nw_id}: upgrading token to impl v2");
+
+		let rcp3 = rpc
+			.send_raw_transaction(&tx3_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let rcp4 = rpc
+			.send_raw_transaction(&tx4_raw)
+			.await?
+			.with_timeout(Some(Duration::from_secs(10)))
+			.get_receipt()
+			.await?;
+		let impl_v2 = rcp3.contract_address.expect("no contract address");
+		tracing::info!(
+			"network {nw_id}: impl v2 deployed to {impl_v2}, tx: {}",
+			rcp3.transaction_hash
+		);
+		tracing::info!("network {nw_id}: token upgraded to impl v2, tx: {}", rcp4.transaction_hash);
+
+		// We query the same contract which is proxy,
+		// but its implementation is now upgraded to v2.
+		let v2 = v1;
+		// v2 now has cap() method
+		assert_eq!(v2.cap().call().await?, U256::from(CAP_AMOUNT));
+		// Balances should stay unchanged
+		assert_eq!(v2.balanceOf(MINTER).call().await?, bal);
+		assert_eq!(v2.totalSupply().call().await?, supply);
+
+		contracts.push((nw_id, OATSSender::new(proxy, rpc.clone())));
+	}
+
+	common::test_oats_sender(contracts, tc).await
+}

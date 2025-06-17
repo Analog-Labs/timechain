@@ -1579,7 +1579,7 @@ impl Tc {
 				matrix.push(RouteCost {
 					src,
 					dest,
-					dest_gas_price: dest_connector.max_fee_per_gas().await?,
+					dest_gas_price: dest_connector.gas_price().await?,
 					dest_max_gas_price: dest_config.max_gas_price,
 					src_token_usd: self.config.token_price_usd(src)?,
 					dest_token_usd: self.config.token_price_usd(dest)?,

@@ -234,6 +234,15 @@ impl IConnectorAdmin for Connector {
 		self.client.lock().await.set_route(request).await?;
 		Ok(())
 	}
+	/// Updates all the prices in the gateway.
+	async fn set_prices(&self, gateway: Address32, prices: &[f64]) -> Result<()> {
+		let request = Request::new(proto::SetPricesRequest {
+			gateway,
+			prices: prices.to_vec(),
+		});
+		self.client.lock().await.set_prices(request).await?;
+		Ok(())
+	}
 	/// Deploys a test contract.
 	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
 		let request = Request::new(proto::DeployTesterRequest {

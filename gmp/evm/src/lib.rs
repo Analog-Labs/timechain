@@ -388,6 +388,16 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
+	/// Updates the prices of all routes.
+	async fn set_prices(&self, gateway: Address32, prices: &[f64]) -> Result<()> {
+		let call = Gateway::setPricesCall {
+			prices: prices.iter().copied().map(Gateway::GasPrice::from).collect(),
+		};
+		let tx = TransactionRequest::default().with_to(a_addr(gateway)).with_call(&call);
+		let _receipt = self.submit(tx).await?;
+		Ok(())
+	}
+
 	/// Estimates message gas limit
 	async fn estimate_message_gas_limit(
 		&self,

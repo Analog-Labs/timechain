@@ -894,6 +894,26 @@ impl Tc {
 		self.register_routes(routes).await
 	}
 
+	pub async fn set_prices(&self, block_hash: BlockHash) -> Result<()> {
+		let mut set_prices = FuturesUnordered::new();
+		for network in self.iter() {
+			set_prices.push(async move {
+				let (connector, gateway) = self.gateway(network, block_hash).await?;
+				let routes = connector.routes(gateway).await?;
+				let mut prices = vec![];
+				for route in routes {
+					prices.push(self.config.gas_price(network, route.network_id)?);
+				}
+				connector.set_prices(gateway, &prices).await?;
+				Ok::<_, anyhow::Error>(())
+			})
+		}
+		while let Some(result) = set_prices.next().await {
+			result?;
+		}
+		Ok(())
+	}
+
 	async fn chronicle_config(&self, chronicle_address: &str) -> Result<ChronicleConfig> {
 		let config: time_primitives::admin::Config =
 			reqwest::get(format!("{chronicle_address}/config")).await?.json().await?;

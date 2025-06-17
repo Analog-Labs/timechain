@@ -428,6 +428,8 @@ pub trait IConnectorAdmin: IConnector {
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>>;
 	/// Updates an entry in the gateway routing table.
 	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()>;
+	/// Updates the prices for all routes in the gateway.
+	async fn set_prices(&self, gateway: Address32, prices: &[f64]) -> Result<()>;
 	/// Deploys a test contract.
 	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)>;
 	/// Estimates the message gas limit.

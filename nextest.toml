@@ -1,0 +1,12 @@
+nextest-version = "0.9.99"
+
+[profile.default]
+test-threads = "num-cpus"
+fail-fast = false
+slow-timeout = { period = "10m", terminate-after = 2, grace-period = "1m" }
+retries = 3
+
+[[profile.default.overrides]]
+# Run smoke tests first
+filter = 'test(smoke)'
+priority = 100

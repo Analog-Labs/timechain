@@ -1,5 +1,5 @@
 use alloy::primitives::Bytes;
-use alloy::providers::{WsConnect};
+use alloy::providers::WsConnect;
 use alloy::sol_types::SolEvent;
 use alloy::{
 	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,

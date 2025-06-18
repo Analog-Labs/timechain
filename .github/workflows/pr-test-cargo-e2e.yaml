@@ -30,10 +30,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Build dev containers
-        run: |
-          ./scripts/build_docker.sh
-
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:

@@ -10,6 +10,9 @@ jobs:
     runs-on: [self-hosted, integration]
     timeout-minutes: 90
     steps:
+      - name: Install latest cargo-nextest release
+        uses: taiki-e/install-action@nextest
+
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
@@ -38,13 +41,11 @@ jobs:
           # Handling cache in the Actions Cache
           cache: false
 
-      - name: Run testsuite
+      - name: Run testsuite with cargo-nextest
         uses: ./.github/actions/cargo-command
         with:
-          command: test
-          package: e2e-tests
-          cache: false
-          annotate: false
+          command: nextest
+          args: run -p e2e-tests --config-file nextest.toml --no-capture
 
       - name: Cleanup
         if: always()

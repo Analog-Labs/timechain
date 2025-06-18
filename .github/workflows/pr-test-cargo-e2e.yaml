@@ -9,6 +9,8 @@ jobs:
   e2e-tests:
     runs-on: [self-hosted, integration]
     timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Install latest cargo-nextest release
         uses: taiki-e/install-action@nextest

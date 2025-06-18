@@ -19,7 +19,7 @@ filter = 'test(evm) & test(tss)'
 test-group = 'evm-tss'
 
 [[profile.default.overrides]]
-filter = 'test(grpc) & not test(grpc-tss)'
+filter = 'test(grpc) & not test(tss)'
 test-group = 'grpc'
 
 [[profile.default.overrides]]

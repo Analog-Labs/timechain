@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
 use alloy::primitives::address;
+use alloy::primitives::U256;
 use alloy::providers::Provider;
 use alloy::sol;
 use alloy::sol_types::SolEvent;
-use alloy::primitives::U256;
 use anyhow::{Context, Result};
 use e2e_tests::Tester;
 use futures::stream::StreamExt;
@@ -78,7 +78,6 @@ pub type Address20 = alloy::primitives::Address;
 pub fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
 }
-
 
 pub async fn test_oats_sender<P: Provider>(
 	contracts: Vec<(NetworkId, OATSSenderInstance<P>)>,

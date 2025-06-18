@@ -1,0 +1,32 @@
+[profile.default]
+test-threads = "num-cpus"
+fail-fast = false
+slow-timeout = { period = "10m", terminate-after = 2, grace-period = "1m" }
+retries = 2
+
+[test-groups]
+evm = { max-threads = 1 }
+evm-tss = { max-threads = 1 }
+grpc = { max-threads = 1 }
+grpc-tss = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'test(evm) & not test(tss)'
+test-group = 'evm'
+
+[[profile.default.overrides]]
+filter = 'test(evm) & test(tss)'
+test-group = 'evm-tss'
+
+[[profile.default.overrides]]
+filter = 'test(grpc) & not test(tss)'
+test-group = 'grpc'
+
+[[profile.default.overrides]]
+filter = 'test(grpc) & test(tss)'
+test-group = 'grpc-tss'
+
+[[profile.default.overrides]]
+# Run smoke tests first
+filter = 'test(smoke)'
+priority = 100

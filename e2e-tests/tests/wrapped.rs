@@ -11,7 +11,6 @@ use std::io::Read;
 use std::sync::Arc;
 use std::time::Duration;
 
-
 mod common;
 
 use common::*;
@@ -21,7 +20,6 @@ async fn oats_wrapped_evm() -> Result<()> {
 	const MINT_AMOUNT: u64 = TRANSFER_AMOUNT * 2;
 
 	let (env, tc) = TestEnv::new(Backend::Evm, false).await?;
-	let block = tc.latest_block().await?.0;
 
 	// Load raw deployment txs
 	let mut file = File::open("contracts/txs.raw")?;
@@ -30,7 +28,6 @@ async fn oats_wrapped_evm() -> Result<()> {
 
 	let [tx1_raw, tx2_raw, tx3_raw, tx4_raw] = txs_hex
 		.split(",")
-		.into_iter()
 		.map(|s| s.trim())
 		.filter_map(|s| hex::decode(s).ok())
 		.collect::<Vec<_>>()
@@ -42,8 +39,7 @@ async fn oats_wrapped_evm() -> Result<()> {
 	// Deploy Proxy+Token to every network: tx1, tx2;
 	// Mint some tokens;
 	// Upgrade to V2 implementation: tx3.
-	for nw in tc.networks(block).await?.into_iter() {
-		let nw_id = nw.network;
+	for nw_id in tc.iter() {
 		let c = env.chain_container(nw_id).unwrap();
 
 		let port = c.get_host_port_ipv4(8545).await.unwrap();

@@ -1062,7 +1062,7 @@ impl Tc {
 			gateways.insert(network, gateway);
 		}
 
-		// self.register_routes(gateways).await?;
+		self.register_routes(gateways).await?;
 
 		let mut deploy_chronicle = FuturesUnordered::new();
 		for chronicle in self.config.chronicles() {

@@ -75,7 +75,6 @@ pub struct Benchmark {
 	payload: Vec<u8>,
 	num_msgs: u64,
 	latest_block: BlockNumber,
-	// msgs_per_block: u16,
 }
 
 impl Benchmark {
@@ -141,33 +140,6 @@ impl Benchmark {
 		Ok(())
 	}
 
-	async fn send_messages(&mut self, block: BlockNumber) -> Result<()> {
-		let mut messages = FuturesUnordered::new();
-		for ((src, dest), route) in &mut self.routes {
-			for _ in 0..self.msgs_per_block {
-				let fut = self.tc.send_message(
-					*src,
-					route.src_addr,
-					*dest,
-					route.dest_addr,
-					route.gas_limit,
-					route.msg_cost,
-					self.payload.clone(),
-				);
-				messages.push(async move {
-					let message_id = fut.await?;
-					Ok::<_, anyhow::Error>((*src, *dest, message_id))
-				});
-			}
-			route.num_sent += self.msgs_per_block as u64;
-		}
-		while let Some(result) = messages.next().await {
-			let (src, dest, message_id) = result?;
-			self.messages.insert(message_id, MessageStats::new(src, dest, block));
-		}
-		Ok(())
-	}
-
 	async fn send_single_message(&self, src: NetworkId, dest: NetworkId) -> Result<MessageId> {
 		let route = self.routes.get(&(src, dest)).context("Route not found")?;
 		let message_id = self
@@ -178,7 +150,7 @@ impl Benchmark {
 				dest,
 				route.dest_addr,
 				route.gas_limit,
-				route.gas_cost,
+				route.msg_cost,
 				self.payload.clone(),
 			)
 			.await?;

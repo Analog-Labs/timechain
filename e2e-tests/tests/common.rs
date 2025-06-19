@@ -94,14 +94,14 @@ pub async fn test_oats_sender<P: Provider>(
 		}
 	}
 	// Check initial balances
-	let mut minter_balances = vec![];
+	let mut balances = vec![];
 	for (_nw, token) in contracts.iter() {
 		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		// On every chain, MINTER has some OMNI tokens, and ALICE has none.
+		// On every chain, MINTER has some OMNI tokens
 		assert_ne!(minter_bal, U256::ZERO);
-		assert_eq!(alice_bal, U256::ZERO);
-		minter_balances.push(minter_bal);
+
+		balances.push((alice_bal, minter_bal));
 	}
 	// Transfer tokens from every network to next network, ring way
 	let mut msgs = vec![];
@@ -154,9 +154,9 @@ pub async fn test_oats_sender<P: Provider>(
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
 		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has U256::from(TRANSFER_AMOUNT)
-		assert_eq!(minter_bal, minter_balances[i] - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(alice_bal, U256::from(TRANSFER_AMOUNT));
+		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has +=U256::from(TRANSFER_AMOUNT)
+		assert_eq!(minter_bal, balances[i].1 - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, balances[i].0 + U256::from(TRANSFER_AMOUNT));
 	}
 
 	Ok(())
@@ -176,8 +176,8 @@ pub async fn test_oats_sender_caller<P: Provider>(
 	let mut balances = vec![];
 	for (_nw, token, callee, _) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(MINTER).call().await?;
-		balances.push((alice_bal, bob_bal));
+		let minter_bal = token.balanceOf(MINTER).call().await?;
+		balances.push((alice_bal, minter_bal));
 		// Callee total is unitialized hence ZERO
 		assert_eq!(callee.total().call().await?, U256::ZERO);
 	}
@@ -238,7 +238,7 @@ pub async fn test_oats_sender_caller<P: Provider>(
 	// Check resulting balances
 	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let bob_bal = token.balanceOf(MINTER).call().await?;
+		let minter_bal = token.balanceOf(MINTER).call().await?;
 		// On every chain, ALICE now has -=TRANSFER_AMOUNT
 		assert_eq!(alice_bal, balances[i].0 - U256::from(TRANSFER_AMOUNT));
 		let received_amount = if i == 1 {
@@ -248,7 +248,7 @@ pub async fn test_oats_sender_caller<P: Provider>(
 			// sufficient gas_limit: call succeeds, MINTER gets TRANSFER_AMOUNT
 			U256::from(TRANSFER_AMOUNT)
 		};
-		assert_eq!(bob_bal, balances[i].1 + received_amount);
+		assert_eq!(minter_bal, balances[i].1 + received_amount);
 		assert_eq!(callee.total().call().await?, received_amount);
 	}
 

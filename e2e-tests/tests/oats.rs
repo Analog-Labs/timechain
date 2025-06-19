@@ -1,18 +1,11 @@
-use alloy::primitives::Bytes;
 use alloy::providers::WsConnect;
-use alloy::sol_types::SolEvent;
 use alloy::{
 	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
 	signers::local::PrivateKeySigner,
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use e2e_tests::{Backend, TestEnv};
-use futures::stream::StreamExt;
-use gmp::Gateway;
 use std::sync::Arc;
-
-use tc_cli::MessageTrace;
-use time_primitives::MessageId;
 
 mod common;
 

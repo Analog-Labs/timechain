@@ -1,9 +1,23 @@
 #![allow(dead_code)]
 
+use std::sync::Arc;
+
+use alloy::network::EthereumWallet;
 use alloy::primitives::address;
 use alloy::primitives::Bytes;
 use alloy::primitives::U256;
+use alloy::providers::fillers::BlobGasFiller;
+use alloy::providers::fillers::ChainIdFiller;
+use alloy::providers::fillers::FillProvider;
+use alloy::providers::fillers::GasFiller;
+use alloy::providers::fillers::JoinFill;
+use alloy::providers::fillers::NonceFiller;
+use alloy::providers::fillers::WalletFiller;
 use alloy::providers::Provider;
+use alloy::providers::ProviderBuilder;
+use alloy::providers::RootProvider;
+use alloy::providers::WsConnect;
+use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use alloy::sol_types::SolEvent;
 use anyhow::{Context, Result};
@@ -79,8 +93,31 @@ sol! {
 
 pub type Address20 = alloy::primitives::Address;
 
+type Rpc = FillProvider<
+	JoinFill<
+		JoinFill<
+			alloy::providers::Identity,
+			JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
+		>,
+		WalletFiller<EthereumWallet>,
+	>,
+	RootProvider,
+>;
+
 pub fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
+}
+
+pub async fn build_rpc(signer_key: &str, port: u16) -> Result<Arc<Rpc>> {
+	let ws = WsConnect::new(format!("ws://localhost:{port}"));
+	let signer: PrivateKeySigner = signer_key.parse()?;
+	let wallet = EthereumWallet::from(signer.clone());
+	ProviderBuilder::new()
+		.wallet(wallet)
+		.connect_ws(ws)
+		.await
+		.map(Arc::new)
+		.map_err(Into::into)
 }
 
 pub async fn test_oats_sender<P: Provider>(
@@ -190,7 +227,7 @@ pub async fn test_oats_sender_caller<P: Provider>(
 			let receipt = token
 				.sendAndCall(
 					*nw2,
-					MINTER,
+					ALICE,
 					U256::from(TRANSFER_AMOUNT),
 					*gas_limit,
 					*callee.address(),
@@ -239,16 +276,16 @@ pub async fn test_oats_sender_caller<P: Provider>(
 	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let minter_bal = token.balanceOf(MINTER).call().await?;
-		// On every chain, ALICE now has -=TRANSFER_AMOUNT
-		assert_eq!(alice_bal, balances[i].0 - U256::from(TRANSFER_AMOUNT));
+		// On every chain, MINTER now has -=TRANSFER_AMOUNT
+		assert_eq!(minter_bal, balances[i].1 - U256::from(TRANSFER_AMOUNT));
 		let received_amount = if i == 1 {
-			// insufficient gas_limit: call fails, MINTER gets 0
+			// insufficient gas_limit: call fails, ALICE gets 0
 			U256::ZERO
 		} else {
-			// sufficient gas_limit: call succeeds, MINTER gets TRANSFER_AMOUNT
+			// sufficient gas_limit: call succeeds, ALICE gets TRANSFER_AMOUNT
 			U256::from(TRANSFER_AMOUNT)
 		};
-		assert_eq!(minter_bal, balances[i].1 + received_amount);
+		assert_eq!(alice_bal, balances[i].0 + received_amount);
 		assert_eq!(callee.total().call().await?, received_amount);
 	}
 

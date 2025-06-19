@@ -1,14 +1,10 @@
 use alloy::primitives::utils::format_units;
-use alloy::providers::{Provider, WsConnect};
-use alloy::{
-	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
-	signers::local::PrivateKeySigner,
-};
+use alloy::primitives::U256;
+use alloy::providers::Provider;
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnv};
+use e2e_tests::{Backend, TestEnv, ANVIL_PORT};
 use std::fs::File;
 use std::io::Read;
-use std::sync::Arc;
 use std::time::Duration;
 
 mod common;
@@ -43,13 +39,8 @@ async fn oats_wrapped_evm() -> Result<()> {
 	// + Upgrade to V2 implementation: tx3;
 	// + Deploy Callee;
 	for (i, nw_id) in tc.iter().enumerate() {
-		let c = env.chain_container(nw_id).unwrap();
-
-		let port = c.get_host_port_ipv4(8545).await.unwrap();
-		let ws = WsConnect::new(format!("ws://localhost:{port}"));
-		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
-		let wallet = EthereumWallet::from(signer.clone());
-		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws.clone()).await?);
+		let port = env.chain_container(nw_id)?.get_host_port_ipv4(ANVIL_PORT).await?;
+		let rpc = common::build_rpc(MINTER_KEY, port).await?;
 
 		// Deploy Proxy+Token to every network: tx1, tx2;
 		let rcp1 = rpc

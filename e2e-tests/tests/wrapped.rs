@@ -136,11 +136,11 @@ async fn oats_wrapped_evm() -> Result<()> {
 		));
 	}
 
-	// Test OATS Sender flow
+	tracing::info!("Testing OATS Send flow");
 	let senders = contracts.clone().into_iter().map(|(n, s, _, _, _)| (n, s)).collect();
 	common::test_oats_sender(senders, &tc).await?;
 
-	// Test OATS Sender Caller flow
+	tracing::info!("Testing OATS Send+Call flow");
 	let callers = contracts.into_iter().map(|(n, _, f, t, g)| (n, f, t, g)).collect();
 	common::test_oats_sender_caller(callers, &tc).await
 }

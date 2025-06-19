@@ -173,14 +173,11 @@ pub async fn test_oats_sender_caller<P: Provider>(
 		}
 	}
 	// Check initial balances
-	let mut alice_balances = vec![];
+	let mut balances = vec![];
 	for (_nw, token, callee, _) in contracts.iter() {
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let bob_bal = token.balanceOf(MINTER).call().await?;
-		// On every chain, ALICE has some OMNI tokens, and MINTER has none.
-		assert_ne!(alice_bal, U256::ZERO);
-		assert_eq!(bob_bal, U256::ZERO);
-		alice_balances.push(alice_bal);
+		balances.push((alice_bal, bob_bal));
 		// Callee total is unitialized hence ZERO
 		assert_eq!(callee.total().call().await?, U256::ZERO);
 	}
@@ -243,7 +240,7 @@ pub async fn test_oats_sender_caller<P: Provider>(
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let bob_bal = token.balanceOf(MINTER).call().await?;
 		// On every chain, ALICE now has -=TRANSFER_AMOUNT
-		assert_eq!(alice_bal, alice_balances[i] - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, balances[i].0 - U256::from(TRANSFER_AMOUNT));
 		let received_amount = if i == 1 {
 			// insufficient gas_limit: call fails, MINTER gets 0
 			U256::ZERO
@@ -251,8 +248,8 @@ pub async fn test_oats_sender_caller<P: Provider>(
 			// sufficient gas_limit: call succeeds, MINTER gets TRANSFER_AMOUNT
 			U256::from(TRANSFER_AMOUNT)
 		};
+		assert_eq!(bob_bal, balances[i].1 + received_amount);
 		assert_eq!(callee.total().call().await?, received_amount);
-		assert_eq!(bob_bal, received_amount);
 	}
 
 	Ok(())

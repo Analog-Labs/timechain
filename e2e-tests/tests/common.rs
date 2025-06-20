@@ -1,18 +1,35 @@
 #![allow(dead_code)]
 
+use std::sync::Arc;
+
+use alloy::network::EthereumWallet;
 use alloy::primitives::address;
+use alloy::primitives::Bytes;
 use alloy::primitives::U256;
+use alloy::providers::fillers::BlobGasFiller;
+use alloy::providers::fillers::ChainIdFiller;
+use alloy::providers::fillers::FillProvider;
+use alloy::providers::fillers::GasFiller;
+use alloy::providers::fillers::JoinFill;
+use alloy::providers::fillers::NonceFiller;
+use alloy::providers::fillers::WalletFiller;
 use alloy::providers::Provider;
+use alloy::providers::ProviderBuilder;
+use alloy::providers::RootProvider;
+use alloy::providers::WsConnect;
+use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use alloy::sol_types::SolEvent;
 use anyhow::{Context, Result};
 use e2e_tests::Tester;
 use futures::stream::StreamExt;
 use gmp::Gateway;
+use Callee::CalleeInstance;
 use OATSSender::OATSSenderInstance;
 
 use tc_cli::{MessageTrace, NetworkId};
 use time_primitives::{Address32, MessageId};
+use OATSSenderCaller::OATSSenderCallerInstance;
 
 // Anvil's default accounts
 pub const ALICE: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -22,6 +39,7 @@ pub const MINTER_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a84
 
 pub const TRANSFER_AMOUNT: u64 = 10u64.pow(18);
 pub const CAP_AMOUNT: u64 = 10 * TRANSFER_AMOUNT;
+pub const GAS_LIMIT_STEP: u64 = 50_000;
 
 // Codegen from ABI file to interact with the contract.
 sol!(
@@ -75,13 +93,36 @@ sol! {
 
 pub type Address20 = alloy::primitives::Address;
 
+type Rpc = FillProvider<
+	JoinFill<
+		JoinFill<
+			alloy::providers::Identity,
+			JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>,
+		>,
+		WalletFiller<EthereumWallet>,
+	>,
+	RootProvider,
+>;
+
 pub fn a_addr(address: Address32) -> Address20 {
 	Address20::from_word(address.into())
 }
 
+pub async fn build_rpc(signer_key: &str, port: u16) -> Result<Arc<Rpc>> {
+	let ws = WsConnect::new(format!("ws://localhost:{port}"));
+	let signer: PrivateKeySigner = signer_key.parse()?;
+	let wallet = EthereumWallet::from(signer.clone());
+	ProviderBuilder::new()
+		.wallet(wallet)
+		.connect_ws(ws)
+		.await
+		.map(Arc::new)
+		.map_err(Into::into)
+}
+
 pub async fn test_oats_sender<P: Provider>(
 	contracts: Vec<(NetworkId, OATSSenderInstance<P>)>,
-	tc: Tester,
+	tc: &Tester,
 ) -> Result<()> {
 	// Set OMNI token networks
 	for (nw, token) in contracts.iter() {
@@ -90,14 +131,14 @@ pub async fn test_oats_sender<P: Provider>(
 		}
 	}
 	// Check initial balances
-	let mut minter_balances = vec![];
+	let mut balances = vec![];
 	for (_nw, token) in contracts.iter() {
 		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		// On every chain, MINTER has some OMNI tokens, and ALICE has none.
+		// On every chain, MINTER has some OMNI tokens
 		assert_ne!(minter_bal, U256::ZERO);
-		assert_eq!(alice_bal, U256::ZERO);
-		minter_balances.push(minter_bal);
+
+		balances.push((alice_bal, minter_bal));
 	}
 	// Transfer tokens from every network to next network, ring way
 	let mut msgs = vec![];
@@ -150,9 +191,102 @@ pub async fn test_oats_sender<P: Provider>(
 	for (i, (_nw, token)) in contracts.iter().enumerate() {
 		let minter_bal = token.balanceOf(MINTER).call().await?;
 		let alice_bal = token.balanceOf(ALICE).call().await?;
-		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has U256::from(TRANSFER_AMOUNT)
-		assert_eq!(minter_bal, minter_balances[i] - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(alice_bal, U256::from(TRANSFER_AMOUNT));
+		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has +=U256::from(TRANSFER_AMOUNT)
+		assert_eq!(minter_bal, balances[i].1 - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(alice_bal, balances[i].0 + U256::from(TRANSFER_AMOUNT));
+	}
+
+	Ok(())
+}
+
+pub async fn test_oats_sender_caller<P: Provider>(
+	contracts: Vec<(NetworkId, OATSSenderCallerInstance<P>, CalleeInstance<P>, u64)>,
+	tc: &Tester,
+) -> Result<()> {
+	// Set OMNI token networks
+	for (nw, token, _, _) in contracts.iter() {
+		for (n, t, _, _) in contracts.iter().filter(|(n, _, _, _)| n.ne(nw)) {
+			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
+		}
+	}
+	// Check initial balances
+	let mut balances = vec![];
+	for (_nw, token, callee, _) in contracts.iter() {
+		let alice_bal = token.balanceOf(ALICE).call().await?;
+		let minter_bal = token.balanceOf(MINTER).call().await?;
+		balances.push((alice_bal, minter_bal));
+		// Callee total is unitialized hence ZERO
+		assert_eq!(callee.total().call().await?, U256::ZERO);
+	}
+	// Transfer tokens from every network to next network, and call callee, ring way
+	let mut msgs = vec![];
+	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
+	while let Some((nw, token, callee, gas_limit)) = ring.next() {
+		if let Some((nw2, _, _, _)) = ring.peek() {
+			let gmp_fee = token.cost(*nw2, *gas_limit, Bytes::new()).call().await?;
+			let receipt = token
+				.sendAndCall(
+					*nw2,
+					ALICE,
+					U256::from(TRANSFER_AMOUNT),
+					*gas_limit,
+					*callee.address(),
+					Bytes::new(),
+				)
+				.value(gmp_fee)
+				.send()
+				.await?
+				.get_receipt()
+				.await?;
+
+			let msg_id: MessageId = receipt
+				.inner
+				.logs()
+				.iter()
+				.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
+				.map(|e| e.id.into())
+				.next()
+				.context("Failed to send gmp message")?;
+			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
+			msgs.push((*nw, msg_id));
+		};
+	}
+	// Track messages
+	let mut blocks = tc.finality_notification_stream();
+	let mut id = None;
+	loop {
+		let (hash, _) = blocks.next().await.context("expected block")?;
+		let mut traces: Vec<MessageTrace> = vec![];
+		for (nw, msg_id) in &msgs {
+			let trace = &tc
+				.message_trace(*nw, *msg_id, hash)
+				.await
+				.context("failed to get message trace")?;
+			traces.push(trace.clone());
+		}
+		let executed = traces.iter().filter_map(|t| t.exec.clone()).count();
+		tracing::info!("waiting for messages to be executed");
+		id = Some(tc.print_table(id, "message", traces).await?);
+		if executed == msgs.len() - 1 {
+			break;
+		}
+	}
+	// Check resulting balances
+	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
+		let alice_bal = token.balanceOf(ALICE).call().await?;
+		let minter_bal = token.balanceOf(MINTER).call().await?;
+		// On every chain, MINTER now has -=TRANSFER_AMOUNT
+		assert_eq!(minter_bal, balances[i].1 - U256::from(TRANSFER_AMOUNT));
+		let received_amount = if i == 1 {
+			// insufficient gas_limit: call fails, ALICE gets 0
+			U256::ZERO
+		} else {
+			// sufficient gas_limit: call succeeds, ALICE gets TRANSFER_AMOUNT
+			U256::from(TRANSFER_AMOUNT)
+		};
+		assert_eq!(alice_bal, balances[i].0 + received_amount);
+		assert_eq!(callee.total().call().await?, received_amount);
 	}
 
 	Ok(())

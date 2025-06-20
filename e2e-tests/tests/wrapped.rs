@@ -1,14 +1,10 @@
 use alloy::primitives::utils::format_units;
-use alloy::providers::{Provider, WsConnect};
-use alloy::{
-	network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
-	signers::local::PrivateKeySigner,
-};
+use alloy::primitives::U256;
+use alloy::providers::Provider;
 use anyhow::Result;
-use e2e_tests::{Backend, TestEnv};
+use e2e_tests::{Backend, TestEnv, ANVIL_PORT};
 use std::fs::File;
 use std::io::Read;
-use std::sync::Arc;
 use std::time::Duration;
 
 mod common;
@@ -36,17 +32,15 @@ async fn oats_wrapped_evm() -> Result<()> {
 
 	let mut contracts = vec![];
 
-	// Deploy Proxy+Token to every network: tx1, tx2;
-	// Mint some tokens;
-	// Upgrade to V2 implementation: tx3.
-	for nw_id in tc.iter() {
-		let c = env.chain_container(nw_id).unwrap();
-
-		let port = c.get_host_port_ipv4(8545).await.unwrap();
-		let ws = WsConnect::new(format!("ws://localhost:{port}"));
-		let signer: PrivateKeySigner = MINTER_KEY.parse()?;
-		let wallet = EthereumWallet::from(signer.clone());
-		let rpc = Arc::new(ProviderBuilder::new().wallet(wallet).connect_ws(ws.clone()).await?);
+	// On every chain:
+	//
+	// + Deploy Proxy+Token: tx1, tx2;
+	// + Mint some tokens;
+	// + Upgrade to V2 implementation: tx3;
+	// + Deploy Callee;
+	for (i, nw_id) in tc.iter().enumerate() {
+		let port = env.chain_container(nw_id)?.get_host_port_ipv4(ANVIL_PORT).await?;
+		let rpc = common::build_rpc(MINTER_KEY, port).await?;
 
 		// Deploy Proxy+Token to every network: tx1, tx2;
 		let rcp1 = rpc
@@ -121,8 +115,23 @@ async fn oats_wrapped_evm() -> Result<()> {
 		assert_eq!(v2.balanceOf(MINTER).call().await?, bal);
 		assert_eq!(v2.totalSupply().call().await?, supply);
 
-		contracts.push((nw_id, OATSSender::new(proxy, rpc.clone())));
+		// Deploy Callee;
+		let callee = Callee::deploy(rpc.clone(), proxy).await?;
+
+		contracts.push((
+			nw_id,
+			OATSSender::new(proxy, rpc.clone()),
+			OATSSenderCaller::new(proxy, rpc.clone()),
+			callee,
+			GAS_LIMIT_STEP * (i as u64 + 1),
+		));
 	}
 
-	common::test_oats_sender(contracts, tc).await
+	tracing::info!("Testing OATS Send flow");
+	let senders = contracts.clone().into_iter().map(|(n, s, _, _, _)| (n, s)).collect();
+	common::test_oats_sender(senders, &tc).await?;
+
+	tracing::info!("Testing OATS Send+Call flow");
+	let callers = contracts.into_iter().map(|(n, _, f, t, g)| (n, f, t, g)).collect();
+	common::test_oats_sender_caller(callers, &tc).await
 }

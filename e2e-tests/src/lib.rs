@@ -23,6 +23,8 @@ use zstd::{Decoder, Encoder};
 pub type Container = ContainerAsync<GenericImage>;
 pub use tc_cli::Backend;
 
+pub const ANVIL_PORT: u16 = 8545;
+
 fn try_init_logger() {
 	let filter = EnvFilter::from_default_env().add_directive("info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).try_init().ok();
@@ -213,8 +215,8 @@ impl TestEnvBuilder {
 		let guard = PORT_LOCK.lock().unwrap();
 		let chain_port = pick_free_port()?;
 		let chain = GenericImage::new("ghcr.io/foundry-rs/foundry", "latest")
-			.with_exposed_port(8545.tcp())
-			.with_mapped_port(chain_port, 8545.tcp())
+			.with_exposed_port(ANVIL_PORT.tcp())
+			.with_mapped_port(chain_port, ANVIL_PORT.tcp())
 			.with_container_name(&chain_name)
 			.with_network(self.network.clone())
 			.with_env_var("ANVIL_IP_ADDR", "0.0.0.0")
@@ -265,8 +267,13 @@ impl TestEnvBuilder {
 
 		// add chronicles
 		for i in 0..shard_size {
-			self.add_chronicle(network, Backend::Evm, i, &format!("ws://{chain_name}:8545"))
-				.await?;
+			self.add_chronicle(
+				network,
+				Backend::Evm,
+				i,
+				&format!("ws://{chain_name}:{ANVIL_PORT}"),
+			)
+			.await?;
 		}
 		Ok(())
 	}

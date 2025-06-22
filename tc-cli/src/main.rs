@@ -415,7 +415,8 @@ async fn real_main() -> Result<()> {
 		Command::Benchmark { num_msgs } => {
 			tc.setup_test().await?;
 			let (block_hash, _) = tc.latest_block().await?;
-			let mut benchmark = Benchmark::new(tc, vec![42], num_msgs.into());
+			let mut benchmark =
+				Benchmark::new(tc, vec![42], num_msgs.into(), "benchmark.csv".to_string());
 			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;

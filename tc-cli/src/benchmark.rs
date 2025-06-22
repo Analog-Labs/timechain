@@ -1,9 +1,14 @@
-use crate::{TableRef, Tc};
+use crate::{Message, TableRef, Tc};
 use anyhow::{Context, Result};
+use csv::Writer;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use std::{collections::HashMap, time::Duration};
-use time_primitives::{Address32, BlockHash, BlockNumber, MessageId, NetworkId};
+use std::{
+	collections::{HashMap, VecDeque},
+	fs::File,
+	time::Duration,
+};
+use time_primitives::{Address32, BatchId, BlockHash, BlockNumber, MessageId, NetworkId};
 use tokio::time::interval;
 
 #[derive(Clone, Copy)]
@@ -57,14 +62,29 @@ pub struct BenchmarkStats {
 
 #[derive(Clone, Copy)]
 struct MessageStats {
+	// synthetic task id not the actual task id
+	task_index: u64,
 	src: NetworkId,
 	dest: NetworkId,
 	sent_block: BlockNumber,
+	batch_id: Option<BatchId>,
+	received_on_timechain: Option<BlockNumber>,
+	sent_to_dest_chain: Option<BlockNumber>,
+	completed_on_timechain: Option<BlockNumber>,
 }
 
 impl MessageStats {
-	pub fn new(src: NetworkId, dest: NetworkId, sent_block: BlockNumber) -> Self {
-		Self { src, dest, sent_block }
+	pub fn new(task_index: u64, src: NetworkId, dest: NetworkId, sent_block: BlockNumber) -> Self {
+		Self {
+			task_index,
+			src,
+			dest,
+			sent_block,
+			batch_id: None,
+			received_on_timechain: None,
+			sent_to_dest_chain: None,
+			completed_on_timechain: None,
+		}
 	}
 }
 
@@ -75,10 +95,12 @@ pub struct Benchmark {
 	payload: Vec<u8>,
 	num_msgs: u64,
 	latest_block: BlockNumber,
+	csv_writer: Option<Writer<File>>,
+	csv_path: String,
 }
 
 impl Benchmark {
-	pub fn new(tc: Tc, payload: Vec<u8>, num_msgs: u64) -> Self {
+	pub fn new(tc: Tc, payload: Vec<u8>, num_msgs: u64, csv_path: String) -> Self {
 		Self {
 			routes: Default::default(),
 			messages: Default::default(),
@@ -86,7 +108,49 @@ impl Benchmark {
 			payload,
 			latest_block: 0,
 			num_msgs,
+			csv_writer: None,
+			csv_path,
 		}
+	}
+
+	fn init_csv_file(&mut self) -> Result<()> {
+		let file = File::create(&self.csv_path)?;
+		let mut writer = csv::Writer::from_writer(file);
+		writer.write_record(&[
+			"path",
+			"task_index",
+			"msg_id",
+			"batch_id",
+			"msg_sent_to_src_chain",
+			"msg_received_on_timechain",
+			"msg_sent_to_dest_chain",
+			"msg_completed_on_timechain",
+		])?;
+
+		writer.flush()?;
+		self.csv_writer = Some(writer);
+		Ok(())
+	}
+
+	fn write_message_to_csv(&mut self, msg_id: MessageId, msg: &MessageStats) -> Result<()> {
+		if let Some(writer) = &mut self.csv_writer {
+			let path = format!("{}-{}", msg.src, msg.dest);
+			let msg_id_hex = hex::encode(msg_id);
+
+			writer.write_record(&[
+				path,
+				msg.task_index.to_string(),
+				msg_id_hex,
+				msg.batch_id.map_or("".to_string(), |b| b.to_string()),
+				msg.sent_block.to_string(),
+				msg.received_on_timechain.map_or("".to_string(), |b| b.to_string()),
+				msg.sent_to_dest_chain.map_or("".to_string(), |b| b.to_string()),
+				msg.completed_on_timechain.map_or("".to_string(), |b| b.to_string()),
+			])?;
+
+			writer.flush()?;
+		}
+		Ok(())
 	}
 
 	async fn route_stats(
@@ -158,36 +222,76 @@ impl Benchmark {
 		Ok(message_id)
 	}
 
-	async fn receive_messages(&mut self, block: (BlockHash, BlockNumber)) -> Result<()> {
-		let mut messages = FuturesUnordered::new();
-		for message_id in self.messages.keys().copied() {
-			let fut = self.tc.is_message_executed(message_id, block.0);
-			messages.push(async move {
-				let is_executed = fut.await?;
-				Ok::<_, anyhow::Error>((message_id, is_executed))
+	async fn update_msgs(&mut self, block: (BlockHash, BlockNumber)) -> Result<()> {
+		let message_ids: Vec<MessageId> = self.messages.keys().copied().collect();
+		let msg_data = self.collect_message_data(&message_ids, block.0).await?;
+		self.process_message_data(msg_data, block).await?;
+		Ok(())
+	}
+
+	async fn collect_message_data(
+		&self,
+		message_ids: &[MessageId],
+		block_hash: BlockHash,
+	) -> Result<Vec<(MessageId, Message)>> {
+		let mut futures = FuturesUnordered::new();
+
+		for &msg_id in message_ids {
+			futures.push(async move {
+				let msg = self.tc.message(msg_id, block_hash).await?;
+				Ok::<_, anyhow::Error>((msg_id, msg))
 			});
 		}
-		while let Some(result) = messages.next().await {
-			let (message_id, is_executed) = result?;
-			if is_executed {
-				let Some(msg) = self.messages.remove(&message_id) else {
-					continue;
-				};
-				let Some(route) = self.routes.get_mut(&(msg.src, msg.dest)) else {
-					continue;
-				};
-				let latency = block.1 - msg.sent_block;
-				route.num_received += 1;
-				route.sum_latency += latency as u64;
 
-				if msg.sent_block < route.first_msg_sent {
-					route.first_msg_sent = msg.sent_block;
+		let mut results = Vec::new();
+		while let Some(result) = futures.next().await {
+			results.push(result?);
+		}
+
+		Ok(results)
+	}
+
+	async fn process_message_data(
+		&mut self,
+		msg_data: Vec<(MessageId, Message)>,
+		block: (BlockHash, BlockNumber),
+	) -> Result<()> {
+		let mut newly_completed = Vec::new();
+
+		for (msg_id, msg) in msg_data {
+			if let Some(msg_stats) = self.messages.get_mut(&msg_id) {
+				if msg.recv.is_some() && msg_stats.received_on_timechain.is_none() {
+					msg_stats.received_on_timechain = Some(block.1);
 				}
-				if block.1 > route.last_msg_received {
-					route.last_msg_received = block.1;
+				if msg.batch.is_some() && msg_stats.sent_to_dest_chain.is_none() {
+					let batch_id = msg.batch.unwrap();
+					msg_stats.batch_id = Some(batch_id);
+					let task_id = self.tc.batch_task(batch_id, block.0).await?;
+					let is_executed = self.tc.is_task_executed(task_id, block.0).await?;
+					if is_executed {
+						msg_stats.sent_to_dest_chain = Some(block.1);
+					}
+				}
+				if msg.exec.is_some() {
+					msg_stats.completed_on_timechain = Some(block.1);
+					newly_completed.push((msg_id, *msg_stats));
 				}
 			}
 		}
+
+		for (msg_id, msg_stats) in newly_completed {
+			self.write_message_to_csv(msg_id, &msg_stats)?;
+			if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
+				route.num_received += 1;
+				let latency = msg_stats.completed_on_timechain.unwrap() - msg_stats.sent_block;
+				route.sum_latency += latency as u64;
+				route.first_msg_sent = route.first_msg_sent.min(msg_stats.sent_block);
+				route.last_msg_received =
+					route.last_msg_received.max(msg_stats.completed_on_timechain.unwrap());
+			}
+			self.messages.remove(&msg_id);
+		}
+
 		Ok(())
 	}
 
@@ -221,39 +325,38 @@ impl Benchmark {
 	}
 
 	pub async fn exec(&mut self) -> Result<()> {
+		self.init_csv_file()?;
 		let mut id = None;
 		let routes: Vec<_> = self.routes.keys().copied().collect();
 
 		for (src, dest) in routes {
+			let mut task_index: u64 = 0;
 			let mut messages_sent = 0;
 
 			let latest_block = self.tc.latest_block().await?;
 			self.latest_block = latest_block.1;
 
-			let mut send_interval = interval(Duration::from_secs(2));
 			let mut block_stream = self.tc.finality_notification_stream();
+			let mut unprocessed_blocks = VecDeque::new();
+			let mut block_stream_initiated = false;
+			let mut send_break = interval(Duration::from_millis(500));
 
-			loop {
+			while messages_sent < self.num_msgs {
 				tokio::select! {
+					biased;
 					Some(block) = block_stream.next() => {
+						block_stream_initiated = true;
 						self.latest_block = block.1;
-						self.receive_messages(block).await?;
-						id = Some(self.print_stats(id).await?);
-
-						if let Some(route) = self.routes.get(&(src, dest)) {
-							if route.num_received >= self.num_msgs {
-								break;
-							}
-						}
+						unprocessed_blocks.push_back(block);
 					}
-
-					_ = send_interval.tick(), if messages_sent < self.num_msgs => {
+					_ = send_break.tick(), if block_stream_initiated => {
 						match self.send_single_message(src, dest).await {
 							Ok(msg_id) => {
 								self.messages.insert(
 									msg_id,
-									MessageStats::new(src, dest, self.latest_block)
+									MessageStats::new(task_index, src, dest, self.latest_block)
 								);
+								task_index += 1;
 								messages_sent += 1;
 
 								if let Some(route) = self.routes.get_mut(&(src, dest)) {
@@ -262,6 +365,10 @@ impl Benchmark {
 										route.first_msg_sent = self.latest_block;
 									}
 								}
+
+								if messages_sent % 10 == 0 {
+									tracing::info!("Sent {}/{} messages", messages_sent, self.num_msgs);
+								}
 							}
 							Err(e) => {
 								tracing::error!("Error sending message: {:?}", e);
@@ -269,12 +376,32 @@ impl Benchmark {
 						}
 					}
 				}
+			}
 
-				let received = self.routes.get(&(src, dest)).map_or(0, |r| r.num_received);
-				if messages_sent >= self.num_msgs && received >= self.num_msgs {
-					break;
+			tracing::info!("All {} messages sent. Starting block processing...", self.num_msgs);
+			while let Some(block) = unprocessed_blocks.pop_front() {
+				tracing::info!("[PROCESS] Handling block {}", block.1);
+				self.update_msgs(block).await?;
+				id = Some(self.print_stats(id).await?);
+			}
+
+			let mut received = self.routes.get(&(src, dest)).map_or(0, |r| r.num_received);
+			while received < self.num_msgs {
+				if let Some(block) = block_stream.next().await {
+					tracing::info!("[PROCESS] Handling live block {}", block.1);
+					self.update_msgs(block).await?;
+					id = Some(self.print_stats(id).await?);
+					received = self.routes.get(&(src, dest)).map_or(0, |r| r.num_received);
 				}
 			}
+
+			tracing::info!(
+				"Route {}-{} completed: {}/{} messages received",
+				src,
+				dest,
+				received,
+				self.num_msgs
+			);
 		}
 
 		Ok(())

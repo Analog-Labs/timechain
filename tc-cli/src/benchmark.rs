@@ -114,7 +114,7 @@ impl Benchmark {
 	fn init_csv_file(&mut self) -> Result<()> {
 		let file = File::create(&self.csv_path)?;
 		let mut writer = csv::Writer::from_writer(file);
-		writer.write_record(&[
+		writer.write_record([
 			"path",
 			"task_index",
 			"msg_id",

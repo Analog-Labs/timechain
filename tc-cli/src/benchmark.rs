@@ -20,7 +20,8 @@ struct RouteStats {
 	msg_cost_usd: f64,
 	num_sent: u64,
 	num_received: u64,
-	sum_latency: u64,
+	processing_latency: u64,
+	message_latency: u64,
 	per_block_dest_sent: HashMap<BlockNumber, u64>,
 }
 
@@ -40,7 +41,8 @@ impl RouteStats {
 			msg_cost_usd,
 			num_sent: 0,
 			num_received: 0,
-			sum_latency: 0,
+			processing_latency: 0,
+			message_latency: 0,
 			per_block_dest_sent: HashMap::new(),
 		}
 	}
@@ -54,7 +56,8 @@ pub struct BenchmarkStats {
 	pub num_sent: u64,
 	pub num_received: u64,
 	pub num_total: u64,
-	pub latency: f64,
+	pub processing_latency: f64,
+	pub message_latency: f64,
 	pub throughput: f64,
 }
 
@@ -273,7 +276,7 @@ impl Benchmark {
 							if let Some(route) =
 								self.routes.get_mut(&(msg_stats.src, msg_stats.dest))
 							{
-								route.sum_latency += latency as u64;
+								route.processing_latency += latency as u64;
 								route
 									.per_block_dest_sent
 									.entry(block.1)
@@ -286,6 +289,9 @@ impl Benchmark {
 				if msg.exec.is_some() {
 					msg_stats.completed_on_timechain = Some(block.1);
 					newly_completed.push((msg_id, *msg_stats));
+					if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
+						route.message_latency = (block.1 - msg_stats.sent_block) as u64;
+					}
 				}
 			}
 		}
@@ -311,8 +317,14 @@ impl Benchmark {
 				0.0
 			};
 
-			let latency = if route.num_received > 0 {
-				route.sum_latency as f64 / route.num_received as f64
+			let processing_latency = if route.num_received > 0 {
+				route.processing_latency as f64 / route.num_received as f64
+			} else {
+				0.0
+			};
+
+			let message_latency = if route.num_received > 0 {
+				route.message_latency as f64 / route.num_received as f64
 			} else {
 				0.0
 			};
@@ -324,7 +336,8 @@ impl Benchmark {
 				num_sent: route.num_sent,
 				num_received: route.num_received,
 				num_total: self.num_msgs,
-				latency,
+				processing_latency,
+				message_latency,
 				throughput,
 			});
 		}

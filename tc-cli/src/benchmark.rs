@@ -1,6 +1,6 @@
 use crate::{Message, TableRef, Tc};
 use anyhow::{Context, Result};
-use csv::Writer;
+use csv::{Reader, StringRecord, Writer};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::{
@@ -331,6 +331,39 @@ impl Benchmark {
 		self.tc.print_table(id, "benchmark", stats).await
 	}
 
+	pub fn sort_csv_file(&self) -> Result<()> {
+		let file = File::open(&self.csv_path)?;
+		let mut reader = Reader::from_reader(file);
+
+		let headers = reader.headers()?.clone();
+
+		let mut records: Vec<(String, u64, StringRecord)> = Vec::new();
+
+		for result in reader.records() {
+			let record = result?;
+			let path = record.get(0).unwrap_or("").to_string();
+			let task_index: u64 = record.get(1).unwrap_or("0").parse().unwrap_or(0);
+			records.push((path, task_index, record));
+		}
+
+		records.sort_by(|a, b| match a.0.cmp(&b.0) {
+			std::cmp::Ordering::Equal => a.1.cmp(&b.1),
+			other => other,
+		});
+
+		let file = File::create(&self.csv_path)?;
+		let mut writer = Writer::from_writer(file);
+
+		writer.write_record(&headers)?;
+
+		for (_, _, record) in records {
+			writer.write_record(&record)?;
+		}
+
+		writer.flush()?;
+		Ok(())
+	}
+
 	pub async fn exec(&mut self) -> Result<()> {
 		self.init_csv_file()?;
 		let mut id = None;
@@ -408,6 +441,7 @@ impl Benchmark {
 			);
 		}
 
+		self.sort_csv_file()?;
 		Ok(())
 	}
 }

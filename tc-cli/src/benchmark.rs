@@ -11,7 +11,7 @@ use std::{
 use time_primitives::{Address32, BatchId, BlockHash, BlockNumber, MessageId, NetworkId};
 use tokio::time::interval;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct RouteStats {
 	src_addr: Address32,
 	dest_addr: Address32,
@@ -21,8 +21,7 @@ struct RouteStats {
 	num_sent: u64,
 	num_received: u64,
 	sum_latency: u64,
-	first_msg_sent: BlockNumber,
-	last_msg_received: BlockNumber,
+	per_block_dest_sent: HashMap<BlockNumber, u64>,
 }
 
 impl RouteStats {
@@ -42,8 +41,7 @@ impl RouteStats {
 			num_sent: 0,
 			num_received: 0,
 			sum_latency: 0,
-			first_msg_sent: BlockNumber::MAX,
-			last_msg_received: 0,
+			per_block_dest_sent: HashMap::new(),
 		}
 	}
 }
@@ -270,6 +268,19 @@ impl Benchmark {
 					let is_executed = self.tc.is_task_executed(task_id, block.0).await?;
 					if is_executed {
 						msg_stats.sent_to_dest_chain = Some(block.1);
+						if let Some(recv_block) = msg_stats.received_on_timechain {
+							let latency = block.1 - recv_block;
+							if let Some(route) =
+								self.routes.get_mut(&(msg_stats.src, msg_stats.dest))
+							{
+								route.sum_latency += latency as u64;
+								route
+									.per_block_dest_sent
+									.entry(block.1)
+									.and_modify(|count| *count += 1)
+									.or_insert(1);
+							}
+						}
 					}
 				}
 				if msg.exec.is_some() {
@@ -283,11 +294,6 @@ impl Benchmark {
 			self.write_message_to_csv(msg_id, &msg_stats)?;
 			if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
 				route.num_received += 1;
-				let latency = msg_stats.completed_on_timechain.unwrap() - msg_stats.sent_block;
-				route.sum_latency += latency as u64;
-				route.first_msg_sent = route.first_msg_sent.min(msg_stats.sent_block);
-				route.last_msg_received =
-					route.last_msg_received.max(msg_stats.completed_on_timechain.unwrap());
 			}
 			self.messages.remove(&msg_id);
 		}
@@ -298,8 +304,9 @@ impl Benchmark {
 	async fn print_stats(&self, id: Option<TableRef>) -> Result<TableRef> {
 		let mut stats = Vec::with_capacity(self.routes.len());
 		for ((src, dest), route) in &self.routes {
-			let total_blocks = if route.first_msg_sent <= route.last_msg_received {
-				(route.last_msg_received - route.first_msg_sent + 1) as f64
+			let throughput = if !route.per_block_dest_sent.is_empty() {
+				let total_messages: u64 = route.per_block_dest_sent.values().sum();
+				total_messages as f64 / route.per_block_dest_sent.len() as f64
 			} else {
 				0.0
 			};
@@ -318,7 +325,7 @@ impl Benchmark {
 				num_received: route.num_received,
 				num_total: self.num_msgs,
 				latency,
-				throughput: route.num_received as f64 / total_blocks,
+				throughput,
 			});
 		}
 		self.tc.print_table(id, "benchmark", stats).await
@@ -361,9 +368,6 @@ impl Benchmark {
 
 								if let Some(route) = self.routes.get_mut(&(src, dest)) {
 									route.num_sent += 1;
-									if route.first_msg_sent == BlockNumber::MAX {
-										route.first_msg_sent = self.latest_block;
-									}
 								}
 
 								if messages_sent % 10 == 0 {

@@ -17,3 +17,6 @@ gcp-key.json
 
 # scripts data for chains
 scripts/data
+
+# scripts data for chains
+benchmark.csv

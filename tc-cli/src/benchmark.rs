@@ -268,22 +268,23 @@ impl Benchmark {
 					msg_stats.received_on_timechain = Some(block.1);
 				}
 
-				if let Some(batch) = msg.batch
-					&& msg_stats.batch_id.is_none()
-				{
-					msg_stats.batch_id = Some(batch);
+				if let Some(batch) = msg.batch {
+					if msg_stats.batch_id.is_none() {
+						msg_stats.batch_id = Some(batch);
+					}
 				}
 
 				if msg.exec.is_some() && msg_stats.completed_on_timechain.is_none() {
+					let Some(recv_block) = msg_stats.received_on_timechain else {
+						continue;
+					};
 					msg_stats.completed_on_timechain = Some(block.1);
 					newly_completed.push((msg_id, *msg_stats));
-					if let Some(recv_block) = msg_stats.received_on_timechain {
-						let processing_latency = block.1 - recv_block;
-						let message_latency = block.1 - msg_stats.sent_block;
-						if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
-							route.processing_latency += processing_latency as u64;
-							route.message_latency += message_latency as u64;
-						}
+					let processing_latency = block.1 - recv_block;
+					let message_latency = block.1 - msg_stats.sent_block;
+					if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
+						route.processing_latency += processing_latency as u64;
+						route.message_latency += message_latency as u64;
 					}
 				}
 			}

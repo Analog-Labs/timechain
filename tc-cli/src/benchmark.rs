@@ -22,7 +22,10 @@ struct RouteStats {
 	num_received: u64,
 	processing_latency: u64,
 	message_latency: u64,
-	per_block_dest_sent: HashMap<BlockNumber, u64>,
+	first_msg_sent: u32,
+	last_msg_sent: u32,
+	first_msg_completed: u32,
+	last_msg_completed: u32,
 }
 
 impl RouteStats {
@@ -43,7 +46,10 @@ impl RouteStats {
 			num_received: 0,
 			processing_latency: 0,
 			message_latency: 0,
-			per_block_dest_sent: HashMap::new(),
+			first_msg_sent: 0,
+			last_msg_sent: 0,
+			first_msg_completed: 0,
+			last_msg_completed: 0,
 		}
 	}
 }
@@ -58,7 +64,8 @@ pub struct BenchmarkStats {
 	pub num_total: u64,
 	pub processing_latency: f64,
 	pub message_latency: f64,
-	pub throughput: f64,
+	pub sending_throughput: f64,
+	pub completion_throughput: f64,
 }
 
 #[derive(Clone, Copy)]
@@ -70,7 +77,6 @@ struct MessageStats {
 	sent_block: BlockNumber,
 	batch_id: Option<BatchId>,
 	received_on_timechain: Option<BlockNumber>,
-	sent_to_dest_chain: Option<BlockNumber>,
 	completed_on_timechain: Option<BlockNumber>,
 }
 
@@ -83,7 +89,6 @@ impl MessageStats {
 			sent_block,
 			batch_id: None,
 			received_on_timechain: None,
-			sent_to_dest_chain: None,
 			completed_on_timechain: None,
 		}
 	}
@@ -124,7 +129,6 @@ impl Benchmark {
 			"batch_id",
 			"msg_sent_to_src_chain",
 			"msg_received_on_timechain",
-			"msg_sent_to_dest_chain",
 			"msg_completed_on_timechain",
 		])?;
 
@@ -145,7 +149,6 @@ impl Benchmark {
 				msg.batch_id.map_or("".to_string(), |b| b.to_string()),
 				msg.sent_block.to_string(),
 				msg.received_on_timechain.map_or("".to_string(), |b| b.to_string()),
-				msg.sent_to_dest_chain.map_or("".to_string(), |b| b.to_string()),
 				msg.completed_on_timechain.map_or("".to_string(), |b| b.to_string()),
 			])?;
 
@@ -264,33 +267,23 @@ impl Benchmark {
 				if msg.recv.is_some() && msg_stats.received_on_timechain.is_none() {
 					msg_stats.received_on_timechain = Some(block.1);
 				}
-				if msg.batch.is_some() && msg_stats.sent_to_dest_chain.is_none() {
-					let batch_id = msg.batch.unwrap();
-					msg_stats.batch_id = Some(batch_id);
-					let task_id = self.tc.batch_task(batch_id, block.0).await?;
-					let is_executed = self.tc.is_task_executed(task_id, block.0).await?;
-					if is_executed {
-						msg_stats.sent_to_dest_chain = Some(block.1);
-						if let Some(recv_block) = msg_stats.received_on_timechain {
-							let latency = block.1 - recv_block;
-							if let Some(route) =
-								self.routes.get_mut(&(msg_stats.src, msg_stats.dest))
-							{
-								route.processing_latency += latency as u64;
-								route
-									.per_block_dest_sent
-									.entry(block.1)
-									.and_modify(|count| *count += 1)
-									.or_insert(1);
-							}
-						}
-					}
+
+				if let Some(batch) = msg.batch
+					&& msg_stats.batch_id.is_none()
+				{
+					msg_stats.batch_id = Some(batch);
 				}
-				if msg.exec.is_some() {
+
+				if msg.exec.is_some() && msg_stats.completed_on_timechain.is_none() {
 					msg_stats.completed_on_timechain = Some(block.1);
 					newly_completed.push((msg_id, *msg_stats));
-					if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
-						route.message_latency = (block.1 - msg_stats.sent_block) as u64;
+					if let Some(recv_block) = msg_stats.received_on_timechain {
+						let processing_latency = block.1 - recv_block;
+						let message_latency = block.1 - msg_stats.sent_block;
+						if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
+							route.processing_latency += processing_latency as u64;
+							route.message_latency += message_latency as u64;
+						}
 					}
 				}
 			}
@@ -300,6 +293,10 @@ impl Benchmark {
 			self.write_message_to_csv(msg_id, &msg_stats)?;
 			if let Some(route) = self.routes.get_mut(&(msg_stats.src, msg_stats.dest)) {
 				route.num_received += 1;
+				if route.first_msg_completed == 0 {
+					route.first_msg_completed = block.1;
+				}
+				route.last_msg_completed = block.1;
 			}
 			self.messages.remove(&msg_id);
 		}
@@ -310,11 +307,24 @@ impl Benchmark {
 	async fn print_stats(&self, id: Option<TableRef>) -> Result<TableRef> {
 		let mut stats = Vec::with_capacity(self.routes.len());
 		for ((src, dest), route) in &self.routes {
-			let throughput = if !route.per_block_dest_sent.is_empty() {
-				let total_messages: u64 = route.per_block_dest_sent.values().sum();
-				total_messages as f64 / route.per_block_dest_sent.len() as f64
-			} else {
-				0.0
+			let sending_throughput = {
+				let blocks = route.last_msg_sent as i32 - route.first_msg_sent as i32;
+				let total_msgs = route.num_sent;
+				if blocks < 0 {
+					0.0
+				} else {
+					total_msgs as f64 / blocks.max(1) as f64
+				}
+			};
+
+			let completion_throughput = {
+				let blocks = route.last_msg_completed as i32 - route.first_msg_completed as i32;
+				let total_msgs = route.num_received;
+				if blocks < 0 {
+					0.0
+				} else {
+					total_msgs as f64 / blocks.max(1) as f64
+				}
 			};
 
 			let processing_latency = if route.num_received > 0 {
@@ -338,7 +348,8 @@ impl Benchmark {
 				num_total: self.num_msgs,
 				processing_latency,
 				message_latency,
-				throughput,
+				sending_throughput,
+				completion_throughput,
 			});
 		}
 		self.tc.print_table(id, "benchmark", stats).await
@@ -385,6 +396,7 @@ impl Benchmark {
 		for (src, dest) in routes {
 			let mut task_index: u64 = 0;
 			let mut messages_sent = 0;
+			let mut is_first_msg_sent = false;
 
 			let latest_block = self.tc.latest_block().await?;
 			self.latest_block = latest_block.1;
@@ -413,6 +425,11 @@ impl Benchmark {
 								messages_sent += 1;
 
 								if let Some(route) = self.routes.get_mut(&(src, dest)) {
+									if !is_first_msg_sent {
+										route.first_msg_sent = self.latest_block;
+										is_first_msg_sent = true;
+									}
+									route.last_msg_sent = self.latest_block;
 									route.num_sent += 1;
 								}
 

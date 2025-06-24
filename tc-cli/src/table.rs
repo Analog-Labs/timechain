@@ -395,7 +395,8 @@ pub struct BenchmarkEntry {
 	messages: String,
 	processing_latency: String,
 	message_latency: String,
-	throughput: String,
+	sending_throughput: String,
+	completion_throughput: String,
 }
 
 impl IntoRow for BenchmarkStats {
@@ -409,7 +410,8 @@ impl IntoRow for BenchmarkStats {
 			messages: format!("{}/{}/{}", self.num_received, self.num_sent, self.num_total),
 			processing_latency: format!("{:.3} blocks", self.processing_latency),
 			message_latency: format!("{:.3} blocks", self.message_latency),
-			throughput: format!("{:.3} msgs/block", self.throughput),
+			sending_throughput: format!("{:.3} blocks", self.sending_throughput),
+			completion_throughput: format!("{:.3} blocks", self.completion_throughput),
 		})
 	}
 }

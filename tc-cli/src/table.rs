@@ -393,8 +393,10 @@ pub struct BenchmarkEntry {
 	dest: NetworkId,
 	cost: String,
 	messages: String,
-	latency: String,
-	throughput: String,
+	processing_latency: String,
+	message_latency: String,
+	sending_throughput: String,
+	completion_throughput: String,
 }
 
 impl IntoRow for BenchmarkStats {
@@ -406,8 +408,10 @@ impl IntoRow for BenchmarkStats {
 			dest: self.dest,
 			cost: format!("{:.3}$", self.msg_cost_usd),
 			messages: format!("{}/{}/{}", self.num_received, self.num_sent, self.num_total),
-			latency: format!("{:.3} blocks", self.latency),
-			throughput: format!("{:.3} msgs/block", self.throughput),
+			processing_latency: format!("{:.3} blocks", self.processing_latency),
+			message_latency: format!("{:.3} blocks", self.message_latency),
+			sending_throughput: format!("{:.3} blocks", self.sending_throughput),
+			completion_throughput: format!("{:.3} blocks", self.completion_throughput),
 		})
 	}
 }

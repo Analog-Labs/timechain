@@ -719,6 +719,10 @@ impl Tc {
 		})
 	}
 
+	pub async fn batch_task(&self, batch: BatchId, block_hash: BlockHash) -> Result<TaskId> {
+		self.runtime.batch_task(batch, block_hash).await?.context("Invalid batch id")
+	}
+
 	pub async fn message(&self, message: MessageId, block_hash: BlockHash) -> Result<Message> {
 		Ok(Message {
 			message,
@@ -750,25 +754,43 @@ impl Tc {
 		message: MessageId,
 		block_hash: BlockHash,
 	) -> Result<MessageTrace> {
-		let msg = self.message(message, block_hash).await?;
-		let src = self.sync_status(network, block_hash).await?;
-		let recv =
-			if let Some(recv) = msg.recv { Some(self.task(recv, block_hash).await?) } else { None };
-		let (dest, submit) = if let Some(batch) = msg.batch {
-			let batch = self.batch(batch, block_hash).await?;
-			let submit = self.task(batch.task, block_hash).await?;
+		let msg_fut = self.message(message, block_hash);
+		let src_fut = self.sync_status(network, block_hash);
+		let (msg, src) = futures::try_join!(msg_fut, src_fut)?;
 
-			if let Some(Err(err)) = submit.output.clone() {
-				tracing::error!("Submit task {} failed with error: {}", submit.task, err);
+		let recv_fut = async {
+			match msg.recv {
+				Some(recv) => self.task(recv, block_hash).await.map(Some),
+				None => Ok(None),
 			}
-
-			let dest = self.sync_status(submit.network, block_hash).await?;
-			(Some(dest), Some(submit))
-		} else {
-			(None, None)
 		};
-		let exec =
-			if let Some(exec) = msg.exec { Some(self.task(exec, block_hash).await?) } else { None };
+
+		let exec_fut = async {
+			match msg.exec {
+				Some(exec) => self.task(exec, block_hash).await.map(Some),
+				None => Ok(None),
+			}
+		};
+
+		let batch_fut = async {
+			match msg.batch {
+				Some(batch) => {
+					let batch = self.batch(batch, block_hash).await?;
+					let submit = self.task(batch.task, block_hash).await?;
+					if let Some(Err(err)) = submit.output.clone() {
+						tracing::error!("Submit task {} failed with error: {}", submit.task, err);
+					}
+					let dest = self.sync_status(submit.network, block_hash).await?;
+					Ok((Some(dest), Some(submit)))
+				},
+				None => Ok((None, None)),
+			}
+		};
+
+		let (recv, exec, batch_result) =
+			futures::future::try_join3(recv_fut, exec_fut, batch_fut).await?;
+
+		let (dest, submit) = batch_result;
 		Ok(MessageTrace {
 			message,
 			src,

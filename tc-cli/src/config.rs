@@ -263,7 +263,7 @@ pub struct NetworkConfig {
 	pub backend: Backend,
 	pub name: String,
 	pub url: String,
-	pub coin_id: u32,
+	pub coin_id: String,
 	pub currency_decimals: u8,
 	pub currency_symbol: String,
 	pub admin_funds: Option<String>,

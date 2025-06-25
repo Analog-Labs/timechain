@@ -13,7 +13,7 @@ networks:
     backend: "evm"
     name: "ethereum sepolia"
     url: "wss://ethereum-sepolia-rpc.publicnode.com"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: 1.
@@ -37,7 +37,7 @@ networks:
     backend: "evm"
     name: "arbitrum sepolia"
     url: "wss://arbitrum-sepolia-rpc.publicnode.com"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: 1.
@@ -61,7 +61,7 @@ networks:
     backend: "evm"
     name: "base testnet"
     url: "wss://base-sepolia-rpc.publicnode.com"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     shard_size: 1
@@ -85,7 +85,7 @@ networks:
     backend: "evm"
     name: "avalanche fuji"
     url: "wss://avalanche-fuji.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -110,7 +110,7 @@ networks:
     backend: "evm"
     name: "polygon amoy"
     url: "wss://polygon-amoy-bor-rpc.publicnode.com"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -134,7 +134,7 @@ networks:
     backend: "evm"
     name: "bnb testnet"
     url: "wss://bsc-testnet.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -158,7 +158,7 @@ networks:
     backend: "evm"
     name: "optimism sepolia"
     url: "wss://optimism-sepolia.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -182,7 +182,7 @@ networks:
     backend: "evm"
     name: "blast sepolia"
     url: "wss://blast-sepolia.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -207,7 +207,7 @@ networks:
     backend: "evm"
     name: "soneium minato"
     url: "wss://soneium-minato.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -231,7 +231,7 @@ networks:
     backend: "evm"
     name: "zksync sepolia"
     url: "wss://zksync-sepolia.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -256,7 +256,7 @@ networks:
     backend: "evm"
     name: "celo alfajores"
     url: "wss://celo-alfajores.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -280,7 +280,7 @@ networks:
     backend: "evm"
     name: "unichain sepolia"
     url: "wss://unichain-sepolia.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -304,7 +304,7 @@ networks:
     backend: "evm"
     name: "worldchain sepolia"
     url: "wss://worldchain-sepolia.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8
@@ -328,7 +328,7 @@ networks:
     backend: "evm"
     name: "zora sepolia"
     url: "wss://zora.drpc.org"
-    coin_id: 1027
+    coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
     gateway_funds: .8

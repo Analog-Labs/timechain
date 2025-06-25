@@ -416,6 +416,7 @@ impl Benchmark {
 						unprocessed_blocks.push_back(block);
 					}
 					_ = send_break.tick(), if block_stream_initiated => {
+						tracing::info!("Sending msg: {} from {} to {} ", task_index + 1, src, dest);
 						match self.send_single_message(src, dest).await {
 							Ok(msg_id) => {
 								self.messages.insert(

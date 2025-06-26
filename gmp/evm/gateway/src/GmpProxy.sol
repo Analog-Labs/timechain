@@ -50,7 +50,7 @@ contract GmpProxy is IGmpReceiver {
         }
         GmpMessage memory message = GmpMessage({
             source: src,
-            srcNetwork: uint16(srcNetwork),
+            srcNetwork: srcNetwork,
             dest: address(this),
             destNetwork: NETWORK_ID,
             gasLimit: msgGasLimit,

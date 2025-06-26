@@ -370,6 +370,7 @@ impl TestEnv {
 			Backend::Rust => {
 				anyhow::bail!("unsupported backend {backend}");
 			},
+			Backend::Solana => anyhow::bail!("unsupported backend {backend}"),
 		}
 		let env = builder.build()?;
 		let tc = Tester::new().await?;

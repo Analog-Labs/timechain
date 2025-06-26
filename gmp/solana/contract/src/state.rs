@@ -1,5 +1,5 @@
-#![allow(unexpected_cfgs)]
-use crate::borsh::maybestd::collections::HashMap;
+// #![allow(unexpected_cfgs)]
+// use crate::borsh::maybestd::collections::HashMap;
 use anchor_lang::prelude::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::keccak;

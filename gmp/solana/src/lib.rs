@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::{ops::Range, pin::Pin, sync::Arc};
 
 use anchor_client::anchor_lang::AnchorDeserialize;
+use anchor_client::solana_sdk::signer::SeedDerivable;
 use anchor_client::{Client as AnchorClient, Cluster};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -24,12 +25,10 @@ use anchor_client::solana_sdk::{pubkey::Pubkey, signer::Signer};
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::UiTransactionEncoding;
 use time_primitives::{
-	Address32, BatchId, ConnectorParams, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
-	IConnector, IConnectorAdmin, IConnectorBuilder, MessageId, NetworkId, Route, TssPublicKey,
-	TssSignature,
+	Address32, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain, IConnect, IConnector,
+	IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
-use tokio::sync::{mpsc, Semaphore};
-use tokio_stream::wrappers::UnboundedReceiverStream;
+use tokio::sync::Semaphore;
 use types::{GatewayState, GmpPdaSeeds};
 
 mod types;
@@ -40,6 +39,55 @@ pub fn a_addr(address: Address32) -> Pubkey {
 
 pub fn t_addr(pubkey: Pubkey) -> Address32 {
 	pubkey.to_bytes()
+}
+
+#[derive(Clone)]
+pub struct Chain {
+	network_id: NetworkId,
+	wallet: Arc<Keypair>,
+}
+
+impl Chain {
+	pub fn new(network_id: NetworkId, mnemonic: &str) -> Result<Self> {
+		let keypair = Keypair::from_seed_phrase_and_passphrase(mnemonic, "")
+			.map_err(|err| anyhow::anyhow!("{}", err.to_string()))?;
+		Ok(Self {
+			network_id,
+			wallet: Arc::new(keypair),
+		})
+	}
+}
+
+#[async_trait]
+impl IConnect for Chain {
+	fn chain(&self) -> &dyn IChain {
+		self
+	}
+	async fn connect(&self, url: String) -> Result<Arc<dyn IConnector>> {
+		todo!()
+	}
+	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>> {
+		todo!()
+	}
+}
+
+impl IChain for Chain {
+	fn network_id(&self) -> NetworkId {
+		self.network_id
+	}
+
+	fn address(&self) -> Address32 {
+		t_addr(self.wallet.pubkey())
+	}
+
+	fn format_address(&self, address: Address32) -> String {
+		a_addr(address).to_string()
+	}
+
+	fn parse_address(&self, address: &str) -> Result<Address32> {
+		let pubkey: Pubkey = address.parse()?;
+		Ok(t_addr(pubkey))
+	}
 }
 
 pub struct Connector {
@@ -65,14 +113,10 @@ impl Connector {
 	}
 }
 
-#[async_trait]
-impl IConnectorBuilder for Connector {
-	async fn new(params: ConnectorParams) -> Result<Self>
-	where
-		Self: Sized,
-	{
-		let ws_url = params.url.clone();
-		let http_url = params.url.replace("ws", "http");
+impl Connector {
+	async fn new(chain: Chain, url: String) -> Result<Self> {
+		let ws_url = url.clone();
+		let http_url = url.replace("ws", "http");
 		let client = RpcClient::new(http_url.clone());
 		let pubsub_client = PubsubClient::new(&ws_url).await?;
 		let keypair = Keypair::new();
@@ -84,7 +128,7 @@ impl IConnectorBuilder for Connector {
 			},
 		);
 		let connector = Self {
-			network_id: params.network_id,
+			network_id: chain.network_id,
 			client: Arc::new(client),
 			wallet: Arc::new(Keypair::new()),
 			pubsub_client: Arc::new(pubsub_client),
@@ -95,54 +139,22 @@ impl IConnectorBuilder for Connector {
 }
 
 #[async_trait]
-impl IChain for Connector {
-	fn format_address(&self, address: Address32) -> String {
-		a_addr(address).to_string()
-	}
-	fn parse_address(&self, address: &str) -> Result<Address32> {
-		let pubkey: Pubkey = address.parse()?;
-		Ok(t_addr(pubkey))
-	}
-	fn currency(&self) -> (u32, &str) {
-		(9, "SOL")
-	}
-	fn network_id(&self) -> NetworkId {
-		self.network_id
-	}
-	fn address(&self) -> Address32 {
-		t_addr(self.wallet.pubkey())
-	}
-	async fn faucet(&self, balance: u128) -> Result<()> {
-		// TODO add faucet for local devnode only
-		self.client.request_airdrop(&self.wallet.pubkey(), balance as u64).await?;
-		Ok(())
-	}
-	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
-		let instruction =
-			system_instruction::transfer(&self.wallet.pubkey(), &a_addr(address), amount as u64);
-		self.send_transaction(instruction).await
-	}
-
-	async fn balance(&self, address: Address32) -> Result<u128> {
-		let balance = self.client.get_balance(&a_addr(address)).await?;
-		Ok(balance as u128)
-	}
-
-	async fn finalized_block(&self) -> Result<u64> {
-		let block = self.client.get_slot_with_commitment(CommitmentConfig::finalized()).await?;
-		Ok(block)
-	}
-}
-
-#[async_trait]
 impl IConnectorAdmin for Connector {
+	/// Uses a faucet to fund the account when possible.
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		todo!()
+	}
+	/// Transfers an amount to an account.
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
+		todo!()
+	}
+
+	/// Queries the account balance.
+	async fn balance(&self, address: Address32) -> Result<u128> {
+		todo!()
+	}
 	// dont need proxy since solana programs are upgradable
-	async fn deploy_gateway(
-		&self,
-		_additional_params: &[u8],
-		_proxy: &[u8],
-		gateway: &[u8],
-	) -> Result<(Address32, u64)> {
+	async fn deploy_gateway(&self, _proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
 		let program_keypair = Keypair::new();
 		let program_pubkey = program_keypair.pubkey();
 		let lamports = self.client.get_minimum_balance_for_rent_exemption(gateway.len()).await?;
@@ -188,7 +200,6 @@ impl IConnectorAdmin for Connector {
 
 		Ok((t_addr(program_pubkey), slot))
 	}
-
 	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let pubkey = a_addr(proxy);
 		let retract_ix = solana_sdk::loader_v4::retract(&pubkey, &self.wallet.pubkey());
@@ -215,7 +226,6 @@ impl IConnectorAdmin for Connector {
 		self.client.send_and_confirm_transaction(&transaction).await?;
 		Ok(())
 	}
-
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let program_id = a_addr(gateway);
 		let (state_pda, _bump) =
@@ -225,7 +235,6 @@ impl IConnectorAdmin for Connector {
 		let state = GatewayState::deserialize(&mut data.as_slice())?;
 		Ok(t_addr(state.admin))
 	}
-
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let program = self.anchor_client.program(a_addr(gateway))?;
 		let instruction = gmp_solana_contract::instruction::SetAdmin { new_admin: a_addr(admin) };
@@ -244,7 +253,12 @@ impl IConnectorAdmin for Connector {
 		Ok(shards)
 	}
 
-	async fn set_shards(&self, _gateway: Address32, _keys: &[TssPublicKey]) -> Result<()> {
+	async fn set_shards(
+		&self,
+		gateway: Address32,
+		register: &[(TssPublicKey, u16)],
+		revoke: &[(TssPublicKey, u16)],
+	) -> Result<()> {
 		todo!("Need gateway implementation")
 	}
 
@@ -263,8 +277,14 @@ impl IConnectorAdmin for Connector {
 		todo!("Need gateway implementation")
 	}
 
-	async fn deploy_test(&self, _gateway: Address32, _tester: &[u8]) -> Result<(Address32, u64)> {
-		todo!("Not supported")
+	/// Updates the prices of all routes.
+	async fn set_prices(&self, gateway: Address32, prices: &[f64]) -> Result<()> {
+		todo!()
+	}
+
+	/// Deploys test contract
+	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+		todo!()
 	}
 
 	async fn estimate_message_gas_limit(
@@ -273,21 +293,20 @@ impl IConnectorAdmin for Connector {
 		_src_network: NetworkId,
 		_src: Address32,
 		_payload: Vec<u8>,
-	) -> Result<u128> {
+	) -> Result<u64> {
 		// Not supported
 		Ok(0)
 	}
 
+	/// Estimates message cost
 	async fn estimate_message_cost(
 		&self,
-		_gateway: Address32,
-		_dest_network: NetworkId,
-		_gas_limit: u128,
-		_payload: Vec<u8>,
+		gateway: Address32,
+		dest_network: NetworkId,
+		msg_size: u16,
+		gas_limit: u64,
 	) -> Result<u128> {
-		let msg = Message::new(&[], None);
-		let fee = self.client.get_fee_for_message(&msg).await?;
-		Ok(fee as u128)
+		todo!()
 	}
 
 	async fn send_message(
@@ -295,7 +314,7 @@ impl IConnectorAdmin for Connector {
 		_src: Address32,
 		_dest_network: NetworkId,
 		_dest: Address32,
-		_gas_limit: u128,
+		_gas_limit: u64,
 		_gas_cost: u128,
 		_payload: Vec<u8>,
 	) -> Result<MessageId> {
@@ -308,12 +327,6 @@ impl IConnectorAdmin for Connector {
 		_blocks: Range<u64>,
 	) -> Result<Vec<GmpMessage>> {
 		todo!("Need gateway implementation")
-	}
-
-	async fn max_fee_per_gas(&self) -> Result<u128> {
-		// reference: <https://solana.com/docs/core/fees#key-points>
-		// 5000 per signature is base fee of solana
-		Ok(5000)
 	}
 
 	async fn block_gas_limit(&self) -> Result<u64> {
@@ -339,12 +352,16 @@ impl IConnectorAdmin for Connector {
 
 #[async_trait]
 impl IConnector for Connector {
-	async fn read_events(
-		&self,
-		gateway: Address32,
-		blocks: Range<u64>,
-		_cctp_info: Option<(Vec<Address32>, String)>,
-	) -> Result<Vec<GmpEvent>> {
+	fn chain(&self) -> &dyn IChain {
+		todo!()
+	}
+
+	/// Queries the latest finalized block.
+	async fn finalized_block(&self) -> Result<u64> {
+		todo!()
+	}
+
+	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
 		// 1. Get signatures with slot-based pagination
 		let program_id = a_addr(gateway);
 		let mut all_signatures = Vec::new();
@@ -432,13 +449,18 @@ impl IConnector for Connector {
 	async fn submit_commands(
 		&self,
 		gateway: Address32,
-		_batch: BatchId,
+		batch: BatchId,
 		msg: GatewayMessage,
+		gas_price: u128,
 		signer: TssPublicKey,
 		sig: TssSignature,
 	) -> Result<(), String> {
 		let gateway = a_addr(gateway);
 		Ok(())
+	}
+
+	async fn gas_price(&self) -> Result<u128> {
+		todo!()
 	}
 }
 

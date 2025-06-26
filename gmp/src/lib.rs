@@ -22,6 +22,7 @@ impl std::str::FromStr for Backend {
 			"evm" => Self::Evm,
 			"grpc" => Self::Grpc,
 			"rust" => Self::Rust,
+			"solana" => Self::Solana,
 			_ => anyhow::bail!("unsupported backend"),
 		})
 	}
@@ -45,6 +46,7 @@ impl Backend {
 			Self::Evm => Arc::new(gmp_evm::Chain::new(network, mnemonic)?),
 			Self::Grpc => Arc::new(gmp_grpc::Chain::new(network, mnemonic)?),
 			Self::Rust => Arc::new(gmp_rust::Chain::new(network, mnemonic)),
+			Self::Solana => todo!(),
 		})
 	}
 }

@@ -3,7 +3,6 @@ use anchor_client::{
 	anchor_lang::{AnchorDeserialize, AnchorSerialize},
 	solana_sdk::pubkey::Pubkey,
 };
-use time_primitives::NetworkId;
 
 use crate::{a_addr, t_addr};
 
@@ -26,17 +25,18 @@ pub struct GatewayState {
 	pub admin: Pubkey,
 	pub is_initialized: bool,
 	pub shards: Vec<ShardAcc>,
-	pub routes: Vec<NetworkInfo>,
+	pub routes: Vec<Route>,
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-pub struct NetworkInfo {
+pub struct Route {
 	network_id: u16,
-	destination_gateway: Pubkey,
-	relative_gas_price_n: u128,
-	relative_gas_price_d: u128,
-	gas_limit: u64,
-	gmp_base_fee: u128,
+	gateway: Pubkey,
+	max_gas_limit: u64,
+	msg_gas: u64,
+	msg_byte_gas: u64,
+	gas_price: f64,
+	msg_fee: u64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -69,33 +69,30 @@ impl From<time_primitives::TssPublicKey> for Shard {
 	}
 }
 
-impl From<time_primitives::Route> for NetworkInfo {
+impl From<time_primitives::Route> for Route {
 	fn from(value: time_primitives::Route) -> Self {
 		Self {
 			network_id: value.network_id,
-			destination_gateway: a_addr(value.gateway),
-			// FIXME wrong conversion from u256 to u128
-			relative_gas_price_n: value.relative_gas_price.0.as_u128(),
-			// FIXME wrong conversion from u256 to u128
-			relative_gas_price_d: value.relative_gas_price.1.as_u128(),
-			gas_limit: value.gas_limit,
-			gmp_base_fee: value.gmp_base_fee,
+			gateway: a_addr(value.gateway),
+			max_gas_limit: value.max_gas_limit,
+			msg_gas: value.msg_gas,
+			msg_byte_gas: value.msg_byte_gas,
+			gas_price: value.gas_price,
+			msg_fee: value.msg_fee,
 		}
 	}
 }
 
-impl From<NetworkInfo> for time_primitives::Route {
-	fn from(value: NetworkInfo) -> Self {
+impl From<Route> for time_primitives::Route {
+	fn from(value: Route) -> Self {
 		Self {
 			network_id: value.network_id,
-			gateway: t_addr(value.destination_gateway),
-			relative_gas_price: (
-				// FIXME fix take u256 instead of u128
-				value.relative_gas_price_n.into(),
-				value.relative_gas_price_d.into(),
-			),
-			gas_limit: value.gas_limit,
-			gmp_base_fee: value.gmp_base_fee,
+			gateway: t_addr(value.gateway),
+			max_gas_limit: value.max_gas_limit,
+			msg_gas: value.msg_gas,
+			msg_byte_gas: value.msg_byte_gas,
+			gas_price: value.gas_price,
+			msg_fee: value.msg_fee,
 		}
 	}
 }

@@ -70,7 +70,7 @@ contract GasSpender is IGmpReceiver {
         }
     }
 
-    function onGmpReceived(bytes32, uint128, bytes32, uint64, bytes calldata payload)
+    function onGmpReceived(bytes32, uint16, bytes32, uint64, bytes calldata payload)
         external
         payable
         returns (bytes32)

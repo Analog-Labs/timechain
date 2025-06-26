@@ -33,7 +33,7 @@ contract GmpProxy is IGmpReceiver {
             GATEWAY.submitMessage{value: msg.value}(message.dest, message.destNetwork, message.gasLimit, message.data);
     }
 
-    function onGmpReceived(bytes32 id, uint128 srcNetwork, bytes32 src, uint64 nonce, bytes calldata payload)
+    function onGmpReceived(bytes32 id, uint16 srcNetwork, bytes32 src, uint64 nonce, bytes calldata payload)
         external
         payable
         returns (bytes32)

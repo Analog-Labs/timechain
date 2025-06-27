@@ -59,11 +59,11 @@ pub type EnsureRootOrTechnicalMember = EitherOfDiverse<EnsureRoot<AccountId>, Te
 pub type EnsureRootOrHalfTechnical = EitherOfDiverse<EnsureRoot<AccountId>, TechnicalHalf>;
 
 /// Default admin origin on mainnet
-#[cfg(not(any(feature = "testnet", feature = "develop")))]
+#[cfg(not(feature = "testnet"))]
 pub type DefaultAdminOrigin = EnsureRootOrHalfTechnical;
 
 /// Default admin origin on testnet or any development environment
-#[cfg(any(feature = "testnet", feature = "develop"))]
+#[cfg(feature = "testnet")]
 pub type DefaultAdminOrigin = EnsureRootOrTechnicalMember;
 
 impl pallet_membership::Config for Runtime {

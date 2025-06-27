@@ -98,9 +98,6 @@ enum Command {
 	Batch {
 		batch: BatchId,
 	},
-	BlockGasLimit {
-		network: NetworkId,
-	},
 	Message {
 		message: String,
 	},
@@ -191,6 +188,7 @@ enum Command {
 		network: NetworkId,
 		hash: String,
 	},
+	GasLimits,
 	CostMatrix,
 }
 
@@ -304,11 +302,6 @@ async fn real_main() -> Result<()> {
 			tc.print_table(None, "ops", ops).await?;
 		},
 
-		Command::BlockGasLimit { network } => {
-			let limit = tc.block_gas_limit(network).await?;
-			tc.println(None, format!("Gas limit for block: {} is : {}", network, limit))
-				.await?;
-		},
 		Command::Message { message } => {
 			let message = hex::decode(message)?
 				.try_into()
@@ -440,6 +433,10 @@ async fn real_main() -> Result<()> {
 		},
 		Command::RestartBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
+		},
+		Command::GasLimits => {
+			let matrix = tc.gas_limits().await?;
+			tc.print_table(None, "gas limits", matrix).await?;
 		},
 		Command::CostMatrix => {
 			let matrix = tc.cost_matrix().await?;

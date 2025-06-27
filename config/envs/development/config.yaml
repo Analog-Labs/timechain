@@ -1,65 +1,54 @@
 config:
   chronicle_funds: 1.
-  timechain_url: 'wss://rpc.development.analog.one'
-  prices_path: 'prices.csv'
-  testers_path: 'testers.csv'
+  timechain_url: wss://rpc.development.analog.one
+  prices_path: prices.csv
+  testers_path: testers.csv
+  shard_size: 1
+  shard_threshold: 1
+  shard_task_limit: 50
+  msg_fee: 0
+
 backends:
-  evm:
-    proxy: "evm/ERC1967Proxy.sol/ERC1967Proxy.json"
-    gateway: "evm/Gateway.sol/Gateway.json"
-    tester: "evm/GmpProxy.sol/GmpProxy.json"
+  grpc:
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
+    batch_gas_limit: 0.1
+    msg_gas_limit: 0.05
+
 networks:
   0:
-    backend: "grpc"
-    name: "grpc-1"
-    url: "https://gmp-grpc-1.development.analog.one:443"
-    coin_id: 825
+    backend: grpc
+    name: grpc-1
+    url: https://gmp-grpc-1.development.analog.one:443
+    coin_id: usd-coin
     currency_decimals: 6
-    currency_symbol: USDT
+    currency_symbol: USDC
     admin_funds: 100.
     gateway_funds: 10.
     chronicle_funds: 10.
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 50
     batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 10000000
-    route_max_gas_limit: 1000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 1
+    block_gas_limit: 100
 
   1:
-    backend: "grpc"
-    name: "grpc-2"
-    url: "https://gmp-grpc-2.development.analog.one:443"
-    coin_id: 825
+    backend: grpc
+    name: grpc-2
+    url: https://gmp-grpc-2.development.analog.one:443
+    coin_id: usd-coin
     currency_decimals: 6
-    currency_symbol: USDT
+    currency_symbol: USDC
     admin_funds: 100.
     gateway_funds: 10.
     chronicle_funds: 10.
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 50
     batch_size: 64
     batch_offset: 0
-    batch_gas_limit: 10000000
-    route_max_gas_limit: 1000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 1
+    block_gas_limit: 100
 
 chronicles:
 - https://chronicle-1.development.analog.one

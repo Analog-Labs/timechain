@@ -163,8 +163,8 @@ impl Benchmark {
 		dest: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<RouteStats> {
-		let src_addr = self.tc.tester(src)?.0;
-		let dest_addr = self.tc.tester(dest)?.0;
+		let src_addr = self.tc.tester(src)?;
+		let dest_addr = self.tc.tester(dest)?;
 		let gas_limit = self
 			.tc
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, self.payload.clone())
@@ -173,7 +173,7 @@ impl Benchmark {
 			.tc
 			.estimate_message_cost(src, dest, self.payload.len() as u16, gas_limit, block_hash)
 			.await?;
-		let msg_cost = self.tc.config.balance_to_usd(src, gas_cost)?;
+		let msg_cost = self.tc.config.network(src)?.balance_to_usd(gas_cost)?;
 		Ok(RouteStats::new(src_addr, dest_addr, gas_limit, gas_cost, msg_cost))
 	}
 

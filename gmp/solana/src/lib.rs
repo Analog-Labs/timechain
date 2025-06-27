@@ -1,21 +1,16 @@
-use std::rc::Rc;
 use std::str::FromStr;
-use std::{ops::Range, pin::Pin, sync::Arc};
+use std::{ops::Range, sync::Arc};
 
 use anchor_client::anchor_lang::AnchorDeserialize;
 use anchor_client::solana_sdk::signer::SeedDerivable;
 use anchor_client::{Client as AnchorClient, Cluster};
 use anyhow::Result;
 use async_trait::async_trait;
-use futures::{Stream, StreamExt};
 
-use anchor_client::solana_client::nonblocking::pubsub_client::PubsubClient;
 use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
 use anchor_client::solana_client::rpc_client::GetConfirmedSignaturesForAddress2Config;
-use anchor_client::solana_client::rpc_config::{RpcBlockSubscribeConfig, RpcBlockSubscribeFilter};
 use anchor_client::solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::solana_sdk::message::Message;
 use anchor_client::solana_sdk::signature::Signature;
 use anchor_client::solana_sdk::signer::keypair::Keypair;
 use anchor_client::solana_sdk::transaction::Transaction;
@@ -64,10 +59,10 @@ impl IConnect for Chain {
 		self
 	}
 	async fn connect(&self, url: String) -> Result<Arc<dyn IConnector>> {
-		todo!()
+		Ok(Arc::new(Connector::new(self.clone(), url).await?))
 	}
 	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>> {
-		todo!()
+		Ok(Arc::new(Connector::new(self.clone(), url).await?))
 	}
 }
 
@@ -91,11 +86,9 @@ impl IChain for Chain {
 }
 
 pub struct Connector {
-	network_id: NetworkId,
+	chain: Chain,
 	client: Arc<RpcClient>,
-	pubsub_client: Arc<PubsubClient>,
 	anchor_client: AnchorClient<Arc<Keypair>>,
-	wallet: Arc<Keypair>,
 }
 
 impl Connector {
@@ -103,8 +96,8 @@ impl Connector {
 		let recent_blockhash = self.client.get_latest_blockhash().await?;
 		let transaction = Transaction::new_signed_with_payer(
 			&[instruction],
-			Some(&self.wallet.pubkey()),
-			&[&self.wallet],
+			Some(&self.chain.wallet.pubkey()),
+			&[&self.chain.wallet],
 			recent_blockhash,
 		);
 		let hash = self.client.send_and_confirm_transaction(&transaction).await?;
@@ -118,20 +111,16 @@ impl Connector {
 		let ws_url = url.clone();
 		let http_url = url.replace("ws", "http");
 		let client = RpcClient::new(http_url.clone());
-		let pubsub_client = PubsubClient::new(&ws_url).await?;
-		let keypair = Keypair::new();
 		let an_client = AnchorClient::new_with_options(
 			Cluster::Custom(http_url, ws_url),
-			Arc::new(keypair),
+			chain.clone().wallet,
 			CommitmentConfig {
 				commitment: CommitmentLevel::Finalized,
 			},
 		);
 		let connector = Self {
-			network_id: chain.network_id,
+			chain,
 			client: Arc::new(client),
-			wallet: Arc::new(Keypair::new()),
-			pubsub_client: Arc::new(pubsub_client),
 			anchor_client: an_client,
 		};
 		Ok(connector)
@@ -142,17 +131,25 @@ impl Connector {
 impl IConnectorAdmin for Connector {
 	/// Uses a faucet to fund the account when possible.
 	async fn faucet(&self, balance: u128) -> Result<()> {
-		todo!()
+		self.client.request_airdrop(&self.chain.wallet.pubkey(), balance as u64).await?;
+		Ok(())
 	}
 	/// Transfers an amount to an account.
 	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
-		todo!()
+		let instruction = system_instruction::transfer(
+			&self.chain.wallet.pubkey(),
+			&a_addr(address),
+			amount as u64,
+		);
+		self.send_transaction(instruction).await
 	}
 
 	/// Queries the account balance.
 	async fn balance(&self, address: Address32) -> Result<u128> {
-		todo!()
+		let balance = self.client.get_balance(&a_addr(address)).await?;
+		Ok(balance as u128)
 	}
+
 	// dont need proxy since solana programs are upgradable
 	async fn deploy_gateway(&self, _proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
 		let program_keypair = Keypair::new();
@@ -160,7 +157,7 @@ impl IConnectorAdmin for Connector {
 		let lamports = self.client.get_minimum_balance_for_rent_exemption(gateway.len()).await?;
 
 		let create_account_ix = system_instruction::create_account(
-			&self.wallet.pubkey(),
+			&self.chain.wallet.pubkey(),
 			&program_pubkey,
 			lamports,
 			0,
@@ -169,26 +166,26 @@ impl IConnectorAdmin for Connector {
 
 		let resize_ix = solana_sdk::loader_v4::set_program_length(
 			&program_pubkey,
-			&self.wallet.pubkey(),
+			&self.chain.wallet.pubkey(),
 			gateway.len() as u32,
-			&self.wallet.pubkey(),
+			&self.chain.wallet.pubkey(),
 		);
 
 		let write_ix = solana_sdk::loader_v4::write(
 			&program_pubkey,
-			&self.wallet.pubkey(),
+			&self.chain.wallet.pubkey(),
 			0,
 			gateway.to_vec(),
 		);
 
-		let deploy_ix = solana_sdk::loader_v4::deploy(&program_pubkey, &self.wallet.pubkey());
+		let deploy_ix = solana_sdk::loader_v4::deploy(&program_pubkey, &self.chain.wallet.pubkey());
 
 		let recent_blockhash = self.client.get_latest_blockhash().await?;
 
 		let transaction = Transaction::new_signed_with_payer(
 			&[create_account_ix, resize_ix, write_ix, deploy_ix],
-			Some(&self.wallet.pubkey()),
-			&[&self.wallet, &program_keypair],
+			Some(&self.chain.wallet.pubkey()),
+			&[&self.chain.wallet, &program_keypair],
 			recent_blockhash,
 		);
 
@@ -200,32 +197,34 @@ impl IConnectorAdmin for Connector {
 
 		Ok((t_addr(program_pubkey), slot))
 	}
+
 	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
 		let pubkey = a_addr(proxy);
-		let retract_ix = solana_sdk::loader_v4::retract(&pubkey, &self.wallet.pubkey());
+		let retract_ix = solana_sdk::loader_v4::retract(&pubkey, &self.chain.wallet.pubkey());
 
 		let resize_ix = solana_sdk::loader_v4::set_program_length(
 			&pubkey,
-			&self.wallet.pubkey(),
+			&self.chain.wallet.pubkey(),
 			gateway.len() as u32,
-			&self.wallet.pubkey(),
+			&self.chain.wallet.pubkey(),
 		);
 
 		let write_ix =
-			solana_sdk::loader_v4::write(&pubkey, &self.wallet.pubkey(), 0, gateway.to_vec());
+			solana_sdk::loader_v4::write(&pubkey, &self.chain.wallet.pubkey(), 0, gateway.to_vec());
 
-		let deploy_ix = solana_sdk::loader_v4::deploy(&pubkey, &self.wallet.pubkey());
+		let deploy_ix = solana_sdk::loader_v4::deploy(&pubkey, &self.chain.wallet.pubkey());
 
 		let recent_blockhash = self.client.get_latest_blockhash().await?;
 		let transaction = Transaction::new_signed_with_payer(
 			&[retract_ix, resize_ix, write_ix, deploy_ix],
-			Some(&self.wallet.pubkey()),
-			&[&self.wallet],
+			Some(&self.chain.wallet.pubkey()),
+			&[&self.chain.wallet],
 			recent_blockhash,
 		);
 		self.client.send_and_confirm_transaction(&transaction).await?;
 		Ok(())
 	}
+
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let program_id = a_addr(gateway);
 		let (state_pda, _bump) =
@@ -235,10 +234,11 @@ impl IConnectorAdmin for Connector {
 		let state = GatewayState::deserialize(&mut data.as_slice())?;
 		Ok(t_addr(state.admin))
 	}
+
 	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
 		let program = self.anchor_client.program(a_addr(gateway))?;
 		let instruction = gmp_solana_contract::instruction::SetAdmin { new_admin: a_addr(admin) };
-		let result = program.request().args(instruction);
+		program.request().args(instruction).send().await?;
 		Ok(())
 	}
 
@@ -294,8 +294,10 @@ impl IConnectorAdmin for Connector {
 		_src: Address32,
 		_payload: Vec<u8>,
 	) -> Result<u64> {
-		// Not supported
-		Ok(0)
+		// reference: <https://solana.com/docs/core/fees#compute-units-and-limits>
+		// single instruction can use upto 200k units
+		// single transaction (multiple instructions) can use upto 1.4m units
+		Ok(1_400_000)
 	}
 
 	/// Estimates message cost
@@ -353,12 +355,13 @@ impl IConnectorAdmin for Connector {
 #[async_trait]
 impl IConnector for Connector {
 	fn chain(&self) -> &dyn IChain {
-		todo!()
+		&self.chain
 	}
 
 	/// Queries the latest finalized block.
 	async fn finalized_block(&self) -> Result<u64> {
-		todo!()
+		let block = self.client.get_slot_with_commitment(CommitmentConfig::finalized()).await?;
+		Ok(block)
 	}
 
 	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
@@ -446,6 +449,7 @@ impl IConnector for Connector {
 		}
 		Ok(events)
 	}
+
 	async fn submit_commands(
 		&self,
 		gateway: Address32,
@@ -460,7 +464,9 @@ impl IConnector for Connector {
 	}
 
 	async fn gas_price(&self) -> Result<u128> {
-		todo!()
+		// reference: <https://solana.com/docs/core/fees#key-points>
+		// 5000 per signature is base fee of solana
+		Ok(5000)
 	}
 }
 

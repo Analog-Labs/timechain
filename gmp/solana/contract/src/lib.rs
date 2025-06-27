@@ -34,12 +34,16 @@ mod gateway {
 	}
 
 	// only executed by admin
-	pub fn set_shards(ctx: Context<Gateway>, shards: Vec<Shard>) -> Result<()> {
-		require!(shards.len() < MAX_SHARDS_LEN, GatewayError::ShardsLengthExceedLimit);
+	pub fn set_shards(
+		ctx: Context<Gateway>,
+		register: Vec<Shard>,
+		revoke: Vec<Shard>,
+	) -> Result<()> {
+		require!(register.len() < MAX_SHARDS_LEN, GatewayError::ShardsLengthExceedLimit);
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
 		state.shards.clear();
-		for shard in shards.into_iter() {
+		for shard in register.into_iter() {
 			let seed_x = shard.x_coord;
 			let seed_y = [shard.y_parity];
 

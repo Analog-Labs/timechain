@@ -180,4 +180,5 @@ impl GmpPdaSeeds {
 pub struct Shard {
 	pub x_coord: [u8; 32],
 	pub y_parity: u8,
+	pub num_sessions: u16,
 }

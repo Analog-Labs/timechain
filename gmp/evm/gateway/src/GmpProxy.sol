@@ -46,7 +46,7 @@ contract GmpProxy is IGmpReceiver {
         }
         uint64 msgGasLimit;
         unchecked {
-            msgGasLimit = uint64(gasLimit + 579);
+            msgGasLimit = uint64(gasLimit + 614);
         }
         GmpMessage memory message = GmpMessage({
             source: src,

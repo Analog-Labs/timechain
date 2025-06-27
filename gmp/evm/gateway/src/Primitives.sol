@@ -319,7 +319,7 @@ library PrimitiveUtils {
         callback.nonce = m.nonce;
         bytes calldata data = m.data;
         callback.callback = abi.encodeWithSignature(
-            "onGmpReceived(bytes32,uint128,bytes32,uint64,bytes)",
+            "onGmpReceived(bytes32,uint16,bytes32,uint64,bytes)",
             callback.opHash,
             callback.srcNetwork,
             callback.source,

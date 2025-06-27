@@ -85,14 +85,14 @@ impl GmpMessage {
 		Self::HEADER_LEN + self.bytes.len()
 	}
 
-	fn encode_header(&self) -> [u8; 224] {
-		let mut hdr = [0u8; 224];
+	fn encode_header(&self) -> [u8; Self::HEADER_LEN] {
+		let mut hdr = [0u8; Self::HEADER_LEN];
 		hdr[32..64].copy_from_slice(&self.src.left_pad_32());
 		hdr[64..96].copy_from_slice(&self.src_network.to_be_bytes().left_pad_32());
 		hdr[96..128].copy_from_slice(&self.dest.left_pad_32());
 		hdr[128..160].copy_from_slice(&self.dest_network.to_be_bytes().left_pad_32());
 		hdr[160..192].copy_from_slice(&self.gas_limit.to_be_bytes().left_pad_32());
-		hdr[192..224].copy_from_slice(&self.nonce.to_be_bytes().left_pad_32());
+		hdr[192..Self::HEADER_LEN].copy_from_slice(&self.nonce.to_be_bytes().left_pad_32());
 		hdr
 	}
 

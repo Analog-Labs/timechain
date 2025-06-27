@@ -1598,6 +1598,7 @@ impl Tc {
 		let (hash, _) = blocks.next().await.context("expected block")?;
 		let blocks = self.read_events_blocks(exec, hash).await?;
 		let msgs = self.messages(dest, dest_addr, blocks).await?;
+		log::debug!("messages found: {:#?}", &msgs);
 		let msg = msgs
 			.into_iter()
 			.find(|msg| msg.message_id() == msg_id)

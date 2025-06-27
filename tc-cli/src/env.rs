@@ -32,11 +32,11 @@ impl Loki {
 	}
 }
 
-pub struct CoinMarketCap {
+pub struct CoinGeckoApiKey {
 	pub token_api_key: String,
 }
 
-impl CoinMarketCap {
+impl CoinGeckoApiKey {
 	pub fn from_env() -> Self {
 		Self {
 			token_api_key: std::env::var("TOKEN_API_KEY").unwrap_or_default(),

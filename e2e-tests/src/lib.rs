@@ -166,9 +166,9 @@ impl TestEnvBuilder {
 				backend: Backend::Grpc,
 				name: format!("grpc-{network}"),
 				url: chain_url.clone(),
-				coin_id: 825,
+				coin_id: "usd-coin".into(),
 				currency_decimals: 6,
-				currency_symbol: "USDT".into(),
+				currency_symbol: "USDC".into(),
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
@@ -191,7 +191,7 @@ impl TestEnvBuilder {
 		);
 
 		// add price data
-		self.prices.insert(network, ("USDT".into(), 1.0));
+		self.prices.insert(network, ("USDC".into(), 1.0));
 
 		// add chronicles
 		for i in 0..shard_size {
@@ -238,7 +238,7 @@ impl TestEnvBuilder {
 				backend: Backend::Evm,
 				name: format!("evm-{network}"),
 				url: chain_url.clone(),
-				coin_id: 1027,
+				coin_id: "ethereum".into(),
 				currency_decimals: 18,
 				currency_symbol: "ETH".into(),
 				admin_funds: Some("10.".into()),

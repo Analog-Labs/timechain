@@ -13,9 +13,9 @@ networks:
     backend: "grpc"
     name: "grpc-1"
     url: "https://gmp-grpc-1.development.analog.one:443"
-    coin_id: 825
+    coin_id: "usd-coin"
     currency_decimals: 6
-    currency_symbol: USDT
+    currency_symbol: USDC
     admin_funds: 100.
     gateway_funds: 10.
     chronicle_funds: 10.
@@ -39,9 +39,9 @@ networks:
     backend: "grpc"
     name: "grpc-2"
     url: "https://gmp-grpc-2.development.analog.one:443"
-    coin_id: 825
+    coin_id: "usd-coin"
     currency_decimals: 6
-    currency_symbol: USDT
+    currency_symbol: USDC
     admin_funds: 100.
     gateway_funds: 10.
     chronicle_funds: 10.

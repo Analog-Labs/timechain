@@ -227,9 +227,11 @@ pub async fn test_oats_sender_caller<P: Provider>(
 	}
 	// Transfer tokens from every network to next network, and call callee, ring way
 	let mut msgs = vec![];
-	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
-	while let Some((nw, token, callee, gas_limit)) = ring.next() {
-		if let Some((nw2, _, _, _)) = ring.peek() {
+
+	// Iter<(from, to)>
+	let ring = contracts.iter().zip(contracts.iter().cycle().skip(1));
+
+	for ((nw, token, callee, gas_limit), (nw2, _, _, _)) in ring {
 			let gmp_fee = token.cost(*nw2, *gas_limit, Bytes::new()).call().await?;
 			let receipt = token
 				.sendAndCall(
@@ -257,7 +259,6 @@ pub async fn test_oats_sender_caller<P: Provider>(
 				.context("Failed to send gmp message")?;
 			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
 			msgs.push((*nw, msg_id));
-		};
 	}
 	// Track messages
 	let mut blocks = tc.finality_notification_stream();

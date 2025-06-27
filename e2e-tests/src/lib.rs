@@ -8,7 +8,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tar::{Archive, Builder};
 use tc_cli::{
-	config::{BackendConfig, ConfigYaml, GlobalConfig, NetworkConfig},
+	config::{
+		BackendConfigYaml, ConfigYaml, GlobalConfigYaml, InheritableBackendYaml,
+		InheritableGlobalYaml, NetworkConfigYaml, Price,
+	},
 	NetworkId, Sender, Tc,
 };
 use tempfile::TempDir;
@@ -38,7 +41,7 @@ pub struct TestEnvBuilder {
 	chains: HashMap<NetworkId, Container>,
 	chronicles: HashMap<NetworkId, Vec<Container>>,
 	config: ConfigYaml,
-	prices: HashMap<NetworkId, (String, f64)>,
+	prices: HashMap<NetworkId, f64>,
 	snapshot: PathBuf,
 }
 
@@ -102,22 +105,63 @@ impl TestEnvBuilder {
 			chains: Default::default(),
 			chronicles: Default::default(),
 			config: ConfigYaml {
-				config: GlobalConfig {
+				config: GlobalConfigYaml {
 					prices_path: "prices.csv".into(),
 					testers_path: "testers.csv".into(),
 					chronicle_funds: "1.".into(),
 					timechain_url: validator_url,
+					inherited: InheritableGlobalYaml {
+						shard_size: None,
+						shard_threshold: None,
+						shard_task_limit: Some(50),
+						msg_fee: Some(0.),
+					},
 				},
 				backends: {
 					let mut backends = HashMap::default();
 					backends.insert(
+						Backend::Grpc,
+						BackendConfigYaml {
+							proxy: None,
+							gateway: None,
+							tester: None,
+							batch_exec_gas: 70_000,
+							reg_op_exec_gas: 100_000,
+							unreg_op_exec_gas: 25_000,
+							msg_op_exec_gas: 30_000,
+							msg_session_gas: 50_000,
+							msg_byte_gas: 20,
+							inherited: InheritableBackendYaml {
+								batch_gas_limit: Some(0.1),
+								msg_gas_limit: Some(0.05),
+								inherited: InheritableGlobalYaml::default(),
+							},
+						},
+					);
+					backends.insert(
 						Backend::Evm,
-						BackendConfig {
-							proxy: workspace
-								.join("gmp/evm/gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"),
-							gateway: workspace.join("gmp/evm/gateway/out/Gateway.sol/Gateway.json"),
-							tester: workspace
-								.join("gmp/evm/gateway/out/GmpProxy.sol/GmpProxy.json"),
+						BackendConfigYaml {
+							proxy: Some(
+								workspace
+									.join("gmp/evm/gateway/out/ERC1967Proxy.sol/ERC1967Proxy.json"),
+							),
+							gateway: Some(
+								workspace.join("gmp/evm/gateway/out/Gateway.sol/Gateway.json"),
+							),
+							tester: Some(
+								workspace.join("gmp/evm/gateway/out/GmpProxy.sol/GmpProxy.json"),
+							),
+							batch_exec_gas: 70_000,
+							reg_op_exec_gas: 100_000,
+							unreg_op_exec_gas: 25_000,
+							msg_op_exec_gas: 30_000,
+							msg_session_gas: 50_000,
+							msg_byte_gas: 20,
+							inherited: InheritableBackendYaml {
+								batch_gas_limit: Some(0.1),
+								msg_gas_limit: Some(0.05),
+								inherited: InheritableGlobalYaml::default(),
+							},
 						},
 					);
 					backends
@@ -162,7 +206,7 @@ impl TestEnvBuilder {
 		// add network config
 		self.config.networks.insert(
 			network,
-			NetworkConfig {
+			NetworkConfigYaml {
 				backend: Backend::Grpc,
 				name: format!("grpc-{network}"),
 				url: chain_url.clone(),
@@ -172,26 +216,23 @@ impl TestEnvBuilder {
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
-				shard_size,
-				shard_threshold,
-				shard_task_limit: 50,
 				batch_size: 8,
 				batch_offset: 0,
-				batch_gas_limit: 10_000_000,
-				route_max_gas_limit: 1_000_000,
-				route_msg_fee: 0,
-				batch_exec_gas: 70_000,
-				reg_op_exec_gas: 100_000,
-				unreg_op_exec_gas: 25_000,
-				msg_op_exec_gas: 30_000,
-				msg_session_gas: 50_000,
-				msg_byte_gas: 20,
 				max_gas_price: 1,
+				block_gas_limit: 10_000_000,
+				inherited: InheritableBackendYaml {
+					inherited: InheritableGlobalYaml {
+						shard_size: Some(shard_size),
+						shard_threshold: Some(shard_threshold),
+						..Default::default()
+					},
+					..Default::default()
+				},
 			},
 		);
 
 		// add price data
-		self.prices.insert(network, ("USDC".into(), 1.0));
+		self.prices.insert(network, 1.0);
 
 		// add chronicles
 		for i in 0..shard_size {
@@ -234,7 +275,7 @@ impl TestEnvBuilder {
 		// add network config
 		self.config.networks.insert(
 			network,
-			NetworkConfig {
+			NetworkConfigYaml {
 				backend: Backend::Evm,
 				name: format!("evm-{network}"),
 				url: chain_url.clone(),
@@ -244,26 +285,23 @@ impl TestEnvBuilder {
 				admin_funds: Some("10.".into()),
 				gateway_funds: "1.".into(),
 				chronicle_funds: ".1".into(),
-				shard_size,
-				shard_threshold,
-				shard_task_limit: 50,
 				batch_size: 8,
 				batch_offset: 0,
-				batch_gas_limit: 10_000_000,
-				route_max_gas_limit: 1_000_000,
-				route_msg_fee: 0,
-				batch_exec_gas: 70_000,
-				reg_op_exec_gas: 100_000,
-				unreg_op_exec_gas: 25_000,
-				msg_op_exec_gas: 30_000,
-				msg_byte_gas: 20,
-				msg_session_gas: 50_000,
+				block_gas_limit: 10_000_000,
 				max_gas_price: 1,
+				inherited: InheritableBackendYaml {
+					inherited: InheritableGlobalYaml {
+						shard_size: Some(shard_size),
+						shard_threshold: Some(shard_threshold),
+						..Default::default()
+					},
+					..Default::default()
+				},
 			},
 		);
 
 		// add price data
-		self.prices.insert(network, ("ETH".into(), 0.01));
+		self.prices.insert(network, 0.01);
 
 		// add chronicles
 		for i in 0..shard_size {
@@ -324,7 +362,7 @@ impl TestEnvBuilder {
 	pub fn build(mut self) -> Result<TestEnv> {
 		let env = self.temp.path().to_path_buf();
 		std::fs::write(env.join("config.yaml"), serde_yaml::to_string(&self.config)?)?;
-		tc_cli::config::write_prices(&env.join("prices.csv"), &self.prices)?;
+		Price::write(&env.join("prices.csv"), &self.prices)?;
 		std::env::set_var("TC_CLI_ENV", &env);
 		if std::env::var("TESTCONTAINERS_COMMAND").as_deref() == Ok("keep") {
 			self.temp.disable_cleanup(true);

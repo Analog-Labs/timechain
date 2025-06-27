@@ -36,7 +36,7 @@ async fn oats_wrapped_evm() -> Result<()> {
 	//
 	// + Deploy Proxy+Token: tx1, tx2;
 	// + Mint some tokens;
-	// + Upgrade to V2 implementation: tx3;
+	// + Upgrade to V2 implementation: tx3, tx4;
 	// + Deploy Callee;
 	for (i, nw_id) in tc.iter().enumerate() {
 		let port = env.chain_container(nw_id)?.get_host_port_ipv4(ANVIL_PORT).await?;

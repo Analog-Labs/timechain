@@ -43,3 +43,4 @@ develop = [
   "time-primitives/develop",
   "tc-subxt/develop",
 ]
+default = ["develop", "testnet"]

@@ -56,13 +56,13 @@ pub struct Tc {
 impl Tc {
 	pub async fn from_env(env: PathBuf, config: &str, msg: Sender, tx_db: PathBuf) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
-		let config = Config::from_env(env, config)?;
+		let config = Config::from_env(&env, config)?;
 		let env = Mnemonics::from_env();
 		Self::new(config, env, msg, tx_db).await
 	}
 
 	pub async fn new(config: Config, env: Mnemonics, msg: Sender, tx_db: PathBuf) -> Result<Self> {
-		let timechain_url = config.global().timechain_url.clone();
+		let timechain_url = config.timechain_url().to_owned();
 		let runtime = tokio::task::spawn(async move {
 			while let Err(err) = SubxtClient::get_client(&timechain_url).await {
 				tracing::info!("waiting for timechain to start: {err:?}");
@@ -812,7 +812,7 @@ impl Tc {
 			shard_size: config.shard_size,
 			shard_threshold: config.shard_threshold,
 			batch_gas_params: BatchGasParams {
-				batch_gas_limit: config.batch_gas_limit,
+				batch_gas_limit: config.batch_gas_limit(),
 				batch_exec_gas: config.batch_exec_gas,
 				reg_op_exec_gas: config.reg_op_exec_gas,
 				unreg_op_exec_gas: config.unreg_op_exec_gas,
@@ -830,27 +830,26 @@ impl Tc {
 	) -> Result<Address32> {
 		let connector = self.connector(network).await?;
 		let config = self.config.network(network)?;
-		let backend = self.config.backend(network)?;
-		let gateway =
-			if let Some(gateway) = self.runtime.network_gateway(network, block_hash).await? {
-				self.set_network_config(network, block_hash).await?;
-				gateway
-			} else {
-				self.println(None, format!("deploying gateway {network}")).await?;
-				let (gateway, block) =
-					connector.deploy_gateway(&backend.proxy, &backend.gateway).await?;
-				self.println(None, format!("register_network {network}")).await?;
-				self.runtime
-					.register_network(time_primitives::Network {
-						id: network,
-						chain_name: ChainName(BoundedVec::truncate_from(config.name.encode())),
-						gateway,
-						gateway_block: block,
-						config: self.network_config(network)?,
-					})
-					.await?;
-				gateway
-			};
+		let gateway = if let Some(gateway) =
+			self.runtime.network_gateway(network, block_hash).await?
+		{
+			self.set_network_config(network, block_hash).await?;
+			gateway
+		} else {
+			self.println(None, format!("deploying gateway {network}")).await?;
+			let (gateway, block) = connector.deploy_gateway(&config.proxy, &config.gateway).await?;
+			self.println(None, format!("register_network {network}")).await?;
+			self.runtime
+				.register_network(time_primitives::Network {
+					id: network,
+					chain_name: ChainName(BoundedVec::truncate_from(config.name.encode())),
+					gateway,
+					gateway_block: block,
+					config: self.network_config(network)?,
+				})
+				.await?;
+			gateway
+		};
 		Ok(gateway)
 	}
 
@@ -883,11 +882,11 @@ impl Tc {
 				let route = Route {
 					network_id: dest,
 					gateway: dest_gateway,
-					max_gas_limit: config.route_max_gas_limit,
+					max_gas_limit: config.max_gas_limit(),
 					msg_gas: config.msg_gas(),
 					msg_byte_gas: config.msg_byte_gas(),
 					gas_price,
-					msg_fee: config.route_msg_fee,
+					msg_fee: config.msg_fee()?,
 				};
 				if routes.contains(&route) {
 					continue;
@@ -978,7 +977,7 @@ impl Tc {
 				},
 			}
 		}
-		anyhow::bail!("failed to connect to chronicle");
+		panic!("failed to connect to chronicle");
 	}
 
 	pub async fn register_member(
@@ -1044,7 +1043,7 @@ impl Tc {
 
 	pub async fn deploy_chronicle(&self, chronicle: &str, block_hash: BlockHash) -> Result<()> {
 		let chronicle = self.wait_for_chronicle(chronicle).await?;
-		let funds = self.parse_balance(None, &self.config.global().chronicle_funds)?;
+		let funds = self.parse_balance(None, self.config.chronicle_funds())?;
 		let fund_tc = self.fund(
 			None,
 			chronicle.account.clone().into(),
@@ -1161,9 +1160,9 @@ impl Tc {
 
 	pub async fn redeploy_gateway(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
-		let backend = self.config.backend(network)?;
+		let config = self.config.network(network)?;
 		self.println(None, format!("redeploying gateway {network}")).await?;
-		connector.redeploy_gateway(gateway, &backend.gateway).await?;
+		connector.redeploy_gateway(gateway, &config.gateway).await?;
 		Ok(())
 	}
 
@@ -1172,10 +1171,10 @@ impl Tc {
 		network: NetworkId,
 		block_hash: BlockHash,
 	) -> Result<(Address32, u64)> {
-		let backend = self.config.backend(network)?;
+		let config = self.config.network(network)?;
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let id = self.println(None, format!("deploy tester {network}")).await?;
-		let tester = connector.deploy_tester(gateway, &backend.tester).await?;
+		let tester = connector.deploy_tester(gateway, &config.tester).await?;
 		self.println(
 			Some(id),
 			format!(
@@ -1228,6 +1227,7 @@ impl Tc {
 		payload: Vec<u8>,
 	) -> Result<MessageId> {
 		let connector = self.connector(src_network).await?;
+		let src_config = self.config.network(src_network)?;
 		let id = self
 			.println(
 				None,
@@ -1239,7 +1239,7 @@ impl Tc {
 					self.format_address(Some(dest_network), dest_addr)?,
 					gas_limit,
 					self.format_balance(Some(src_network), gas_cost)?,
-					self.config.balance_to_usd(src_network, gas_cost)?,
+					src_config.balance_to_usd(gas_cost)?,
 				),
 			)
 			.await?;
@@ -1257,7 +1257,7 @@ impl Tc {
 				self.format_address(Some(dest_network), dest_addr)?,
 				gas_limit,
 				self.format_balance(Some(src_network), gas_cost)?,
-				self.config.balance_to_usd(src_network, gas_cost)?,
+				src_config.balance_to_usd(gas_cost)?,
 			),
 		)
 		.await?;
@@ -1310,12 +1310,14 @@ impl Tc {
 	async fn deploy_testers(
 		&mut self,
 		block_hash: BlockHash,
-	) -> Result<HashMap<NetworkId, (Address32, u64)>> {
+	) -> Result<HashMap<NetworkId, Address32>> {
 		let mut deploy_tester = FuturesUnordered::new();
 		let mut testers = HashMap::new();
 		for network in self.iter() {
-			if let Ok((address, block)) = self.tester(network) {
-				testers.insert(network, (address, block));
+			let config = self.config.network(network)?;
+			if let Some(address) = config.tester_address.as_deref() {
+				let address = self.parse_address(Some(network), address)?;
+				testers.insert(network, address);
 			} else {
 				let fut = self.deploy_tester(network, block_hash);
 				deploy_tester.push(async move {
@@ -1325,18 +1327,15 @@ impl Tc {
 			}
 		}
 		while let Some(result) = deploy_tester.next().await {
-			let (network, tester) = result?;
-			testers.insert(network, tester);
+			let (network, (address, _)) = result?;
+			testers.insert(network, address);
 		}
 		drop(deploy_tester);
-		self.config.save_testers(
-			testers
-				.iter()
-				.map(|(n, (a, b))| {
-					(*n, (self.format_address(Some(*n), *a).expect("have connector"), *b))
-				})
-				.collect(),
-		)?;
+		let tester_addresses = testers
+			.iter()
+			.map(|(n, a)| (*n, self.format_address(Some(*n), *a).expect("have connector")))
+			.collect();
+		self.config.save_testers(&tester_addresses)?;
 		Ok(testers)
 	}
 
@@ -1432,12 +1431,14 @@ impl Tc {
 		Ok(())
 	}
 
-	pub fn tester(&self, network: NetworkId) -> Result<(Address32, u64)> {
-		let (address, block) = self
+	pub fn tester(&self, network: NetworkId) -> Result<Address32> {
+		let address = self
 			.config
-			.tester(network)
+			.network(network)?
+			.tester_address
+			.as_deref()
 			.with_context(|| format!("no tester for {network}"))?;
-		Ok((self.parse_address(Some(network), address)?, *block))
+		self.parse_address(Some(network), address)
 	}
 
 	pub async fn wait_for_sync(&self, network: NetworkId) -> Result<()> {
@@ -1539,9 +1540,9 @@ impl Tc {
 	pub fn total_gateway_funds(&self) -> Result<f64> {
 		let mut total_funds = 0.;
 		for network in self.iter() {
-			let gateway_funds = &self.config.network(network)?.gateway_funds;
-			let gateway_funds = self.parse_balance(Some(network), gateway_funds)?;
-			total_funds += self.config.balance_to_usd(network, gateway_funds)?;
+			let config = self.config.network(network)?;
+			let gateway_funds = self.parse_balance(Some(network), &config.gateway_funds)?;
+			total_funds += config.balance_to_usd(gateway_funds)?;
 		}
 		Ok(total_funds)
 	}
@@ -1550,8 +1551,9 @@ impl Tc {
 		let mut total_balance = 0.;
 		for network in self.iter() {
 			let (_connector, gateway) = self.gateway(network, block_hash).await?;
+			let config = self.config.network(network)?;
 			let balance = self.balance(Some(network), gateway, block_hash).await?;
-			total_balance += self.config.balance_to_usd(network, balance)?;
+			total_balance += config.balance_to_usd(balance)?;
 		}
 		Ok(total_balance)
 	}
@@ -1565,8 +1567,8 @@ impl Tc {
 		let mut blocks = self.finality_notification_stream();
 		let (hash, _) = blocks.next().await.context("expected block")?;
 		// prepare
-		let src_addr = self.tester(src)?.0;
-		let dest_addr = self.tester(dest)?.0;
+		let src_addr = self.tester(src)?;
+		let dest_addr = self.tester(dest)?;
 		let gas_limit = self
 			.estimate_message_gas_limit(dest, dest_addr, src, src_addr, payload.clone())
 			.await?;
@@ -1611,6 +1613,7 @@ impl Tc {
 	pub async fn cost_matrix(&self) -> Result<Vec<RouteCost>> {
 		let mut matrix = vec![];
 		for src in self.iter() {
+			let src_config = self.config.network(src)?;
 			for dest in self.iter() {
 				if src == dest {
 					continue;
@@ -1623,13 +1626,13 @@ impl Tc {
 					dest,
 					dest_gas_price: dest_connector.gas_price().await?,
 					dest_max_gas_price: dest_config.max_gas_price,
-					src_token_usd: self.config.token_price_usd(src)?,
-					dest_token_usd: self.config.token_price_usd(dest)?,
+					src_token_usd: src_config.token_price_usd()?,
+					dest_token_usd: dest_config.token_price_usd()?,
 					gas_price: self.config.gas_price(src, dest)?,
 					msg_gas: dest_config.msg_gas(),
 					msg_byte_gas: dest_config.msg_byte_gas(),
 					msg_cost,
-					msg_cost_usd: self.config.balance_to_usd(src, msg_cost)?,
+					msg_cost_usd: src_config.balance_to_usd(msg_cost)?,
 				});
 			}
 		}

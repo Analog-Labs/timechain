@@ -3,11 +3,23 @@ config:
   timechain_url: 'wss://archive.integration.analog.one'
   prices_path: 'prices.csv'
   testers_path: 'testers.csv'
+  shard_size: 1
+  shard_threshold: 1
+  shard_task_limit: 100
+  msg_fee: 0.
 backends:
   evm:
     proxy: "evm/ERC1967Proxy.sol/ERC1967Proxy.json"
     gateway: "evm/Gateway.sol/Gateway.json"
     tester: "evm/GmpProxy.sol/GmpProxy.json"
+    batch_exec_gas: 68193
+    reg_op_exec_gas: 99121
+    unreg_op_exec_gas: 26528
+    msg_op_exec_gas: 33761
+    msg_byte_gas: 20
+    msg_session_gas: 53001
+    batch_gas_limit: .1
+    msg_gas_limit: .05
 networks:
   10:
     backend: "evm"
@@ -18,21 +30,10 @@ networks:
     currency_symbol: ETH
     gateway_funds: 1.
     chronicle_funds: .1
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 16
     batch_offset: 0
-    batch_gas_limit: 18000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 2000000000
+    block_gas_limit: 100000000
   13:
     backend: "evm"
     name: "arbitrum sepolia"
@@ -42,21 +43,10 @@ networks:
     currency_symbol: ETH
     gateway_funds: 1.
     chronicle_funds: .5
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 100000000
+    block_gas_limit: 100000000
   14:
     backend: "evm"
     name: "base testnet"
@@ -64,23 +54,12 @@ networks:
     coin_id: "ethereum"
     currency_decimals: 18
     currency_symbol: ETH
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     gateway_funds: .8
     chronicle_funds: .2
     batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 10000000
+    block_gas_limit: 100000000
   15:
     backend: "evm"
     name: "avalanche fuji"
@@ -90,22 +69,10 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .2
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-    # not sure about it the rpc eth_gasPrice does not return gas price
     max_gas_price: 10000000
+    block_gas_limit: 100000000
   16:
     backend: "evm"
     name: "polygon amoy"
@@ -115,21 +82,11 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .2
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 1024
     batch_offset: 0
     batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 100000000000
+    block_gas_limit: 100000000
   17:
     backend: "evm"
     name: "bnb testnet"
@@ -139,21 +96,10 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .2
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
     max_gas_price: 200000000
+    block_gas_limit: 100000000
   18:
     backend: "evm"
     name: "optimism sepolia"
@@ -163,21 +109,10 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .2
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-    max_gas_price: 2000000
+    block_gas_limit: 500000000000000
+    max_gas_price: 200000000
   19:
     backend: "evm"
     name: "blast sepolia"
@@ -187,21 +122,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .2
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 512
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-    # no idea the eth_gasPrice is not available in it
+    block_gas_limit: 500000000000000
     max_gas_price: 2000000
   20:
     backend: "evm"
@@ -212,20 +135,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .4
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 400
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
+    block_gas_limit: 500000000000000
     max_gas_price: 2000000
   21:
     backend: "evm"
@@ -236,21 +148,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .4
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 1024
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-    # no idea the eth_gasPrice is not available in it
+    block_gas_limit: 500000000000000
     max_gas_price: 2000000
   22:
     backend: "evm"
@@ -261,20 +161,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .4
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 400
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
+    block_gas_limit: 500000000000000
     max_gas_price: 30000000000
   23:
     backend: "evm"
@@ -285,20 +174,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .4
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 512
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
+    block_gas_limit: 500000000000000
     max_gas_price: 2000000
   24:
     backend: "evm"
@@ -309,20 +187,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .4
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 512
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
+    block_gas_limit: 500000000000000
     max_gas_price: 2000000
   25:
     backend: "evm"
@@ -333,21 +200,9 @@ networks:
     currency_symbol: ETH
     gateway_funds: .8
     chronicle_funds: .4
-    shard_size: 1
-    shard_threshold: 1
-    shard_task_limit: 100
     batch_size: 400
     batch_offset: 0
-    batch_gas_limit: 500000000000000
-    route_max_gas_limit: 10000000
-    route_msg_fee: 0
-    batch_exec_gas: 68193
-    reg_op_exec_gas: 99121
-    unreg_op_exec_gas: 26528
-    msg_op_exec_gas: 33761
-    msg_byte_gas: 20
-    msg_session_gas: 53001
-    # no idea the eth_gasPrice is not available in it
+    block_gas_limit: 500000000000000
     max_gas_price: 2000000
 chronicles: 
 - https://chronicle-1.integration.analog.one

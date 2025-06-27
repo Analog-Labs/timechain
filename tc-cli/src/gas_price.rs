@@ -23,7 +23,6 @@ impl Tc {
 		);
 		let mut prices = HashMap::new();
 		for (network_id, NetworkConfig { coin_id, .. }) in self.config.networks().iter() {
-			let symbol = self.currency(Some(*network_id))?.symbol;
 			let token_url = format!(
 				"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days=1"
 			);
@@ -36,19 +35,17 @@ impl Tc {
 			}
 			let response = response.json::<CoinGeckoMarketChart>().await?;
 			let daily_average = if response.prices.is_empty() {
-				anyhow::bail!("No price data available for coin: {}", symbol);
+				anyhow::bail!("No price data available for coin: {}", coin_id);
 			} else {
 				// index 0 is timestamp and 1 is token price
-				let price_values: Vec<f64> =
-					response.prices.iter().map(|price_point| price_point[1]).collect();
-				let sum: f64 = price_values.iter().sum();
-				sum / price_values.len() as f64
+				let sum: f64 = response.prices.iter().map(|price_point| price_point[1]).sum();
+				sum / response.prices.len() as f64
 			};
-			prices.insert(*network_id, (symbol, daily_average));
+			prices.insert(*network_id, daily_average);
 			// limitation of 30 req/min by coingecko
 			tokio::time::sleep(Duration::from_secs(3)).await;
 		}
-		self.config.save_prices(prices)?;
+		self.config.save_prices(&prices)?;
 		log::info!("Saved in prices.csv");
 		Ok(())
 	}

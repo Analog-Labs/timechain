@@ -63,19 +63,10 @@ impl GmpParams {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize,))]
+#[cfg_attr(not(feature = "std"), derive(Debug,))]
 #[derive(
-	Debug,
-	Clone,
-	Default,
-	Decode,
-	DecodeWithMemTracking,
-	Encode,
-	TypeInfo,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
+	Clone, Default, Decode, DecodeWithMemTracking, Encode, TypeInfo, Eq, PartialEq, Ord, PartialOrd,
 )]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
@@ -115,6 +106,22 @@ impl GmpMessage {
 impl std::fmt::Display for GmpMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		f.write_str(&hex::encode(self.message_id()))
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::fmt::Debug for GmpMessage {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		fmt.debug_struct("GmpMessage")
+			.field("_id", &format_args!("{}", &hex::encode(self.message_id())))
+			.field("src_network", &self.src_network)
+			.field("dest_network", &self.dest_network)
+			.field("src", &format_args!("{}", &hex::encode(&self.src)))
+			.field("dest", &format_args!("{}", &hex::encode(&self.dest)))
+			.field("noce", &self.nonce)
+			.field("gas_limit", &self.gas_limit)
+			.field("bytes", &format_args!("{}", &hex::encode(&self.bytes)))
+			.finish()
 	}
 }
 

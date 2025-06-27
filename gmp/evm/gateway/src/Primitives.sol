@@ -305,12 +305,12 @@ library PrimitiveUtils {
         // | 0x0100..0x0120 <- GmpCallback.callback.length
         // | 0x0120..0x0124 <- onGmpReceived.selector (4 bytes)
         // | 0x0124..0x0144 <- onGmpReceived.id
-        // | 0x0144..0x0146 <- onGmpReceived.network
-        // | 0x0146..0x0166 <- onGmpReceived.source
-        // | 0x0166..0x0186 <- onGmpReceived.nonce
-        // | 0x0186..0x01a6 <- onGmpReceived.data.offset
-        // | 0x01a6..0x01c6 <- onGmpReceived.data.length
-        // | 0x01c6........ <- onGmpReceived.data
+        // | 0x0144..0x0164 <- onGmpReceived.network
+        // | 0x0164..0x0184 <- onGmpReceived.source
+        // | 0x0184..0x01a4 <- onGmpReceived.nonce
+        // | 0x01a4..0x01c4 <- onGmpReceived.data.offset
+        // | 0x01c4..0x01e4 <- onGmpReceived.data.length
+        // | 0x01e4........ <- onGmpReceived.data
         callback.source = m.source;
         callback.srcNetwork = m.srcNetwork;
         callback.dest = m.dest;
@@ -319,7 +319,7 @@ library PrimitiveUtils {
         callback.nonce = m.nonce;
         bytes calldata data = m.data;
         callback.callback = abi.encodeWithSignature(
-            "onGmpReceived(bytes32,uint16,bytes32,uint64,bytes)",
+            "onGmpReceived(bytes32,uint128,bytes32,uint64,bytes)",
             callback.opHash,
             callback.srcNetwork,
             callback.source,
@@ -346,7 +346,7 @@ library PrimitiveUtils {
 
         bytes memory data;
         assembly ("memory-safe") {
-            data := add(onGmpReceived, 0xa6)
+            data := add(onGmpReceived, 0xc4)
         }
         bytes32 dataHash = keccak256(data);
 

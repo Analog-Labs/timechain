@@ -13,7 +13,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 
 	let mut contracts = vec![];
 	// Deploy Token + Callee to every network
-	for (i, nw_id) in tc.iter().enumerate() {
+	for nw_id in tc.iter() {
 		let port = env.chain_container(nw_id)?.get_host_port_ipv4(ANVIL_PORT).await?;
 		let rpc = common::build_rpc(MINTER_KEY, port).await?;
 
@@ -29,7 +29,7 @@ async fn oats_sender_caller_evm() -> Result<()> {
 		.await?;
 
 		let callee = Callee::deploy(rpc.clone(), *token.address()).await?;
-		contracts.push((nw_id, token, callee, GAS_LIMIT_STEP * (i as u64 + 1)));
+		contracts.push((nw_id, token, callee));
 	}
 
 	common::test_oats_sender_caller(contracts, &tc).await

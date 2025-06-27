@@ -38,7 +38,7 @@ async fn oats_wrapped_evm() -> Result<()> {
 	// + Mint some tokens;
 	// + Upgrade to V2 implementation: tx3, tx4;
 	// + Deploy Callee;
-	for (i, nw_id) in tc.iter().enumerate() {
+	for nw_id in tc.iter() {
 		let port = env.chain_container(nw_id)?.get_host_port_ipv4(ANVIL_PORT).await?;
 		let rpc = common::build_rpc(MINTER_KEY, port).await?;
 
@@ -123,15 +123,14 @@ async fn oats_wrapped_evm() -> Result<()> {
 			OATSSender::new(proxy, rpc.clone()),
 			OATSSenderCaller::new(proxy, rpc.clone()),
 			callee,
-			GAS_LIMIT_STEP * (i as u64 + 1),
 		));
 	}
 
 	tracing::info!("Testing OATS Send flow");
-	let senders = contracts.clone().into_iter().map(|(n, s, _, _, _)| (n, s)).collect();
+	let senders = contracts.clone().into_iter().map(|(n, s, _, _)| (n, s)).collect();
 	common::test_oats_sender(senders, &tc).await?;
 
 	tracing::info!("Testing OATS Send+Call flow");
-	let callers = contracts.into_iter().map(|(n, _, f, t, g)| (n, f, t, g)).collect();
+	let callers = contracts.into_iter().map(|(n, _, f, t)| (n, f, t)).collect();
 	common::test_oats_sender_caller(callers, &tc).await
 }

@@ -131,48 +131,45 @@ pub async fn test_oats_sender<P: Provider>(
 	contracts: Vec<(NetworkId, OATSSenderInstance<P>)>,
 	tc: &Tester,
 ) -> Result<()> {
-	// Set OMNI token networks
+	let mut networks = vec![];
 	for (nw, token) in contracts.iter() {
+		// Set OMNI token networks
 		for (n, t) in contracts.iter().filter(|(n, _)| n.ne(nw)) {
 			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
 		}
-	}
-	// Check initial balances
-	let mut balances = vec![];
-	for (_nw, token) in contracts.iter() {
-		let minter_bal = token.balanceOf(MINTER).call().await?;
+		// Initial balances
 		let alice_bal = token.balanceOf(ALICE).call().await?;
+		let minter_bal = token.balanceOf(MINTER).call().await?;
 		// On every chain, MINTER has some OMNI tokens
 		assert_ne!(minter_bal, U256::ZERO);
 
-		balances.push((alice_bal, minter_bal));
+		networks.push((nw, token, alice_bal, minter_bal))
 	}
 	// Transfer tokens from every network to next network, ring way
 	let mut msgs = vec![];
-	let mut ring = contracts.iter().cycle().take(contracts.len() + 1).peekable();
-	while let Some((nw, token)) = ring.next() {
-		if let Some((nw2, _)) = ring.peek() {
-			let gmp_fee = token.cost(*nw2).call().await?;
-			let receipt = token
-				.send(*nw2, ALICE, U256::from(TRANSFER_AMOUNT))
-				.value(gmp_fee)
-				.send()
-				.await?
-				.get_receipt()
-				.await?;
+	// Iter<(from, to)>
+	let ring = networks.iter().zip(networks.iter().cycle().skip(1));
+	for ((nw, token, _, _), (nw2, _, _, _)) in ring.clone() {
+		let gmp_fee = token.cost(**nw2).call().await?;
+		let receipt = token
+			.send(**nw2, ALICE, U256::from(TRANSFER_AMOUNT))
+			.value(gmp_fee)
+			.send()
+			.await?
+			.get_receipt()
+			.await?;
 
-			let msg_id: MessageId = receipt
-				.inner
-				.logs()
-				.iter()
-				.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
-				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
-				.map(|e| e.id.into())
-				.next()
-				.context("Failed to send gmp message")?;
-			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
-			msgs.push((*nw, msg_id));
-		};
+		let msg_id: MessageId = receipt
+			.inner
+			.logs()
+			.iter()
+			.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+			.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
+			.map(|e| e.id.into())
+			.next()
+			.context("Failed to send gmp message")?;
+		tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
+		msgs.push((*nw, msg_id));
 	}
 	// Track messages
 	let mut blocks = tc.finality_notification_stream();
@@ -182,7 +179,7 @@ pub async fn test_oats_sender<P: Provider>(
 		let mut traces: Vec<MessageTrace> = vec![];
 		for (nw, msg_id) in &msgs {
 			let trace = &tc
-				.message_trace(*nw, *msg_id, hash)
+				.message_trace(**nw, *msg_id, hash)
 				.await
 				.context("failed to get message trace")?;
 			traces.push(trace.clone());
@@ -195,70 +192,67 @@ pub async fn test_oats_sender<P: Provider>(
 		}
 	}
 	// Check resulting balances
-	for (i, (_nw, token)) in contracts.iter().enumerate() {
-		let minter_bal = token.balanceOf(MINTER).call().await?;
-		let alice_bal = token.balanceOf(ALICE).call().await?;
+	for (_nw, token, alice_bal, minter_bal) in networks.iter() {
 		// On every chain, MINTER now has -=U256::from(TRANSFER_AMOUNT), ALICE has +=U256::from(TRANSFER_AMOUNT)
-		assert_eq!(minter_bal, balances[i].1 - U256::from(TRANSFER_AMOUNT));
-		assert_eq!(alice_bal, balances[i].0 + U256::from(TRANSFER_AMOUNT));
+		assert_eq!(token.balanceOf(MINTER).call().await?, minter_bal - U256::from(TRANSFER_AMOUNT));
+		assert_eq!(token.balanceOf(ALICE).call().await?, alice_bal + U256::from(TRANSFER_AMOUNT));
 	}
 
 	Ok(())
 }
 
 pub async fn test_oats_sender_caller<P: Provider>(
-	contracts: Vec<(NetworkId, OATSSenderCallerInstance<P>, CalleeInstance<P>, u64)>,
+	contracts: Vec<(NetworkId, OATSSenderCallerInstance<P>, CalleeInstance<P>)>,
 	tc: &Tester,
 ) -> Result<()> {
-	// Set OMNI token networks
-	for (nw, token, _, _) in contracts.iter() {
-		for (n, t, _, _) in contracts.iter().filter(|(n, _, _, _)| n.ne(nw)) {
+	let mut networks = vec![];
+	for (i, (nw, token, callee)) in contracts.iter().enumerate() {
+		// Set OMNI token networks
+		for (n, t, _) in contracts.iter().filter(|(n, _, _)| n.ne(nw)) {
 			token.set_network(*n, *t.address()).send().await?.get_receipt().await?;
 		}
-	}
-	// Check initial balances
-	let mut balances = vec![];
-	for (_nw, token, callee, _) in contracts.iter() {
+		// Gas limits for the calls
+		let gas_limit = GAS_LIMIT_STEP * (i as u64 + 1);
+		// Initial balances
 		let alice_bal = token.balanceOf(ALICE).call().await?;
 		let minter_bal = token.balanceOf(MINTER).call().await?;
-		balances.push((alice_bal, minter_bal));
 		// Callee total is unitialized hence ZERO
 		assert_eq!(callee.total().call().await?, U256::ZERO);
+
+		networks.push((nw, token, callee, gas_limit, alice_bal, minter_bal))
 	}
 	// Transfer tokens from every network to next network, and call callee, ring way
 	let mut msgs = vec![];
-
 	// Iter<(from, to)>
-	let ring = contracts.iter().zip(contracts.iter().cycle().skip(1));
+	let ring = networks.iter().zip(networks.iter().cycle().skip(1));
+	for ((nw, token, callee, gas_limit, _, _), (nw2, _, _, _, _, _)) in ring.clone() {
+		let gmp_fee = token.cost(**nw2, *gas_limit, Bytes::new()).call().await?;
+		let receipt = token
+			.sendAndCall(
+				**nw2,
+				ALICE,
+				U256::from(TRANSFER_AMOUNT),
+				*gas_limit,
+				*callee.address(),
+				Bytes::new(),
+			)
+			.value(gmp_fee)
+			.send()
+			.await?
+			.get_receipt()
+			.await?;
 
-	for ((nw, token, callee, gas_limit), (nw2, _, _, _)) in ring {
-			let gmp_fee = token.cost(*nw2, *gas_limit, Bytes::new()).call().await?;
-			let receipt = token
-				.sendAndCall(
-					*nw2,
-					ALICE,
-					U256::from(TRANSFER_AMOUNT),
-					*gas_limit,
-					*callee.address(),
-					Bytes::new(),
-				)
-				.value(gmp_fee)
-				.send()
-				.await?
-				.get_receipt()
-				.await?;
-
-			let msg_id: MessageId = receipt
-				.inner
-				.logs()
-				.iter()
-				.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
-				.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
-				.map(|e| e.id.into())
-				.next()
-				.context("Failed to send gmp message")?;
-			tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
-			msgs.push((*nw, msg_id));
+		let msg_id: MessageId = receipt
+			.inner
+			.logs()
+			.iter()
+			.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
+			.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
+			.map(|e| e.id.into())
+			.next()
+			.context("Failed to send gmp message")?;
+		tracing::info!("Sent tokens from {nw} to {nw2}, msg_id: {}", hex::encode(msg_id));
+		msgs.push((*nw, msg_id));
 	}
 	// Track messages
 	let mut blocks = tc.finality_notification_stream();
@@ -268,7 +262,7 @@ pub async fn test_oats_sender_caller<P: Provider>(
 		let mut traces: Vec<MessageTrace> = vec![];
 		for (nw, msg_id) in &msgs {
 			let trace = &tc
-				.message_trace(*nw, *msg_id, hash)
+				.message_trace(**nw, *msg_id, hash)
 				.await
 				.context("failed to get message trace")?;
 			traces.push(trace.clone());
@@ -276,25 +270,25 @@ pub async fn test_oats_sender_caller<P: Provider>(
 		let executed = traces.iter().filter_map(|t| t.exec.clone()).count();
 		tracing::info!("waiting for messages to be executed");
 		id = Some(tc.print_table(id, "message", traces).await?);
+		// One message is expected to fail
 		if executed == msgs.len() - 1 {
 			break;
 		}
 	}
-	// Check resulting balances
-	for (i, (_nw, token, callee, _gas_limit)) in contracts.iter().enumerate() {
-		let alice_bal = token.balanceOf(ALICE).call().await?;
-		let minter_bal = token.balanceOf(MINTER).call().await?;
+	// Check resulting state
+	for ((nw_from, _, _, gas_limit, _, _), (_nw, token, callee, _, alice_bal, minter_bal)) in ring {
 		// On every chain, MINTER now has -=TRANSFER_AMOUNT
-		assert_eq!(minter_bal, balances[i].1 - U256::from(TRANSFER_AMOUNT));
-		let received_amount = if i == 1 {
+		assert_eq!(token.balanceOf(MINTER).call().await?, minter_bal - U256::from(TRANSFER_AMOUNT));
+		let received_amount = if *gas_limit == GAS_LIMIT_STEP {
 			// insufficient gas_limit: call fails, ALICE gets 0
 			U256::ZERO
 		} else {
 			// sufficient gas_limit: call succeeds, ALICE gets TRANSFER_AMOUNT
 			U256::from(TRANSFER_AMOUNT)
 		};
-		assert_eq!(alice_bal, balances[i].0 + received_amount);
+		assert_eq!(token.balanceOf(ALICE).call().await?, alice_bal + received_amount);
 		assert_eq!(callee.total().call().await?, received_amount);
+		assert_eq!(callee.totalByNetwork(**nw_from).call().await?, received_amount);
 	}
 
 	Ok(())

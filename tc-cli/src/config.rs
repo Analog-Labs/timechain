@@ -450,6 +450,10 @@ impl NetworkConfig {
 		self.msg_byte_gas() * msg_size as u64 + self.msg_gas() + gas_limit
 	}
 
+	pub fn max_msg_op_gas(&self) -> u64 {
+		self.msg_byte_gas * 0x6000 + self.msg_op_exec_gas + self.msg_gas_limit()
+	}
+
 	pub fn currency(&self) -> Currency {
 		Currency::new(self.currency_decimals, self.currency_symbol.clone())
 	}

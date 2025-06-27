@@ -476,7 +476,7 @@ impl NetworkConfig {
 		(self.block_gas_limit as f64 * self.batch_gas_limit) as u64
 	}
 
-	pub fn max_gas_limit(&self) -> u64 {
+	pub fn msg_gas_limit(&self) -> u64 {
 		(self.block_gas_limit as f64 * self.msg_gas_limit) as u64
 	}
 

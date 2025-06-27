@@ -882,7 +882,7 @@ impl Tc {
 				let route = Route {
 					network_id: dest,
 					gateway: dest_gateway,
-					max_gas_limit: config.max_gas_limit(),
+					max_gas_limit: config.msg_gas_limit(),
 					msg_gas: config.msg_gas(),
 					msg_byte_gas: config.msg_byte_gas(),
 					gas_price,
@@ -1610,6 +1610,34 @@ impl Tc {
 		Ok(msg)
 	}
 
+	pub async fn gas_limits(&self) -> Result<Vec<GasLimits>> {
+		let mut matrix = vec![];
+		for network in self.iter() {
+			let config = self.config.network(network)?;
+			let block_gas_limit_rpc = self.block_gas_limit(network).await?;
+			let batch_gas_limit = config.batch_gas_limit();
+			let max_msgs_batch = (batch_gas_limit - config.batch_exec_gas) / config.msg_op_exec_gas;
+			let min_batch_gas_limit = config.batch_exec_gas
+				+ std::cmp::max(
+					std::cmp::max(config.reg_op_exec_gas, config.unreg_op_exec_gas),
+					config.max_msg_op_gas(),
+				);
+			let min_chronicle_funds = min_batch_gas_limit as u128 * config.max_gas_price;
+			matrix.push(GasLimits {
+				network,
+				block_gas_limit_rpc,
+				block_gas_limit: config.block_gas_limit,
+				msg_gas_limit: config.msg_gas_limit(),
+				batch_gas_limit,
+				min_batch_gas_limit,
+				max_msgs_batch,
+				chronicle_funds: self.parse_balance(Some(network), &config.chronicle_funds)?,
+				min_chronicle_funds,
+			});
+		}
+		Ok(matrix)
+	}
+
 	pub async fn cost_matrix(&self) -> Result<Vec<RouteCost>> {
 		let mut matrix = vec![];
 		for src in self.iter() {
@@ -1638,6 +1666,18 @@ impl Tc {
 		}
 		Ok(matrix)
 	}
+}
+
+pub struct GasLimits {
+	pub network: NetworkId,
+	pub block_gas_limit_rpc: u64,
+	pub block_gas_limit: u64,
+	pub msg_gas_limit: u64,
+	pub batch_gas_limit: u64,
+	pub min_batch_gas_limit: u64,
+	pub max_msgs_batch: u64,
+	pub chronicle_funds: u128,
+	pub min_chronicle_funds: u128,
 }
 
 pub struct RouteCost {

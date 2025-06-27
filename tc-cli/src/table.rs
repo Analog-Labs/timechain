@@ -417,6 +417,37 @@ impl IntoRow for BenchmarkStats {
 }
 
 #[derive(Serialize)]
+pub struct GasLimitsEntry {
+	network: NetworkId,
+	block_gas_limit_rpc: u64,
+	block_gas_limit: u64,
+	msg_gas_limit: u64,
+	batch_gas_limit: u64,
+	min_batch_gas_limit: u64,
+	max_msgs_batch: u64,
+	chronicle_funds: String,
+	min_chronicle_funds: String,
+}
+
+impl IntoRow for GasLimits {
+	type Row = GasLimitsEntry;
+
+	fn into_row(self, tc: &Tc) -> Result<Self::Row> {
+		Ok(GasLimitsEntry {
+			network: self.network,
+			block_gas_limit_rpc: self.block_gas_limit_rpc,
+			block_gas_limit: self.block_gas_limit,
+			msg_gas_limit: self.msg_gas_limit,
+			batch_gas_limit: self.batch_gas_limit,
+			min_batch_gas_limit: self.min_batch_gas_limit,
+			max_msgs_batch: self.max_msgs_batch,
+			chronicle_funds: tc.format_balance(Some(self.network), self.chronicle_funds)?,
+			min_chronicle_funds: tc.format_balance(Some(self.network), self.min_chronicle_funds)?,
+		})
+	}
+}
+
+#[derive(Serialize)]
 pub struct RouteCostEntry {
 	route: String,
 	dest_gas_price: u128,

@@ -408,7 +408,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<u64> {
 		let call = IGmpReceiver::onGmpReceivedCall {
 			id: [0; 32].into(),
-			network: src_network.into(),
+			network: src_network,
 			source: src.into(),
 			nonce: 0,
 			payload: payload.into(),

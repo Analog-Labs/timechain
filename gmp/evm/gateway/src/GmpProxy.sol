@@ -33,7 +33,7 @@ contract GmpProxy is IGmpReceiver {
             GATEWAY.submitMessage{value: msg.value}(message.dest, message.destNetwork, message.gasLimit, message.data);
     }
 
-    function onGmpReceived(bytes32 id, uint128 srcNetwork, bytes32 src, uint64 nonce, bytes calldata payload)
+    function onGmpReceived(bytes32 id, uint16 srcNetwork, bytes32 src, uint64 nonce, bytes calldata payload)
         external
         payable
         returns (bytes32)
@@ -46,11 +46,11 @@ contract GmpProxy is IGmpReceiver {
         }
         uint64 msgGasLimit;
         unchecked {
-            msgGasLimit = uint64(gasLimit + 579);
+            msgGasLimit = uint64(gasLimit + 614);
         }
         GmpMessage memory message = GmpMessage({
             source: src,
-            srcNetwork: uint16(srcNetwork),
+            srcNetwork: srcNetwork,
             dest: address(this),
             destNetwork: NETWORK_ID,
             gasLimit: msgGasLimit,

@@ -16,7 +16,7 @@ use crate::{
 };
 
 parameter_types! {
-	pub const TechnicalMotionDuration: BlockNumber = DAYS;
+	pub const TechnicalMotionDuration: BlockNumber = 2 * DAYS;
 	pub const TechnicalMaxProposals: u32 = 100;
 	pub const TechnicalMaxMembers: u32 = 100;
 

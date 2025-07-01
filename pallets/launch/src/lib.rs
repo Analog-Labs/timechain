@@ -71,7 +71,7 @@ pub mod pallet {
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 51;
+	pub const LAUNCH_VERSION: u16 = 52;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -114,7 +114,7 @@ pub mod pallet {
 		(17, Allocation::Initiatives, 1_100_010 * ANLOG, Stage::Retired),
 		// Prelaunch Deposit 4
 		(18, Allocation::Ecosystem, 3_636_364 * ANLOG, Stage::Retired),
-		// Bootstaking Month 1
+		// Staking Reward Pool 1
 		(19, Allocation::Initiatives, 60_386_473 * ANLOG, Stage::Retired),
 		// Provide fjord sale tokens to claims backend
 		(20, Allocation::Ecosystem, 116_163_163 * ANLOG, Stage::Retired),
@@ -143,8 +143,8 @@ pub mod pallet {
 		// Investor Snapshot 1
 		(32, Allocation::Seed, 36_231_884 * ANLOG, Stage::Retired),
 		(33, Allocation::Private1, 83_514_493 * ANLOG, Stage::Retired),
-		(34, Allocation::Opportunity4, 0, Stage::Retired),
-		(35, Allocation::Strategic, 0, Stage::Retired),
+		(34, Allocation::Opportunity4, 0, Stage::Retired), // Failed
+		(35, Allocation::Strategic, 0, Stage::Retired),    // Failed
 		(36, Allocation::Ecosystem, 452_899 * ANLOG, Stage::Retired),
 		(37, Allocation::Opportunity4, 13_028_382_280 * MILLIANLOG, Stage::Retired),
 		(38, Allocation::Strategic, 63_222_402 * ANLOG, Stage::Retired),
@@ -166,11 +166,13 @@ pub mod pallet {
 		(49, Allocation::Opportunity4, 3_774_155 * ANLOG, Stage::Retired),
 		(50, Allocation::Strategic, 1_887_077 * ANLOG, Stage::Retired),
 		// Investor Snapshot 7
+		(51, Allocation::Strategic, 37_769_816 * ANLOG, Stage::Retired),
+		// Staking Reward Pool 2
 		(
-			51,
-			Allocation::Strategic,
-			37_769_816 * ANLOG,
-			Stage::DepositAsVested(data::v51::STRATEGIC_SNAPSHOT_7),
+			52,
+			Allocation::Initiatives,
+			30_193_236_500 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v52::REWARD_POOL_2),
 		),
 	];
 

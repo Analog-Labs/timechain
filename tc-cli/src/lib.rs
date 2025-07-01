@@ -834,6 +834,7 @@ impl Tc {
 			self.runtime.network_gateway(network, block_hash).await?
 		{
 			self.set_network_config(network, block_hash).await?;
+			self.redeploy_gateway(network, block_hash).await?;
 			gateway
 		} else {
 			self.println(None, format!("deploying gateway {network}")).await?;
@@ -1161,6 +1162,13 @@ impl Tc {
 	pub async fn redeploy_gateway(&self, network: NetworkId, block_hash: BlockHash) -> Result<()> {
 		let (connector, gateway) = self.gateway(network, block_hash).await?;
 		let config = self.config.network(network)?;
+		if !connector.contract_bytecode_matches(gateway, &config.proxy).await? {
+			self.println(None, "WARN: proxy bytecode missmatch !!!").await?;
+		}
+		let implementation = connector.implementation(gateway).await?;
+		if connector.contract_bytecode_matches(implementation, &config.gateway).await? {
+			return Ok(());
+		}
 		self.println(None, format!("redeploying gateway {network}")).await?;
 		connector.redeploy_gateway(gateway, &config.gateway).await?;
 		Ok(())
@@ -1325,17 +1333,20 @@ impl Tc {
 		let mut deploy_tester = FuturesUnordered::new();
 		let mut testers = HashMap::new();
 		for network in self.iter() {
+			let connector = self.connector(network).await?;
 			let config = self.config.network(network)?;
 			if let Some(address) = config.tester_address.as_deref() {
 				let address = self.parse_address(Some(network), address)?;
-				testers.insert(network, address);
-			} else {
-				let fut = self.deploy_tester(network, block_hash);
-				deploy_tester.push(async move {
-					let tester = fut.await?;
-					Ok::<_, anyhow::Error>((network, tester))
-				});
+				if connector.contract_bytecode_matches(address, &config.tester).await? {
+					testers.insert(network, address);
+					continue;
+				}
 			}
+			let fut = self.deploy_tester(network, block_hash);
+			deploy_tester.push(async move {
+				let tester = fut.await?;
+				Ok::<_, anyhow::Error>((network, tester))
+			});
 		}
 		while let Some(result) = deploy_tester.next().await {
 			let (network, (address, _)) = result?;

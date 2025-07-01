@@ -55,6 +55,7 @@ impl ShardsInterface for MockShards {
 	fn num_sessions(_shard_id: ShardId) -> Option<u16> {
 		None
 	}
+	fn force_shard_offline(_shard: ShardId) {}
 }
 
 frame_support::construct_runtime!(

@@ -187,12 +187,14 @@ pub trait ShardsInterface {
 	) -> Result<ShardId, DispatchError>;
 	fn tss_public_key(shard_id: ShardId) -> Option<TssPublicKey>;
 	fn num_sessions(shard_id: ShardId) -> Option<u16>;
+	fn force_shard_offline(shard: ShardId);
 }
 
 pub trait TasksInterface {
 	fn shard_online(shard_id: ShardId, network: NetworkId);
 	fn shard_offline(shard_id: ShardId, network: NetworkId);
 	fn gateway_registered(network: NetworkId, block: u64);
+	fn network_removed(network: NetworkId);
 }
 
 #[cfg(test)]

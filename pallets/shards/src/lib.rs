@@ -676,5 +676,9 @@ pub mod pallet {
 			let size = ShardCommitment::<T>::get(shard_id)?.0.len() as u16;
 			Some(size - threshold + 1)
 		}
+
+		fn force_shard_offline(shard_id: ShardId) {
+			Self::remove_shards_offline(vec![shard_id]);
+		}
 	}
 }

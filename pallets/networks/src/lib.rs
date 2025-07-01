@@ -214,17 +214,14 @@ pub mod pallet {
 			ensure!(Networks::<T>::get(network.id).is_none(), Error::<T>::NetworkExists);
 			Networks::<T>::insert(network.id, network.id);
 			NetworkName::<T>::insert(network.id, network.chain_name.clone());
-			let current_gateway = NetworkGatewayAddress::<T>::get(network.id);
-			if Some(network.gateway) != current_gateway {
-				NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
-				NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
-				T::Tasks::gateway_registered(network.id, network.gateway_block);
-				Self::deposit_event(Event::NetworkRegistered(
-					network.id,
-					network.gateway,
-					network.gateway_block,
-				));
-			}
+			NetworkGatewayAddress::<T>::insert(network.id, network.gateway);
+			NetworkGatewayBlock::<T>::insert(network.id, network.gateway_block);
+			T::Tasks::gateway_registered(network.id, network.gateway_block);
+			Self::deposit_event(Event::NetworkRegistered(
+				network.id,
+				network.gateway,
+				network.gateway_block,
+			));
 			Self::insert_network_config(network.id, network.config)?;
 			Ok(())
 		}
@@ -319,6 +316,7 @@ pub mod pallet {
 			NetworkShardSize::<T>::remove(network);
 			NetworkShardThreshold::<T>::remove(network);
 			NetworkMaxGasPrice::<T>::remove(network);
+			T::Tasks::network_removed(network);
 			Ok(())
 		}
 	}

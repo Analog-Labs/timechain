@@ -839,5 +839,13 @@ pub mod pallet {
 			SyncHeight::<T>::insert(network, block);
 			Self::read_gateway_events(network);
 		}
+
+		fn network_removed(network: NetworkId) {
+			SyncHeight::<T>::remove(network);
+			ReadEventsTask::<T>::remove(network);
+			for (shard, _) in NetworkShards::<T>::drain_prefix(network) {
+				T::Shards::force_shard_offline(shard);
+			}
+		}
 	}
 }

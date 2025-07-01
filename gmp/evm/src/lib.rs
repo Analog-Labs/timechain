@@ -450,7 +450,7 @@ impl IConnectorAdmin for Connector {
 	}
 
 	/// Sends a message using the test contract
-	async fn send_message(
+	async fn send_messages(
 		&self,
 		contract: Address32,
 		dest_network: NetworkId,
@@ -458,7 +458,8 @@ impl IConnectorAdmin for Connector {
 		gas_limit: u64,
 		msg_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId> {
+		amplification: u16,
+	) -> Result<Vec<MessageId>> {
 		let message = GmpProxy::GmpMessage {
 			srcNetwork: self.chain.network_id,
 			source: contract.into(),
@@ -468,15 +469,16 @@ impl IConnectorAdmin for Connector {
 			gasLimit: gas_limit as _,
 			data: payload.into(),
 		};
+		anyhow::ensure!(amplification > 0);
 		tracing::debug!("{}: sending GMP message: {:#?}", self.chain, &message);
-		let call = GmpProxy::sendMessageCall { message };
+		let call = GmpProxy::sendMessagesCall { message, amplification };
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
 			.with_call(&call)
-			.with_value(U256::from(msg_cost));
+			.with_value(U256::from(msg_cost * amplification as u128));
 		let receipt = self.submit(tx).await?;
 
-		receipt
+		let msgs: Vec<_> = receipt
 			.inner
 			.inner
 			.logs()
@@ -484,8 +486,9 @@ impl IConnectorAdmin for Connector {
 			.filter(|e| e.topics().contains(&Gateway::GmpCreated::SIGNATURE_HASH))
 			.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
 			.map(|e| e.id.into())
-			.next()
-			.ok_or(anyhow!("failed to send message"))
+			.collect();
+		anyhow::ensure!(msgs.len() == amplification as usize, "failed to send messages");
+		Ok(msgs)
 	}
 
 	/// Receives messages from test contract

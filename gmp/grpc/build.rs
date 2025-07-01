@@ -31,7 +31,7 @@ fn main() {
 		.method(method("deploy_tester", "DeployTester").build())
 		.method(method("estimate_message_gas_limit", "EstimateMessageGasLimit").build())
 		.method(method("estimate_message_cost", "EstimateMessageCost").build())
-		.method(method("send_message", "SendMessage").build())
+		.method(method("send_messages", "SendMessages").build())
 		.method(method("recv_messages", "RecvMessages").build())
 		.method(method("gas_price", "GasPrice").build())
 		.method(method("block_gas_limit", "BlockGasLimit").build())

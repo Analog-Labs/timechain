@@ -99,24 +99,36 @@ pub struct Benchmark {
 	messages: HashMap<MessageId, MessageStats>,
 	tc: Tc,
 	payload: Vec<u8>,
-	num_msgs: u64,
+	num_blocks: u16,
+	msgs_per_block: u16,
 	latest_block: BlockNumber,
 	csv_writer: Option<Writer<File>>,
 	csv_path: String,
 }
 
 impl Benchmark {
-	pub fn new(tc: Tc, payload: Vec<u8>, num_msgs: u64, csv_path: String) -> Self {
+	pub fn new(
+		tc: Tc,
+		payload: Vec<u8>,
+		num_blocks: u16,
+		msgs_per_block: u16,
+		csv_path: String,
+	) -> Self {
 		Self {
 			routes: Default::default(),
 			messages: Default::default(),
 			tc,
 			payload,
 			latest_block: 0,
-			num_msgs,
+			num_blocks,
+			msgs_per_block,
 			csv_writer: None,
 			csv_path,
 		}
+	}
+
+	fn num_msgs(&self) -> u64 {
+		self.num_blocks as u64 * self.msgs_per_block as u64
 	}
 
 	fn init_csv_file(&mut self) -> Result<()> {
@@ -208,11 +220,11 @@ impl Benchmark {
 		Ok(())
 	}
 
-	async fn send_single_message(&self, src: NetworkId, dest: NetworkId) -> Result<MessageId> {
+	async fn send_messages(&self, src: NetworkId, dest: NetworkId) -> Result<Vec<MessageId>> {
 		let route = self.routes.get(&(src, dest)).context("Route not found")?;
-		let message_id = self
+		let message_ids = self
 			.tc
-			.send_message(
+			.send_messages(
 				src,
 				route.src_addr,
 				dest,
@@ -220,10 +232,10 @@ impl Benchmark {
 				route.gas_limit,
 				route.msg_cost,
 				self.payload.clone(),
+				self.msgs_per_block,
 			)
 			.await?;
-
-		Ok(message_id)
+		Ok(message_ids)
 	}
 
 	async fn update_msgs(&mut self, block: (BlockHash, BlockNumber)) -> Result<()> {
@@ -346,7 +358,7 @@ impl Benchmark {
 				msg_cost_usd: route.msg_cost_usd,
 				num_sent: route.num_sent,
 				num_received: route.num_received,
-				num_total: self.num_msgs,
+				num_total: self.num_msgs(),
 				processing_latency,
 				message_latency,
 				sending_throughput,
@@ -407,7 +419,7 @@ impl Benchmark {
 			let mut block_stream_initiated = false;
 			let mut send_break = interval(Duration::from_millis(500));
 
-			while messages_sent < self.num_msgs {
+			while messages_sent < self.num_msgs() {
 				tokio::select! {
 					biased;
 					Some(block) = block_stream.next() => {
@@ -417,14 +429,16 @@ impl Benchmark {
 					}
 					_ = send_break.tick(), if block_stream_initiated => {
 						tracing::info!("Sending msg: {} from {} to {} ", task_index + 1, src, dest);
-						match self.send_single_message(src, dest).await {
-							Ok(msg_id) => {
-								self.messages.insert(
-									msg_id,
-									MessageStats::new(task_index, src, dest, self.latest_block)
-								);
-								task_index += 1;
-								messages_sent += 1;
+						match self.send_messages(src, dest).await {
+							Ok(msg_ids) => {
+								for msg_id in msg_ids {
+									self.messages.insert(
+										msg_id,
+										MessageStats::new(task_index, src, dest, self.latest_block)
+									);
+									task_index += 1;
+								}
+								messages_sent += self.msgs_per_block as u64;
 
 								if let Some(route) = self.routes.get_mut(&(src, dest)) {
 									if !is_first_msg_sent {
@@ -436,7 +450,7 @@ impl Benchmark {
 								}
 
 								if messages_sent % 10 == 0 {
-									tracing::info!("Sent {}/{} messages", messages_sent, self.num_msgs);
+									tracing::info!("Sent {}/{} messages", messages_sent, self.num_msgs());
 								}
 							}
 							Err(e) => {
@@ -447,7 +461,7 @@ impl Benchmark {
 				}
 			}
 
-			tracing::info!("All {} messages sent. Starting block processing...", self.num_msgs);
+			tracing::info!("All {} messages sent. Starting block processing...", self.num_msgs());
 			while let Some(block) = unprocessed_blocks.pop_front() {
 				tracing::info!("[PROCESS] Handling block {}", block.1);
 				self.update_msgs(block).await?;
@@ -455,7 +469,7 @@ impl Benchmark {
 			}
 
 			let mut received = self.routes.get(&(src, dest)).map_or(0, |r| r.num_received);
-			while received < self.num_msgs {
+			while received < self.num_msgs() {
 				if let Some(block) = block_stream.next().await {
 					tracing::info!("[PROCESS] Handling live block {}", block.1);
 					self.update_msgs(block).await?;
@@ -469,7 +483,7 @@ impl Benchmark {
 				src,
 				dest,
 				received,
-				self.num_msgs
+				self.num_msgs()
 			);
 		}
 

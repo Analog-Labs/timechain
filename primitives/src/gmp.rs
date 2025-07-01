@@ -456,7 +456,8 @@ pub trait IConnectorAdmin: IConnector {
 		gas_limit: u64,
 	) -> Result<u128>;
 	/// Sends a message using the test contract and returns the message id.
-	async fn send_message(
+	#[allow(clippy::too_many_arguments)]
+	async fn send_messages(
 		&self,
 		src: Address32,
 		dest_network: NetworkId,
@@ -464,7 +465,8 @@ pub trait IConnectorAdmin: IConnector {
 		gas_limit: u64,
 		msg_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId>;
+		amplification: u16,
+	) -> Result<Vec<MessageId>>;
 	/// Receives messages from test contract.
 	async fn recv_messages(
 		&self,
@@ -621,7 +623,7 @@ impl<T: IConnectorAdmin> IConnectorAdmin for AdminConnector<T> {
 			.await
 			.with_context(|| self.context("estimate_message_cost"))
 	}
-	async fn send_message(
+	async fn send_messages(
 		&self,
 		src: Address32,
 		dest_network: NetworkId,
@@ -629,11 +631,12 @@ impl<T: IConnectorAdmin> IConnectorAdmin for AdminConnector<T> {
 		gas_limit: u64,
 		msg_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId> {
+		amplification: u16,
+	) -> Result<Vec<MessageId>> {
 		self.0
-			.send_message(src, dest_network, dest, gas_limit, msg_cost, payload)
+			.send_messages(src, dest_network, dest, gas_limit, msg_cost, payload, amplification)
 			.await
-			.with_context(|| self.context("send_message"))
+			.with_context(|| self.context("send_messages"))
 	}
 	async fn recv_messages(
 		&self,

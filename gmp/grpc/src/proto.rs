@@ -202,18 +202,19 @@ pub struct EstimateMessageCostResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct SendMessageRequest {
+pub struct SendMessagesRequest {
 	pub src: Address32,
 	pub dest_network: NetworkId,
 	pub dest: Address32,
 	pub gas_limit: u64,
 	pub msg_cost: u128,
 	pub payload: Vec<u8>,
+	pub amplification: u16,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct SendMessageResponse {
-	pub message_id: MessageId,
+pub struct SendMessagesResponse {
+	pub message_ids: Vec<MessageId>,
 }
 
 #[derive(Serialize, Deserialize)]

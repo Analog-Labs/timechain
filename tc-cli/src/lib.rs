@@ -1216,7 +1216,7 @@ impl Tc {
 	}
 
 	#[allow(clippy::too_many_arguments)]
-	pub async fn send_message(
+	pub async fn send_messages(
 		&self,
 		src_network: NetworkId,
 		src_addr: Address32,
@@ -1225,14 +1225,15 @@ impl Tc {
 		gas_limit: u64,
 		gas_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId> {
+		amplification: u16,
+	) -> Result<Vec<MessageId>> {
 		let connector = self.connector(src_network).await?;
 		let src_config = self.config.network(src_network)?;
 		let id = self
 			.println(
 				None,
 				format!(
-					"send message from {} {} to {} {} with {} gas for {} {}$",
+					"send {amplification} messages from {} {} to {} {} with {} gas for {} {}$",
 					src_network,
 					self.format_address(Some(src_network), src_addr)?,
 					dest_network,
@@ -1243,14 +1244,21 @@ impl Tc {
 				),
 			)
 			.await?;
-		let msg_id = connector
-			.send_message(src_addr, dest_network, dest_addr, gas_limit, gas_cost, payload)
+		let msg_ids = connector
+			.send_messages(
+				src_addr,
+				dest_network,
+				dest_addr,
+				gas_limit,
+				gas_cost,
+				payload,
+				amplification,
+			)
 			.await?;
 		self.println(
 			Some(id),
 			format!(
-				"sent message {} from {} {} to {} {} with {} gas for {} {}$",
-				hex::encode(msg_id),
+				"sent {amplification} messages from {} {} to {} {} with {} gas for {} {}$",
 				src_network,
 				self.format_address(Some(src_network), src_addr)?,
 				dest_network,
@@ -1261,7 +1269,10 @@ impl Tc {
 			),
 		)
 		.await?;
-		Ok(msg_id)
+		for msg_id in &msg_ids {
+			self.println(None, &hex::encode(msg_id)).await?;
+		}
+		Ok(msg_ids)
 	}
 
 	pub async fn remove_task(&self, task_id: TaskId) -> Result<()> {
@@ -1580,8 +1591,8 @@ impl Tc {
 		let mut blocks = self.finality_notification_stream();
 		let (_, start) = blocks.next().await.context("expected block")?;
 		let msg_id = self
-			.send_message(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone())
-			.await?;
+			.send_messages(src, src_addr, dest, dest_addr, gas_limit, gas_cost, payload.clone(), 1)
+			.await?[0];
 
 		// track message
 		let mut id = None;

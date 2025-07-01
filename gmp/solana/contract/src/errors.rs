@@ -16,4 +16,10 @@ pub enum GatewayError {
 	InvalidYParity,
 	#[msg("y parity mismatch")]
 	YParityMismatch,
+	#[msg("invalid gas limit")]
+	InvalidGasLimit,
+	#[msg("invalid gas price")]
+	InvalidGasPrice,
+	#[msg("routes length exeeds limit")]
+	RoutesLengthExceedLimit,
 }

@@ -99,15 +99,21 @@ pub struct BatchExecuted {
 
 #[event]
 pub struct ShardRevoked {
-	pub x_coord: [u8; 32],
-	pub y_parity: u8,
-	pub num_sessions: u16,
+	pub shard: Shard,
 }
 #[event]
 pub struct ShardRegistered {
-	pub x_coord: [u8; 32],
-	pub y_parity: u8,
-	pub num_sessions: u16,
+	pub shard: Shard,
+}
+
+#[event]
+pub struct RouteAdded {
+	pub route: Route,
+}
+
+#[event]
+pub struct RouteUpdated {
+	pub route: Route,
 }
 
 #[derive(Clone, Copy, AnchorSerialize, AnchorDeserialize, PartialEq)]

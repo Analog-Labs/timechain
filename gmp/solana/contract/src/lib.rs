@@ -52,11 +52,7 @@ mod gateway {
 					GatewayError::ShardsLengthExceedLimit
 				);
 				state.shards.push(shard.clone());
-				emit!(ShardRegistered {
-					x_coord: shard.x_coord,
-					y_parity: shard.y_parity,
-					num_sessions: shard.num_sessions,
-				});
+				emit!(ShardRegistered { shard: shard.clone() });
 			}
 
 			for tss_key in &revoke {
@@ -68,20 +64,30 @@ mod gateway {
 						GatewayError::YParityMismatch
 					);
 					let removed_shard = state.shards.remove(index);
-					emit!(ShardRevoked {
-						x_coord: removed_shard.x_coord,
-						y_parity: removed_shard.y_parity,
-						num_sessions: removed_shard.num_sessions,
-					});
+					emit!(ShardRevoked { shard: removed_shard });
 				}
 			}
 		}
 		Ok(())
 	}
 
-	pub fn set_route(ctx: Context<Gateway>, _route: Route) -> Result<()> {
+	pub fn set_route(ctx: Context<Gateway>, route: Route) -> Result<()> {
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
+		require!(state.is_initialized, GatewayError::NotInitialized);
+
+		require!(route.max_gas_limit > 0, GatewayError::InvalidGasLimit);
+		require!(route.gas_price > 0.0, GatewayError::InvalidGasPrice);
+
+		if let Some(existing) = state.routes.iter_mut().find(|r| r.network_id == route.network_id) {
+			*existing = route.clone();
+			emit!(RouteUpdated { route: route.clone() });
+		} else {
+			require!(state.routes.len() < MAX_NETWORKS_LEN, GatewayError::RoutesLengthExceedLimit);
+			state.routes.push(route.clone());
+			emit!(RouteAdded { route });
+		}
+
 		Ok(())
 	}
 

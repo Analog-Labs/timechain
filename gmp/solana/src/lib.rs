@@ -1,9 +1,7 @@
 use std::str::FromStr;
 use std::{ops::Range, sync::Arc};
 
-use anchor_client::anchor_lang::prelude::AccountMeta;
 use anchor_client::anchor_lang::AnchorDeserialize;
-use anchor_client::anchor_lang::InstructionData;
 use anchor_client::solana_sdk::signer::SeedDerivable;
 use anchor_client::{Client as AnchorClient, Cluster};
 use anyhow::Result;
@@ -318,7 +316,7 @@ impl IConnectorAdmin for Connector {
 
 		let signature = program
 			.request()
-			.args(gmp_solana_contract::instruction::SetRoute { _route: contract_route })
+			.args(gmp_solana_contract::instruction::SetRoute { route: contract_route })
 			.accounts(gmp_solana_contract::accounts::Gateway {
 				gateway_state: state_pda,
 				signer: self.chain.wallet.pubkey(),

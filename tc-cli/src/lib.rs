@@ -1656,6 +1656,9 @@ impl Tc {
 				max_msgs_batch,
 				chronicle_funds: self.parse_balance(Some(network), &config.chronicle_funds)?,
 				min_chronicle_funds,
+				gas_price: self.connector(network).await?.gas_price().await?,
+				max_gas_price: config.max_gas_price,
+				token_price_usd: config.token_price_usd()?,
 			});
 		}
 		Ok(matrix)
@@ -1701,6 +1704,9 @@ pub struct GasLimits {
 	pub max_msgs_batch: u64,
 	pub chronicle_funds: u128,
 	pub min_chronicle_funds: u128,
+	pub gas_price: u128,
+	pub max_gas_price: u128,
+	pub token_price_usd: f64,
 }
 
 pub struct RouteCost {

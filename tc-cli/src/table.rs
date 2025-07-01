@@ -427,6 +427,9 @@ pub struct GasLimitsEntry {
 	max_msgs_batch: u64,
 	chronicle_funds: String,
 	min_chronicle_funds: String,
+	gas_price: u128,
+	max_gas_price: u128,
+	token_price_usd: f64,
 }
 
 impl IntoRow for GasLimits {
@@ -443,6 +446,9 @@ impl IntoRow for GasLimits {
 			max_msgs_batch: self.max_msgs_batch,
 			chronicle_funds: tc.format_balance(Some(self.network), self.chronicle_funds)?,
 			min_chronicle_funds: tc.format_balance(Some(self.network), self.min_chronicle_funds)?,
+			gas_price: self.gas_price,
+			max_gas_price: self.max_gas_price,
+			token_price_usd: self.token_price_usd,
 		})
 	}
 }

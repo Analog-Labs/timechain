@@ -2,7 +2,7 @@
 use crate::TssSignature;
 use crate::{NetworkId, TssPublicKey};
 #[cfg(feature = "std")]
-use anyhow::Result;
+use anyhow::{Context, Result};
 use scale_codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::{prelude::vec::Vec, TypeInfo};
 use serde::{Deserialize, Serialize};
@@ -481,7 +481,190 @@ pub trait IConnectorAdmin: IConnector {
 		address: Address32,
 	) -> Result<()>;
 	/// Debug a transaction.
-	async fn debug_transaction(&self, _tx: Hash) -> Result<String>;
+	async fn debug_transaction(&self, tx: Hash) -> Result<String>;
+}
+
+#[cfg(feature = "std")]
+pub struct AdminConnector<T>(T);
+
+#[cfg(feature = "std")]
+impl<T: IConnector> AdminConnector<T> {
+	pub fn new(connector: T) -> Self {
+		Self(connector)
+	}
+
+	fn context(&self, method: &str) -> String {
+		format!("{}: {method} failed", self.0.chain().network_id())
+	}
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+impl<T: IConnector> IConnector for AdminConnector<T> {
+	fn chain(&self) -> &dyn IChain {
+		self.0.chain()
+	}
+	async fn finalized_block(&self) -> Result<u64> {
+		self.0.finalized_block().await.with_context(|| self.context("finalized_block"))
+	}
+	async fn read_events(&self, gateway: Address32, blocks: Range<u64>) -> Result<Vec<GmpEvent>> {
+		self.0
+			.read_events(gateway, blocks)
+			.await
+			.with_context(|| self.context("read_events"))
+	}
+	async fn submit_commands(
+		&self,
+		gateway: Address32,
+		batch: BatchId,
+		msg: GatewayMessage,
+		gas_price: u128,
+		signer: TssPublicKey,
+		sig: TssSignature,
+	) -> Result<(), String> {
+		self.0.submit_commands(gateway, batch, msg, gas_price, signer, sig).await
+	}
+	async fn gas_price(&self) -> Result<u128> {
+		self.0.gas_price().await.with_context(|| self.context("gas_price"))
+	}
+}
+
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+impl<T: IConnectorAdmin> IConnectorAdmin for AdminConnector<T> {
+	async fn faucet(&self, balance: u128) -> Result<()> {
+		self.0.faucet(balance).await.with_context(|| self.context("faucet"))
+	}
+	async fn transfer(&self, address: Address32, amount: u128) -> Result<()> {
+		self.0.transfer(address, amount).await.with_context(|| self.context("transfer"))
+	}
+	async fn balance(&self, address: Address32) -> Result<u128> {
+		self.0.balance(address).await.with_context(|| self.context("balance"))
+	}
+	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)> {
+		self.0
+			.deploy_gateway(proxy, gateway)
+			.await
+			.with_context(|| self.context("deploy_gateway"))
+	}
+	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()> {
+		self.0
+			.redeploy_gateway(proxy, gateway)
+			.await
+			.with_context(|| self.context("redeploy_gateway"))
+	}
+	async fn admin(&self, gateway: Address32) -> Result<Address32> {
+		self.0.admin(gateway).await.with_context(|| self.context("admin"))
+	}
+	async fn set_admin(&self, gateway: Address32, admin: Address32) -> Result<()> {
+		self.0
+			.set_admin(gateway, admin)
+			.await
+			.with_context(|| self.context("set_admin"))
+	}
+	async fn shards(&self, gateway: Address32) -> Result<Vec<TssPublicKey>> {
+		self.0.shards(gateway).await.with_context(|| self.context("shards"))
+	}
+	async fn set_shards(
+		&self,
+		gateway: Address32,
+		register: &[(TssPublicKey, u16)],
+		revoke: &[(TssPublicKey, u16)],
+	) -> Result<()> {
+		self.0
+			.set_shards(gateway, register, revoke)
+			.await
+			.with_context(|| self.context("set_shards"))
+	}
+	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
+		self.0.routes(gateway).await.with_context(|| self.context("routes"))
+	}
+	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
+		self.0
+			.set_route(gateway, route)
+			.await
+			.with_context(|| self.context("set_route"))
+	}
+	async fn set_prices(&self, gateway: Address32, prices: &[f64]) -> Result<()> {
+		self.0
+			.set_prices(gateway, prices)
+			.await
+			.with_context(|| self.context("set_prices"))
+	}
+	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
+		self.0
+			.deploy_tester(gateway, tester)
+			.await
+			.with_context(|| self.context("deploy_tester"))
+	}
+	async fn estimate_message_gas_limit(
+		&self,
+		contract: Address32,
+		src_network: NetworkId,
+		src: Address32,
+		payload: Vec<u8>,
+	) -> Result<u64> {
+		self.0
+			.estimate_message_gas_limit(contract, src_network, src, payload)
+			.await
+			.with_context(|| self.context("estimate_message_gas_limit"))
+	}
+	async fn estimate_message_cost(
+		&self,
+		gateway: Address32,
+		dest_network: NetworkId,
+		msg_size: u16,
+		gas_limit: u64,
+	) -> Result<u128> {
+		self.0
+			.estimate_message_cost(gateway, dest_network, msg_size, gas_limit)
+			.await
+			.with_context(|| self.context("estimate_message_cost"))
+	}
+	async fn send_message(
+		&self,
+		src: Address32,
+		dest_network: NetworkId,
+		dest: Address32,
+		gas_limit: u64,
+		msg_cost: u128,
+		payload: Vec<u8>,
+	) -> Result<MessageId> {
+		self.0
+			.send_message(src, dest_network, dest, gas_limit, msg_cost, payload)
+			.await
+			.with_context(|| self.context("send_message"))
+	}
+	async fn recv_messages(
+		&self,
+		contract: Address32,
+		blocks: Range<u64>,
+	) -> Result<Vec<GmpMessage>> {
+		self.0
+			.recv_messages(contract, blocks)
+			.await
+			.with_context(|| self.context("recv_messages"))
+	}
+	async fn block_gas_limit(&self) -> Result<u64> {
+		self.0.block_gas_limit().await.with_context(|| self.context("block_gas_limit"))
+	}
+	async fn withdraw_funds(
+		&self,
+		gateway: Address32,
+		amount: u128,
+		address: Address32,
+	) -> Result<()> {
+		self.0
+			.withdraw_funds(gateway, amount, address)
+			.await
+			.with_context(|| self.context("withdraw_funds"))
+	}
+	async fn debug_transaction(&self, tx: Hash) -> Result<String> {
+		self.0
+			.debug_transaction(tx)
+			.await
+			.with_context(|| self.context("debug_transaction"))
+	}
 }
 
 #[cfg(test)]

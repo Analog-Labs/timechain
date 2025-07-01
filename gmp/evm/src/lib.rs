@@ -28,8 +28,8 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use std::{ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
-	Address32, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain, IConnect, IConnector,
-	IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
+	Address32, AdminConnector, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
+	IConnect, IConnector, IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
 use tokio::sync::Mutex;
 
@@ -71,7 +71,7 @@ impl IConnect for Chain {
 	}
 
 	async fn connect_admin(&self, url: String) -> Result<Arc<dyn IConnectorAdmin>> {
-		Ok(Arc::new(Connector::new(self.clone(), url).await?))
+		Ok(Arc::new(AdminConnector::new(Connector::new(self.clone(), url).await?)))
 	}
 }
 
@@ -94,6 +94,12 @@ impl IChain for Chain {
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address32 {
 		t_addr(self.signer.address())
+	}
+}
+
+impl std::fmt::Display for Chain {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		f.write_str(&self.network_id.to_string())
 	}
 }
 
@@ -131,12 +137,14 @@ impl Connector {
 				.await?,
 		);
 		let chain_id = rpc.get_chain_id().await?;
+		tracing::info!("{}: has chain id {}", chain, chain_id);
+		let submitter = Submitter::new(chain.network_id(), Duration::from_secs(60));
 		Ok(Self {
 			chain,
 			url,
 			rpc,
 			chain_id,
-			submitter: Submitter::new(Duration::from_secs(60)),
+			submitter,
 		})
 	}
 }
@@ -197,12 +205,16 @@ impl IConnector for Connector {
 							gas_limit: log.gasLimit as _,
 							bytes: log.data.data.into(),
 						};
-						tracing::info!("gmp created: {:?}", hex::encode(gmp_message.message_id()));
+						tracing::info!(
+							"{}: gmp created: {:?}",
+							self.chain,
+							hex::encode(gmp_message.message_id())
+						);
 						events.push(GmpEvent::MessageReceived(gmp_message));
 					},
 					sol::Gateway::GmpExecuted::SIGNATURE_HASH => {
 						let log = sol::Gateway::GmpExecuted::decode_log(&log)?;
-						tracing::info!("gmp executed: {:?}", hex::encode(log.id));
+						tracing::info!("{}: gmp executed: {:?}", self.chain, hex::encode(log.id));
 						events.push(GmpEvent::MessageExecuted(log.id.into()));
 					},
 					sol::Gateway::BatchExecuted::SIGNATURE_HASH => {
@@ -275,7 +287,8 @@ impl IConnectorAdmin for Connector {
 		let receipt = self.submitter.submit(&provider, tx).await?;
 
 		tracing::info!(
-			"faucet sent {balance} to {}, tx: {:?}",
+			"{}: faucet sent {balance} to {}, tx: {:?}",
+			self.chain,
 			a_addr(self.chain.address()),
 			receipt.transaction_hash()
 		);
@@ -287,7 +300,8 @@ impl IConnectorAdmin for Connector {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_value(U256::from(amount));
 		let receipt = self.submit(tx).await?;
 		tracing::info!(
-			"transferred {amount} to {}, tx: {:?}",
+			"{}: transferred {amount} to {}, tx: {:?}",
+			self.chain,
 			a_addr(to),
 			receipt.transaction_hash()
 		);
@@ -454,7 +468,7 @@ impl IConnectorAdmin for Connector {
 			gasLimit: gas_limit as _,
 			data: payload.into(),
 		};
-		tracing::debug!("Sending GMP message: {:#?}", &message);
+		tracing::debug!("{}: sending GMP message: {:#?}", self.chain, &message);
 		let call = GmpProxy::sendMessageCall { message };
 		let tx = TransactionRequest::default()
 			.with_to(a_addr(contract))
@@ -471,7 +485,7 @@ impl IConnectorAdmin for Connector {
 			.filter_map(|e| Gateway::GmpCreated::decode_log_data(e.data()).ok())
 			.map(|e| e.id.into())
 			.next()
-			.ok_or(anyhow!("Failed to send message"))
+			.ok_or(anyhow!("failed to send message"))
 	}
 
 	/// Receives messages from test contract
@@ -570,9 +584,9 @@ impl Connector {
 		let tx = TransactionRequest::default().with_to(a_addr(to)).with_call(&call);
 		let result = self.rpc.call(WithOtherFields::new(tx)).await?;
 		tracing::debug!(
-			"eth_call to: {} on chain {} result: {result:?}",
+			"{}: eth_call to: {} result: {result:?}",
+			self.chain,
 			a_addr(to).to_string(),
-			self.chain_id
 		);
 		Ok(C::abi_decode_returns(&result)?)
 	}
@@ -631,14 +645,16 @@ impl Connector {
 
 #[derive(Clone)]
 struct Submitter {
+	network: NetworkId,
 	// Temporary fix to avoid nonce overlap
 	wallet_guard: Arc<Mutex<()>>,
 	tx_timeout: Duration,
 }
 
 impl Submitter {
-	fn new(tx_timeout: Duration) -> Self {
+	fn new(network: NetworkId, tx_timeout: Duration) -> Self {
 		Self {
+			network,
 			tx_timeout,
 			wallet_guard: Default::default(),
 		}
@@ -654,13 +670,13 @@ impl Submitter {
 		let guard = self.wallet_guard.lock().await;
 		let pending_tx = provider.send_transaction(WithOtherFields::new(tx)).await?;
 		drop(guard);
-		tracing::info!("tx {:?} submitted", pending_tx.tx_hash());
+		tracing::info!("{}: tx {:?} submitted", self.network, pending_tx.tx_hash());
 
 		let receipt = pending_tx.with_timeout(Some(self.tx_timeout)).get_receipt().await?;
-		tracing::info!("tx {:?} confirmed", receipt.transaction_hash());
+		tracing::info!("{}: tx {:?} confirmed", self.network, receipt.transaction_hash());
 
 		if !receipt.inner.inner.is_success() {
-			anyhow::bail!("tx {:?} failed", receipt.transaction_hash());
+			anyhow::bail!("{}: tx {:?} failed", self.network, receipt.transaction_hash());
 		}
 		Ok(receipt)
 	}

@@ -336,6 +336,18 @@ impl IConnectorAdmin for Connector {
 		self.ensure_admin(&tx, proxy)
 	}
 
+	async fn contract_bytecode_matches(
+		&self,
+		_address: Address32,
+		_bytecode: &[u8],
+	) -> Result<bool> {
+		Ok(true)
+	}
+
+	async fn implementation(&self, proxy: Address32) -> Result<Address32> {
+		Ok(proxy)
+	}
+
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let tx = self.db.begin_read()?;
 		let t = tx.open_table(ADMIN)?;

@@ -132,6 +132,30 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::RedeployGatewayResponse {}))
 	}
 
+	async fn contract_bytecode_matches(
+		&self,
+		request: Request<proto::ContractBytecodeMatchesRequest>,
+	) -> GmpResult<proto::ContractBytecodeMatchesResponse> {
+		let (connector, msg) = self.connector(request)?;
+		let matches = connector
+			.contract_bytecode_matches(msg.address, &msg.bytecode)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::ContractBytecodeMatchesResponse { matches }))
+	}
+
+	async fn implementation(
+		&self,
+		request: Request<proto::ImplementationRequest>,
+	) -> GmpResult<proto::ImplementationResponse> {
+		let (connector, msg) = self.connector(request)?;
+		let implementation = connector
+			.implementation(msg.proxy)
+			.await
+			.map_err(|err| Status::unknown(err.to_string()))?;
+		Ok(Response::new(proto::ImplementationResponse { implementation }))
+	}
+
 	async fn admin(
 		&self,
 		request: Request<proto::AdminRequest>,

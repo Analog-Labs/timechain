@@ -97,6 +97,27 @@ pub struct RedeployGatewayRequest {
 pub struct RedeployGatewayResponse {}
 
 #[derive(Serialize, Deserialize)]
+pub struct ContractBytecodeMatchesRequest {
+	pub address: Address32,
+	pub bytecode: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ContractBytecodeMatchesResponse {
+	pub matches: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ImplementationRequest {
+	pub proxy: Address32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ImplementationResponse {
+	pub implementation: Address32,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct AdminRequest {
 	pub gateway: Address32,
 }

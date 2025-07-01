@@ -344,6 +344,24 @@ impl IConnectorAdmin for Connector {
 		Ok(())
 	}
 
+	/// Contract bytecode matches
+	async fn contract_bytecode_matches(&self, address: Address32, bytecode: &[u8]) -> Result<bool> {
+		let address = a_addr(address);
+		let bytecode = read_bytecode(bytecode)?;
+		let code = self.rpc.get_code_at(address).await?;
+		Ok(code.starts_with(&bytecode))
+	}
+
+	/// Proxy implementation address
+	async fn implementation(&self, proxy: Address32) -> Result<Address32> {
+		let proxy = a_addr(proxy);
+		let uint = self
+			.rpc
+			.get_storage_at(proxy, U256::from_be_bytes(sol::IMPLEMENTATION_SLOT))
+			.await?;
+		Ok(uint.to_be_bytes::<32>())
+	}
+
 	/// Deploys test contract
 	async fn deploy_tester(&self, gateway: Address32, tester: &[u8]) -> Result<(Address32, u64)> {
 		let call = GmpProxy::constructorCall { gateway: a_addr(gateway) };
@@ -618,19 +636,7 @@ impl Connector {
 		contract: &[u8],
 		constructor: C,
 	) -> Result<(Address20, u64)> {
-		#[derive(Deserialize)]
-		struct Contract {
-			bytecode: Bytecode,
-		}
-
-		#[derive(Deserialize)]
-		struct Bytecode {
-			object: String,
-		}
-
-		let contract_abi: Contract = serde_json::from_slice(contract)?;
-		let mut bytecode = hex::decode(contract_abi.bytecode.object.replace("0x", ""))
-			.with_context(|| "Failed to get contract bytecode")?;
+		let mut bytecode = read_bytecode(contract)?;
 		bytecode.extend(constructor.abi_encode());
 
 		let tx = TransactionRequest::default().with_deploy_code(bytecode);
@@ -644,6 +650,22 @@ impl Connector {
 			.ok_or(anyhow!("Failed to get contract deployement block"))?;
 		Ok((contract_address, block_number))
 	}
+}
+
+fn read_bytecode(contract: &[u8]) -> Result<Vec<u8>> {
+	#[derive(Deserialize)]
+	struct Contract {
+		bytecode: Bytecode,
+	}
+
+	#[derive(Deserialize)]
+	struct Bytecode {
+		object: String,
+	}
+
+	let contract_abi: Contract = serde_json::from_slice(contract)?;
+	hex::decode(contract_abi.bytecode.object.replace("0x", ""))
+		.with_context(|| "Failed to get contract bytecode")
 }
 
 #[derive(Clone)]

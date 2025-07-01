@@ -1,5 +1,9 @@
 use crate::{a_addr, t_addr};
 use alloy::{primitives::U256, sol, sol_types::SolValue};
+use hex_literal::hex;
+
+pub const IMPLEMENTATION_SLOT: [u8; 32] =
+	hex!("360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc");
 
 sol!(
 	#[allow(clippy::too_many_arguments)]

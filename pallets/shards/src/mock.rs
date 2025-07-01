@@ -23,6 +23,7 @@ impl TasksInterface for MockTasks {
 	fn shard_online(_: ShardId, _: NetworkId) {}
 	fn shard_offline(_: ShardId, _: NetworkId) {}
 	fn gateway_registered(_: NetworkId, _: u64) {}
+	fn network_removed(_network: NetworkId) {}
 }
 
 pub struct MockNetworks;

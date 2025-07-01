@@ -12,6 +12,7 @@ impl TasksInterface for MockTasks {
 	fn shard_online(_shard_id: ShardId, _network: NetworkId) {}
 	fn shard_offline(_shard_id: ShardId, _network: NetworkId) {}
 	fn gateway_registered(_network: NetworkId, _block: u64) {}
+	fn network_removed(_network: NetworkId) {}
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;

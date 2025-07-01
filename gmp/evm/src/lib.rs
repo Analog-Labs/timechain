@@ -3,7 +3,7 @@ use crate::sol::{ERC1967Proxy, Gateway, GmpProxy, IGmpReceiver};
 use alloy::{
 	eips::{eip1559::Eip1559Estimation, BlockId, BlockNumberOrTag},
 	network::{
-		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, ReceiptResponse,
+		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, IntoWallet, NetworkWallet, ReceiptResponse,
 		TransactionBuilder,
 	},
 	primitives::{B256, U256},
@@ -19,14 +19,16 @@ use alloy::{
 	serde::WithOtherFields,
 	signers::{
 		k256::ecdsa::SigningKey,
-		local::{coins_bip39::English, LocalSigner, MnemonicBuilder},
+		ledger::{HDPath, LedgerSigner},
+		local::{coins_bip39::English, MnemonicBuilder},
+		Signer,
 	},
 	sol_types::{SolCall, SolConstructor, SolEvent},
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
-use std::{ops::Range, process::Command, sync::Arc, time::Duration};
+use std::{boxed::Box, ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
 	Address32, AdminConnector, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
 	IConnect, IConnector, IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
@@ -47,15 +49,22 @@ fn t_addr(address: Address20) -> Address32 {
 	address.into_word().into()
 }
 
+
+trait SignerIntoWallet: Signer + IntoWallet<NetworkWallet = AnyNetwork> {}
+
 #[derive(Clone)]
 pub struct Chain {
 	network_id: NetworkId,
-	signer: LocalSigner<SigningKey>,
+	signer: Arc<dyn SignerIntoWallet + Send + Sync>,
 }
 
 impl Chain {
-	pub fn new(network_id: NetworkId, mnemonic: &str) -> Result<Self> {
-		let signer = MnemonicBuilder::<English>::default().phrase(mnemonic).index(0)?.build()?;
+	pub async fn new(network_id: NetworkId, mnemonic: &str) -> Result<Self> {
+		let signer: Arc<dyn SignerIntoWallet + Send + Sync> = if let Some(path) = mnemonic.strip_prefix("ledger://") {
+			Arc::new(LedgerSigner::new(HDPath::Legacy(path.parse()?), None).await?)
+		} else {
+			Arc::new(MnemonicBuilder::<English>::default().phrase(mnemonic).index(0)?.build()?)
+		};
 		Ok(Self { network_id, signer })
 	}
 }
@@ -132,7 +141,7 @@ impl Connector {
 		let rpc: Arc<CProvider> = Arc::new(
 			ProviderBuilder::new()
 				.network::<AnyNetwork>()
-				.wallet(chain.signer.clone())
+				.wallet(chain.signer)
 				.connect_ws(ws)
 				.await?,
 		);

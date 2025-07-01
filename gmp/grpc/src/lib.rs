@@ -186,6 +186,22 @@ impl IConnectorAdmin for Connector {
 		self.client.lock().await.redeploy_gateway(request).await?;
 		Ok(())
 	}
+	/// Contract bytecode matches.
+	async fn contract_bytecode_matches(&self, address: Address32, bytecode: &[u8]) -> Result<bool> {
+		let request = Request::new(proto::ContractBytecodeMatchesRequest {
+			address,
+			bytecode: bytecode.to_vec(),
+		});
+		let response =
+			self.client.lock().await.contract_bytecode_matches(request).await?.into_inner();
+		Ok(response.matches)
+	}
+	/// Proxy implementation address.
+	async fn implementation(&self, proxy: Address32) -> Result<Address32> {
+		let request = Request::new(proto::ImplementationRequest { proxy });
+		let response = self.client.lock().await.implementation(request).await?.into_inner();
+		Ok(response.implementation)
+	}
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		let request = Request::new(proto::AdminRequest { gateway });

@@ -418,6 +418,10 @@ pub trait IConnectorAdmin: IConnector {
 	async fn deploy_gateway(&self, proxy: &[u8], gateway: &[u8]) -> Result<(Address32, u64)>;
 	/// Redeploys the gateway contract.
 	async fn redeploy_gateway(&self, proxy: Address32, gateway: &[u8]) -> Result<()>;
+	/// Contract bytecode matches.
+	async fn contract_bytecode_matches(&self, address: Address32, bytecode: &[u8]) -> Result<bool>;
+	/// Proxy implementation address.
+	async fn implementation(&self, proxy: Address32) -> Result<Address32>;
 	/// Returns the gateway admin.
 	async fn admin(&self, gateway: Address32) -> Result<Address32>;
 	/// Sets the gateway admin.
@@ -554,6 +558,18 @@ impl<T: IConnectorAdmin> IConnectorAdmin for AdminConnector<T> {
 			.redeploy_gateway(proxy, gateway)
 			.await
 			.with_context(|| self.context("redeploy_gateway"))
+	}
+	async fn contract_bytecode_matches(&self, address: Address32, bytecode: &[u8]) -> Result<bool> {
+		self.0
+			.contract_bytecode_matches(address, bytecode)
+			.await
+			.with_context(|| self.context("contract_bytecode_matches"))
+	}
+	async fn implementation(&self, proxy: Address32) -> Result<Address32> {
+		self.0
+			.implementation(proxy)
+			.await
+			.with_context(|| self.context("implementation"))
 	}
 	async fn admin(&self, gateway: Address32) -> Result<Address32> {
 		self.0.admin(gateway).await.with_context(|| self.context("admin"))

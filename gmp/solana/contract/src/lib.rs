@@ -7,7 +7,7 @@ mod state;
 
 use constants::*;
 use errors::*;
-use state::*;
+pub use state::*;
 
 declare_id!("11111111111111111111111111111111");
 
@@ -36,44 +36,50 @@ mod gateway {
 	// only executed by admin
 	pub fn set_shards(
 		ctx: Context<Gateway>,
-		register: Vec<Shard>,
-		revoke: Vec<Shard>,
+		register: Vec<(TssPublicKey, u16)>, // (public_key, num_sessions)
+		revoke: Vec<TssPublicKey>,
 	) -> Result<()> {
-		require!(register.len() < MAX_SHARDS_LEN, GatewayError::ShardsLengthExceedLimit);
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
-		state.shards.clear();
-		for shard in register.into_iter() {
-			let seed_x = shard.x_coord;
-			let seed_y = [shard.y_parity];
+		require!(state.is_initialized, GatewayError::NotInitialized);
+		for (tss_key, num_sessions) in register {
+			let shard = Shard::from_tss_key(&tss_key, num_sessions)?;
+			require!(shard.y_parity == 27 || shard.y_parity == 28, GatewayError::InvalidYParity);
+			let existing_index = state.shards.iter().position(|s| s.x_coord == shard.x_coord);
+			if existing_index.is_none() {
+				require!(
+					state.shards.len() < MAX_SHARDS_LEN,
+					GatewayError::ShardsLengthExceedLimit
+				);
+				state.shards.push(shard.clone());
+				emit!(ShardRegistered {
+					x_coord: shard.x_coord,
+					y_parity: shard.y_parity,
+					num_sessions: shard.num_sessions,
+				});
+			}
 
-			let (nonce_pda, _bump) =
-				Pubkey::find_program_address(&[b"shard_nonce", &seed_x, &seed_y], ctx.program_id);
+			for tss_key in &revoke {
+				let shard = Shard::from_tss_key(&tss_key, 0)?;
 
-			let mut shard_nonce = 0u64;
-			let mut found = false;
-			for acc in ctx.remaining_accounts.iter() {
-				if acc.key() == nonce_pda {
-					let shard_nonce_acc =
-						ShardNonce::try_deserialize(&mut acc.data.borrow().as_ref())?;
-					shard_nonce = shard_nonce_acc.nonce;
-					found = true;
-					break;
+				if let Some(index) = state.shards.iter().position(|s| s.x_coord == shard.x_coord) {
+					require!(
+						state.shards[index].y_parity == shard.y_parity,
+						GatewayError::YParityMismatch
+					);
+					let removed_shard = state.shards.remove(index);
+					emit!(ShardRevoked {
+						x_coord: removed_shard.x_coord,
+						y_parity: removed_shard.y_parity,
+						num_sessions: removed_shard.num_sessions,
+					});
 				}
 			}
-			if !found {
-				shard_nonce = 0;
-			}
-			state.shards.push(ShardAcc {
-				shard: shard.clone(),
-				nonce: shard_nonce,
-			});
 		}
-
 		Ok(())
 	}
 
-	pub fn set_route(ctx: Context<Gateway>, _route: NetworkInfo) -> Result<()> {
+	pub fn set_route(ctx: Context<Gateway>, _route: Route) -> Result<()> {
 		let state = &mut ctx.accounts.gateway_state;
 		require_keys_eq!(ctx.accounts.signer.key(), state.admin, GatewayError::Unauthorized);
 		Ok(())

@@ -1,7 +1,9 @@
 use std::str::FromStr;
 use std::{ops::Range, sync::Arc};
 
+use anchor_client::anchor_lang::prelude::AccountMeta;
 use anchor_client::anchor_lang::AnchorDeserialize;
+use anchor_client::anchor_lang::InstructionData;
 use anchor_client::solana_sdk::signer::SeedDerivable;
 use anchor_client::{Client as AnchorClient, Cluster};
 use anyhow::Result;
@@ -92,7 +94,7 @@ pub struct Connector {
 }
 
 impl Connector {
-	pub async fn send_transaction(&self, instruction: Instruction) -> Result<()> {
+	pub async fn send_transaction(&self, instruction: Instruction) -> Result<Signature> {
 		let recent_blockhash = self.client.get_latest_blockhash().await?;
 		let transaction = Transaction::new_signed_with_payer(
 			&[instruction],
@@ -101,8 +103,7 @@ impl Connector {
 			recent_blockhash,
 		);
 		let hash = self.client.send_and_confirm_transaction(&transaction).await?;
-		tracing::info!("tx send with hash: {}", hash);
-		Ok(())
+		Ok(hash)
 	}
 }
 
@@ -141,7 +142,8 @@ impl IConnectorAdmin for Connector {
 			&a_addr(address),
 			amount as u64,
 		);
-		self.send_transaction(instruction).await
+		self.send_transaction(instruction).await?;
+		Ok(())
 	}
 
 	/// Queries the account balance.
@@ -259,7 +261,29 @@ impl IConnectorAdmin for Connector {
 		register: &[(TssPublicKey, u16)],
 		revoke: &[(TssPublicKey, u16)],
 	) -> Result<()> {
-		todo!("Need gateway implementation")
+		let program = self.anchor_client.program(a_addr(gateway))?;
+		let program_id = a_addr(gateway);
+		let (state_pda, _bump) =
+			Pubkey::find_program_address(&[&GmpPdaSeeds::State.to_seed()], &program_id);
+
+		let register_vec = register.to_vec();
+		let revoke_vec: Vec<[u8; 33]> = revoke.iter().map(|(tss_key, _)| tss_key.clone()).collect();
+
+		let signature = program
+			.request()
+			.args(gmp_solana_contract::instruction::SetShards {
+				register: register_vec,
+				revoke: revoke_vec,
+			})
+			.accounts(gmp_solana_contract::accounts::Gateway {
+				gateway_state: state_pda,
+				signer: self.chain.wallet.pubkey(),
+			})
+			.send()
+			.await?;
+
+		tracing::info!("Shard set with tx hash: {signature}");
+		Ok(())
 	}
 
 	async fn routes(&self, gateway: Address32) -> Result<Vec<Route>> {
@@ -273,13 +297,42 @@ impl IConnectorAdmin for Connector {
 		Ok(routes)
 	}
 
-	async fn set_route(&self, _gateway: Address32, _route: Route) -> Result<()> {
-		todo!("Need gateway implementation")
+	async fn set_route(&self, gateway: Address32, route: Route) -> Result<()> {
+		let program = self.anchor_client.program(a_addr(gateway))?;
+		let program_id = a_addr(gateway);
+		let (state_pda, _bump) =
+			Pubkey::find_program_address(&[&GmpPdaSeeds::State.to_seed()], &program_id);
+
+		let contract_route = gmp_solana_contract::Route {
+			network_id: route.network_id,
+			gateway: a_addr(route.gateway),
+			max_gas_limit: route.max_gas_limit,
+			msg_gas: route.msg_gas,
+			msg_byte_gas: route.msg_byte_gas,
+			// gas_price_mantissa: route.gas_price_mantissa,
+			// gas_price_exponent: route.gas_price_exponent,
+			msg_fee: route.msg_fee,
+			// FIXME use the mantissa and exponent
+			gas_price: 1.0,
+		};
+
+		let signature = program
+			.request()
+			.args(gmp_solana_contract::instruction::SetRoute { _route: contract_route })
+			.accounts(gmp_solana_contract::accounts::Gateway {
+				gateway_state: state_pda,
+				signer: self.chain.wallet.pubkey(),
+			})
+			.send()
+			.await?;
+		tracing::info!("Routes set with tx: {signature}");
+		Ok(())
 	}
 
 	/// Updates the prices of all routes.
 	async fn set_prices(&self, gateway: Address32, prices: &[f64]) -> Result<()> {
-		todo!()
+		// TODO
+		Ok(())
 	}
 
 	/// Deploys test contract

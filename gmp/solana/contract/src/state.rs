@@ -4,6 +4,8 @@ use anchor_lang::prelude::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::keccak;
 
+use crate::GatewayError;
+
 type NetworkId = u16;
 type Address32 = [u8; 32];
 pub type BatchId = u64;
@@ -57,27 +59,21 @@ pub struct GatewayState {
 	pub admin: Pubkey,
 	pub is_initialized: bool,
 	#[max_len(MAX_SHARDS_LEN)]
-	pub shards: Vec<ShardAcc>,
+	pub shards: Vec<Shard>,
 	#[max_len(MAX_NETWORKS_LEN)]
-	pub routes: Vec<NetworkInfo>,
+	pub routes: Vec<Route>,
 }
 
 #[account]
 #[derive(InitSpace)]
-pub struct ShardAcc {
-	pub shard: Shard,
-	pub nonce: u64,
-}
-
-#[account]
-#[derive(InitSpace)]
-pub struct NetworkInfo {
-	network_id: u16,
-	destination_gateway: Pubkey,
-	relative_gas_price_n: u128,
-	relative_gas_price_d: u128,
-	gas_limit: u64,
-	gmp_base_fee: u128,
+pub struct Route {
+	pub network_id: u16,
+	pub gateway: Pubkey,
+	pub max_gas_limit: u64,
+	pub msg_gas: u64,
+	pub msg_byte_gas: u64,
+	pub gas_price: f64,
+	pub msg_fee: u64,
 }
 
 #[account]
@@ -101,14 +97,27 @@ pub struct BatchExecuted {
 	pub batch_id: BatchId,
 }
 
-#[derive(Clone, Copy, BorshSerialize, BorshDeserialize, PartialEq)]
+#[event]
+pub struct ShardRevoked {
+	pub x_coord: [u8; 32],
+	pub y_parity: u8,
+	pub num_sessions: u16,
+}
+#[event]
+pub struct ShardRegistered {
+	pub x_coord: [u8; 32],
+	pub y_parity: u8,
+	pub num_sessions: u16,
+}
+
+#[derive(Clone, Copy, AnchorSerialize, AnchorDeserialize, PartialEq)]
 pub enum GmpStatus {
 	Pending,
 	Executed,
 	Failed,
 }
 
-#[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, AnchorSerialize, AnchorDeserialize)]
 pub struct GmpMessage {
 	pub src_network: NetworkId,
 	pub dest_network: NetworkId,
@@ -181,4 +190,32 @@ pub struct Shard {
 	pub x_coord: [u8; 32],
 	pub y_parity: u8,
 	pub num_sessions: u16,
+}
+
+impl Shard {
+	pub fn from_tss_key(tss_key: &TssPublicKey, num_sessions: u16) -> Result<Self> {
+		let y_parity = if tss_key[0] == 0x02 {
+			27
+		} else if tss_key[0] == 0x03 {
+			28
+		} else {
+			return Err(GatewayError::InvalidYParity.into());
+		};
+
+		let mut x_coord = [0u8; 32];
+		x_coord.copy_from_slice(&tss_key[1..33]);
+
+		Ok(Shard {
+			x_coord,
+			y_parity,
+			num_sessions,
+		})
+	}
+
+	pub fn to_tss_key(&self) -> TssPublicKey {
+		let mut tss_key = [0u8; 33];
+		tss_key[0] = if self.y_parity == 27 { 0x02 } else { 0x03 };
+		tss_key[1..33].copy_from_slice(&self.x_coord);
+		tss_key
+	}
 }

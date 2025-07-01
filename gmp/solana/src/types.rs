@@ -30,13 +30,13 @@ pub struct GatewayState {
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct Route {
-	network_id: u16,
-	gateway: Pubkey,
-	max_gas_limit: u64,
-	msg_gas: u64,
-	msg_byte_gas: u64,
-	gas_price: f64,
-	msg_fee: u64,
+	pub network_id: u16,
+	pub gateway: Pubkey,
+	pub max_gas_limit: u64,
+	pub msg_gas: u64,
+	pub msg_byte_gas: u64,
+	pub gas_price: f64,
+	pub msg_fee: u64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]

@@ -12,4 +12,8 @@ pub enum GatewayError {
 	ShardsLengthExceedLimit,
 	#[msg("Msg size too large")]
 	MsgTooLarge,
+	#[msg("Invalid y parity")]
+	InvalidYParity,
+	#[msg("y parity mismatch")]
+	YParityMismatch,
 }

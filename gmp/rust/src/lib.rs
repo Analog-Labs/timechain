@@ -454,7 +454,7 @@ impl IConnectorAdmin for Connector {
 	) -> Result<u128> {
 		Ok(gas_limit as u128 + msg_size as u128 * 20 + 100_000)
 	}
-	async fn send_message(
+	async fn send_messages(
 		&self,
 		src: Address32,
 		dest_network: NetworkId,
@@ -462,14 +462,17 @@ impl IConnectorAdmin for Connector {
 		gas_limit: u64,
 		_msg_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId> {
+		amplification: u16,
+	) -> Result<Vec<MessageId>> {
+		anyhow::ensure!(amplification > 0);
 		let tx = self.db.begin_write()?;
-		let id = {
+		let mut ids = Vec::with_capacity(amplification as usize);
+		{
 			// read nonce
 			let mut t = tx.open_table(NONCE)?;
 			let nonce = t.get((src, dest))?.map(|a| a.value()).unwrap_or_default();
 			// construct msg
-			let msg = GmpMessage {
+			let mut msg = GmpMessage {
 				src_network: self.chain.network_id,
 				src,
 				dest_network,
@@ -478,9 +481,8 @@ impl IConnectorAdmin for Connector {
 				gas_limit: gas_limit as _,
 				bytes: payload,
 			};
-			let id = msg.message_id();
 			// increment nonce
-			t.insert((src, dest), nonce + 1)?;
+			t.insert((src, dest), nonce + amplification as u64)?;
 
 			// read gateway address
 			let t = tx.open_table(GATEWAY)?;
@@ -489,11 +491,15 @@ impl IConnectorAdmin for Connector {
 			// insert gateway event
 			let mut t = tx.open_multimap_table(EVENTS)?;
 			let block = self.block()?;
-			t.insert((gateway, block), GmpEvent::MessageReceived(msg))?;
-			id
-		};
+			for _ in 0..amplification {
+				let id = msg.message_id();
+				t.insert((gateway, block), GmpEvent::MessageReceived(msg.clone()))?;
+				ids.push(id);
+				msg.nonce += 1;
+			}
+		}
 		tx.commit()?;
-		Ok(id)
+		Ok(ids)
 	}
 
 	async fn recv_messages(&self, addr: Address32, blocks: Range<u64>) -> Result<Vec<GmpMessage>> {
@@ -636,7 +642,7 @@ mod tests {
 		let msg_cost = chain
 			.estimate_message_cost(gateway, network, payload.len() as u16, gas_limit)
 			.await?;
-		chain.send_message(src, network, dest, gas_limit, msg_cost, payload).await?;
+		chain.send_messages(src, network, dest, gas_limit, msg_cost, payload, 1).await?;
 		let msg = gmp_msg(src, dest);
 		tokio::time::sleep(Duration::from_secs(6)).await;
 		let current2 = chain.finalized_block().await.unwrap();

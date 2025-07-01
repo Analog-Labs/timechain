@@ -288,7 +288,7 @@ impl IConnectorAdmin for Connector {
 		Ok(response.cost)
 	}
 	/// Sends a message using the test contract and returns the message id.
-	async fn send_message(
+	async fn send_messages(
 		&self,
 		src: Address32,
 		dest_network: NetworkId,
@@ -296,17 +296,19 @@ impl IConnectorAdmin for Connector {
 		gas_limit: u64,
 		msg_cost: u128,
 		payload: Vec<u8>,
-	) -> Result<MessageId> {
-		let request = Request::new(proto::SendMessageRequest {
+		amplification: u16,
+	) -> Result<Vec<MessageId>> {
+		let request = Request::new(proto::SendMessagesRequest {
 			src,
 			dest_network,
 			dest,
 			gas_limit,
 			msg_cost,
 			payload,
+			amplification,
 		});
-		let response = self.client.lock().await.send_message(request).await?.into_inner();
-		Ok(response.message_id)
+		let response = self.client.lock().await.send_messages(request).await?.into_inner();
+		Ok(response.message_ids)
 	}
 
 	/// Receives messages from test contract.

@@ -257,23 +257,24 @@ impl Gmp for ConnectorWrapper {
 		Ok(Response::new(proto::EstimateMessageCostResponse { cost }))
 	}
 
-	async fn send_message(
+	async fn send_messages(
 		&self,
-		request: Request<proto::SendMessageRequest>,
-	) -> GmpResult<proto::SendMessageResponse> {
+		request: Request<proto::SendMessagesRequest>,
+	) -> GmpResult<proto::SendMessagesResponse> {
 		let (connector, msg) = self.connector(request)?;
-		let message_id = connector
-			.send_message(
+		let message_ids = connector
+			.send_messages(
 				msg.src,
 				msg.dest_network,
 				msg.dest,
 				msg.gas_limit,
 				msg.msg_cost,
 				msg.payload,
+				msg.amplification,
 			)
 			.await
 			.map_err(|err| Status::unknown(err.to_string()))?;
-		Ok(Response::new(proto::SendMessageResponse { message_id }))
+		Ok(Response::new(proto::SendMessagesResponse { message_ids }))
 	}
 
 	async fn recv_messages(

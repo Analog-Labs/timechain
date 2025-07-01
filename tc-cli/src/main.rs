@@ -171,7 +171,9 @@ enum Command {
 	},
 	Benchmark {
 		#[arg(long, default_value = "10")]
-		num_msgs: u16,
+		num_blocks: u16,
+		#[arg(long, default_value = "10")]
+		msgs_per_block: u16,
 	},
 	Log {
 		#[clap(subcommand)]
@@ -389,7 +391,7 @@ async fn real_main() -> Result<()> {
 			let dest_addr = tc.parse_address(Some(dest_network), &dest_addr)?;
 			let payload = hex::decode(payload)?;
 			let msg_id = tc
-				.send_message(
+				.send_messages(
 					src_network,
 					src_addr,
 					dest_network,
@@ -397,19 +399,25 @@ async fn real_main() -> Result<()> {
 					gas_limit,
 					gas_cost,
 					payload,
+					1,
 				)
-				.await?;
+				.await?[0];
 			tc.println(None, hex::encode(msg_id)).await?;
 		},
 		Command::SmokeTest { src, dest } => {
 			tc.setup_test().await?;
 			let _ = tc.exec_smoke(src, dest, vec![42]).await?;
 		},
-		Command::Benchmark { num_msgs } => {
+		Command::Benchmark { num_blocks, msgs_per_block } => {
 			tc.setup_test().await?;
 			let (block_hash, _) = tc.latest_block().await?;
-			let mut benchmark =
-				Benchmark::new(tc, vec![42], num_msgs.into(), "benchmark.csv".to_string());
+			let mut benchmark = Benchmark::new(
+				tc,
+				vec![42],
+				num_blocks,
+				msgs_per_block,
+				"benchmark.csv".to_string(),
+			);
 			benchmark.add_routes(block_hash).await?;
 			benchmark.wait_for_sync().await?;
 			benchmark.exec().await?;

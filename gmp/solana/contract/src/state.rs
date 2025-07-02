@@ -1,5 +1,4 @@
 // #![allow(unexpected_cfgs)]
-// use crate::borsh::maybestd::collections::HashMap;
 use anchor_lang::prelude::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::keccak;
@@ -130,8 +129,7 @@ pub struct GmpMessage {
 	pub src: Address32,
 	pub dest: Address32,
 	pub nonce: u64,
-	pub gas_limit: u128,
-	pub gas_cost: u128,
+	pub gas_limit: u64,
 	pub bytes: Vec<u8>,
 }
 
@@ -171,12 +169,14 @@ fn left_pad(data: &[u8]) -> [u8; 32] {
 pub struct GatewayMessage {
 	pub ops: Vec<GatewayOp>,
 }
+
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub enum GatewayOp {
 	SendMessage(GmpMessage),
 	RegisterShard(TssPublicKey),
 	UnregisterShard(TssPublicKey),
 }
+
 pub enum GmpPdaSeeds {
 	State,
 	Vault,

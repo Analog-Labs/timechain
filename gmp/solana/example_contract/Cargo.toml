@@ -1,0 +1,14 @@
+[package]
+name = "example_contract"
+version = "0.1.0"
+edition = "2024"
+
+
+[lib]
+name = "example_contract"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anyhow.workspace = true
+anchor-lang = "0.31.0"
+gmp-solana-contract = { path = "../contract"}

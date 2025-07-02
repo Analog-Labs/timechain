@@ -38,9 +38,9 @@ impl std::fmt::Display for Backend {
 }
 
 impl Backend {
-	async pub fn chain(self, network: NetworkId, mnemonic: &str) -> Result<Arc<dyn IConnect>> {
+	pub async fn chain(self, network: NetworkId, mnemonic: &str) -> Result<Arc<dyn IConnect>> {
 		Ok(match self {
-			Self::Evm => Arc::new(gmp_evm::Chain::new(network, mnemonic)?),
+			Self::Evm => Arc::new(gmp_evm::Chain::new(network, mnemonic).await?),
 			Self::Grpc => Arc::new(gmp_grpc::Chain::new(network, mnemonic)?),
 			Self::Rust => Arc::new(gmp_rust::Chain::new(network, mnemonic)),
 		})

@@ -77,7 +77,7 @@ impl Tc {
 		let mut connectors = HashMap::new();
 		{
 			for (id, network) in config.networks() {
-				chains.insert(*id, network.backend.chain(*id, &env.target_mnemonic)?);
+				chains.insert(*id, network.backend.chain(*id, &env.target_mnemonic).await?);
 				connectors.insert(*id, Default::default());
 			}
 		}

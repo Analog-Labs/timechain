@@ -50,6 +50,7 @@ alloy = { version = "^1.0", default-features = false, features = [
     "rpc-types-trace",
     "json-rpc",
     "rpc-client",
+	"signers",
 	"signer-ledger",
     "signer-mnemonic",
 ] }

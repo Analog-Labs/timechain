@@ -142,7 +142,7 @@ pub async fn run_chronicle(
 
 	let (tss_tx, tss_rx) = mpsc::channel(10);
 
-	let chain = config.backend.chain(config.network_id, &config.target_mnemonic)?;
+	let chain = config.backend.chain(config.network_id, &config.target_mnemonic).await?;
 
 	let connector = loop {
 		match chain.connect(config.target_url.clone()).await {

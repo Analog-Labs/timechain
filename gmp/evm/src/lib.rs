@@ -3,7 +3,7 @@ use crate::sol::{ERC1967Proxy, Gateway, GmpProxy, IGmpReceiver};
 use alloy::{
 	eips::{eip1559::Eip1559Estimation, BlockId, BlockNumberOrTag},
 	network::{
-		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, IntoWallet, NetworkWallet, ReceiptResponse,
+		AnyHeader, AnyNetwork, AnyReceiptEnvelope, EthereumWallet, IntoWallet, ReceiptResponse,
 		TransactionBuilder,
 	},
 	primitives::{B256, U256},
@@ -18,7 +18,6 @@ use alloy::{
 	rpc::types::{Filter, Header, Log, TransactionReceipt, TransactionRequest},
 	serde::WithOtherFields,
 	signers::{
-		k256::ecdsa::SigningKey,
 		ledger::{HDPath, LedgerSigner},
 		local::{coins_bip39::English, MnemonicBuilder},
 		Signer,
@@ -49,23 +48,28 @@ fn t_addr(address: Address20) -> Address32 {
 	address.into_word().into()
 }
 
-
-trait SignerIntoWallet: Signer + IntoWallet<NetworkWallet = AnyNetwork> {}
-
 #[derive(Clone)]
 pub struct Chain {
 	network_id: NetworkId,
-	signer: Arc<dyn SignerIntoWallet + Send + Sync>,
+	address: Address32,
+	wallet: EthereumWallet,
 }
 
 impl Chain {
 	pub async fn new(network_id: NetworkId, mnemonic: &str) -> Result<Self> {
-		let signer: Arc<dyn SignerIntoWallet + Send + Sync> = if let Some(path) = mnemonic.strip_prefix("ledger://") {
-			Arc::new(LedgerSigner::new(HDPath::Legacy(path.parse()?), None).await?)
+		let (wallet, address) = if let Some(path) = mnemonic.strip_prefix("ledger://") {
+			let signer = LedgerSigner::new(HDPath::Legacy(path.parse()?), None).await?;
+			let address = t_addr(signer.address());
+			let wallet: EthereumWallet = IntoWallet::<AnyNetwork>::into_wallet(signer);
+			(wallet, address)
 		} else {
-			Arc::new(MnemonicBuilder::<English>::default().phrase(mnemonic).index(0)?.build()?)
+			let signer =
+				MnemonicBuilder::<English>::default().phrase(mnemonic).index(0)?.build()?;
+			let address = t_addr(signer.address());
+			let wallet: EthereumWallet = IntoWallet::<AnyNetwork>::into_wallet(signer);
+			(wallet, address)
 		};
-		Ok(Self { network_id, signer })
+		Ok(Self { network_id, address, wallet })
 	}
 }
 
@@ -102,7 +106,7 @@ impl IChain for Chain {
 
 	/// Human readable connector account identifier.
 	fn address(&self) -> Address32 {
-		t_addr(self.signer.address())
+		self.address
 	}
 }
 
@@ -141,7 +145,7 @@ impl Connector {
 		let rpc: Arc<CProvider> = Arc::new(
 			ProviderBuilder::new()
 				.network::<AnyNetwork>()
-				.wallet(chain.signer)
+				.wallet(chain.wallet.clone())
 				.connect_ws(ws)
 				.await?,
 		);

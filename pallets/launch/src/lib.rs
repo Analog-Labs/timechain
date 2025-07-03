@@ -71,7 +71,7 @@ pub mod pallet {
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 52;
+	pub const LAUNCH_VERSION: u16 = 53;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -173,6 +173,13 @@ pub mod pallet {
 			Allocation::Initiatives,
 			30_193_236_500 * MILLIANLOG,
 			Stage::DepositFromUnlocked(data::v52::REWARD_POOL_2),
+		),
+		// Investor Snapshot 8
+		(
+			53,
+			Allocation::Strategic,
+			8228 * ANLOG,
+			Stage::DepositAsVested(data::v53::STRATEGIC_SNAPSHOT_8),
 		),
 	];
 

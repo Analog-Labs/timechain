@@ -118,6 +118,11 @@ where
 	pub fn transfer_unlocked(self, source: Allocation) -> Weight {
 		let mut weight = Weight::zero();
 
+		let account = source.account_id::<T>();
+
+		// Unlock any vested tokens before transfer operations
+		let _ = pallet_vesting::Pallet::<T>::vest(T::RuntimeOrigin::signed(account.clone()));
+
 		for (target, amount, schedule) in self.0.iter() {
 			// Check vesting status first...
 			if let Some(vs) = schedule {
@@ -139,7 +144,7 @@ where
 
 			// ... then attempt to transfer tokens directly from virtual deposit
 			if CurrencyOf::<T>::transfer(
-				&source.account_id::<T>(),
+				&account,
 				target,
 				*amount,
 				ExistenceRequirement::AllowDeath,

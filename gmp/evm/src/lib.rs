@@ -347,9 +347,11 @@ impl IConnectorAdmin for Connector {
 	/// Contract bytecode matches
 	async fn contract_bytecode_matches(&self, address: Address32, bytecode: &[u8]) -> Result<bool> {
 		let address = a_addr(address);
-		let bytecode = read_bytecode(bytecode)?;
+		let contract_abi: Contract = serde_json::from_slice(bytecode)?;
+		let bytecode = hex::decode(contract_abi.deployed_bytecode.object.replace("0x", ""))
+			.with_context(|| "Failed to get contract bytecode")?;
 		let code = self.rpc.get_code_at(address).await?;
-		Ok(code.starts_with(&bytecode))
+		Ok(code == bytecode)
 	}
 
 	/// Proxy implementation address
@@ -636,7 +638,9 @@ impl Connector {
 		contract: &[u8],
 		constructor: C,
 	) -> Result<(Address20, u64)> {
-		let mut bytecode = read_bytecode(contract)?;
+		let contract_abi: Contract = serde_json::from_slice(contract)?;
+		let mut bytecode = hex::decode(contract_abi.bytecode.object.replace("0x", ""))
+			.with_context(|| "Failed to get contract bytecode")?;
 		bytecode.extend(constructor.abi_encode());
 
 		let tx = TransactionRequest::default().with_deploy_code(bytecode);
@@ -652,20 +656,16 @@ impl Connector {
 	}
 }
 
-fn read_bytecode(contract: &[u8]) -> Result<Vec<u8>> {
-	#[derive(Deserialize)]
-	struct Contract {
-		bytecode: Bytecode,
-	}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Contract {
+	bytecode: Bytecode,
+	deployed_bytecode: Bytecode,
+}
 
-	#[derive(Deserialize)]
-	struct Bytecode {
-		object: String,
-	}
-
-	let contract_abi: Contract = serde_json::from_slice(contract)?;
-	hex::decode(contract_abi.bytecode.object.replace("0x", ""))
-		.with_context(|| "Failed to get contract bytecode")
+#[derive(Deserialize)]
+struct Bytecode {
+	object: String,
 }
 
 #[derive(Clone)]

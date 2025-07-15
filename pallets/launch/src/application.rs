@@ -14,7 +14,8 @@ use sp_runtime::RuntimeDebug;
 )]
 #[repr(u8)]
 pub enum Application {
-	Bridging,
+	BridgedToEth,
+	BridgedToBase,
 	OverTheCounter,
 }
 
@@ -24,7 +25,8 @@ impl Application {
 		use Application::*;
 
 		match self {
-			Bridging => b"bridged-erc20",
+			BridgedToEth => b"bridged-erc20",
+			BridgedToBase => b"bridged-base",
 			OverTheCounter => b"over-the-counter",
 		}
 	}
@@ -39,7 +41,8 @@ impl Application {
 		use Application::*;
 
 		match self {
-			Bridging => *b"bridged0",
+			BridgedToEth => *b"bridged0",
+			BridgedToBase => *b"bridged1",
 			OverTheCounter => *b"otclock0",
 		}
 	}

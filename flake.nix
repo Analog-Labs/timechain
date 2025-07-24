@@ -35,7 +35,7 @@
           # Download associated rust toolchain from mozilla
           toolchain = fpkgs.fromToolchainName {
             name = toml.toolchain.channel;
-            sha256 = "Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
+            sha256 = "Qxt8XAuaUR2OMdKbN4u8dBJOhSHxS+uS06Wl9+flVEk=";
           };
 
           # Determine profile or use default
@@ -62,7 +62,6 @@
       mkDevShell = pkgs: tpkgs: tpkgs.mkShell {
         # Provide target platform to cargo via env var
         CARGO_BUILD_TARGET = tpkgs.stdenv.targetPlatform.rust.rustcTarget;
-
 
         # Provide needed build tools:
         nativeBuildInputs = [

@@ -26,13 +26,15 @@ use alloy::{
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use coins_ledger::transports::{Ledger, LedgerAsync};
+use futures_util::lock::Mutex as OtherMutex;
 use serde::Deserialize;
 use std::{boxed::Box, ops::Range, process::Command, sync::Arc, time::Duration};
 use time_primitives::{
 	Address32, AdminConnector, BatchId, GatewayMessage, GmpEvent, GmpMessage, Hash, IChain,
 	IConnect, IConnector, IConnectorAdmin, MessageId, NetworkId, Route, TssPublicKey, TssSignature,
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 
 type Address20 = alloy::primitives::Address;
 
@@ -48,6 +50,9 @@ fn t_addr(address: Address20) -> Address32 {
 	address.into_word().into()
 }
 
+// Global ledger transport instance
+static LEDGER_TRANSPORT: OnceCell<Arc<OtherMutex<Ledger>>> = OnceCell::const_new();
+
 #[derive(Clone)]
 pub struct Chain {
 	network_id: NetworkId,
@@ -58,7 +63,15 @@ pub struct Chain {
 impl Chain {
 	pub async fn new(network_id: NetworkId, mnemonic: &str) -> Result<Self> {
 		let (wallet, address) = if let Some(path) = mnemonic.strip_prefix("ledger://") {
-			let signer = LedgerSigner::new(HDPath::Legacy(path.parse()?), None).await?;
+			let transport = LEDGER_TRANSPORT
+				.get_or_init(|| async { Arc::new(OtherMutex::new(Ledger::init().await.unwrap())) })
+				.await;
+			let signer = LedgerSigner::new_with_transport(
+				HDPath::Legacy(path.parse()?),
+				None,
+				transport.clone(),
+			)
+			.await?;
 			let address = t_addr(signer.address());
 			let wallet: EthereumWallet = IntoWallet::<AnyNetwork>::into_wallet(signer);
 			(wallet, address)

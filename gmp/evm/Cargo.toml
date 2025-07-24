@@ -13,7 +13,9 @@ repository.workspace = true
 alloy.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
+coins-ledger = { version = "0.12", default-features = false }
 futures.workspace = true
+futures-util = "0.3"
 hex.workspace = true
 hex-literal.workspace = true
 reqwest.workspace = true

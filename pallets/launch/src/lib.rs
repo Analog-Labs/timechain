@@ -315,6 +315,8 @@ pub mod pallet {
 		AirdropTransferFailed,
 		/// A virtual transfer was successful.
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
+		/// A bridging request has been issued.
+		BridgeRequest { target: Application, address: [u8; 20], amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -361,6 +363,41 @@ pub mod pallet {
 				TokenError::FundsUnavailable
 			);
 			CurrencyOf::<T>::set_lock(target.lock_id(), &account, amount, WithdrawReasons::all());
+
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
+		pub fn bridge(
+			origin: OriginFor<T>,
+			target: Application,
+			address: [u8; 20],
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let destination = target.account_id::<T>();
+
+			// Transfer and lock funds
+			let _ = CurrencyOf::<T>::transfer(
+				&source,
+				&destination,
+				amount,
+				ExistenceRequirement::AllowDeath,
+			)?;
+			CurrencyOf::<T>::set_lock(
+				target.lock_id(),
+				&destination,
+				CurrencyOf::<T>::total_balance(&destination),
+				WithdrawReasons::all(),
+			);
+
+			// Emit event
+			Pallet::<T>::deposit_event(Event::<T>::BridgeRequest {
+				target: target.clone(),
+				address,
+				amount,
+			});
 
 			Ok(())
 		}

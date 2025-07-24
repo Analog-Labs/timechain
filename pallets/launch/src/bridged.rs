@@ -13,21 +13,19 @@ use sp_runtime::RuntimeDebug;
 	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, scale_info::TypeInfo,
 )]
 #[repr(u8)]
-pub enum Application {
-	BridgedToEth,
-	BridgedToBase,
-	OverTheCounter,
+pub enum BridgedChain {
+	Ethereum,
+	Base,
 }
 
-impl Application {
+impl BridgedChain {
 	/// Retrieve sub id used in virtual wallet generation
 	pub fn sub_id(&self) -> &'static [u8] {
-		use Application::*;
+		use BridgedChain::*;
 
 		match self {
-			BridgedToEth => b"bridged-erc20",
-			BridgedToBase => b"bridged-base",
-			OverTheCounter => b"over-the-counter",
+			Ethereum => b"bridged-erc20",
+			Base => b"bridged-base",
 		}
 	}
 
@@ -38,12 +36,11 @@ impl Application {
 
 	/// Current identifier under which to lock tokens
 	pub fn lock_id(&self) -> LockIdentifier {
-		use Application::*;
+		use BridgedChain::*;
 
 		match self {
-			BridgedToEth => *b"bridged0",
-			BridgedToBase => *b"bridged1",
-			OverTheCounter => *b"otclock0",
+			Ethereum => *b"bridged0",
+			Base => *b"bridged1",
 		}
 	}
 }

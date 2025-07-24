@@ -25,14 +25,14 @@ mod benchmarks;
 
 mod airdrops;
 mod allocation;
-mod application;
+mod bridged;
 mod deposits;
 mod ledger;
 mod stage;
 
 use airdrops::AirdropBalanceOf;
 use allocation::Allocation;
-use application::Application;
+use bridged::BridgedChain;
 use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
@@ -56,16 +56,15 @@ pub mod pallet {
 	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::TokenError;
 	use sp_std::{vec, vec::Vec};
 
 	pub trait WeightInfo {
-		fn lock_operational() -> Weight;
+		fn bridge() -> Weight;
 	}
 
 	pub struct TestWeightInfo;
 	impl WeightInfo for TestWeightInfo {
-		fn lock_operational() -> Weight {
+		fn bridge() -> Weight {
 			Weight::zero()
 		}
 	}
@@ -316,7 +315,7 @@ pub mod pallet {
 		/// A virtual transfer was successful.
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 		/// A bridging request has been issued.
-		BridgeRequest { target: Application, address: [u8; 20], amount: BalanceOf<T> },
+		BridgeRequest { chain: BridgedChain, address: [u8; 20], amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -344,57 +343,35 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Update total amount of tokens that are locked in one of the operational wallets.
+		/// Transfer and lock funds to trigger bridge request event.
 		///
-		/// This is used as a preparation for miniting, as a result of burning wrapped
-		/// tokens on another chain or other tokenomics reasons.
+		/// Used for minting funds on other chains in a manual one-way bridge.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
-		pub fn lock_operational(
-			origin: OriginFor<T>,
-			target: Application,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			T::LaunchAdmin::ensure_origin(origin)?;
-
-			let account = target.account_id::<T>();
-			ensure!(
-				CurrencyOf::<T>::total_balance(&account) >= amount,
-				TokenError::FundsUnavailable
-			);
-			CurrencyOf::<T>::set_lock(target.lock_id(), &account, amount, WithdrawReasons::all());
-
-			Ok(())
-		}
-
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
+		#[pallet::weight(<T as Config>::WeightInfo::bridge())]
 		pub fn bridge(
 			origin: OriginFor<T>,
-			target: Application,
+			chain: BridgedChain,
 			address: [u8; 20],
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			let destination = target.account_id::<T>();
+			let destination = chain.account_id::<T>();
 
-			// Transfer and lock funds
-			let _ = CurrencyOf::<T>::transfer(
+			CurrencyOf::<T>::transfer(
 				&source,
 				&destination,
 				amount,
 				ExistenceRequirement::AllowDeath,
 			)?;
 			CurrencyOf::<T>::set_lock(
-				target.lock_id(),
+				chain.lock_id(),
 				&destination,
 				CurrencyOf::<T>::total_balance(&destination),
 				WithdrawReasons::all(),
 			);
 
-			// Emit event
 			Pallet::<T>::deposit_event(Event::<T>::BridgeRequest {
-				target: target.clone(),
+				chain: chain.clone(),
 				address,
 				amount,
 			});

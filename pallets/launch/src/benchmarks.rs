@@ -1,5 +1,5 @@
 #![cfg(feature = "runtime-benchmarks")]
-use crate::{Application, BalanceOf, Call, Config, CurrencyOf, Pallet};
+use crate::{BalanceOf, BridgedChain, Call, Config, CurrencyOf, Pallet};
 
 //use super::mock_helpers::*;
 use polkadot_sdk::*;
@@ -19,12 +19,12 @@ mod benchmarks {
 	use polkadot_sdk::frame_support::traits::Currency;
 
 	#[benchmark]
-	fn lock_operational() {
-		let bridge_account = Application::BridgedToEth.account_id::<T>();
+	fn bridge() {
+		let bridge_account = BridgedChain::Base.account_id::<T>();
 		let bridge_issuance = BalanceOf::<T>::from(TARGET_ISSUANCE);
 		let _ = CurrencyOf::<T>::deposit_creating(&bridge_account, bridge_issuance);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, Application::BridgedToEth, bridge_issuance);
+		_(RawOrigin::Signed(bridge_account), BridgedChain::Ethereum, [0u8; 20], bridge_issuance);
 	}
 }

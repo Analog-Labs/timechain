@@ -22,10 +22,15 @@ impl pallet_airdrop::Config for Runtime {
 	type WeightInfo = weights::pallet_airdrop::WeightInfo<Runtime>;
 }
 
+impl pallet_bridge::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = LaunchId;
+	type WeightInfo = weights::pallet_bridge::WeightInfo<Runtime>;
+}
+
 impl pallet_launch::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = LaunchId;
 	type MinimumDeposit = ExistentialDeposit;
 	type LaunchAdmin = DefaultAdminOrigin;
-	type WeightInfo = weights::pallet_launch::WeightInfo<Runtime>;
 }

@@ -81,7 +81,6 @@ impl pallet_launch::Config for Test {
 	// Use mainnet existential deposit to ensure appropriate testing
 	type MinimumDeposit = ConstU128<ANLOG>;
 	type LaunchAdmin = EnsureRoot<AccountId>;
-	type WeightInfo = crate::TestWeightInfo;
 }
 
 // Build genesis storage according to the mock runtime.

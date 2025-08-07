@@ -21,18 +21,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod benchmarks;
-
 mod airdrops;
 mod allocation;
-mod application;
 mod deposits;
 mod ledger;
 mod stage;
 
 use airdrops::AirdropBalanceOf;
 use allocation::Allocation;
-use application::Application;
 use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
@@ -51,24 +47,11 @@ pub mod pallet {
 	use core::marker::PhantomData;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
-		BuildGenesisConfig, Currency, ExistenceRequirement, LockableCurrency, StorageVersion,
-		WithdrawReasons,
+		BuildGenesisConfig, Currency, ExistenceRequirement, StorageVersion,
 	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::TokenError;
 	use sp_std::{vec, vec::Vec};
-
-	pub trait WeightInfo {
-		fn lock_operational() -> Weight;
-	}
-
-	pub struct TestWeightInfo;
-	impl WeightInfo for TestWeightInfo {
-		fn lock_operational() -> Weight {
-			Weight::zero()
-		}
-	}
 
 	/// Updating this number will automatically execute the next launch stages on update
 	pub const LAUNCH_VERSION: u16 = 57;
@@ -256,8 +239,6 @@ pub mod pallet {
 		type MinimumDeposit: Get<BalanceOf<Self>>;
 		/// Allowed origin for authorized calls
 		type LaunchAdmin: EnsureOrigin<Self::RuntimeOrigin>;
-		/// Weight information of the pallet
-		type WeightInfo: WeightInfo;
 	}
 
 	/// All error are a result of the "compile" step and do not allow execution.
@@ -337,32 +318,6 @@ pub mod pallet {
 				},
 			}
 			Weight::zero()
-		}
-	}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// Update total amount of tokens that are locked in one of the operational wallets.
-		///
-		/// This is used as a preparation for miniting, as a result of burning wrapped
-		/// tokens on another chain or other tokenomics reasons.
-		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
-		pub fn lock_operational(
-			origin: OriginFor<T>,
-			target: Application,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			T::LaunchAdmin::ensure_origin(origin)?;
-
-			let account = target.account_id::<T>();
-			ensure!(
-				CurrencyOf::<T>::total_balance(&account) >= amount,
-				TokenError::FundsUnavailable
-			);
-			CurrencyOf::<T>::set_lock(target.lock_id(), &account, amount, WithdrawReasons::all());
-
-			Ok(())
 		}
 	}
 

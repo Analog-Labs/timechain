@@ -6,8 +6,8 @@ use scale_info::TypeInfo;
 
 use polkadot_sdk::*;
 
-use frame_support::traits::IsSubType;
-use frame_support::{ensure, parameter_types, traits::ConstU32, weights::Weight};
+use frame_support::traits::{ConstU32, IsSubType};
+use frame_support::{ensure, parameter_types, weights::Weight, PalletId};
 
 use sp_runtime::{
 	impl_tx_ext_default,
@@ -30,6 +30,14 @@ use crate::{
 // Custom pallet config
 parameter_types! {
 	pub IndexerReward: Balance = ANLOG;
+	pub BridgeId: PalletId = PalletId(*b"timebrdg");
+}
+
+#[cfg(feature = "testnet")]
+impl pallet_bridge::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = BridgeId;
+	type WeightInfo = weights::pallet_bridge::WeightInfo<Runtime>;
 }
 
 impl pallet_members::Config for Runtime {

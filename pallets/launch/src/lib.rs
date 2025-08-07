@@ -21,18 +21,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod benchmarks;
-
 mod airdrops;
 mod allocation;
-mod bridged;
 mod deposits;
 mod ledger;
 mod stage;
 
 use airdrops::AirdropBalanceOf;
 use allocation::Allocation;
-use bridged::BridgedChain;
 use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
@@ -51,23 +47,11 @@ pub mod pallet {
 	use core::marker::PhantomData;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
-		BuildGenesisConfig, Currency, ExistenceRequirement, LockableCurrency, StorageVersion,
-		WithdrawReasons,
+		BuildGenesisConfig, Currency, ExistenceRequirement, StorageVersion,
 	};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
 	use sp_std::{vec, vec::Vec};
-
-	pub trait WeightInfo {
-		fn bridge() -> Weight;
-	}
-
-	pub struct TestWeightInfo;
-	impl WeightInfo for TestWeightInfo {
-		fn bridge() -> Weight {
-			Weight::zero()
-		}
-	}
 
 	/// Updating this number will automatically execute the next launch stages on update
 	pub const LAUNCH_VERSION: u16 = 57;
@@ -255,8 +239,6 @@ pub mod pallet {
 		type MinimumDeposit: Get<BalanceOf<Self>>;
 		/// Allowed origin for authorized calls
 		type LaunchAdmin: EnsureOrigin<Self::RuntimeOrigin>;
-		/// Weight information of the pallet
-		type WeightInfo: WeightInfo;
 	}
 
 	/// All error are a result of the "compile" step and do not allow execution.
@@ -314,8 +296,6 @@ pub mod pallet {
 		AirdropTransferFailed,
 		/// A virtual transfer was successful.
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
-		/// A bridging request has been issued.
-		BridgeRequest { chain: BridgedChain, address: [u8; 20], amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -338,45 +318,6 @@ pub mod pallet {
 				},
 			}
 			Weight::zero()
-		}
-	}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// Transfer and lock funds to trigger bridge request event.
-		///
-		/// Used for minting funds on other chains in a manual one-way bridge.
-		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::bridge())]
-		pub fn bridge(
-			origin: OriginFor<T>,
-			chain: BridgedChain,
-			address: [u8; 20],
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			let source = ensure_signed(origin)?;
-			let destination = chain.account_id::<T>();
-
-			CurrencyOf::<T>::transfer(
-				&source,
-				&destination,
-				amount,
-				ExistenceRequirement::AllowDeath,
-			)?;
-			CurrencyOf::<T>::set_lock(
-				chain.lock_id(),
-				&destination,
-				CurrencyOf::<T>::total_balance(&destination),
-				WithdrawReasons::all(),
-			);
-
-			Pallet::<T>::deposit_event(Event::<T>::BridgeRequest {
-				chain: chain.clone(),
-				address,
-				amount,
-			});
-
-			Ok(())
 		}
 	}
 

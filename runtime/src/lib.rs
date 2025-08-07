@@ -474,6 +474,9 @@ mod runtime {
 
 	#[runtime::pallet_index(43)]
 	pub type Launch = pallet_launch;
+
+	#[runtime::pallet_index(44)]
+	pub type Bridge = pallet_bridge;
 }
 
 /// Testnet and develop runtime assembly
@@ -634,6 +637,11 @@ mod runtime {
 
 	#[runtime::pallet_index(38)]
 	pub type Networks = pallet_networks;
+
+	// token bridging
+
+	#[runtime::pallet_index(44)]
+	pub type Bridge = pallet_bridge;
 
 	// Smart Contracts
 

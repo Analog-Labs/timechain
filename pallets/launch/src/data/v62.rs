@@ -1,4 +1,6 @@
-use crate::deposits::RawVestedDepositStage;
+use crate::deposits::RawDepositStage;
 
-pub const BASE_BRIDGE_LIQUIDITY: RawVestedDepositStage =
-	&[("an83ePjroFcSy8jQHdcCjRkkS1nz8GcozoVsgaNcEa3cHTkfA", 5_400_000_000_000_001_000, None)];
+use time_primitives::ANLOG;
+
+pub const TEAM_SNAPSHOT_10: RawDepositStage =
+	&[("anA6uC1i4FjM5P7xMjx6K4uyZV8DCAYpjmCQuDPxfzpKeQm5r", 5_661_200 * ANLOG)];

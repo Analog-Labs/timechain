@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 62;
+	pub const LAUNCH_VERSION: u16 = 63;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -181,15 +181,21 @@ pub mod pallet {
 		(
 			61,
 			Allocation::Strategic,
-			20_380 * ANLOG,
+			1_907_457 * ANLOG,
 			Stage::DepositAsVested(data::v61::STRATEGIC_SNAPSHOT_10),
+		),
+		(
+			62,
+			Allocation::Team,
+			5_661_200 * ANLOG,
+			Stage::DepositAsVested(data::v62::TEAM_SNAPSHOT_10),
 		),
 		// Base Bridge Liquidity
 		(
-			62,
+			63,
 			Allocation::Initiatives,
 			5_400_000_000_000_001_000,
-			Stage::DepositFromUnlocked(data::v62::BASE_BRIDGE_LIQUIDITY),
+			Stage::DepositFromUnlocked(data::v63::BASE_BRIDGE_LIQUIDITY),
 		),
 	];
 

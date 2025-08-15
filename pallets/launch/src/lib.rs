@@ -181,7 +181,7 @@ pub mod pallet {
 		(
 			61,
 			Allocation::Strategic,
-			1_907_457 * ANLOG,
+			20_380 * ANLOG,
 			Stage::DepositAsVested(data::v61::STRATEGIC_SNAPSHOT_10),
 		),
 		(

@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 57;
+	pub const LAUNCH_VERSION: u16 = 63;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -155,29 +155,47 @@ pub mod pallet {
 		// Investor Snapshot 8
 		(53, Allocation::Strategic, 8228 * ANLOG, Stage::Retired),
 		// Investor Snapshot 9
+		(54, Allocation::Private1, 18_115_942 * ANLOG, Stage::Retired),
+		(55, Allocation::Opportunity4, 229_823_370 * MILLIANLOG, Stage::Retired),
+		(56, Allocation::Strategic, 1_887_077 * ANLOG, Stage::Retired),
+		(57, Allocation::Ecosystem, 7_548_309 * ANLOG, Stage::Retired),
+		// Investors Snapshot 10
 		(
-			54,
+			58,
+			Allocation::Seed,
+			144_927_536 * ANLOG,
+			Stage::DepositAsVested(data::v58::SEED_SNAPSHOT_10),
+		),
+		(
+			59,
 			Allocation::Private1,
-			18_115_942 * ANLOG,
-			Stage::DepositAsVested(data::v54::PRIVATE1_SNAPSHOT_9),
+			224_000_181 * ANLOG,
+			Stage::DepositAsVested(data::v59::PRIVATE1_SNAPSHOT_10),
 		),
 		(
-			55,
-			Allocation::Opportunity4,
-			229_823_370 * MILLIANLOG,
-			Stage::DepositAsVested(data::v55::OPPORTUNITY4_SNAPSHOT_9),
+			60,
+			Allocation::Opportunity1,
+			90_579_710 * ANLOG,
+			Stage::DepositAsVested(data::v60::OPPORTUNITY1_SNAPSHOT_10),
 		),
 		(
-			56,
+			61,
 			Allocation::Strategic,
-			1_887_077 * ANLOG,
-			Stage::DepositAsVested(data::v56::STRATEGIC_SNAPSHOT_9),
+			20_380 * ANLOG,
+			Stage::DepositAsVested(data::v61::STRATEGIC_SNAPSHOT_10),
 		),
 		(
-			57,
-			Allocation::Ecosystem,
-			7_548_309 * ANLOG,
-			Stage::DepositFromUnlocked(data::v57::ECOSYSTEM_SNAPSHOT_9),
+			62,
+			Allocation::Team,
+			5_661_200 * ANLOG,
+			Stage::DepositAsVested(data::v62::TEAM_SNAPSHOT_10),
+		),
+		// Base Bridge Liquidity
+		(
+			63,
+			Allocation::Initiatives,
+			5_400_000_000_000_001_000,
+			Stage::DepositFromUnlocked(data::v63::BASE_BRIDGE_LIQUIDITY),
 		),
 	];
 

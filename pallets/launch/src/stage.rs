@@ -22,6 +22,7 @@ pub enum Stage {
 	Retired,
 	DepositFromUnlocked(RawVestedDepositStage),
 	DepositAsVested(RawDepositStage),
+	DepositAsVestedWithOverride(RawVestedDepositStage),
 	AirdropFromUnlocked(RawAirdropMintStage),
 	AirdropTransfer(RawAirdropTransferStage),
 }
@@ -52,6 +53,9 @@ impl Stage {
 			DepositAsVested(raw) => {
 				DepositStage::<T>::parse(raw);
 			},
+			DepositAsVestedWithOverride(raw) => {
+				DepositStage::<T>::parse_with_schedule(raw);
+			},
 			AirdropFromUnlocked(raw) => {
 				AirdropMintStage::<T>::parse(raw);
 			},
@@ -68,6 +72,7 @@ impl Stage {
 			Retired => T::Hash::default(),
 			DepositFromUnlocked(raw) => T::Hashing::hash_of(raw),
 			DepositAsVested(raw) => T::Hashing::hash_of(raw),
+			DepositAsVestedWithOverride(raw) => T::Hashing::hash_of(raw),
 			AirdropFromUnlocked(raw) => T::Hashing::hash_of(raw),
 			AirdropTransfer(raw) => T::Hashing::hash_of(raw),
 		}
@@ -84,6 +89,9 @@ impl Stage {
 			Retired => 0,
 			DepositFromUnlocked(raw) => DepositStage::<T>::parse_with_schedule(raw).total().into(),
 			DepositAsVested(raw) => DepositStage::<T>::parse(raw).total().into(),
+			DepositAsVestedWithOverride(raw) => {
+				DepositStage::<T>::parse_with_schedule(raw).total().into()
+			},
 			AirdropFromUnlocked(raw) => AirdropMintStage::<T>::parse(raw).total().into(),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).total().into(),
 		}
@@ -105,6 +113,8 @@ impl Stage {
 			DepositAsVested(raw) => {
 				DepositStage::<T>::parse(raw).transfer_as_vested(source, (5 * ANLOG).into())
 			},
+			DepositAsVestedWithOverride(raw) => DepositStage::<T>::parse_with_schedule(raw)
+				.transfer_as_vested(source, (5 * ANLOG).into()),
 			AirdropFromUnlocked(raw) => AirdropMintStage::<T>::parse(raw).mint(source),
 			AirdropTransfer(raw) => AirdropTransferStage::<T>::parse(raw).transfer(),
 		}

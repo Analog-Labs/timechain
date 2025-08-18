@@ -187,8 +187,8 @@ pub mod pallet {
 		(
 			62,
 			Allocation::Team,
-			5_661_200 * ANLOG,
-			Stage::DepositAsVested(data::v62::TEAM_SNAPSHOT_10),
+			15_679_100 * ANLOG,
+			Stage::DepositAsVestedWithOverride(data::v62::TEAM_SNAPSHOT_10),
 		),
 		// Base Bridge Liquidity
 		(

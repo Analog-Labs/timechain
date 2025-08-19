@@ -650,13 +650,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade.
-type Migrations = (
-	pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
-	>,
-);
+type Migrations = ();
 
 #[cfg(test)]
 mod core_tests {

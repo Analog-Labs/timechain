@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 63;
+	pub const LAUNCH_VERSION: u16 = 68;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -160,42 +160,43 @@ pub mod pallet {
 		(56, Allocation::Strategic, 1_887_077 * ANLOG, Stage::Retired),
 		(57, Allocation::Ecosystem, 7_548_309 * ANLOG, Stage::Retired),
 		// Investors Snapshot 10
-		(
-			58,
-			Allocation::Seed,
-			144_927_536 * ANLOG,
-			Stage::DepositAsVested(data::v58::SEED_SNAPSHOT_10),
-		),
-		(
-			59,
-			Allocation::Private1,
-			224_000_181 * ANLOG,
-			Stage::DepositAsVested(data::v59::PRIVATE1_SNAPSHOT_10),
-		),
-		(
-			60,
-			Allocation::Opportunity1,
-			90_579_710 * ANLOG,
-			Stage::DepositAsVested(data::v60::OPPORTUNITY1_SNAPSHOT_10),
-		),
-		(
-			61,
-			Allocation::Strategic,
-			20_380 * ANLOG,
-			Stage::DepositAsVested(data::v61::STRATEGIC_SNAPSHOT_10),
-		),
-		(
-			62,
-			Allocation::Team,
-			15_679_100 * ANLOG,
-			Stage::DepositAsVestedWithOverride(data::v62::TEAM_SNAPSHOT_10),
-		),
+		(58, Allocation::Seed, 144_927_536 * ANLOG, Stage::Retired),
+		(59, Allocation::Private1, 224_000_181 * ANLOG, Stage::Retired),
+		(60, Allocation::Opportunity1, 90_579_710 * ANLOG, Stage::Retired),
+		(61, Allocation::Strategic, 20_380 * ANLOG, Stage::Retired),
+		(62, Allocation::Team, 15_679_100 * ANLOG, Stage::Retired),
 		// Base Bridge Liquidity
+		(63, Allocation::Initiatives, 5_400_000_000_000_001_000, Stage::Retired),
+		// Investor Snapshot 11
 		(
-			63,
-			Allocation::Initiatives,
-			5_400_000_000_000_001_000,
-			Stage::DepositFromUnlocked(data::v63::BASE_BRIDGE_LIQUIDITY),
+			64,
+			Allocation::Seed,
+			72_463_800 * ANLOG,
+			Stage::DepositAsVested(data::v64::SEED_SNAPSHOT_11),
+		),
+		(
+			65,
+			Allocation::Private1,
+			93_297_101 * ANLOG,
+			Stage::DepositAsVested(data::v65::PRIVATE1_SNAPSHOT_11),
+		),
+		(
+			66,
+			Allocation::Opportunity2,
+			36_231_884 * ANLOG,
+			Stage::DepositAsVested(data::v66::OPPORTUNITY2_SNAPSHOT_11),
+		),
+		(
+			67,
+			Allocation::Opportunity4,
+			990_716 * ANLOG,
+			Stage::DepositAsVested(data::v67::OPPORTUNITY4_SNAPSHOT_11),
+		),
+		(
+			68,
+			Allocation::Strategic,
+			2_226_751 * ANLOG,
+			Stage::DepositAsVested(data::v68::STRATEGIC_SNAPSHOT_11),
 		),
 	];
 

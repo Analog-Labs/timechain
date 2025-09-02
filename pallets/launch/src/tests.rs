@@ -10,7 +10,7 @@ use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 57;
+const ON_CHAIN_STAGE: u16 = 64;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 

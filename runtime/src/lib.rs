@@ -87,6 +87,7 @@
 // The runtime is split into its components
 pub mod apis;
 pub mod configs;
+pub mod migrations;
 pub mod offchain;
 pub mod version;
 
@@ -650,7 +651,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade.
-type Migrations = ();
+type Migrations = (migrations::ScheduleCorrectionMigration<Runtime>,);
 
 #[cfg(test)]
 mod core_tests {

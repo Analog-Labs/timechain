@@ -29,7 +29,7 @@ mod stage;
 
 use airdrops::AirdropBalanceOf;
 use allocation::Allocation;
-pub use deposits::{BalanceOf, CurrencyOf};
+use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
 

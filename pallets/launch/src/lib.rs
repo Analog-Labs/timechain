@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 68;
+	pub const LAUNCH_VERSION: u16 = 73;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -168,35 +168,41 @@ pub mod pallet {
 		// Base Bridge Liquidity
 		(63, Allocation::Initiatives, 5_400_000_000_000_001_000, Stage::Retired),
 		// Investor Snapshot 11
+		(64, Allocation::Seed, 72_463_800 * ANLOG, Stage::Retired),
+		(65, Allocation::Private1, 93_297_101 * ANLOG, Stage::Retired),
+		(66, Allocation::Opportunity2, 36_231_884 * ANLOG, Stage::Retired),
+		(67, Allocation::Opportunity4, 990_716 * ANLOG, Stage::Retired),
+		(68, Allocation::Strategic, 2_226_751 * ANLOG, Stage::Retired),
+		// Investor Snapshot 12``
 		(
-			64,
+			69,
 			Allocation::Seed,
-			72_463_800 * ANLOG,
-			Stage::DepositAsVested(data::v64::SEED_SNAPSHOT_11),
+			543_478_260 * ANLOG,
+			Stage::DepositAsVestedWithOverride(data::v69::SEED_SNAPSHOT_12),
 		),
 		(
-			65,
+			70,
+			Allocation::Opportunity1,
+			77_720_207 * ANLOG,
+			Stage::DepositAsVestedWithOverride(data::v70::OPPORTUNITY1_SNAPSHOT_12),
+		),
+		(
+			71,
 			Allocation::Private1,
-			93_297_101 * ANLOG,
-			Stage::DepositAsVested(data::v65::PRIVATE1_SNAPSHOT_11),
+			9_057_971 * ANLOG,
+			Stage::DepositAsVested(data::v71::PRIVATE1_SNAPSHOT_12),
 		),
 		(
-			66,
-			Allocation::Opportunity2,
-			36_231_884 * ANLOG,
-			Stage::DepositAsVested(data::v66::OPPORTUNITY2_SNAPSHOT_11),
+			72,
+			Allocation::Opportunity3,
+			53_495_311 * ANLOG,
+			Stage::DepositAsVested(data::v72::OPPORTUNITY3_SNAPSHOT_12),
 		),
 		(
-			67,
-			Allocation::Opportunity4,
-			990_716 * ANLOG,
-			Stage::DepositAsVested(data::v67::OPPORTUNITY4_SNAPSHOT_11),
-		),
-		(
-			68,
+			73,
 			Allocation::Strategic,
-			2_226_751 * ANLOG,
-			Stage::DepositAsVested(data::v68::STRATEGIC_SNAPSHOT_11),
+			45_667_271 * ANLOG,
+			Stage::DepositAsVested(data::v73::STRATEGIC_SNAPSHOT_12),
 		),
 	];
 

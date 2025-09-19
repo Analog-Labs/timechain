@@ -266,7 +266,7 @@ impl AllocationTracker {
 		for i in 1..Allocation::num_of() {
 			let alloc = Allocation::from_index(i);
 
-			assert!(alloc.total() > self.per(alloc));
+			assert!(alloc.total() >= self.per(alloc));
 
 			let remaining: Balance = alloc.total() - self.per(alloc);
 			let account = alloc.account_id::<T>();

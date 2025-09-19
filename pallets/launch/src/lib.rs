@@ -195,7 +195,7 @@ pub mod pallet {
 		(
 			72,
 			Allocation::Opportunity3,
-			53_495_311 * ANLOG,
+			53_495_311_080 * MILLIANLOG,
 			Stage::DepositAsVested(data::v72::OPPORTUNITY3_SNAPSHOT_12),
 		),
 		(

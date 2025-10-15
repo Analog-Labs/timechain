@@ -32,7 +32,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: v1.4.0
       - name: Build testsuite
         uses: ./.github/actions/cargo-command
         with:

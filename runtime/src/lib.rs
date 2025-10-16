@@ -61,7 +61,6 @@
 //!  - [`Tasks`]
 //!  - [`Timegraph`]
 //!  - [`Networks`]
-//!  - [`Dmail`]
 //!
 //! ## Weights and Fees
 //!

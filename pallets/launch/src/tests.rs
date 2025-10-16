@@ -7,12 +7,12 @@ use polkadot_sdk::*;
 use frame_support::traits::StorageVersion;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 68;
+const ON_CHAIN_STAGE: u16 = 73;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 
 /// Targeted height at which to execute this migration (to simulate unlocks)
-const ON_CHAIN_HEIGHT: u64 = 2_745_000;
+const ON_CHAIN_HEIGHT: u64 = 4_235_000;
 
 /// The number of expected migrations to run and test
 const NUM_MIGRATIONS: u16 = LAUNCH_VERSION - ON_CHAIN_STAGE;

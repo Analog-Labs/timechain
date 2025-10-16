@@ -29,7 +29,7 @@ mod stage;
 
 use airdrops::AirdropBalanceOf;
 use allocation::Allocation;
-use deposits::{BalanceOf, CurrencyOf};
+pub use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
 
@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 73;
+	pub const LAUNCH_VERSION: u16 = 75;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -174,35 +174,24 @@ pub mod pallet {
 		(67, Allocation::Opportunity4, 990_716 * ANLOG, Stage::Retired),
 		(68, Allocation::Strategic, 2_226_751 * ANLOG, Stage::Retired),
 		// Investor Snapshot 12``
+		(69, Allocation::Seed, 543_478_260 * ANLOG, Stage::Retired),
+		(70, Allocation::Opportunity1, 77_720_207 * ANLOG, Stage::Retired),
+		(71, Allocation::Private1, 9_057_971 * ANLOG, Stage::Retired),
+		(72, Allocation::Opportunity3, 53_495_311_080 * MILLIANLOG, Stage::Retired),
+		(73, Allocation::Strategic, 45_667_271 * ANLOG, Stage::Retired),
+		// Investor snapshot 13
 		(
-			69,
-			Allocation::Seed,
-			543_478_260 * ANLOG,
-			Stage::DepositAsVestedWithOverride(data::v69::SEED_SNAPSHOT_12),
-		),
-		(
-			70,
-			Allocation::Opportunity1,
-			77_720_207 * ANLOG,
-			Stage::DepositAsVestedWithOverride(data::v70::OPPORTUNITY1_SNAPSHOT_12),
-		),
-		(
-			71,
-			Allocation::Private1,
-			9_057_971 * ANLOG,
-			Stage::DepositAsVested(data::v71::PRIVATE1_SNAPSHOT_12),
-		),
-		(
-			72,
-			Allocation::Opportunity3,
-			53_495_311_080 * MILLIANLOG,
-			Stage::DepositAsVested(data::v72::OPPORTUNITY3_SNAPSHOT_12),
-		),
-		(
-			73,
+			74,
 			Allocation::Strategic,
-			45_667_271 * ANLOG,
-			Stage::DepositAsVested(data::v73::STRATEGIC_SNAPSHOT_12),
+			3_019_324 * ANLOG,
+			Stage::DepositAsVested(data::v74::STRATEGIC_SNAPSHOT_13),
+		),
+		// Staking Reward Pool 3
+		(
+			75,
+			Allocation::Strategic,
+			30_193_236_500 * MILLIANLOG,
+			Stage::DepositFromUnlocked(data::v75::REWARD_POOL_3),
 		),
 	];
 

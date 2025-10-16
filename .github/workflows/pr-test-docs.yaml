@@ -30,7 +30,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: v1.3.6
       - name: Build docs
         uses: ./.github/actions/cargo-command
         with:

@@ -156,7 +156,7 @@ jobs:
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
       with:
-        version: nightly
+        version: v1.3.6
     - name: Build tc-cli OCI image and push
       uses: ./.github/actions/buildah-action
       with:

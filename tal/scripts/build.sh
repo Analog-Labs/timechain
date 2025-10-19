@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 
 echo "=== Configure ==="
 cmake -B build -DCMAKE_BUILD_TYPE=Release -Dpybind11_DIR=/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pybind11/share/cmake/pybind11
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DUILD_PYTHON=ON
 
 echo "=== Build C++ ==="
 cmake --build build -j$(nproc)

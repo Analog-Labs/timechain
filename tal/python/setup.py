@@ -9,6 +9,8 @@ def talos_site():
     except StopIteration:
         # system
         return site.getsitepackages()[0]
+from pybind11.setup_helpers import Pybind11Extension, build_ext
+from setuptools import setup
 
 ext_modules = [
     Pybind11Extension(
@@ -26,4 +28,6 @@ setup(
     cmdclass={"build_ext": build_ext},
     install_requires=["numpy>=1.24"],
     packages=["tal"],
+    packages=["tal"],
+    install_requires=["numpy>=1.24"],
 )

@@ -46,6 +46,7 @@ target_link_libraries(lunco PRIVATE pybind11::pybind11)
 # ---------- Python module ----------
 pybind11_add_module(_tal python/tal.cpp)
 target_link_libraries(_tal PRIVATE timechain aurumgrid lunco Python3::Python)
+target_link_libraries(_tal PRIVATE timechain aurumgrid lunco)
 
 # ---------- install rules ----------
 install(TARGETS _tal

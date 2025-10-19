@@ -3,6 +3,8 @@ project(tal VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+add_compile_options(-fvisibility=hidden)
 
 # ---------- vcpkg helper (header-only libs) ----------
 include(FetchContent)
@@ -17,6 +19,7 @@ set(CMAKE_TOOLCHAIN_FILE "${vcpkg-tool_SOURCE_DIR}/scripts/buildsystems/vcpkg.cm
 
 find_package(pybind11 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
 # ---------- Timechain (PoT + VDF) ----------
 add_library(timechain STATIC
@@ -37,10 +40,12 @@ target_link_libraries(aurumgrid PRIVATE timechain)
 add_library(lunco STATIC
     src/lunco/lunco_wrapper.cpp)
 target_include_directories(lunco PUBLIC src/lunco)
+target_link_libraries(lunco PRIVATE pybind11::pybind11)
 # link against the real LunCoSim sources (see §3)
 
 # ---------- Python module ----------
 pybind11_add_module(_tal python/tal.cpp)
+target_link_libraries(_tal PRIVATE timechain aurumgrid lunco Python3::Python)
 target_link_libraries(_tal PRIVATE timechain aurumgrid lunco)
 
 # ---------- install rules ----------

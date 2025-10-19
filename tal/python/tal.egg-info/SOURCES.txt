@@ -1,0 +1,10 @@
+pyproject.toml
+setup.py
+tal.cpp
+tal/__init__.py
+tal/bridge.py
+tal.egg-info/PKG-INFO
+tal.egg-info/SOURCES.txt
+tal.egg-info/dependency_links.txt
+tal.egg-info/requires.txt
+tal.egg-info/top_level.txt

@@ -190,13 +190,13 @@ pub mod pallet {
 		(
 			78,
 			Allocation::Team,
-			439_719_202_330 * MILLIANLOG,
+			1_458_333_330 * MILLIANLOG,
 			Stage::DepositAsVested(data::v78::TEAM_SNAPSHOT_15),
 		),
 		(
 			79,
 			Allocation::Strategic,
-			5_797_102 * ANLOG,
+			3_910_025 * ANLOG,
 			Stage::DepositAsVested(data::v79::STRATEGIC_SNAPSHOT_15),
 		),
 		(

@@ -1,6 +1,6 @@
 use crate::deposits::RawDepositStage;
 
-use time_primitives::{ANLOG, MILLIANLOG};
+use time_primitives::MILLIANLOG;
 
 pub const TEAM_SNAPSHOT_15: RawDepositStage = &[
 	// 1458333.33 ANLOG = 1_458_333_330 MILLIANLOG

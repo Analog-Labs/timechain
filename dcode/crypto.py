@@ -65,6 +65,48 @@ class SatoshiConsensus:
                 return nonce
             nonce += 1
 
+class EntropyShield:
+    """
+    Entropy Shield & Thermal Firewall
+    Protects against 'False Past Injections' by monitoring signature entropy.
+    """
+    def __init__(self, threshold=0.001):
+        self.threshold = threshold
+        self.absorbed_entropy = 0.0
+
+    def validate_phase_signature(self, signature_data):
+        """
+        Calculates Shannon entropy of the phase signature.
+        H(Φ) = -Σ p(Φᵢ) log p(Φᵢ)
+        """
+        import math
+        if not signature_data: return True
+
+        # Calculate frequencies
+        counts = {}
+        for b in signature_data:
+            counts[b] = counts.get(b, 0) + 1
+
+        probs = [c / len(signature_data) for c in counts.values()]
+        entropy = -sum(p * math.log2(p) for p in probs)
+
+        # False past injections often have ANOMALOUS entropy (too low or artificial)
+        # For this demo, we simulate a 'thermal breach' if entropy is outside expected range
+        if entropy < 1.0: # Artificial/forged signatures have low entropy
+            return self.activate_thermal_firewall(entropy)
+
+        return True
+
+    def activate_thermal_firewall(self, anomalous_entropy):
+        """
+        Absorbs excess entropy and dissipates it as simulated π+ pions.
+        """
+        energy_to_dissipate = (1.0 - anomalous_entropy) * 2.4 # J/s scaling
+        self.absorbed_entropy += energy_to_dissipate
+        print(f"[SHIELD] !!! Thermal Breach Detected (Entropy: {anomalous_entropy:.4f}) !!!")
+        print(f"[SHIELD] Firewall active: Dissipating {energy_to_dissipate:.2f} J/s as simulated π+ pions.")
+        return False
+
 def current_beacon(interval_sec=144) -> bytes:
     """Beacon synchronised with Avalon 144min cycles (here in seconds for demo)"""
     t = int(time.time() // interval_sec * interval_sec)

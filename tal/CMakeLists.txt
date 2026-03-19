@@ -25,8 +25,10 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 add_library(timechain STATIC
     src/timechain/vdf.cpp
     src/timechain/pot_consensus.cpp
-    src/timechain/omni_bridge.cpp)
-target_include_directories(timechain PUBLIC src/timechain)
+    src/timechain/omni_bridge.cpp
+    src/riscv_interface.cpp
+    src/db_backend.cpp)
+target_include_directories(timechain PUBLIC src/timechain src)
 target_link_libraries(timechain PRIVATE Threads::Threads)
 
 # ---------- AurumGrid (Tesselate) ----------

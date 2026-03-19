@@ -4,6 +4,11 @@
 #include <pybind11/stl.h>
 #include <iostream>
 #include <filesystem>
+#include "vdf.hpp"
+#include "pot_consensus.hpp"
+#include "omni_bridge.hpp"
+#include "riscv_interface.hpp"
+#include "db_backend.hpp"
 
 namespace py = pybind11;
 
@@ -42,7 +47,34 @@ PYBIND11_MODULE(_tal, m) {
         .def("start",  &TalosRunner::start)
         .def("stop",   &TalosRunner::stop)
         .def("status", &TalosRunner::status);
-    // existing Timechain/LunCoSim bindings stay here
+
+    // Timechain bindings
+    py::class_<timechain::VDF>(m, "VDF")
+        .def(py::init<int>())
+        .def("solve", &timechain::VDF::solve)
+        .def("verify", &timechain::VDF::verify);
+
+    py::class_<timechain::PoTConsensus>(m, "PoTConsensus")
+        .def(py::init<>())
+        .def("set_vdf", &timechain::PoTConsensus::set_vdf)
+        .def("validate_block", &timechain::PoTConsensus::validate_block);
+
+    py::class_<timechain::OmniBridge>(m, "OmniBridge")
+        .def(py::init<>())
+        .def("bridge_assets", &timechain::OmniBridge::bridge_assets);
+
+    // RISC-V interface bindings
+    py::class_<tal::RISCV_ZKVM>(m, "RISCV_ZKVM")
+        .def(py::init<>())
+        .def("compile_llvm", &tal::RISCV_ZKVM::compile_llvm)
+        .def("execute", &tal::RISCV_ZKVM::execute)
+        .def("prove_execution", &tal::RISCV_ZKVM::prove_execution);
+
+    // Database backend bindings
+    py::class_<tal::ZKProofDB>(m, "ZKProofDB")
+        .def(py::init<const std::string&>())
+        .def("store_proof", &tal::ZKProofDB::store_proof)
+        .def("get_proof", &tal::ZKProofDB::get_proof);
 }
 
 extern "C" __attribute__((visibility("default"))) PyObject* PyInit__tal(void);

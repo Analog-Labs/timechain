@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://arkhe.io/tv/ncl-onto"
+           xmlns="http://arkhe.io/tv/ncl-onto"
+           elementFormDefault="qualified">
+
+    <!-- Schema for ArkheTV Ontological System Events -->
+    <xs:element name="arkhe_event">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="sensory" minOccurs="0" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:attribute name="type" type="xs:string" use="required"/>
+                        <xs:attribute name="intensity" type="xs:float" use="required"/>
+                        <xs:attribute name="target" type="xs:string" use="required"/>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="contract" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:attribute name="id" type="xs:string" use="required"/>
+                        <xs:attribute name="viewer" type="xs:string" use="required"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="timestamp" type="xs:long"/>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

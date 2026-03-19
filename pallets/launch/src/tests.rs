@@ -7,7 +7,7 @@ use polkadot_sdk::*;
 use frame_support::traits::StorageVersion;
 
 /// Current expected on-chain stage version to test
-const ON_CHAIN_STAGE: u16 = 73;
+const ON_CHAIN_STAGE: u16 = 77;
 /// Wrapped expected on-chain stage version to test
 const ON_CHAIN_VERSION: StorageVersion = StorageVersion::new(ON_CHAIN_STAGE);
 

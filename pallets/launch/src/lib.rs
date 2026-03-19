@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 80;
+	pub const LAUNCH_VERSION: u16 = 84;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -204,6 +204,31 @@ pub mod pallet {
 			Allocation::Private1,
 			2_368_044 * ANLOG,
 			Stage::DepositAsVestedWithOverride(data::v80::PRIVATE1_SNAPSHOT_15),
+		),
+		// Investor snapshot 16
+		(
+			81,
+			Allocation::Seed,
+			90_579_710 * ANLOG,
+			Stage::DepositAsVested(data::v81::SEED_SNAPSHOT_16),
+		),
+		(
+			82,
+			Allocation::Private1,
+			181_159_420 * ANLOG,
+			Stage::DepositAsVested(data::v82::PRIVATE1_SNAPSHOT_16),
+		),
+		(
+			83,
+			Allocation::Opportunity4,
+			4_076_087_400 * MILLIANLOG, // 90% remaining (10% TGE already sent)
+			Stage::DepositFromUnlocked(data::v83::OPPORTUNITY4_SNAPSHOT_16),
+		),
+		(
+			84,
+			Allocation::Strategic,
+			1_508_152 * ANLOG,
+			Stage::DepositAsVested(data::v84::STRATEGIC_SNAPSHOT_16),
 		),
 	];
 

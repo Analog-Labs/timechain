@@ -1,6 +1,6 @@
-use crate::deposits::RawDepositStage;
+use crate::deposits::RawVestedDepositStage;
 
-use time_primitives::ANLOG;
+use time_primitives::MILLIANLOG;
 
 pub const OPPORTUNITY4_SNAPSHOT_16: RawVestedDepositStage = &[(
 	"an5s9VGeqXaDZbx4D4vxtiXT6LdxYTSPBZUww6AeCu1jvQdH7",

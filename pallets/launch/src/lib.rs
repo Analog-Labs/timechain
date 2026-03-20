@@ -196,7 +196,7 @@ pub mod pallet {
 			Allocation::Opportunity4,
 			// 90% of 4_528_986 * ANLOG
 			4_076_087_400 * MILLIANLOG,
-			Stage::DepositAsVested(data::v81::OPPORTUNITY4_SNAPSHOT_16),
+			Stage::DepositAsVestedWithOverride(data::v81::OPPORTUNITY4_SNAPSHOT_16),
 		),
 		(
 			82,
@@ -214,7 +214,7 @@ pub mod pallet {
 			84,
 			Allocation::Private1,
 			181_159_420 * ANLOG,
-			Stage::DepositAsVestedWithOverride(data::v84::PRIVATE1_SNAPSHOT_16),
+			Stage::DepositAsVested(data::v84::PRIVATE1_SNAPSHOT_16),
 		),
 	];
 

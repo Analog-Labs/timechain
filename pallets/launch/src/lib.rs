@@ -194,8 +194,9 @@ pub mod pallet {
 		(
 			81,
 			Allocation::Opportunity4,
-			4_528_986 * ANLOG,
-			Stage::DepositAsVested(data::v81::OPPORTUNISTIC4_SNAPSHOT_16),
+			// 90% of 4_528_986 * ANLOG
+			4_076_087_400 * MILLIANLOG,
+			Stage::DepositAsVested(data::v81::OPPORTUNITY4_SNAPSHOT_16),
 		),
 		(
 			82,

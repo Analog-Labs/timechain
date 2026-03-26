@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: tal
+Version: 0.0.0
+Requires-Dist: numpy>=1.24
+Dynamic: requires-dist

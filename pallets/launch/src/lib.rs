@@ -54,7 +54,7 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 80;
+	pub const LAUNCH_VERSION: u16 = 84;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -187,23 +187,34 @@ pub mod pallet {
 		(76, Allocation::Strategic, 1_887_077 * ANLOG, Stage::Retired),
 		(77, Allocation::Team, 542_688_007 * ANLOG, Stage::Retired),
 		// Investor snapshot 15
+		(78, Allocation::Team, 1_458_333_330 * MILLIANLOG, Stage::Retired),
+		(79, Allocation::Strategic, 3_910_025 * ANLOG, Stage::Retired),
+		(80, Allocation::Private1, 2_368_044 * ANLOG, Stage::Retired),
+		// Investor snapshot 16
 		(
-			78,
-			Allocation::Team,
-			1_458_333_330 * MILLIANLOG,
-			Stage::DepositAsVested(data::v78::TEAM_SNAPSHOT_15),
+			81,
+			Allocation::Opportunity4,
+			// 90% of 4_528_986 * ANLOG
+			4_076_087_400 * MILLIANLOG,
+			Stage::DepositAsVestedWithOverride(data::v81::OPPORTUNITY4_SNAPSHOT_16),
 		),
 		(
-			79,
+			82,
 			Allocation::Strategic,
-			3_910_025 * ANLOG,
-			Stage::DepositAsVested(data::v79::STRATEGIC_SNAPSHOT_15),
+			1_508_152 * ANLOG,
+			Stage::DepositAsVested(data::v82::STRATEGIC_SNAPSHOT_16),
 		),
 		(
-			80,
+			83,
+			Allocation::Seed,
+			90_579_710 * ANLOG,
+			Stage::DepositAsVested(data::v83::SEED_SNAPSHOT_16),
+		),
+		(
+			84,
 			Allocation::Private1,
-			2_368_044 * ANLOG,
-			Stage::DepositAsVestedWithOverride(data::v80::PRIVATE1_SNAPSHOT_15),
+			181_159_420 * ANLOG,
+			Stage::DepositAsVested(data::v84::PRIVATE1_SNAPSHOT_16),
 		),
 	];
 
